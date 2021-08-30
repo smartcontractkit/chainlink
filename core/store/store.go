@@ -1,29 +1,27 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"math/rand"
 	"os"
-	"path/filepath"
+	"strings"
 	"sync"
-
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
@@ -34,56 +32,31 @@ const (
 	AutoMigrate = "auto_migrate"
 )
 
-// NotifyNewEthTx allows to notify the ethBroadcaster of a new transaction
-//go:generate mockery --name NotifyNewEthTx --output ../internal/mocks/ --case=underscore
-type NotifyNewEthTx interface {
-	Trigger()
-}
-
-// Store contains fields for the database, Config, and KeyStore
+// Store contains fields for the database, Config
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         *orm.Config
+	Config         config.GeneralConfig
 	Clock          utils.AfterNower
-	KeyStore       KeyStoreInterface
-	VRFKeyStore    *vrf.VRFKeyStore
-	OCRKeyStore    *offchainreporting.KeyStore
-	EthClient      eth.Client
-	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
-type KeyStoreGenerator func(*orm.Config) *KeyStore
-
-func StandardKeyStoreGen(config *orm.Config) *KeyStore {
-	scryptParams := utils.GetScryptParams(config)
-	return NewKeyStore(config.KeysDir(), scryptParams)
-}
-
-func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
-	return NewInsecureKeyStore(config.KeysDir())
-}
-
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+// func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
+func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	return newStore(config, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
-// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
-// See: https://www.pivotaltracker.com/story/show/175493792
-func newStoreWithKeyStore(
-	config *orm.Config,
-	ethClient eth.Client,
+func newStore(
+	config config.GeneralConfig,
 	advisoryLocker postgres.AdvisoryLocker,
-	keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -94,30 +67,19 @@ func newStoreWithKeyStore(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
-	if e := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); e != nil {
-		return nil, errors.Wrap(err, "error migrating key store to disk")
-	}
-
-	keyStore := keyStoreGenerator(config)
-	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
 		Clock:          utils.Clock{},
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
-		KeyStore:       keyStore,
-		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
-		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
 	}
-	store.VRFKeyStore = vrf.NewVRFKeyStore(vrf.NewORM(orm.DB), scryptParams)
 	return store, nil
 }
 
-// Start initiates all of Store's dependencies
 func (s *Store) Start() error {
-	return s.SyncDiskKeyStoreToDB()
+	return nil
 }
 
 // Close shuts down all of the working parts of the store.
@@ -128,6 +90,14 @@ func (s *Store) Close() error {
 		err = multierr.Append(err, s.AdvisoryLocker.Close())
 	})
 	return err
+}
+
+func (s *Store) Ready() error {
+	return nil
+}
+
+func (s *Store) Healthy() error {
+	return nil
 }
 
 // Unscoped returns a shallow copy of the store, with an unscoped ORM allowing
@@ -143,79 +113,6 @@ func (s *Store) Unscoped() *Store {
 func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
 	return s.ORM.AuthorizedUserWithSession(
 		sessionID, s.Config.SessionTimeout().Duration())
-}
-
-// SyncDiskKeyStoreToDB writes all keys in the keys directory to the underlying
-// orm.
-func (s *Store) SyncDiskKeyStoreToDB() error {
-	files, err := utils.FilesInDir(s.Config.KeysDir())
-	if err != nil {
-		return multierr.Append(errors.New("unable to sync disk keystore to db"), err)
-	}
-
-	var merr error
-	for _, f := range files {
-		key, err := models.NewKeyFromFile(filepath.Join(s.Config.KeysDir(), f))
-		if err != nil {
-			merr = multierr.Append(err, merr)
-			continue
-		}
-
-		err = s.CreateKeyIfNotExists(key)
-		if err != nil {
-			merr = multierr.Append(err, merr)
-		}
-	}
-	return merr
-}
-
-// DeleteKey hard-deletes a key whose address matches the supplied address.
-func (s *Store) DeleteKey(address common.Address) error {
-	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
-		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
-		if err != nil {
-			return errors.Wrap(err, "while deleting ETH key from DB")
-		}
-		return s.KeyStore.Delete(address)
-	})
-}
-
-// ArchiveKey soft-deletes a key whose address matches the supplied address.
-func (s *Store) ArchiveKey(address common.Address) error {
-	err := s.ORM.DB.Where("address = ?", address).Delete(&models.Key{}).Error
-	if err != nil {
-		return err
-	}
-
-	acct, err := s.KeyStore.GetAccountByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	archivedKeysDir := filepath.Join(s.Config.RootDir(), "archivedkeys")
-	err = utils.EnsureDirAndMaxPerms(archivedKeysDir, os.FileMode(0700))
-	if err != nil {
-		return errors.Wrap(err, "could not create "+archivedKeysDir)
-	}
-
-	basename := filepath.Base(acct.URL.Path)
-	dst := filepath.Join(archivedKeysDir, basename)
-	err = utils.CopyFileWithMaxPerms(acct.URL.Path, dst, os.FileMode(0700))
-	if err != nil {
-		return errors.Wrap(err, "could not copy "+acct.URL.Path+" to "+dst)
-	}
-
-	return s.KeyStore.Delete(address)
-}
-
-func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
-	return postgres.GormTransactionWithDefaultContext(s.ORM.DB, func(tx *gorm.DB) error {
-		_, err := s.KeyStore.Import(keyJSON, oldPassword)
-		if err != nil {
-			return err
-		}
-		return s.SyncDiskKeyStoreToDB()
-	})
 }
 
 func CheckSquashUpgrade(db *gorm.DB) error {
@@ -251,34 +148,47 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	return nil
 }
 
-func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
-	dbURL := config.DatabaseURL()
-	dbOrm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+	dbURL := cfg.DatabaseURL()
+	dbOrm, err := orm.NewORM(dbURL.String(), cfg.DatabaseTimeout(), shutdownSignal, cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if config.DatabaseBackupMode() != orm.DatabaseBackupModeNone {
 
-		version, err2 := dbOrm.FindLatestNodeVersion()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
-		}
+	// Set up the versioning ORM
+	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
+		postgres.MustSQLDB(dbOrm.DB)),
+	)
+
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
+		var version *versioning.NodeVersion
 		var versionString string
+
+		version, err = verORM.FindLatestNodeVersion()
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+			} else {
+				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+			}
+		}
+
 		if version != nil {
 			versionString = version.Version
 		}
-		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger.Default)
+
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 	if err = CheckSquashUpgrade(dbOrm.DB); err != nil {
 		panic(err)
 	}
-	if config.MigrateDatabase() {
-		dbOrm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+	if cfg.MigrateDatabase() {
+		dbOrm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
 
-		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return migrations.Migrate(db)
-		})
+		err = dbOrm.RawDBWithAdvisoryLock(migrations.Migrate)
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
@@ -288,11 +198,12 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if nodeVersion == "unset" {
 		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
 	}
-	version := models.NewNodeVersion(nodeVersion)
-	err = dbOrm.UpsertNodeVersion(version)
+	version := versioning.NewNodeVersion(nodeVersion)
+	err = verORM.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
-	dbOrm.SetLogging(config.LogSQLStatements())
+
+	dbOrm.SetLogging(cfg.LogSQLStatements())
 	return dbOrm, nil
 }

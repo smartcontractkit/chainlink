@@ -7,13 +7,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+//
+// Return types:
+//    *decimal.Decimal
+//
 type MedianTask struct {
 	BaseTask      `mapstructure:",squash"`
-	AllowedFaults uint64 `json:"allowedFaults"`
+	Values        string `json:"values"`
+	AllowedFaults string `json:"allowedFaults"`
 }
 
 var _ Task = (*MedianTask)(nil)
@@ -22,50 +25,47 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	if _, exists := inputValues["allowedFaults"]; !exists {
-		if len(self.inputs()) == 0 {
-			return errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")
-		}
-		t.AllowedFaults = uint64(len(self.inputs()) - 1)
-	}
-	return nil
-}
-
-func (t *MedianTask) Run(_ context.Context, _ JSONSerializable, inputs []Result) (result Result) {
-	if len(inputs) == 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")}
-	}
-
-	answers := []decimal.Decimal{}
-	fetchErrors := []error{}
-
-	for _, input := range inputs {
-		if input.Error != nil {
-			fetchErrors = append(fetchErrors, input.Error)
-			continue
-		}
-
-		answer, err := utils.ToDecimal(input.Value)
-		if err != nil {
-			fetchErrors = append(fetchErrors, err)
-			continue
-		}
-
-		answers = append(answers, answer)
+func (t *MedianTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+	var (
+		maybeAllowedFaults MaybeUint64Param
+		valuesAndErrs      SliceParam
+		decimalValues      DecimalSliceParam
+		allowedFaults      int
+		faults             int
+	)
+	err := multierr.Combine(
+		errors.Wrap(ResolveParam(&maybeAllowedFaults, From(t.AllowedFaults)), "allowedFaults"),
+		errors.Wrap(ResolveParam(&valuesAndErrs, From(VarExpr(t.Values, vars), JSONWithVarExprs(t.Values, vars, true), Inputs(inputs))), "values"),
+	)
+	if err != nil {
+		return Result{Error: err}
 	}
 
-	if uint64(len(fetchErrors)) > t.AllowedFaults {
-		return Result{Error: errors.Wrapf(ErrBadInput, "Number of faulty inputs %v to median task > number allowed faults %v. Fetch errors: %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
+	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
+		allowedFaults = int(allowed)
+	} else {
+		allowedFaults = len(valuesAndErrs) - 1
 	}
 
-	sort.Slice(answers, func(i, j int) bool {
-		return answers[i].LessThan(answers[j])
+	values, faults := valuesAndErrs.FilterErrors()
+	if faults > allowedFaults {
+		return Result{Error: errors.Wrapf(ErrTooManyErrors, "Number of faulty inputs %v to median task > number allowed faults %v", faults, allowedFaults)}
+	} else if len(values) == 0 {
+		return Result{Error: errors.Wrap(ErrWrongInputCardinality, "no values to medianize")}
+	}
+
+	err = decimalValues.UnmarshalPipelineParam(values)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	sort.Slice(decimalValues, func(i, j int) bool {
+		return decimalValues[i].LessThan(decimalValues[j])
 	})
-	k := len(answers) / 2
-	if len(answers)%2 == 1 {
-		return Result{Value: answers[k]}
+	k := len(decimalValues) / 2
+	if len(decimalValues)%2 == 1 {
+		return Result{Value: decimalValues[k]}
 	}
-	median := answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2))
+	median := decimalValues[k].Add(decimalValues[k-1]).Div(decimal.NewFromInt(2))
 	return Result{Value: median}
 }

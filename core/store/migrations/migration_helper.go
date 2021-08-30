@@ -21,7 +21,7 @@ import (
 const (
 	// MaxIndividualMigrationTime is the maximum amount of time a single
 	// migration is allowed to take before declaring it a failure
-	MaxIndividualMigrationTime = 5 * time.Minute
+	MaxIndividualMigrationTime = 20 * time.Minute
 	initSchemaMigrationID      = "SCHEMA_INIT"
 )
 

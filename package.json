@@ -3,12 +3,9 @@
   "license": "MIT",
   "workspaces": [
     "evm-test-helpers",
-    "evm-contracts",
-    "integration",
-    "integration-scripts",
+    "contracts",
     "operator_ui",
     "tools",
-    "tools/ci-ts",
     "tools/cypress-job-server",
     "tools/echo-server",
     "tools/external-adapter",
@@ -19,13 +16,12 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
-    "lint:evm": "eslint --ext js,jsx,ts,tsx evm-contracts/ evm-test-helpers/",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
     "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
-    "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
     "clean": "wsrun -me clean",
     "postinstall": "patch-package"
   },
@@ -37,11 +33,12 @@
     "eslint-plugin-prettier": "^3.4.0",
     "eslint-plugin-react": "^7.23.2",
     "eslint-plugin-react-hooks": "^4.0.0",
-    "patch-package": "^6.2.1",
+    "patch-package": "^6.4.7",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "^2.1.2",
+    "ts-node": "^10.0.0",
     "typescript": "^3.7.4",
-    "wsrun": "^5.2.0"
+    "wsrun": "^5.2.4"
   },
   "resolutions": {
     "**/decompress": "^4.2.1 ",

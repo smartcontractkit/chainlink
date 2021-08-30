@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "compiling contracts"
 
 CDIR="$(dirname "$0")"
-COMPILE_COMMAND="$CDIR/../../../../evm-contracts/scripts/native_solc_compile_all"
+COMPILE_COMMAND="$CDIR/../../../../contracts/scripts/native_solc_compile_all"
 
 # Only print compilation output on failure.
 OUT="$(bash -c "${COMPILE_COMMAND}" 2>&1)"
@@ -21,9 +21,11 @@ if [ "$ERR" != "0" ]; then
     echo "in the directory $SOLIDITY_DIR"
     echo
     echo "This is probably a problem with a solidity contract, under the"
-    echo "directory evm-contracts/src/."
+    echo "directory contracts/src/."
     echo "↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑"
     echo
     echo "$OUT"
     exit 1
 fi
+
+echo "finished compilation"

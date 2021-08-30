@@ -7,12 +7,6 @@ import (
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
 
-type Type string
-
-func (t Type) String() string {
-	return string(t)
-}
-
 type Service interface {
 	Start() error
 	Close() error
@@ -21,5 +15,10 @@ type Service interface {
 type Config interface {
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseURL() url.URL
+	OCRBlockchainTimeout() time.Duration
+	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
+	OCRObservationTimeout() time.Duration
 	TriggerFallbackDBPollInterval() time.Duration
 }

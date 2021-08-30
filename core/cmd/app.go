@@ -62,20 +62,6 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:    "agreements",
-			Aliases: []string{"agree"},
-			Usage:   "Commands for handling service agreements",
-			Hidden:  !client.Config.Dev(),
-			Subcommands: []cli.Command{
-				{
-					Name:   "create",
-					Usage:  "Creates a Service Agreement",
-					Action: client.CreateServiceAgreement,
-				},
-			},
-		},
-
-		{
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
@@ -88,6 +74,25 @@ func NewApp(client *Client) *cli.App {
 						cli.IntFlag{
 							Name:  "page",
 							Usage: "page of results to display",
+						},
+					},
+				},
+			},
+		},
+
+		{
+			Name:    "blocks",
+			Aliases: []string{},
+			Usage:   "Commands for managing blocks",
+			Subcommands: []cli.Command{
+				{
+					Name:   "replay",
+					Usage:  "Replays block data from the given number",
+					Action: client.ReplayFromBlock,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "block-number",
+							Usage: "Block number to replay from",
 						},
 					},
 				},
@@ -192,38 +197,6 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:  "job_specs",
-			Usage: "Commands for managing Job Specs (jobs V1)",
-			Subcommands: []cli.Command{
-				{
-					Name:   "list",
-					Usage:  "List all jobs",
-					Action: client.IndexJobSpecs,
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "page",
-							Usage: "page of results to display",
-						},
-					},
-				},
-				{
-					Name:   "show",
-					Usage:  "Show a specific Job's details",
-					Action: client.ShowJobSpec,
-				},
-				{
-					Name:   "create",
-					Usage:  "Create Job from a Job Specification JSON",
-					Action: client.CreateJobSpec,
-				},
-				{
-					Name:   "archive",
-					Usage:  "Archive a Job and all its associated Runs",
-					Action: client.ArchiveJobSpec,
-				},
-			},
-		},
-		{
 			Name:  "jobs",
 			Usage: "Commands for managing Jobs (V2)",
 			Subcommands: []cli.Command{
@@ -246,17 +219,12 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "delete",
 					Usage:  "Delete a V2 job",
-					Action: client.DeleteJobV2,
+					Action: client.DeleteJob,
 				},
 				{
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
-				},
-				{
-					Name:   "migrate",
-					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
-					Action: client.Migrate,
 				},
 			},
 		},
@@ -266,7 +234,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:  "eth",
-					Usage: "Local commands for administering the node's Ethereum keys",
+					Usage: "Remote commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
@@ -381,6 +349,23 @@ func NewApp(client *Client) *cli.App {
 				},
 
 				{
+					Name:  "csa",
+					Usage: "Remote commands for administering the node's CSA keys",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  format(`Create a CSA key, encrypted with password from the password file, and store it in the database.`),
+							Action: client.CreateCSAKey,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available CSA keys`),
+							Action: client.ListCSAKeys,
+						},
+					},
+				},
+
+				{
 					Name:  "ocr",
 					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
@@ -439,33 +424,44 @@ func NewApp(client *Client) *cli.App {
 				},
 
 				{
-					Name: "vrf",
-					Usage: format(`Local commands for administering the database of VRF proof
-           keys. These commands will not affect the extant in-memory keys of
-           any live node.`),
+					Name:  "vrf",
+					Usage: "Remote commands for administering the node's vrf keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create a VRF key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  "Create a VRF key",
 							Action: client.CreateVRFKey,
 						},
 						{
-							Name:   "import",
-							Usage:  "Import key from keyfile.",
-							Flags:  append(flags("password, p"), flags("file, f")...),
+							Name:  "import",
+							Usage: "Import VRF key from keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
 							Action: client.ImportVRFKey,
 						},
 						{
-							Name:   "export",
-							Usage:  "Export key to keyfile.",
-							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Name:  "export",
+							Usage: "Export VRF key to keyfile",
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
 							Action: client.ExportVRFKey,
 						},
 						{
-							Name:  "delete",
-							Usage: "Remove key from database, if present",
+							Name: "delete",
+							Usage: "Archive or delete VRF key from memory and the database, if present. " +
+								"Note that V2 jobs referencing the removed key will also be removed.",
 							Flags: []cli.Flag{
 								cli.StringFlag{Name: "publicKey, pk"},
 								cli.BoolFlag{
@@ -480,24 +476,8 @@ func NewApp(client *Client) *cli.App {
 							Action: client.DeleteVRFKey,
 						},
 						{
-							Name: "list", Usage: "List the public keys in the db",
+							Name: "list", Usage: "List the VRF keys",
 							Action: client.ListVRFKeys,
-						},
-						{
-							Name: "",
-						},
-						{
-							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
-							Usage: format(`
-                               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
-
-                               Creates a key with weak key-derivation-function parameters, so that it can be
-                               decrypted quickly during tests. As a result, it would be cheap to brute-force
-                               the encryption password for the key, if the ciphertext fell into the wrong
-                               hands!`),
-							Flags:  append(flags("password, p"), flags("file, f")...),
-							Action: client.CreateAndExportWeakVRFKey,
-							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
 						},
 					},
 				},
@@ -514,12 +494,6 @@ func NewApp(client *Client) *cli.App {
 					Usage:       "Erase the *local node's* user and corresponding session to force recreation on next node launch.",
 					Description: "Does not work remotely over API.",
 					Action:      client.DeleteUser,
-				},
-				{
-					Name:    "import",
-					Aliases: []string{"i"},
-					Usage:   "Import a key file to use with the node",
-					Action:  client.ImportKey,
 				},
 				{
 					Name:   "setnextnonce",
@@ -555,11 +529,6 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "vrfpassword, vp",
 							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
-						},
-						cli.Int64Flag{
-							Name:  "replay-from-block, r",
-							Usage: "historical block height from which to replay log-initiated jobs",
-							Value: -1,
 						},
 					},
 					Usage:  "Run the chainlink node",
@@ -597,9 +566,9 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
-					Name:   "hard-reset",
-					Usage:  "Removes unstarted transactions, cancels pending transactions as well as deletes job runs. Use with caution, this command cannot be reverted! Only execute when the node is not started!",
-					Action: client.HardReset,
+					Name:   "status",
+					Usage:  "Displays the health of various services running inside the node.",
+					Action: client.Status,
 					Flags:  []cli.Flag{},
 				},
 				{
@@ -655,48 +624,13 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "destroy",
-					Usage:  "Remove an authentication key by name",
+					Usage:  "Remove an external initiator by name",
 					Action: client.DeleteExternalInitiator,
-				},
-			},
-		},
-
-		{
-			Name:  "runs",
-			Usage: "Commands for managing Runs",
-			Subcommands: []cli.Command{
-				{
-					Name:        "create",
-					Aliases:     []string{"r"},
-					Usage:       "Create a new Run for a Job given an Job ID and optional JSON body",
-					Description: "Takes a Job ID and a JSON string or path to a JSON file",
-					Action:      client.CreateJobRun,
 				},
 				{
 					Name:   "list",
-					Usage:  "List all Runs",
-					Action: client.IndexJobRuns,
-					Flags: []cli.Flag{
-						cli.IntFlag{
-							Name:  "page",
-							Usage: "page of results to display",
-						},
-						cli.StringFlag{
-							Name:  "jobid",
-							Usage: "filter all Runs to match the given jobid",
-						},
-					},
-				},
-				{
-					Name:    "show",
-					Aliases: []string{"sr"},
-					Usage:   "Show a Run for a specific ID",
-					Action:  client.ShowJobRun,
-				},
-				{
-					Name:   "cancel",
-					Usage:  "Cancel a Run with a specified ID",
-					Action: client.CancelJobRun,
+					Usage:  "List all external initiators",
+					Action: client.IndexExternalInitiators,
 				},
 			},
 		},
@@ -725,6 +659,54 @@ func NewApp(client *Client) *cli.App {
 					Name:   "show",
 					Usage:  "get information on a specific Ethereum Transaction",
 					Action: client.ShowTransaction,
+				},
+			},
+		},
+		{
+			Name:  "chains",
+			Usage: "Commands for handling chain configuration",
+			Subcommands: cli.Commands{
+				{
+					Name:  "evm",
+					Usage: "Commands for handling EVM chains",
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create a new EVM chain",
+							Action: client.CreateChain,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Delete an EVM chain",
+							Action: client.RemoveChain,
+						},
+						{
+							Name:   "list",
+							Usage:  "List all chains",
+							Action: client.IndexChains,
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:  "nodes",
+			Usage: "Commands for handling node configuration",
+			Subcommands: cli.Commands{
+				{
+					Name:   "create",
+					Usage:  "Create a new node",
+					Action: client.CreateNode,
+				},
+				{
+					Name:   "delete",
+					Usage:  "Delete a node",
+					Action: client.RemoveNode,
+				},
+				{
+					Name:   "list",
+					Usage:  "List all nodes",
+					Action: client.IndexNodes,
 				},
 			},
 		},

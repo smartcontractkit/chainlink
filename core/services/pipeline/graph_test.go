@@ -1,15 +1,12 @@
-package pipeline
+package pipeline_test
 
 import (
-	"net/url"
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
-	"gonum.org/v1/gonum/graph/encoding/dot"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestGraph_Decode(t *testing.T) {
@@ -96,8 +93,8 @@ func TestGraph_Decode(t *testing.T) {
 		},
 	}
 
-	g := NewTaskDAG()
-	err := g.UnmarshalText([]byte(DotStr))
+	g := pipeline.NewGraph()
+	err := g.UnmarshalText([]byte(pipeline.DotStr))
 	require.NoError(t, err)
 
 	nodes := make(map[string]int64)
@@ -118,80 +115,70 @@ func TestGraph_Decode(t *testing.T) {
 }
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
-	g := NewTaskDAG()
-	err := g.UnmarshalText([]byte(DotStr))
+	p, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
 
-	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
-	require.NoError(t, err)
-
-	answer1 := &MedianTask{
-		BaseTask:      NewBaseTask("answer1", nil, 0, 2),
-		AllowedFaults: 1,
+	answer1 := &pipeline.MedianTask{
+		AllowedFaults: "",
 	}
-	answer2 := &BridgeTask{
-		Name:     "election_winner",
-		BaseTask: NewBaseTask("answer2", nil, 1, 0),
+	answer2 := &pipeline.BridgeTask{
+		Name: "election_winner",
 	}
-	ds1_multiply := &MultiplyTask{
-		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: NewBaseTask("ds1_multiply", answer1, 0, 1),
+	ds1_multiply := &pipeline.MultiplyTask{
+		Times: "1.23",
 	}
-	ds1_parse := &JSONParseTask{
-		Path:     []string{"one", "two"},
-		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0, 1),
+	ds1_parse := &pipeline.JSONParseTask{
+		Path: "one,two",
 	}
-	ds1 := &BridgeTask{
-		Name:     "voter_turnout",
-		BaseTask: NewBaseTask("ds1", ds1_parse, 0, 0),
+	ds1 := &pipeline.BridgeTask{
+		Name: "voter_turnout",
 	}
-	ds2_multiply := &MultiplyTask{
-		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: NewBaseTask("ds2_multiply", answer1, 0, 1),
+	ds2_multiply := &pipeline.MultiplyTask{
+		Times: "4.56",
 	}
-	ds2_parse := &JSONParseTask{
-		Path:     []string{"three", "four"},
-		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0, 1),
+	ds2_parse := &pipeline.JSONParseTask{
+		Path: "three,four",
 	}
-	ds2 := &HTTPTask{
-		URL:         models.WebURL(*u),
+	ds2 := &pipeline.HTTPTask{
+		URL:         "https://chain.link/voter_turnout/USA-2020",
 		Method:      "GET",
-		RequestData: HttpRequestData{"hi": "hello"},
-		BaseTask:    NewBaseTask("ds2", ds2_parse, 0, 0),
+		RequestData: `{"hi": "hello"}`,
 	}
 
-	tasks, err := g.TasksInDependencyOrder()
-	require.NoError(t, err)
+	answer1.BaseTask = pipeline.NewBaseTask(6, "answer1", []pipeline.Task{ds1_multiply, ds2_multiply}, nil, 0)
+	answer2.BaseTask = pipeline.NewBaseTask(7, "answer2", nil, nil, 1)
+	ds1_multiply.BaseTask = pipeline.NewBaseTask(2, "ds1_multiply", []pipeline.Task{ds1_parse}, []pipeline.Task{answer1}, 0)
+	ds2_multiply.BaseTask = pipeline.NewBaseTask(5, "ds2_multiply", []pipeline.Task{ds2_parse}, []pipeline.Task{answer1}, 0)
+	ds1_parse.BaseTask = pipeline.NewBaseTask(1, "ds1_parse", []pipeline.Task{ds1}, []pipeline.Task{ds1_multiply}, 0)
+	ds2_parse.BaseTask = pipeline.NewBaseTask(4, "ds2_parse", []pipeline.Task{ds2}, []pipeline.Task{ds2_multiply}, 0)
+	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
+	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 
-	// Make sure that no task appears in the array until its output task has already appeared
-	for i, task := range tasks {
-		if task.OutputTask() != nil {
-			require.Contains(t, tasks[:i], task.OutputTask())
+	for i, task := range p.Tasks {
+		// Make sure inputs appear before the task, and outputs don't
+		for _, input := range task.Inputs() {
+			require.Contains(t, p.Tasks[:i], input)
+		}
+		for _, output := range task.Outputs() {
+			require.NotContains(t, p.Tasks[:i], output)
 		}
 	}
 
-	expected := []Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	require.Len(t, tasks, len(expected))
+	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
+	require.Len(t, p.Tasks, len(expected))
 
-	for _, task := range expected {
-		require.Contains(t, tasks, task)
-	}
+	require.Equal(t, expected, p.Tasks)
 }
 
 func TestGraph_HasCycles(t *testing.T) {
-	g := NewTaskDAG()
-	err := g.UnmarshalText([]byte(DotStr))
+	_, err := pipeline.Parse(pipeline.DotStr)
 	require.NoError(t, err)
-	require.False(t, g.HasCycles())
 
-	g = NewTaskDAG()
-	err = dot.Unmarshal([]byte(`
-        digraph {
-            a [type=bridge];
-            b [type=multiply times=1.23];
-            a -> b -> a;
-        }
-    `), g)
-	require.NoError(t, err)
-	require.True(t, g.HasCycles())
+	_, err = pipeline.Parse(`
+        a [type=bridge];
+        b [type=multiply times=1.23];
+        a -> b -> a;
+    `)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cycle detected")
 }

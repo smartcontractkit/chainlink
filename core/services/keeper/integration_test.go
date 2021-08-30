@@ -5,21 +5,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -38,8 +40,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	// setup node key
 	nodeKey := cltest.MustGenerateRandomKey(t)
 	nodeAddress := nodeKey.Address.Address()
-	nodeAddressEIP55, err := models.EIP55AddressFromAddress(nodeAddress)
-	require.NoError(t, err)
+	nodeAddressEIP55 := ethkey.EIP55AddressFromAddress(nodeAddress)
 
 	// setup blockchain
 	sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
@@ -56,6 +57,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	defer backend.Close()
 
 	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
 	defer stopMining()
@@ -87,21 +89,25 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "keeper_eth_integration", true, true)
-	config.Config.Dialect = dialects.PostgresWithoutLock
+	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
 	defer cfgCleanup()
-	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test
-	config.Set("BLOCK_BACKFILL_DEPTH", 0)                     // backfill will trigger sync on startup
-	config.Set("KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS", 1)    // disable reorg protection for this test
-	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)              // avoid waiting to re-submit for upkeeps
-	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
+	d := 24 * time.Hour
+	// disable full sync ticker for test
+	config.GeneralConfig.Overrides.KeeperRegistrySyncInterval = &d
+	// backfill will trigger sync on startup
+	config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(0)
+	// disable reorg protection for this test
+	config.GeneralConfig.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+	// avoid waiting to re-submit for upkeeps
+	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	// helps prevent missed heads
+	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 
 	// create job
-	regAddrEIP55, err := models.EIP55AddressFromAddress(regAddr)
-	require.NoError(t, err)
+	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
 	cltest.MustInsertKeeperJob(t, app.Store, nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received
@@ -155,4 +161,10 @@ func TestKeeperEthIntegration(t *testing.T) {
 	cltest.AssertRecordEventually(t, app.Store, &registry, func() bool {
 		return registry.KeeperIndex == -1
 	})
+	runs, err := app.PipelineORM().GetAllRuns()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(runs))
+	prr := webpresenters.NewPipelineRunResource(runs[0])
+	require.Equal(t, 1, len(prr.Outputs))
+	require.NotNil(t, prr.Outputs[0])
 }

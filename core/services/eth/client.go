@@ -42,10 +42,11 @@ type Client interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
-	// These methods are reimplemented due to a difference in how block header hashes are
-	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
-	// type to capture the correct hash from the RPC response.
-	HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
+	// HeadByNumber is a reimplemented version of HeaderByNumber due to a
+	// difference in how block header hashes are calculated by Parity nodes
+	// running on Kovan.  We have to return our own wrapper type to capture the
+	// correct hash from the RPC response.
+	HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error)
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
@@ -63,6 +64,10 @@ type Client interface {
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+
+	// bind.ContractBackend methods
+	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
 
 // This interface only exists so that we can generate a mock for it.  It is
@@ -86,6 +91,7 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 // client represents an abstract client that manages connections to
 // multiple ethereum nodes
 type client struct {
+	logger      *logger.Logger
 	primary     *node
 	secondaries []*secondarynode
 	mocked      bool
@@ -95,7 +101,7 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
+func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -105,7 +111,7 @@ func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	c := client{}
+	c := client{logger: logger}
 
 	// for now only one primary is supported
 	c.primary = newNode(*parsed, rpcHTTPURL, "eth-primary-0")
@@ -125,13 +131,13 @@ func (client *client) Dial(ctx context.Context) error {
 		return nil
 	}
 	if err := client.primary.Dial(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "Failed to dial primary client")
 	}
 
 	for _, s := range client.secondaries {
 		err := s.Dial()
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "Failed to dial secondary client: %v", s.uri)
 		}
 	}
 	return nil
@@ -199,12 +205,16 @@ func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
 	return client.primary.ChainID(ctx)
 }
 
+func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return client.primary.HeaderByNumber(ctx, n)
+}
+
 // SendTransaction also uses the secondary HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	for _, s := range client.secondaries {
 		// Parallel send to secondary node
-		var wg sync.WaitGroup
-		defer wg.Wait()
 		wg.Add(1)
 		go func(s *secondarynode) {
 			defer wg.Done()
@@ -214,7 +224,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
-			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			client.logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
 		}(s)
 	}
 
@@ -253,7 +263,7 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return client.primary.BlockByNumber(ctx, number)
 }
 
-func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
+func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
 	hex := toBlockNumArg(number)
 	err = client.primary.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err == nil && head == nil {
@@ -278,7 +288,7 @@ func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
+	client.logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
 		"q", q,
 	)
 	return client.primary.SubscribeFilterLogs(ctx, q, ch)
@@ -322,4 +332,8 @@ func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.Ba
 		return client.BatchCallContext(ctx, b)
 	}
 	return client.secondaries[rr-1].BatchCallContext(ctx, b)
+}
+
+func (client *client) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	return client.primary.SuggestGasTipCap(ctx)
 }

@@ -23,10 +23,9 @@ type ContractSubmitter interface {
 // FluxAggregatorContractSubmitter submits the polled answer in an eth tx.
 type FluxAggregatorContractSubmitter struct {
 	flux_aggregator_wrapper.FluxAggregatorInterface
-	orm                        ORM
-	keyStore                   KeyStoreInterface
-	gasLimit                   uint64
-	maxUnconfirmedTransactions uint64
+	orm      ORM
+	keyStore KeyStoreInterface
+	gasLimit uint64
 }
 
 // NewFluxAggregatorContractSubmitter constructs a new NewFluxAggregatorContractSubmitter
@@ -35,21 +34,19 @@ func NewFluxAggregatorContractSubmitter(
 	orm ORM,
 	keyStore KeyStoreInterface,
 	gasLimit uint64,
-	maxUnconfirmedTransactions uint64,
 ) *FluxAggregatorContractSubmitter {
 	return &FluxAggregatorContractSubmitter{
-		FluxAggregatorInterface:    contract,
-		orm:                        orm,
-		keyStore:                   keyStore,
-		gasLimit:                   gasLimit,
-		maxUnconfirmedTransactions: maxUnconfirmedTransactions,
+		FluxAggregatorInterface: contract,
+		orm:                     orm,
+		keyStore:                keyStore,
+		gasLimit:                gasLimit,
 	}
 }
 
 // Submit submits the answer by writing a EthTx for the bulletprooftxmanager to
 // pick up
 func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, submission *big.Int) error {
-	fromAddress, err := c.keyStore.GetRoundRobinAddress(db)
+	fromAddress, err := c.keyStore.GetRoundRobinAddress()
 	if err != nil {
 		return err
 	}
@@ -60,7 +57,7 @@ func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, 
 	}
 
 	return errors.Wrap(
-		c.orm.CreateEthTransaction(db, fromAddress, c.Address(), payload, c.gasLimit, c.maxUnconfirmedTransactions),
+		c.orm.CreateEthTransaction(db, fromAddress, c.Address(), payload, c.gasLimit),
 		"failed to send Eth transaction",
 	)
 }

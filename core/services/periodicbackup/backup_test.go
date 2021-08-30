@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPeriodicBackup_RunBackup(t *testing.T) {
-	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
+	rawConfig := configtest.NewTestGeneralConfig(t)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -34,8 +35,8 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
-	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeLite)
+	rawConfig := configtest.NewTestGeneralConfig(t)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeLite)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -54,8 +55,8 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
-	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
+	rawConfig := configtest.NewTestGeneralConfig(t)
+	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -73,9 +74,9 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
-	rawConfig := orm.NewConfig()
+	rawConfig := configtest.NewTestGeneralConfig(t)
 	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
-	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
+	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
@@ -85,16 +86,16 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 }
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
-	rawConfig := orm.NewConfig()
-	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(), "", orm.DatabaseBackupModeFull)
+	rawConfig := configtest.NewTestGeneralConfig(t)
+	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
 func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
-	rawConfig := orm.NewConfig()
+	rawConfig := configtest.NewTestGeneralConfig(t)
 	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(),
-		filepath.Join(os.TempDir(), "alternative"), orm.DatabaseBackupModeFull)
+		filepath.Join(os.TempDir(), "alternative"), config.DatabaseBackupModeFull)
 
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 
@@ -113,7 +114,7 @@ func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
 
 type testConfig struct {
 	databaseBackupFrequency time.Duration
-	databaseBackupMode      orm.DatabaseBackupMode
+	databaseBackupMode      config.DatabaseBackupMode
 	databaseBackupURL       *url.URL
 	databaseBackupDir       string
 	databaseURL             url.URL
@@ -123,7 +124,7 @@ type testConfig struct {
 func (config testConfig) DatabaseBackupFrequency() time.Duration {
 	return config.databaseBackupFrequency
 }
-func (config testConfig) DatabaseBackupMode() orm.DatabaseBackupMode {
+func (config testConfig) DatabaseBackupMode() config.DatabaseBackupMode {
 	return config.databaseBackupMode
 }
 func (config testConfig) DatabaseBackupURL() *url.URL {
@@ -139,7 +140,7 @@ func (config testConfig) RootDir() string {
 	return config.rootDir
 }
 
-func newTestConfig(frequency time.Duration, databaseBackupURL *url.URL, databaseURL url.URL, rootDir string, databaseBackupDir string, mode orm.DatabaseBackupMode) testConfig {
+func newTestConfig(frequency time.Duration, databaseBackupURL *url.URL, databaseURL url.URL, rootDir string, databaseBackupDir string, mode config.DatabaseBackupMode) testConfig {
 	return testConfig{
 		databaseBackupFrequency: frequency,
 		databaseBackupMode:      mode,

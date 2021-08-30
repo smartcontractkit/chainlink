@@ -21,10 +21,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const compileCommand = "../../../evm-contracts/scripts/native_solc_compile_all"
+const compileCommand = "../../../contracts/scripts/native_solc_compile_all"
 
 // TestCheckContractHashesFromLastGoGenerate compares the abi and bytecode of the
-// contract artifacts in evm-contracts/solc with the abi and bytecode stored in the
+// contract artifacts in contracts/solc with the abi and bytecode stored in the
 // contract wrapper
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions, err := ReadVersionsDB()
@@ -36,11 +36,11 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		wd = "<directory containing this test>"
 	}
 	require.Equal(t, versions.GethVersion, gethParams.Version,
-		color.HiRedString(boxOutput("please re-run `go generate %s` and commit the"+
+		color.HiRedString(utils.BoxOutput("please re-run `go generate %s` and commit the"+
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
-		if isOCRContract(contractVersionInfo.AbiPath) {
+		if isOCRContract(contractVersionInfo.AbiPath) || isVRFV2Contract(contractVersionInfo.AbiPath) {
 			continue
 		}
 		compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(t, contractVersionInfo)
@@ -55,6 +55,12 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 
 func isOCRContract(fullpath string) bool {
 	return strings.Contains(fullpath, "OffchainAggregator")
+}
+
+// VRFv2 currently uses revert error types which are not supported by abigen
+// and so we have to manually modify the abi to remove them.
+func isVRFV2Contract(fullpath string) bool {
+	return strings.Contains(fullpath, "VRFCoordinatorV2")
 }
 
 // rootDir is the local chainlink root working directory
@@ -91,7 +97,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
 	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
-		boxOutput(`compiled %s and/or %s has changed; please rerun
+		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
 and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }
@@ -125,49 +131,6 @@ func init() {
 	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
-}
-
-// boxOutput formats its arguments as fmt.Printf, and encloses them in a box of
-// arrows pointing at their content, in order to better highlight it. See
-// ExampleBoxOutput
-func boxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
-	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
-	lines := strings.Split(errorMsgTemplate, "\n")
-	maxlen := 0
-	for _, line := range lines {
-		if len(line) > maxlen {
-			maxlen = len(line)
-		}
-	}
-	internalLength := maxlen + 4
-	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	readme := strings.Repeat("README ", maxlen/7)
-	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	for _, line := range lines {
-		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
-	}
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
-	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
-	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
-		"\n\n"
-}
-
-func Example_boxOutput() {
-	fmt.Println()
-	fmt.Print(boxOutput("%s is %d", "foo", 17))
-	// Output:
-	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// →  foo is 17  ←
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }
 
 // getProjectRoot returns the root of the chainlink project

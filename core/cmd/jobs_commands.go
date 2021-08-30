@@ -55,21 +55,12 @@ func (p JobPresenter) toRow(task string) []string {
 // GetTasks extracts the tasks from the dependency graph
 func (p JobPresenter) GetTasks() ([]string, error) {
 	types := []string{}
-	dag := pipeline.NewTaskDAG()
-	err := dag.UnmarshalText([]byte(p.PipelineSpec.DotDAGSource))
+	pipeline, err := pipeline.Parse(p.PipelineSpec.DotDAGSource)
 	if err != nil {
 		return nil, err
 	}
 
-	tasks, err := dag.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
-
-	// Reverse the order as dependency tasks start from output and end at the
-	// inputs.
-	for i := len(tasks) - 1; i >= 0; i-- {
-		t := tasks[i]
+	for _, t := range pipeline.Tasks {
 		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
 	}
 
@@ -113,6 +104,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 	case presenters.VRFJobSpec:
 		if p.VRFSpec != nil {
 			return p.VRFSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.WebhookJobSpec:
+		if p.WebhookSpec != nil {
+			return p.WebhookSpec.CreatedAt.Format(time.RFC3339)
 		}
 	default:
 		return "unknown"
@@ -199,8 +194,8 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 	return err
 }
 
-// DeleteJobV2 deletes a V2 job
-func (cli *Client) DeleteJobV2(c *cli.Context) error {
+// DeleteJob deletes a V2 job
+func (cli *Client) DeleteJob(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the job id to be archived"))
 	}
@@ -217,28 +212,22 @@ func (cli *Client) DeleteJobV2(c *cli.Context) error {
 	return nil
 }
 
-// Migrate jobs from the v1 (json) to v2 (toml) format.
-func (cli *Client) Migrate(c *cli.Context) error {
+// TriggerPipelineRun triggers a V2 job run based on a job ID
+func (cli *Client) TriggerPipelineRun(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the job id to be migrated"))
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
 	}
-	resp, err := cli.HTTP.Post(fmt.Sprintf("/v2/migrate/%s", c.Args().First()), nil)
+	resp, err := cli.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
 	if err != nil {
 		return cli.errorOut(err)
-	}
-	if resp.StatusCode != 200 {
-		b, errRead := ioutil.ReadAll(resp.Body)
-		if errRead != nil {
-			return cli.errorOut(errRead)
-		}
-		return cli.errorOut(errors.Errorf("error migrating job %v", string(b)))
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var presenter JobPresenter
-	err = cli.renderAPIResponse(resp, &presenter, "V2 job created from V1 job")
-	return nil
+
+	var run presenters.PipelineRunResource
+	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
+	return err
 }

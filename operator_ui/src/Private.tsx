@@ -24,6 +24,8 @@ import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
+import { FeedsManagerScreen } from 'pages/FeedsManager/FeedsManagerScreen'
+import { JobProposalScreen } from 'pages/JobProposal/JobProposalScreen'
 
 const styles = (theme: Theme) => {
   return {
@@ -70,10 +72,11 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
 
               <PrivateRoute
-                path="/jobs/:jobSpecId/runs/:jobRunId"
+                path="/jobs/:jobId/runs/:jobRunId"
                 component={JobRunsShowOverview}
               />
-              <PrivateRoute path="/jobs/:jobSpecId">
+
+              <PrivateRoute path="/jobs/:jobId">
                 <JobsShow />
               </PrivateRoute>
 
@@ -126,6 +129,14 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               />
               <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
+              <PrivateRoute path="/feeds_manager">
+                <FeedsManagerScreen />
+              </PrivateRoute>
+
+              <PrivateRoute path="/job_proposals/:id">
+                <JobProposalScreen />
+              </PrivateRoute>
+
               <PrivateRoute component={NotFound} />
             </Switch>
           </div>

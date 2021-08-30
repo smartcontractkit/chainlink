@@ -11,8 +11,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var (
@@ -20,12 +22,6 @@ var (
 	minBackupFrequency = time.Minute
 
 	excludedDataFromTables = []string{
-		"job_runs",
-		"task_runs",
-		"eth_task_run_txes",
-		"run_requests",
-		"run_results",
-		"sync_events",
 		"pipeline_runs",
 		"pipeline_task_runs",
 	}
@@ -40,22 +36,22 @@ type backupResult struct {
 
 type (
 	DatabaseBackup interface {
-		Start() error
-		Close() error
+		service.Service
 		RunBackupGracefully(version string)
 	}
 
 	databaseBackup struct {
 		logger          *logger.Logger
 		databaseURL     url.URL
-		mode            orm.DatabaseBackupMode
+		mode            config.DatabaseBackupMode
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
+		utils.StartStopOnce
 	}
 
 	Config interface {
-		DatabaseBackupMode() orm.DatabaseBackupMode
+		DatabaseBackupMode() config.DatabaseBackupMode
 		DatabaseBackupFrequency() time.Duration
 		DatabaseBackupURL() *url.URL
 		DatabaseBackupDir() string
@@ -87,35 +83,39 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 		config.DatabaseBackupFrequency(),
 		outputParentDir,
 		make(chan bool),
+		utils.StartStopOnce{},
 	}
 }
 
-func (backup databaseBackup) Start() error {
-
-	if backup.frequencyIsTooSmall() {
-		return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
-	}
-
-	ticker := time.NewTicker(backup.frequency)
-
-	go func() {
-		for {
-			select {
-			case <-backup.done:
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				backup.RunBackupGracefully(static.Version)
-			}
+func (backup *databaseBackup) Start() error {
+	return backup.StartOnce("DatabaseBackup", func() (err error) {
+		if backup.frequencyIsTooSmall() {
+			return errors.Errorf("Database backup frequency (%s=%v) is too small. Please set it to at least %s", "DATABASE_BACKUP_FREQUENCY", backup.frequency, minBackupFrequency)
 		}
-	}()
 
-	return nil
+		ticker := time.NewTicker(backup.frequency)
+
+		go func() {
+			for {
+				select {
+				case <-backup.done:
+					ticker.Stop()
+					return
+				case <-ticker.C:
+					backup.RunBackupGracefully(static.Version)
+				}
+			}
+		}()
+
+		return nil
+	})
 }
 
-func (backup databaseBackup) Close() error {
-	backup.done <- true
-	return nil
+func (backup *databaseBackup) Close() error {
+	return backup.StopOnce("DatabaseBackup", func() (err error) {
+		backup.done <- true
+		return nil
+	})
 }
 
 func (backup *databaseBackup) frequencyIsTooSmall() bool {
@@ -155,7 +155,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 		"-F", "c", // format: custom (zipped)
 	}
 
-	if backup.mode == orm.DatabaseBackupModeLite {
+	if backup.mode == config.DatabaseBackupModeLite {
 		for _, table := range excludedDataFromTables {
 			args = append(args, fmt.Sprintf("--exclude-table-data=%s", table))
 		}

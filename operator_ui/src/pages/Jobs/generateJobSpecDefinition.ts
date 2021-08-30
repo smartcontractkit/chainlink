@@ -1,135 +1,41 @@
 import { ApiResponse } from 'utils/json-api-client'
 import {
-  DirectRequestJobV2Spec,
-  FluxMonitorJobV2Spec,
-  JobSpec,
-  JobSpecV2,
-  OffChainReportingOracleJobV2Spec,
-  KeeperV2Spec,
-  CronV2Spec,
-  WebV2Spec,
+  DirectRequestJob,
+  FluxMonitorJob,
+  Job,
+  OffChainReportingJob,
+  KeeperJob,
+  CronJob,
+  WebhookJob,
+  VRFJob,
 } from 'core/store/models'
-import { stringifyJobSpec, JobSpecFormats } from './utils'
-
-type DIRECT_REQUEST_DEFINITION_VALID_KEYS =
-  | 'name'
-  | 'initiators'
-  | 'tasks'
-  | 'startAt'
-  | 'endAt'
-
-const asUnknownObject = (object: object) => object as { [key: string]: unknown }
-
-const scrub = ({
-  payload,
-  keysToRemove,
-}: {
-  payload: unknown
-  keysToRemove: string[]
-}): JSONValue => {
-  if (typeof payload === 'string' || payload === null) {
-    return payload
-  }
-
-  if (Array.isArray(payload)) {
-    return payload.map((p) => scrub({ payload: p, keysToRemove }))
-  }
-
-  if (typeof payload === 'object' && payload !== null) {
-    const typedPayload = asUnknownObject(payload)
-    const keepers = Object.keys(typedPayload).filter(
-      (k) => !keysToRemove.includes(k),
-    )
-    return keepers.reduce((accumulator, key) => {
-      const value = typedPayload[key]
-      if (
-        value === null ||
-        (typeof value === 'object' &&
-          value !== null &&
-          Object.keys(value).length === 0)
-      ) {
-        return accumulator
-      }
-      return { ...accumulator, [key]: value }
-    }, {})
-  }
-
-  return null
-}
-
-type ScrubbedJobSpec = { [key in DIRECT_REQUEST_DEFINITION_VALID_KEYS]: any }
-
-export const generateJSONDefinition = (
-  job: ApiResponse<JobSpec>['data']['attributes'],
-): string => {
-  const scrubbedJobSpec: ScrubbedJobSpec = ([
-    'name',
-    'initiators',
-    'tasks',
-    'startAt',
-    'endAt',
-  ] as DIRECT_REQUEST_DEFINITION_VALID_KEYS[]).reduce((accumulator, key) => {
-    const value = scrub({
-      payload: job[key],
-      keysToRemove: ['ID', 'CreatedAt', 'DeletedAt', 'UpdatedAt'],
-    })
-
-    if (value === null) {
-      return accumulator
-    }
-    return {
-      ...accumulator,
-      [key]: value,
-    }
-  }, {} as ScrubbedJobSpec)
-
-  /**
-   * We want to remove the name field if it was auto-generated
-   * to avoid running into FK constraint errors when duplicating
-   * a job spec.
-   */
-  if (scrubbedJobSpec.name.includes(job.id)) {
-    delete scrubbedJobSpec.name
-  }
-
-  return stringifyJobSpec({
-    value: scrubbedJobSpec,
-    format: JobSpecFormats.JSON,
-  })
-}
+import { stringifyJobSpec } from './utils'
 
 export const generateTOMLDefinition = (
-  jobSpecAttributes: ApiResponse<JobSpecV2>['data']['attributes'],
+  jobSpecAttributes: ApiResponse<Job>['data']['attributes'],
 ): string => {
-  if (jobSpecAttributes.type === 'directrequest') {
-    return generateDirectRequestDefinition(jobSpecAttributes)
+  switch (jobSpecAttributes.type) {
+    case 'directrequest':
+      return generateDirectRequestDefinition(jobSpecAttributes)
+    case 'fluxmonitor':
+      return generateFluxMonitorDefinition(jobSpecAttributes)
+    case 'offchainreporting':
+      return generateOCRDefinition(jobSpecAttributes)
+    case 'keeper':
+      return generateKeeperDefinition(jobSpecAttributes)
+    case 'cron':
+      return generateCronDefinition(jobSpecAttributes)
+    case 'webhook':
+      return generateWebhookDefinition(jobSpecAttributes)
+    case 'vrf':
+      return generateVRFDefinition(jobSpecAttributes)
+    default:
+      return ''
   }
-
-  if (jobSpecAttributes.type === 'fluxmonitor') {
-    return generateFluxMonitorDefinition(jobSpecAttributes)
-  }
-
-  if (jobSpecAttributes.type === 'offchainreporting') {
-    return generateOCRDefinition(jobSpecAttributes)
-  }
-
-  if (jobSpecAttributes.type === 'keeper') {
-    return generateKeeperDefinition(jobSpecAttributes)
-  }
-
-  if (jobSpecAttributes.type === 'cron') {
-    return generateCronDefinition(jobSpecAttributes)
-  }
-
-  if (jobSpecAttributes.type === 'web') {
-    return generateWebDefinition(jobSpecAttributes)
-  }
-
-  return ''
 }
 
 function generateOCRDefinition(
-  attrs: ApiResponse<OffChainReportingOracleJobV2Spec>['data']['attributes'],
+  attrs: ApiResponse<OffChainReportingJob>['data']['attributes'],
 ) {
   const ocrSpecWithoutDates = {
     ...attrs.offChainReportingOracleSpec,
@@ -144,13 +50,13 @@ function generateOCRDefinition(
       ...ocrSpecWithoutDates,
       observationSource: attrs.pipelineSpec.dotDagSource,
       maxTaskDuration: attrs.maxTaskDuration,
+      externalJobID: attrs.externalJobID,
     },
-    format: JobSpecFormats.TOML,
   })
 }
 
 function generateFluxMonitorDefinition(
-  attrs: ApiResponse<FluxMonitorJobV2Spec>['data']['attributes'],
+  attrs: ApiResponse<FluxMonitorJob>['data']['attributes'],
 ) {
   const {
     fluxMonitorSpec,
@@ -159,6 +65,7 @@ function generateFluxMonitorDefinition(
     schemaVersion,
     type,
     maxTaskDuration,
+    externalJobID,
   } = attrs
   const {
     contractAddress,
@@ -169,6 +76,9 @@ function generateFluxMonitorDefinition(
     idleTimerDisabled,
     pollTimerPeriod,
     pollTimerDisabled,
+    drumbeatEnabled,
+    drumbeatSchedule,
+    drumbeatRandomDelay,
     minPayment,
   } = fluxMonitorSpec
 
@@ -179,22 +89,25 @@ function generateFluxMonitorDefinition(
       name,
       contractAddress,
       precision,
-      threshold,
-      absoluteThreshold,
+      threshold: threshold || null,
+      absoluteThreshold: absoluteThreshold || null,
       idleTimerPeriod,
       idleTimerDisabled,
       pollTimerPeriod,
       pollTimerDisabled,
+      drumbeatEnabled,
+      drumbeatSchedule: drumbeatSchedule || null,
+      drumbeatRandomDelay: drumbeatRandomDelay || null,
       maxTaskDuration,
       minPayment,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
-    format: JobSpecFormats.TOML,
   })
 }
 
 function generateDirectRequestDefinition(
-  attrs: ApiResponse<DirectRequestJobV2Spec>['data']['attributes'],
+  attrs: ApiResponse<DirectRequestJob>['data']['attributes'],
 ) {
   const {
     directRequestSpec,
@@ -203,26 +116,28 @@ function generateDirectRequestDefinition(
     schemaVersion,
     type,
     maxTaskDuration,
+    externalJobID,
   } = attrs
-  const { contractAddress } = directRequestSpec
+  const { contractAddress, minIncomingConfirmations } = directRequestSpec
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
+      minIncomingConfirmations,
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
-    format: JobSpecFormats.TOML,
   })
 }
 
 function generateKeeperDefinition(
-  attrs: ApiResponse<KeeperV2Spec>['data']['attributes'],
+  attrs: ApiResponse<KeeperJob>['data']['attributes'],
 ) {
-  const { keeperSpec, name, schemaVersion, type } = attrs
+  const { keeperSpec, name, schemaVersion, type, externalJobID } = attrs
   const { contractAddress, fromAddress } = keeperSpec
 
   return stringifyJobSpec({
@@ -232,15 +147,22 @@ function generateKeeperDefinition(
       name,
       contractAddress,
       fromAddress,
+      externalJobID,
     },
-    format: JobSpecFormats.TOML,
   })
 }
 
 function generateCronDefinition(
-  attrs: ApiResponse<CronV2Spec>['data']['attributes'],
+  attrs: ApiResponse<CronJob>['data']['attributes'],
 ) {
-  const { cronSpec, pipelineSpec, name, schemaVersion, type } = attrs
+  const {
+    cronSpec,
+    pipelineSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+  } = attrs
   const { schedule } = cronSpec
 
   return stringifyJobSpec({
@@ -250,23 +172,50 @@ function generateCronDefinition(
       name,
       schedule,
       observationSource: pipelineSpec.dotDagSource,
+      externalJobID,
     },
-    format: JobSpecFormats.TOML,
   })
 }
 
-function generateWebDefinition(
-  attrs: ApiResponse<WebV2Spec>['data']['attributes'],
+function generateWebhookDefinition(
+  attrs: ApiResponse<WebhookJob>['data']['attributes'],
 ) {
-  const { pipelineSpec, name, schemaVersion, type } = attrs
+  const { pipelineSpec, name, schemaVersion, type, externalJobID } = attrs
 
   return stringifyJobSpec({
     value: {
       type,
       schemaVersion,
       name,
+      externalJobID,
       observationSource: pipelineSpec.dotDagSource,
     },
-    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateVRFDefinition(
+  attrs: ApiResponse<VRFJob>['data']['attributes'],
+) {
+  const {
+    vrfSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+    pipelineSpec,
+  } = attrs
+  const { coordinatorAddress, confirmations, publicKey } = vrfSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      externalJobID,
+      coordinatorAddress,
+      confirmations,
+      publicKey,
+      observationSource: pipelineSpec.dotDagSource,
+    },
   })
 }

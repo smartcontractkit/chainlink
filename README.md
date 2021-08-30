@@ -51,6 +51,7 @@ regarding Chainlink social accounts, news, and networking.
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
    - If you got any errors regarding locked yarn package, try running `yarn install` before this step
+   - If `yarn install` throws a network connection error, try increasing the network timeout by running `yarn install --network-timeout 150000` before this step
 6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
@@ -97,12 +98,12 @@ You can configure your node's behavior by setting environment variables. All the
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable
+Chainlink is a monorepo containing several logically separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
-- [@chainlink/contracts](./evm-contracts) - smart contracts
+- [@chainlink/contracts](./contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [tools](./tools) - Chainlink tools
@@ -134,9 +135,15 @@ go build -o chainlink ./core/
 
 1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
 
-2. Install [gencodec](https://github.com/fjl/gencodec), [mockery version 1.0.0](https://github.com/vektra/mockery/releases/tag/v1.0.0), and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
 
-3. Build contracts:
+3. Install mockery
+
+`make mockery`
+
+Using the `make` command will install the correct version.
+
+4. Build contracts:
 
 ```bash
 yarn
@@ -173,35 +180,48 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
-Inside the `evm-contracts/` directory:
-
-1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
-2. Install the dependencies:
+Inside the `contracts/` directory:
+1. Install dependencies:
 
 ```bash
 yarn
-yarn setup
 ```
 
-3. Run tests:
+2. Run tests:
 
-   i. Solidity versions `0.4.x` to `0.7.x`:
-
-   ```bash
-   yarn test
-   ```
-
-   ii. Solidity versions `>=0.8.x`:
-
-   As of Solidity version 0.8, we are using Hardhat to compile and test smart contracts.
-
-   ```bash
-   yarn test:new
-   ```
+```bash
+yarn test
+```
 
 ### Use of Go Generate
 
 Go generate is used to generate mocks in this project. Mocks are generated with [mockery](https://github.com/vektra/mockery) and live in core/internal/mocks.
+
+### Nix Flake
+
+A [flake](https://nixos.wiki/wiki/Flakes) is provided for use with the [Nix
+package manager](https://nixos.org/). It defines a declarative, reproducible
+development environment.
+
+To use it:
+
+1. [Nix has to be installed with flake support](https://nixos.wiki/wiki/Flakes#Installing_flakes).
+2. Run `nix develop`. You will be put in shell containing all the dependencies.
+   Alternatively, a `direnv` integration exists to automatically change the
+   environment when `cd`-ing into the folder.
+3. Create a local postgres database:
+
+```
+cd $PGDATA/
+initdb
+pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start
+createdb chainlink_test -h localhost
+createuser --superuser --no-password chainlink -h localhost
+```
+
+4. Start postgres, `pg_ctl -l $PGDATA/postgres.log -o "--unix_socket_directories='$PWD'" start`
+
+Now you can run tests or compile code as usual.
 
 ### Development Tips
 

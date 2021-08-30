@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// KeysController manages account keys
+// ETHKeysController manages account keys
 type ETHKeysController struct {
 	App chainlink.Application
 }
@@ -25,24 +26,33 @@ type ETHKeysController struct {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
-	store := ekc.App.GetStore()
-	keys, err := store.AllKeys()
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+	var keys []ethkey.KeyV2
+	var err error
+	if ekc.App.GetStore().Config.Dev() {
+		keys, err = ethKeyStore.GetAll()
+	} else {
+		keys, err = ethKeyStore.SendingKeys()
+	}
 	if err != nil {
-		err = errors.Errorf("error fetching ETH keys from database: %v", err)
+		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-
+	states, err := ethKeyStore.GetStatesForKeys(keys)
+	if err != nil {
+		err = errors.Errorf("error getting key states: %v", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 	var resources []presenters.ETHKeyResource
-	for _, key := range keys {
-		k, err := store.ORM.KeyByAddress(key.Address.Address())
+	for _, state := range states {
+		key, err := ethKeyStore.Get(state.Address.Hex())
 		if err != nil {
-			err = errors.Errorf("error fetching ETH key from DB: %v", err)
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-
-		r, err := presenters.NewETHKeyResource(k,
+		r, err := presenters.NewETHKeyResource(key, state,
 			ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
 			ekc.setLinkBalance(key.Address.Address()),
 		)
@@ -61,23 +71,18 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
-	account, err := ekc.App.GetStore().KeyStore.NewAccount()
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+	key, err := ethKeyStore.Create()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if err = ekc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	key, err := ekc.App.GetStore().KeyByAddress(account.Address)
+	state, err := ethKeyStore.GetState(key.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-
-	r, err := presenters.NewETHKeyResource(key,
+	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
 		ekc.setLinkBalance(key.Address.Address()),
 	)
@@ -94,8 +99,10 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/eth/:keyID"
 // "DELETE <application>/keys/eth/:keyID?hard=true"
 func (ekc *ETHKeysController) Delete(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var hardDelete bool
 	var err error
+
 	if c.Query("hard") != "" {
 		hardDelete, err = strconv.ParseBool(c.Query("hard"))
 		if err != nil {
@@ -104,36 +111,29 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		}
 	}
 
+	if !hardDelete {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("hard delete only"))
+		return
+	}
+
 	if !common.IsHexAddress(c.Param("keyID")) {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("invalid address"))
+		jsonAPIError(c, http.StatusBadRequest, errors.New("hard delete only"))
 		return
 	}
-	address := common.HexToAddress(c.Param("keyID"))
-	if exists, err2 := ekc.App.GetStore().KeyExists(address); err2 != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err2)
-		return
-	} else if !exists {
-		jsonAPIError(c, http.StatusNotFound, errors.New("Key does not exist"))
-		return
-	}
-
-	key, err := ekc.App.GetStore().KeyByAddress(address)
+	keyID := c.Param("keyID")
+	state, err := ethKeyStore.GetState(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	if hardDelete {
-		err = ekc.App.GetStore().DeleteKey(address)
-	} else {
-		err = ekc.App.GetStore().ArchiveKey(address)
-	}
+	key, err := ethKeyStore.Delete(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	r, err := presenters.NewETHKeyResource(key,
+	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
 		ekc.setLinkBalance(key.Address.Address()),
 	)
@@ -145,10 +145,10 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	jsonAPIResponse(c, r, "account")
 }
 
+// Import imports a key
 func (ekc *ETHKeysController) Import(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
-
-	store := ekc.App.GetStore()
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -157,26 +157,19 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 	oldPassword := c.Query("oldpassword")
 
-	acct, err := store.KeyStore.Import(bytes, oldPassword)
+	key, err := ethKeyStore.Import(bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	err = store.SyncDiskKeyStoreToDB()
+	state, err := ethKeyStore.GetState(key.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	key, err := store.ORM.KeyByAddress(acct.Address)
-	if err != nil {
-		err = errors.Errorf("error fetching ETH key from DB: %v", err)
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	r, err := presenters.NewETHKeyResource(key,
+	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
 		ekc.setLinkBalance(key.Address.Address()),
 	)
@@ -191,11 +184,10 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 func (ekc *ETHKeysController) Export(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
-	addressStr := c.Param("address")
-	address := common.HexToAddress(addressStr)
+	address := c.Param("address")
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.App.GetStore().KeyStore.Export(address, newPassword)
+	bytes, err := ekc.App.GetKeyStore().Eth().Export(address, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -207,8 +199,8 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr common.Address) presenters.NewETHKeyOption {
-	store := ekc.App.GetStore()
-	bal, err := store.EthClient.BalanceAt(ctx, accountAddr, nil)
+	ethClient := ekc.App.GetEthClient()
+	bal, err := ethClient.BalanceAt(ctx, accountAddr, nil)
 
 	return func(r *presenters.ETHKeyResource) error {
 		if err != nil {
@@ -225,9 +217,9 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
 func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
-	store := ekc.App.GetStore()
-	addr := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
-	bal, err := store.EthClient.GetLINKBalance(addr, accountAddr)
+	ethClient := ekc.App.GetEthClient()
+	addr := common.HexToAddress(ekc.App.GetEVMConfig().LinkContractAddress())
+	bal, err := ethClient.GetLINKBalance(addr, accountAddr)
 
 	return func(r *presenters.ETHKeyResource) error {
 		if err != nil {

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -19,27 +21,27 @@ import (
 
 func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
-	config, cleanup := cltest.NewConfig(t)
-	t.Cleanup(cleanup)
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(cleanup)
 	db := store.DB
+	keyStore := cltest.NewKeyStore(t, db)
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 
 	spec := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
-		Pipeline:      *pipeline.NewTaskDAG(),
 		PipelineSpec:  &pipeline.Spec{},
+		ExternalJobID: uuid.NewV4(),
 	}
 	delegate := cron.NewDelegate(runner)
 
-	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(*spec)
+	serviceArray, err := delegate.ServicesForSpec(jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
@@ -56,13 +58,12 @@ func TestCronV2Schedule(t *testing.T) {
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
-		Pipeline:      *pipeline.NewTaskDAG(),
 		PipelineSpec:  &pipeline.Spec{},
 	}
 	runner := new(pipelinemocks.Runner)
 
-	runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false).
-		Return(int64(0), pipeline.FinalResult{}, nil)
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+		Return(false, nil).Once()
 
 	service, err := cron.NewCronFromJobSpec(spec, runner)
 	require.NoError(t, err)

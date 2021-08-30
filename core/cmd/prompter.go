@@ -13,6 +13,8 @@ import (
 	"golang.org/x/term"
 )
 
+//go:generate mockery --name Prompter --output ./mocks/ --case=underscore
+
 // Prompter implements the Prompt function to be used to display at
 // the console.
 type Prompter interface {
@@ -75,7 +77,7 @@ func withTerminalResetter(f func()) {
 		logger.Fatal(err)
 	}
 
-	c := make(chan os.Signal)
+	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c

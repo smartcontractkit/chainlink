@@ -8,16 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -47,27 +50,30 @@ func setupRegistrySync(t *testing.T) (
 	*mocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
-	func(),
 ) {
 	store, cleanup := cltest.NewStore(t)
-	ethMock := new(mocks.Client)
+	t.Cleanup(cleanup)
+	ethClient := cltest.NewEthClientMock(t)
 	lbMock := new(logmocks.Broadcaster)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
+	cfg := cltest.NewTestEVMConfig(t)
+	keyStore := cltest.NewKeyStore(t, store.DB)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, keyStore, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
-		ethMock,
+		ethClient,
 	)
 	require.NoError(t, err)
 
 	lbMock.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
-		return opts.Contract.Address() == contractAddress
+		return opts.Contract == contractAddress
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, jpv2.Jrm, lbMock, syncInterval, 1)
-	return store, synchronizer, ethMock, lbMock, j, cleanup
+	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default)
+	return store, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {
@@ -80,8 +86,7 @@ func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {
 }
 
 func Test_RegistrySynchronizer_Start(t *testing.T) {
-	store, synchronizer, ethMock, _, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, _, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -112,8 +117,8 @@ func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_FullSync(t *testing.T) {
-	store, synchronizer, ethMock, _, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, _, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -128,8 +133,8 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	synchronizer.ExportedFullSync()
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 2)
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
@@ -141,7 +146,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 	require.Equal(t, int32(0), registry.KeeperIndex)
 	require.Equal(t, int32(1), registry.NumKeepers)
 	require.Equal(t, upkeepConfig.CheckData, upkeepRegistration.CheckData)
-	require.Equal(t, int32(upkeepConfig.ExecuteGas), upkeepRegistration.ExecuteGas)
+	require.Equal(t, uint64(upkeepConfig.ExecuteGas), upkeepRegistration.ExecuteGas)
 
 	assertUpkeepIDs(t, store, []int64{0, 2})
 	ethMock.AssertExpectations(t)
@@ -156,15 +161,15 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	synchronizer.ExportedFullSync()
 
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
-	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 2)
 	assertUpkeepIDs(t, store, []int64{2, 4})
 	ethMock.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -191,6 +196,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -201,14 +207,14 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.BlockCountPerTurn == 40
 	})
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -235,6 +241,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -245,14 +252,13 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.NumKeepers == 2
 	})
-	cltest.AssertCount(t, store, keeper.Registry{}, 1)
+	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -275,6 +281,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -288,8 +295,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -312,6 +318,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
@@ -327,8 +334,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	store, synchronizer, ethMock, lb, job, cleanup := setupRegistrySync(t)
-	defer cleanup()
+	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -356,6 +362,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	logBroadcast := new(logmocks.Broadcast)
 	logBroadcast.On("DecodedLog").Return(&log)
 	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("String").Maybe().Return("")
 	lb.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 

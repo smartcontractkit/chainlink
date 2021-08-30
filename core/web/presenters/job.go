@@ -3,13 +3,18 @@ package presenters
 import (
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-
 	"github.com/lib/pq"
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -26,23 +31,28 @@ const (
 	KeeperJobSpec            JobSpecType = "keeper"
 	CronJobSpec              JobSpecType = "cron"
 	VRFJobSpec               JobSpecType = "vrf"
+	WebhookJobSpec           JobSpecType = "webhook"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress  models.EIP55Address `json:"contractAddress"`
-	OnChainJobSpecID string              `json:"onChainJobSpecId"`
-	Initiator        string              `json:"initiator"`
-	CreatedAt        time.Time           `json:"createdAt"`
-	UpdatedAt        time.Time           `json:"updatedAt"`
+	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
+	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
+	Requesters               models.AddressCollection `json:"requesters"`
+	Initiator                string                   `json:"initiator"`
+	CreatedAt                time.Time                `json:"createdAt"`
+	UpdatedAt                time.Time                `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
 // job.DirectRequestSpec
 func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
-		ContractAddress:  spec.ContractAddress,
-		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
+		ContractAddress:          spec.ContractAddress,
+		MinIncomingConfirmations: spec.MinIncomingConfirmations,
+		MinContractPayment:       spec.MinContractPayment,
+		Requesters:               spec.Requesters,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",
@@ -53,45 +63,58 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 
 // FluxMonitorSpec defines the spec details of a FluxMonitor Job
 type FluxMonitorSpec struct {
-	ContractAddress   models.EIP55Address `json:"contractAddress"`
-	Precision         int32               `json:"precision"`
-	Threshold         float32             `json:"threshold"`
-	AbsoluteThreshold float32             `json:"absoluteThreshold"`
-	PollTimerPeriod   string              `json:"pollTimerPeriod"`
-	PollTimerDisabled bool                `json:"pollTimerDisabled"`
-	IdleTimerPeriod   string              `json:"idleTimerPeriod"`
-	IdleTimerDisabled bool                `json:"idleTimerDisabled"`
-	MinPayment        *assets.Link        `json:"minPayment"`
-	CreatedAt         time.Time           `json:"createdAt"`
-	UpdatedAt         time.Time           `json:"updatedAt"`
+	ContractAddress     ethkey.EIP55Address `json:"contractAddress"`
+	Threshold           float32             `json:"threshold"`
+	AbsoluteThreshold   float32             `json:"absoluteThreshold"`
+	PollTimerPeriod     string              `json:"pollTimerPeriod"`
+	PollTimerDisabled   bool                `json:"pollTimerDisabled"`
+	IdleTimerPeriod     string              `json:"idleTimerPeriod"`
+	IdleTimerDisabled   bool                `json:"idleTimerDisabled"`
+	DrumbeatEnabled     bool                `json:"drumbeatEnabled"`
+	DrumbeatSchedule    *string             `json:"drumbeatSchedule"`
+	DrumbeatRandomDelay *string             `json:"drumbeatRandomDelay"`
+	MinPayment          *assets.Link        `json:"minPayment"`
+	CreatedAt           time.Time           `json:"createdAt"`
+	UpdatedAt           time.Time           `json:"updatedAt"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
 // job.FluxMonitorSpec
 func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
+	var drumbeatSchedulePtr *string
+	if spec.DrumbeatEnabled {
+		drumbeatSchedulePtr = &spec.DrumbeatSchedule
+	}
+	var drumbeatRandomDelayPtr *string
+	if spec.DrumbeatRandomDelay > 0 {
+		drumbeatRandomDelay := spec.DrumbeatRandomDelay.String()
+		drumbeatRandomDelayPtr = &drumbeatRandomDelay
+	}
 	return &FluxMonitorSpec{
-		ContractAddress:   spec.ContractAddress,
-		Precision:         spec.Precision,
-		Threshold:         spec.Threshold,
-		AbsoluteThreshold: spec.AbsoluteThreshold,
-		PollTimerPeriod:   spec.PollTimerPeriod.String(),
-		PollTimerDisabled: spec.PollTimerDisabled,
-		IdleTimerPeriod:   spec.IdleTimerPeriod.String(),
-		IdleTimerDisabled: spec.IdleTimerDisabled,
-		MinPayment:        spec.MinPayment,
-		CreatedAt:         spec.CreatedAt,
-		UpdatedAt:         spec.UpdatedAt,
+		ContractAddress:     spec.ContractAddress,
+		Threshold:           spec.Threshold,
+		AbsoluteThreshold:   spec.AbsoluteThreshold,
+		PollTimerPeriod:     spec.PollTimerPeriod.String(),
+		PollTimerDisabled:   spec.PollTimerDisabled,
+		IdleTimerPeriod:     spec.IdleTimerPeriod.String(),
+		IdleTimerDisabled:   spec.IdleTimerDisabled,
+		DrumbeatEnabled:     spec.DrumbeatEnabled,
+		DrumbeatSchedule:    drumbeatSchedulePtr,
+		DrumbeatRandomDelay: drumbeatRandomDelayPtr,
+		MinPayment:          spec.MinPayment,
+		CreatedAt:           spec.CreatedAt,
+		UpdatedAt:           spec.UpdatedAt,
 	}
 }
 
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
-	ContractAddress                        models.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                              *models.PeerID       `json:"p2pPeerID"`
+	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
 	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash   `json:"keyBundleID"`
-	TransmitterAddress                     *models.EIP55Address `json:"transmitterAddress"`
+	EncryptedOCRKeyBundleID                null.String          `json:"keyBundleID"`
+	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
 	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
 	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
 	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
@@ -124,6 +147,7 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"id"`
+	JobID        int32  `json:"jobID"`
 	DotDAGSource string `json:"dotDagSource"`
 }
 
@@ -131,14 +155,15 @@ type PipelineSpec struct {
 func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 	return PipelineSpec{
 		ID:           spec.ID,
+		JobID:        spec.JobID,
 		DotDAGSource: spec.DotDagSource,
 	}
 }
 
 // KeeperSpec defines the spec details of a Keeper Job
 type KeeperSpec struct {
-	ContractAddress models.EIP55Address `json:"contractAddress"`
-	FromAddress     models.EIP55Address `json:"fromAddress"`
+	ContractAddress ethkey.EIP55Address `json:"contractAddress"`
+	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
 }
@@ -150,6 +175,20 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 		FromAddress:     spec.FromAddress,
 		CreatedAt:       spec.CreatedAt,
 		UpdatedAt:       spec.UpdatedAt,
+	}
+}
+
+// WebhookSpec defines the spec details of a Webhook Job
+type WebhookSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// NewWebhookSpec generates a new WebhookSpec from a job.WebhookSpec
+func NewWebhookSpec(spec *job.WebhookSpec) *WebhookSpec {
+	return &WebhookSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
 	}
 }
 
@@ -170,9 +209,9 @@ func NewCronSpec(spec *job.CronSpec) *CronSpec {
 }
 
 type VRFSpec struct {
-	CoordinatorAddress models.EIP55Address `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
-	Confirmations      uint32              `toml:"confirmations"`
+	CoordinatorAddress ethkey.EIP55Address `json:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey `json:"publicKey"`
+	Confirmations      uint32              `json:"confirmations"`
 	CreatedAt          time.Time           `json:"createdAt"`
 	UpdatedAt          time.Time           `json:"updatedAt"`
 }
@@ -213,12 +252,14 @@ type JobResource struct {
 	Type                  JobSpecType            `json:"type"`
 	SchemaVersion         uint32                 `json:"schemaVersion"`
 	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
+	ExternalJobID         uuid.UUID              `json:"externalJobID"`
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
+	CronSpec              *CronSpec              `json:"cronSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
-	CronSpec              *CronSpec              `json:"cronSpec"`
 	VRFSpec               *VRFSpec               `json:"vrfSpec"`
+	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -232,6 +273,7 @@ func NewJobResource(j job.Job) *JobResource {
 		SchemaVersion:   j.SchemaVersion,
 		MaxTaskDuration: j.MaxTaskDuration,
 		PipelineSpec:    NewPipelineSpec(j.PipelineSpec),
+		ExternalJobID:   j.ExternalJobID,
 	}
 
 	switch j.Type {
@@ -239,14 +281,16 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
-	case job.OffchainReporting:
-		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
+	case job.OffchainReporting:
+		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:
 		resource.VRFSpec = NewVRFSpec(j.VRFSpec)
+	case job.Webhook:
+		resource.WebhookSpec = NewWebhookSpec(j.WebhookSpec)
 	}
 
 	jes := []JobError{}

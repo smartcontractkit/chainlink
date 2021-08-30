@@ -18,25 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWebSocketClient_StartCloseStart(t *testing.T) {
-	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
-	defer cleanup()
-
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	require.NoError(t, explorerClient.Start())
-	cltest.CallbackOrTimeout(t, "ws client connects", func() {
-		<-wsserver.Connected
-	}, 1*time.Second)
-	require.NoError(t, explorerClient.Close())
-
-	// restart after client disconnect
-	require.NoError(t, explorerClient.Start())
-	cltest.CallbackOrTimeout(t, "ws client restarts", func() {
-		<-wsserver.Connected
-	}, 3*time.Second)
-	require.NoError(t, explorerClient.Close())
-}
-
 func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
@@ -126,15 +107,15 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 
 func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, explorerClient.Start())
-	defer explorerClient.Close()
 
 	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
 		explorerClient.Send(context.Background(), []byte(`{"hello": "world"}`), -1)
 	})
+	require.NoError(t, explorerClient.Close())
 }
 
 func TestWebSocketClient_Send_WithAck(t *testing.T) {

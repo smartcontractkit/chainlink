@@ -12,8 +12,12 @@ type FetchOptions = Parameters<typeof fetch>[1]
 /**
  * Get the required request options for fetch
  * @param method The HTTP method to create options for
+ * @param raw If true, the body will not be JSON stringified
  */
-export function getOptions(method: Method): (val?: any) => FetchOptions {
+export function getOptions(
+  method: Method,
+  raw?: boolean,
+): (val?: any) => FetchOptions {
   if (method === Method.GET) {
     return () => ({
       method: 'GET',
@@ -21,17 +25,21 @@ export function getOptions(method: Method): (val?: any) => FetchOptions {
     })
   }
 
-  return CUDOptionFactory(method)
+  return CUDOptionFactory(method, raw)
 }
 
 /**
  * Create, Update, Delete option factory
  * @param method The http method to create the option object for
+ * @param raw If true, the body will not be JSON stringified
  */
-function CUDOptionFactory(method: Method): (body?: any) => FetchOptions {
+function CUDOptionFactory(
+  method: Method,
+  raw?: boolean,
+): (body?: any) => FetchOptions {
   return (body?: any): FetchOptions => ({
     method,
-    body: JSON.stringify(body),
+    body: raw ? body : JSON.stringify(body),
     credentials: 'include',
     headers: {
       Accept: 'application/json',

@@ -1,23 +1,23 @@
 package directrequest
 
 import (
-	"github.com/gofrs/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type DirectRequestToml struct {
-	ContractAddress  models.EIP55Address `toml:"contractAddress"`
-	OnChainJobSpecID uuid.UUID           `toml:"jobID"`
+	ContractAddress    ethkey.EIP55Address      `toml:"contractAddress"`
+	Requesters         models.AddressCollection `toml:"requesters"`
+	MinContractPayment *assets.Link             `toml:"minContractPaymentLinkJuels"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
-	}
+	var jb = job.Job{}
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return jb, err
@@ -31,14 +31,14 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, err
 	}
-	jb.DirectRequestSpec = &job.DirectRequestSpec{ContractAddress: spec.ContractAddress}
-	copy(jb.DirectRequestSpec.OnChainJobSpecID[:], spec.OnChainJobSpecID.Bytes())
+	jb.DirectRequestSpec = &job.DirectRequestSpec{
+		ContractAddress:    spec.ContractAddress,
+		Requesters:         spec.Requesters,
+		MinContractPayment: spec.MinContractPayment,
+	}
 
 	if jb.Type != job.DirectRequest {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
-	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 	return jb, nil
 }

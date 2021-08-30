@@ -4,62 +4,70 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/logger"
-
-	"github.com/pkg/errors"
-
 	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/mock"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
-var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
+var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
+	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
+	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
+
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
-	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
-	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	pipelineORM := pipeline.NewORM(db)
+	runner := pipeline.NewRunner(pipelineORM, config, nil, nil, nil, nil)
+	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
 	defer runner.Close()
 
-	key := cltest.MustInsertRandomKey(t, db, 0)
-	transmitterAddress := key.Address.Address()
+	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	ethClient, _, _ := cltest.NewEthMocks(t)
-	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
@@ -98,14 +106,12 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
 		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), *logger.Default, true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -155,7 +161,8 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="testbridge"];
 			"""
 		`)
-		require.NoError(t, jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		require.NoError(t, err)
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
 		require.NoError(t, err)
@@ -178,12 +185,13 @@ func TestRunner(t *testing.T) {
 				ds1          [type=bridge name="testbridge2"];
 			"""
 		`)
+		_, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.Error(t,
 			pipeline.ErrNoSuchBridge,
-			errors.Cause(jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)))
+			errors.Cause(err))
 	})
 
-	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
+	config.GeneralConfig.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(false)
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
 		var httpURL string
@@ -196,12 +204,10 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Errors, 1)
@@ -246,17 +252,15 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
 		assert.Len(t, results.Errors, 1)
-		assert.Equal(t, results.Errors[0].Error(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Contains(t, results.Errors[0].Error(), pipeline.ErrTooManyErrors.Error())
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -272,10 +276,10 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), pipeline.ErrTooManyErrors.Error())
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -294,12 +298,10 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, true)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		jb, err := jobORM.FindJob(dbSpec.ID)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -331,10 +333,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("missing required env vars", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -347,90 +346,83 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		os, err := offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err := offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
-		require.NoError(t, err)
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
 			nil,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			nil,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
 		require.Error(t, err)
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
 `
-		config.Set("P2P_PEER_ID", ek.PeerID)
+		peerID := key.PeerID()
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").
-			Where("id = ?", os.ID).
-			First(&jb).Error
-		require.NoError(t, err)
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -444,163 +436,159 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		config.Set("P2P_PEER_ID", ek.PeerID)
-		config.Set("P2P_BOOTSTRAP_PEERS", []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
-		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())
-		config.Set("OCR_TRANSMITTER_ADDRESS", transmitterAddress)
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		peerID := key.PeerID()
+		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
+		config.GeneralConfig.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
+		config.GeneralConfig.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
+		config.GeneralConfig.Overrides.OCRTransmitterAddress = &tAddress
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		// Assert the override
 		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
-		// Assert that this is unset
-		assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, models.Interval(0))
-		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
+		// Assert that this is default
+		assert.Equal(t, models.Interval(20000000000), jb.OffchainreportingOracleSpec.BlockchainTimeout)
+		assert.Equal(t, models.Interval(cltest.MustParseDuration(t, "1s")), jb.MaxTaskDuration)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
+		var os = job.Job{}
 
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").
-			Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		peerID := key.PeerID()
+		// Required to create job spawner delegate.
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		var os = job.Job{
-			Pipeline: *pipeline.NewTaskDAG(),
-		}
-		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
+		var os = job.Job{}
+		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID())
+		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		peerID := key.PeerID()
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
 			nil,
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			nil,
+		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		key, err := keyStore.P2P().Create()
 		require.NoError(t, err)
-		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), key.PeerID(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		dbSpec := makeOCRJobSpecFromToml(t, db, spec)
 
 		// Create an OCR job
-		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		var jb job.Job
-		err = db.Preload("PipelineSpec").
-			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
-			First(&jb).Error
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
-		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		// Required to create job spawner delegate.
+		peerID := key.PeerID()
+		config.GeneralConfig.Overrides.P2PListenPort = null.IntFrom(2000)
+		config.GeneralConfig.Overrides.P2PPeerID = &peerID
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
 			db,
+			nil,
 			jobORM,
-			config.Config,
-			keyStore,
+			config,
+			keyStore.OCR(),
 			nil,
 			ethClient,
-			log.NewBroadcaster(log.NewORM(db), ethClient, config),
+			log.NewBroadcaster(log.NewORM(db), ethClient, config, logger.Default, nil),
 			pw,
-			monitoringEndpoint)
+			monitoringEndpoint,
+			chains.EthMainnet,
+			&headtracker.NullBroadcaster{},
+		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
@@ -651,12 +639,10 @@ ds1 -> ds1_parse;
 
 		// Need a job in order to create a run
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(dbSpec.ID)
-		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.Errors[0])
@@ -667,7 +653,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.Error(t, err)
 	})
 
@@ -684,38 +670,216 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
-		err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
+		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
-		jb, err := jobORM.FindJob(jbs.ID)
-		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		jb, err = jobORM.FindJob(jbs.ID)
-		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
 		jbs.Name = null.NewString("a job 3", true)
-		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
-		require.NoError(t, err)
-		jb, err = jobORM.FindJob(jbs.ID)
+		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
 	})
+}
+
+func TestRunner_AsyncJob(t *testing.T) {
+	t.Parallel()
+
+	ethClient, _, assertMockCalls := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMockCalls()
+
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.GeneralConfig.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
+	defer cleanup()
+
+	require.NoError(t, app.Start())
+
+	var (
+		eiName    = "substrate-ei"
+		eiSpec    = map[string]interface{}{"foo": "bar"}
+		eiRequest = map[string]interface{}{"result": 42}
+
+		jobUUID = uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46")
+
+		expectedCreateJobRequest = map[string]interface{}{
+			"jobId":  jobUUID.String(),
+			"type":   eiName,
+			"params": eiSpec,
+		}
+	)
+
+	// Setup EI
+	var eiURL string
+	var eiNotifiedOfCreate bool
+	var eiNotifiedOfDelete bool
+	{
+		mockEI := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !eiNotifiedOfCreate {
+				require.Equal(t, http.MethodPost, r.Method)
+
+				eiNotifiedOfCreate = true
+				defer r.Body.Close()
+
+				var gotCreateJobRequest map[string]interface{}
+				err := json.NewDecoder(r.Body).Decode(&gotCreateJobRequest)
+				require.NoError(t, err)
+
+				require.Equal(t, expectedCreateJobRequest, gotCreateJobRequest)
+				w.WriteHeader(http.StatusOK)
+			} else {
+				require.Equal(t, http.MethodDelete, r.Method)
+
+				eiNotifiedOfDelete = true
+				defer r.Body.Close()
+
+				require.Equal(t, fmt.Sprintf("/%v", jobUUID.String()), r.URL.Path)
+			}
+		}))
+		defer mockEI.Close()
+		eiURL = mockEI.URL
+	}
+
+	// Create the EI record on the Core node
+	var eia *auth.Token
+	{
+		eiCreate := map[string]string{
+			"name": eiName,
+			"url":  eiURL,
+		}
+		eiCreateJSON, err := json.Marshal(eiCreate)
+		require.NoError(t, err)
+		eip := cltest.CreateExternalInitiatorViaWeb(t, app, string(eiCreateJSON))
+		eia = &auth.Token{
+			AccessKey: eip.AccessKey,
+			Secret:    eip.Secret,
+		}
+	}
+
+	var responseURL string
+
+	// Create the bridge on the Core node
+	bridgeCalled := make(chan struct{}, 1)
+	{
+		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
+
+			var bridgeRequest map[string]interface{}
+			err := json.NewDecoder(r.Body).Decode(&bridgeRequest)
+			require.NoError(t, err)
+
+			require.Equal(t, float64(42), bridgeRequest["value"])
+
+			responseURL = bridgeRequest["responseURL"].(string)
+
+			w.WriteHeader(http.StatusOK)
+			require.NoError(t, err)
+			io.WriteString(w, `{"pending": true}`)
+			bridgeCalled <- struct{}{}
+		}))
+		u, _ := url.Parse(bridgeServer.URL)
+		app.Store.CreateBridgeType(&models.BridgeType{
+			Name: models.TaskType("bridge"),
+			URL:  models.WebURL(*u),
+		})
+		defer bridgeServer.Close()
+	}
+
+	// Create the job spec on the Core node
+	var jobID int32
+	{
+		tomlSpec := fmt.Sprintf(`
+type            = "webhook"
+schemaVersion   = 1
+externalJobID           = "%v"
+externalInitiators = [
+	{
+		name = "%s",
+		spec = """
+	%s
+"""
+	}
+]
+observationSource   = """
+    parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
+	ds1 [type=bridge async=true name="bridge" timeout=0 requestData=<{"value": $(parse)}>]
+	ds1_parse [type=jsonparse lax=false  path="data,result"]
+	ds1_multiply [type=multiply times=1000000000000000000 index=0]
+
+	parse->ds1->ds1_parse->ds1_multiply;
+"""
+    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
+
+		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
+		require.NoError(t, err)
+		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
+		jobID = job.ID
+		t.Log("JOB created", job.WebhookSpecID)
+
+		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
+	}
+
+	// Simulate request from EI -> Core node
+	{
+		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
+
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+
+		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
+		jobORM := job.NewORM(app.Store.ORM.DB, cfg, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{}, app.KeyStore)
+
+		// Trigger v2/resume
+		select {
+		case <-bridgeCalled:
+		case <-time.After(time.Second):
+			t.Fatal("expected bridge server to be called")
+		}
+		// Make the request
+		{
+			url, err := url.Parse(responseURL)
+			require.NoError(t, err)
+			client := app.NewHTTPClient()
+			body := strings.NewReader(`{"data":{"result":"123.45"}}`)
+			response, cleanup := client.Patch(url.Path, body)
+			defer cleanup()
+			cltest.AssertServerResponse(t, response, http.StatusOK)
+		}
+
+		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 4, jobORM, 5*time.Second, 300*time.Millisecond)
+		require.Len(t, runs, 1)
+		run := runs[0]
+		require.Len(t, run.PipelineTaskRuns, 4)
+		require.Empty(t, run.PipelineTaskRuns[0].Error)
+		require.Empty(t, run.PipelineTaskRuns[1].Error)
+		require.Empty(t, run.PipelineTaskRuns[2].Error)
+		require.Empty(t, run.PipelineTaskRuns[3].Error)
+		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Null: false}, run.Outputs)
+
+	}
+
+	// Delete the job
+	{
+		cltest.DeleteJobViaWeb(t, app, jobID)
+		require.Eventually(t, func() bool { return eiNotifiedOfDelete }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of deleted job")
+	}
 }

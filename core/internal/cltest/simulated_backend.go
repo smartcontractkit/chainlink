@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -41,19 +42,17 @@ func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	tc *TestConfig,
+	tc *configtest.TestEVMConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) (app *TestApplication, cleanup func()) {
-	chainId := int(backend.Blockchain().Config().ChainID.Int64())
-	tc.Config.Set("ETH_CHAIN_ID", chainId)
+	chainId := backend.Blockchain().Config().ChainID.Int64()
+	tc.GeneralConfig.Overrides.SetChainID(chainId)
 
-	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId)}
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
-	err := app.Store.KeyStore.Unlock(Password)
-	require.NoError(t, err)
 
 	return app, func() { appCleanup(); client.Close() }
 }
@@ -164,7 +163,7 @@ func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
 }
 
-var balanceOfABIString string = `[
+var balanceOfABIString = `[
   {
     "constant": true,
     "inputs": [
@@ -255,7 +254,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 	panic("can never reach here")
 }
 
-func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
 	if n == nil {
 		n = c.currentBlockNumber()
 	}
@@ -311,6 +310,8 @@ func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
+// Note the sim's API only accepts types.Head so we have this goroutine
+// to convert those into models.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
 	channel chan<- *models.Head,
@@ -318,7 +319,6 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
-
 		var lastHead *models.Head
 
 		for {
@@ -330,7 +330,13 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				default:
 					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
 					lastHead = head
-					channel <- head
+					select {
+					// In head tracker shutdown the heads reader is closed, so the channel <- head write
+					// may hang.
+					case channel <- head:
+					case <-subscription.close:
+						return
+					}
 				}
 			case <-subscription.close:
 				return
@@ -344,6 +350,10 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 			"simulated backend")
 	}
 	return subscription, err
+}
+
+func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
+	return c.b.HeaderByNumber(ctx, n)
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -414,6 +424,10 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 
 func (c *SimulatedBackendClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return c.BatchCallContext(ctx, b)
+}
+
+func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
+	return nil, nil
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds

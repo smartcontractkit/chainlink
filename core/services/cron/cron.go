@@ -1,6 +1,8 @@
 package cron
 
 import (
+	"fmt"
+
 	"github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -12,11 +14,9 @@ import (
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
 	cronRunner     *cron.Cron
-	jobID          int32
 	logger         *logger.Logger
-	pipelineSpec   pipeline.Spec
+	jobSpec        job.Job
 	pipelineRunner pipeline.Runner
-	Schedule       string
 	chStop         chan struct{}
 }
 
@@ -25,23 +25,16 @@ func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
 ) (*Cron, error) {
-	cronSpec := jobSpec.CronSpec
-	spec := jobSpec.PipelineSpec
-
-	cronLogger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", jobSpec.ID,
-			"schedule", cronSpec.CronSchedule,
-		),
+	cronLogger := logger.Default.With(
+		"jobID", jobSpec.ID,
+		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
 
 	return &Cron{
-		cronRunner:     cron.New(cron.WithSeconds()),
-		jobID:          jobSpec.ID,
+		cronRunner:     cronRunner(),
 		logger:         cronLogger,
+		jobSpec:        jobSpec,
 		pipelineRunner: pipelineRunner,
-		pipelineSpec:   *spec,
-		Schedule:       cronSpec.CronSchedule,
 		chStop:         make(chan struct{}),
 	}, nil
 }
@@ -50,9 +43,9 @@ func NewCronFromJobSpec(
 func (cr *Cron) Start() error {
 	cr.logger.Debug("Cron: Starting")
 
-	_, err := cr.cronRunner.AddFunc(cr.Schedule, cr.runPipeline)
+	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
-		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobID, err)
+		cr.logger.Errorw(fmt.Sprintf("Error running cron job %d", cr.jobSpec.ID), "error", err, "schedule", cr.jobSpec.CronSpec.CronSchedule, "jobID", cr.jobSpec.ID)
 		return err
 	}
 	cr.cronRunner.Start()
@@ -70,8 +63,26 @@ func (cr *Cron) Close() error {
 func (cr *Cron) runPipeline() {
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
-	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, false)
+
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    cr.jobSpec.ID,
+			"externalJobID": cr.jobSpec.ExternalJobID,
+			"name":          cr.jobSpec.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta": map[string]interface{}{},
+		},
+	})
+
+	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
+
+	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger, false, nil)
 	if err != nil {
-		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
+		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}
+}
+
+func cronRunner() *cron.Cron {
+	return cron.New(cron.WithSeconds())
 }

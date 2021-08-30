@@ -5,9 +5,425 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### [v1.0.0]
+
+### Changed
+
+**Legacy job pipeline (JSON specs) are no longer supported**
+
+This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.
+
+For more information on migrating, see [the docs](https://docs.chain.link/chainlink-nodes/).
+
+This release will DROP legacy job tables so please take a backup before upgrading.
+
+#### Requesters
+
+V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:
+
+```toml
+type                = "directrequest"
+schemaVersion       = 1
+requesters          = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
+name                = "example eth request event spec with requesters"
+contractAddress     = "..."
+externalJobID     =  "..."
+observationSource   = """
+...
+"""
+```
+
+
 ## [Unreleased]
 
+## [0.10.12] - 2021-08-16
+
 ### Fixed
+
+- Resolved FMv2 stalling in Hibernation mode
+- Resolved rare issue when the Gas Estimator fails on start
+- Resolved the handling of nil values for gas price
+
+## [0.10.11] - 2021-08-09
+
+A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
+This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
+
+Three new configuration variables are added for the new telemetry ingress service support. `TELEMETRY_INGRESS_URL` sets the URL to connect to for telemetry ingress, `TELEMETRY_INGRESS_SERVER_PUB_KEY` sets the public key of the telemetry ingress server, and `TELEMETRY_INGRESS_LOGGING` toggles verbose logging of the raw telemetry messages being sent.
+
+* Fixes the logging configuration form not displaying the current values
+* Updates the design of the configuration cards to be easier on the eyes
+* View Coordinator Service Authentication keys in the Operator UI. This is hidden
+  behind a feature flag until usage is enabled.
+* Adds support for the new telemetry ingress service.
+
+### Changed
+
+**The legacy job pipeline (JSON specs) has been officially deprecated and support for these jobs will be dropped in an upcoming release.**
+
+Any node operators still running jobs with JSON specs should migrate their jobs to TOML format instead.
+
+The format for V2 Webhook job specs has changed. They now allow specifying 0 or more external initiators. Example below:
+
+```toml
+type            = "webhook"
+schemaVersion   = 1
+externalInitiators = [
+    { name = "foo-ei", spec = '{"foo": 42}' },
+    { name = "bar-ei", spec = '{"bar": 42}' }
+]
+observationSource   = """
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
+"""
+```
+
+These external initiators will be notified with the given spec after the job is created, and also at deletion time.
+
+Only the External Initiators listed in the toml spec may trigger a run for that job. Logged in users can always trigger a run for any job.
+
+#### Migrating Jobs
+
+- OCR
+All OCR jobs are already using v2 pipeline by default - no need to do anything here.
+
+- Flux Monitor v1
+We have created a tool to help you automigrate flux monitor specs in JSON format to the new TOML format. You can migrate a job like this:
+
+```
+chainlink jobs migrate <job id>
+```
+
+This can be automated by using the API like so:
+
+```
+POST http://yournode.example/v2/migrate/<job id>
+```
+
+- VRF v1
+Automigration is not supported for VRF jobs. They must be manually converted into v2 format.
+
+- Ethlog/Runlog/Cron/web
+All other job types must also be manually converted into v2 format.
+
+#### Technical details
+
+Why are we doing this?
+
+To give some background, the legacy job pipeline has been around since before Chainlink went to mainnet and is getting quite long in the tooth. The code is brittle and difficult to understand and maintain. For a while now we have been developing a v2 job pipeline in parallel which uses the TOML format. The new job pipeline is simpler, more performant and more powerful. Every job that can be represented in the legacy pipeline should be able to be represented in the v2 pipeline - if it can't be, that's a bug, so please let us know ASAP.
+
+The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
+
+#### KeyStore changes
+
+* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+
+## [0.10.10] - 2021-07-19
+
+### Changed
+
+This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
+
+#### Gas Estimation
+
+Gas estimation has been revamped and full support for Optimism has been added.
+
+The following env vars have been deprecated, and will be removed in a future release:
+
+```
+GAS_UPDATER_ENABLED
+GAS_UPDATER_BATCH_SIZE
+GAS_UPDATER_BLOCK_DELAY
+GAS_UPDATER_BLOCK_HISTORY_SIZE
+GAS_UPDATER_TRANSACTION_PERCENTILE
+```
+
+If you are using any of the env vars above, please switch to using the following instead:
+
+```
+GAS_ESTIMATOR_MODE
+BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE
+BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY
+BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE
+BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE
+```
+
+Valid values for `GAS_ESTIMATOR_MODE` are as follows:
+
+`GAS_ESTIMATOR_MODE=BlockHistory` (equivalent to `GAS_UPDATER_ENABLED=true`)
+`GAS_ESTIMATOR_MODE=FixedPrice` (equivalent to `GAS_UPDATER_ENABLED=false`)
+`GAS_ESTIMATOR_MODE=Optimism` (new)
+
+New gas estimator modes may be added in future.
+
+In addition, a minor annoyance has been fixed whereby previously if you enabled the gas updater, it would overwrite the locally stored value for gas price and continue to use this even if it was disabled after a reboot. This will no longer happen: BlockHistory mode will not clobber the locally stored value for fixed gas price, which can still be adjusted via remote API call or using `chainlink config setgasprice XXX`. In order to use this manually fixed gas price, you must enable FixedPrice estimator mode.
+
+### Added
+
+Added support for latest version of libocr with the V2 networking stack. New env vars to configure this are:
+
+```
+P2P_NETWORKING_STACK
+P2PV2_ANNOUNCE_ADDRESSES
+P2PV2_BOOTSTRAPPERS
+P2PV2_DELTA_DIAL
+P2PV2_DELTA_RECONCILE
+P2PV2_LISTEN_ADDRESSES
+```
+
+All of these are currently optional, by default OCR will continue to use the existing V1 stack. The new env vars will be used internally for OCR testing.
+
+### Fixed
+
+- Fix inability to create jobs with a cron schedule.
+
+## [0.10.9] - 2021-07-05
+
+### Changed
+
+#### Transaction Strategies
+
+FMv2, Keeper and OCR jobs now use a new strategy for sending transactions. By default, if multiple transactions are queued up, only the latest one will be sent. This should greatly reduce the number of stale rounds and reverted transactions, and help node operators to save significant gas especially during times of high congestion or when catching up on a deep backlog.
+
+Defaults should work well, but it can be controlled if necessary using the following new env vars:
+
+`FM_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+`KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+`OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH`
+
+Setting to 0 will disable (the old behaviour). Setting to 1 (the default) will keep only the latest transaction queued up at any given time. Setting to 2, 3 etc will allow this many transactions to be queued before starting to drop older items.
+
+Note that it has no effect on FMv1 jobs. Node operators will need to upgrade to FMv2 to take advantage of this feature.
+
+## [0.10.8] - 2021-06-21
+
+### Fixed
+
+- The HTTP adapter would remove a trailing slash on a subdirectory when specifying an extended path, so for instance `http://example.com/subdir/` with a param of `?query=` extended path would produce the URL `http://example.com/subdir?query=`, but should now produce: `http://example.com/subdir/?query=`.
+
+- Matic autoconfig is now enabled for mainnet. Matic nops should remove any custom tweaks they have been running with. In addition, we have better default configs for Optimism, Arbitrum and RSK.
+
+- It is no longer required to set `DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS=true` to enable local fetches on bridge or http tasks. If the URL for the http task is specified as a variable, then set the AllowUnrestrictedNetworkAccess option for this task. Please remove this if you had it set and no longer need it, since it introduces a slight security risk.
+
+- Chainlink can now run with ETH_DISABLED=true without spewing errors everywhere
+
+- Removed prometheus metrics that were no longer valid after recent changes to head tracking:
+  `head_tracker_heads_in_queue`, `head_tracker_callback_execution_duration`,
+  `head_tracker_callback_execution_duration_hist`, `head_tracker_num_heads_dropped`
+
+### Added
+
+- MINIMUM_CONTRACT_PAYMENT_LINK_JUELS replaces MINIMUM_CONTRACT_PAYMENT, which will be deprecated in a future release.
+
+- INSECURE_SKIP_VERIFY configuration variable disables verification of the Chainlink SSL certificates when using the CLI.
+
+- JSON parse tasks (v2) now permit an empty `path` parameter.
+
+- Eth->eth transfer gas limit is no longer hardcoded at 21000 and can now be adjusted using `ETH_GAS_LIMIT_TRANSFER`
+
+- HTTP and Bridge tasks (v2 pipeline) now log the request parameters (including the body) upon making the request when `LOG_LEVEL=debug`.
+
+- Webhook v2 jobs now support two new parameters, `externalInitiatorName` and `externalInitiatorSpec`. The v2 version of the following v1 spec:
+    ```
+    {
+      "initiators": [
+        {
+          "type": "external",
+          "params": {
+            "name": "substrate",
+            "body": {
+              "endpoint": "substrate",
+              "feed_id": 0,
+              "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+              "fluxmonitor": {
+                "requestData": {
+                  "data": { "from": "DOT", "to": "USD" }
+                },
+                "feeds": [{ "url": "http://adapter1:8080" }],
+                "threshold": 0.5,
+                "absoluteThreshold": 0,
+                "precision": 8,
+                "pollTimer": { "period": "30s" },
+                "idleTimer": { "duration": "1m" }
+              }
+            }
+          }
+        }
+      ],
+      "tasks": [
+        {
+          "type": "substrate-adapter1",
+          "params": { "multiply": 1e8 }
+        }
+      ]
+    }
+    ```
+    is:
+    ```
+    type            = "webhook"
+    schemaVersion   = 1
+    jobID           = "0EEC7E1D-D0D2-475C-A1A8-72DFB6633F46"
+    externalInitiatorName = "substrate"
+    externalInitiatorSpec = """
+        {
+          "endpoint": "substrate",
+          "feed_id": 0,
+          "account_id": "0x7c522c8273973e7bcf4a5dbfcc745dba4a3ab08c1e410167d7b1bdf9cb924f6c",
+          "fluxmonitor": {
+            "requestData": {
+              "data": { "from": "DOT", "to": "USD" }
+            },
+            "feeds": [{ "url": "http://adapter1:8080" }],
+            "threshold": 0.5,
+            "absoluteThreshold": 0,
+            "precision": 8,
+            "pollTimer": { "period": "30s" },
+            "idleTimer": { "duration": "1m" }
+          }
+        }
+    """
+    observationSource   = """
+        submit [type=bridge name="substrate-adapter1" requestData=<{ "multiply": 1e8 }>]
+    """
+    ```
+
+
+- Task definitions in v2 jobs (those with TOML specs) now support quoting strings with angle brackets (which DOT already permitted). This is particularly useful when defining JSON blobs to post to external adapters. For example:
+
+    ```
+    my_bridge [type=bridge name="my_bridge" requestData="{\\"hi\\": \\"hello\\"}"]
+    ```
+    ... can now be written as:
+    ```
+    my_bridge [type=bridge name="my_bridge" requestData=<{"hi": "hello"}>]
+    ```
+    Multiline strings are supported with this syntax as well:
+    ```
+    my_bridge [type=bridge
+               name="my_bridge"
+               requestData=<{
+                   "hi": "hello",
+                   "foo": "bar"
+               }>]
+    ```
+
+- v2 jobs (those with TOML specs) now support variable interpolation in pipeline definitions. For example:
+
+    ```
+    fetch1    [type=bridge name="fetch"]
+    parse1    [type=jsonparse path="foo,bar"]
+    fetch2    [type=bridge name="fetch"]
+    parse2    [type=jsonparse path="foo,bar"]
+    medianize [type=median]
+    submit    [type=bridge name="submit"
+               requestData=<{
+                              "result": $(medianize),
+                              "fetchedData": [ $(parse1), $(parse2) ]
+                            }>]
+
+    fetch1 -> parse1 -> medianize
+    fetch2 -> parse2 -> medianize
+    medianize -> submit
+    ```
+
+    This syntax is supported by the following tasks/parameters:
+
+    - `bridge`
+        - `requestData`
+    - `http`
+        - `requestData`
+    - `jsonparse`
+        - `data` (falls back to the first input if unspecified)
+    - `median`
+        - `values` (falls back to the array of inputs if unspecified)
+    - `multiply`
+        - `input` (falls back to the first input if unspecified)
+        - `times`
+
+- Add `ETH_MAX_IN_FLIGHT_TRANSACTIONS` configuration option. This defaults to 16 and controls how many unconfirmed transactions may be in-flight at any given moment. This is set conservatively by default, node operators running many jobs on high throughput chains will probably need to increase this above the default to avoid lagging behind. However, before increasing this value, you MUST first ensure your ethereum node is configured not to ever evict local transactions that exceed this number otherwise your node may get permanently stuck. Set to 0 to disable the limit entirely (the old behaviour). Disabling this setting is not recommended.
+
+Relevant settings for geth (and forks e.g. BSC)
+
+```toml
+[Eth.TxPool]
+Locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"]  # Add your node addresses here
+NoLocals = false # Disabled by default but might as well make sure
+Journal = "transactions.rlp" # Make sure you set a journal file
+Rejournal = 3600000000000 # Default 1h, it might make sense to reduce this to e.g. 5m
+PriceBump = 10 # Must be set less than or equal to chainlink's ETH_GAS_BUMP_PERCENT
+AccountSlots = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+GlobalSlots = 4096 # Increase this as necessary
+AccountQueue = 64 # Increase this as necessary
+GlobalQueue = 1024 # Increase this as necessary
+Lifetime = 10800000000000 # Default 3h, this is probably ok, you might even consider reducing it
+
+```
+
+Relevant settings for parity/openethereum (and forks e.g. xDai)
+
+NOTE: There is a bug in parity (and xDai) where occasionally local transactions are inexplicably culled. See: https://github.com/openethereum/parity-ethereum/issues/10228
+
+Adjusting the settings below might help.
+
+```toml
+tx_queue_locals = ["0xYourNodeAddress1", "0xYourNodeAddress2"] # Add your node addresses here
+tx_queue_size = 8192 # Increase this as necessary
+tx_queue_per_sender = 16 # Highly recommended to increase this, must be greater than or equal to chainlink's ETH_MAX_IN_FLIGHT_TRANSACTIONS setting
+tx_queue_mem_limit = 4 # In MB. Highly recommended to increase this or set to 0
+tx_queue_no_early_reject = true # Recommended to set this
+tx_queue_no_unfamiliar_locals = false # This is disabled by default but might as well make sure
+```
+
+- Keeper jobs now support prometheus metrics, they are considered a pipeline with a single `keeper` task type. Example:
+```
+pipeline_run_errors{job_id="1",job_name="example keeper spec"} 1
+pipeline_run_total_time_to_completion{job_id="1",job_name="example keeper spec"} 8.470456e+06
+pipeline_task_execution_time{job_id="1",job_name="example keeper spec",task_type="keeper"} 8.470456e+06
+pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="completed",task_type="keeper"} 1
+```
+
+### Changed
+
+- The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
+
+- Chainlink no longers writes/reads eth key files to disk
+
+- Add sensible default configuration settings for Fantom
+
+- Rename `ETH_MAX_UNCONFIRMED_TRANSACTIONS` to `ETH_MAX_QUEUED_TRANSACTIONS`. It still performs the same function but the name was misleading and would have caused confusion with the new `ETH_MAX_IN_FLIGHT_TRANSACTIONS`.
+
+- The VRF keys are now managed remotely through the node only. Example commands:
+```
+// Starting a node with a vrf key
+chainlink node start -p path/to/passwordfile -vp path/to/vrfpasswordfile
+
+// Remotely managing the vrf keys
+chainlink keys vrf create // Creates a key with path/to/vrfpasswordfile
+chainlink keys vrf list // Lists all keys on the node
+chainlink keys vrf delete // Lists all keys on the node
+
+// Archives (soft deletes) vrf key with compressed pub key 0x788..
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00
+
+// Hard deletes vrf key with compressed pub key 0x788..
+chainlink keys vrf delete 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 --hard
+
+// Exports 0x788.. key to file 0x788_exported_key on disk encrypted with path/to/vrfpasswordfile
+// Note you can re-encrypt it with a different password if you like when exporting.
+chainlink keys vrf export 0x78845e23b6b22c47e4c81426fdf6fc4087c4c6a6443eba90eb92cf4d11c32d3e00 -p path/to/vrfpasswordfile -o 0x788_exported_key
+
+// Import key material in 0x788_exported_key using path/to/vrfpasswordfile to decrypt.
+// Will be re-encrypted with the nodes vrf password file i.e. "-vp"
+chainlink keys vrf import -p path/to/vrfpasswordfile 0x788_exported_key
+```
+
+
+
+## [0.10.7] - 2021-05-24
 
 - If a CLI command is issued after the session has expired, and an api credentials file is found, auto login should now work.
 
@@ -29,11 +445,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Chainlink now automatically cleans up old eth_txes to reduce database size. By default, any eth_txes older than a week are pruned on a regular basis. It is recommended to use the default value, however the default can be overridden by setting the `ETH_TX_REAPER_THRESHOLD` env var e.g. `ETH_TX_REAPER_THRESHOLD=24h`. Reaper can be disabled entirely by setting `ETH_TX_REAPER_THRESHOLD=0`. The reaper will run on startup and again every hour (interval is configurable using `ETH_TX_REAPER_INTERVAL`).
 
-- Heads corresponding to new blocks are now delivered in a sampled way, which is to improve 
-  node performance on fast chains. The frequency is by default 1 second, and can be changed 
+- Heads corresponding to new blocks are now delivered in a sampled way, which is to improve
+  node performance on fast chains. The frequency is by default 1 second, and can be changed
   by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL` env var e.g. `ETH_HEAD_TRACKER_SAMPLING_INTERVAL=5s`.
 
-- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed 
+- Database backups: default directory is now a subdirectory 'backup' of chainlink root dir, and can be changed
   to any chosed directory by setting a new configuration value: `DATABASE_BACKUP_DIR`
 
 ## [0.10.6] - 2021-05-10
@@ -42,8 +458,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `MockOracle.sol` for testing contracts
 
-- New CLI command to convert v1 flux monitor jobs (JSON) to 
-v2 flux monitor jobs (TOML). Running it will archive the v1 
+- Web job types can now be created from the operator UI as a new job.
+
+- See example web job spec below:
+
+```
+type            = "webhook"
+schemaVersion   = 1
+jobID           = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+observationSource = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
+
+- New CLI command to convert v1 flux monitor jobs (JSON) to
+v2 flux monitor jobs (TOML). Running it will archive the v1
 job and create a new v2 job. Example:
 ```
 // Get v1 job ID:
@@ -55,6 +486,7 @@ chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
 1. Archive the v2 job in the UI
 2. Unarchive the v1 job manually in the db:
 update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
+update initiators set deleted_at = null where job_spec_id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
 ```
 
 - Improved support for Optimism chain. Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_LIMIT_DEFAULT` is ignored.
@@ -85,7 +517,7 @@ ds -> ds_parse;
 ### Changed
 
 - Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
-- Removed support for the env var `JOB_PIPELINE_PARALLELISM`. 
+- Removed support for the env var `JOB_PIPELINE_PARALLELISM`.
 - OCR jobs no longer show `TaskRuns` in success cases. This reduces
 DB load and significantly improves the performance of archiving OCR jobs.
 - Archiving OCR jobs should be 5-10x faster.
@@ -142,7 +574,7 @@ DB load and significantly improves the performance of archiving OCR jobs.
 and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
 to a dotID in the pipeline_spec.dot_dag_source.
 
-- Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
+- Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign".
 
 - Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
 

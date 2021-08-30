@@ -6,19 +6,28 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/libocr/offchainreporting"
-	"github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 )
 
+type ValidationConfig interface {
+	Chain() *chains.Chain
+	Dev() bool
+	OCRBlockchainTimeout() time.Duration
+	OCRContractConfirmations() uint16
+	OCRContractPollInterval() time.Duration
+	OCRContractSubscribeInterval() time.Duration
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
+	OCRObservationTimeout() time.Duration
+	OCRObservationGracePeriod() time.Duration
+}
+
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
-	var jb = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
-	}
+func ValidatedOracleSpecToml(config ValidationConfig, tomlString string) (job.Job, error) {
+	var jb = job.Job{}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -36,13 +45,9 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, er
 	}
 	jb.OffchainreportingOracleSpec = &spec
 
-	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	if jb.Type != job.OffchainReporting {
 		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
-	}
-	if jb.SchemaVersion != uint32(1) {
-		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 	if !tree.Has("isBootstrapPeer") {
 		return jb, errors.New("isBootstrapPeer is not defined")
@@ -90,21 +95,9 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOracleSpec) error {
-	lc := types.LocalConfig{
-		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
-		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
-		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
-		ContractConfigTrackerSubscribeInterval: config.OCRContractSubscribeInterval(time.Duration(spec.ContractConfigTrackerSubscribeInterval)),
-		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
-		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
-		DataSourceGracePeriod:                  config.OCRObservationGracePeriod(),
-	}
-	if config.Dev() {
-		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode
-	}
-	return offchainreporting.SanityCheckLocalConfig(lc)
+func validateTimingParameters(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) error {
+	lc := NewLocalConfig(cfg, spec)
+	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
@@ -112,13 +105,10 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
 	}
-	if err := validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
-		return err
-	}
-	return nil
+	return validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap")
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -126,18 +116,19 @@ func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job)
 	if err := validateExplicitlySetKeys(tree, expected, notExpected, "non-bootstrap"); err != nil {
 		return err
 	}
-	if spec.Pipeline.DOTSource == "" {
+	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
 	}
-	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.OffchainreportingOracleSpec.ObservationTimeout))
+	var observationTimeout time.Duration
+	if spec.OffchainreportingOracleSpec.ObservationTimeout != 0 {
+		observationTimeout = spec.OffchainreportingOracleSpec.ObservationTimeout.Duration()
+	} else {
+		observationTimeout = config.OCRObservationTimeout()
+	}
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}
-	tasks, err := spec.Pipeline.TasksInDependencyOrder()
-	if err != nil {
-		return errors.Wrap(err, "invalid observation source")
-	}
-	for _, task := range tasks {
+	for _, task := range spec.Pipeline.Tasks {
 		timeout, set := task.TaskTimeout()
 		if set && timeout > observationTimeout {
 			return errors.Errorf("individual max task duration must be < observation timeout")

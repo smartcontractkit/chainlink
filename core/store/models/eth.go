@@ -1,7 +1,6 @@
 package models
 
 import (
-	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -10,123 +9,24 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/jinzhu/gorm/dialects/postgres"
-
-	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 )
-
-type EthTxState string
-type EthTxAttemptState string
-
-const (
-	EthTxUnstarted               = EthTxState("unstarted")
-	EthTxInProgress              = EthTxState("in_progress")
-	EthTxFatalError              = EthTxState("fatal_error")
-	EthTxUnconfirmed             = EthTxState("unconfirmed")
-	EthTxConfirmed               = EthTxState("confirmed")
-	EthTxConfirmedMissingReceipt = EthTxState("confirmed_missing_receipt")
-
-	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
-	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
-	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
-)
-
-type EthTaskRunTx struct {
-	TaskRunID uuid.UUID
-	EthTxID   int64
-	EthTx     EthTx
-}
-
-type EthTxMeta struct {
-	TaskRunID        uuid.UUID
-	RunRequestID     *common.Hash
-	RunRequestTxHash *common.Hash
-}
-
-type EthTx struct {
-	ID             int64
-	Nonce          *int64
-	FromAddress    common.Address
-	ToAddress      common.Address
-	EncodedPayload []byte
-	Value          assets.Eth
-	GasLimit       uint64
-	Error          *string
-	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
-	// In almost all cases it will be within a second or so of the actual send time.
-	BroadcastAt   *time.Time
-	CreatedAt     time.Time
-	State         EthTxState
-	EthTxAttempts []EthTxAttempt `gorm:"->"`
-	// Marshalled EthTxMeta
-	// Used for additional context around transactions which you want to log
-	// at send time.
-	Meta postgres.Jsonb
-}
-
-func (e EthTx) GetError() error {
-	if e.Error == nil {
-		return nil
-	}
-	return errors.New(*e.Error)
-}
-
-// GetID allows EthTx to be used as jsonapi.MarshalIdentifier
-func (e EthTx) GetID() string {
-	return fmt.Sprintf("%d", e.ID)
-}
-
-type EthTxAttempt struct {
-	ID                      int64
-	EthTxID                 int64
-	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
-	GasPrice                utils.Big
-	SignedRawTx             []byte
-	Hash                    common.Hash
-	CreatedAt               time.Time
-	BroadcastBeforeBlockNum *int64
-	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->"`
-}
-
-type EthReceipt struct {
-	ID               int64
-	TxHash           common.Hash
-	BlockHash        common.Hash
-	BlockNumber      int64
-	TransactionIndex uint
-	Receipt          []byte
-	CreatedAt        time.Time
-}
-
-// GetSignedTx decodes the SignedRawTx into a types.Transaction struct
-func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
-	s := rlp.NewStream(bytes.NewReader(a.SignedRawTx), 0)
-	signedTx := new(types.Transaction)
-	if err := signedTx.DecodeRLP(s); err != nil {
-		logger.Error("could not decode RLP")
-		return nil, err
-	}
-	return signedTx, nil
-}
 
 // Head represents a BlockNumber, BlockHash.
 type Head struct {
-	ID         uint64
-	Hash       common.Hash
-	Number     int64
-	ParentHash common.Hash
-	Parent     *Head `gorm:"-"`
-	Timestamp  time.Time
-	CreatedAt  time.Time
+	ID            uint64
+	Hash          common.Hash
+	Number        int64
+	L1BlockNumber null.Int64
+	ParentHash    common.Hash
+	Parent        *Head `gorm:"-"`
+	Timestamp     time.Time
+	CreatedAt     time.Time
 }
 
 // NewHead returns a Head instance.
@@ -140,25 +40,25 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (h Head) EarliestInChain() Head {
+func (h *Head) EarliestInChain() Head {
 	for {
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
 	}
-	return h
+	return *h
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
-func (h Head) IsInChain(blockHash common.Hash) bool {
+func (h *Head) IsInChain(blockHash common.Hash) bool {
 	for {
 		if h.Hash == blockHash {
 			return true
 		}
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -168,13 +68,13 @@ func (h Head) IsInChain(blockHash common.Hash) bool {
 
 // HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
 // If not in chain, returns the zero hash
-func (h Head) HashAtHeight(blockNum int64) common.Hash {
+func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 	for {
 		if h.Number == blockNum {
 			return h.Hash
 		}
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -183,13 +83,13 @@ func (h Head) HashAtHeight(blockNum int64) common.Hash {
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
-func (h Head) ChainLength() uint32 {
+func (h *Head) ChainLength() uint32 {
 	l := uint32(1)
 
 	for {
 		if h.Parent != nil {
 			l++
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -198,13 +98,13 @@ func (h Head) ChainLength() uint32 {
 }
 
 // ChainHashes returns an array of block hashes by recursively looking up parents
-func (h Head) ChainHashes() []common.Hash {
+func (h *Head) ChainHashes() []common.Hash {
 	var hashes []common.Hash
 
 	for {
 		hashes = append(hashes, h.Hash)
 		if h.Parent != nil {
-			h = *h.Parent
+			h = h.Parent
 		} else {
 			break
 		}
@@ -247,10 +147,11 @@ func (h *Head) NextInt() *big.Int {
 
 func (h *Head) UnmarshalJSON(bs []byte) error {
 	type head struct {
-		Hash       common.Hash    `json:"hash"`
-		Number     *hexutil.Big   `json:"number"`
-		ParentHash common.Hash    `json:"parentHash"`
-		Timestamp  hexutil.Uint64 `json:"timestamp"`
+		Hash          common.Hash    `json:"hash"`
+		Number        *hexutil.Big   `json:"number"`
+		ParentHash    common.Hash    `json:"parentHash"`
+		Timestamp     hexutil.Uint64 `json:"timestamp"`
+		L1BlockNumber *hexutil.Big   `json:"l1BlockNumber"`
 	}
 
 	var jsonHead head
@@ -268,6 +169,9 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
+	if jsonHead.L1BlockNumber != nil {
+		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
+	}
 	return nil
 }
 
@@ -306,7 +210,7 @@ func ReceiptIsUnconfirmed(txr *types.Receipt) bool {
 
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
-// ../../evm-contracts/src/v0.6/ChainlinkClient.sol
+// ../../contracts/src/v0.6/ChainlinkClient.sol
 var ChainlinkFulfilledTopic = utils.MustHash("ChainlinkFulfilled(bytes32)")
 
 // ReceiptIndicatesRunLogFulfillment returns true if this tx receipt is the result of a
@@ -348,7 +252,7 @@ func (f FunctionSelector) Bytes() []byte { return f[:] }
 // SetBytes sets the FunctionSelector to that of the given bytes (will trim).
 func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
 
-var hexRegexp *regexp.Regexp = regexp.MustCompile("^[0-9a-fA-F]*$")
+var hexRegexp = regexp.MustCompile("^[0-9a-fA-F]*$")
 
 func unmarshalFromString(s string, f *FunctionSelector) error {
 	if utils.HasHexPrefix(s) {

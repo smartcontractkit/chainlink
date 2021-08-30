@@ -1,70 +1,29 @@
 package pipeline
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"io"
-	"net/http"
-	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type (
-	MaybeBool string
-)
-
-const (
-	MaybeBoolTrue  = MaybeBool("true")
-	MaybeBoolFalse = MaybeBool("false")
-	MaybeBoolNull  = MaybeBool("")
-)
-
-func MaybeBoolFromString(s string) (MaybeBool, error) {
-	switch s {
-	case "true":
-		return MaybeBoolTrue, nil
-	case "false":
-		return MaybeBoolFalse, nil
-	case "":
-		return MaybeBoolNull, nil
-	default:
-		return "", errors.Errorf("unknown value for bool: %s", s)
-	}
-}
-
-func (m MaybeBool) Bool() (b bool, isSet bool) {
-	switch m {
-	case MaybeBoolTrue:
-		return true, true
-	case MaybeBoolFalse:
-		return false, true
-	default:
-		return false, false
-	}
-}
-
+//
+// Return types:
+//     string
+//
 type HTTPTask struct {
 	BaseTask                       `mapstructure:",squash"`
 	Method                         string
-	URL                            models.WebURL
-	RequestData                    HttpRequestData `json:"requestData"`
-	AllowUnrestrictedNetworkAccess MaybeBool
+	URL                            string
+	RequestData                    string `json:"requestData"`
+	AllowUnrestrictedNetworkAccess string
 
 	config Config
-}
-
-type PossibleErrorResponses struct {
-	Error        string `json:"error"`
-	ErrorMessage string `json:"errorMessage"`
 }
 
 var _ Task = (*HTTPTask)(nil)
@@ -88,89 +47,56 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
-	return nil
-}
-
-func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result) Result {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
-	}
-
-	var bodyReader io.Reader
-	if t.RequestData != nil {
-		bodyBytes, err := json.Marshal(t.RequestData)
-		if err != nil {
-			return Result{Error: errors.Wrap(err, "failed to encode request body as JSON")}
-		}
-		bodyReader = bytes.NewReader(bodyBytes)
-	}
-
-	request, err := http.NewRequest(t.Method, t.URL.String(), bodyReader)
+func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
+	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "failed to create http.Request")}
-	}
-	request.Header.Set("Content-Type", "application/json")
-
-	config := utils.HTTPRequestConfig{
-		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
-		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
-		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(),
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
-	httpRequest := utils.HTTPRequest{
-		Request: request,
-		Config:  config,
-	}
-
-	start := time.Now()
-	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
+	var (
+		method                         StringParam
+		url                            URLParam
+		requestData                    MapParam
+		allowUnrestrictedNetworkAccess BoolParam
+	)
+	err = multierr.Combine(
+		errors.Wrap(ResolveParam(&method, From(NonemptyString(t.Method), "GET")), "method"),
+		errors.Wrap(ResolveParam(&url, From(VarExpr(t.URL, vars), NonemptyString(t.URL))), "url"),
+		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
+		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
+	)
 	if err != nil {
-		if ctx.Err() != nil {
-			return Result{Error: errors.New("http request timed out or interrupted")}
-		}
-		return Result{Error: errors.Wrapf(err, "error making http request")}
+		return Result{Error: err}
 	}
-	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
-	if statusCode >= 400 {
-		maybeErr := bestEffortExtractError(responseBytes)
-		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", t.URL.String(), statusCode, maybeErr)}
+	requestDataJSON, err := json.Marshal(requestData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	logger.Debugw("HTTP task: sending request",
+		"requestData", string(requestDataJSON),
+		"url", url.String(),
+		"method", method,
+		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
+	)
+
+	responseBytes, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	if err != nil {
+		return Result{Error: err}
 	}
 
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
-		"url", t.URL.String(),
+		"url", url.String(),
 		"dotID", t.DotID(),
 	)
+
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
+
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
 	return Result{Value: string(responseBytes)}
-}
-
-func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
-	b, isSet := t.AllowUnrestrictedNetworkAccess.Bool()
-	if isSet {
-		return b
-	}
-	return t.config.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func bestEffortExtractError(responseBytes []byte) string {
-	var resp PossibleErrorResponses
-	err := json.Unmarshal(responseBytes, &resp)
-	if err != nil {
-		return ""
-	}
-	if resp.Error != "" {
-		return resp.Error
-	} else if resp.ErrorMessage != "" {
-		return resp.ErrorMessage
-	}
-	return string(responseBytes)
 }

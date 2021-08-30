@@ -20,15 +20,14 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	store := app.GetStore()
+	db := app.GetStore().DB
 	client := app.NewHTTPClient()
 
-	key := cltest.MustInsertRandomKey(t, store.DB, 0)
-	from := key.Address.Address()
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from)
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 3, from)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 2, from)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
 	t.Cleanup(cleanup)

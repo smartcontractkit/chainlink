@@ -216,10 +216,25 @@ func EVMTranscodeJSONWithFormat(value gjson.Result, format string) ([]byte, erro
 	}
 }
 
+func EVMWordAddress(val common.Address) []byte {
+	word := make([]byte, EVMWordByteLen)
+	start := EVMWordByteLen - 20
+	for i, b := range val.Bytes() {
+		word[start+i] = b
+	}
+	return word
+}
+
 // EVMWordUint64 returns a uint64 as an EVM word byte array.
 func EVMWordUint64(val uint64) []byte {
 	word := make([]byte, EVMWordByteLen)
 	binary.BigEndian.PutUint64(word[EVMWordByteLen-8:], val)
+	return word
+}
+
+func EVMWordUint32(val uint32) []byte {
+	word := make([]byte, EVMWordByteLen)
+	binary.BigEndian.PutUint32(word[EVMWordByteLen-4:], val)
 	return word
 }
 
@@ -259,6 +274,18 @@ func EVMWordBigInt(val *big.Int) ([]byte, error) {
 		return nil, fmt.Errorf("overflow saving big.Int to EVM word: %v", val)
 	}
 	return common.LeftPadBytes(bytes, EVMWordByteLen), nil
+}
+
+func Bytes32FromString(s string) [32]byte {
+	var b32 [32]byte
+	copy(b32[:], s)
+	return b32
+}
+
+func Bytes4FromString(s string) [4]byte {
+	var b4 [4]byte
+	copy(b4[:], s)
+	return b4
 }
 
 // "Constants" used by EVM words

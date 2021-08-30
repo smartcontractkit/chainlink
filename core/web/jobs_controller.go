@@ -3,23 +3,20 @@ package web
 import (
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"gopkg.in/guregu/null.v4"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // JobsController manages jobs
@@ -30,14 +27,23 @@ type JobsController struct {
 // Index lists all jobs
 // Example:
 // "GET <application>/jobs"
-func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.GetJobORM().JobsV2()
+func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	if c.Query("size") == "" {
+		size = 1000
+	}
+
+	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	var resources []presenters.JobResource
+	for _, job := range jobs {
+		resources = append(resources, *presenters.NewJobResource(job))
+	}
 
-	jsonAPIResponse(c, presenters.NewJobResources(jobs), "jobs")
+	paginatedResponse(c, "jobs", size, page, resources, count, err)
 }
 
 // Show returns the details of a job
@@ -51,7 +57,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jobSpec, err = jc.App.GetJobORM().FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -63,12 +69,6 @@ func (jc *JobsController) Show(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(jobSpec), "jobs")
-}
-
-type GenericJobSpec struct {
-	Type          job.Type    `toml:"type"`
-	SchemaVersion uint32      `toml:"schemaVersion"`
-	Name          null.String `toml:"name"`
 }
 
 // CreateJobRequest represents a request to create and start a job (V2).
@@ -86,40 +86,41 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	genericJS := GenericJobSpec{}
-	err := toml.Unmarshal([]byte(request.TOML), &genericJS)
+	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
 	}
 
-	var js job.Job
+	var jb job.Job
 	config := jc.App.GetStore().Config
-	switch genericJS.Type {
+	switch jobType {
 	case job.OffchainReporting:
-		js, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetEVMConfig(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
 		}
 	case job.DirectRequest:
-		js, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
+		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
-		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	case job.Keeper:
-		js, err = keeper.ValidatedKeeperSpec(request.TOML)
+		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
-		js, err = cron.ValidateCronSpec(request.TOML)
+		jb, err = cron.ValidatedCronSpec(request.TOML)
 	case job.VRF:
-		js, err = vrf.ValidateVRFSpec(request.TOML)
+		jb, err = vrf.ValidatedVRFSpec(request.TOML)
+	case job.Webhook:
+		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), js, js.Name)
+	jb, err = jc.App.AddJobV2(c.Request.Context(), jb, jb.Name)
 	if err != nil {
 		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -129,16 +130,10 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	job, err := jc.App.GetJobORM().FindJob(jobID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
+	jsonAPIResponse(c, presenters.NewJobResource(jb), jb.Type.String())
 }
 
-// Delete soft deletes a job spec.
+// Delete hard deletes a job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
@@ -149,7 +144,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = jc.App.DeleteJobV2(c.Request.Context(), jobSpec.ID)
+	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return
@@ -159,5 +154,5 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
 }

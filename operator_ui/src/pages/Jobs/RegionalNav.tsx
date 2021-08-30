@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useCallback, useState, useRef } from 'react'
 import { connect } from 'react-redux'
 import { Redirect, useLocation } from 'react-router-dom'
 
@@ -9,6 +9,7 @@ import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import Badge from '@material-ui/core/Badge'
+import TextField from '@material-ui/core/TextField'
 import {
   createStyles,
   Theme,
@@ -16,11 +17,9 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { ApiResponse } from 'utils/json-api-client'
-import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 
-import { createJobRun, createJobRunV2, deleteJobSpec } from 'actionCreators'
+import { createJobRunV2, deleteJobSpec } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import CopyJobSpec from 'components/CopyJobSpec'
@@ -28,7 +27,6 @@ import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { JobData } from './sharedTypes'
-import { isJobV2 } from 'pages/Jobs/utils'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -103,17 +101,22 @@ const styles = (theme: Theme) =>
       fontWeight: 450,
       marginLeft: theme.spacing.unit * 6,
     },
+    modalTextarea: {
+      marginLeft: theme.spacing.unit * 2,
+    },
     modalContent: {
       width: 'inherit',
     },
-    archiveButton: {
+    deleteButton: {
       marginTop: theme.spacing.unit * 4,
     },
+    runJobButton: {
+      marginBottom: theme.spacing.unit * 3,
+    },
+    runJobModalContent: {
+      overflow: 'hidden',
+    },
   })
-
-const isWebInitiator = (
-  initiators: ApiResponse<JobSpec>['data']['attributes']['initiators'],
-) => initiators.find((initiator) => initiator.type === 'web')
 
 const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
@@ -125,14 +128,13 @@ const CreateRunSuccessNotification = ({ data }: any) => (
 )
 
 const DeleteSuccessNotification = ({ id }: any) => (
-  <React.Fragment>Successfully archived job {id}</React.Fragment>
+  <React.Fragment>Successfully deleted job {id}</React.Fragment>
 )
-
 interface Props extends WithStyles<typeof styles> {
-  createJobRun: Function
   createJobRunV2: Function
   deleteJobSpec: Function
-  jobSpecId: string
+  jobId: string
+  externalJobID?: string
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
   getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
@@ -140,13 +142,13 @@ interface Props extends WithStyles<typeof styles> {
 
 const RegionalNavComponent = ({
   classes,
-  createJobRun,
   createJobRunV2,
-  jobSpecId,
+  jobId,
   job,
   deleteJobSpec,
   getJobSpecRuns,
   runsCount,
+  externalJobID,
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
@@ -154,68 +156,44 @@ const RegionalNavComponent = ({
   const navRunsActive = location.pathname.endsWith('/runs')
   const navOverviewActive =
     !navDefinitionActive && !navErrorsActive && !navRunsActive
-  const [modalOpen, setModalOpen] = React.useState(false)
-  const [archived, setArchived] = React.useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [deleted, setDeleted] = useState(false)
+  const [runJobModalOpen, setRunJobModalOpen] = useState(false)
 
-  const handleRun = async () => {
+  const handleRun = async (pipelineInput: string) => {
     const params = new URLSearchParams(location.search)
     const page = params.get('page')
     const size = params.get('size')
 
-    if (job?.id && isJobV2(job.id)) {
-      await createJobRunV2(
-        jobSpecId,
-        CreateRunSuccessNotification,
-        ErrorMessage,
-      )
-    } else {
-      await createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
-    }
+    await createJobRunV2(
+      externalJobID || jobId,
+      pipelineInput,
+      CreateRunSuccessNotification,
+      ErrorMessage,
+    )
+
     await getJobSpecRuns({
       page: page ? parseInt(page, 10) : undefined,
       size: size ? parseInt(size, 10) : undefined,
     })
   }
+
   const handleDelete = (id: string) => {
-    deleteJobSpec(
-      id,
-      () => DeleteSuccessNotification({ id }),
-      ErrorMessage,
-      job?.type,
-    )
-    setArchived(true)
+    deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
+    setDeleted(true)
   }
 
   const typeDetail = useMemo(() => {
-    let type = 'unknown'
-
     if (!job) {
       return 'Unknown job type'
     }
 
-    if (job.type === 'v2') {
-      switch (job.specType) {
-        case 'offchainreporting':
-          type = 'Off-chain reporting'
-          break
-        case 'keeper':
-          type = 'Keeper'
-          break
-        case 'cron':
-          type = 'Cron'
-          break
-        case 'web':
-          type = 'Web'
-          break
-        default:
-          type = 'Direct request'
-      }
-    } else {
-      type = job.type
-    }
-
-    return `${type} job spec detail`
+    return `${job.specType}`
   }, [job])
+
+  const toggleRunJobModal = useCallback(() => {
+    setRunJobModalOpen(!runJobModalOpen)
+  }, [runJobModalOpen, setRunJobModalOpen])
 
   return (
     <>
@@ -263,13 +241,10 @@ const RegionalNavComponent = ({
                 </Grid>
               </Grid>
               <Grid container spacing={0} alignItems="center" justify="center">
-                <Grid item className={classes.archiveButton}>
-                  <Button
-                    variant="danger"
-                    onClick={() => handleDelete(jobSpecId)}
-                  >
-                    Archive {jobSpecId}
-                    {archived && <Redirect to="/" />}
+                <Grid item className={classes.deleteButton}>
+                  <Button variant="danger" onClick={() => handleDelete(jobId)}>
+                    Delete {jobId}
+                    {deleted && <Redirect to="/" />}
                   </Button>
                 </Grid>
               </Grid>
@@ -281,13 +256,6 @@ const RegionalNavComponent = ({
       <Card className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
-            {job && (
-              <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {typeDetail}
-              </Typography>
-            )}
-          </Grid>
-          <Grid item xs={12}>
             <Grid
               container
               spacing={0}
@@ -297,11 +265,21 @@ const RegionalNavComponent = ({
               <Grid item xs={6}>
                 {job && (
                   <Typography
-                    variant="h3"
+                    variant="h5"
                     color="secondary"
                     className={classes.jobSpecId}
                   >
-                    {job.name || jobSpecId}
+                    {job.name || jobId}
+                  </Typography>
+                )}
+
+                {job && (
+                  <Typography
+                    variant="subtitle2"
+                    color="secondary"
+                    gutterBottom
+                  >
+                    {typeDetail}
                   </Typography>
                 )}
               </Grid>
@@ -312,18 +290,23 @@ const RegionalNavComponent = ({
                       className={classes.regionalNavButton}
                       onClick={() => setModalOpen(true)}
                     >
-                      Archive
+                      Delete
                     </Button>
-                    {((job.type === 'Direct request' &&
-                      job.initiators &&
-                      isWebInitiator(job.initiators)) ||
-                      (job.type == 'v2' && job.specType == 'web')) && (
-                      <Button
-                        onClick={handleRun}
-                        className={classes.regionalNavButton}
-                      >
-                        Run
-                      </Button>
+                    {job.specType == 'webhook' && (
+                      <React.Fragment>
+                        <Button
+                          onClick={toggleRunJobModal}
+                          className={classes.regionalNavButton}
+                        >
+                          Run
+                        </Button>
+                        <RunJobModal
+                          open={runJobModalOpen}
+                          onClose={toggleRunJobModal}
+                          run={handleRun}
+                          classes={classes}
+                        />
+                      </React.Fragment>
                     )}
                     {job.definition && (
                       <>
@@ -364,7 +347,7 @@ const RegionalNavComponent = ({
             <List className={classes.horizontalNav}>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  href={`/jobs/${jobSpecId}`}
+                  href={`/jobs/${jobId}`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navOverviewActive && classes.activeNavLink,
@@ -375,7 +358,7 @@ const RegionalNavComponent = ({
               </ListItem>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  href={`/jobs/${jobSpecId}/definition`}
+                  href={`/jobs/${jobId}/definition`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navDefinitionActive && classes.activeNavLink,
@@ -386,7 +369,7 @@ const RegionalNavComponent = ({
               </ListItem>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  href={`/jobs/${jobSpecId}/errors`}
+                  href={`/jobs/${jobId}/errors`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navErrorsActive && classes.activeNavLink,
@@ -407,7 +390,7 @@ const RegionalNavComponent = ({
               </ListItem>
               <ListItem className={classes.horizontalNavItem}>
                 <Link
-                  href={`/jobs/${jobSpecId}/runs`}
+                  href={`/jobs/${jobId}/runs`}
                   className={classNames(
                     classes.horizontalNavLink,
                     navRunsActive && classes.activeNavLink,
@@ -431,8 +414,70 @@ const RegionalNavComponent = ({
   )
 }
 
+const RunJobModal = (props: {
+  open: boolean
+  onClose: () => void
+  run: (pipelineInput: string) => void
+  classes: any
+}) => {
+  const { open, onClose, run, classes } = props
+
+  const textarea = useRef<HTMLTextAreaElement>(null)
+
+  const onClickRun = useCallback(() => {
+    if (!textarea.current) {
+      return
+    }
+    run(textarea.current.value)
+    textarea.current.value = ''
+    onClose()
+  }, [run, onClose, textarea])
+
+  return (
+    <Dialog onClose={onClose} open={open}>
+      <Grid container spacing={0} className={classes.runJobModalContent}>
+        <Grid item className={classes.modalContent}>
+          <Grid container alignItems="baseline" justify="space-between">
+            <Grid item>
+              <Typography
+                variant="h5"
+                color="secondary"
+                className={classes.warningText}
+              >
+                Pipeline input
+              </Typography>
+            </Grid>
+            <Grid item>
+              <Close className={classes.closeButton} onClick={onClose} />
+            </Grid>
+          </Grid>
+          <Grid container direction="column">
+            <Grid item>
+              <Grid item className={classes.modalTextarea}>
+                <TextField
+                  label="Multiline"
+                  multiline
+                  rows={4}
+                  variant="outlined"
+                  inputRef={textarea}
+                />
+              </Grid>
+            </Grid>
+            <Grid container spacing={0} alignItems="center" justify="center">
+              <Grid item className={classes.runJobButton}>
+                <Button variant="danger" onClick={onClickRun}>
+                  Run job
+                </Button>
+              </Grid>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+    </Dialog>
+  )
+}
+
 export const ConnectedRegionalNav = connect(null, {
-  createJobRun,
   createJobRunV2,
   deleteJobSpec,
 })(RegionalNavComponent)

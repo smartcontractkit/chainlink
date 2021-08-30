@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -61,13 +61,6 @@ func (mes *MockSubscription) Unsubscribe() {
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
 	close(mes.Errors)
-}
-
-// InstantClock create InstantClock
-func (ta *TestApplication) InstantClock() InstantClock {
-	clock := InstantClock{}
-	ta.Scheduler.OneTime.Clock = clock
-	return clock
 }
 
 // InstantClock an InstantClock
@@ -143,7 +136,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -151,7 +144,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -159,29 +152,10 @@ type noopStopApplication struct {
 	chainlink.Application
 }
 
+// FIXME: Why bother with this wrapper?
 func (a noopStopApplication) Stop() error {
 	return nil
 }
-
-// CallbackAuthenticator contains a call back authenticator method
-type CallbackAuthenticator struct {
-	Callback func(*store.Store, string) (string, error)
-}
-
-// Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
-	return a.Callback(store, pwd)
-}
-
-func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
-	return nil
-}
-
-func (a CallbackAuthenticator) AuthenticateOCRKey(*store.Store, string) error {
-	return nil
-}
-
-var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to
 type BlockedRunner struct {
@@ -256,7 +230,7 @@ func NewHTTPMockServer(
 		called = true
 
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response) // Assignment for errcheck. Only used in tests so we can ignore.
 	})
 
 	server := httptest.NewServer(handler)
@@ -280,7 +254,7 @@ func NewHTTPMockServerWithRequest(
 		called = true
 
 		w.WriteHeader(status)
-		io.WriteString(w, response)
+		_, _ = io.WriteString(w, response) // Assignment for errcheck. Only used in tests so we can ignore.
 	})
 
 	server := httptest.NewServer(handler)
@@ -295,7 +269,7 @@ func NewHTTPMockServerWithAlterableResponse(
 	server = httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, response())
+			_, _ = io.WriteString(w, response())
 		}))
 	return server
 }
@@ -305,7 +279,7 @@ func NewHTTPMockServerWithAlterableResponseAndRequest(t *testing.T, response fun
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			callback(r)
 			w.WriteHeader(http.StatusOK)
-			io.WriteString(w, response())
+			_, _ = io.WriteString(w, response())
 		}))
 	return server
 }
@@ -356,32 +330,7 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	connectedCount    int32
-	ConnectedCallback func(bn *models.Head)
-	disconnectedCount int32
-	onNewHeadCount    int32
-}
-
-// Connect increases the connected count by one
-func (m *MockHeadTrackable) Connect(bn *models.Head) error {
-	atomic.AddInt32(&m.connectedCount, 1)
-	if m.ConnectedCallback != nil {
-		m.ConnectedCallback(bn)
-	}
-	return nil
-}
-
-// ConnectedCount returns the count of connections made, safely.
-func (m *MockHeadTrackable) ConnectedCount() int32 {
-	return atomic.LoadInt32(&m.connectedCount)
-}
-
-// Disconnect increases the disconnected count by one
-func (m *MockHeadTrackable) Disconnect() { atomic.AddInt32(&m.disconnectedCount, 1) }
-
-// DisconnectedCount returns the count of disconnections made, safely.
-func (m *MockHeadTrackable) DisconnectedCount() int32 {
-	return atomic.LoadInt32(&m.disconnectedCount)
+	onNewHeadCount int32
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
@@ -434,12 +383,12 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 	if user, err := store.FindUser(); err == nil {
 		return user, err
 	}
-	m.Count += 1
+	m.Count++
 	user := MustRandomUser()
 	return user, store.SaveUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) cmd.HTTPClient {
 	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, models.SessionRequest{})
 }
 
@@ -462,16 +411,16 @@ type MockSessionRequestBuilder struct {
 }
 
 func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
-	m.Count += 1
+	m.Count++
 	if m.Error != nil {
 		return models.SessionRequest{}, m.Error
 	}
 	return models.SessionRequest{Email: APIEmail, Password: Password}, nil
 }
 
-type mockSecretGenerator struct{}
+type MockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
+func (m MockSecretGenerator) Generate(string) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 

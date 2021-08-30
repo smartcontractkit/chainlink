@@ -7,64 +7,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestRunStatus(t *testing.T) {
 	t.Parallel()
 
 	assert.Equal(t, pipeline.RunStatusUnknown.Finished(), false)
-	assert.Equal(t, pipeline.RunStatusInProgress.Finished(), false)
+	assert.Equal(t, pipeline.RunStatusRunning.Finished(), false)
 	assert.Equal(t, pipeline.RunStatusCompleted.Finished(), true)
 	assert.Equal(t, pipeline.RunStatusErrored.Finished(), true)
 
 	assert.Equal(t, pipeline.RunStatusUnknown.Errored(), false)
-	assert.Equal(t, pipeline.RunStatusInProgress.Errored(), false)
+	assert.Equal(t, pipeline.RunStatusRunning.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusCompleted.Errored(), false)
 	assert.Equal(t, pipeline.RunStatusErrored.Errored(), true)
 }
 
 func TestRun_Status(t *testing.T) {
-	now := time.Now()
-	var success = pipeline.TaskRunResults{
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: 10,
-				Error: nil,
-			},
-			FinishedAt: time.Now(),
-			IsTerminal: true,
-		},
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: 10,
-				Error: nil,
-			},
-			FinishedAt: time.Now(),
-			IsTerminal: true,
-		},
-	}
-	var fail = pipeline.TaskRunResults{
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: nil,
-				Error: errors.New("fail"),
-			},
-			FinishedAt: time.Now(),
-			IsTerminal: true,
-		},
-		{
-			Task: &pipeline.HTTPTask{},
-			Result: pipeline.Result{
-				Value: nil,
-				Error: errors.New("fail"),
-			},
-			FinishedAt: time.Now(),
-			IsTerminal: true,
-		},
-	}
+	now := null.TimeFrom(time.Now())
 
 	testCases := []struct {
 		name string
@@ -76,25 +37,25 @@ func TestRun_Status(t *testing.T) {
 			run: &pipeline.Run{
 				Errors:     pipeline.RunErrors{},
 				Outputs:    pipeline.JSONSerializable{},
-				FinishedAt: nil,
+				FinishedAt: null.Time{},
 			},
-			want: pipeline.RunStatusInProgress,
+			want: pipeline.RunStatusRunning,
 		},
 		{
 			name: "Completed",
 			run: &pipeline.Run{
-				Errors:     success.FinalResult().ErrorsDB(),
-				Outputs:    success.FinalResult().OutputsDB(),
-				FinishedAt: &now,
+				Errors:     pipeline.RunErrors{},
+				Outputs:    pipeline.JSONSerializable{Val: []interface{}{10, 10}, Null: false},
+				FinishedAt: now,
 			},
 			want: pipeline.RunStatusCompleted,
 		},
 		{
 			name: "Error",
 			run: &pipeline.Run{
-				Outputs:    fail.FinalResult().OutputsDB(),
-				Errors:     fail.FinalResult().ErrorsDB(),
-				FinishedAt: nil,
+				Outputs:    pipeline.JSONSerializable{},
+				Errors:     pipeline.RunErrors{null.StringFrom(errors.New("fail").Error())},
+				FinishedAt: null.Time{},
 			},
 			want: pipeline.RunStatusErrored,
 		},

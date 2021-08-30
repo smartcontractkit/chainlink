@@ -4,40 +4,40 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/stretchr/testify/require"
 )
 
-func TestKeyStore_Accounts(t *testing.T) {
+func TestKeyStore_SendingKeys(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
+	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	ks := fluxmonitorv2.NewKeyStore(s)
+	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
-	s.KeyStore.Unlock(cltest.Password)
-	account, err := s.KeyStore.NewAccount()
+	key, err := ethKeyStore.Create()
 	require.NoError(t, err)
 
-	accounts := ks.Accounts()
-	require.Len(t, accounts, 1)
-	require.Equal(t, account, accounts[0])
+	keys, err := ks.SendingKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+	require.Equal(t, key, keys[0])
 }
 
 func TestKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
+	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	cltest.MustAddRandomKeyToKeystore(t, s, 0, true)
-	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, s, 0)
+	_, k0Address := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	ks := fluxmonitorv2.NewKeyStore(s)
+	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
 	// Gets the only address in the keystore
-	addr, err := ks.GetRoundRobinAddress(s.DB)
+	addr, err := ks.GetRoundRobinAddress()
 	require.NoError(t, err)
 	require.Equal(t, k0Address, addr)
 }

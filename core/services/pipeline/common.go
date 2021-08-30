@@ -9,17 +9,16 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -27,14 +26,17 @@ import (
 type (
 	Task interface {
 		Type() TaskType
+		ID() int
 		DotID() string
-		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
-		OutputTask() Task
-		SetOutputTask(task Task)
+		Run(ctx context.Context, vars Vars, inputs []Result) Result
+		Base() *BaseTask
+		Outputs() []Task
+		Inputs() []Task
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error
-		NPreds() int
+		TaskRetries() uint32
+		TaskMinBackoff() time.Duration
+		TaskMaxBackoff() time.Duration
 	}
 
 	Config interface {
@@ -45,6 +47,9 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
+		EvmGasLimitDefault() uint64
+		EvmMaxQueuedTransactions() uint64
+		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -55,17 +60,17 @@ type (
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
+	ErrInputTaskErrored      = errors.New("input task errored")
+	ErrParameterEmpty        = errors.New("parameter is empty")
+	ErrTooManyErrors         = errors.New("too many errors")
+	ErrTimeout               = errors.New("timeout")
+	ErrTaskRunFailed         = errors.New("task run failed")
+	ErrCancelled             = errors.New("task run cancelled (fail early)")
 )
 
-// Bundled tx and txmutex for multiple goroutines inside the same transaction.
-// This mutex is necessary to work to avoid
-// concurrent database calls inside the same transaction to fail.
-// With the pq driver: `pq: unexpected Parse response 'C'`
-// With the pgx driver: `conn busy`.
-type SafeTx struct {
-	tx   *gorm.DB
-	txMu *sync.Mutex
-}
+const (
+	InputTaskKey = "input"
+)
 
 // Result is the result of a TaskRun
 type Result struct {
@@ -93,25 +98,6 @@ type FinalResult struct {
 	Errors []error
 }
 
-// OutputsDB dumps a result output for a pipeline_run
-func (result FinalResult) OutputsDB() JSONSerializable {
-	return JSONSerializable{Val: result.Values, Null: false}
-}
-
-// ErrorsDB dumps a result error for a pipeline_run
-func (result FinalResult) ErrorsDB() RunErrors {
-	errStrs := make([]null.String, len(result.Errors))
-	for i, err := range result.Errors {
-		if err == nil {
-			errStrs[i] = null.String{}
-		} else {
-			errStrs[i] = null.StringFrom(err.Error())
-		}
-	}
-
-	return errStrs
-}
-
 // HasErrors returns true if the final result has any errors
 func (result FinalResult) HasErrors() bool {
 	for _, err := range result.Errors {
@@ -135,13 +121,21 @@ func (result FinalResult) SingularResult() (Result, error) {
 // ID might be zero if the TaskRun has not been inserted yet
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
-	ID         int64
+	ID         uuid.UUID
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
+	Attempts   uint
 	CreatedAt  time.Time
-	FinishedAt time.Time
-	IsTerminal bool
+	FinishedAt null.Time
+}
+
+func (result *TaskRunResult) IsPending() bool {
+	return !result.FinishedAt.Valid && result.Result == Result{}
+}
+
+func (result *TaskRunResult) IsTerminal() bool {
+	return len(result.Task.Outputs()) == 0
 }
 
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
@@ -156,7 +150,7 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
 	})
 	for _, trr := range trrs {
-		if trr.IsTerminal {
+		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
 			fr.Errors = append(fr.Errors, trr.Result.Error)
 			found = true
@@ -168,11 +162,6 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		panic("expected at least one task to be final")
 	}
 	return fr
-}
-
-type RunWithResults struct {
-	Run            Run
-	TaskRunResults TaskRunResults
 }
 
 type JSONSerializable struct {
@@ -218,6 +207,10 @@ func (js JSONSerializable) Value() (driver.Value, error) {
 	return js.MarshalJSON()
 }
 
+func (js *JSONSerializable) Empty() bool {
+	return js == nil || js.Null
+}
+
 type TaskType string
 
 func (t TaskType) String() string {
@@ -225,19 +218,39 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeAny       TaskType = "any"
-	TaskTypeVRF       TaskType = "vrf"
+	TaskTypeHTTP             TaskType = "http"
+	TaskTypeBridge           TaskType = "bridge"
+	TaskTypeMean             TaskType = "mean"
+	TaskTypeMedian           TaskType = "median"
+	TaskTypeMode             TaskType = "mode"
+	TaskTypeSum              TaskType = "sum"
+	TaskTypeMultiply         TaskType = "multiply"
+	TaskTypeDivide           TaskType = "divide"
+	TaskTypeJSONParse        TaskType = "jsonparse"
+	TaskTypeCBORParse        TaskType = "cborparse"
+	TaskTypeAny              TaskType = "any"
+	TaskTypeVRF              TaskType = "vrf"
+	TaskTypeVRFV2            TaskType = "vrfv2"
+	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
+	TaskTypeETHCall          TaskType = "ethcall"
+	TaskTypeETHTx            TaskType = "ethtx"
+	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIDecode     TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, nPreds int) (_ Task, err error) {
+var (
+	stringType     = reflect.TypeOf("")
+	bytesType      = reflect.TypeOf([]byte(nil))
+	bytes20Type    = reflect.TypeOf([20]byte{})
+	int32Type      = reflect.TypeOf(int32(0))
+	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
+)
+
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -251,67 +264,62 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	var task Task
 	switch taskType {
 	case TaskTypePanic:
-		task = &PanicTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &PanicTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMean:
+		task = &MeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMode:
+		task = &ModeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeSum:
+		task = &SumTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeAny:
-		task = &AnyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeDivide:
+		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
-		task = &VRFTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRFV2:
+		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeEstimateGasLimit:
+		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHCall:
+		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHTx:
+		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIEncode:
+		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIDecode:
+		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIDecodeLog:
+		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeCBORParse:
+		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result: task,
+		Result:           task,
+		WeaklyTypedInput: true,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			mapstructure.StringToSliceHookFunc(","),
 			mapstructure.StringToTimeDurationHookFunc(),
-			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-				switch f {
-				case reflect.TypeOf(""):
-					switch t {
-					case reflect.TypeOf(models.WebURL{}):
-						u, err2 := url.Parse(data.(string))
-						if err2 != nil {
-							return nil, err2
-						}
-						return models.WebURL(*u), nil
-
-					case reflect.TypeOf(HttpRequestData{}):
-						var m map[string]interface{}
-						err2 := json.Unmarshal([]byte(data.(string)), &m)
-						return HttpRequestData(m), err2
-
-					case reflect.TypeOf(decimal.Decimal{}):
-						return decimal.NewFromString(data.(string))
-
-					case reflect.TypeOf(int32(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return int32(i), err2
-					case reflect.TypeOf(uint32(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 32)
-						return uint32(i), err2
-					case reflect.TypeOf(int64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return uint32(i), err2
-					case reflect.TypeOf(uint64(0)):
-						i, err2 := strconv.ParseInt(data.(string), 10, 64)
-						return uint64(i), err2
-					case reflect.TypeOf(true):
-						b, err2 := strconv.ParseBool(data.(string))
-						return b, err2
-					case reflect.TypeOf(MaybeBool("")):
-						return MaybeBoolFromString(data.(string))
-					}
+			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
+				if from != stringType {
+					return data, nil
+				}
+				switch to {
+				case nullUint32Type:
+					i, err2 := strconv.ParseUint(data.(string), 10, 32)
+					return cnull.Uint32From(uint32(i)), err2
 				}
 				return data, nil
 			},
@@ -328,8 +336,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	return task, nil
 }
 
-type HttpRequestData map[string]interface{}
-
-func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
-func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
-func (h HttpRequestData) AsMap() map[string]interface{} { return h }
+func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{}, error) {
+	if minLen >= 0 && len(inputs) < minLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+	} else if maxLen >= 0 && len(inputs) > maxLen {
+		return nil, errors.Wrapf(ErrWrongInputCardinality, "min: %v max: %v (got %v)", minLen, maxLen, len(inputs))
+	}
+	var vals []interface{}
+	var errs int
+	for _, input := range inputs {
+		if input.Error != nil {
+			errs++
+			continue
+		}
+		vals = append(vals, input.Value)
+	}
+	if maxErrors >= 0 && errs > maxErrors {
+		return nil, ErrTooManyErrors
+	}
+	return vals, nil
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -292,14 +293,14 @@ func TestClient_CreateJobV2(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 	assert.Equal(t, presenters.JobSpecType("offchainreporting"), output.Type)
@@ -307,10 +308,12 @@ func TestClient_CreateJobV2(t *testing.T) {
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
 
-func TestClient_DeleteJobV2(t *testing.T) {
+func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestEVMConfig) {
+		c.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -318,52 +321,32 @@ func TestClient_DeleteJobV2(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+	require.NotEmpty(t, r.Renders)
 
 	output := *r.Renders[0].(*cmd.JobPresenter)
 
-	requireJobsCount(t, app.JobORM, 1)
+	requireJobsCount(t, app.JobORM(), 1)
+
+	jobs, _, err := app.JobORM().JobsV2(0, 1000)
+	require.NoError(t, err)
+	jobID := jobs[0].ID
+	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 	// Must supply job id
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, "must pass the job id to be archived", client.DeleteJobV2(c).Error())
+	require.Equal(t, "must pass the job id to be archived", client.DeleteJob(c).Error())
 
 	set = flag.NewFlagSet("test", 0)
 	set.Parse([]string{output.ID})
 	c = cli.NewContext(nil, set, nil)
-	require.NoError(t, client.DeleteJobV2(c))
+	require.NoError(t, client.DeleteJob(c))
 
-	requireJobsCount(t, app.JobORM, 0)
+	requireJobsCount(t, app.JobORM(), 0)
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
-	jobs, err := orm.JobsV2()
+	jobs, _, err := orm.JobsV2(0, 1000)
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
-}
-
-func TestClient_Migrate(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
-	client, _ := app.NewClientAndRenderer()
-	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
-
-	// Create a v1 job.
-	set := flag.NewFlagSet("create", 0)
-	set.Parse([]string{"../testdata/jsonspecs/flux_monitor_bridge_job.json"})
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.CreateJobSpec(c))
-
-	// Migrate v1 job to v2 using the cli.
-	var js models.JobSpec
-	err := app.Store.Jobs(func(spec *models.JobSpec) bool {
-		js = *spec
-		return true
-	})
-	require.NoError(t, err)
-	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{js.ID.String()})
-	require.NoError(t, client.Migrate(cli.NewContext(nil, set, nil)))
 }

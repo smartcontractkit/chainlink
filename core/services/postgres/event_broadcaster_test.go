@@ -8,17 +8,17 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestEventBroadcaster(t *testing.T) {
-	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	defer eventBroadcaster.Close()
 
 	t.Run("doesn't broadcast unrelated events (no payload filter)", func(t *testing.T) {
 		sub, err := eventBroadcaster.Subscribe("foo", "")

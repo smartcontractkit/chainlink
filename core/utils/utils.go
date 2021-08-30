@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,6 +26,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
@@ -107,7 +109,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
@@ -441,12 +443,28 @@ func HexToUint256(s string) (*big.Int, error) {
 	return rv, nil
 }
 
+func HexToBig(s string) *big.Int {
+	n, ok := new(big.Int).SetString(s, 16)
+	if !ok {
+		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
+	}
+	return n
+}
+
 // Uint256ToHex returns the hex representation of n, or error if out of bounds
 func Uint256ToHex(n *big.Int) (string, error) {
 	if err := CheckUint256(n); err != nil {
 		return "", err
 	}
 	return common.BigToHash(n).Hex(), nil
+}
+
+// Uint256ToBytes32 returns the bytes32 encoding of the big int provided
+func Uint256ToBytes32(n *big.Int) []byte {
+	if n.BitLen() > 256 {
+		panic("vrf.uint256ToBytes32: too big to marshal to uint256")
+	}
+	return common.LeftPadBytes(n.Bytes(), 32)
 }
 
 // ToDecimal converts an input to a decimal
@@ -735,6 +753,7 @@ func LogIfError(err *error, msg string) {
 
 // DebugPanic logs a panic exception being called
 func DebugPanic() {
+	//revive:disable:defer
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
 		runtime.Callers(5, pc)
@@ -743,6 +762,13 @@ func DebugPanic() {
 		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
 		panic(err)
 	}
+}
+
+type TickerBase interface {
+	Resume()
+	Pause()
+	Destroy()
+	Ticks() <-chan time.Time
 }
 
 // PausableTicker stores a ticker with a duration
@@ -793,6 +819,62 @@ func (t *PausableTicker) Resume() {
 // Destroy pauses the PausibleTicker
 func (t *PausableTicker) Destroy() {
 	t.Pause()
+}
+
+type CronTicker struct {
+	*cron.Cron
+	ch      chan time.Time
+	beenRun *abool.AtomicBool
+}
+
+func NewCronTicker(schedule string) (CronTicker, error) {
+	cron := cron.New(cron.WithSeconds())
+	ch := make(chan time.Time, 1)
+	_, err := cron.AddFunc(schedule, func() {
+		select {
+		case ch <- time.Now():
+		default:
+		}
+	})
+	if err != nil {
+		return CronTicker{beenRun: abool.New()}, err
+	}
+	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
+}
+
+// Start - returns true if the CronTicker was actually started, false otherwise
+func (t *CronTicker) Start() bool {
+	if t.Cron != nil {
+		if t.beenRun.SetToIf(false, true) {
+			t.Cron.Start()
+			return true
+		}
+	}
+	return false
+}
+
+// Stop - returns true if the CronTicker was actually stopped, false otherwise
+func (t *CronTicker) Stop() bool {
+	if t.Cron != nil {
+		if t.beenRun.SetToIf(true, false) {
+			t.Cron.Stop()
+			return true
+		}
+	}
+	return false
+}
+
+func (t *CronTicker) Ticks() <-chan time.Time {
+	return t.ch
+}
+
+func ValidateCronSchedule(schedule string) error {
+	if !(strings.HasPrefix(schedule, "CRON_TZ=") || strings.HasPrefix(schedule, "@every ")) {
+		return errors.New("cron schedule must specify a time zone using CRON_TZ, e.g. 'CRON_TZ=UTC 5 * * * *', or use the @every syntax, e.g. '@every 1h30m'")
+	}
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
+	_, err := parser.Parse(schedule)
+	return errors.Wrapf(err, "invalid cron schedule '%v'", schedule)
 }
 
 // ResettableTimer stores a timer
@@ -849,84 +931,113 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
+var (
+	ErrNotStarted = errors.New("Not started")
+)
+
 // StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
-	state StartStopOnceState
-	sync.RWMutex
+	state        atomic.Int32
+	sync.RWMutex // lock is held during statup/shutdown, RLock is held while executing functions dependent on a particular state
 }
 
-// StartStopOnceState manages the state for StartStopOnce
-type StartStopOnceState int
+// StartStopOnceState holds the state for StartStopOnce
+type StartStopOnceState int32
 
 const (
 	StartStopOnce_Unstarted StartStopOnceState = iota
 	StartStopOnce_Started
+	StartStopOnce_Starting
+	StartStopOnce_Stopping
 	StartStopOnce_Stopped
 )
 
 // StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
+	// SAFETY: We do this compare-and-swap outside of the lock so that
+	// concurrent StartOnce() calls return immediately.
+	success := once.state.CAS(int32(StartStopOnce_Unstarted), int32(StartStopOnce_Starting))
+
+	if !success {
+		return errors.Errorf("%v has already started once", name)
+	}
+
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Unstarted {
-		return errors.Errorf("%v has already started once", name)
-	}
-	once.state = StartStopOnce_Started
+	err := fn()
 
-	return fn()
+	success = once.state.CAS(int32(StartStopOnce_Starting), int32(StartStopOnce_Started))
+
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to started", name))
+	}
+
+	return err
 }
 
 // StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
+	// SAFETY: We hold the lock here so that Stop blocks until StartOnce
+	// executes. This ensures that a very fast call to Stop will wait for the
+	// code to finish starting up before teardown.
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != StartStopOnce_Started {
+	success := once.state.CAS(int32(StartStopOnce_Started), int32(StartStopOnce_Stopping))
+
+	if !success {
 		return errors.Errorf("%v has already stopped once", name)
 	}
-	once.state = StartStopOnce_Stopped
 
-	return fn()
-}
+	err := fn()
 
-// OkayToStart checks if the state may be started
-func (once *StartStopOnce) OkayToStart() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
+	success = once.state.CAS(int32(StartStopOnce_Stopping), int32(StartStopOnce_Stopped))
 
-	if once.state != StartStopOnce_Unstarted {
-		return false
+	if !success {
+		// SAFETY: If this is reached, something must be very wrong: once.state
+		// was tampered with outside of the lock.
+		panic(fmt.Sprintf("%v entered unreachable state, unable to set state to stopped", name))
 	}
-	once.state = StartStopOnce_Started
-	return true
-}
 
-// OkayToStop checks if the state may be stopped
-func (once *StartStopOnce) OkayToStop() (ok bool) {
-	once.Lock()
-	defer once.Unlock()
-
-	if once.state != StartStopOnce_Started {
-		return false
-	}
-	once.state = StartStopOnce_Stopped
-	return true
+	return err
 }
 
 // State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
-	once.RLock()
-	defer once.RUnlock()
-	return once.state
+	state := once.state.Load()
+	return StartStopOnceState(state)
 }
 
-func (once *StartStopOnce) IfStarted(f func()) {
+// IfStarted runs the func and returns true only if started, otherwise returns false
+func (once *StartStopOnce) IfStarted(f func()) (ok bool) {
 	once.RLock()
 	defer once.RUnlock()
-	if once.state == StartStopOnce_Started {
+
+	state := once.state.Load()
+
+	if StartStopOnceState(state) == StartStopOnce_Started {
 		f()
+		return true
 	}
+	return false
+}
+
+func (once *StartStopOnce) Ready() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return ErrNotStarted
+}
+
+// Override this per-service with more specific implementations
+func (once *StartStopOnce) Healthy() error {
+	if once.State() == StartStopOnce_Started {
+		return nil
+	}
+	return ErrNotStarted
 }
 
 // WithJitter adds +/- 10% to a duration
@@ -934,4 +1045,61 @@ func WithJitter(d time.Duration) time.Duration {
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
+}
+
+// KeyedMutex allows to lock based on particular values
+type KeyedMutex struct {
+	mutexes sync.Map
+}
+
+// LockInt64 locks the value for read/write
+func (m *KeyedMutex) LockInt64(key int64) func() {
+	value, _ := m.mutexes.LoadOrStore(key, new(sync.Mutex))
+	mtx := value.(*sync.Mutex)
+	mtx.Lock()
+
+	return func() { mtx.Unlock() }
+}
+
+// BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of
+// arrows pointing at their content, in order to better highlight it. See
+// ExampleBoxOutput
+func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
+	lines := strings.Split(errorMsgTemplate, "\n")
+	maxlen := 0
+	for _, line := range lines {
+		if len(line) > maxlen {
+			maxlen = len(line)
+		}
+	}
+	internalLength := maxlen + 4
+	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	readme := strings.Repeat("README ", maxlen/7)
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	for _, line := range lines {
+		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
+	}
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+		"\n\n"
+}
+
+func Example_boxOutput() {
+	fmt.Println()
+	fmt.Print(BoxOutput("%s is %d", "foo", 17))
+	// Output:
+	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// →  foo is 17  ←
+	// →             ←
+	// →  README     ←
+	// →             ←
+	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }

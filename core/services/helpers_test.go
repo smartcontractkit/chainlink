@@ -1,5 +1,12 @@
-package services
+package services_test
 
-func (ht *HeadTracker) ExportedDone() chan struct{} {
-	return ht.done
+import (
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/stretchr/testify/mock"
+)
+
+func NewEthClientMock(t mock.TestingT) *mocks.Client {
+	mockEth := new(mocks.Client)
+	mockEth.Test(t)
+	return mockEth
 }

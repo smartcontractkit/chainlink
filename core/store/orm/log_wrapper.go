@@ -55,10 +55,12 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 			return
 		}
 		sql, rows := fc()
+		// We only log these as debugs as we expect the errors are handled at a higher
+		// level.
 		if rows == -1 {
-			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Debugw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Debugw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case elapsed > o.slowThreshold && o.slowThreshold != 0:
 		sql, rows := fc()
@@ -70,14 +72,15 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 	case o.logAllQueries:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Debugw("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Debugw("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	}
 }
 
-func newOrmLogWrapper(logger *logger.Logger, logAllQueries bool, slowThreshold time.Duration) *ormLogWrapper {
+// FIXME: This is a GORM log wrapper, not a ORM log wrapper so it probably belongs in a different package
+func NewOrmLogWrapper(logger *logger.Logger, logAllQueries bool, slowThreshold time.Duration) *ormLogWrapper {
 	newLogger := logger.
 		SugaredLogger.
 		Desugar().

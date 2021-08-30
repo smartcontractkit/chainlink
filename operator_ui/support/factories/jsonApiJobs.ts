@@ -1,21 +1,28 @@
 import { ApiResponse } from 'utils/json-api-client'
 import { ResourceObject } from 'json-api-normalizer'
-import { JobSpecV2 } from 'core/store/models'
+import { Job, JobSpecError } from 'core/store/models'
 import {
   cronJobV2,
   directRequestJobV2,
   fluxMonitorJobV2,
   keeperJobV2,
-  ocrJobSpecV2,
-  webJobV2,
-} from './jobSpecV2'
+  ocrJob,
+  webhookJobV2,
+  vrfJobV2,
+} from './jobV2'
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * Math.floor(max))
 }
 
+export const jsonApiJob = (job: ResourceObject<Job>) => {
+  return {
+    data: job,
+  } as ApiResponse<Job>
+}
+
 export const jsonApiJobSpecsV2 = (
-  jobs: ResourceObject<JobSpecV2>[] = [],
+  jobs: ResourceObject<Job>[] = [],
   count?: number,
 ) => {
   const rc = count || jobs.length
@@ -23,11 +30,11 @@ export const jsonApiJobSpecsV2 = (
   return {
     data: jobs,
     meta: { count: rc },
-  } as ApiResponse<JobSpecV2[]>
+  } as ApiResponse<Job[]>
 }
 
 export const directRequestResource = (
-  job: Partial<JobSpecV2['directRequestSpec'] & { id?: string; name?: string }>,
+  job: Partial<Job['directRequestSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
@@ -38,12 +45,12 @@ export const directRequestResource = (
       ...directRequestJobV2(job),
       name: job.name,
     },
-  } as ResourceObject<JobSpecV2>
+  } as ResourceObject<Job>
 }
 
 export const ocrJobResource = (
   job: Partial<
-    JobSpecV2['offChainReportingOracleSpec'] & { id?: string; name?: string }
+    Job['offChainReportingOracleSpec'] & { id?: string; name?: string }
   >,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
@@ -52,26 +59,32 @@ export const ocrJobResource = (
     type: 'jobs',
     id,
     attributes: {
-      ...ocrJobSpecV2(job),
+      ...ocrJob(job),
       name: job.name,
     },
-  } as ResourceObject<JobSpecV2>
+  } as ResourceObject<Job>
 }
 
 export const fluxMonitorJobResource = (
-  job: Partial<JobSpecV2['fluxMonitorSpec'] & { id?: string; name?: string }>,
+  job: Partial<
+    Job['fluxMonitorSpec'] & {
+      id?: string
+      name?: string
+      errors: JobSpecError[]
+    }
+  >,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
   return {
     type: 'jobs',
     id,
-    attributes: fluxMonitorJobV2(job, { name: job.name }),
-  } as ResourceObject<JobSpecV2>
+    attributes: fluxMonitorJobV2(job, { name: job.name, errors: job.errors }),
+  } as ResourceObject<Job>
 }
 
 export const keeperJobResource = (
-  job: Partial<JobSpecV2['keeperSpec'] & { id?: string; name?: string }>,
+  job: Partial<Job['keeperSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
@@ -79,11 +92,11 @@ export const keeperJobResource = (
     type: 'jobs',
     id,
     attributes: keeperJobV2(job, { name: job.name }),
-  } as ResourceObject<JobSpecV2>
+  } as ResourceObject<Job>
 }
 
 export const cronJobResource = (
-  job: Partial<JobSpecV2['cronSpec'] & { id?: string; name?: string }>,
+  job: Partial<Job['cronSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
@@ -91,17 +104,29 @@ export const cronJobResource = (
     type: 'jobs',
     id,
     attributes: cronJobV2(job, { name: job.name }),
-  } as ResourceObject<JobSpecV2>
+  } as ResourceObject<Job>
 }
 
 export const webJobResource = (
-  job: Partial<JobSpecV2['webSpec'] & { id?: string; name?: string }>,
+  job: Partial<Job['webhookSpec'] & { id?: string; name?: string }>,
 ) => {
   const id = job.id || getRandomInt(1_000_000).toString()
 
   return {
     type: 'jobs',
     id,
-    attributes: webJobV2(job, { name: job.name }),
-  } as ResourceObject<JobSpecV2>
+    attributes: webhookJobV2(job, { name: job.name }),
+  } as ResourceObject<Job>
+}
+
+export const vrfJobResource = (
+  job: Partial<Job['vrfSpec'] & { id?: string; name?: string }>,
+) => {
+  const id = job.id || getRandomInt(1_000_000).toString()
+
+  return {
+    type: 'jobs',
+    id,
+    attributes: vrfJobV2(job, { name: job.name }),
+  } as ResourceObject<Job>
 }

@@ -1,5 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
-yarn workspace @chainlink/contracts test:new
+yarn workspace @chainlink/contracts test

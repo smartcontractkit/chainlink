@@ -10,9 +10,9 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -33,13 +33,13 @@ type EthResender struct {
 	db        *gorm.DB
 	ethClient eth.Client
 	interval  time.Duration
-	config    orm.ConfigReader
+	config    Config
 
 	chStop chan struct{}
 	chDone chan struct{}
 }
 
-func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config orm.ConfigReader) *EthResender {
+func NewEthResender(db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -86,9 +86,10 @@ func (er *EthResender) runLoop() {
 
 func (er *EthResender) resendUnconfirmed() error {
 	ageThreshold := er.config.EthTxResendAfterThreshold()
+	maxInFlightTransactions := er.config.EvmMaxInFlightTransactions()
 
 	olderThan := time.Now().Add(-ageThreshold)
-	attempts, err := FindEthTxesRequiringResend(er.db, olderThan)
+	attempts, err := FindEthTxesRequiringResend(er.db, olderThan, maxInFlightTransactions)
 	if err != nil {
 		return errors.Wrap(err, "failed to findEthTxAttemptsRequiringReceiptFetch")
 	}
@@ -97,7 +98,7 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	logger.Debugw(fmt.Sprintf("EthResender: re-sending %d transactions that were last sent over %s ago", len(attempts), ageThreshold), "n", len(attempts))
+	logger.Infow(fmt.Sprintf("EthResender: re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
@@ -112,7 +113,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	}
 
 	now := time.Now()
-	batchSize := int(er.config.EthRPCDefaultBatchSize())
+	batchSize := int(er.config.EvmRPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(reqs)
 	}
@@ -125,10 +126,10 @@ func (er *EthResender) resendUnconfirmed() error {
 		logger.Debugw(fmt.Sprintf("EthResender: batch resending transactions %v thru %v", i, j))
 
 		ctx, cancel := eth.DefaultQueryCtx()
-		defer cancel()
 		if err := er.ethClient.RoundRobinBatchCallContext(ctx, reqs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to re-send transactions")
 		}
+		cancel()
 
 		if err := er.updateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
 			return errors.Wrap(err, "failed to update last succeeded on attempts")
@@ -141,15 +142,20 @@ func (er *EthResender) resendUnconfirmed() error {
 }
 
 // FindEthTxesRequiringResend returns the highest priced attempt for each
-// eth_tx that was last sent before or at the given time
-func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time) (attempts []models.EthTxAttempt, err error) {
+// eth_tx that was last sent before or at the given time (up to limit)
+func FindEthTxesRequiringResend(db *gorm.DB, olderThan time.Time, maxInFlightTransactions uint32) (attempts []EthTxAttempt, err error) {
+	var limit null.Uint32
+	if maxInFlightTransactions > 0 {
+		limit = null.Uint32From(maxInFlightTransactions)
+	}
 	err = db.Raw(`
 SELECT DISTINCT ON (eth_tx_id) eth_tx_attempts.*
 FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')
 WHERE eth_tx_attempts.state <> 'in_progress' AND eth_txes.broadcast_at <= ?
 ORDER BY eth_tx_attempts.eth_tx_id ASC, eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC
-`, olderThan).
+LIMIT ?
+`, olderThan, limit).
 		Find(&attempts).Error
 
 	return

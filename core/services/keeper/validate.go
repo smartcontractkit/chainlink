@@ -3,13 +3,14 @@ package keeper
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 	var j = job.Job{
-		Pipeline: *pipeline.NewTaskDAG(),
+		ExternalJobID: uuid.NewV4(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 	var spec job.KeeperSpec
 	tree, err := toml.Load(tomlString)
@@ -28,9 +29,6 @@ func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 
 	if j.Type != job.Keeper {
 		return j, errors.Errorf("unsupported type %s", j.Type)
-	}
-	if j.SchemaVersion != uint32(1) {
-		return j, errors.Errorf("the only supported schema version is currently 1, got %d", j.SchemaVersion)
 	}
 	return j, nil
 }

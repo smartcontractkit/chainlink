@@ -1,15 +1,9 @@
-import { ApiResponse } from 'utils/json-api-client'
-import { JobRun } from 'core/store/models'
-import jsonApiJobSpecRun from 'factories/jsonApiJobSpecRun'
-import { jsonApiOcrJobRun } from 'factories/jsonApiOcrJobRun'
-import {
-  transformDirectRequestJobRun,
-  transformPipelineJobRun,
-} from './transformJobRuns'
+import { jobRunAPIResponse } from 'factories/jsonApiOcrJobRun'
+import { transformPipelineJobRun } from './transformJobRuns'
 
 describe('transformPipelineJobRun', () => {
   it('transforms api response to PipelineJobRun', () => {
-    const apiResponse = jsonApiOcrJobRun({
+    const apiResponse = jobRunAPIResponse({
       id: '1',
     })
 
@@ -28,6 +22,7 @@ describe('transformPipelineJobRun', () => {
     fetch -> parse -> multiply;
 `,
         ID: 1,
+        jobID: '1',
       },
       status: 'errored',
       taskRuns: [
@@ -63,30 +58,6 @@ describe('transformPipelineJobRun', () => {
         },
       ],
       type: 'Pipeline job run',
-    })
-  })
-})
-
-describe('transformDirectRequestJobRun', () => {
-  it('transforms api response to DirectRequestJobRun', () => {
-    const apiResponse = jsonApiJobSpecRun({
-      id: '1',
-    }) as ApiResponse<JobRun>
-
-    expect(transformDirectRequestJobRun('1')(apiResponse.data)).toEqual({
-      createdAt: '2018-06-19T15:39:53.315919143-07:00',
-      id: '1',
-      initiator: { params: {}, type: 'web' },
-      jobId: '1',
-      result: {
-        data: {
-          value:
-            '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5',
-        },
-      },
-      status: 'completed',
-      taskRuns: [],
-      type: 'Direct request job run',
     })
   })
 })

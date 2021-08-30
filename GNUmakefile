@@ -38,7 +38,7 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
-	yarn install --frozen-lockfile
+	yarn install --frozen-lockfile --prefer-offline
 	./tools/bin/restore-solc-cache
 
 .PHONY: install-chainlink
@@ -74,7 +74,7 @@ abigen:
 
 .PHONY: go-solidity-wrappers
 go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers
-	./evm-contracts/scripts/native_solc_compile_all
+	./contracts/scripts/native_solc_compile_all
 	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/services/eth/
 
@@ -104,6 +104,19 @@ docker: ## Build the docker image.
 dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
 	docker push $(ECR_REPO)-nonroot
+
+.PHONY: mockery
+mockery: $(mockery)
+	go install github.com/vektra/mockery/v2@v2.8.0
+
+.PHONY: telemetry-protobuf
+telemetry-protobuf: $(telemetry-protobuf)
+	protoc \
+	--go_out=. \
+	--go_opt=paths=source_relative \
+	--go-wsrpc_out=. \
+	--go-wsrpc_opt=paths=source_relative \
+	./core/services/synchronization/telem/*.proto
 
 help:
 	@echo ""

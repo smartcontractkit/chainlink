@@ -4,9 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,16 +19,18 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
-	log := requestRandomness(t, coordinator, keyHash, fee, seed)
-	preSeed, err := vrf.BigToSeed(log.Seed)
+	log := requestRandomness(t, coordinator, keyHash, fee)
+	preSeed, err := proof2.BigToSeed(log.Seed)
 	require.NoError(t, err, "pre-seed %x out of range", preSeed)
-	s := vrf.PreSeedData{
+	s := proof2.PreSeedData{
 		PreSeed:   preSeed,
 		BlockHash: log.Raw.Raw.BlockHash,
 		BlockNum:  log.Raw.Raw.BlockNumber,
 	}
-	proofBlob, err := vrf.GenerateProofResponseWithNonce(rawSecretKey, s,
-		big.NewInt(1) /* nonce */)
+	seed := proof2.FinalSeed(s)
+	proof, err := secretKey.GenerateProofWithNonce(seed, big.NewInt(1) /* nonce */)
+	require.NoError(t, err)
+	proofBlob, err := vrf.GenerateProofResponseFromProof(proof, s)
 	require.NoError(t, err, "could not generate VRF proof!")
 	coordinator.backend.Commit() // Work around simbackend/EVM block number bug
 	estimate := estimateGas(t, coordinator.backend, coordinator.neil.From,
@@ -36,6 +39,7 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 
 	assert.Greater(t, estimate, uint64(108000),
 		"fulfillRandomness tx cost less gas than expected")
+	t.Log("estimate", estimate)
 	// Note that this is probably a very loose upper bound on gas usage.
 	// TODO:https://www.pivotaltracker.com/story/show/175040572
 	assert.Less(t, estimate, uint64(500000),

@@ -16,31 +16,23 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	resp, err := http.Post(ts.URL+"/v2/specs/", web.MediaType, bytes.NewBufferString("{}"))
+	resp, err := http.Post(ts.URL+"/v2/jobs/", web.MediaType, bytes.NewBufferString("{}"))
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -48,19 +40,15 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	defer ts.Close()
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/", nil)
+	resp, cleanup := client.Post("/v2/bridge_types/", nil)
 	defer cleanup()
 
-	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -92,12 +80,8 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -129,12 +113,8 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -162,12 +142,8 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -186,12 +162,8 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
