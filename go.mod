@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
-replace github.com/smartcontractkit/integrations-framework v0.0.0-20210810191247-fa19b272d88a => /Users/adamhamrick/Projects/integrations-framework
-
 require (
 	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -40,6 +38,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1
+	github.com/montanaflynn/stats v0.6.6
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo v1.16.4
