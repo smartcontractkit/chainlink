@@ -395,21 +395,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	headSeq.Append(blocksForked.Head(4))
 	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
 
-	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
-			require.Equal(t, int64(4), h.Number)
-			require.Equal(t, blocks.Head(4).Hash, h.Hash)
-
-			// Check that the block came with its parents
-			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blocks.Head(3).Hash)
-			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blocks.Head(2).Hash)
-			require.NotNil(t, h.Parent.Parent.Parent)
-			require.Equal(t, h.Parent.Parent.Parent.Hash, blocks.Head(1).Hash)
-		}).Return().Once()
-
+	// the callback is only called for head number 5 because of head sampling
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			h := args.Get(1).(models.Head)
@@ -449,7 +435,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
-	time.Sleep(1 * time.Second)
+	//time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
 		// waiting shorter time than the head sampling frequency
 		time.Sleep(50 * time.Millisecond)
@@ -609,7 +595,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
 
-	time.Sleep(1 * time.Second)
 	for _, h := range headSeq.Heads {
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
