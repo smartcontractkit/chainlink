@@ -95,5 +95,5 @@ export function getTaskList({
 }
 
 function errorsExist(errors: PipelineTaskError[]): boolean {
-  return errors && errors.length > 0 && errors[0] !== null
+  return errors !== null && errors.length > 0 && errors[0] !== null
 }
