@@ -193,6 +193,60 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	assert.NotZero(t, id)
 }
 
+func Test_ORM_UpsertJobProposal(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	ctx := context.Background()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	// Create
+	count, err := orm.CountJobProposals(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), count)
+
+	id, err := orm.UpsertJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	createdActual, err := orm.GetJobProposal(ctx, id)
+	require.NoError(t, err)
+
+	count, err = orm.CountJobProposals(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), count)
+
+	assert.NotZero(t, id)
+
+	// Update
+	jp.Spec = "updated"
+	jp.Status = feeds.JobProposalStatusRejected
+	jp.Multiaddrs = pq.StringArray{"dns/example.com"}
+
+	id, err = orm.UpsertJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, jp.Spec, actual.Spec)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.Equal(t, jp.Multiaddrs, actual.Multiaddrs)
+
+	// Ensure there is a difference in the created proposal and the upserted
+	// proposal
+	assert.NotEqual(t, createdActual.Spec, actual.Spec)
+	assert.NotEqual(t, createdActual.Status, actual.Status)
+	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
+	assert.NotEqual(t, createdActual.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
+}
+
 func Test_ORM_ListJobProposals(t *testing.T) {
 	t.Parallel()
 
@@ -254,10 +308,10 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 	orm := setupORM(t)
 	fmID := createFeedsManager(t, orm)
-	uuid := uuid.NewV4()
+	remoteUUID := uuid.NewV4()
 
 	jp := &feeds.JobProposal{
-		RemoteUUID:     uuid,
+		RemoteUUID:     remoteUUID,
 		Spec:           "",
 		Status:         feeds.JobProposalStatusPending,
 		FeedsManagerID: fmID,
@@ -266,18 +320,36 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 	id, err := orm.CreateJobProposal(context.Background(), jp)
 	require.NoError(t, err)
 
-	actual, err := orm.GetJobProposal(context.Background(), id)
-	require.NoError(t, err)
+	assertJobEquals := func(actual *feeds.JobProposal) {
+		assert.Equal(t, id, actual.ID)
+		assert.Equal(t, remoteUUID, actual.RemoteUUID)
+		assert.Equal(t, jp.Status, actual.Status)
+		assert.False(t, actual.ExternalJobID.Valid)
+		assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	}
 
-	assert.Equal(t, id, actual.ID)
-	assert.Equal(t, uuid, actual.RemoteUUID)
-	assert.Equal(t, jp.Status, actual.Status)
-	assert.False(t, actual.ExternalJobID.Valid)
-	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	t.Run("by id", func(t *testing.T) {
+		actual, err := orm.GetJobProposal(context.Background(), id)
+		require.NoError(t, err)
 
-	actual, err = orm.GetJobProposal(context.Background(), int64(0))
-	require.Nil(t, actual)
-	require.Error(t, err)
+		assert.Equal(t, id, actual.ID)
+		assertJobEquals(actual)
+
+		actual, err = orm.GetJobProposal(context.Background(), int64(0))
+		require.Nil(t, actual)
+		require.Error(t, err)
+	})
+
+	t.Run("by remote uuid", func(t *testing.T) {
+		actual, err := orm.GetJobProposalByRemoteUUID(context.Background(), remoteUUID)
+		require.NoError(t, err)
+
+		assertJobEquals(actual)
+
+		actual, err = orm.GetJobProposalByRemoteUUID(context.Background(), uuid.NewV4())
+		require.Nil(t, actual)
+		require.Error(t, err)
+	})
 }
 
 func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
