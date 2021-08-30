@@ -9,7 +9,7 @@ import { fetchAccountBalance } from 'actionCreators'
 import accountBalanceSelector from 'selectors/accountBalance'
 import RecentlyCreated from 'components/Jobs/RecentlyCreated'
 import { v2 } from 'api'
-import { JobRunV2 } from 'core/store/models'
+import { JobRunV2, Resource } from 'core/store/models'
 
 type Props = {
   recentJobRunsCount: number
@@ -41,17 +41,17 @@ const fetchJobs = async (pageSize: number) => {
         createdAt = attributes.vrfSpec.createdAt
       }
 
-      return { id, createdAt }
+      return { id, createdAt, name: attributes.name }
     })
 }
 
 const fetchRuns = async (
   size: number,
-): Promise<{ runs: JobRunV2[]; count: number }> => {
+): Promise<{ runs: Resource<JobRunV2>[]; count: number }> => {
   const response = await v2.runs.getAllJobRuns({ page: 1, size })
 
   return {
-    runs: (response.data as unknown) as JobRunV2[],
+    runs: (response.data as unknown) as Resource<JobRunV2>[],
     count: response.meta.count,
   }
 }
@@ -60,8 +60,10 @@ export const Index = ({
   recentJobRunsCount = 2,
   recentlyCreatedPageSize,
 }: Props) => {
-  const [jobs, setJobs] = useState<{ id: string; createdAt: string }[]>([])
-  const [runs, setRuns] = useState<JobRunV2[]>([])
+  const [jobs, setJobs] = useState<
+    { id: string; name: string | null; createdAt: string }[]
+  >([])
+  const [runs, setRuns] = useState<Resource<JobRunV2>[]>([])
   const [count, setCount] = useState(0)
   const dispatch = useDispatch()
   const accountBalance = useSelector(accountBalanceSelector)

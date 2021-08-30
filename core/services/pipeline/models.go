@@ -21,7 +21,7 @@ type Spec struct {
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
 
-	JobID   int32  `gorm:"-" json:"jobId"`
+	JobID   int32  `gorm:"-" json:"-"`
 	JobName string `gorm:"-" json:"-"`
 }
 
@@ -34,7 +34,7 @@ func (s Spec) Pipeline() (*Pipeline, error) {
 }
 
 type Run struct {
-	ID             int64            `json:"id" gorm:"primary_key"`
+	ID             int64            `json:"-" gorm:"primary_key"`
 	PipelineSpecID int32            `json:"-"`
 	PipelineSpec   Spec             `json:"pipelineSpec"`
 	Meta           JSONSerializable `json:"meta"`

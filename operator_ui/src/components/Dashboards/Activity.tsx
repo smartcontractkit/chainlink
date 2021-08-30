@@ -20,7 +20,7 @@ import Button from '../Button'
 import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
-import { JobRunV2 } from 'core/store/models'
+import { JobRunV2, Resource } from 'core/store/models'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -100,7 +100,7 @@ const styles = ({ palette, spacing }: Theme) =>
 
 interface Props extends WithStyles<typeof styles> {
   pageSize: number
-  runs?: JobRunV2[]
+  runs?: Resource<JobRunV2>[]
   count?: number
 }
 
@@ -120,29 +120,31 @@ const Activity = ({ classes, runs, count, pageSize }: Props) => {
               <TableCell scope="row" className={classes.cell}>
                 <div className={classes.content}>
                   <div className={classes.status}>
-                    <StatusIcon width={38}>{r.state}</StatusIcon>
+                    <StatusIcon width={38}>{r.attributes.state}</StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
                     <Grid container spacing={0}>
                       <Grid item xs={12}>
                         <Typography variant="body1" color="textSecondary">
-                          <TimeAgo tooltip>{r.createdAt}</TimeAgo>
+                          <TimeAgo tooltip>{r.attributes.createdAt}</TimeAgo>
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.pipelineSpec.jobId}`}>
+                        <Link
+                          href={`/jobs/${r.attributes.pipelineSpec?.jobID}`}
+                        >
                           <Typography
                             variant="h5"
                             color="primary"
                             component="span"
                           >
-                            Job: {r.pipelineSpec.jobId}
+                            Job: {r.attributes.pipelineSpec?.jobID}
                           </Typography>
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
                         <Link
-                          href={`/jobs/${r.pipelineSpec.jobId}/runs/${r.id}`}
+                          href={`/jobs/${r.attributes.pipelineSpec?.jobID}/runs/${r.id}`}
                         >
                           <Typography
                             variant="subtitle1"
