@@ -42,5 +42,6 @@ fi
 
 test() {
   export APPS_CHAINLINK_VERSION=$1 
+  echo "Testing with the image $APPS_CHAINLINK_IMAGE:$APPS_CHAINLINK_VERSION"
   ginkgo -r -p -keepGoing --trace --randomizeAllSpecs --progress ./integration/suite/...
 }
