@@ -4,13 +4,14 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //
@@ -20,6 +21,7 @@ import (
 type EstimateGasLimitTask struct {
 	BaseTask   `mapstructure:",squash"`
 	Input      string `json:"input"`
+	From       string `json:"from"`
 	To         string `json:"to"`
 	Multiplier string `json:"multiplier"`
 	Data       string `json:"data"`
@@ -42,11 +44,13 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 
 func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	var (
+		fromAddr   AddressParam
 		toAddr     AddressParam
 		data       BytesParam
 		multiplier DecimalParam
 	)
 	err := multierr.Combine(
+		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "to"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		// Default to 1, i.e. exactly what estimateGas suggests
@@ -58,6 +62,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 
 	to := common.Address(toAddr)
 	gasLimit, err := t.GasEstimator.EstimateGas(context.Background(), ethereum.CallMsg{
+		From: common.Address(fromAddr),
 		To:   &to,
 		Data: data,
 	})

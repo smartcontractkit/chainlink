@@ -241,6 +241,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).db = r.orm.DB()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
+			task.(*ETHCallTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -350,7 +351,10 @@ func (r *runner) run(
 				continue
 			}
 			errors = append(errors, result.Error)
-			outputs = append(outputs, result.Output.Val)
+
+			if result.Output.Val != nil {
+				outputs = append(outputs, result.Output.Val)
+			}
 		}
 		run.Errors = errors
 		run.Outputs = JSONSerializable{Val: outputs, Null: false}
@@ -458,7 +462,9 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
+	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(ctx, func(ctx context.Context) error {
+		tx := postgres.TxFromContext(ctx, r.orm.DB())
+
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()
@@ -480,7 +486,6 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if err = r.orm.CreateRun(postgres.UnwrapGorm(tx), run); err != nil {
 				return err
 			}
-
 		}
 
 		if fn != nil {

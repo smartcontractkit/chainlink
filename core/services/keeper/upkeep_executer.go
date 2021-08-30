@@ -2,19 +2,15 @@ package keeper
 
 import (
 	"context"
-	"encoding/hex"
-	"fmt"
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -202,94 +198,42 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
 func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
-	start := time.Now()
 
 	svcLogger := ex.logger.With("blockNum", headNumber, "upkeepID", upkeep.UpkeepID)
 
-	msg, err := ex.constructCheckUpkeepCallMsg(upkeep)
-	if err != nil {
-		svcLogger.WithError(err).Error("failed to construct check upkeep call message")
-		return
-	}
-
 	svcLogger.Debug("checking upkeep")
 
-	ctxService, cancel := utils.ContextFromChan(ex.chStop)
+	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop)
 	defer cancel()
 
-	checkUpkeepResult, err := ex.ethClient.CallContract(ctxService, msg, nil)
-	if err != nil {
-		logRevertReason(svcLogger, err)
-		return
-	}
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":            ex.job.ID,
+			"externalJobID":         ex.job.ExternalJobID,
+			"name":                  ex.job.Name.ValueOrZero(),
+			"fromAddress":           upkeep.Registry.FromAddress.String(),
+			"contractAddress":       upkeep.Registry.ContractAddress.String(),
+			"upkeepID":              upkeep.UpkeepID,
+			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
+			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
+				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
+		},
+	})
 
-	performTxData, err := constructPerformUpkeepTxData(checkUpkeepResult, upkeep.UpkeepID)
-	if err != nil {
-		svcLogger.WithError(err).Error("failed to construct check upkeep call message")
-		return
-	}
-
-	svcLogger.Debug("performing upkeep")
-
-	// Save a run indicating we performed an upkeep.
-	f := time.Now()
-	var runErrors pipeline.RunErrors
-	if err == nil {
-		runErrors = pipeline.RunErrors{null.String{}}
-	} else {
-		runErrors = pipeline.RunErrors{null.StringFrom(errors.Wrap(err, "failed to construct upkeep txdata").Error())}
-	}
-
-	var etx bulletprooftxmanager.EthTx
-	err = ex.orm.WithTransaction(func(ctx context.Context) error {
-		etx, err = ex.orm.CreateEthTransactionForUpkeep(ctx, upkeep, performTxData)
-		if err != nil {
-			return errors.Wrap(err, "failed to create eth_tx for upkeep")
-		}
-
+	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
+	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, func(tx *gorm.DB) error {
 		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
 		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
 		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
-		err = ex.orm.SetLastRunHeightForUpkeepOnJob(ctx, ex.job.ID, upkeep.UpkeepID, headNumber)
+		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
 		if err != nil {
 			return errors.Wrap(err, "failed to set last run height for upkeep")
 		}
 
-		_, err = ex.pr.InsertFinishedRun(postgres.UnwrapGorm(postgres.TxFromContext(ctx, ex.orm.DB)), pipeline.Run{
-			State:          pipeline.RunStatusCompleted,
-			PipelineSpecID: ex.job.PipelineSpecID,
-			Meta: pipeline.JSONSerializable{
-				Val: map[string]interface{}{"eth_tx_id": etx.ID},
-			},
-			Errors: runErrors,
-			Outputs: pipeline.JSONSerializable{Val: []interface{}{
-				fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload)),
-			}},
-			CreatedAt:  start,
-			FinishedAt: null.TimeFrom(f),
-		}, false)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert finished run")
-		}
 		return nil
-	})
-	if err != nil {
-		svcLogger.WithError(err).Error("failed to update database state")
+	}); err != nil {
+		ex.logger.Errorw("failed executing run", "err", err)
 	}
-
-	// TODO: Remove in
-	// https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
-	elapsed := time.Since(start)
-	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", ex.job.ID), ex.job.Name.String, "", job.Keeper.String()).Set(float64(elapsed))
-	var status string
-	if runErrors.HasError() || err != nil {
-		status = "error"
-		pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", ex.job.ID), ex.job.Name.String).Inc()
-	} else {
-		status = "completed"
-	}
-	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", ex.job.ID), ex.job.Name.String).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", ex.job.ID), ex.job.Name.String, "", job.Keeper.String(), status).Inc()
 }
 
 func (ex *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {

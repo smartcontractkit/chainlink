@@ -62,7 +62,7 @@ var (
 		DirectRequest:     true,
 		FluxMonitor:       false,
 		OffchainReporting: false,
-		Keeper:            false,
+		Keeper:            true,
 		VRF:               true,
 		Webhook:           true,
 	}

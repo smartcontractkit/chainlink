@@ -20,7 +20,9 @@ type ETHCallTask struct {
 	BaseTask `mapstructure:",squash"`
 	Contract string `json:"contract"`
 	Data     string `json:"data"`
+	Gas      string `json:"gas"`
 
+	config    Config
 	ethClient eth.Client
 }
 
@@ -39,10 +41,12 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	var (
 		contractAddr AddressParam
 		data         BytesParam
+		gas          Uint64Param
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&contractAddr, From(NonemptyString(t.Contract))), "contract"),
+		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false))), "data"),
+		errors.Wrap(ResolveParam(&gas, From(VarExpr(t.Gas, vars), NonemptyString(t.Gas), 0)), "gas"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -53,6 +57,7 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	call := ethereum.CallMsg{
 		To:   (*common.Address)(&contractAddr),
 		Data: []byte(data),
+		Gas:  uint64(gas),
 	}
 
 	resp, err := t.ethClient.CallContract(ctx, call, nil)
