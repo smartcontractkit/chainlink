@@ -8,6 +8,7 @@ import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
 import { v2 } from 'src/api'
+import { transformPipelineJobRun } from '../Jobs/transformJobRuns'
 
 const styles = (theme) => ({
   breadcrumb: {
@@ -69,7 +70,9 @@ const renderDetails = (props, state, handleChangePage) => {
 const fetchRuns = async (page, size) => {
   const response = await v2.runs.getAllJobRuns({ page, size })
 
-  return response.data
+  return response.data.map((run) =>
+    transformPipelineJobRun(run.pipelineSpec.ID)(run),
+  )
 }
 
 export const Index = (props) => {
