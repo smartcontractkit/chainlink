@@ -52,7 +52,7 @@ type listenerV1 struct {
 	db              *gorm.DB
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
-	vrfks           *keystore.VRF
+	vrfks           keystore.VRF
 	gethks          GethKeyStore
 	reqLogs         *utils.Mailbox
 	chStop          chan struct{}

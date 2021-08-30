@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -158,10 +157,10 @@ func GenerateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (Mars
 	return rv, nil
 }
 
-func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedData) (
+func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
 	seed := FinalSeed(s)
-	proof, err := keystore.GenerateProof(key, seed)
+	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
@@ -184,11 +183,11 @@ func generateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (Mars
 	return rv, nil
 }
 
-func GenerateProofResponseV2(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedDataV2) (
+func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
 	MarshaledOnChainResponseV2, error) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
-	proof, err := keystore.GenerateProof(key, seed)
+	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
 		return MarshaledOnChainResponseV2{}, err
 	}

@@ -14,10 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	// "github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/pkg/errors"
 )
@@ -32,8 +30,8 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -63,7 +61,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -85,7 +83,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -110,8 +108,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()

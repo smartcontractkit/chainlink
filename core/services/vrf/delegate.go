@@ -30,7 +30,7 @@ type Delegate struct {
 	txm  bulletprooftxmanager.TxManager
 	pr   pipeline.Runner
 	porm pipeline.ORM
-	ks   *keystore.Master
+	ks   keystore.Master
 	ec   eth.Client
 	hb   httypes.HeadBroadcasterRegistry
 	lb   log.Broadcaster
@@ -50,7 +50,7 @@ type Config interface {
 func NewDelegate(
 	db *gorm.DB,
 	txm bulletprooftxmanager.TxManager,
-	ks *keystore.Master,
+	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	lb log.Broadcaster,
@@ -162,9 +162,9 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count 
-			FROM eth_txes 
-			WHERE meta->'RequestID' IS NOT NULL 
+	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+			FROM eth_txes
+			WHERE meta->'RequestID' IS NOT NULL
 		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
 	if err != nil {
 		// Continue with an empty map, do not block job on this.

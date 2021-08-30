@@ -1,8 +1,6 @@
 package presenters
 
 import (
-	"time"
-
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
@@ -12,34 +10,23 @@ type OCRKeysBundleResource struct {
 	OnChainSigningAddress ocrkey.OnChainSigningAddress `json:"onChainSigningAddress"`
 	OffChainPublicKey     ocrkey.OffChainPublicKey     `json:"offChainPublicKey"`
 	ConfigPublicKey       ocrkey.ConfigPublicKey       `json:"configPublicKey"`
-	CreatedAt             time.Time                    `json:"createdAt"`
-	UpdatedAt             time.Time                    `json:"updatedAt"`
-	DeletedAt             *time.Time                   `json:"deletedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
 func (r OCRKeysBundleResource) GetName() string {
-	return "encryptedKeyBundles"
+	return "keyV2s"
 }
 
-func NewOCRKeysBundleResource(bundle ocrkey.EncryptedKeyBundle) *OCRKeysBundleResource {
-	r := &OCRKeysBundleResource{
-		JAID:                  NewJAID(bundle.ID.String()),
-		OnChainSigningAddress: bundle.OnChainSigningAddress,
-		OffChainPublicKey:     bundle.OffChainPublicKey,
-		ConfigPublicKey:       bundle.ConfigPublicKey,
-		CreatedAt:             bundle.CreatedAt,
-		UpdatedAt:             bundle.UpdatedAt,
+func NewOCRKeysBundleResource(key ocrkey.KeyV2) *OCRKeysBundleResource {
+	return &OCRKeysBundleResource{
+		JAID:                  NewJAID(key.ID()),
+		OnChainSigningAddress: key.OnChainSigning.Address(),
+		OffChainPublicKey:     key.OffChainSigning.PublicKey(),
+		ConfigPublicKey:       key.PublicKeyConfig(),
 	}
-
-	if bundle.DeletedAt.Valid {
-		r.DeletedAt = &bundle.DeletedAt.Time
-	}
-
-	return r
 }
 
-func NewOCRKeysBundleResources(keys []ocrkey.EncryptedKeyBundle) []OCRKeysBundleResource {
+func NewOCRKeysBundleResources(keys []ocrkey.KeyV2) []OCRKeysBundleResource {
 	rs := []OCRKeysBundleResource{}
 	for _, key := range keys {
 		rs = append(rs, *NewOCRKeysBundleResource(key))

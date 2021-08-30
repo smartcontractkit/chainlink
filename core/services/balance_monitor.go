@@ -37,7 +37,7 @@ type (
 		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
-		ethKeyStore    *keystore.Eth
+		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -47,7 +47,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth, logger *logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger *logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		logger,
 		db,
@@ -135,7 +135,7 @@ func (w *worker) Work() {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k ethkey.Key) {
+		go func(k ethkey.KeyV2) {
 			w.checkAccountBalance(k)
 			wg.Done()
 		}(key)
@@ -146,7 +146,7 @@ func (w *worker) Work() {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(k ethkey.Key) {
+func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 

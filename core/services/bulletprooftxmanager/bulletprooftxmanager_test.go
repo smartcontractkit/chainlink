@@ -129,8 +129,8 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
@@ -148,8 +148,8 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
 	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
@@ -165,8 +165,8 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 
-	key := cltest.MustInsertRandomKey(t, db, 0)
-	fromAddress := key.Address.Address()
+	keyStore := cltest.NewKeyStore(t, db)
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
@@ -261,9 +261,10 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewGormDB(t)
+	etKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	thisKey := cltest.MustInsertRandomKey(t, db, 1)
-	otherKey := cltest.MustInsertRandomKey(t, db, 1)
+	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
+	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
 
 	fromAddress := thisKey.Address.Address()
 	gasLimit := uint64(1000)
@@ -351,7 +352,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	ethClient := cltest.NewEthClientMock(t)
 	config := new(bptxmmocks.Config)
-	kst := new(ksmocks.EthKeyStoreInterface)
+	kst := new(ksmocks.Eth)
 	advisoryLocker := &postgres.NullAdvisoryLocker{}
 	eventBroadcaster := new(pgmocks.EventBroadcaster)
 
@@ -361,7 +362,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	kst.On("AllKeys").Return([]ethkey.Key{}, nil).Once()
+	kst.On("GetAll").Return([]ethkey.KeyV2{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -388,7 +389,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	key := cltest.MustGenerateRandomKey(t)
 
-	kst.On("AllKeys").Return([]ethkey.Key{key}, nil).Once()
+	kst.On("GetAll").Return([]ethkey.KeyV2{key}, nil).Once()
+	kst.On("GetState", mock.Anything).Return(ethkey.State{ID: 1}, nil).Once()
 	sub.On("Close").Return()
 	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.timerCtx"), key.Address.Address()).Return(uint64(0), nil)
 	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
