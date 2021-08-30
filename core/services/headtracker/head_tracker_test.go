@@ -334,21 +334,22 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	assert.Equal(t, h.Number, int64(3))
 }
 
-func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
-	t.Parallel()
-
+func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
 	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
 	t.Cleanup(cleanupDB)
-	config.Overrides.EvmFinalityDepth = null.IntFrom(50)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	t.Cleanup(cleanup)
 
+	config.Overrides.EvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(42)
-	d := 100 * time.Millisecond
+
+	// Head sampling enabled
+	d := 1500 * time.Millisecond
 	config.Overrides.EvmHeadTrackerSamplingInterval = &d
+
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
+	t.Cleanup(cleanup)
 
 	ethClient, sub := cltest.NewEthClientAndSubMock(t)
 
@@ -361,77 +362,72 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
-	head0 := models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
-	// Initial query
-	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&head0, nil)
-
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 0 && h.Hash == head0.Hash
-	})).Return().Once()
+	// ---------------------
+	lastHead := make(chan struct{})
+	blocks := cltest.NewBlocks(t, 10)
 
+	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	// Initial query
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
 	assert.Nil(t, ht.Start())
 
-	lastHead := make(chan struct{})
-	blockHeaders := []*models.Head{}
+	headSeq := cltest.NewHeadBuffer(t)
+	headSeq.Append(blocks.Head(0))
+	headSeq.Append(blocks.Head(1))
 
-	// First block comes in
-	head1 := models.Head{Number: 1, Hash: utils.NewHash(), ParentHash: head0.Hash, Timestamp: time.Unix(1, 0)}
-	blockHeaders = append(blockHeaders, &head1)
 	// Blocks 2 and 3 are out of order
-	head2 := &models.Head{Number: 2, Hash: utils.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(2, 0)}
-	head3 := &models.Head{Number: 3, Hash: utils.NewHash(), ParentHash: head2.Hash, Timestamp: time.Unix(3, 0)}
-	blockHeaders = append(blockHeaders, head3)
-	blockHeaders = append(blockHeaders, head2)
-	// Block 4 comes in
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(4, 0)})
-	// Another block at level 4 comes in, that will be uncled
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[1].Hash, Timestamp: time.Unix(5, 0)})
-	// Reorg happened forking from block 2
-	blockHeaders = append(blockHeaders, &models.Head{Number: 2, Hash: utils.NewHash(), ParentHash: blockHeaders[0].Hash, Timestamp: time.Unix(6, 0)})
-	blockHeaders = append(blockHeaders, &models.Head{Number: 3, Hash: utils.NewHash(), ParentHash: blockHeaders[5].Hash, Timestamp: time.Unix(7, 0)})
-	blockHeaders = append(blockHeaders, &models.Head{Number: 4, Hash: utils.NewHash(), ParentHash: blockHeaders[6].Hash, Timestamp: time.Unix(8, 0)})
-	// Now the new chain is longer
-	blockHeaders = append(blockHeaders, &models.Head{Number: 5, Hash: utils.NewHash(), ParentHash: blockHeaders[7].Hash, Timestamp: time.Unix(9, 0)})
+	headSeq.Append(blocks.Head(3))
+	headSeq.Append(blocks.Head(2))
 
-	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 1 && h.Hash == blockHeaders[0].Hash
-	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
-		return h.Number == 3 && h.Hash == blockHeaders[1].Hash
-	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 4 && h.Hash == blockHeaders[3].Hash {
+	// Block 4 comes in
+	headSeq.Append(blocks.Head(4))
+
+	// Another block at level 4 comes in, that will be uncled
+	headSeq.Append(blocks.NewHead(4))
+
+	// Reorg happened forking from block 2
+	blocksForked := blocks.ForkAt(t, 2, 5)
+	headSeq.Append(blocksForked.Head(2))
+	headSeq.Append(blocksForked.Head(3))
+	headSeq.Append(blocksForked.Head(4))
+	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+			require.Equal(t, int64(4), h.Number)
+			require.Equal(t, blocks.Head(4).Hash, h.Hash)
+
 			// Check that the block came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[1].Hash)
+			require.Equal(t, h.Parent.Hash, blocks.Head(3).Hash)
 			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[2].Hash)
+			require.Equal(t, h.Parent.Parent.Hash, blocks.Head(2).Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
-			return true
-		}
-		return false
-	})).Return().Once()
-	checker.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
-		if h.Number == 5 && h.Hash == blockHeaders[8].Hash {
+			require.Equal(t, h.Parent.Parent.Parent.Hash, blocks.Head(1).Hash)
+		}).Return().Once()
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+
+			require.Equal(t, int64(5), h.Number)
+			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
+
 			// This is the new longest chain, check that it came with its parents
 			require.NotNil(t, h.Parent)
-			require.Equal(t, h.Parent.Hash, blockHeaders[7].Hash)
-			require.NotNil(t, h.Parent.Parent.Hash)
-			require.Equal(t, h.Parent.Parent.Hash, blockHeaders[6].Hash)
+			require.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
+			require.NotNil(t, h.Parent.Parent)
+			require.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
 			require.NotNil(t, h.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Hash, blockHeaders[5].Hash)
+			require.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
 			require.NotNil(t, h.Parent.Parent.Parent.Parent)
-			require.NotNil(t, h.Parent.Parent.Parent.Parent.Hash, blockHeaders[0].Hash)
-			return true
-		}
-		return false
-	})).Return().Once().Run(func(_ mock.Arguments) {
-		close(lastHead)
-	})
+			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
+			close(lastHead)
+		}).Return().Once()
 
 	headers := <-chchHeaders
 
@@ -452,9 +448,11 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 		}
 		fnCall.ReturnArguments = mock.Arguments{head, nil}
 	}
-	for _, h := range blockHeaders {
-		// waiting longer than the head sampling frequency
-		time.Sleep(220 * time.Millisecond)
+
+	time.Sleep(1 * time.Second)
+	for _, h := range headSeq.Heads {
+		// waiting shorter time than the head sampling frequency
+		time.Sleep(50 * time.Millisecond)
 		latestHeadByNumberMu.Lock()
 		latestHeadByNumber[h.Number] = h
 		latestHeadByNumberMu.Unlock()
@@ -465,7 +463,165 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	require.NoError(t, ht.Stop())
 	assert.Equal(t, int64(5), ht.headTracker.HighestSeenHead().Number)
 
-	for _, h := range blockHeaders {
+	for _, h := range headSeq.Heads {
+		c, err := orm.Chain(context.TODO(), h.Hash, 1)
+		require.NoError(t, err)
+		require.NotNil(t, c)
+		assert.Equal(t, c.ParentHash, h.ParentHash)
+		assert.Equal(t, c.Timestamp.Unix(), h.Timestamp.UTC().Unix())
+		assert.Equal(t, c.Number, h.Number)
+	}
+
+	checker.AssertExpectations(t)
+}
+
+func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
+	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
+	// close and go-txdb rollback.
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
+	t.Cleanup(cleanupDB)
+
+	config.Overrides.EvmFinalityDepth = null.IntFrom(50)
+	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
+	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(42)
+	d := 0 * time.Second
+	config.Overrides.EvmHeadTrackerSamplingInterval = &d
+
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
+	t.Cleanup(cleanup)
+
+	ethClient, sub := cltest.NewEthClientAndSubMock(t)
+
+	checker := new(htmocks.HeadTrackable)
+	orm := headtracker.NewORM(store.DB)
+	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+
+	chchHeaders := make(chan chan<- *models.Head, 1)
+	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	sub.On("Unsubscribe").Return()
+	sub.On("Err").Return(nil)
+
+	// ---------------------
+	lastHead := make(chan struct{})
+	blocks := cltest.NewBlocks(t, 10)
+
+	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	// Initial query
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
+	assert.Nil(t, ht.Start())
+
+	headSeq := cltest.NewHeadBuffer(t)
+	headSeq.Append(blocks.Head(0))
+	headSeq.Append(blocks.Head(1))
+
+	// Blocks 2 and 3 are out of order
+	headSeq.Append(blocks.Head(3))
+	headSeq.Append(blocks.Head(2))
+
+	// Block 4 comes in
+	headSeq.Append(blocks.Head(4))
+
+	// Another block at level 4 comes in, that will be uncled
+	headSeq.Append(blocks.NewHead(4))
+
+	// Reorg happened forking from block 2
+	blocksForked := blocks.ForkAt(t, 2, 5)
+	headSeq.Append(blocksForked.Head(2))
+	headSeq.Append(blocksForked.Head(3))
+	headSeq.Append(blocksForked.Head(4))
+	headSeq.Append(blocksForked.Head(5)) // Now the new chain is longer
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+			require.Equal(t, int64(0), h.Number)
+			require.Equal(t, blocks.Head(0).Hash, h.Hash)
+		}).Return().Once()
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+			require.Equal(t, int64(1), h.Number)
+			require.Equal(t, blocks.Head(1).Hash, h.Hash)
+		}).Return().Once()
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+			require.Equal(t, int64(3), h.Number)
+			require.Equal(t, blocks.Head(3).Hash, h.Hash)
+		}).Return().Once()
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+			require.Equal(t, int64(4), h.Number)
+			require.Equal(t, blocks.Head(4).Hash, h.Hash)
+
+			// Check that the block came with its parents
+			require.NotNil(t, h.Parent)
+			require.Equal(t, h.Parent.Hash, blocks.Head(3).Hash)
+			require.NotNil(t, h.Parent.Parent.Hash)
+			require.Equal(t, h.Parent.Parent.Hash, blocks.Head(2).Hash)
+			require.NotNil(t, h.Parent.Parent.Parent)
+			require.Equal(t, h.Parent.Parent.Parent.Hash, blocks.Head(1).Hash)
+		}).Return().Once()
+
+	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			h := args.Get(1).(models.Head)
+
+			require.Equal(t, int64(5), h.Number)
+			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
+
+			// This is the new longest chain, check that it came with its parents
+			require.NotNil(t, h.Parent)
+			require.Equal(t, h.Parent.Hash, blocksForked.Head(4).Hash)
+			require.NotNil(t, h.Parent.Parent)
+			require.Equal(t, h.Parent.Parent.Hash, blocksForked.Head(3).Hash)
+			require.NotNil(t, h.Parent.Parent.Parent)
+			require.Equal(t, h.Parent.Parent.Parent.Hash, blocksForked.Head(2).Hash)
+			require.NotNil(t, h.Parent.Parent.Parent.Parent)
+			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
+			close(lastHead)
+		}).Return().Once()
+
+	headers := <-chchHeaders
+
+	// This grotesque construction is the only way to do dynamic return values using
+	// the mock package.  We need dynamic returns because we're simulating reorgs.
+	latestHeadByNumber := make(map[int64]*models.Head)
+	latestHeadByNumberMu := new(sync.Mutex)
+
+	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
+	fnCall.RunFn = func(args mock.Arguments) {
+		latestHeadByNumberMu.Lock()
+		defer latestHeadByNumberMu.Unlock()
+		num := args.Get(1).(*big.Int)
+		head, exists := latestHeadByNumber[num.Int64()]
+		if !exists {
+			head = cltest.Head(num.Int64())
+			latestHeadByNumber[num.Int64()] = head
+		}
+		fnCall.ReturnArguments = mock.Arguments{head, nil}
+	}
+
+	time.Sleep(1 * time.Second)
+	for _, h := range headSeq.Heads {
+		latestHeadByNumberMu.Lock()
+		latestHeadByNumber[h.Number] = h
+		latestHeadByNumberMu.Unlock()
+		headers <- h
+	}
+
+	gomega.NewGomegaWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
+	require.NoError(t, ht.Stop())
+	assert.Equal(t, int64(5), ht.headTracker.HighestSeenHead().Number)
+
+	for _, h := range headSeq.Heads {
 		c, err := orm.Chain(context.TODO(), h.Hash, 1)
 		require.NoError(t, err)
 		require.NotNil(t, c)
