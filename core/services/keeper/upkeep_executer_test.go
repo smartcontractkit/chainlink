@@ -187,14 +187,3 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	cltest.AssertCountStays(t, store, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
 }
-
-func Test_UpkeepExecuter_ConstructCheckUpkeepCallMsg(t *testing.T) {
-	store, _, executer, registry, upkeep, _, _, _ := setup(t)
-	msg, err := executer.ExportedConstructCheckUpkeepCallMsg(upkeep)
-	require.NoError(t, err)
-	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryCheckGasOverhead() + store.Config.KeeperRegistryPerformGasOverhead()
-	require.Equal(t, expectedGasLimit, msg.Gas)
-	require.Equal(t, registry.ContractAddress.Address(), *msg.To)
-	require.Equal(t, utils.ZeroAddress, msg.From)
-	require.Nil(t, msg.Value)
-}

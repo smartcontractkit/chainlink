@@ -2,11 +2,9 @@ package keeper
 
 import (
 	"context"
-	"math/big"
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
@@ -21,8 +19,6 @@ import (
 )
 
 const (
-	checkUpkeep        = "checkUpkeep"
-	performUpkeep      = "performUpkeep"
 	executionQueueSize = 10
 )
 
@@ -133,7 +129,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head models.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -208,9 +204,8 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
-			"databaseID":            ex.job.ID,
+			"jobID":                 ex.job.ID,
 			"externalJobID":         ex.job.ExternalJobID,
-			"name":                  ex.job.Name.ValueOrZero(),
 			"fromAddress":           upkeep.Registry.FromAddress.String(),
 			"contractAddress":       upkeep.Registry.ContractAddress.String(),
 			"upkeepID":              upkeep.UpkeepID,
@@ -236,28 +231,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	}
 }
 
-func (ex *UpkeepExecuter) constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
-	checkPayload, err := RegistryABI.Pack(
-		checkUpkeep,
-		big.NewInt(int64(upkeep.UpkeepID)),
-		upkeep.Registry.FromAddress.Address(),
-	)
-	if err != nil {
-		return ethereum.CallMsg{}, errors.Wrap(err, "failed to pack payload of check upkeep")
-	}
-
-	to := upkeep.Registry.ContractAddress.Address()
-	gasLimit := ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
-		ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas
-
-	return ethereum.CallMsg{
-		From: utils.ZeroAddress,
-		To:   &to,
-		Gas:  gasLimit,
-		Data: checkPayload,
-	}, nil
-}
-
 // logRevertReason logs the given error with a log level depends on this given error context
 // Default log level is error. Mapping between a reason and its log level:
 //  - "upkeep not needed": Debug
@@ -274,27 +247,4 @@ func logRevertReason(logger *logger.Logger, err error) {
 	} else {
 		logger.Error("checkUpkeep call failed with some reason")
 	}
-}
-
-func constructPerformUpkeepTxData(checkUpkeepResult []byte, upkeepID int64) ([]byte, error) {
-	unpackedResult, err := RegistryABI.Unpack(checkUpkeep, checkUpkeepResult)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unpack check upkeep result")
-	}
-
-	performData, ok := unpackedResult[0].([]byte)
-	if !ok {
-		return nil, errors.New("checkupkeep payload not as expected")
-	}
-
-	performTxData, err := RegistryABI.Pack(
-		performUpkeep,
-		big.NewInt(upkeepID),
-		performData,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to pack a payload of perform upkeep")
-	}
-
-	return performTxData, nil
 }
