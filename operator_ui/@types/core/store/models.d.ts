@@ -412,8 +412,8 @@ declare module 'core/store/models' {
       GasEstimatorMode: any,
       MinRequiredOutgoingConfirmations: any
   },
-  createdAt: time.time,
-  updatedAt: time.time
+  createdAt: time.Time,
+  updatedAt: time.Time
   }
 
   export interface JobRunV2 {

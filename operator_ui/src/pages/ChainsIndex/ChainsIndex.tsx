@@ -5,7 +5,6 @@ import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
-import Link from 'components/Link'
 import * as models from 'core/store/models'
 import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
@@ -157,7 +156,7 @@ export const ChainsIndex = ({
                     <TableRow>
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
-                          ID
+                          Chain ID
                         </Typography>
                       </TableCell>
 
@@ -169,15 +168,6 @@ export const ChainsIndex = ({
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {chains && !chains.length && (
-                      <TableRow>
-                        <TableCell component="th" scope="row" colSpan={3}>
-                          You haven’t created any chains yet. Create a new chain{' '}
-                          <Link href={`/chains/new`}>here</Link>
-                        </TableCell>
-                      </TableRow>
-                    )}
-
                     {chains.filter(chainFilter).map((chain) => (
                       <ChainRow key={chain.id} chain={chain} />
                     ))}
