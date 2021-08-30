@@ -5,12 +5,11 @@ export function jobRunV2(
   config: Partial<JobRunV2 & { id?: string; dotDagSource?: string }> = {},
 ): JobRunV2 {
   return partialAsFull<JobRunV2>({
-    id: '1',
     outputs: config.outputs || [null],
     errors: config.errors || [],
     pipelineSpec: {
       ID: 1,
-      jobId: '1',
+      jobID: '1',
       dotDagSource:
         config?.dotDagSource ||
         '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
