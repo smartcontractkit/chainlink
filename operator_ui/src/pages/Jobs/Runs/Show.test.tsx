@@ -16,8 +16,7 @@ describe('pages/JobRuns/Show/Overview', () => {
 
     // Mock the job runs fetch
     const run = {
-      id: 'runA',
-      jobId: JOB_ID,
+      jobID: JOB_ID,
       createdAt: minuteAgo,
       outputs: [null],
       errors: ['task inputs: too many errors'],
@@ -58,6 +57,7 @@ describe('pages/JobRuns/Show/Overview', () => {
         dotDagSource:
           '\t\t\t\tds          [type=http method=GET url="https://chain.link/ETH-USD"];\n\t\t\t\tds_parse    [type=jsonparse path="data,price"];\n\t\t\t\tds -\u003e ds_parse;\n\t\t\t',
         CreatedAt: '2021-07-27T19:26:38.117104+08:00',
+        jobID: JOB_ID,
       },
     }
 
