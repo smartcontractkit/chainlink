@@ -27,7 +27,7 @@ interface Props extends WithStyles<typeof styles> {
   onClose: () => void
   open: boolean
   initialValues: FormValues
-  onSubmit: (values: FormValues) => void
+  onSubmit: (values: FormValues) => Promise<void>
 }
 
 const ValidationSchema = Yup.object().shape({
@@ -40,7 +40,13 @@ export const EditJobSpecDialog = withStyles(styles)(
       <Formik
         initialValues={initialValues}
         validationSchema={ValidationSchema}
-        onSubmit={(values) => onSubmit(values)}
+        onSubmit={async (values, actions) => {
+          try {
+            await onSubmit(values)
+          } finally {
+            actions.setSubmitting(false)
+          }
+        }}
       >
         {({ isSubmitting, submitForm }) => (
           <Form>
