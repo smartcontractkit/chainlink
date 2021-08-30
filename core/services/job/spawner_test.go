@@ -83,7 +83,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -152,7 +152,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -181,7 +181,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
-		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -218,7 +218,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{

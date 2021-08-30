@@ -127,7 +127,7 @@ type ApplicationOpts struct {
 	ShutdownSignal           gracefulpanic.Signal
 	Store                    *strpkg.Store
 	GormDB                   *gorm.DB
-	KeyStore                 *keystore.Master
+	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
 	Logger                   *loggerPkg.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager

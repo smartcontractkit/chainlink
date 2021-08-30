@@ -137,7 +137,7 @@ func (b *Big) ToInt() *big.Int {
 
 // String returns the base 10 encoding of b.
 func (b *Big) String() string {
-	return b.ToInt().Text(10)
+	return b.ToInt().String()
 }
 
 // Hex returns the hex encoding of b.

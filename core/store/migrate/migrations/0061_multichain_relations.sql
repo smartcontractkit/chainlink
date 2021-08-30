@@ -5,7 +5,6 @@ ALTER TABLE eth_txes ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains
 ALTER TABLE log_broadcasts ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE heads ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 ALTER TABLE eth_key_states ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
-CREATE UNIQUE INDEX idx_one_address_per_chain ON eth_key_states (evm_chain_id, address);
 
 UPDATE eth_txes SET evm_chain_id = (SELECT id FROM evm_chains ORDER BY created_at, id ASC LIMIT 1);
 UPDATE log_broadcasts SET evm_chain_id = (SELECT id FROM evm_chains ORDER BY created_at, id ASC LIMIT 1);

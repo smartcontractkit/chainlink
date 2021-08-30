@@ -32,7 +32,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		err := ns.SyncAll(context.Background(), sendingKeys)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -60,7 +60,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
@@ -86,7 +86,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
@@ -118,7 +118,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		assertDatabaseNonce(t, db, key1, 5)
@@ -144,7 +144,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		})).Return(uint64(1), nil)
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 0)
 

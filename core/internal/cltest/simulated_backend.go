@@ -24,7 +24,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	null "gopkg.in/guregu/null.v4"
-	"gorm.io/gorm/clause"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -91,11 +90,6 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, simulatedBackendChain)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
-
-	require.NoError(t, app.GetDB().Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "id"}},
-		DoNothing: true,
-	}).Create(&simulatedBackendChain).Error)
 
 	// appCleanup calls app.Stop() which will client.Close on the simulated backend
 	return app, appCleanup

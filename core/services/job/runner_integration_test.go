@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -61,7 +60,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
@@ -433,7 +432,7 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
-		os, err = offchainreporting.ValidatedOracleSpecToml(config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)

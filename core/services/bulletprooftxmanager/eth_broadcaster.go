@@ -56,7 +56,7 @@ type EthBroadcaster struct {
 	ethTxInsertListener postgres.Subscription
 	eventBroadcaster    postgres.EventBroadcaster
 
-	keys []ethkey.KeyV2
+	keyStates []ethkey.State
 
 	// triggers allow other goroutines to force EthBroadcaster to rescan the
 	// database early (before the next poll interval)
@@ -73,7 +73,7 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster,
-	allKeys []ethkey.KeyV2, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
+	keyStates []ethkey.State, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
@@ -87,7 +87,7 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		advisoryLocker:   advisoryLocker,
 		estimator:        estimator,
 		eventBroadcaster: eventBroadcaster,
-		keys:             allKeys,
+		keyStates:        keyStates,
 		triggers:         triggers,
 		ctx:              ctx,
 		ctxCancel:        cancel,
@@ -104,13 +104,13 @@ func (eb *EthBroadcaster) Start() error {
 
 		if eb.config.EvmNonceAutoSync() {
 			syncer := NewNonceSyncer(eb.db, eb.ethClient)
-			if err := syncer.SyncAll(eb.ctx, eb.keys); err != nil {
+			if err := syncer.SyncAll(eb.ctx, eb.keyStates); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
 			}
 		}
 
-		eb.wg.Add(len(eb.keys))
-		for _, k := range eb.keys {
+		eb.wg.Add(len(eb.keyStates))
+		for _, k := range eb.keyStates {
 			triggerCh := make(chan struct{}, 1)
 			eb.triggers[k.Address.Address()] = triggerCh
 			go eb.monitorEthTxs(k, triggerCh)
@@ -178,7 +178,7 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 	}
 }
 
-func (eb *EthBroadcaster) monitorEthTxs(k ethkey.KeyV2, triggerCh chan struct{}) {
+func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
@@ -207,13 +207,9 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.KeyV2, triggerCh chan struct{})
 	}
 }
 
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(key ethkey.KeyV2) error {
-	keyState, err := eb.keystore.GetState(key.ID())
-	if err != nil {
-		return err
-	}
+func (eb *EthBroadcaster) ProcessUnstartedEthTxs(keyState ethkey.State) error {
 	return eb.advisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthBroadcaster, keyState.ID, func() error {
-		return eb.processUnstartedEthTxs(key.Address.Address())
+		return eb.processUnstartedEthTxs(keyState.Address.Address())
 	})
 }
 
@@ -436,7 +432,7 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 		return nil, errors.Wrap(err, "findNextUnstartedTransactionFromAddress failed")
 	}
 
-	nonce, err := GetNextNonce(eb.db, etx.FromAddress)
+	nonce, err := GetNextNonce(eb.db, etx.FromAddress, &eb.chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -494,7 +490,7 @@ func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, newAttemptState 
 	etx.State = EthTxUnconfirmed
 	attempt.State = newAttemptState
 	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
-		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
+		if err := IncrementNextNonce(tx, etx.FromAddress, etx.EVMChainID.ToInt(), *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
 		if err := tx.Save(etx).Error; err != nil {

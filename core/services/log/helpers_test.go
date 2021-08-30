@@ -81,7 +81,8 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 		GeneralConfig: config,
 		DB:            db,
 	})
-	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, nil)
+	kst := cltest.NewKeyStore(t, db)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, kst)
 
 	return &broadcasterHelper{
 		t:               t,

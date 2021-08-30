@@ -250,7 +250,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	defer cleanupORM()
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, ethKeyStore)
+	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer orm.Close()
 
 	claimedJobs := make([]job.Job, 3)
@@ -319,7 +319,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	keyStore.VRF().Unlock("blah")
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()

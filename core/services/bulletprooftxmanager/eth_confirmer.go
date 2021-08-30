@@ -72,7 +72,7 @@ type EthConfirmer struct {
 	estimator      gas.Estimator
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
-	keys []ethkey.KeyV2
+	keyStates []ethkey.State
 
 	mb        *utils.Mailbox
 	ctx       context.Context
@@ -81,7 +81,9 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker, keys []ethkey.KeyV2, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker,
+	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
+
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -94,7 +96,7 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		advisoryLocker,
 		estimator,
 		resumeCallback,
-		keys,
+		keyStates,
 		utils.NewMailbox(1),
 		context,
 		cancel,
@@ -616,10 +618,10 @@ func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeig
 
 	// It is safe to process separate keys concurrently
 	// NOTE: This design will block one key if another takes a really long time to execute
-	wg.Add(len(ec.keys))
+	wg.Add(len(ec.keyStates))
 	errors := []error{}
 	var errMu sync.Mutex
-	for _, key := range ec.keys {
+	for _, key := range ec.keyStates {
 		go func(fromAddress gethCommon.Address) {
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
@@ -1067,8 +1069,8 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	var wg sync.WaitGroup
 	errors := []error{}
 	var errMu sync.Mutex
-	wg.Add(len(ec.keys))
-	for _, key := range ec.keys {
+	wg.Add(len(ec.keyStates))
+	for _, key := range ec.keyStates {
 		go func(fromAddress gethCommon.Address) {
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.Number); err != nil {
 				errMu.Lock()

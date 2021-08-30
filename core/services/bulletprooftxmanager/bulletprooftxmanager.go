@@ -61,10 +61,9 @@ type Config interface {
 
 // KeyStore encompasses the subset of keystore used by bulletprooftxmanager
 type KeyStore interface {
-	GetAll() (keys []ethkey.KeyV2, err error)
+	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
-	GetState(id string) (ethkey.State, error)
 }
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
@@ -149,15 +148,15 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 
 func (b *BulletproofTxManager) Start() (merr error) {
 	return b.StartOnce("BulletproofTxManager", func() error {
-		keys, err := b.keyStore.GetAll()
+		keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 		if err != nil {
-			return errors.Wrap(err, "BulletproofTxManager: failed to load keys")
+			return errors.Wrap(err, "BulletproofTxManager: failed to load key states")
 		}
 
-		b.logger.Debugw("BulletproofTxManager: booting", "keys", keys)
+		b.logger.Debugw("BulletproofTxManager: booting", "keyStates", keyStates)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator, b.logger)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator, b.resumeCallback, b.logger)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
@@ -219,18 +218,18 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfCalling(ec.Close)
 			return
 		case <-keysChanged:
-			keys, err := b.keyStore.GetAll()
+			keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
-				b.logger.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
+				b.logger.Errorf("BulletproofTxManager: failed to reload key states after key change")
+				continue
 			}
-
-			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keys", keys)
+			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keyStates", keyStates)
 
 			b.logger.ErrorIfCalling(eb.Close)
 			b.logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keys, b.gasEstimator, b.logger)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keys, b.gasEstimator, b.resumeCallback, b.logger)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			b.logger.ErrorIfCalling(eb.Start)
 			b.logger.ErrorIfCalling(ec.Start)

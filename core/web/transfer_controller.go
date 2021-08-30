@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -29,23 +27,15 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	var chain evm.Chain
-	var err error
-	chainSet := tc.App.GetChainSet()
-	if chainSet.ChainCount() <= 1 {
-		chain, err = chainSet.Default()
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-	} else if tr.EVMChainID != nil {
-		chain, err = chainSet.Get(tr.EVMChainID.ToInt())
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-	} else {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("%d chains available, you must specify evmChainID parameter", chainSet.ChainCount()))
+	chain, err := getChain(c, tc.App.GetChainSet(), tr.EVMChainID.String())
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 

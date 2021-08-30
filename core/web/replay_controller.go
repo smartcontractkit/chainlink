@@ -1,7 +1,6 @@
 package web
 
 import (
-	"math/big"
 	"net/http"
 	"strconv"
 
@@ -33,26 +32,19 @@ func (bdc *ReplayController) ReplayFromBlock(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("block number cannot be negative: %v", blockNumber))
 		return
 	}
-	var chainID *big.Int
-	if bdc.App.GetChainSet().ChainCount() > 1 {
-		if c.Param("evmChainID") == "" {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("more than one chain available, you must specify evmChainID parameter"))
-			return
-		}
-		var ok bool
-		chainID, ok = big.NewInt(0).SetString(c.Param("evmChainID"), 10)
-		if !ok {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("invalid evmChainID"))
-			return
-		}
-	} else {
-		chain, err := bdc.App.GetChainSet().Default()
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-		chainID = chain.ID()
+
+	chain, err := getChain(c, bdc.App.GetChainSet(), c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
 	}
+	chainID := chain.ID()
 
 	if err := bdc.App.ReplayFromBlock(chainID, uint64(blockNumber)); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)

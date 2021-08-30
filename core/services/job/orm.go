@@ -502,7 +502,8 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		ch, err := o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+		var ch evm.Chain
+		ch, err = o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
 		if err != nil {
 			return jb, err
 		}

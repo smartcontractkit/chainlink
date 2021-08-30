@@ -74,7 +74,8 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
 
-	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, KeyStore)
+	keyStore := cltest.NewKeyStore(t, db)
+	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 
 	cleanup := func() {
 		cleanupPipeline()

@@ -130,7 +130,7 @@ func TestClient_ImportExportOCRKey(t *testing.T) {
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
 		c.Overrides.EVMDisabled = null.BoolFrom(true)
 	}))
-	client, r := app.NewClientAndRenderer()
+	client, _ := app.NewClientAndRenderer()
 
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 

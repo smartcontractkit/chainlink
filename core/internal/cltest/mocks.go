@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -470,7 +469,9 @@ func NewChainSetMockWithOneChain(t testing.TB, ethClient eth.Client, cfg evmconf
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.Default)
+	ch.On("ID").Return(cfg.ChainID())
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
+	cc.On("Chains").Return([]evm.Chain{ch})
 	return cc
 }

@@ -62,7 +62,7 @@ func setupRegistrySync(t *testing.T) (
 	cfg := cltest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: store.DB, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore.Eth())
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,

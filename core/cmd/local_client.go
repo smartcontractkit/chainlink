@@ -19,9 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
@@ -37,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -116,12 +114,18 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	key, existed, err := app.GetKeyStore().Eth().EnsureFundingKey()
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	if !existed {
-		logger.Infow("New funding address created", "address", key.Address.Hex(), "balance", 0)
+	for _, ch := range app.GetChainSet().Chains() {
+		fmt.Println("BALLS", ch)
+		skey, sexisted, fkey, fexisted, err := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+		if err != nil {
+			return cli.errorOut(err)
+		}
+		if !fexisted {
+			logger.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
+		}
+		if !sexisted {
+			logger.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
+		}
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -275,11 +279,11 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
-	allKeys, err := keyStore.Eth().GetAll()
+	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, chain.Config(), keyStore.Eth(), store.AdvisoryLocker, allKeys, nil, nil, chain.Logger())
+	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, chain.Config(), keyStore.Eth(), store.AdvisoryLocker, keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }

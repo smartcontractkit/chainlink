@@ -111,7 +111,7 @@ type ChainSetOpts struct {
 	Logger           *logger.Logger
 	GormDB           *gorm.DB
 	SQLxDB           *sqlx.DB
-	KeyStore         keystore.EthKeyStoreInterface
+	KeyStore         keystore.Eth
 	AdvisoryLocker   postgres.AdvisoryLocker
 	EventBroadcaster postgres.EventBroadcaster
 	ORM              types.ORM

@@ -196,11 +196,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore pipeline.ETHKeyStore) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{})
+	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{}, keyStore)
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, cfg, cc, keyStore, nil)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -219,19 +219,19 @@ func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeli
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keys []ethkey.KeyV2) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config), logger.Default), func() {
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default), func() {
 		assert.NoError(t, eventBroadcaster.Close())
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), fn, logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
 }
 
@@ -335,15 +335,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
+	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
 		case ethkey.KeyV2:
-			MustAddKeyToKeystore(t, v, app.KeyStore.Eth())
 			app.Key = v
+		case evmtypes.Chain:
+			chainID = v.ID
 		}
 	}
 	if app.Key.Address.IsZero() {
-		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
+		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+	} else {
+		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
 	}
 
 	return app, cleanup
@@ -588,7 +592,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 // ImportKey adds private key to the application keystore and database
 func (ta *TestApplication) Import(content string) {
 	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
-	_, err := ta.KeyStore.Eth().Import([]byte(content), Password)
+	_, err := ta.KeyStore.Eth().Import([]byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
 }
 
@@ -1737,11 +1741,12 @@ func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeys(t *testing.T, ethKeyStore keystore.Eth) (keys []ethkey.KeyV2) {
-	var err error
-	keys, err = ethKeyStore.SendingKeys()
+func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
+	keys, err := ethKeyStore.SendingKeys()
 	require.NoError(t, err)
-	return keys
+	states, err := ethKeyStore.GetStatesForKeys(keys)
+	require.NoError(t, err)
+	return states
 }
 
 func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
@@ -1769,4 +1774,10 @@ func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 	cfg := NewTestGeneralConfig(t)
 	return evmtest.NewChainScopedConfig(t, cfg)
+}
+
+func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey.State {
+	states, err := kst.GetStatesForKeys([]ethkey.KeyV2{key})
+	require.NoError(t, err)
+	return states[0]
 }

@@ -244,7 +244,9 @@ func (c *TestGeneralConfig) GetDatabaseDialectConfiguredOrDefault() dialects.Dia
 	if c.Overrides.Dialect != "" {
 		return c.Overrides.Dialect
 	}
-	return c.GeneralConfig.GetDatabaseDialectConfiguredOrDefault()
+	// Always return txdb for tests, if you want a non-transactional database
+	// you must set an override explicitly
+	return "txdb"
 }
 
 func (c *TestGeneralConfig) ClientNodeURL() string {
@@ -575,4 +577,8 @@ func (c *TestGeneralConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
 		return *c.Overrides.GlobalEthTxReaperThreshold, true
 	}
 	return c.GeneralConfig.GlobalEthTxReaperThreshold()
+}
+
+func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
+	c.Overrides.Dialect = d
 }

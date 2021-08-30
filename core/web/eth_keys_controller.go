@@ -74,7 +74,20 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
-	key, err := ethKeyStore.Create()
+
+	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	key, err := ethKeyStore.Create(chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -158,8 +171,19 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
+	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 
-	key, err := ethKeyStore.Import(bytes, oldPassword)
+	key, err := ethKeyStore.Import(bytes, oldPassword, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

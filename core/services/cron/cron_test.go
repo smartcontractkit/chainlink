@@ -26,10 +26,11 @@ func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, KeyStore)
+	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 
 	spec := &job.Job{
 		Type:          job.Cron,

@@ -8,16 +8,18 @@ import (
 	"testing"
 	"time"
 
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,17 +35,17 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	_, err := keyStore.Eth().Create()
+	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, nil)).Maybe()
+	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
 
@@ -116,7 +118,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), nil)).Maybe()
+			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, store.Config))).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
@@ -155,20 +157,20 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	_, err := keyStore.Eth().Create()
+	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), nil)).Maybe()
+	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, store.Config))).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
 	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
-	_, err = keyStore.Eth().Create()
+	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	apiPrompt := &cltest.MockAPIInitializer{}
@@ -216,7 +218,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			store.DeleteUser()
 			defer cleanup()
 			keyStore := cltest.NewKeyStore(t, store.DB)
-			_, err := keyStore.Eth().Create()
+			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := cltest.NewEthClientMock(t)
@@ -226,15 +228,13 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, nil)).Maybe()
+			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
 			prompter := new(cmdMocks.Prompter)
 			prompter.On("IsTerminal").Return(false).Once().Maybe()
 
-			callback := func(*keystore.Eth, string) (string, error) { return "", nil }
-			noauth := cltest.CallbackAuthenticator{Callback: callback}
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
 				Config:                 cfg,
@@ -331,7 +331,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, nil)).Maybe()
+	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	client := cmd.Client{
@@ -415,7 +415,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("Stop").Return(nil)
 			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, nil)).Maybe()
+			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
 
 			client := cmd.Client{
 				Config:                 config,

@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -82,7 +81,6 @@ func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
-	ethClient.On("Dial", mock.Anything).Maybe()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -108,15 +106,25 @@ func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethClient),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
 	)
 	store := app.GetStore()
 	db := store.DB
 	client, _ := app.NewClientAndRenderer()
 
-	requireEthKeysCount(t, store, 1) // The initial funding key
+	cltest.AssertCount(t, db, ethkey.State{}, 1) // The initial funding key
+	keys, err := app.KeyStore.Eth().GetAll()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(keys))
 
 	assert.NoError(t, client.CreateETHKey(nilContext))
 
@@ -138,7 +146,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	// Create the key
-	key, err := ethKeyStore.Create()
+	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	// Delete the key
@@ -160,84 +168,76 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	ethClient := newEthMock(t)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withMocks(ethClient),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
-			c.Overrides.EVMDisabled = null.BoolFrom(true)
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
 	client, r := app.NewClientAndRenderer()
-
-	ethClient.On("Dial", mock.Anything).Maybe()
+	ethKeyStore := app.GetKeyStore().Eth()
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
-	assert.NoError(t, err)
-
-	err = app.GetKeyStore().Eth().Unlock(cltest.Password)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = client.ListETHKeys(c)
-	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
+	require.NoError(t, err)
+	keys := *r.Renders[0].(*cmd.EthKeyPresenters)
+	require.Len(t, keys, 1)
+	address := keys[0].Address
 
 	r.Renders = nil
 
-	set = flag.NewFlagSet("test", 0)
-	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
-	set.Parse([]string{"../internal/fixtures/keys/testkey-0x69Ca211a68100E18B40683E96b55cD217AC95006.json"})
-	c = cli.NewContext(nil, set, nil)
-	err = client.ImportETHKey(c)
-	assert.NoError(t, err)
-
-	r.Renders = nil
-
-	set = flag.NewFlagSet("test", 0)
-	c = cli.NewContext(nil, set, nil)
-	err = client.ListETHKeys(c)
-	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 2)
-
-	ethkeys := *r.Renders[0].(*cmd.EthKeyPresenters)
-	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
-	assert.Equal(t, addr.Hex(), ethkeys[1].Address)
-
+	// Export the key
 	testdir := filepath.Join(os.TempDir(), t.Name())
 	err = os.MkdirAll(testdir, 0700|os.ModeDir)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer os.RemoveAll(testdir)
-
 	keyfilepath := filepath.Join(testdir, "key")
 	set = flag.NewFlagSet("test", 0)
 	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
 	set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
 	set.String("output", keyfilepath, "")
-	set.Parse([]string{addr.Hex()})
+	set.Parse([]string{address})
 	c = cli.NewContext(nil, set, nil)
 	err = client.ExportETHKey(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	// Now, make sure that the keyfile can be imported with the `newpassword` and yields the correct address
-	keyJSON, err := ioutil.ReadFile(keyfilepath)
-	assert.NoError(t, err)
-	oldpassword, err := ioutil.ReadFile("../internal/fixtures/correct_password.txt")
-	assert.NoError(t, err)
-	newpassword, err := ioutil.ReadFile("../internal/fixtures/incorrect_password.txt")
-	assert.NoError(t, err)
+	// Delete the key
+	set = flag.NewFlagSet("test", 0)
+	set.Bool("hard", true, "")
+	set.Bool("yes", true, "")
+	set.Parse([]string{address})
+	c = cli.NewContext(nil, set, nil)
+	err = client.DeleteETHKey(c)
+	require.NoError(t, err)
+	_, err = ethKeyStore.Get(address)
+	require.Error(t, err)
 
-	keystoreDir := filepath.Join(os.TempDir(), t.Name(), "keystore")
-	err = os.MkdirAll(keystoreDir, 0700|os.ModeDir)
-	assert.NoError(t, err)
+	// Import the key
+	set = flag.NewFlagSet("test", 0)
+	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+	set.Parse([]string{keyfilepath})
+	c = cli.NewContext(nil, set, nil)
+	err = client.ImportETHKey(c)
+	require.NoError(t, err)
 
-	scryptParams := utils.GetScryptParams(app.Store.Config)
-	keystore := keystore.New(app.Store.DB, scryptParams).Eth()
-	err = keystore.Unlock(string(oldpassword))
-	assert.NoError(t, err)
-	key, err := keystore.ImportKey(keyJSON, strings.TrimSpace(string(newpassword)))
-	assert.NoError(t, err)
-	assert.Equal(t, addr.Hex(), key.Address.Hex())
+	r.Renders = nil
+
+	set = flag.NewFlagSet("test", 0)
+	c = cli.NewContext(nil, set, nil)
+	err = client.ListETHKeys(c)
+	require.NoError(t, err)
+	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
+	_, err = ethKeyStore.Get(address)
+	require.NoError(t, err)
 
 	// Export test invalid id
 	keyName := keyNameForTest(t)
@@ -250,7 +250,6 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
-
 func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
 

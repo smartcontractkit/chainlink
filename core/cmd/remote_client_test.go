@@ -367,7 +367,7 @@ func TestClient_SetDefaultGasPrice(t *testing.T) {
 
 		err := client.SetEvmGasPriceDefault(c)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "chain not found with id 985435435435")
+		assert.Contains(t, err.Error(), "evmChainID does not match any local chains")
 
 		ch, err := app.GetChainSet().Default()
 		require.NoError(t, err)

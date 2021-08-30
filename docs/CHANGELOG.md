@@ -33,9 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Chainlink now supports connecting to multiple different EVM chains simultaneously.
 
-This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example).
+This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only. 
 
-Extensive efforts have been made to make this as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
+Extensive efforts have been made to make migration for existing nops as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
 
 The overall summary of changes is such:
 

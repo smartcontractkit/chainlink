@@ -349,14 +349,13 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(cleanup)
 
-	ethClient, sub := cltest.NewEthClientAndSubMock(t)
+	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
-	orm := headtracker.NewORM(store.DB)
-	ht := createHeadTrackerWithChecker(ethClient, config, orm, checker)
+	orm := headtracker.NewORM(store.DB, *config.DefaultChainID())
+	ht := createHeadTrackerWithChecker(ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
-	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
@@ -462,10 +461,10 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
 	t.Cleanup(cleanupDB)
 
-	config.Overrides.EvmFinalityDepth = null.IntFrom(50)
+	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
 	d := 0 * time.Second

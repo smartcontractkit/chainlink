@@ -484,7 +484,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig, func()) {
-	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true, false)
+	config, _, ormCleanup := heavyweight.FullTestORM(t, fmt.Sprintf("%s%d", dbName, port), true, true)
 
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -762,10 +762,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 
 	db := pgtest.NewGormDB(t)
-	kst := cltest.NewKeyStore(t, db).Eth()
+	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst, Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{
 		EvmGasPriceDefault:                    utils.NewBigI(initialDefaultGasPrice),
 		GasEstimatorMode:                      null.StringFrom("BlockHistory"),
 		BlockHistoryEstimatorBlockDelay:       null.IntFrom(0),

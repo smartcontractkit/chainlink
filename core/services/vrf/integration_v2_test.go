@@ -20,6 +20,9 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -34,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 type coordinatorV2Universe struct {
@@ -156,7 +156,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, false)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)

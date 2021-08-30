@@ -126,7 +126,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil)
 		defer runner.Close()
-		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer jobORM.Close()
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)

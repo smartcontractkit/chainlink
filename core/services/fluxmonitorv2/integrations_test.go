@@ -123,6 +123,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 
+	var err error
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 

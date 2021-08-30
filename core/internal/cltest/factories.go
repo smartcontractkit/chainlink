@@ -423,14 +423,14 @@ func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.
 	t.Helper()
 
 	k := MustGenerateRandomKey(t)
-	MustAddKeyToKeystore(t, k, ethKeyStore)
+	MustAddKeyToKeystore(t, k, &FixtureChainID, ethKeyStore)
 
 	return k, k.Address.Address()
 }
 
-func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, ethKeyStore keystore.Eth) {
+func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
 	t.Helper()
-	err := ethKeyStore.Add(key)
+	err := ethKeyStore.Add(key, chainID)
 	require.NoError(t, err)
 }
 
@@ -443,8 +443,17 @@ func MustInsertRandomKey(
 	opts ...interface{},
 ) (ethkey.KeyV2, common.Address) {
 	t.Helper()
+
+	chainID := *utils.NewBig(&FixtureChainID)
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case utils.Big:
+			chainID = v
+		}
+	}
+
 	key := MustGenerateRandomKey(t)
-	require.NoError(t, keystore.Add(key))
+	require.NoError(t, keystore.Add(key, chainID.ToInt()))
 	state, err := keystore.GetState(key.ID())
 	require.NoError(t, err)
 
@@ -456,6 +465,8 @@ func MustInsertRandomKey(
 			state.NextNonce = v
 		case bool:
 			state.IsFunding = v
+		case utils.Big:
+			state.EVMChainID = v
 		default:
 			t.Fatalf("unrecognised option type: %T", v)
 		}
@@ -466,10 +477,23 @@ func MustInsertRandomKey(
 	return key, key.Address.Address()
 }
 
+func MustInsertRandomKeyReturningState(t testing.TB,
+	keystore keystore.Eth,
+	opts ...interface{},
+) (ethkey.State, common.Address) {
+	k, address := MustInsertRandomKey(t, keystore, opts...)
+	state := MustGetStateForKey(t, keystore, k)
+	return state, address
+}
+
 func MustGenerateRandomKey(t testing.TB) ethkey.KeyV2 {
 	key, err := ethkey.NewV2()
 	require.NoError(t, err)
 	return key
+}
+
+func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
+	return ethkey.State{Address: NewEIP55Address()}
 }
 
 func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {

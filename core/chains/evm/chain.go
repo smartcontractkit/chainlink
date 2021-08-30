@@ -57,12 +57,12 @@ type chain struct {
 	headTracker     httypes.Tracker
 	logBroadcaster  log.Broadcaster
 	balanceMonitor  services.BalanceMonitor
-	keyStore        keystore.EthKeyStoreInterface
+	keyStore        keystore.Eth
 }
 
 func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
-	l := opts.Logger.With("chainID", chainID.String())
+	l := opts.Logger.With("evmChainID", chainID.String())
 	cfg := evmconfig.NewChainScopedConfig(opts.ORM, l, opts.Config, dbchain)
 	if cfg.EVMDisabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, EVM is disabled", dbchain.ID.String())
@@ -206,7 +206,7 @@ func (c *chain) checkKeys() error {
 	var wg sync.WaitGroup
 	for _, key := range fundingKeys {
 		wg.Add(1)
-		go func(k ethkey.Key) {
+		go func(k ethkey.KeyV2) {
 			defer wg.Done()
 			ctx, cancel := eth.DefaultQueryCtx()
 			defer cancel()

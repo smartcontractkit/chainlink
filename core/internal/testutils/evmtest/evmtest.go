@@ -35,7 +35,7 @@ type TestChainOpts struct {
 	HeadTracker    httypes.Tracker
 	DB             *gorm.DB
 	TxManager      bulletprooftxmanager.TxManager
-	KeyStore       keystore.EthKeyStoreInterface
+	KeyStore       keystore.Eth
 	Logger         *logger.Logger
 }
 

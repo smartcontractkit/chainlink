@@ -373,7 +373,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	kst.On("GetAll").Return([]ethkey.KeyV2{}, nil).Once()
+	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
@@ -398,12 +398,11 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	bptxm.OnNewLongestChain(ctx, *head)
 	require.NoError(t, ctx.Err())
 
-	key := cltest.MustGenerateRandomKey(t)
+	keyState := cltest.MustGenerateRandomKeyState(t)
 
-	kst.On("GetAll").Return([]ethkey.KeyV2{key}, nil).Once()
-	kst.On("GetState", mock.Anything).Return(ethkey.State{ID: 1}, nil).Once()
+	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{keyState}, nil).Once()
 	sub.On("Close").Return()
-	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.timerCtx"), key.Address.Address()).Return(uint64(0), nil)
+	ethClient.On("PendingNonceAt", mock.AnythingOfType("*context.timerCtx"), keyState.Address.Address()).Return(uint64(0), nil)
 	config.On("TriggerFallbackDBPollInterval").Return(1 * time.Hour)
 	keyChangeCh <- struct{}{}
 
