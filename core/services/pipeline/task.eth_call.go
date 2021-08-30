@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
