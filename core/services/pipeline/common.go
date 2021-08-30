@@ -37,6 +37,7 @@ type (
 		TaskRetries() uint32
 		TaskMinBackoff() time.Duration
 		TaskMaxBackoff() time.Duration
+		EvaluateExpression([]Result) bool
 	}
 
 	Config interface {
@@ -224,6 +225,7 @@ const (
 	TaskTypeMedian           TaskType = "median"
 	TaskTypeMode             TaskType = "mode"
 	TaskTypeSum              TaskType = "sum"
+	TaskTypeMemo             TaskType = "memo"
 	TaskTypeMultiply         TaskType = "multiply"
 	TaskTypeDivide           TaskType = "divide"
 	TaskTypeJSONParse        TaskType = "jsonparse"
@@ -281,6 +283,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
 		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMemo:
+		task = &MemoTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeDivide:

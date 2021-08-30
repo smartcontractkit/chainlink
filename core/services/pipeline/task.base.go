@@ -11,11 +11,12 @@ type BaseTask struct {
 	outputs []Task
 	inputs  []Task
 
-	id        int
-	dotID     string
-	Index     int32         `mapstructure:"index" json:"-" `
-	Timeout   time.Duration `mapstructure:"timeout"`
-	FailEarly bool          `mapstructure:"failEarly"`
+	id         int
+	dotID      string
+	Index      int32         `mapstructure:"index" json:"-" `
+	Timeout    time.Duration `mapstructure:"timeout"`
+	FailEarly  bool          `mapstructure:"failEarly"`
+	edgeExpression Expression    `mapstructure:"expression"`
 
 	Retries    null.Uint32   `mapstructure:"retries"`
 	MinBackoff time.Duration `mapstructure:"minBackoff"`
@@ -25,7 +26,14 @@ type BaseTask struct {
 }
 
 func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {
-	return BaseTask{id: id, dotID: dotID, inputs: inputs, outputs: outputs, Index: index}
+	return BaseTask{
+		id: id,
+		dotID: dotID,
+		inputs: inputs,
+		outputs: outputs,
+		Index: index,
+		edgeExpression: alwaysTrueExpression{},
+	}
 }
 
 func (t *BaseTask) Base() *BaseTask {
@@ -75,4 +83,11 @@ func (t BaseTask) TaskMaxBackoff() time.Duration {
 		return t.MaxBackoff
 	}
 	return time.Minute
+}
+
+func (t BaseTask) EvaluateExpression(inputs []Result) bool {
+	if t.edgeExpression == nil {
+		return true
+	}
+	return t.edgeExpression.Evaluate(inputs)
 }

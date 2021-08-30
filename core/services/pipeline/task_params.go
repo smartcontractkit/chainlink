@@ -467,6 +467,102 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	return nil
 }
 
+type ObjectType int
+
+const (
+	NilType ObjectType = iota
+	BoolType
+	MapType
+	StringType
+	BytesType
+	DecimalType
+)
+
+type ObjectParam struct {
+	Type         ObjectType
+	BoolValue    BoolParam
+	MapValue     MapParam
+	StringValue  StringParam
+	BytesValue   []byte
+	DecimalValue DecimalParam
+}
+
+func (o ObjectParam) String() string {
+	switch o.Type {
+	case NilType:
+		return "<nil>"
+	case BoolType:
+		return fmt.Sprintf("%v", bool(o.BoolValue))
+	case MapType:
+	case StringType:
+		return string(o.StringValue)
+	case DecimalType:
+		return o.DecimalValue.Decimal().String()
+	case BytesType:
+	}
+	return ""
+}
+
+func (o ObjectParam) Equals(to ObjectParam) bool {
+	if o.Type != to.Type {
+		return false
+	}
+	switch o.Type {
+	case NilType:
+		return true
+	case BoolType:
+		return o.BoolValue == to.BoolValue
+	case StringType:
+		return o.StringValue == to.StringValue
+	case DecimalType:
+		return o.DecimalValue.Decimal().Cmp(to.DecimalValue.Decimal()) == 0
+	}
+	return false
+}
+
+func (o *ObjectParam) UnmarshalPipelineParam(val interface{}) error {
+	switch v := val.(type) {
+	case nil:
+		o.Type = NilType
+		return nil
+
+	case bool:
+		o.Type = BoolType
+		o.BoolValue = BoolParam(v)
+		return nil
+
+	case MapParam:
+		o.Type = MapType
+		o.MapValue = v
+		return nil
+
+	case map[string]interface{}:
+		o.Type = MapType
+		o.MapValue = MapParam(v)
+		return nil
+
+	case string:
+		o.Type = StringType
+		return o.StringValue.UnmarshalPipelineParam([]byte(v))
+
+	case float64, decimal.Decimal:
+		o.Type = DecimalType
+		return o.DecimalValue.UnmarshalPipelineParam(v)
+
+	case ObjectParam:
+		o.Type = v.Type
+		o.BoolValue = v.BoolValue
+		o.MapValue = v.MapValue
+		o.StringValue = v.StringValue
+		o.DecimalValue = v.DecimalValue
+		return nil
+
+	default:
+		panic(fmt.Sprintf("%T", v))
+		return ErrBadInput
+	}
+}
+
 type MapParam map[string]interface{}
 
 func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {

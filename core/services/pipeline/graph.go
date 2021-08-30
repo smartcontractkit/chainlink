@@ -27,6 +27,11 @@ func (g *Graph) NewNode() graph.Node {
 	return &GraphNode{Node: g.DirectedGraph.NewNode()}
 }
 
+func (g *Graph) NewEdge(from, to graph.Node) graph.Edge {
+	edge := g.DirectedGraph.NewEdge(from, to)
+	return &GraphEdge{Edge: edge, attrs: []encoding.Attribute{}}
+}
+
 func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
@@ -40,18 +45,24 @@ func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	return nil
 }
 
+type GraphEdge struct {
+	graph.Edge
+	attrs []encoding.Attribute
+}
+
+func (e *GraphEdge) SetAttribute(attr encoding.Attribute) error {
+	e.attrs = append(e.attrs, attr)
+	return nil
+}
+
+func (e *GraphEdge) Attributes() []encoding.Attribute {
+	return e.attrs
+}
+
 type GraphNode struct {
 	graph.Node
 	dotID string
 	attrs map[string]string
-}
-
-func NewGraphNode(n graph.Node, dotID string, attrs map[string]string) *GraphNode {
-	return &GraphNode{
-		Node:  n,
-		attrs: attrs,
-		dotID: dotID,
-	}
 }
 
 func (n *GraphNode) DOTID() string {
@@ -107,6 +118,7 @@ func (p *Pipeline) UnmarshalText(bs []byte) (err error) {
 	*p = *parsed
 	return nil
 }
+
 func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	var minTimeout time.Duration = 1<<63 - 1
 	var aTimeoutSet bool
@@ -187,6 +199,16 @@ func Parse(text string) (*Pipeline, error) {
 		// re-link the edges
 		for inputs := g.To(node.ID()); inputs.Next(); {
 			from := p.Tasks[ids[inputs.Node().ID()]]
+
+			// Check if the edge has any expressions on it
+			edge := g.Edge(inputs.Node().ID(), node.ID())
+			if a, ok := edge.(encoding.Attributer); ok {
+				// TODO: validation, full expression parsing
+				attr := a.Attributes()[0]
+				task.Base().edgeExpression = ConditionalExpression{
+					comparator: attr.Key,
+				}
+			}
 
 			from.Base().outputs = append(from.Base().outputs, task)
 			task.Base().inputs = append(task.Base().inputs, from)

@@ -279,6 +279,45 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	}
 }
 
+func Test_PipelineRunner_ExecuteTaskRunsWithBranching(t *testing.T) {
+	t.Parallel()
+
+	specTemplate := `
+ds1 [type=memo value=true]
+ds1_pass [type=memo value=172]
+ds1_fail [type=memo value=0]
+
+ds1 -> ds1_pass [if="$(ds1.value) = true"];
+    `
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	cfg := cltest.NewTestEVMConfig(t)
+
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+
+	runner := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+
+	spec := pipeline.Spec{DotDagSource: specTemplate}
+	_, taskRunResults, err := runner.ExecuteRun(
+		context.Background(),
+		spec,
+		pipeline.NewVarsFrom(map[string]interface{}{}),
+		*logger.Default,
+	)
+	require.NoError(t, err)
+
+	require.Len(t, taskRunResults, 2)
+	result := taskRunResults[0].Result
+	assert.NoError(t, result.Error)
+	assert.Equal(t, "true", result.Value.(pipeline.ObjectParam).String())
+
+	result = taskRunResults[1].Result
+	assert.NoError(t, result.Error)
+	assert.Equal(t, "172", result.Value.(pipeline.ObjectParam).String())
+}
+
 func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// We want to test the scenario where one or multiple APIs time out,
 	// but a sufficient number of them still complete within the desired time frame

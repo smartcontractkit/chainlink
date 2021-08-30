@@ -296,7 +296,11 @@ func (r *runner) run(
 					})
 				}
 			}()
-			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
+			result, ran := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
+			if !ran {
+				// TODO: what do we tell the scheduler?
+				return
+			}
 
 			logTaskRunToPrometheus(result, run.PipelineSpec)
 
@@ -371,12 +375,19 @@ func (r *runner) run(
 	return taskRunResults, nil
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) (TaskRunResult, bool) {
 	start := time.Now()
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
 		"attempt", taskRun.attempts,
+	}
+
+	// First evaluate any expressions attached to this task, to see if should be
+	// run
+	if !taskRun.task.EvaluateExpression(taskRun.inputs) {
+		fmt.Println("Skipping task execution because expression was false")
+		return TaskRunResult{}, false
 	}
 
 	// Order of precedence for task timeout:
@@ -413,7 +424,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		Result:     result,
 		CreatedAt:  start,
 		FinishedAt: null.TimeFrom(now),
-	}
+	}, true
 }
 
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
