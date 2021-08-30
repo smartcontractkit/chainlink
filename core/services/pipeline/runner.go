@@ -351,10 +351,7 @@ func (r *runner) run(
 				continue
 			}
 			errors = append(errors, result.Error)
-
-			if result.Output.Val != nil {
-				outputs = append(outputs, result.Output.Val)
-			}
+			outputs = append(outputs, result.Output.Val)
 		}
 		run.Errors = errors
 		run.Outputs = JSONSerializable{Val: outputs, Null: false}

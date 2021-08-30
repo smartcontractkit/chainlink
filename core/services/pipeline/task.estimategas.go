@@ -50,7 +50,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		multiplier DecimalParam
 	)
 	err := multierr.Combine(
-		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "to"),
+		errors.Wrap(ResolveParam(&fromAddr, From(VarExpr(t.From, vars), utils.ZeroAddress)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
 		// Default to 1, i.e. exactly what estimateGas suggests
