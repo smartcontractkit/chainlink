@@ -19,6 +19,10 @@ import (
 	"go.uber.org/multierr"
 )
 
+var (
+	vrfCoordinatorV2ABI = eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+)
+
 type VRFTaskV2 struct {
 	BaseTask           `mapstructure:",squash"`
 	PublicKey          string `json:"publicKey"`
@@ -120,8 +124,10 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if err != nil {
 		return Result{Error: err}
 	}
-	abi := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	b, err := abi.Pack("fulfillRandomWords", onChainProof, rc)
+	b, err := vrfCoordinatorV2ABI.Pack("fulfillRandomWords", onChainProof, rc)
+	if err != nil {
+		return Result{Error: err}
+	}
 	results := make(map[string]interface{})
 	results["output"] = hexutil.Encode(b)
 	results["requestID"] = hexutil.Encode([]byte(requestId.String()))
