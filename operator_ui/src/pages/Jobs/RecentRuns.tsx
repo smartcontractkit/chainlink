@@ -15,7 +15,6 @@ import TaskListDag from './TaskListDag'
 import React from 'react'
 import { JobData } from './sharedTypes'
 import { parseDot } from './parseDot'
-import { JobRunV2, Resource } from 'core/store/models'
 
 const chartCardStyles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -45,7 +44,7 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   error: unknown
   getJobRuns: (props?: { page?: number; size?: number }) => Promise<void>
   job?: JobData['job']
-  recentRuns?: Resource<JobRunV2>[]
+  recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
   showJobRunsCount?: number
 }
