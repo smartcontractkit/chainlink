@@ -66,8 +66,11 @@ type DirectRequestUniverse struct {
 
 func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
 	gethClient := new(mocks.Client)
+	gethClient.Test(t)
 	broadcaster := new(log_mocks.Broadcaster)
+	broadcaster.Test(t)
 	runner := new(pipeline_mocks.Runner)
+	runner.Test(t)
 
 	config := cltest.NewTestConfig(t)
 	store, cleanupDB := cltest.NewStoreWithConfig(t, config)
@@ -459,19 +462,21 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+
+		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
+
+		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(*gorm.DB) error)
-			fn(nil)
-		}).Once().Return(false, nil)
+		}).Once().Return(int64(1), nil)
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobID())
+		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)

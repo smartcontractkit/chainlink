@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
@@ -1872,8 +1871,8 @@ func TestIntegration_OCR(t *testing.T) {
 		// bootstrap node to come up.
 		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
 		// GracePeriod < ObservationTimeout
-		cfg.GeneralConfig.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
-		cfg.Overrides.FlagsContractAddress = null.StringFrom(flagsContractAddress.String())
+		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "100ms")
+		app.Config.Set("FLAGS_CONTRACT_ADDRESS", flagsContractAddress.String())
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
