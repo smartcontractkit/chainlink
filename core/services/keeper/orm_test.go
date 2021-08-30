@@ -61,7 +61,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	defer cleanup()
 
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	upkeep := keeper.UpkeepRegistration{
@@ -100,7 +100,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 
@@ -125,7 +125,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	blockheight := int64(63)
 	gracePeriod := int64(10)
@@ -178,7 +178,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	blockheight := int64(120)
 	gracePeriod := int64(100)
@@ -210,7 +210,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry.NumKeepers = 5
@@ -242,7 +242,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry.NumKeepers = 5
@@ -277,7 +277,7 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry2, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)

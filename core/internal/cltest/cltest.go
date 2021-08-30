@@ -50,8 +50,11 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -97,10 +100,12 @@ const (
 	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
 	// AllowUnstarted enable an application that can be used in tests without being started
 	AllowUnstarted = "allow_unstarted"
+	// DefaultPeerID is the peer ID of the default p2p key
+	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 	// A peer ID without an associated p2p key.
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
-	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
-	DefaultOCRKeyBundleID = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
+	DefaultOCRKeyBundleID = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
 )
 
 var (
@@ -110,6 +115,11 @@ var (
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	source                      rand.Source
+
+	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultP2PKey = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultVRFKey = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
@@ -184,11 +194,11 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.EVMConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.EVMConfig, db *gorm.DB, ethClient eth.Client, keyStore keystore.Master, txManager pipeline.TxManager) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
+	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{}, keyStore)
 	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, cfg, ethClient, keyStore, nil, txManager)
+	pr := pipeline.NewRunner(prm, cfg, ethClient, keyStore.Eth(), nil, txManager)
 	return JobPipelineV2TestHelper{
 		prm,
 		eb,
@@ -207,7 +217,7 @@ func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeli
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config config.EVMConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config config.EVMConfig, keys []ethkey.KeyV2) (*bulletprooftxmanager.EthBroadcaster, func()) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
@@ -217,7 +227,7 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	}
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config config.EVMConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.KeyV2, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
@@ -232,7 +242,7 @@ type TestApplication struct {
 	wsServer       *httptest.Server
 	Started        bool
 	Backend        *backends.SimulatedBackend
-	Key            ethkey.Key
+	Key            ethkey.KeyV2
 	allowUnstarted bool
 }
 
@@ -324,19 +334,17 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestEVMConfig, f
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
+	require.NoError(t, app.KeyStore.Unlock(Password))
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case ethkey.Key:
-			MustAddKeyToKeystore(t, &v, app.KeyStore.Eth())
+		case ethkey.KeyV2:
+			MustAddKeyToKeystore(t, v, app.KeyStore.Eth())
 			app.Key = v
 		}
 	}
-	if app.Key.Address.Address() == utils.ZeroAddress {
-		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
+	if app.Key.Address.IsZero() {
+		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	}
-	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
-	_, err := app.KeyStore.VRF().Unlock(VRFPassword)
-	require.NoError(t, err)
 
 	return app, cleanup
 }
@@ -458,15 +466,12 @@ func (ta *TestApplication) NewBox() packr.Box {
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
-	// TODO - RYAN - we should have a global keystore.Unlock() function
-	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	err := ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
 	if err != nil {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start()
-	return err
+	return ta.ChainlinkApplication.Start()
 }
 
 // Stop will stop the test application and perform cleanup
@@ -503,11 +508,11 @@ func (ta *TestApplication) MustSeedNewSession() string {
 	return session.ID
 }
 
-// ImportKey adds private key to the application disk keystore, not database.
-func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.KeyStore.Eth().ImportKey([]byte(content), Password)
+// ImportKey adds private key to the application keystore and database
+func (ta *TestApplication) Import(content string) {
+	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
+	_, err := ta.KeyStore.Eth().Import([]byte(content), Password)
 	require.NoError(ta.t, err)
-	require.NoError(ta.t, ta.KeyStore.Eth().Unlock(Password))
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
@@ -526,14 +531,9 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:   r,
-		Config:     ta.GetEVMConfig(),
-		AppFactory: seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator: CallbackAuthenticator{
-			Callback: func(*keystore.Eth, string) (string, error) {
-				return Password, nil
-			},
-		},
+		Renderer:                       r,
+		Config:                         ta.GetEVMConfig(),
+		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
@@ -551,7 +551,6 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetEVMConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, models.SessionRequest{}),
@@ -593,8 +592,17 @@ func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func())
 	return store, storeCleanup
 }
 
-func NewKeyStore(t testing.TB, db *gorm.DB) *keystore.Master {
-	return keystore.New(db, utils.FastScryptParams)
+type fastScriptConfig struct{}
+
+func (fastScriptConfig) InsecureFastScrypt() bool {
+	return true
+}
+
+// NewKeyStore returns a new, unlocked keystore
+func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
+	keystore := keystore.New(db, utils.FastScryptParams)
+	require.NoError(t, keystore.Unlock(Password))
+	return keystore
 }
 
 func cleanUpStore(t testing.TB, store *strpkg.Store) {
@@ -1637,7 +1645,7 @@ func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeys(t *testing.T, ethKeyStore *keystore.Eth) (keys []ethkey.Key) {
+func MustSendingKeys(t *testing.T, ethKeyStore keystore.Eth) (keys []ethkey.KeyV2) {
 	var err error
 	keys, err = ethKeyStore.SendingKeys()
 	require.NoError(t, err)

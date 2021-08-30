@@ -62,9 +62,10 @@ type Config interface {
 
 // KeyStore encompasses the subset of keystore used by bulletprooftxmanager
 type KeyStore interface {
-	AllKeys() (keys []ethkey.Key, err error)
+	GetAll() (keys []ethkey.KeyV2, err error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
+	GetState(id string) (ethkey.State, error)
 }
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
@@ -148,7 +149,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 
 func (b *BulletproofTxManager) Start() (merr error) {
 	return b.StartOnce("BulletproofTxManager", func() error {
-		keys, err := b.keyStore.AllKeys()
+		keys, err := b.keyStore.GetAll()
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: failed to load keys")
 		}
@@ -218,7 +219,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfCalling(ec.Close)
 			return
 		case <-keysChanged:
-			keys, err := b.keyStore.AllKeys()
+			keys, err := b.keyStore.GetAll()
 			if err != nil {
 				b.logger.Fatalf("BulletproofTxManager: expected keystore to be unlocked: %s", err.Error())
 			}

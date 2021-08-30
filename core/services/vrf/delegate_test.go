@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -51,8 +52,8 @@ type vrfUniverse struct {
 	prm       pipeline.ORM
 	lb        *log_mocks.Broadcaster
 	ec        *eth_mocks.Client
-	ks        *keystore.Master
-	vrfkey    secp256k1.PublicKey
+	ks        keystore.Master
+	vrfkey    vrfkey.KeyV2
 	submitter common.Address
 	txm       *bptxmmocks.TxManager
 	hb        httypes.HeadBroadcaster
@@ -70,19 +71,17 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUn
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
-	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
 	ks := keystore.New(db, utils.FastScryptParams)
+	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{}, ks)
 	txm := new(bptxmmocks.TxManager)
 	t.Cleanup(func() { txm.AssertExpectations(t) })
 	pr := pipeline.NewRunner(prm, cfg, ec, ks.Eth(), ks.VRF(), txm)
-	require.NoError(t, ks.Eth().Unlock("blah"))
-	_, err = ks.Eth().CreateNewKey()
+	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
+	_, err = ks.Eth().Create()
 	require.NoError(t, err)
 	submitter, err := ks.Eth().GetRoundRobinAddress()
 	require.NoError(t, err)
-	_, err = ks.VRF().Unlock("blah")
-	require.NoError(t, err)
-	vrfkey, err := ks.VRF().CreateKey()
+	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)
 
 	return vrfUniverse{
@@ -151,7 +150,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.hb,
 		vuni.ec,
 		c)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	jb, err = vuni.jrm.CreateJob(context.Background(), &jb, jb.Pipeline)
@@ -178,10 +177,10 @@ func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	counts := getStartingResponseCounts(db, logger.Default)
 	assert.Equal(t, 0, len(counts))
-
 	ks := keystore.New(db, utils.FastScryptParams)
-	require.NoError(t, ks.Eth().Unlock("blah"))
-	k, err := ks.Eth().CreateNewKey()
+	err := ks.Unlock("p4SsW0rD1!@#_")
+	require.NoError(t, err)
+	k, err := ks.Eth().Create()
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
@@ -319,7 +318,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.respCount[reqIDBytes] = 2
 
 	// Send in the same request again
-	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
+	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.PublicKey.String())
 	require.NoError(t, err)
 	added := make(chan struct{})
 	listener.reqAdded = func() {
@@ -357,7 +356,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 	txHash := utils.NewHash()
 	reqID1 := utils.NewHash()
 	reqID2 := utils.NewHash()
-	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
+	keyID := vuni.vrfkey.PublicKey.String()
+	pk, err := secp256k1.NewPublicKeyFromHex(keyID)
 	require.NoError(t, err)
 	added := make(chan struct{})
 	listener.reqAdded = func() {
@@ -451,7 +451,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
-		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		p, err := vuni.ks.VRF().GenerateProof(keyID, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -555,7 +555,7 @@ func TestFulfilledCheck(t *testing.T) {
 		types.Log{
 			// Data has all the NON-indexed parameters
 			Data: bytes.Join([][]byte{
-				vuni.vrfkey.MustHash().Bytes(),           // key hash
+				vuni.vrfkey.PublicKey.MustHash().Bytes(), // key hash
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee

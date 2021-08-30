@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"regexp"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -19,7 +18,6 @@ import (
 func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
 
-	now := time.Now()
 	r := cmd.RendererJSON{Writer: ioutil.Discard}
 	keys := []cmd.VRFKeyPresenter{
 		{
@@ -27,9 +25,6 @@ func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 				Compressed:   "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01",
 				Uncompressed: "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f",
 				Hash:         "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a",
-				CreatedAt:    now,
-				UpdatedAt:    now,
-				DeletedAt:    nil,
 			},
 		},
 	}
