@@ -390,6 +390,7 @@ declare module 'core/store/models' {
     | VRFJob
 
   export interface JobRunV2 {
+    state: string
     outputs: PipelineTaskOutput[]
     errors: PipelineTaskError[]
     taskRuns: PipelineTaskRun[]
@@ -399,6 +400,7 @@ declare module 'core/store/models' {
       ID: number
       CreatedAt: time.Time
       dotDagSource: string
+      jobID: string
     }
   }
 

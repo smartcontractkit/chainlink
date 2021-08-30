@@ -26,8 +26,8 @@ import (
 const (
 	// RootDir the root directory for test
 	RootDir = "/tmp/chainlink_test"
-	// DefaultPeerID is the peer ID of the fixture p2p key
-	DefaultPeerID = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+	// DefaultPeerID is the peer ID of the default p2p key
+	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 )
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
@@ -61,7 +61,7 @@ type GeneralConfigOverrides struct {
 	FeatureExternalInitiators                 null.Bool
 	LogToDisk                                 null.Bool
 	OCRBootstrapCheckInterval                 *time.Duration
-	OCRKeyBundleID                            *models.Sha256Hash
+	OCRKeyBundleID                            null.String
 	OCRObservationGracePeriod                 *time.Duration
 	OCRObservationTimeout                     *time.Duration
 	OCRTransmitterAddress                     *ethkey.EIP55Address
@@ -323,9 +323,9 @@ func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
 	return c.GeneralConfig.P2PBootstrapPeers()
 }
 
-func (c *TestGeneralConfig) OCRKeyBundleID() (models.Sha256Hash, error) {
-	if c.Overrides.OCRKeyBundleID != nil {
-		return *c.Overrides.OCRKeyBundleID, nil
+func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
+	if c.Overrides.OCRKeyBundleID.Valid {
+		return c.Overrides.OCRKeyBundleID.String, nil
 	}
 	return c.GeneralConfig.OCRKeyBundleID()
 }

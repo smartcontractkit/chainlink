@@ -71,7 +71,7 @@ export const JobProposalScreen = () => {
   }
 
   const handleUpdateJobSpecSubmit = ({ spec }: FormValues) => {
-    v2.jobProposals
+    return v2.jobProposals
       .updateJobProposalSpec(id, { spec })
       .then((res) => {
         setProposal(res.data)
@@ -123,7 +123,10 @@ export const JobProposalScreen = () => {
                 </SyntaxHighlighter>
 
                 {proposal.attributes.status === 'pending' && (
-                  <Button onClick={() => setIsEditing(true)}>
+                  <Button
+                    variant="contained"
+                    onClick={() => setIsEditing(true)}
+                  >
                     Edit job spec
                   </Button>
                 )}

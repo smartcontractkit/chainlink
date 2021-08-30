@@ -19,7 +19,6 @@ func ExampleRun() {
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
 		AppFactory:             cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
 		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),

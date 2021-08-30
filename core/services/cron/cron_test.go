@@ -25,9 +25,10 @@ func TestCronV2Pipeline(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(cleanup)
 	db := store.DB
+	keyStore := cltest.NewKeyStore(t, db)
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 
 	spec := &job.Job{
 		Type:          job.Cron,
