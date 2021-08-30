@@ -541,7 +541,7 @@ func TestFulfillmentCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.rootContractAddress, uni.coordinatorABI,
-		"fulfillRandomWords", proof[:], rc[:])
+		"fulfillRandomWords", proof, rc)
 	t.Log("estimate", estimate)
 	// Establish very rough bounds on fulfillment cost
 	assert.Greater(t, estimate, uint64(130000))

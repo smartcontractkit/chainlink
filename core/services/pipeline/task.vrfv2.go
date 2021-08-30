@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -117,9 +120,11 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if err != nil {
 		return Result{Error: err}
 	}
+	abi := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	b, err := abi.Pack("fulfillRandomWords", onChainProof, rc)
 	results := make(map[string]interface{})
-	results["proof"] = hexutil.Encode(onChainProof[:])
-	results["requestCommitment"] = hexutil.Encode(rc[:])
+	results["output"] = hexutil.Encode(b)
+	//results["requestCommitment"] = hexutil.Encode(rc[:])
 	results["requestID"] = hexutil.Encode([]byte(requestId.String()))
 	return Result{Value: results}
 }

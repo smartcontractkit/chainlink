@@ -6,6 +6,8 @@ package proof
 import (
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,29 +28,12 @@ type ProofResponse struct {
 	BlockNum uint64 // Height of the block in which this request was made
 }
 
-type ProofResponseV2 struct {
-	P        vrfkey.Proof
-	PreSeed  Seed
-	BlockNum uint64
-	// V2 Only fields
-	SubId            uint64         // Subscription ID to be charged for fulfillment
-	CallbackGasLimit uint32         // Gas limit for consumer callback
-	NumWords         uint32         // Number of random words to expand to
-	Sender           common.Address // VRF consumer address
-}
-
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
 // extra 32 bytes are for blocknumber (as a uint256), which goes at the end. The
 // seed is rewritten with the preSeed. (See MarshalForVRFCoordinator and
 // ProofResponse#ActualProof.)
 const OnChainResponseLength = ProofLength +
 	32 // blocknum
-
-const RequestCommitmentLength = 32 + // blocknum
-	32 + // subID
-	32 + // gaslimit
-	32 + // numWords
-	32 // sender
 
 // MarshaledOnChainResponse is the flat bytes which are sent back to the
 // VRFCoordinator.
@@ -76,75 +61,6 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 			"wrong length for response to VRFCoordinator")
 	}
 	return response, nil
-}
-
-func (p *ProofResponseV2) MarshalForVRFCoordinator() (
-	[ProofLength]byte, [RequestCommitmentLength]byte, error) {
-	var proof [ProofLength]byte
-	var rc [RequestCommitmentLength]byte
-	solidityProof, err := SolidityPrecalculations(&p.P)
-	if err != nil {
-		return proof, rc, errors.Wrap(err,
-			"while marshaling proof for VRFCoordinatorV2")
-	}
-	solidityProof.P.Seed = common.BytesToHash(p.PreSeed[:]).Big()
-	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
-	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
-	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
-	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
-	proofBytes, err := utils.GenericEncode([]string{
-		"uint256[2]", // pk
-		"uint256[2]", // gamma
-		"uint256",    // c
-		"uint256",    // s
-		"uint256",    // seed
-		"address",    // uWit
-		"uint256[2]", // cGammaWitness
-		"uint256[2]", // sHashWitness
-		"uint256",    // zInv
-	},
-		[]interface{}{
-			[2]*big.Int{x, y},
-			[2]*big.Int{gx, gy},
-			solidityProof.P.C,
-			solidityProof.P.S,
-			solidityProof.P.Seed,
-			solidityProof.UWitness,
-			[2]*big.Int{cgx, cgy},
-			[2]*big.Int{shx, shy},
-			solidityProof.ZInv,
-		}...)
-	if err != nil {
-		return proof, rc, err
-	}
-	rcBytes, err := utils.GenericEncode([]string{
-		"uint64",  // blocknum
-		"uint64",  // subId
-		"uint32",  // callbackLimit
-		"uint32",  // numWords
-		"address", // sender
-	},
-		[]interface{}{
-			p.BlockNum,
-			p.SubId,
-			p.CallbackGasLimit,
-			p.NumWords,
-			p.Sender,
-		}...)
-	if err != nil {
-		return proof, rc, err
-	}
-	if len(proofBytes) != ProofLength {
-		return proof, rc, errors.Errorf(
-			"wrong length of proof for VRFCoordinatorV2")
-	}
-	if len(rcBytes) != RequestCommitmentLength {
-		return proof, rc, errors.Errorf(
-			"wrong length of request commitment for VRFCoordinatorV2")
-	}
-	copy(rc[:], rcBytes[:])
-	copy(proof[:], proofBytes[:])
-	return proof, rc, nil
 }
 
 // UnmarshalProofResponse returns the ProofResponse represented by the bytes in m
@@ -186,17 +102,36 @@ func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (Marshale
 	return rv, nil
 }
 
-func GenerateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) ([ProofLength]byte, [RequestCommitmentLength]byte, error) {
-	p := ProofResponseV2{
-		P:                proof,
-		PreSeed:          s.PreSeed,
-		BlockNum:         s.BlockNum,
-		SubId:            s.SubId,            // Subscription ID to be charged for fulfillment
-		CallbackGasLimit: s.CallbackGasLimit, // Gas limit for consumer callback
-		NumWords:         s.NumWords,         // Number of random words to expand to
-		Sender:           s.Sender,           // VRF consumer address
+func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
+	var proof vrf_coordinator_v2.VRFProof
+	var rc vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
+	solidityProof, err := SolidityPrecalculations(&p)
+	if err != nil {
+		return proof, rc, errors.Wrap(err,
+			"while marshaling proof for VRFCoordinatorV2")
 	}
-	return p.MarshalForVRFCoordinator()
+	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
+	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
+	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
+	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
+	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
+	return vrf_coordinator_v2.VRFProof{
+			Pk:            [2]*big.Int{x, y},
+			Gamma:         [2]*big.Int{gx, gy},
+			C:             solidityProof.P.C,
+			S:             solidityProof.P.S,
+			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+			UWitness:      solidityProof.UWitness,
+			CGammaWitness: [2]*big.Int{cgx, cgy},
+			SHashWitness:  [2]*big.Int{shx, shy},
+			ZInv:          solidityProof.ZInv,
+		}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
+			BlockNum:         s.BlockNum,
+			SubId:            s.SubId,
+			CallbackGasLimit: s.CallbackGasLimit,
+			NumWords:         s.NumWords,
+			Sender:           s.Sender,
+		}, nil
 }
 
 func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
@@ -210,14 +145,12 @@ func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 }
 
 func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
-	[ProofLength]byte, [RequestCommitmentLength]byte, error) {
+	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
-	var p [ProofLength]byte
-	var rc [RequestCommitmentLength]byte
 	if err != nil {
-		return p, rc, err
+		return vrf_coordinator_v2.VRFProof{}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{}, err
 	}
 	return GenerateProofResponseFromProofV2(proof, s)
 }

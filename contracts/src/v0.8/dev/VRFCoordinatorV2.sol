@@ -370,55 +370,65 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return success;
   }
 
+  function getRandomnessFromProof(
+    Proof memory proof,
+    RequestCommitment memory rc
+  )
+    private
+    view
+      returns (
+      bytes32 keyHash,
+      uint256 requestId,
+      uint256 randomness
+    ) {
+      keyHash = hashOfKey(proof.pk);
+      requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
+      bytes32 commitment = s_requestCommitments[requestId];
+      if (commitment == 0) {
+        revert NoCorrespondingRequest();
+      }
+      if (commitment != keccak256(abi.encode(
+        requestId,
+        rc.blockNum,
+        rc.subId,
+        rc.callbackGasLimit,
+        rc.numWords,
+        rc.sender)))
+      {
+        revert IncorrectCommitment();
+      }
+
+      bytes32 blockHash = blockhash(rc.blockNum);
+        if (blockHash == bytes32(0)) {
+          blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
+          if (blockHash == bytes32(0)) {
+            revert BlockhashNotInStore(rc.blockNum);
+          }
+      }
+
+      // The seed actually used by the VRF machinery, mixing in the blockhash
+      uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
+      randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+  }
+
   function fulfillRandomWords(
-    bytes memory proofBytes,
-    bytes memory requestCommitmentBytes
+    Proof memory proof,
+    RequestCommitment memory rc
   )
     external
     nonReentrant()
   {
-    if (proofBytes.length != PROOF_LENGTH) {
-      revert InvalidProofLength(proofBytes.length, PROOF_LENGTH);
-    }
     uint256 startGas = gasleft();
-    RequestCommitment memory rc = abi.decode(requestCommitmentBytes, (RequestCommitment));
-    Proof memory proof = abi.decode(proofBytes, (Proof));
-    bytes32 keyHash = hashOfKey(proof.pk);
-    uint256 requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
-    if (s_requestCommitments[requestId] == 0) {
-      revert NoCorrespondingRequest();
-    }
-    // TODO: helper function to avoid stack depth limit
-    // (assigning commitment = s_requestCommitments[requestId], puts us over the limit)
-    if (s_requestCommitments[requestId] != keccak256(abi.encode(
-      requestId,
-      rc.blockNum,
-      rc.subId,
-      rc.callbackGasLimit,
-      rc.numWords,
-      rc.sender)))
-    {
-      revert IncorrectCommitment();
-    }
-
-    bytes32 blockHash = blockhash(rc.blockNum);
-    if (blockHash == bytes32(0)) {
-      blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
-      if (blockHash == bytes32(0)) {
-        revert BlockhashNotInStore(rc.blockNum);
-      }
-    }
-
-    // The seed actually used by the VRF machinery, mixing in the blockhash
-    uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
-    uint256 randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    (bytes32 keyHash,
+     uint256 requestId,
+     uint256 randomness) = getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
       randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
     }
 
-    delete s_requestCommitments[proof.seed];
+    delete s_requestCommitments[requestId];
     VRFConsumerBaseV2 v;
     bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, proof.seed, randomWords);
     uint256 gasPreCallback = gasleft();
