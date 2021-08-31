@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -165,7 +166,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	svcLogger.Debug("checking upkeep")
 
-	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop)
+	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

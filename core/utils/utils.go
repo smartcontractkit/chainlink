@@ -533,8 +533,8 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 
 // ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
 // receives or is closed.
-func ContextFromChanWithDeadline(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	go func() {
 		select {
 		case <-chStop:
