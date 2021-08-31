@@ -3,6 +3,7 @@
 pragma solidity >=0.7.6 <0.9.0;
 
 import "../interfaces/TypeAndVersionInterface.sol";
+import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./CrossDomainForwarder.sol";
 
 /**
@@ -54,7 +55,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
     virtual
     returns (address)
   {
-    return _generateCrossDomainMessenger(l1Owner());
+    return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
   }
 
   /**
@@ -73,24 +74,5 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
     // 2. Make the external call
     (bool success, bytes memory res) = target.call(data);
     require(success, string(abi.encode("xDomain call failed:", res)));
-  }
-
-  /**
-   * @notice Utility function that converts the `msg.sender` viewed in the L2 to the
-   *  address in the L1 that submitted the xDomain tx
-   *
-   * @param l1Sender the address in the L1 that triggered the tx to L2
-   * @return L2 address as viewed in `msg.sender`
-   */
-  function _generateCrossDomainMessenger(
-    address l1Sender
-  )
-    internal
-    view
-    virtual
-    returns (address)
-  {
-    uint160 offset = uint160(0x1111000000000000000000000000000000001111);
-    return address(uint160(l1Sender) - offset);
   }
 }
