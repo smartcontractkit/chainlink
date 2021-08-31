@@ -486,8 +486,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	initialBalance := currentBalance(t, &fa).Int64()
 
-	cltest.CreateJobViaWeb2(t, app, string(requestBody))
+	jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
+	jobID, err := strconv.ParseInt(jobResponse.ID, 10, 0)
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
@@ -508,17 +509,16 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance,
 		receiptBlock,
 	)
-	run := assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
+	assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
+	// make sure the log is sent from LogBroadcaster
 	fa.backend.Commit()
-	// wait time larger than HeadTracker sampling interval
-	time.Sleep(10 * configtest.HeadSamplingIntervalInTest)
 	fa.backend.Commit()
 
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 5)
+	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobID), 5)
 
 	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
@@ -550,7 +550,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, run.PipelineSpecID, 8)
+	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobID), 8)
 
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
