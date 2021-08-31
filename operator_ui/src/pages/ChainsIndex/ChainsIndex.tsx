@@ -1,8 +1,6 @@
 import React from 'react'
 
 import { v2 } from 'api'
-import BaseLink from 'components/BaseLink'
-import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
 import * as models from 'core/store/models'
@@ -38,12 +36,13 @@ export type ChainSpecV2 = Chain<models.Chain>
 
 async function getChains() {
   return Promise.all([v2.chains.getChains()]).then(([v2Chains]) => {
-    console.log(v2Chains.data)
-    const chainsByDate = v2Chains.data.sort((a, b) => {
-      const chainA = new Date(a.attributes.createdAt).getTime()
-      const chainB = new Date(b.attributes.createdAt).getTime()
-      return chainA > chainB ? -1 : 1
-    })
+    const chainsByDate = v2Chains.data.sort(
+      (a: ChainSpecV2, b: ChainSpecV2) => {
+        const chainA = new Date(a.attributes.createdAt).getTime()
+        const chainB = new Date(b.attributes.createdAt).getTime()
+        return chainA > chainB ? -1 : 1
+      },
+    )
 
     return chainsByDate
   })
@@ -112,19 +111,6 @@ export const ChainsIndex = ({
       <Grid container>
         <Grid item xs={9}>
           <Title>Chains</Title>
-        </Grid>
-        <Grid item xs={3}>
-          <Grid container justify="flex-end">
-            <Grid item>
-              <Button
-                variant="secondary"
-                component={BaseLink}
-                href={'/chains/new'}
-              >
-                New Chain
-              </Button>
-            </Grid>
-          </Grid>
         </Grid>
 
         <Grid item xs={12}>
