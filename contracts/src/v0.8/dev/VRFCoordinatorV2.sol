@@ -47,7 +47,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint64  subId;
     uint64  nonce;
   }
-  mapping(bytes32 /* keccak256(consumer, subId) */ => Consumer /* consumer */) private s_consumers;
+  mapping(address /* consumer */ => mapping(uint64 /* subId */ => Consumer )) private s_consumers;
   mapping(uint64 /* subId */ => Subscription /* subscription */) private s_subscriptions;
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
@@ -287,8 +287,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    bytes32 consumerKey = keccak256(abi.encode(msg.sender, subId));
-    Consumer memory consumer = s_consumers[consumerKey];
+    Consumer memory consumer = s_consumers[msg.sender][subId];
     if (consumer.subId != subId) {
       revert InvalidConsumer(subId, msg.sender);
     }
@@ -320,7 +319,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         numWords,
         msg.sender));
     emit RandomWordsRequested(keyHash, requestId, preSeed, subId, requestConfirmations, callbackGasLimit, numWords, msg.sender);
-    s_consumers[consumerKey].nonce = nonce;
+    s_consumers[msg.sender][subId].nonce = nonce;
 
     return requestId;
   }
@@ -591,7 +590,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i; i < consumers.length; i++) {
       // Note since we just created this sub, its not possible that a consumer
       // already exists at this consumer key.
-      s_consumers[keccak256(abi.encode(consumers[i], currentSubId))] = Consumer({
+      s_consumers[consumers[i]][currentSubId] = Consumer({
         subId: currentSubId,
         nonce: 0
       });
@@ -641,8 +640,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     onlySubOwner(subId)
     nonReentrant()
   {
-    bytes32 consumerKey = keccak256(abi.encode(consumer, subId));
-    if (s_consumers[consumerKey].subId != subId) {
+    if (s_consumers[consumer][subId].subId == 0) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAXIMUM_CONSUMERS
@@ -658,7 +656,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         break;
       }
     }
-    delete s_consumers[consumerKey];
+    delete s_consumers[consumer][subId];
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
@@ -674,12 +672,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_subscriptions[subId].consumers.length == MAXIMUM_CONSUMERS) {
       revert TooManyConsumers();
     }
-    bytes32 consumerKey = keccak256(abi.encode(consumer, subId));
-    if (s_consumers[consumerKey].subId != 0) {
+    if (s_consumers[consumer][subId].subId != 0) {
       // Idempotence - do nothing if already added.
       return;
     }
-    s_consumers[consumerKey] = Consumer({
+    s_consumers[consumer][subId] = Consumer({
       subId: subId,
       nonce: 0
     });
@@ -724,7 +721,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Note bounded by MAXIMUM_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; i++) {
-      delete s_consumers[keccak256(abi.encode(sub.consumers[i], subId))];
+      delete s_consumers[sub.consumers[i]][subId];
     }
     delete s_subscriptions[subId];
     s_totalBalance -= balance;
