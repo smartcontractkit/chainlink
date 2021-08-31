@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestContracts(t *testing.T) {
+func TestRefill(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
 	conf, err := config.NewConfig(tools.ProjectRoot)
