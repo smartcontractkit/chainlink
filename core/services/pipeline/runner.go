@@ -459,6 +459,9 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
+	ctx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
+	defer cancel()
+
 	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(ctx, func(ctx context.Context) error {
 		tx := postgres.TxFromContext(ctx, r.orm.DB())
 
