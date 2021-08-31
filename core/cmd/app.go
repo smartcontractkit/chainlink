@@ -602,10 +602,34 @@ func NewApp(client *Client) *cli.App {
 							Flags:  []cli.Flag{},
 						},
 						{
+							Name:   "status",
+							Usage:  "Display the current database migration status.",
+							Action: client.StatusDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
 							Name:   "migrate",
 							Usage:  "Migrate the database to the latest version.",
 							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "rollback",
+							Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+							Action: client.RollbackDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "create-migration",
+							Usage:  "Create a new migration.",
+							Hidden: !client.Config.Dev(),
+							Action: client.CreateMigration,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "type",
+									Usage: "set to `go` to generate a .go migration (instead of .sql)",
+								},
+							},
 						},
 					},
 				},

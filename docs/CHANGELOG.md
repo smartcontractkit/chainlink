@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### [v1.0.0]
 
+### Added
+
+- `chainlink node db status` will now display a table of applied and pending migrations.
+
 ### Changed
 
 **Legacy job pipeline (JSON specs) are no longer supported**
@@ -37,6 +41,8 @@ observationSource   = """
 
 - Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, 
   regardless of the head frequency from the chain.
+- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
+- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
 
 ## [Unreleased]
 
