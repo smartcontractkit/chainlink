@@ -1,7 +1,7 @@
 import { Api } from 'utils/json-api-client'
 import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
-import { Chains } from './Chains'
+import { Chains } from './chains'
 import { CSAKeys } from './csaKeys'
 import { Config } from './config'
 import { Features } from './features'

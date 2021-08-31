@@ -25,6 +25,20 @@ export const ChainRow = withStyles(tableStyles)(({ chain, classes }: Props) => {
       </TableCell>
 
       <TableCell>
+        <pre>
+          {JSON.stringify(
+            Object.fromEntries(
+              Object.entries(chain.attributes.config).filter(
+                ([_key, value]) => value !== null,
+              ),
+            ),
+            null,
+            2,
+          )}
+        </pre>
+      </TableCell>
+
+      <TableCell>
         <TimeAgo tooltip>{createdAt}</TimeAgo>
       </TableCell>
     </TableRow>

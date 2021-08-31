@@ -38,6 +38,7 @@ export type ChainSpecV2 = Chain<models.Chain>
 
 async function getChains() {
   return Promise.all([v2.chains.getChains()]).then(([v2Chains]) => {
+    console.log(v2Chains.data)
     const chainsByDate = v2Chains.data.sort((a, b) => {
       const chainA = new Date(a.attributes.createdAt).getTime()
       const chainB = new Date(b.attributes.createdAt).getTime()
@@ -157,6 +158,12 @@ export const ChainsIndex = ({
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
                           Chain ID
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body1" color="textSecondary">
+                          Config overrides
                         </Typography>
                       </TableCell>
 
