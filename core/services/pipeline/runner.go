@@ -489,7 +489,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			return fn(tx)
 		}
 		return nil
-	})
+	}, postgres.WithoutDeadline())
 	if err != nil {
 		return false, err
 	}
