@@ -746,20 +746,21 @@ describe("VRFCoordinatorV2", () => {
       const proof = [
         [BigNumber.from("1"), BigNumber.from("2")], // pk
         [BigNumber.from("1"), BigNumber.from("2")], // gamma
-        BigNumber.from("1"),  // c
-        BigNumber.from("1"),  // s
-        BigNumber.from("1"),  // seed
+        BigNumber.from("1"), // c
+        BigNumber.from("1"), // s
+        BigNumber.from("1"), // seed
         randomAddress, // uWitness
         [BigNumber.from("1"), BigNumber.from("2")], // cGammaWitness
         [BigNumber.from("1"), BigNumber.from("2")], // sHashWitness
-        BigNumber.from("1")] // 13 words in proof
+        BigNumber.from("1"),
+      ]; // 13 words in proof
       const rc = [
         1, // blockNum
         2, // subId
         3, // callbackGasLimit
-        4,  // numWords
-        randomAddress // sender
-      ]
+        4, // numWords
+        randomAddress, // sender
+      ];
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
         `NoCorrespondingRequest()`,
       );
@@ -783,22 +784,25 @@ describe("VRFCoordinatorV2", () => {
       const reqReceipt = await tx.wait();
       // We give it the right proof length and a valid preSeed
       // but an invalid commitment
-      // const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeed"].toHexString());
-      const preSeedBytes = reqReceipt.events[0].args["preSeed"];
-      console.log(reqReceipt.events[0].args["requestId"]);
-
-      const a = await vrfCoordinatorV2.getCommitment(reqReceipt.events[0].args["requestId"]);
-      console.log("comm", a);
+      const preSeed = reqReceipt.events[0].args["preSeed"];
       const proof = [
         [BigNumber.from("1"), BigNumber.from("2")],
         [BigNumber.from("1"), BigNumber.from("2")],
-        BigNumber.from("1"), BigNumber.from("1"), preSeedBytes, randomAddress,
+        BigNumber.from("1"),
+        BigNumber.from("1"),
+        preSeed,
+        randomAddress,
         [BigNumber.from("1"), BigNumber.from("2")],
         [BigNumber.from("1"), BigNumber.from("2")],
-        BigNumber.from("1")]
+        BigNumber.from("1"),
+      ];
       const rc = [
-          reqReceipt.blockNumber + 1, // Wrong blocknumber
-        subId, 1000, 1, await consumer.getAddress()]
+        reqReceipt.blockNumber + 1, // Wrong blocknumber
+        subId,
+        1000,
+        1,
+        await consumer.getAddress(),
+      ];
       await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
         `IncorrectCommitment()`,
       );
