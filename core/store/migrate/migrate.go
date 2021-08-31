@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -24,7 +25,9 @@ func init() {
 	goose.SetBaseFS(embedMigrations)
 	goose.SetSequential(true)
 	goose.SetTableName("goose_migrations")
-	// goose.SetVerbose(true) // can be set to debug migrations
+
+	verbose, _ := strconv.ParseBool(os.Getenv("LOG_SQL_MIGRATIONS"))
+	goose.SetVerbose(verbose)
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
