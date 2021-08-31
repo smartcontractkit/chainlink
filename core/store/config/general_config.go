@@ -817,6 +817,15 @@ func (c *generalConfig) ORMMaxIdleConns() int {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c *generalConfig) LogLevel() LogLevel {
+	// FIXME: This is confusing, everywhere else the env var overrides the DB value but this is the reverse
+	if c.ORM != nil {
+		var value LogLevel
+		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
+		} else if err == nil {
+			return value
+		}
+	}
 	if c.viper.IsSet(EnvVarName("LogLevel")) {
 		str := c.viper.GetString(EnvVarName("LogLevel"))
 		ll, err := ParseLogLevel(str)
@@ -825,14 +834,6 @@ func (c *generalConfig) LogLevel() LogLevel {
 			return DefaultLogLevel
 		}
 		return ll.(LogLevel)
-	}
-	if c.ORM != nil {
-		var value LogLevel
-		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
-		} else if err == nil {
-			return value
-		}
 	}
 	return DefaultLogLevel
 }
