@@ -22,6 +22,7 @@ import (
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
