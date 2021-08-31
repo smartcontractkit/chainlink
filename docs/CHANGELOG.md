@@ -33,6 +33,11 @@ observationSource   = """
 """
 ```
 
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, 
+  regardless of the head frequency from the chain.
+- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
 
 ## [Unreleased]
 
