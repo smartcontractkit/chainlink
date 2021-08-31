@@ -35,7 +35,7 @@
     "eslint-plugin-react-hooks": "^4.0.0",
     "patch-package": "^6.4.7",
     "postinstall-postinstall": "^2.1.0",
-    "prettier": "^2.1.2",
+    "prettier": "2.3.2",
     "ts-node": "^10.0.0",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.4"
