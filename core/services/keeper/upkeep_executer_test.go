@@ -45,9 +45,9 @@ func setup(t *testing.T) (
 	ethClient := cltest.NewEthClientMock(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth())
 	cfg := cltest.NewTestEVMConfig(t)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, keyStore, nil)
-	headBroadcaster := headtracker.NewHeadBroadcaster(logger.Default)
 	txm := new(bptxmmocks.TxManager)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, ethClient, keyStore, txm)
+	headBroadcaster := headtracker.NewHeadBroadcaster(logger.Default)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, headBroadcaster, logger.Default, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
@@ -90,7 +90,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(bulletprooftxmanager.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{
+				ID: 1,
+			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
@@ -100,10 +102,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
 		assertLastRunHeight(t, store, upkeep, 20)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -133,11 +134,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		executer.OnNewLongestChain(context.Background(), head)
 		etxs[0].AwaitOrFail(t)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		assertLastRunHeight(t, store, upkeep, 36)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
@@ -158,10 +158,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		etxs[1].AwaitOrFail(t)
 		assertLastRunHeight(t, store, upkeep, 40)
-		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 2)
-		_, ok = runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[1].HasErrors())
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)

@@ -892,14 +892,14 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 		assert.NoError(t, err)
 		var completed []pipeline.Run
 
-		for i := range prs {
-			if prs[i].State == pipeline.RunStatusCompleted {
-				if !prs[i].Outputs.Null {
-					if !prs[i].Errors.HasError() {
+		for _, pr := range prs {
+			if pr.State == pipeline.RunStatusCompleted {
+				if !pr.Outputs.Null {
+					if !pr.Errors.HasError() {
 						// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
 						// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
-						if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
-							completed = append(completed, prs[i])
+						if len(pr.PipelineTaskRuns) == expectedTaskRuns {
+							completed = append(completed, pr)
 						}
 					}
 				}

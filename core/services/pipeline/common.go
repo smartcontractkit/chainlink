@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"net/url"
 	"reflect"
@@ -170,17 +171,20 @@ type JSONSerializable struct {
 	Null bool
 }
 
+// UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
+
 	return json.Unmarshal(bs, &js.Val)
 }
 
+// MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(string(x))
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
