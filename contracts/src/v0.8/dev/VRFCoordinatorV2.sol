@@ -269,7 +269,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // so in the worst case where the consuming contract has to read all of them
   // from storage, it only has to read 2 words.
   function requestRandomWords(
-    bytes32 keyHash,  // Corresponds to a particular offchain registered key for proving
+    bytes32 keyHash,  // Corresponds to a particular offchain job which uses that key for the proofs
     uint64  subId,
     uint16  requestConfirmations,
     uint32  callbackGasLimit,
@@ -589,7 +589,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     });
     for (uint256 i; i < consumers.length; i++) {
       // Note since we just created this sub, its not possible that a consumer
-      // already exists at this consumer key.
+      // already exists at this consumer and subId.
       s_consumers[consumers[i]][currentSubId] = Consumer({
         subId: currentSubId,
         nonce: 0
