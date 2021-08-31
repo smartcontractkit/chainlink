@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"go.uber.org/zap/zapcore"
+	null "gopkg.in/guregu/null.v4"
 
 	gormpostgres "gorm.io/driver/postgres"
 
@@ -413,6 +415,39 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 	if err := migrateDB(cfg); err != nil {
 		return cli.errorOut(err)
 	}
+	return nil
+}
+
+// VersionDatabase displays the current database version.
+func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
+	var version null.Int
+	if c.Args().Present() {
+		arg := c.Args().First()
+		numVersion, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return cli.errorOut(errors.Errorf("Unable to parse %v as integer", arg))
+		}
+		version = null.IntFrom(numVersion)
+	}
+
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+	cfg := cli.Config
+	parsed := cfg.DatabaseURL()
+	if parsed.String() == "" {
+		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
+	}
+
+	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+
+	db := postgres.UnwrapGormDB(orm.DB).DB
+
+	if err := migrate.Rollback(db, version); err != nil {
+		return fmt.Errorf("migrateDB failed: %v", err)
+	}
+
 	return nil
 }
 

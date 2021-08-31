@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/pressly/goose/v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 //go:embed migrations/*.sql
@@ -68,6 +69,14 @@ func ensureMigrated(db *sql.DB) {
 func Migrate(db *sql.DB) error {
 	ensureMigrated(db)
 	return goose.Up(db, MIGRATIONS_DIR)
+}
+
+func Rollback(db *sql.DB, version null.Int) error {
+	ensureMigrated(db)
+	if version.Valid {
+		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
+	}
+	return goose.Down(db, MIGRATIONS_DIR)
 }
 
 func Current(db *sql.DB) (int64, error) {
