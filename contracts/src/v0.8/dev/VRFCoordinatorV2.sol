@@ -288,7 +288,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     Consumer memory consumer = s_consumers[msg.sender][subId];
-    if (consumer.subId != subId) {
+    if (consumer.subId != 0) {
       revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
