@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -15,6 +13,7 @@ import (
 
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 )
 
 func TestETHCallTask(t *testing.T) {
