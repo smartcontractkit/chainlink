@@ -440,7 +440,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // during the consumers callback code via reentrancyLock.
     s_config.reentrancyLock = true;
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
-    emit RandomWordsFulfilled(proof.seed, randomWords, success);
+    emit RandomWordsFulfilled(requestId, randomWords, success);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
