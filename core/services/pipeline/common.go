@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/hex"
 	"encoding/json"
 	"net/url"
 	"reflect"
@@ -184,7 +183,7 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(hex.EncodeToString(x))
+		return json.Marshal(string(x))
 	default:
 		return json.Marshal(js.Val)
 	}
