@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
@@ -16,10 +17,11 @@ import (
 //     []byte
 //
 type ETHCallTask struct {
-	BaseTask `mapstructure:",squash"`
-	Contract string `json:"contract"`
-	Data     string `json:"data"`
-	Gas      string `json:"gas"`
+	BaseTask            `mapstructure:",squash"`
+	Contract            string `json:"contract"`
+	Data                string `json:"data"`
+	Gas                 string `json:"gas"`
+	ExtractRevertReason bool   `json:"extractRevertReason"`
 
 	config    Config
 	ethClient eth.Client
@@ -61,7 +63,21 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 
 	resp, err := t.ethClient.CallContract(ctx, call, nil)
 	if err != nil {
+		if t.ExtractRevertReason {
+			err = t.retrieveRevertReason(err)
+		}
+
 		return Result{Error: err}
 	}
 	return Result{Value: resp}
+}
+
+func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
+	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
+	if err != nil {
+		logger.Default.WithError(err).Errorw("failed to extract revert reason", "baseErr", baseErr)
+		return baseErr
+	}
+
+	return errors.New(reason)
 }

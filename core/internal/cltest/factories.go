@@ -557,6 +557,7 @@ encode_check_upkeep_tx   [type=ethabiencode
                           data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
 check_upkeep_tx          [type=ethcall
                           failEarly=true
+                          extractRevertReason=true
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
                           data="$(encode_check_upkeep_tx)"]
