@@ -15,15 +15,12 @@ vrf          [type=vrfv2
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomWords(bytes proof)"
-              data="{\\"proof\\": $(vrf.proof)}"]
 estimate_gas [type=estimategaslimit
 			  to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
               multiplier="1.1"
-              data="$(encode_tx)"]
+              data="$(vrf.output)"]
 submit_tx  [type=ethtx to="0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
-            data="$(encode_tx)"
+            data="$(vrf.output)"
             gasLimit="$(estimate_gas)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->estimate_gas->submit_tx

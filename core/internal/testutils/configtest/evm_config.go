@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	HeadSamplingIntervalInTest = 100 * time.Millisecond
+	HeadSamplingIntervalInTest = 0 * time.Millisecond // Head sampling disabled
 )
 
 type EVMConfigOverrides struct {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -20,7 +19,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -1255,39 +1253,6 @@ func MustParseURL(input string) *url.URL {
 	return u
 }
 
-// GenericEncode eth encodes values based on the provided types
-func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
-	if len(values) != len(types) {
-		return nil, errors.New("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func MustGenericEncode(types []string, values ...interface{}) []byte {
-	if len(values) != len(types) {
-		panic("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		panic(err)
-	}
-	return out
-}
-
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
@@ -1494,6 +1459,8 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 	return cleanup, chDone
 }
 
+// Blocks - a helper logic to construct a range of linked heads
+// and an ability to fork and create logs from them
 type Blocks struct {
 	t       *testing.T
 	Hashes  []common.Hash
@@ -1530,13 +1497,34 @@ func (b *Blocks) Head(number uint64) *models.Head {
 }
 
 func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
-	blocks2 := NewBlocks(t, len(b.Heads)+numHashes)
-
-	if _, exists := blocks2.Heads[blockNum]; !exists {
-		logger.Fatalf("Not enough length for block num: %v", blockNum)
+	forked := NewBlocks(t, len(b.Heads)+numHashes)
+	if _, exists := forked.Heads[blockNum]; !exists {
+		t.Fatalf("Not enough length for block num: %v", blockNum)
 	}
-	blocks2.Heads[blockNum].Parent = b.Heads[blockNum].Parent
-	return blocks2
+
+	for i := int64(0); i < blockNum; i++ {
+		forked.Heads[i] = b.Heads[i]
+	}
+
+	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
+	forked.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	return forked
+}
+
+func (b *Blocks) NewHead(number uint64) *models.Head {
+	parentNumber := number - 1
+	parent, ok := b.Heads[int64(parentNumber)]
+	if !ok {
+		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
+	}
+	head := &models.Head{
+		Number:     parent.Number + 1,
+		Hash:       utils.NewHash(),
+		ParentHash: parent.Hash,
+		Parent:     parent,
+		Timestamp:  time.Unix(parent.Number+1, 0),
+	}
+	return head
 }
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
@@ -1546,7 +1534,7 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &models.Head{Hash: hash, Number: i}
+		heads[i] = &models.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1565,6 +1553,30 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 		mHashes: hashesMap,
 		Heads:   heads,
 	}
+}
+
+// HeadBuffer - stores heads in sequence, with increasing timestamps
+type HeadBuffer struct {
+	t     *testing.T
+	Heads []*models.Head
+}
+
+func NewHeadBuffer(t *testing.T) *HeadBuffer {
+	return &HeadBuffer{
+		t:     t,
+		Heads: make([]*models.Head, 0),
+	}
+}
+
+func (hb *HeadBuffer) Append(head *models.Head) {
+	cloned := &models.Head{
+		Number:     head.Number,
+		Hash:       head.Hash,
+		ParentHash: head.ParentHash,
+		Parent:     head.Parent,
+		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
+	}
+	hb.Heads = append(hb.Heads, cloned)
 }
 
 type HeadTrackableFunc func(context.Context, models.Head)
