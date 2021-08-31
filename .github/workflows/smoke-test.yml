@@ -4,7 +4,7 @@ on: workflow_dispatch
 
 jobs:
   smoke:
-    runs-on: [self-hosted, sdlc-ghr-prod]
+    runs-on: ubuntu-latest
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
