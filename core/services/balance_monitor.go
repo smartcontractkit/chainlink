@@ -34,6 +34,7 @@ type (
 	}
 
 	balanceMonitor struct {
+		utils.StartStopOnce
 		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
@@ -49,6 +50,7 @@ type (
 // NewBalanceMonitor returns a new balanceMonitor
 func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger *logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
+		utils.StartStopOnce{},
 		logger,
 		db,
 		ethClient,
@@ -62,14 +64,18 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.E
 }
 
 func (bm *balanceMonitor) Start() error {
-	// Always query latest balance on start
-	bm.checkBalance(nil)
-	return nil
+	return bm.StartOnce("BalanceMonitor", func() error {
+		// Always query latest balance on start
+		bm.checkBalance(nil)
+		return nil
+	})
 }
 
 // Close shuts down the BalanceMonitor, should not be used after this
 func (bm *balanceMonitor) Close() error {
-	return bm.sleeperTask.Stop()
+	return bm.StopOnce("BalanceMonitor", func() error {
+		return bm.sleeperTask.Stop()
+	})
 }
 
 func (bm *balanceMonitor) Ready() error {
@@ -82,7 +88,13 @@ func (bm *balanceMonitor) Healthy() error {
 
 // OnNewLongestChain checks the balance for each key
 func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
-	bm.checkBalance(&head)
+	ok := bm.IfStarted(func() {
+		bm.checkBalance(&head)
+	})
+	if !ok {
+		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
+	}
+
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
