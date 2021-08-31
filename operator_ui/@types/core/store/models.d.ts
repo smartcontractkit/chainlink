@@ -389,6 +389,12 @@ declare module 'core/store/models' {
     | WebhookJob
     | VRFJob
 
+  export type Chain = {
+    config: Record<string, JSONPrimitive>, 
+    createdAt: time.Time,
+    updatedAt: time.Time
+  }
+
   export interface JobRunV2 {
     state: string
     outputs: PipelineTaskOutput[]
