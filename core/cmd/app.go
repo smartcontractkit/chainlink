@@ -614,6 +614,12 @@ func NewApp(client *Client) *cli.App {
 							Flags:  []cli.Flag{},
 						},
 						{
+							Name:   "rollback",
+							Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+							Action: client.RollbackDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
 							Name:   "create-migration",
 							Usage:  "Create a new migration.",
 							Hidden: !client.Config.Dev(),
