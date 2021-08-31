@@ -390,30 +390,9 @@ declare module 'core/store/models' {
     | VRFJob
 
   export type Chain = {
-    config: {
-      BlockHistoryEstimatorBlockDelay: any,
-      BlockHistoryEstimatorBlockHistorySize: any,
-      EthTxResendAfterThreshold: any,
-      EvmFinalityDepth: any,
-      EvmGasBumpPercent: any,
-      EvmGasBumpTxDepth: any,
-      EvmGasBumpWei: any,
-      EvmGasLimitDefault: any,
-      EvmGasLimitMultiplier: any,
-      EvmGasPriceDefault: any,
-      EvmHeadTrackerHistoryDepth: any,
-      EvmHeadTrackerMaxBufferSize: any,
-      EvmHeadTrackerSamplingInterval: any,
-      EvmLogBackfillBatchSize: any,
-      EvmMaxGasPriceWei: any,
-      EvmNonceAutoSync: any,
-      EvmRPCDefaultBatchSize: any,
-      FlagsContractAddress: any,
-      GasEstimatorMode: any,
-      MinRequiredOutgoingConfirmations: any
-  },
-  createdAt: time.time,
-  updatedAt: time.time
+    config: Record<string, JSONPrimitive>, 
+    createdAt: time.Time,
+    updatedAt: time.Time
   }
 
   export interface JobRunV2 {

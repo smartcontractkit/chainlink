@@ -1,11 +1,8 @@
 import React from 'react'
 
 import { v2 } from 'api'
-import BaseLink from 'components/BaseLink'
-import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
-import Link from 'components/Link'
 import * as models from 'core/store/models'
 import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
@@ -39,11 +36,13 @@ export type ChainSpecV2 = Chain<models.Chain>
 
 async function getChains() {
   return Promise.all([v2.chains.getChains()]).then(([v2Chains]) => {
-    const chainsByDate = v2Chains.data.sort((a, b) => {
-      const chainA = new Date(a.attributes.createdAt).getTime()
-      const chainB = new Date(b.attributes.createdAt).getTime()
-      return chainA > chainB ? -1 : 1
-    })
+    const chainsByDate = v2Chains.data.sort(
+      (a: ChainSpecV2, b: ChainSpecV2) => {
+        const chainA = new Date(a.attributes.createdAt).getTime()
+        const chainB = new Date(b.attributes.createdAt).getTime()
+        return chainA > chainB ? -1 : 1
+      },
+    )
 
     return chainsByDate
   })
@@ -113,19 +112,6 @@ export const ChainsIndex = ({
         <Grid item xs={9}>
           <Title>Chains</Title>
         </Grid>
-        <Grid item xs={3}>
-          <Grid container justify="flex-end">
-            <Grid item>
-              <Button
-                variant="secondary"
-                component={BaseLink}
-                href={'/chains/new'}
-              >
-                New Chain
-              </Button>
-            </Grid>
-          </Grid>
-        </Grid>
 
         <Grid item xs={12}>
           <ErrorComponent />
@@ -157,7 +143,13 @@ export const ChainsIndex = ({
                     <TableRow>
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
-                          ID
+                          Chain ID
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body1" color="textSecondary">
+                          Config overrides
                         </Typography>
                       </TableCell>
 
@@ -169,15 +161,6 @@ export const ChainsIndex = ({
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {chains && !chains.length && (
-                      <TableRow>
-                        <TableCell component="th" scope="row" colSpan={3}>
-                          You haven’t created any chains yet. Create a new chain{' '}
-                          <Link href={`/chains/new`}>here</Link>
-                        </TableCell>
-                      </TableRow>
-                    )}
-
                     {chains.filter(chainFilter).map((chain) => (
                       <ChainRow key={chain.id} chain={chain} />
                     ))}
