@@ -1,8 +1,8 @@
 import { ethers } from "hardhat";
-import { Signer, Contract, BigNumber, utils } from "ethers";
+import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
 import { defaultAbiCoder } from "ethers/utils";
-import { publicAbi, hexToBuf } from "../../test-helpers/helpers";
+import { publicAbi } from "../../test-helpers/helpers";
 import { randomAddressString } from "hardhat/internal/hardhat-network/provider/fork/random";
 
 describe("VRFCoordinatorV2", () => {
@@ -249,11 +249,9 @@ describe("VRFCoordinatorV2", () => {
         `MustBeSubOwner("${subOwnerAddress}")`,
       );
     });
-    it("cannot overwrite", async function () {
+    it("add is idempotent", async function () {
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
-      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)).to.be.revertedWith(
-        `AlreadySubscribed(${subId}, "${randomAddress}")`,
-      );
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
     });
     it("cannot add more than maximum", async function () {
       // There is one consumer, add another 99 to hit the max
@@ -574,7 +572,7 @@ describe("VRFCoordinatorV2", () => {
           1000, // callbackGasLimit
           1, // numWords
         ),
-      ).to.be.revertedWith(`InvalidRequestBlockConfs(0, 1, 200)`);
+      ).to.be.revertedWith(`InvalidRequestConfirmations(0, 1, 200)`);
     });
     it("below minimum balance", async function () {
       await expect(
@@ -618,7 +616,7 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
       );
       const r1Receipt = await r1.wait();
-      const seed1 = r1Receipt.events[0].args["preSeedAndRequestId"];
+      const seed1 = r1Receipt.events[0].args["requestId"];
       const r2 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // keyhash
         subId, // subId
@@ -627,7 +625,7 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
       );
       const r2Receipt = await r2.wait();
-      const seed2 = r2Receipt.events[0].args["preSeedAndRequestId"];
+      const seed2 = r2Receipt.events[0].args["requestId"];
       assert(seed2 != seed1);
     });
 
@@ -648,7 +646,7 @@ describe("VRFCoordinatorV2", () => {
       assert(reqReceipt.events.length == 1);
       const reqEvent = reqReceipt.events[0];
       assert(reqEvent.event == "RandomWordsRequested", "wrong event name");
-      assert(reqEvent.args["keyHash"] == kh, "wrong key hash");
+      assert(reqEvent.args["keyHash"] == kh, `wrong kh ${reqEvent.args["keyHash"]} ${kh}`);
       assert(reqEvent.args["subId"].toString() == subId.toString(), "wrong subId");
       assert(
         reqEvent.args["minimumRequestConfirmations"].toString() == BigNumber.from(1).toString(),
@@ -744,19 +742,30 @@ describe("VRFCoordinatorV2", () => {
   });
 
   describe("#fulfillRandomWords", async function () {
-    it("invalid proof length", async function () {
-      const proof = new Uint8Array([0, 0, 0, 0]);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof)).to.be.revertedWith(
-        `InvalidProofLength(4, 576)`,
-      );
-    });
     it("no corresponding request", async function () {
-      const proof = new Uint8Array(576);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof)).to.be.revertedWith(
-        `NoCorrespondingRequest(0)`,
+      const proof = [
+        [BigNumber.from("1"), BigNumber.from("2")], // pk
+        [BigNumber.from("1"), BigNumber.from("2")], // gamma
+        BigNumber.from("1"), // c
+        BigNumber.from("1"), // s
+        BigNumber.from("1"), // seed
+        randomAddress, // uWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // cGammaWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // sHashWitness
+        BigNumber.from("1"),
+      ]; // 13 words in proof
+      const rc = [
+        1, // blockNum
+        2, // subId
+        3, // callbackGasLimit
+        4, // numWords
+        randomAddress, // sender
+      ];
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
+        `NoCorrespondingRequest()`,
       );
     });
-    it("incorrect commitment", async function () {
+    it("incorrect commitment wrong blocknum", async function () {
       let subId = await createSubscription();
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
@@ -773,16 +782,30 @@ describe("VRFCoordinatorV2", () => {
         1, // numWords
       );
       const reqReceipt = await tx.wait();
-      // We give it the right proof length and a valid requestID (preSeed)
+      // We give it the right proof length and a valid preSeed
       // but an invalid commitment
-      const preSeedBytes = hexToBuf(reqReceipt.events[0].args["preSeedAndRequestId"].toHexString());
-      const proof = new Uint8Array(576);
-      for (let i = 0; i < 32; i++) {
-        // Seed is the 6th word
-        proof[i + 32 * 6] = preSeedBytes[i];
-      }
-      const p = utils.solidityPack(["bytes"], [proof]);
-      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(p)).to.be.revertedWith(`IncorrectCommitment()`);
+      const preSeed = reqReceipt.events[0].args["preSeed"];
+      const proof = [
+        [BigNumber.from("1"), BigNumber.from("2")],
+        [BigNumber.from("1"), BigNumber.from("2")],
+        BigNumber.from("1"),
+        BigNumber.from("1"),
+        preSeed,
+        randomAddress,
+        [BigNumber.from("1"), BigNumber.from("2")],
+        [BigNumber.from("1"), BigNumber.from("2")],
+        BigNumber.from("1"),
+      ];
+      const rc = [
+        reqReceipt.blockNumber + 1, // Wrong blocknumber
+        subId,
+        1000,
+        1,
+        await consumer.getAddress(),
+      ];
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
+        `IncorrectCommitment()`,
+      );
     });
   });
 
