@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -399,6 +400,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 		if receipt.Status == 0 {
 			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			ec.logRevertReason(l, ctx, &attempt, receipt)
 			// This is safe to increment here because we save the receipt immediately after
 			// and once its saved we do not fetch it again.
 			promRevertedTxCount.Add(1)
@@ -408,6 +410,33 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	}
 
 	return
+}
+
+func (ec *EthConfirmer) logRevertReason(logger *logger.Logger, ctx context.Context, attempt *EthTxAttempt, receipt *Receipt) {
+	tx := attempt.EthTx
+	msg := ethereum.CallMsg{
+		From:     tx.FromAddress,
+		To:       &tx.ToAddress,
+		Gas:      tx.GasLimit,
+		GasPrice: attempt.GasPrice.ToInt(),
+		Value:    tx.Value.ToInt(),
+		Data:     tx.EncodedPayload,
+	}
+
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
+
+	_, err := ec.ethClient.CallContract(ctx, msg, receipt.BlockNumber)
+	if err != nil {
+		revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
+		if err2 != nil {
+			logger.WithError(err).Warnf("failed to extract revert reason, err2: %v", err2)
+			return
+		}
+		logger.Warnf("transaction %s revert reason: %v", receipt.TxHash, revertReason)
+	} else {
+		logger.Warnf("transaction %s reverted but the failure was not reproduced by calling the contract.", receipt.TxHash)
+	}
 }
 
 func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {

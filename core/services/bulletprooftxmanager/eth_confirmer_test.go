@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -256,6 +257,16 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
+		message := "important revert reason"
+		messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
+		sigHash := "12345678"
+		var jsonErr error = &eth.JsonError{
+			Code:    1,
+			Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
+			Message: "something different",
+		}
+
+		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, jsonErr)
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -711,6 +722,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
+		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(make([]byte, 0), nil)
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(4), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 6 &&
