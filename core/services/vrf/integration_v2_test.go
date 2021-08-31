@@ -325,6 +325,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 		subFunding.Sub(linkWeiCharged).BigInt(),
 		linkWeiCharged.BigInt(),
 	})
+
+	// We should see the response count present
+	counts := vrf.GetStartingResponseCountsV2(app.Store.DB, app.Logger)
+	t.Log(counts, rf[0].RequestId.String())
+	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
 
 func TestMaliciousConsumer(t *testing.T) {

@@ -130,6 +130,7 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	}
 	results := make(map[string]interface{})
 	results["output"] = hexutil.Encode(b)
-	results["requestID"] = hexutil.Encode([]byte(requestId.String()))
+	// RequestID needs to be a [32]byte for EthTxMeta.
+	results["requestID"] = hexutil.Encode(requestId.Bytes())
 	return Result{Value: results}
 }

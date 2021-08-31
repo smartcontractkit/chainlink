@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"encoding/hex"
+	"math/big"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -105,24 +106,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
-				cfg:             d.cfg,
-				l:               *l,
-				ethClient:       d.ec,
-				logBroadcaster:  d.lb,
-				headBroadcaster: d.hb,
-				db:              d.db,
-				abi:             abiV2,
-				coordinator:     coordinatorV2,
-				txm:             d.txm,
-				pipelineRunner:  d.pr,
-				vorm:            vorm,
-				vrfks:           d.ks.VRF(),
-				gethks:          d.ks.Eth(),
-				pipelineORM:     d.porm,
-				job:             jb,
-				mbLogs:          utils.NewMailbox(1000),
-				chStop:          make(chan struct{}),
-				waitOnStop:      make(chan struct{}),
+				cfg:                d.cfg,
+				l:                  *l,
+				ethClient:          d.ec,
+				logBroadcaster:     d.lb,
+				headBroadcaster:    d.hb,
+				db:                 d.db,
+				abi:                abiV2,
+				coordinator:        coordinatorV2,
+				txm:                d.txm,
+				pipelineRunner:     d.pr,
+				vorm:               vorm,
+				vrfks:              d.ks.VRF(),
+				gethks:             d.ks.Eth(),
+				pipelineORM:        d.porm,
+				job:                jb,
+				reqLogs:            utils.NewMailbox(100000),
+				chStop:             make(chan struct{}),
+				waitOnStop:         make(chan struct{}),
+				newHead:            make(chan struct{}, 1),
+				respCount:          GetStartingResponseCountsV2(d.db, l),
+				blockNumberToReqID: pairing.New(),
+				reqAdded:           func() {},
 			}}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
@@ -183,6 +188,40 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 		var reqID [32]byte
 		copy(reqID[:], b)
 		respCounts[reqID] = uint64(c.Count)
+	}
+	return respCounts
+}
+
+func GetStartingResponseCountsV2(db *gorm.DB, l *logger.Logger) map[string]uint64 {
+	respCounts := make(map[string]uint64)
+	var counts []struct {
+		RequestID string
+		Count     int
+	}
+	// Allow any state, not just confirmed, on purpose.
+	// We assume once a ethtx is queued it will go through.
+	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+			FROM eth_txes
+			WHERE meta->'RequestID' IS NOT NULL
+		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("VRFListenerV2: unable to read previous fulfillments", "err", err)
+		return respCounts
+	}
+	for _, c := range counts {
+		// Remove the quotes from the json
+		req := strings.Replace(c.RequestID, `"`, ``, 2)
+		// Remove the 0x prefix
+		b, err := hex.DecodeString(req[2:])
+		if err != nil {
+			l.Errorw("VRFListenerV2: unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			continue
+		}
+		var reqID [32]byte
+		copy(reqID[:], b)
+		bi := new(big.Int).SetBytes(b)
+		respCounts[bi.String()] = uint64(c.Count)
 	}
 	return respCounts
 }
