@@ -71,7 +71,7 @@ const fetchRuns = async (page, size) => {
   const response = await v2.runs.getAllJobRuns({ page, size })
 
   return response.data.map((run) =>
-    transformPipelineJobRun(run.attributes.pipelineSpec.id)(run),
+    transformPipelineJobRun(run.attributes.pipelineSpec.jobID)(run),
   )
 }
 
