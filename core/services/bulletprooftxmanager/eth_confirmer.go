@@ -400,7 +400,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 		if receipt.Status == 0 {
 			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
-			ec.logRevertReason(l, ctx, &attempt, receipt)
+			ec.logRevertReason(ctx, l, &attempt, receipt)
 			// This is safe to increment here because we save the receipt immediately after
 			// and once its saved we do not fetch it again.
 			promRevertedTxCount.Add(1)
@@ -412,7 +412,7 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 	return
 }
 
-func (ec *EthConfirmer) logRevertReason(logger *logger.Logger, ctx context.Context, attempt *EthTxAttempt, receipt *Receipt) {
+func (ec *EthConfirmer) logRevertReason(ctx context.Context, logger *logger.Logger, attempt *EthTxAttempt, receipt *Receipt) {
 	tx := attempt.EthTx
 	msg := ethereum.CallMsg{
 		From:     tx.FromAddress,
