@@ -1,6 +1,7 @@
 import { Api } from 'utils/json-api-client'
 import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
+import { Chains } from './chains'
 import { CSAKeys } from './csaKeys'
 import { Config } from './config'
 import { Features } from './features'
@@ -19,6 +20,7 @@ export class V2 {
 
   public bridgeTypes = new BridgeTypes(this.api)
   public bulkDeleteRuns = new BulkDeleteRuns(this.api)
+  public chains = new Chains(this.api)
   public csaKeys = new CSAKeys(this.api)
   public config = new Config(this.api)
   public features = new Features(this.api)
