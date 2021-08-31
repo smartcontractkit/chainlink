@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -22,44 +21,11 @@ const (
 	executionQueueSize = 10
 )
 
-// Revert reasons
-const (
-	UpkeepNotNeededReason     RevertReason = "upkeep not needed"
-	OutOfTurnReason           RevertReason = "keepers must take turns"
-	PerformUpkeepFailedReason RevertReason = "call to perform upkeep failed"
-	CheckTargetFailedReason   RevertReason = "call to check target failed"
-	InsufficientFundsReason   RevertReason = "insufficient funds"
-)
-
-var (
-	// debugRevertReasons contains revert reasons that should be logged with the debug log level
-	debugRevertReasons = []RevertReason{
-		UpkeepNotNeededReason,
-		OutOfTurnReason,
-		PerformUpkeepFailedReason,
-		CheckTargetFailedReason,
-		InsufficientFundsReason,
-	}
-)
-
 // UpkeepExecuter fulfills Service and HeadTrackable interfaces
 var (
 	_ job.Service           = (*UpkeepExecuter)(nil)
 	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
 )
-
-// RevertReason represents the revert reason message
-type RevertReason string
-
-// IsOneOf returns true if the "rr" is one of the provided revert reasons.
-func (rr RevertReason) IsOneOf(revertReasons ...RevertReason) bool {
-	for _, revertReason := range revertReasons {
-		if strings.Contains(string(rr), string(revertReason)) {
-			return true
-		}
-	}
-	return false
-}
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
 type UpkeepExecuter struct {
@@ -227,23 +193,5 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		return nil
 	}); err != nil {
 		ex.logger.Errorw("failed executing run", "err", err)
-	}
-}
-
-// logRevertReason logs the given error with a log level depends on this given error context
-// Default log level is error. Mapping between a reason and its log level:
-//  - "upkeep not needed": Debug
-func logRevertReason(logger *logger.Logger, err error) {
-	revertReason, err2 := eth.ExtractRevertReasonFromRPCError(err)
-	if err2 != nil {
-		logger.WithError(err).Errorf("call failed and failed to extract revert reason, err2: %v", err2)
-		return
-	}
-
-	logger = logger.With("revertReason", revertReason)
-	if RevertReason(revertReason).IsOneOf(debugRevertReasons...) {
-		logger.Debug("checkUpkeep call failed with known reason")
-	} else {
-		logger.Error("checkUpkeep call failed with some reason")
 	}
 }
