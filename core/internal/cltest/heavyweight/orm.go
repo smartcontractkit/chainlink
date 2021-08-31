@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	migrations "github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,7 +45,7 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) 
 	orm.SetLogging(config.LogSQLMigrations())
 	config.GeneralConfig.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
-		require.NoError(t, migrations.Migrate(orm.DB))
+		require.NoError(t, migrations.Migrate(postgres.UnwrapGormDB(orm.DB).DB))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
 		_, filename, _, ok := runtime.Caller(0)
