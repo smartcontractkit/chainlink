@@ -86,5 +86,5 @@ func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
 		return baseErr
 	}
 
-	return errors.New(reason)
+	return errors.Wrap(baseErr, reason)
 }
