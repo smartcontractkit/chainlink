@@ -127,7 +127,7 @@ export const New = ({
       <Grid container spacing={40}>
         <Grid item xs={12}>
           <Card>
-            <CardHeader title="New Job" />
+            <CardHeader title="New Chain" />
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
@@ -158,15 +158,15 @@ export const New = ({
                       placeholder={'Paste JSON'}
                       multiline
                       margin="normal"
-                      name="jobSpec"
-                      id="jobSpec"
+                      name="chainConfig"
+                      id="chainConfig"
                       variant="outlined"
                       fullWidth
                     />
                   </Grid>
                   <Grid item xs={12}>
                     <Button
-                      data-testid="new-job-spec-submit"
+                      data-testid="new-chain-config-submit"
                       variant="primary"
                       type="submit"
                       size="large"
