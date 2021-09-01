@@ -10,9 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/shopspring/decimal"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -20,26 +19,18 @@ import (
 )
 
 var (
-	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_num_gas_bumps",
-		Help: "Number of gas bumps",
-	})
-
-	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tx_manager_gas_bump_exceeds_limit",
-		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
-	})
+	ErrBumpGasExceedsLimit = errors.New("gas bump exceeds limit")
 )
 
-func NewEstimator(ethClient eth.Client, config Config) Estimator {
+func NewEstimator(lggr *logger.Logger, ethClient eth.Client, config Config) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":
-		return NewBlockHistoryEstimator(ethClient, config)
+		return NewBlockHistoryEstimator(lggr, ethClient, config, *ethClient.ChainID())
 	case "FixedPrice":
 		return NewFixedPriceEstimator(config)
 	case "Optimism":
-		return NewOptimismEstimator(config, ethClient)
+		return NewOptimismEstimator(lggr, config, ethClient)
 	default:
 		logger.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(config)
@@ -75,8 +66,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	ChainID() *big.Int
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpWei() *big.Int
 	EvmGasLimitMultiplier() float32
@@ -159,7 +149,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 
 type TxType uint8
 
-// NOTE: Need to roll out own unmarshaller since geth's hexutil.Uint64 does not
+// NOTE: Need to roll our own unmarshaller since geth's hexutil.Uint64 does not
 // handle double zeroes e.g. 0x00
 func (txt *TxType) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(data, []byte(`"0x00"`)) {
@@ -250,8 +240,7 @@ func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EvmMaxGasPriceWei()) > 0 {
-		promGasBumpExceedsLimit.Inc()
-		return config.EvmMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
+		return config.EvmMaxGasPriceWei(), errors.Wrapf(ErrBumpGasExceedsLimit, "bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
 			bumpedGasPrice.String(), config.EvmMaxGasPriceWei(), originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
@@ -261,8 +250,6 @@ func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
 	}
-	// TODO: Move/fix these
-	promNumGasBumps.Inc()
 	return bumpedGasPrice, nil
 }
 

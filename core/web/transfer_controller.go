@@ -27,9 +27,21 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	store := tc.App.GetStore()
+	chain, err := getChain(c, tc.App.GetChainSet(), tr.EVMChainID.String())
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 
-	etx, err := bulletprooftxmanager.SendEther(store.DB, tr.FromAddress, tr.DestinationAddress, tr.Amount, tc.App.GetEVMConfig().EvmGasLimitTransfer())
+	db := tc.App.GetStore().DB
+
+	etx, err := bulletprooftxmanager.SendEther(db, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return
