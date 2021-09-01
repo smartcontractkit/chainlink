@@ -36,6 +36,23 @@ type CreateChainRequest struct {
 	Config types.ChainCfg `json:"config"`
 }
 
+func (cc *ChainsController) Show(c *gin.Context) {
+	id := utils.Big{}
+	err := id.UnmarshalText([]byte(c.Param("ID")))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	chain, err := cc.App.EVMORM().Chain(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+}
+
 func (cc *ChainsController) Create(c *gin.Context) {
 	request := &CreateChainRequest{}
 
@@ -45,6 +62,30 @@ func (cc *ChainsController) Create(c *gin.Context) {
 	}
 
 	chain, err := cc.App.EVMORM().CreateChain(request.ID, request.Config)
+
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+}
+
+func (cc *ChainsController) Update(c *gin.Context) {
+	id := utils.Big{}
+	err := id.UnmarshalText([]byte(c.Param("ID")))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var config types.ChainCfg
+	if err = c.ShouldBindJSON(&config); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	chain, err := cc.App.EVMORM().ConfigureChain(id, config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
