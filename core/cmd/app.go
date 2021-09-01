@@ -706,6 +706,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
 							Action: client.CreateChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
 						{
 							Name:   "delete",
@@ -729,6 +735,24 @@ func NewApp(client *Client) *cli.App {
 					Name:   "create",
 					Usage:  "Create a new node",
 					Action: client.CreateNode,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "name",
+							Usage: "node name",
+						},
+						cli.StringFlag{
+							Name:  "ws-url",
+							Usage: "Websocket URL",
+						},
+						cli.StringFlag{
+							Name:  "ws-url",
+							Usage: "HTTP URL",
+						},
+						cli.Int64Flag{
+							Name:  "chain-id",
+							Usage: "chain ID",
+						},
+					},
 				},
 				{
 					Name:   "delete",
