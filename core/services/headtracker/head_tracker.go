@@ -31,6 +31,9 @@ var (
 	}, []string{"evmChainID"})
 )
 
+// HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
+const HeadsBufferSize = 10
+
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
@@ -72,7 +75,7 @@ func NewHeadTracker(
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
-		callbackMB:      *utils.NewMailbox(1),
+		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
 		chStop:          chStop,
 		wgDone:          &wgDone,
 		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
@@ -185,7 +188,7 @@ func (ht *HeadTracker) headCallbackLoop() {
 
 	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
-		ht.logger().Infof("Head sampling interval is set to: %v", samplingInterval)
+		ht.logger().Infof("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
 		defer debounceHead.Stop()
 		for {
@@ -193,7 +196,11 @@ func (ht *HeadTracker) headCallbackLoop() {
 			case <-ht.chStop:
 				return
 			case <-debounceHead.C:
-				ht.callbackOnLatestHead()
+				item := ht.callbackMB.RetrieveLatestAndClear()
+				if item == nil {
+					continue
+				}
+				ht.callbackOnLatestHead(item)
 			}
 		}
 	} else {
@@ -203,20 +210,22 @@ func (ht *HeadTracker) headCallbackLoop() {
 			case <-ht.chStop:
 				return
 			case <-ht.callbackMB.Notify():
-				ht.callbackOnLatestHead()
+				for {
+					item, exists := ht.callbackMB.Retrieve()
+					if !exists {
+						break
+					}
+					ht.callbackOnLatestHead(item)
+				}
 			}
 		}
 	}
 }
 
-func (ht *HeadTracker) callbackOnLatestHead() {
+func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	item, exists := ht.callbackMB.Retrieve()
-	if !exists {
-		return
-	}
 	head, ok := item.(models.Head)
 	if !ok {
 		panic(fmt.Sprintf("expected `models.Head`, got %T", item))
@@ -242,7 +251,7 @@ func (ht *HeadTracker) backfiller() {
 					panic(fmt.Sprintf("expected `models.Head`, got %T", head))
 				}
 				{
-					ctx, cancel := utils.ContextFromChan(ht.chStop)
+					ctx, cancel := eth.DefaultQueryCtx()
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
