@@ -267,6 +267,8 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 		*u = Uint64Param(v)
 	case int64:
 		*u = Uint64Param(v)
+	case float64: // when decoding from db: JSON numbers are floats
+		*u = Uint64Param(v)
 	case string:
 		n, err := strconv.ParseUint(v, 10, 64)
 		if err != nil {
@@ -306,6 +308,8 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		n = uint64(v)
 	case int64:
+		n = uint64(v)
+	case float64: // when decoding from db: JSON numbers are floats
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
@@ -369,6 +373,11 @@ func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		n = int32(v)
 	case int64:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case float64: // when decoding from db: JSON numbers are floats
 		if v > math.MaxInt32 || v < math.MinInt32 {
 			return errors.Wrap(ErrBadInput, "overflows int32")
 		}
