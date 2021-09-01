@@ -72,6 +72,7 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
+// FIXME: Add support for specifying evmChainID - https://app.clubhouse.io/chainlinklabs/story/16148/fix-up-cli-to-allow-specifying-evmchainid-when-creating-importing-eth-keys
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	resp, err := cli.HTTP.Post("/v2/keys/eth", nil)
 	if err != nil {
@@ -122,6 +123,7 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 
 // ImportETHKey imports an Ethereum key,
 // file path must be passed
+// FIXME: Add support for specifying evmChainID - https://app.clubhouse.io/chainlinklabs/story/16148/fix-up-cli-to-allow-specifying-evmchainid-when-creating-importing-eth-keys
 func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))

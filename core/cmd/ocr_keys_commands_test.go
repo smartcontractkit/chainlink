@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
@@ -125,8 +127,11 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 func TestClient_ImportExportOCRKey(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(true)
+	}))
 	client, _ := app.NewClientAndRenderer()
+
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	keys := requireOCRKeyCount(t, app, 1)
