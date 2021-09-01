@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -33,8 +34,8 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 	}
 }
 
-func assertLastRunHeight(t *testing.T, store *store.Store, upkeep keeper.UpkeepRegistration, height int64) {
-	err := store.DB.Find(&upkeep).Error
+func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
+	err := db.Find(&upkeep).Error
 	require.NoError(t, err)
 	require.Equal(t, height, upkeep.LastRunBlockHeight)
 }
@@ -45,8 +46,8 @@ func TestKeeperDB_Registries(t *testing.T) {
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
-	cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
+	cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 
 	existingRegistries, err := orm.Registries(context.Background())
 	require.NoError(t, err)
@@ -61,7 +62,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:            0,
 		ExecuteGas:          executeGas,
@@ -100,10 +101,10 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, job := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 
 	for i := int64(0); i < 3; i++ {
-		cltest.MustInsertUpkeepForRegistry(t, store, registry)
+		cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 	}
 
 	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 3)
@@ -128,7 +129,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	blockheight := int64(63)
 	gracePeriod := int64(10)
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 
 	upkeeps := [5]keeper.UpkeepRegistration{
 		newUpkeep(registry, 0),
@@ -181,7 +182,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	blockheight := int64(120)
 	gracePeriod := int64(100)
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 	upkeep1 := newUpkeep(registry, 0)
 	upkeep1.LastRunBlockHeight = 0
 	upkeep2 := newUpkeep(registry, 1)
@@ -210,10 +211,10 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 	registry.NumKeepers = 5
 	require.NoError(t, store.DB.Save(&registry).Error)
-	cltest.MustInsertUpkeepForRegistry(t, store, registry)
+	cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 
 	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
@@ -242,13 +243,13 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 	registry.NumKeepers = 5
 	registry.KeeperIndex = 3
 	require.NoError(t, store.DB.Save(&registry).Error)
 
 	for i := 0; i < 1000; i++ {
-		cltest.MustInsertUpkeepForRegistry(t, store, registry)
+		cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 	}
 
 	cltest.AssertCount(t, db, keeper.Registry{}, 1)
@@ -277,11 +278,11 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	db := store.DB
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	registry1, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
-	registry2, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry1, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
+	registry2, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 
-	cltest.MustInsertUpkeepForRegistry(t, store, registry1)
-	cltest.MustInsertUpkeepForRegistry(t, store, registry2)
+	cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry1)
+	cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry2)
 
 	cltest.AssertCount(t, db, keeper.Registry{}, 2)
 	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 2)
@@ -301,7 +302,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
 
 	nextID, err := orm.LowestUnsyncedID(context.Background(), registry.ID)
 	require.NoError(t, err)
@@ -330,11 +331,11 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	registry, j := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
+	registry, j := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 
 	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 100)
-	assertLastRunHeight(t, store, upkeep, 100)
+	assertLastRunHeight(t, store.DB, upkeep, 100)
 	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
-	assertLastRunHeight(t, store, upkeep, 0)
+	assertLastRunHeight(t, store.DB, upkeep, 0)
 }

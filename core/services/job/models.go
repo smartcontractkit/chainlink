@@ -176,6 +176,7 @@ type OffchainReportingOracleSpec struct {
 	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
 	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
 	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	EVMChainID                             *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
 }
@@ -243,9 +244,10 @@ func (WebhookSpec) TableName() string {
 type DirectRequestSpec struct {
 	ID                       int32                    `toml:"-" gorm:"primary_key"`
 	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
-	Requesters               models.AddressCollection `toml:"requesters"`
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
+	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
@@ -324,14 +326,16 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *assets.Link
-	CreatedAt           time.Time `toml:"-"`
-	UpdatedAt           time.Time `toml:"-"`
+	EVMChainID          *utils.Big `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	CreatedAt           time.Time  `toml:"-"`
+	UpdatedAt           time.Time  `toml:"-"`
 }
 
 type KeeperSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 	FromAddress     ethkey.EIP55Address `toml:"fromAddress"`
+	EVMChainID      *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
 }
@@ -341,6 +345,7 @@ type VRFSpec struct {
 	CoordinatorAddress ethkey.EIP55Address `toml:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
 	Confirmations      uint32              `toml:"confirmations"`
+	EVMChainID         *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt          time.Time           `toml:"-"`
 	UpdatedAt          time.Time           `toml:"-"`
 }

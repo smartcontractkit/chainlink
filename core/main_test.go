@@ -13,8 +13,8 @@ import (
 
 func ExampleRun() {
 	t := &testing.T{}
-	tc := cltest.NewTestEVMConfig(t)
-	tc.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	tc := cltest.NewTestGeneralConfig(t)
+	tc.Overrides.Dev = null.BoolFrom(false)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,

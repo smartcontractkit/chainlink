@@ -25,9 +25,9 @@ type EstimateGasLimitTask struct {
 	To         string `json:"to"`
 	Multiplier string `json:"multiplier"`
 	Data       string `json:"data"`
+	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	EvmGasLimit  uint64
-	GasEstimator GasEstimator
+	chainSet evm.ChainSet
 }
 
 type GasEstimator interface {
@@ -60,8 +60,13 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		return Result{Error: err}
 	}
 
+	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	if err != nil {
+		return Result{Error: err}
+	}
+	maximumGasLimit := chain.Config().EvmGasLimitDefault()
 	to := common.Address(toAddr)
-	gasLimit, err := t.GasEstimator.EstimateGas(context.Background(), ethereum.CallMsg{
+	gasLimit, err := chain.Client().EstimateGas(context.Background(), ethereum.CallMsg{
 		From: common.Address(fromAddr),
 		To:   &to,
 		Data: data,
@@ -69,8 +74,8 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 	if err != nil {
 		// Fallback to the maximum conceivable gas limit
 		// if we're unable to call estimate gas for whatever reason.
-		logger.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", t.EvmGasLimit)
-		return Result{Value: t.EvmGasLimit}
+		logger.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", maximumGasLimit)
+		return Result{Value: maximumGasLimit}
 	}
 	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))
 	if err != nil {
@@ -81,8 +86,8 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		return Result{Error: errors.New("Invalid multiplier")}
 	}
 	gasLimitFinal := gasLimitWithMultiplier.Uint64()
-	if gasLimitFinal > t.EvmGasLimit {
-		gasLimitFinal = t.EvmGasLimit
+	if gasLimitFinal > maximumGasLimit {
+		gasLimitFinal = maximumGasLimit
 	}
 	return Result{Value: gasLimitFinal}
 }

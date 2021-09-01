@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net/url"
 	"reflect"
 	"sort"
@@ -15,6 +16,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -49,9 +51,6 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EvmGasLimitDefault() uint64
-		EvmMaxQueuedTransactions() uint64
-		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -360,4 +359,15 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 		return nil, ErrTooManyErrors
 	}
 	return vals, nil
+}
+
+func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
+	if str == "" {
+		return chainSet.Default()
+	}
+	id, ok := new(big.Int).SetString(str, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
+	}
+	return chainSet.Get(id)
 }

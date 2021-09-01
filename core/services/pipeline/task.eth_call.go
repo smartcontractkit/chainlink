@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
 //
@@ -17,14 +18,15 @@ import (
 //     []byte
 //
 type ETHCallTask struct {
-	BaseTask            `mapstructure:",squash"`
-	Contract            string `json:"contract"`
-	Data                string `json:"data"`
+	BaseTask   `mapstructure:",squash"`
+	Contract   string `json:"contract"`
+	Data       string `json:"data"`
 	Gas                 string `json:"gas"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
+	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
+	chainSet evm.ChainSet
 	config    Config
-	ethClient eth.Client
 }
 
 var _ Task = (*ETHCallTask)(nil)
@@ -61,7 +63,12 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		Gas:  uint64(gas),
 	}
 
-	resp, err := t.ethClient.CallContract(ctx, call, nil)
+	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	resp, err := chain.Client().CallContract(ctx, call, nil)
 	if err != nil {
 		if t.ExtractRevertReason {
 			err = t.retrieveRevertReason(err)

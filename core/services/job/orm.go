@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -55,7 +56,7 @@ type ORM interface {
 
 type orm struct {
 	db                  *gorm.DB
-	config              Config
+	chainSet            evm.ChainSet
 	keyStore            keystore.Master
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
@@ -69,7 +70,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(
 	db *gorm.DB,
-	cfg Config,
+	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
 	eventBroadcaster postgres.EventBroadcaster,
 	advisoryLocker postgres.AdvisoryLocker,
@@ -77,7 +78,7 @@ func NewORM(
 ) *orm {
 	return &orm{
 		db:                  db,
-		config:              cfg,
+		chainSet:            chainSet,
 		keyStore:            keyStore,
 		advisoryLocker:      advisoryLocker,
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
@@ -439,7 +440,11 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 		for i := range jobs {
 			if jobs[i].OffchainreportingOracleSpec != nil {
-				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+				ch, err := o.chainSet.Get(jobs[i].OffchainreportingOracleSpec.EVMChainID.ToInt())
+				if err != nil {
+					return err
+				}
+				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jobs[i].OffchainreportingOracleSpec)
 			}
 		}
 		return nil
@@ -456,7 +461,6 @@ type OCRSpecConfig interface {
 }
 
 func LoadDynamicConfigVars(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
-	// Load dynamic variables
 	if os.ObservationTimeout == 0 {
 		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
 	}
@@ -487,10 +491,9 @@ func (o *orm) FindJobTx(id int32) (Job, error) {
 }
 
 // FindJob returns job by ID
-func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
-	var jb Job
+func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	tx := postgres.TxFromContext(ctx, o.db)
-	err := PreloadAllJobTypes(tx).
+	err = PreloadAllJobTypes(tx).
 		Preload("JobSpecErrors").
 		First(&jb, "jobs.id = ?", id).
 		Error
@@ -499,9 +502,14 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
+		var ch evm.Chain
+		ch, err = o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+		if err != nil {
+			return jb, err
+		}
+		jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jb.OffchainreportingOracleSpec)
 	}
-	return jb, nil
+	return jb, err
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
