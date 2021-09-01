@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - FMv2 spec now contains DrumbeatRandomDelay parameter that can be used to introduce variation between round of submits of different oracles, if drumbeat ticker is enabled.
 
+- OCR Hibernation
+
 #### Requesters/MinContractPaymentLinkJuels
 
 V2 direct request specs now support two additional keys:
