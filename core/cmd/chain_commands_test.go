@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestClient_IndexChains(t *testing.T) {
@@ -80,4 +81,41 @@ func TestClient_RemoveChain(t *testing.T) {
 
 	chains, _, err = orm.Chains(0, 25)
 	require.Len(t, chains, initialCount)
+}
+
+func TestClient_ConfigureChain(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	orm := app.EVMORM()
+
+	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
+
+	id := utils.NewBigI(99)
+	_, err = orm.CreateChain(*id, types.ChainCfg{
+		BlockHistoryEstimatorBlockDelay: null.IntFrom(5),
+		EvmFinalityDepth:                null.IntFrom(5),
+		EvmGasBumpPercent:               null.IntFrom(3),
+	})
+	require.NoError(t, err)
+	chains, _, err := orm.Chains(0, 25)
+	require.Len(t, chains, initialCount+1)
+
+	set := flag.NewFlagSet("cli", 0)
+	set.Int64("id", 99, "param")
+	set.Parse([]string{"BlockHistoryEstimatorBlockDelay=9", "EvmGasBumpPercent=null"})
+	c := cli.NewContext(nil, set, nil)
+
+	err = client.ConfigureChain(c)
+	require.NoError(t, err)
+
+	chains, _, err = orm.Chains(0, 25)
+	ch := chains[initialCount]
+
+	assert.Equal(t, null.IntFrom(int64(9)), ch.Cfg.BlockHistoryEstimatorBlockDelay) // this key was changed
+	assert.Equal(t, null.IntFrom(int64(5)), ch.Cfg.EvmFinalityDepth)                // this key was unchanged
+	assert.Equal(t, null.Int{}, ch.Cfg.EvmGasBumpPercent)                           // this key was unset
 }

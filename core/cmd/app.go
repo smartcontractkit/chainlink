@@ -723,6 +723,17 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "List all chains",
 							Action: client.IndexChains,
 						},
+						{
+							Name:   "configure",
+							Usage:  "Configure an EVM chain",
+							Action: client.ConfigureChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
+						},
 					},
 				},
 			},

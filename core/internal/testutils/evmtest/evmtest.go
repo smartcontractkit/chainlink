@@ -140,7 +140,15 @@ func (mo *MockORM) Clear(chainID *big.Int, key string) error {
 	return nil
 }
 
+func (mo *MockORM) Chain(id utils.Big) (evmtypes.Chain, error) {
+	panic("not implemented")
+}
+
 func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) ConfigureChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
 	panic("not implemented")
 }
 

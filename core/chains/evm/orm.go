@@ -22,9 +22,21 @@ func NewORM(db *sqlx.DB) types.ORM {
 
 var ErrNoRowsAffected = errors.New("no rows affected")
 
+func (o *orm) Chain(id utils.Big) (chain types.Chain, err error) {
+	sql := `SELECT * FROM evm_chains WHERE id = $1`
+	err = o.db.Get(&chain, sql, id)
+	return chain, err
+}
+
 func (o *orm) CreateChain(id utils.Big, config types.ChainCfg) (chain types.Chain, err error) {
 	sql := `INSERT INTO evm_chains (id, cfg, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = o.db.Get(&chain, sql, id, config)
+	return chain, err
+}
+
+func (o *orm) ConfigureChain(id utils.Big, config types.ChainCfg) (chain types.Chain, err error) {
+	sql := `UPDATE evm_chains SET cfg = $1, updated_at = now() WHERE id = $2 RETURNING *`
+	err = o.db.Get(&chain, sql, config, id)
 	return chain, err
 }
 
