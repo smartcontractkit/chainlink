@@ -183,7 +183,13 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
+		// Don't need to HEX encode if it is a valid JSON string
 		if json.Valid(x) {
+			return json.Marshal(string(x))
+		}
+
+		// Don't need to HEX encode if it is already HEX encoded value
+		if _, err := strconv.ParseUint(string(x), 16, 64); err == nil {
 			return json.Marshal(string(x))
 		}
 
