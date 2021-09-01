@@ -219,6 +219,7 @@ abstract contract ChainlinkClient {
    */
   function getNextRequestCount()
     internal
+    view
     returns (
       uint256
     )

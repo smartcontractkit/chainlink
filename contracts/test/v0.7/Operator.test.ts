@@ -44,7 +44,7 @@ before(async () => {
   roles = users.roles;
   v7ConsumerFactory = await ethers.getContractFactory("src/v0.7/tests/Consumer.sol:Consumer");
   basicConsumerFactory = await ethers.getContractFactory("src/v0.6/tests/BasicConsumer.sol:BasicConsumer");
-  multiWordConsumerFactory = await ethers.getContractFactory("src/v0.6/tests/MultiWordConsumer.sol:MultiWordConsumer");
+  multiWordConsumerFactory = await ethers.getContractFactory("src/v0.7/tests/MultiWordConsumer.sol:MultiWordConsumer");
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
     "src/v0.6/tests/GasGuzzlingConsumer.sol:GasGuzzlingConsumer",
   );
@@ -1556,6 +1556,16 @@ describe("Operator", () => {
             request = decodeRunRequest(receipt.logs?.[3]);
           });
 
+          it("matches the consumer's request ID", async () => {
+            const nonce = await multiConsumer.publicGetNextRequestCount();
+            const tx = await multiConsumer.requestEthereumPrice("USD", 0);
+            const receipt = await tx.wait();
+            request = decodeRunRequest(receipt.logs?.[3]);
+            const packed = ethers.utils.solidityPack(["address", "uint256"], [multiConsumer.address, nonce]);
+            const expected = ethers.utils.keccak256(packed);
+            assert.equal(expected, request.requestId);
+          });
+
           describe("when called by an unauthorized node", () => {
             beforeEach(async () => {
               assert.equal(false, await operator.isAuthorizedSender(await roles.stranger.getAddress()));
@@ -1851,10 +1861,11 @@ describe("Operator", () => {
       });
 
       describe("multiple bytes32 parameters", () => {
-        const response1 = "Hi mom!";
-        const response2 = "Its me!";
-        const responseTypes = ["bytes32", "bytes32"];
-        const responseValues = [toBytes32String(response1), toBytes32String(response2)];
+        const response1 = "100";
+        const response2 = "7777777";
+        const response3 = "forty two";
+        const responseTypes = ["bytes32", "bytes32", "bytes32"];
+        const responseValues = [toBytes32String(response1), toBytes32String(response2), toBytes32String(response3)];
         let maliciousRequester: Contract;
         let multiConsumer: Contract;
         let maliciousConsumer: Contract;
@@ -1926,10 +1937,12 @@ describe("Operator", () => {
                 .connect(roles.oracleNode)
                 .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
 
-              const firstValue = await multiConsumer.first();
-              const secondValue = await multiConsumer.second();
+              const firstValue = await multiConsumer.usd();
+              const secondValue = await multiConsumer.eur();
+              const thirdValue = await multiConsumer.jpy();
               assert.equal(response1, ethers.utils.parseBytes32String(firstValue));
               assert.equal(response2, ethers.utils.parseBytes32String(secondValue));
+              assert.equal(response3, ethers.utils.parseBytes32String(thirdValue));
             });
 
             it("emits an OracleResponse2 event", async () => {
@@ -1943,8 +1956,12 @@ describe("Operator", () => {
             });
 
             it("does not allow a request to be fulfilled twice", async () => {
-              const response3 = response2 + " && Hello World!!";
-              const repeatedResponseValues = [toBytes32String(response2), toBytes32String(response3)];
+              const response4 = response3 + " && Hello World!!";
+              const repeatedResponseValues = [
+                toBytes32String(response1),
+                toBytes32String(response2),
+                toBytes32String(response4),
+              ];
 
               await operator
                 .connect(roles.oracleNode)
@@ -1956,10 +1973,12 @@ describe("Operator", () => {
                   .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, repeatedResponseValues)),
               );
 
-              const firstValue = await multiConsumer.first();
-              const secondValue = await multiConsumer.second();
+              const firstValue = await multiConsumer.usd();
+              const secondValue = await multiConsumer.eur();
+              const thirdValue = await multiConsumer.jpy();
               assert.equal(response1, ethers.utils.parseBytes32String(firstValue));
               assert.equal(response2, ethers.utils.parseBytes32String(secondValue));
+              assert.equal(response3, ethers.utils.parseBytes32String(thirdValue));
             });
           });
 
@@ -2066,8 +2085,12 @@ describe("Operator", () => {
             });
 
             it("can't fulfill the data again", async () => {
-              const response3 = "hack the planet 102";
-              const repeatedResponseValues = [toBytes32String(response2), toBytes32String(response3)];
+              const response4 = "hack the planet 102";
+              const repeatedResponseValues = [
+                toBytes32String(response1),
+                toBytes32String(response2),
+                toBytes32String(response4),
+              ];
               await operator
                 .connect(roles.oracleNode)
                 .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
@@ -2134,8 +2157,12 @@ describe("Operator", () => {
             });
 
             it("can't fulfill the data again", async () => {
-              const response3 = "hack the planet 102";
-              const repeatedResponseValues = [toBytes32String(response2), toBytes32String(response3)];
+              const response4 = "hack the planet 102";
+              const repeatedResponseValues = [
+                toBytes32String(response1),
+                toBytes32String(response2),
+                toBytes32String(response4),
+              ];
               await operator
                 .connect(roles.oracleNode)
                 .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
