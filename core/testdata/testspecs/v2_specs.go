@@ -83,6 +83,7 @@ answer1 [type=median index=0];
 type KeeperSpecParams struct {
 	ContractAddress string
 	FromAddress     string
+	EvmChainID      int
 }
 
 type KeeperSpec struct {
@@ -101,7 +102,7 @@ schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "%s"
 fromAddress     = "%s"
-evmChainID      = 4
+evmChainID      = %d
 externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
 
 
@@ -131,7 +132,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress),
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID),
 	}
 }
 
