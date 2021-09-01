@@ -68,7 +68,7 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.E
 func (bm *balanceMonitor) Start() error {
 	return bm.StartOnce("BalanceMonitor", func() error {
 		// Always query latest balance on start
-		bm.checkBalance(nil)
+		(&worker{bm}).Work()
 		return nil
 	})
 }
@@ -169,8 +169,8 @@ func (w *worker) Work() {
 	wg.Add(len(keys))
 	for _, key := range keys {
 		go func(k ethkey.KeyV2) {
+			defer wg.Done()
 			w.checkAccountBalance(k)
-			wg.Done()
 		}(key)
 	}
 	wg.Wait()
