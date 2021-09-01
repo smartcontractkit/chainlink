@@ -31,7 +31,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 
 	// Setup the rounds
 	for round := uint32(0); round < 10; round++ {
-		_, err := orm.FindOrCreateFluxMonitorRoundStats(address, round)
+		_, err := orm.FindOrCreateFluxMonitorRoundStats(address, round, 1)
 		require.NoError(t, err)
 	}
 
@@ -40,10 +40,11 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.Equal(t, 10, count)
 
 	// Ensure round stats are not created again for the same address/roundID
-	stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, uint32(0))
+	stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, uint32(0), 1)
 	require.NoError(t, err)
 	require.Equal(t, uint32(0), stats.RoundID)
 	require.Equal(t, address, stats.Aggregator)
+	require.Equal(t, uint64(1), stats.NumNewRoundLogs)
 
 	count, err = orm.CountFluxMonitorRoundStats()
 	require.NoError(t, err)
@@ -130,7 +131,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID, 0)
 		require.NoError(t, err)
 
-		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID)
+		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID, 0)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, stats.NumSubmissions)
 		require.True(t, stats.PipelineRunID.Valid)

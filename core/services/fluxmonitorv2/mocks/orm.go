@@ -43,20 +43,20 @@ func (_m *ORM) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, rou
 	return r0
 }
 
-// FindOrCreateFluxMonitorRoundStats provides a mock function with given fields: aggregator, roundID
-func (_m *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (fluxmonitorv2.FluxMonitorRoundStatsV2, error) {
-	ret := _m.Called(aggregator, roundID)
+// FindOrCreateFluxMonitorRoundStats provides a mock function with given fields: aggregator, roundID, newRoundLogs
+func (_m *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (fluxmonitorv2.FluxMonitorRoundStatsV2, error) {
+	ret := _m.Called(aggregator, roundID, newRoundLogs)
 
 	var r0 fluxmonitorv2.FluxMonitorRoundStatsV2
-	if rf, ok := ret.Get(0).(func(common.Address, uint32) fluxmonitorv2.FluxMonitorRoundStatsV2); ok {
-		r0 = rf(aggregator, roundID)
+	if rf, ok := ret.Get(0).(func(common.Address, uint32, uint) fluxmonitorv2.FluxMonitorRoundStatsV2); ok {
+		r0 = rf(aggregator, roundID, newRoundLogs)
 	} else {
 		r0 = ret.Get(0).(fluxmonitorv2.FluxMonitorRoundStatsV2)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Address, uint32) error); ok {
-		r1 = rf(aggregator, roundID)
+	if rf, ok := ret.Get(1).(func(common.Address, uint32, uint) error); ok {
+		r1 = rf(aggregator, roundID, newRoundLogs)
 	} else {
 		r1 = ret.Error(1)
 	}

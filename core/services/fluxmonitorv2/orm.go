@@ -17,7 +17,7 @@ type transmitter interface {
 type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
-	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
+	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint) error
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
@@ -61,9 +61,16 @@ func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roun
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given
 // oracle on a given round, or creates it if no record exists
-func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error) {
+func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error) {
+
+	// new potential entry to be inserted
 	var stats FluxMonitorRoundStatsV2
+	stats.Aggregator = aggregator
+	stats.RoundID = roundID
+	stats.NumNewRoundLogs = uint64(newRoundLogs)
+
 	err := o.db.FirstOrCreate(&stats,
+		// conditions for finding the existing one
 		FluxMonitorRoundStatsV2{Aggregator: aggregator, RoundID: roundID},
 	).Error
 

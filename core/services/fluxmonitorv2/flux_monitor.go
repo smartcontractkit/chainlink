@@ -636,25 +636,27 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		return
 	}
 
-	roundStatsInitial, _, err := fm.statsAndStatusForRound(logRoundID)
+	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(logRoundID, 1)
 	if err != nil {
-		newRoundLogger.Errorf("error determining initial round stats / run status for round: %v", err)
+		newRoundLogger.Errorf("error determining round stats / run status for round: %v", err)
 		return
 	}
 
-	if logRoundID < mostRecentRoundID && roundStatsInitial.NumNewRoundLogs > 0 {
-		newRoundLogger.Debugf("Received an older round log (and number of already received NewRound logs is: %v) - a possible reorg, hence deleting round ids from %v to %v", roundStatsInitial.NumNewRoundLogs, logRoundID, mostRecentRoundID)
+	if logRoundID < mostRecentRoundID && roundStats.NumNewRoundLogs > 0 {
+		newRoundLogger.Debugf("Received an older round log (and number of previously received NewRound logs is: %v) - "+
+			"a possible reorg, hence deleting round ids from %v to %v", roundStats.NumNewRoundLogs, logRoundID, mostRecentRoundID)
 		err = fm.orm.DeleteFluxMonitorRoundsBackThrough(fm.contractAddress, logRoundID)
 		if err != nil {
 			newRoundLogger.Errorf("error deleting reorged Flux Monitor rounds from DB: %v", err)
 			return
 		}
-	}
 
-	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(logRoundID)
-	if err != nil {
-		newRoundLogger.Errorf("error determining round stats / run status for round: %v", err)
-		return
+		// as all newer stats were deleted, at this point a new round stats entry will be created
+		roundStats, err = fm.orm.FindOrCreateFluxMonitorRoundStats(fm.contractAddress, logRoundID, 1)
+		if err != nil {
+			newRoundLogger.Errorf("error determining subsequent round stats for round: %v", err)
+			return
+		}
 	}
 
 	if roundStats.NumSubmissions > 0 {
@@ -874,7 +876,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 	}()
 
-	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)
+	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId, 0)
 	if err != nil {
 		l.Errorw("error determining round stats / run status for round", "err", err)
 
@@ -1090,8 +1092,8 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(db *gorm.DB, runID int64, answer
 	return nil
 }
 
-func (fm *FluxMonitor) statsAndStatusForRound(roundID uint32) (FluxMonitorRoundStatsV2, pipeline.RunStatus, error) {
-	roundStats, err := fm.orm.FindOrCreateFluxMonitorRoundStats(fm.contractAddress, roundID)
+func (fm *FluxMonitor) statsAndStatusForRound(roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, pipeline.RunStatus, error) {
+	roundStats, err := fm.orm.FindOrCreateFluxMonitorRoundStats(fm.contractAddress, roundID, newRoundLogs)
 	if err != nil {
 		return FluxMonitorRoundStatsV2{}, pipeline.RunStatusUnknown, err
 	}
