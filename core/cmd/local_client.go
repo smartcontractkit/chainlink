@@ -115,7 +115,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	for _, ch := range app.GetChainSet().Chains() {
-		fmt.Println("BALLS", ch)
 		skey, sexisted, fkey, fexisted, err := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err != nil {
 			return cli.errorOut(err)
