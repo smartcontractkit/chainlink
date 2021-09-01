@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
 func TestValidatedKeeperSpec(t *testing.T) {
