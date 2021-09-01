@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
+	gethcommon "github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -19,6 +20,7 @@ import (
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -403,4 +405,42 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	kst.AssertExpectations(t)
 	eventBroadcaster.AssertExpectations(t)
 	unsub.AwaitOrFail(t, 1*time.Second)
+}
+
+func TestBulletproofTxManager_SignTx(t *testing.T) {
+	t.Parallel()
+
+	addr := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
+	to := gethcommon.HexToAddress("0xb921F7763960b296B9cbAD586ff066A18D749724")
+	tx := gethtypes.NewTx(&gethtypes.LegacyTx{
+		Nonce:    42,
+		To:       &to,
+		Value:    big.NewInt(142),
+		Gas:      242,
+		GasPrice: big.NewInt(342),
+		Data:     []byte{1, 2, 3},
+	})
+
+	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
+		chainID := big.NewInt(1)
+		kst := new(ksmocks.Eth)
+		kst.Test(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		hash, rawBytes, err := bulletprooftxmanager.SignTx(kst, addr, tx, chainID)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
+	})
+
+	t.Run("returns correct hash for okex chains", func(t *testing.T) {
+		chainID := big.NewInt(65)
+		kst := new(ksmocks.Eth)
+		kst.Test(t)
+		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
+		hash, rawBytes, err := bulletprooftxmanager.SignTx(kst, addr, tx, chainID)
+		require.NoError(t, err)
+		require.NotNil(t, rawBytes)
+		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")
+		require.Equal(t, "0x1458742e3ba53316481eb18237ced517a536c1cdef61e7b7fb2a9569d84e41a6", hash.Hex())
+	})
 }
