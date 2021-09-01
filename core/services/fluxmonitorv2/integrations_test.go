@@ -494,6 +494,13 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	jobId, err := strconv.Atoi(jobResponse.ID)
 	require.NoError(t, err)
 
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
+	}, 3*time.Second, 200*time.Millisecond)
+
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
@@ -635,6 +642,13 @@ ds1 -> ds1_parse
 
 	cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
+	}, 3*time.Second, 200*time.Millisecond)
+
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
 		fa:              &fa,
@@ -644,13 +658,6 @@ ds1 -> ds1_parse
 		isNewRound:      true,
 		completesAnswer: false,
 	})
-
-	// Waiting for flux monitor to finish Register process in log broadcaster
-	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	assert.Eventually(t, func() bool {
-		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
-	}, 3*time.Second, 200*time.Millisecond)
 
 	// Finally, the logs from log broadcaster are sent only after a next block is received.
 	fa.backend.Commit()
