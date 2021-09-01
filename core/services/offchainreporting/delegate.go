@@ -12,17 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
@@ -31,9 +28,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type DelegateConfig interface {
-	Chain() *chains.Chain
-	ChainID() *big.Int
+type Config interface {
+	DefaultChainID() *big.Int
 	Dev() bool
 	EvmGasLimitDefault() uint64
 	JobPipelineResultWriteQueueDepth() uint64
@@ -57,17 +53,12 @@ type DelegateConfig interface {
 
 type Delegate struct {
 	db                    *gorm.DB
-	txm                   txManager
 	jobORM                job.ORM
-	config                DelegateConfig
 	keyStore              keystore.OCR
 	pipelineRunner        pipeline.Runner
-	ethClient             eth.Client
-	logBroadcaster        log.Broadcaster
 	peerWrapper           *SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	chain                 *chains.Chain
-	headBroadcaster       httypes.HeadBroadcaster
+	chainSet              evm.ChainSet
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -76,31 +67,21 @@ const ConfigOverriderPollInterval = 30 * time.Second
 
 func NewDelegate(
 	db *gorm.DB,
-	txm txManager,
 	jobORM job.ORM,
-	config DelegateConfig,
 	keyStore keystore.OCR,
 	pipelineRunner pipeline.Runner,
-	ethClient eth.Client,
-	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	chain *chains.Chain,
-	headBroadcaster httypes.HeadBroadcaster,
+	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
 		db,
-		txm,
 		jobORM,
-		config,
 		keyStore,
 		pipelineRunner,
-		ethClient,
-		logBroadcaster,
 		peerWrapper,
 		monitoringEndpointGen,
-		chain,
-		headBroadcaster,
+		chainSet,
 	}
 }
 
@@ -115,19 +96,23 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if jobSpec.OffchainreportingOracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
-	concreteSpec := *job.LoadDynamicConfigVars(d.config, *jobSpec.OffchainreportingOracleSpec)
+	chain, err := d.chainSet.Get(jobSpec.OffchainreportingOracleSpec.EVMChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
+	concreteSpec := *job.LoadDynamicConfigVars(chain.Config(), *jobSpec.OffchainreportingOracleSpec)
 
-	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), d.ethClient)
+	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
 	}
 
-	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
+	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
 	}
 
-	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(concreteSpec.ContractAddress.Address(), d.ethClient)
+	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
@@ -142,14 +127,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		contract,
 		contractFilterer,
 		contractCaller,
-		d.ethClient,
-		d.logBroadcaster,
+		chain.Client(),
+		chain.LogBroadcaster(),
 		jobSpec.ID,
 		*logger.Default,
 		d.db,
 		ocrdb,
-		d.chain,
-		d.headBroadcaster,
+		chain,
+		chain.HeadBroadcaster(),
 	)
 	services = append(services, tracker)
 
@@ -157,7 +142,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PPeerID != nil {
 		peerID = *concreteSpec.P2PPeerID
 	} else {
-		peerID, err = d.config.P2PPeerID()
+		peerID, err = chain.Config().P2PPeerID()
 		if err != nil {
 			return nil, err
 		}
@@ -174,23 +159,23 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PBootstrapPeers != nil {
 		bootstrapPeers = concreteSpec.P2PBootstrapPeers
 	} else {
-		bootstrapPeers, err = d.config.P2PBootstrapPeers()
+		bootstrapPeers, err = chain.Config().P2PBootstrapPeers()
 		if err != nil {
 			return nil, err
 		}
 	}
-	v2BootstrapPeers := d.config.P2PV2Bootstrappers()
+	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
 	loggerWith := logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
+	ocrLogger := NewLogger(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
-	lc := NewLocalConfig(d.config, concreteSpec)
+	lc := NewLocalConfig(chain.Config(), concreteSpec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -218,7 +203,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if concreteSpec.EncryptedOCRKeyBundleID.Valid {
 			kb = concreteSpec.EncryptedOCRKeyBundleID.String
 		} else {
-			kb, err = d.config.OCRKeyBundleID()
+			kb, err = chain.Config().OCRKeyBundleID()
 			if err != nil {
 				return nil, err
 			}
@@ -236,30 +221,30 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if concreteSpec.TransmitterAddress != nil {
 			ta = *concreteSpec.TransmitterAddress
 		} else {
-			ta, err = d.config.OCRTransmitterAddress()
+			ta, err = chain.Config().OCRTransmitterAddress()
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, d.config.OCRDefaultTransactionQueueDepth())
+		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth())
 
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(d.txm, d.db, ta.Address(), d.config.EvmGasLimitDefault(), strategy),
-			d.logBroadcaster,
+			NewTransmitter(chain.TxManager(), d.db, ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+			chain.LogBroadcaster(),
 			tracker,
-			d.config.ChainID(),
+			chain.ID(),
 		)
 
-		runResults := make(chan pipeline.Run, d.config.JobPipelineResultWriteQueueDepth())
+		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 
 		var configOverrider ocrtypes.ConfigOverrider
-		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, concreteSpec.ContractAddress)
+		configOverriderService, err := d.maybeCreateConfigOverrider(loggerWith, chain, concreteSpec.ContractAddress)
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to create ConfigOverrider")
 		}
@@ -317,10 +302,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
-	flagsContractAddress := d.config.FlagsContractAddress()
+func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+	flagsContractAddress := chain.Config().FlagsContractAddress()
 	if flagsContractAddress != "" {
-		flags, err := NewFlags(flagsContractAddress, d.ethClient)
+		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {
 			return nil, errors.Wrapf(err,
 				"OCR: unable to create Flags contract instance, check address: %s or remove FLAGS_CONTRACT_ADDRESS configuration variable",

@@ -32,7 +32,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
-		key, err := ethKeyStore.Create()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 1, len(retrievedKeys))
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		// adds 2nd key
-		_, err = ethKeyStore.Create()
+		_, err = ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKeys, err = ethKeyStore.GetAll()
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 	t.Run("RemoveKey", func(t *testing.T) {
 		defer reset()
-		key, err := ethKeyStore.Create()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		_, err = ethKeyStore.Delete(key.ID())
 		require.NoError(t, err)
@@ -75,7 +75,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
 		defer reset()
-		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys()
+		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.False(t, sDidExist)
 		require.False(t, fDidExist)
@@ -86,7 +86,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, ethkey.State{}, 2)
 		require.NotEqual(t, sKey.Address, fKey.Address)
-		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys()
+		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.True(t, sDidExist)
 		require.True(t, fDidExist)
@@ -110,7 +110,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 
 	// create 4 keys - 1 funding and 3 sending
-	k1, _, kf, _, err := ethKeyStore.EnsureKeys()
+	k1, _, kf, _, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -215,7 +215,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		key, err := ks.Create()
+		key, err := ks.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
@@ -224,7 +224,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		key, err := ks.Create()
+		key, err := ks.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
@@ -232,7 +232,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		_, err = ks.Get(key.ID())
 		require.Error(t, err)
-		importedKey, err := ks.Import(exportJSON, cltest.Password)
+		importedKey, err := ks.Import(exportJSON, cltest.Password, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
@@ -244,7 +244,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		defer reset()
 		newKey, err := ethkey.NewV2()
 		require.NoError(t, err)
-		err = ks.Add(newKey)
+		err = ks.Add(newKey, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

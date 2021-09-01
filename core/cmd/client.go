@@ -15,13 +15,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
@@ -63,31 +68,64 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(config.EVMConfig) (chainlink.Application, error)
+	NewApplication(config.GeneralConfig) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
-	chainLogger := logger.Default.With(
-		"chainId", config.Chain().ID(),
-	)
+func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
+	advisoryLocker := postgres.NewAdvisoryLock(cfg.DatabaseURL())
+	shutdownSignal := gracefulpanic.NewSignal()
+	// TODO: Remove store entirely
+	// https://app.clubhouse.io/chainlinklabs/story/12980/remove-store-object-entirely
+	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
+	if err != nil {
+		return nil, err
+	}
+	db := store.DB
+	sqlxDB := postgres.UnwrapGormDB(db)
+	cfg.SetDB(db)
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg))
+	// Init service loggers
+	globalLogger := cfg.CreateProductionLogger()
+	globalLogger.SetDB(db)
 
-	var ethClient eth.Client
-	if config.EthereumDisabled() {
-		ethClient = &eth.NullClient{}
-	} else {
-		var err error
-		ethClient, err = eth.NewClient(chainLogger, config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
-		if err != nil {
+	if cfg.ClobberNodesFromEnv() {
+		if err = evm.ClobberNodesFromEnv(db, cfg); err != nil {
 			return nil, err
 		}
 	}
 
-	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(chainLogger, config, ethClient, advisoryLock)
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
+	ccOpts := evm.ChainSetOpts{
+		Config:           cfg,
+		Logger:           globalLogger,
+		GormDB:           db,
+		SQLxDB:           sqlxDB,
+		ORM:              evm.NewORM(sqlxDB),
+		KeyStore:         keyStore.Eth(),
+		AdvisoryLocker:   advisoryLocker,
+		EventBroadcaster: eventBroadcaster,
+	}
+	chainSet, err := evm.LoadChainSet(ccOpts)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
+	return chainlink.NewApplication(chainlink.ApplicationOpts{
+		Config:                   cfg,
+		AdvisoryLocker:           advisoryLocker,
+		ShutdownSignal:           shutdownSignal,
+		Store:                    store,
+		GormDB:                   db,
+		KeyStore:                 keyStore,
+		ChainSet:                 chainSet,
+		EventBroadcaster:         eventBroadcaster,
+		Logger:                   globalLogger,
+		ExternalInitiatorManager: externalInitiatorManager,
+	})
 }
 
 // Runner implements the Run method.

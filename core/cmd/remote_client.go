@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -249,26 +250,38 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) (err error) {
+// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
+	var adjustedAmount *big.Int
 	if c.NArg() != 1 {
 		return cli.errorOut(errors.New("expecting an amount"))
 	}
-
 	value := c.Args().Get(0)
 	amount, ok := new(big.Float).SetString(value)
 	if !ok {
 		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
 	}
-
 	if c.IsSet("gwei") {
 		amount.Mul(amount, big.NewFloat(1000000000))
 	}
+	var chainID *big.Int
+	if c.IsSet("evmChainID") {
+		var ok bool
+		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
+		if !ok {
+			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
+		}
+	}
+	adjustedAmount, _ = amount.Int(nil)
 
-	adjustedAmount, _ := amount.Int(nil)
 	request := struct {
-		EvmGasPriceDefault string `json:"ethGasPriceDefault"`
-	}{EvmGasPriceDefault: adjustedAmount.String()}
+		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
+		EvmChainID         *utils.Big `json:"evmChainID"`
+	}{
+		EvmGasPriceDefault: adjustedAmount.String(),
+		EvmChainID:         utils.NewBig(chainID),
+	}
+
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)

@@ -84,7 +84,7 @@ func TestPaymentChecker_SufficientPayment(t *testing.T) {
 				minJobPayment = &mjb
 			}
 
-			checker := fluxmonitorv2.NewPaymentChecker(assets.NewLink(tc.minContractPayment), minJobPayment)
+			checker := fluxmonitorv2.NewPaymentChecker(assets.NewLinkFromJuels(tc.minContractPayment), minJobPayment)
 
 			assert.Equal(t, tc.want, checker.SufficientPayment(big.NewInt(payment)))
 		})
