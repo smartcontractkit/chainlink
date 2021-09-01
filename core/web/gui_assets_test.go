@@ -77,8 +77,8 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.Dev = null.BoolFrom(false)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())

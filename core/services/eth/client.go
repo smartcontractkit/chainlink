@@ -31,6 +31,7 @@ import (
 type Client interface {
 	Dial(ctx context.Context) error
 	Close()
+	ChainID() *big.Int
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -50,7 +51,6 @@ type Client interface {
 	SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error)
 
 	// Wrapped Geth client methods
-	ChainID(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
@@ -92,8 +92,9 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 // multiple ethereum nodes
 type client struct {
 	logger      *logger.Logger
-	primary     *node
-	secondaries []*secondarynode
+	primary     *Node
+	secondaries []*SecondaryNode
+	chainID     *big.Int
 	mocked      bool
 
 	roundRobinCount uint32
@@ -101,7 +102,20 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
+// NewClientWithNodes instantiates a client from a list of nodes
+// Currently only supports one primary
+func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID *big.Int) (*client, error) {
+	return &client{
+		logger,
+		primaryNode,
+		sendOnlyNodes,
+		chainID,
+		false,
+		0,
+	}, nil
+}
+
+func NewClient(lggr *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -111,21 +125,23 @@ func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, second
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	c := client{logger: logger}
+	c := client{logger: lggr, chainID: chainID}
 
 	// for now only one primary is supported
-	c.primary = newNode(*parsed, rpcHTTPURL, "eth-primary-0")
+	c.primary = NewNode(lggr, *parsed, rpcHTTPURL, "eth-primary-0")
 
 	for i, url := range secondaryRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
 			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", url.String())
 		}
-		s := newSecondaryNode(url, fmt.Sprintf("eth-secondary-%d", i))
+		s := NewSecondaryNode(lggr, url, fmt.Sprintf("eth-secondary-%d", i))
 		c.secondaries = append(c.secondaries, s)
 	}
 	return &c, nil
 }
 
+// Dial opens websocket connections if necessary and sanity-checks that tthe
+// node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
 	if client.mocked {
 		return nil
@@ -133,11 +149,46 @@ func (client *client) Dial(ctx context.Context) error {
 	if err := client.primary.Dial(ctx); err != nil {
 		return errors.Wrap(err, "Failed to dial primary client")
 	}
+	if client.chainID != nil {
+		if chainID, err := client.primary.ws.geth.ChainID(ctx); err != nil {
+			return errors.Wrap(err, "failed to verify chain ID")
+		} else if chainID.Cmp(client.chainID) != 0 {
+			return errors.Errorf(
+				"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+				chainID.String(),
+				client.chainID.String(),
+				client.primary.name,
+			)
+		}
+		if client.primary.http != nil {
+			if chainID, err := client.primary.http.geth.ChainID(ctx); err != nil {
+				return errors.Wrap(err, "failed to verify chain ID")
+			} else if chainID.Cmp(client.chainID) != 0 {
+				return errors.Errorf(
+					"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+					chainID.String(),
+					client.chainID.String(),
+					client.primary.name,
+				)
+			}
+		}
 
+	}
 	for _, s := range client.secondaries {
-		err := s.Dial()
-		if err != nil {
+		if err := s.Dial(); err != nil {
 			return errors.Wrapf(err, "Failed to dial secondary client: %v", s.uri)
+		}
+		if client.chainID != nil {
+			if chainID, err := s.ChainID(ctx); err != nil {
+				return errors.Wrap(err, "failed to verify chain ID")
+			} else if chainID.Cmp(client.chainID) != 0 {
+				return errors.Errorf(
+					"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+					chainID.String(),
+					client.chainID.String(),
+					s.name,
+				)
+			}
 		}
 	}
 	return nil
@@ -177,7 +228,7 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 func (client *client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	balance, err := client.GetERC20Balance(address, linkAddress)
 	if err != nil {
-		return assets.NewLink(0), err
+		return assets.NewLinkFromJuels(0), err
 	}
 	return (*assets.Link)(balance), nil
 }
@@ -201,8 +252,8 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 	return
 }
 
-func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
-	return client.primary.ChainID(ctx)
+func (client *client) ChainID() *big.Int {
+	return client.chainID
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -216,7 +267,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 	for _, s := range client.secondaries {
 		// Parallel send to secondary node
 		wg.Add(1)
-		go func(s *secondarynode) {
+		go func(s *SecondaryNode) {
 			defer wg.Done()
 			err := NewSendError(s.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
@@ -266,9 +317,14 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *models.Head, err error) {
 	hex := toBlockNumArg(number)
 	err = client.primary.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
-	if err == nil && head == nil {
-		err = ethereum.NotFound
+	if err != nil {
+		return nil, err
 	}
+	if head == nil {
+		err = ethereum.NotFound
+		return
+	}
+	head.EVMChainID = utils.NewBig(client.chainID)
 	return
 }
 

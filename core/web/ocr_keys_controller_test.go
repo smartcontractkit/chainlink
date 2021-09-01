@@ -85,11 +85,7 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

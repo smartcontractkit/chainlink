@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+
 	"github.com/stretchr/testify/require"
 )
 

@@ -33,6 +33,13 @@ func UnwrapGormDB(db *gorm.DB) *sqlx.DB {
 	return WrapDbWithSqlx(d)
 }
 
+func TryUnwrapGormDB(db *gorm.DB) *sqlx.DB {
+	if db == nil {
+		return nil
+	}
+	return UnwrapGormDB(db)
+}
+
 func UnwrapGorm(db *gorm.DB) Queryer {
 	if tx, ok := db.Statement.ConnPool.(*sql.Tx); ok {
 		// if a transaction is currently present use that instead

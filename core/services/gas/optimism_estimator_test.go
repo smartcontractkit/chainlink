@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +19,7 @@ func Test_OptimismEstimator(t *testing.T) {
 
 	config := new(mocks.Config)
 	client := new(mocks.OptimismRPCClient)
-	o := gas.NewOptimismEstimator(config, client)
+	o := gas.NewOptimismEstimator(logger.Default, config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint64 = 80000
@@ -50,7 +51,7 @@ func Test_OptimismEstimator(t *testing.T) {
 	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.OptimismRPCClient)
-		o = gas.NewOptimismEstimator(config, client)
+		o = gas.NewOptimismEstimator(logger.Default, config, client)
 
 		client.On("Call", mock.Anything, "rollup_gasPrices").Return(errors.New("kaboom"))
 
