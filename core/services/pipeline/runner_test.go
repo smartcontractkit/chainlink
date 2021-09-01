@@ -16,9 +16,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -27,9 +30,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(db)
+	r := pipeline.NewRunner(orm, cfg, cc, nil, nil)
+	return r, orm
+}
+
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -54,10 +65,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(db)
-
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, _ := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -187,7 +195,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -232,10 +240,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			submit := makeBridge(t, store, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
 			defer submit.Close()
 
-			orm := new(mocks.ORM)
-			orm.On("DB").Return(store.DB)
-
-			runner := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+			runner, _ := newRunner(t, store.DB, cfg)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
@@ -310,9 +315,9 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r, _ := newRunner(t, store.DB, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -333,10 +338,8 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, store.DB, cfg)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -363,10 +366,8 @@ a->b2->c;`,
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, store.DB, cfg)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -388,14 +389,12 @@ a->b2;`,
 func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, store.DB, cfg)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
@@ -456,11 +455,8 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, orm := newRunner(t, store.DB, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -586,11 +582,8 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, orm := newRunner(t, store.DB, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -666,13 +659,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 func Test_PipelineRunner_FailEarly(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		require.Fail(t, "ds1 shouldn't have been called")
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, store.DB, cfg)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds_panic [type=panic msg="oh no" failEarly=true]

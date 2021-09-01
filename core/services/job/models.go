@@ -95,17 +95,25 @@ type Job struct {
 	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
+func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
+	return common.BytesToHash([]byte(strings.Replace(id.String(), "-", "", 4)))
+}
+
+func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
+	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
+}
+
 // The external job ID (UUID) can be encoded into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
-	return common.BytesToHash([]byte(strings.Replace(j.ExternalJobID.String(), "-", "", 4)))
+	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
 // The external job ID (UUID) can also be encoded into a log topic (32 bytes)
 // by taking the 16 bytes undelying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
-	return common.BytesToHash(common.RightPadBytes(j.ExternalJobID.Bytes(), utils.EVMWordByteLen))
+	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
 }
 
 func (j Job) TableName() string {
@@ -168,6 +176,7 @@ type OffchainReportingOracleSpec struct {
 	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
 	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
 	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	EVMChainID                             *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
 }
@@ -235,9 +244,10 @@ func (WebhookSpec) TableName() string {
 type DirectRequestSpec struct {
 	ID                       int32                    `toml:"-" gorm:"primary_key"`
 	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
-	Requesters               models.AddressCollection `toml:"requesters"`
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
+	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID               *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
@@ -316,14 +326,16 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *assets.Link
-	CreatedAt           time.Time `toml:"-"`
-	UpdatedAt           time.Time `toml:"-"`
+	EVMChainID          *utils.Big `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	CreatedAt           time.Time  `toml:"-"`
+	UpdatedAt           time.Time  `toml:"-"`
 }
 
 type KeeperSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 	FromAddress     ethkey.EIP55Address `toml:"fromAddress"`
+	EVMChainID      *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
 }
@@ -333,6 +345,7 @@ type VRFSpec struct {
 	CoordinatorAddress ethkey.EIP55Address `toml:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
 	Confirmations      uint32              `toml:"confirmations"`
+	EVMChainID         *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	CreatedAt          time.Time           `toml:"-"`
 	UpdatedAt          time.Time           `toml:"-"`
 }

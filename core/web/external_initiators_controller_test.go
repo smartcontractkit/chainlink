@@ -19,7 +19,7 @@ import (
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -81,7 +81,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -107,7 +107,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -133,7 +133,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -149,7 +149,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -169,7 +169,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 

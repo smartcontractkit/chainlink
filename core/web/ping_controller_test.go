@@ -16,11 +16,7 @@ import (
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -36,11 +32,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -79,11 +71,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

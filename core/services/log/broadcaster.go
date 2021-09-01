@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,9 +63,10 @@ type (
 	}
 
 	broadcaster struct {
-		orm       ORM
-		config    Config
-		connected *abool.AtomicBool
+		orm        ORM
+		config     Config
+		connected  *abool.AtomicBool
+		evmChainID big.Int
 
 		// a block number to start backfill from
 		backfillBlockNumber null.Int64
@@ -92,7 +94,7 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		BlockBackfillSkip() bool
-		EvmFinalityDepth() uint
+		EvmFinalityDepth() uint32
 		EvmLogBackfillBatchSize() uint32
 	}
 
@@ -131,8 +133,9 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger
 		config:           config,
 		logger:           logger,
 		connected:        abool.New(),
+		evmChainID:       *ethClient.ChainID(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, logger, chStop),
-		registrations:    newRegistrations(logger),
+		registrations:    newRegistrations(logger, *ethClient.ChainID()),
 		logPool:          newLogPool(),
 		addSubscriber:    utils.NewMailbox(0),
 		rmSubscriber:     utils.NewMailbox(0),
@@ -178,6 +181,7 @@ func (b *broadcaster) Close() error {
 
 func (b *broadcaster) awaitInitialSubscribers() {
 	defer b.wgDone.Done()
+	b.logger.Debug("LogBroadcaster: Starting to await initial subscribers until all dependents are ready...")
 	for {
 		select {
 		case <-b.addSubscriber.Notify():

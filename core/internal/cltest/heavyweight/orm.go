@@ -17,8 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	migrations "github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,25 +29,24 @@ import (
 // FullTestORM creates an ORM which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
-func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) (*configtest.TestEVMConfig, *orm.ORM, func()) {
+func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *orm.ORM, func()) {
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}
 	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
-	config := configtest.NewTestEVMConfig(t, gcfg)
-	config.SetDialect(dialects.PostgresWithoutLock)
+	gcfg.SetDialect(dialects.PostgresWithoutLock)
 
-	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
-	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(config.DatabaseURL(), name)
+	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
+	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
-	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	orm, err := orm.NewORM(migrationTestDBURL, gcfg.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, gcfg.GlobalLockRetryInterval().Duration(), gcfg.ORMMaxOpenConns(), gcfg.ORMMaxIdleConns())
 	require.NoError(t, err)
-	orm.SetLogging(config.LogSQLMigrations())
-	config.GeneralConfig.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
+	orm.SetLogging(gcfg.LogSQLMigrations())
+	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
-		require.NoError(t, migrations.Migrate(orm.DB))
+		require.NoError(t, migrations.Migrate(postgres.UnwrapGormDB(orm.DB).DB))
 	}
-	if len(loadFixtures) > 0 && loadFixtures[0] {
+	if loadFixtures {
 		_, filename, _, ok := runtime.Caller(0)
 		if !ok {
 			t.Fatal("could not get runtime.Caller(0)")
@@ -57,11 +57,11 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures ...bool) 
 		err = orm.DB.Exec(string(fixturesSQL)).Error
 		require.NoError(t, err)
 	}
-	orm.SetLogging(config.LogSQLStatements())
+	orm.SetLogging(gcfg.LogSQLStatements())
 
-	return config, orm, func() {
+	return gcfg, orm, func() {
 		assert.NoError(t, orm.Close())
-		os.RemoveAll(config.RootDir())
+		os.RemoveAll(gcfg.RootDir())
 	}
 }
 

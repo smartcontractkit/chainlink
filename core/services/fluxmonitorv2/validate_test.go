@@ -33,8 +33,7 @@ contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
 threshold = 0.5
 absoluteThreshold = 0.0
 
-idleTimerPeriod = "1s"
-idleTimerDisabled = false
+idleTimerDisabled = true
 
 pollTimerPeriod = "1m"
 pollTimerDisabled = false
@@ -70,15 +69,14 @@ answer1 [type=median index=0];
 				assert.Equal(t, "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", j.FluxMonitorSpec.ContractAddress.String())
 				assert.Equal(t, float32(0.5), spec.Threshold)
 				assert.Equal(t, float32(0), spec.AbsoluteThreshold)
-				assert.Equal(t, 1*time.Second, spec.IdleTimerPeriod)
-				assert.Equal(t, false, spec.IdleTimerDisabled)
+				assert.Equal(t, true, spec.IdleTimerDisabled)
 				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
 				assert.Equal(t, false, spec.PollTimerDisabled)
 				assert.Equal(t, true, spec.DrumbeatEnabled)
 				assert.Equal(t, "@every 1m", spec.DrumbeatSchedule)
 				assert.Equal(t, 10*time.Second, spec.DrumbeatRandomDelay)
 				assert.Equal(t, false, spec.PollTimerDisabled)
-				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
+				assert.Equal(t, assets.NewLinkFromJuels(1000000000000000000), spec.MinPayment)
 				assert.NotZero(t, j.Pipeline)
 			},
 		},
@@ -136,6 +134,37 @@ ds1 -> ds1_parse;
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
+			},
+		},
+		{
+			name: "drumbeat and idle both active",
+			toml: `
+type              = "fluxmonitor"
+schemaVersion       = 1
+name                = "example flux monitor spec"
+contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+maxTaskDuration = "1s"
+threshold = 0.5
+absoluteThreshold = 0.0
+
+idleTimerDisabled = false
+idleTimerPeriod = "1s"
+
+drumbeatEnabled = true
+drumbeatSchedule = "@every 1m"
+
+pollTimerPeriod = "800ms"
+pollTimerDisabled = false
+
+observationSource = """
+ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}" timeout="500ms"];
+ds1_parse [type=jsonparse path="latest"];
+ds1 -> ds1_parse;
+"""
+`,
+			assertion: func(t *testing.T, s job.Job, err error) {
+				require.Error(t, err)
+				assert.EqualError(t, err, "When the drumbeat ticker is enabled, the idle timer must be disabled. Please set IdleTimerDisabled to true")
 			},
 		},
 		{

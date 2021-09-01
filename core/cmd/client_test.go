@@ -46,7 +46,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

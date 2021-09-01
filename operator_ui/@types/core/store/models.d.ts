@@ -237,6 +237,11 @@ declare module 'core/store/models' {
     toml: string
   }
 
+  export interface CreateChainRequest {
+    chainID: string
+    config: Record<string, JSONPrimitive>
+  }
+
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
@@ -388,6 +393,12 @@ declare module 'core/store/models' {
     | CronJob
     | WebhookJob
     | VRFJob
+
+  export type Chain = {
+    config: Record<string, JSONPrimitive>, 
+    createdAt: time.Time,
+    updatedAt: time.Time
+  }
 
   export interface JobRunV2 {
     state: string

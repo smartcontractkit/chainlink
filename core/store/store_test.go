@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -17,13 +17,13 @@ import (
 )
 
 func TestStore_SquashMigrationUpgrade(t *testing.T) {
-	_, orm, cleanup := heavyweight.FullTestORM(t, "migrationssquash", false)
+	_, orm, cleanup := heavyweight.FullTestORM(t, "migrationssquash", false, false)
 	defer cleanup()
 	db := orm.DB
 
 	// Latest migrations should work fine.
 	static.Version = "0.9.11"
-	err := migrations.MigrateUp(db, "")
+	err := migrate.Migrate(postgres.UnwrapGormDB(db).DB)
 	require.NoError(t, err)
 	err = store.CheckSquashUpgrade(db)
 	require.NoError(t, err)
