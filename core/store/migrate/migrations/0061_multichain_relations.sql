@@ -44,6 +44,8 @@ ALTER TABLE offchainreporting_oracle_specs ADD COLUMN evm_chain_id numeric(78,0)
 ALTER TABLE flux_monitor_specs ADD COLUMN evm_chain_id numeric(78,0) REFERENCES evm_chains (id) DEFERRABLE INITIALLY IMMEDIATE;
 
 -- +goose Down
+ALTER TABLE evm_chains DROP COLUMN enabled;
+
 ALTER TABLE heads DROP COLUMN evm_chain_id;
 ALTER TABLE log_broadcasts DROP COLUMN evm_chain_id;
 ALTER TABLE eth_txes DROP COLUMN evm_chain_id;

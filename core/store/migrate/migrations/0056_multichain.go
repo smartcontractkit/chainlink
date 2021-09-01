@@ -60,7 +60,7 @@ func Up56(tx *sql.Tx) error {
 		if !ok {
 			panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
 		}
-		_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (?, NOW(), NOW());", chainID.String())
+		_, err := tx.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
 		return err
 	}
 	return nil
