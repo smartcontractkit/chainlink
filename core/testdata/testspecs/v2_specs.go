@@ -148,9 +148,12 @@ submit_tx  [type=ethtx to="%s"
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
 	if params.V2 {
+		//encode_tx    [type=ethabiencode
+		//abi="fulfillRandomWords(bytes proof, bytes requestCommitment)"
+		//data=<{"proof": $(vrf.proof), "requestCommitment": $(vrf.requestCommitment)}>]
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 preSeedAndRequestId,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
 vrf          [type=vrfv2
@@ -158,19 +161,16 @@ vrf          [type=vrfv2
               requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
-encode_tx    [type=ethabiencode
-              abi="fulfillRandomWords(bytes proof)"
-              data="{\\"proof\\": $(vrf.proof)}"]
 estimate_gas [type=estimategaslimit
               to="%s"
-              multiplier="1.1"
-              data="$(encode_tx)"]
+              multiplier="1"
+              data="$(vrf.output)"]
 submit_tx  [type=ethtx to="%s"
-            data="$(encode_tx)"
+            data="$(vrf.output)"
             gasLimit="$(estimate_gas)"
             minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->encode_tx->estimate_gas->submit_tx
+decode_log->vrf->estimate_gas->submit_tx
 `, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {

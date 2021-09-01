@@ -33,6 +33,7 @@ type optimismEstimator struct {
 	config     Config
 	client     optimismRPCClient
 	pollPeriod time.Duration
+	logger     *logger.Logger
 
 	gasPriceMu sync.RWMutex
 	l1GasPrice *big.Int
@@ -45,12 +46,13 @@ type optimismEstimator struct {
 }
 
 // NewOptimismEstimator returns a new optimism estimator
-func NewOptimismEstimator(config Config, client optimismRPCClient) Estimator {
+func NewOptimismEstimator(lggr *logger.Logger, config Config, client optimismRPCClient) Estimator {
 	return &optimismEstimator{
 		utils.StartStopOnce{},
 		config,
 		client,
 		10 * time.Second,
+		lggr,
 		sync.RWMutex{},
 		nil,
 		nil,
@@ -120,11 +122,11 @@ func (o *optimismEstimator) refreshPrices() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	if err := o.client.Call(&res, "rollup_gasPrices"); err != nil {
-		logger.Warnf("OptimismEstimator: Failed to refresh prices, got error: %s", err)
+		o.logger.Warnf("OptimismEstimator: Failed to refresh prices, got error: %s", err)
 		return
 	}
 
-	logger.Debugw("OptimismEstimator#refreshPrices", "l1GasPrice", res.L1GasPrice, "l2GasPrice", res.L2GasPrice)
+	o.logger.Debugw("OptimismEstimator#refreshPrices", "l1GasPrice", res.L1GasPrice, "l2GasPrice", res.L2GasPrice)
 
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
@@ -172,7 +174,7 @@ func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSp
 
 	optimismGasLimitBig := optimismfees.EncodeTxGasLimit(calldata, l1GasPrice, big.NewInt(int64(l2GasLimit)), l2GasPrice)
 	if !optimismGasLimitBig.IsInt64() {
-		logger.Errorw(
+		o.logger.Errorw(
 			"Optimism: unable to represent gas limit as Int64, this is an unexpected error and should be reported to the Chainlink team",
 			"calldata", calldata,
 			"l2GasLimit", l2GasLimit,
@@ -184,7 +186,7 @@ func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSp
 	}
 	chainSpecificGasLimit = uint64(optimismGasLimitBig.Int64())
 
-	logger.Debugw("OptimismEstimator#EstimateGas", "l1GasPrice", l1GasPrice, "l2GasPrice", l2GasPrice, "l2GasLimit", l2GasLimit, "chainSpecificGasLimit", chainSpecificGasLimit, "optimisml1GasPrice", optimisml1GasPrice)
+	o.logger.Debugw("OptimismEstimator#EstimateGas", "l1GasPrice", l1GasPrice, "l2GasPrice", l2GasPrice, "l2GasLimit", l2GasLimit, "chainSpecificGasLimit", chainSpecificGasLimit, "optimisml1GasPrice", optimisml1GasPrice)
 	return big.NewInt(optimisml1GasPrice), chainSpecificGasLimit, nil
 }
 

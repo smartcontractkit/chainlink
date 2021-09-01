@@ -214,8 +214,8 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	backfillDepth := 15
 
-	helper.config.GeneralConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
-	helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+	helper.globalConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
+	helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -267,7 +267,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(batchSize)
+	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -341,7 +341,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
+	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -524,7 +524,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(1)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(1)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -605,7 +605,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(4)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(4)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -686,7 +686,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(3)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(3)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -776,7 +776,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -891,7 +891,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -971,6 +971,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	chStarted := make(chan struct{})
+	ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			chchRawLogs <- args.Get(2).(chan<- types.Log)
@@ -1179,7 +1180,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
 			// something other than default
-			helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+			helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 			helper.start()
 			defer helper.stop()
@@ -1315,7 +1316,8 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, nil, logger.Default, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.Default, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 

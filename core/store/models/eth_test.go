@@ -35,7 +35,7 @@ func TestHead_NewHead(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			num := models.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0)
+			num := models.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0, nil)
 			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
 		})
 	}

@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -28,11 +29,11 @@ type ETHTxTask struct {
 	GasLimit         string `json:"gasLimit"`
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
+	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	db        *gorm.DB
-	config    Config
-	keyStore  ETHKeyStore
-	txManager TxManager
+	db       *gorm.DB
+	keyStore ETHKeyStore
+	chainSet evm.ChainSet
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
@@ -53,7 +54,16 @@ func (t *ETHTxTask) Type() TaskType {
 }
 
 func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
-	_, err := CheckInputs(inputs, -1, -1, 0)
+	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	if err != nil {
+		return Result{Error: err}
+	}
+	if err != nil {
+		return Result{Error: errors.Wrap(err, "chain collection default")}
+	}
+	cfg := chain.Config()
+	txManager := chain.TxManager()
+	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
@@ -70,7 +80,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
 		errors.Wrap(ResolveParam(&toAddr, From(VarExpr(t.To, vars), NonemptyString(t.To))), "to"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), NonemptyString(t.Data))), "data"),
-		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), t.config.EvmGasLimitDefault())), "gasLimit"),
+		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
 	)
@@ -82,7 +92,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minConfirmations = min
 	} else {
-		minConfirmations = t.config.MinRequiredOutgoingConfirmations()
+		minConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
 	var txMeta bulletprooftxmanager.EthTxMeta
@@ -138,7 +148,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		newTx.MinConfirmations = null.Uint32From(uint32(minConfirmations))
 	}
 
-	_, err = t.txManager.CreateEthTransaction(t.db, newTx)
+	_, err = txManager.CreateEthTransaction(t.db, newTx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}
 	}

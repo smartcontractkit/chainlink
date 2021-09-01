@@ -1,6 +1,7 @@
 package log
 
 import (
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,6 +34,7 @@ type (
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
 		logger      *logger.Logger
+		evmChainID  big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
@@ -40,7 +42,8 @@ type (
 	}
 
 	subscribers struct {
-		handlers map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
+		handlers   map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
+		evmChainID big.Int
 	}
 
 	// The Listener responds to log events through HandleLog.
@@ -56,10 +59,11 @@ type (
 	}
 )
 
-func newRegistrations(logger *logger.Logger) *registrations {
+func newRegistrations(logger *logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
+		evmChainID:  evmChainID,
 		logger:      logger,
 	}
 }
@@ -69,7 +73,7 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	r.decoders[addr] = reg.opts.ParseLog
 
 	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
-		r.subscribers[reg.opts.NumConfirmations] = newSubscribers()
+		r.subscribers[reg.opts.NumConfirmations] = newSubscribers(r.evmChainID)
 	}
 
 	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
@@ -178,9 +182,10 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newSubscribers() *subscribers {
+func newSubscribers(evmChainID big.Int) *subscribers {
 	return &subscribers{
-		handlers: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		handlers:   make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		evmChainID: evmChainID,
 	}
 }
 
@@ -294,11 +299,12 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head,
 		go func() {
 			defer wg.Done()
 			listener.HandleLog(&broadcast{
-				latestBlockNumber: latestBlockNumber,
-				latestBlockHash:   latestHead.Hash,
-				rawLog:            logCopy,
-				decodedLog:        decodedLog,
-				jobID:             listener.JobID(),
+				latestBlockNumber,
+				latestHead.Hash,
+				decodedLog,
+				logCopy,
+				listener.JobID(),
+				r.evmChainID,
 			})
 		}()
 	}

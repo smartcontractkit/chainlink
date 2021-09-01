@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -17,7 +20,11 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
@@ -30,19 +37,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 type coordinatorV2Universe struct {
 	// Golang wrappers ofr solidity contracts
-	rootContract            *vrf_coordinator_v2.VRFCoordinatorV2
-	linkContract            *link_token_interface.LinkToken
-	consumerContract        *vrf_consumer_v2.VRFConsumerV2
-	rootContractAddress     common.Address
-	consumerContractAddress common.Address
-	linkContractAddress     common.Address
+	rootContract                     *vrf_coordinator_v2.VRFCoordinatorV2
+	linkContract                     *link_token_interface.LinkToken
+	consumerContract                 *vrf_consumer_v2.VRFConsumerV2
+	maliciousConsumerContract        *vrf_malicious_consumer_v2.VRFMaliciousConsumerV2
+	rootContractAddress              common.Address
+	consumerContractAddress          common.Address
+	maliciousConsumerContractAddress common.Address
+	linkContractAddress              common.Address
 	// Abstraction representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
 	coordinatorABI *abi.ABI
@@ -56,7 +62,6 @@ type coordinatorV2Universe struct {
 }
 
 var (
-	gasPrice       = decimal.RequireFromString(chains.FallbackConfig.GasPriceDefault.String()) // Nodes default
 	weiPerUnitLink = decimal.RequireFromString("10000000000000000")
 )
 
@@ -83,7 +88,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 	coordinatorABI, err := abi.JSON(strings.NewReader(
 		vrf_coordinator_v2.VRFCoordinatorV2ABI))
 	require.NoError(t, err)
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	// Deploy link
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
 		sergey, backend)
@@ -98,6 +103,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 		vrf_coordinator_v2.DeployVRFCoordinatorV2(
 			neil, backend, linkAddress, common.Address{} /*blockHash store*/, linkEthFeed /* linkEth*/)
 	require.NoError(t, err, "failed to deploy VRFCoordinator contract to simulated ethereum blockchain")
+	backend.Commit()
 	// Deploy consumer it has 1 LINK
 	consumerContractAddress, _, consumerContract, err :=
 		vrf_consumer_v2.DeployVRFConsumerV2(
@@ -105,6 +111,17 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+	backend.Commit()
+
+	// Deploy malicious consumer with 1 link
+	maliciousConsumerContractAddress, _, maliciousConsumerContract, err :=
+		vrf_malicious_consumer_v2.DeployVRFMaliciousConsumerV2(
+			carol, backend, coordinatorAddress, linkAddress)
+	require.NoError(t, err, "failed to deploy VRFMaliciousConsumer contract to simulated ethereum blockchain")
+	_, err = linkContract.Transfer(sergey, maliciousConsumerContractAddress, oneEth) // Actually, LINK
+	require.NoError(t, err, "failed to send LINK to VRFMaliciousConsumer contract on simulated ethereum blockchain")
+	backend.Commit()
+
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1),    // minRequestConfirmations
@@ -119,29 +136,33 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 	backend.Commit()
 
 	return coordinatorV2Universe{
-		rootContract:            coordinatorContract,
-		rootContractAddress:     coordinatorAddress,
-		linkContract:            linkContract,
-		linkContractAddress:     linkAddress,
-		consumerContract:        consumerContract,
-		consumerContractAddress: consumerContractAddress,
-		backend:                 backend,
-		coordinatorABI:          &coordinatorABI,
-		consumerABI:             &consumerABI,
-		sergey:                  sergey,
-		neil:                    neil,
-		ned:                     ned,
-		carol:                   carol,
-		nallory:                 nallory,
+		rootContract:                     coordinatorContract,
+		rootContractAddress:              coordinatorAddress,
+		linkContract:                     linkContract,
+		linkContractAddress:              linkAddress,
+		consumerContract:                 consumerContract,
+		consumerContractAddress:          consumerContractAddress,
+		maliciousConsumerContract:        maliciousConsumerContract,
+		maliciousConsumerContractAddress: maliciousConsumerContractAddress,
+		backend:                          backend,
+		coordinatorABI:                   &coordinatorABI,
+		consumerABI:                      &consumerABI,
+		sergey:                           sergey,
+		neil:                             neil,
+		ned:                              ned,
+		carol:                            carol,
+		nallory:                          nallory,
 	}
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.EvmGasLimitDefault = null.IntFrom(2000000)
+	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
+
+	gasPrice := decimal.NewFromBigInt(evmconfig.DefaultGasPrice, 0)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
@@ -262,7 +283,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// which should be fixed in this test.
 	ga, err := uni.consumerContract.SGasAvailable(nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, big.NewInt(0).Add(ga, big.NewInt(1556)).Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", ga, gasRequested)
+	gaDecoding := big.NewInt(0).Add(ga, big.NewInt(1556))
+	assert.Equal(t, 0, gaDecoding.Cmp(big.NewInt(int64(gasRequested))), "expected gas available %v to exceed gas requested %v", gaDecoding, gasRequested)
 	t.Log("gas available", ga.String())
 
 	// Assert that we were only charged for how much gas we actually used.
@@ -305,13 +327,112 @@ func TestIntegrationVRFV2(t *testing.T) {
 		subFunding.Sub(linkWeiCharged).BigInt(),
 		linkWeiCharged.BigInt(),
 	})
+
+	// We should see the response count present
+	counts := vrf.GetStartingResponseCountsV2(app.Store.DB, app.Logger)
+	t.Log(counts, rf[0].RequestId.String())
+	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
+}
+
+func TestMaliciousConsumer(t *testing.T) {
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true, true)
+	defer cleanupDB()
+	key := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, key)
+	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	err := app.GetKeyStore().Unlock(cltest.Password)
+	require.NoError(t, err)
+	vrfkey, err := app.GetKeyStore().VRF().Create()
+	require.NoError(t, err)
+
+	jid := uuid.NewV4()
+	incomingConfs := 2
+	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		JobID:              jid.String(),
+		Name:               "vrf-primary",
+		CoordinatorAddress: uni.rootContractAddress.String(),
+		Confirmations:      incomingConfs,
+		PublicKey:          vrfkey.PublicKey.String(),
+		V2:                 true,
+	}).Toml()
+	jb, err := vrf.ValidatedVRFSpec(s)
+	require.NoError(t, err)
+	jb, err = app.JobORM().CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
+	time.Sleep(1 * time.Second)
+
+	// Register a proving key associated with the VRF job.
+	p, err := vrfkey.PublicKey.Point()
+	require.NoError(t, err)
+	_, err = uni.rootContract.RegisterProvingKey(
+		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
+	require.NoError(t, err)
+
+	_, err = uni.maliciousConsumerContract.SetKeyHash(uni.carol,
+		vrfkey.PublicKey.MustHash())
+	require.NoError(t, err)
+	subFunding := decimal.RequireFromString("1000000000000000000")
+	_, err = uni.maliciousConsumerContract.TestCreateSubscriptionAndFund(uni.carol,
+		subFunding.BigInt())
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Send a re-entrant request
+	_, err = uni.maliciousConsumerContract.TestRequestRandomness(uni.carol)
+	require.NoError(t, err)
+
+	// We expect the request to be serviced
+	// by the node.
+	var attempts []bulletprooftxmanager.EthTxAttempt
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		//runs, err = app.PipelineORM().GetAllRuns()
+		attempts, _, err = app.GetStore().EthTxAttempts(0, 1000)
+		require.NoError(t, err)
+		// It possible that we send the test request
+		// before the job spawner has started the vrf services, which is fine
+		// the lb will backfill the logs. However we need to
+		// keep blocks coming in for the lb to send the backfilled logs.
+		uni.backend.Commit()
+		return len(attempts) == 1 && attempts[0].EthTx.State == bulletprooftxmanager.EthTxConfirmed
+	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// The fulfillment tx should succeed
+	ch, err := app.GetChainSet().Default()
+	require.NoError(t, err)
+	r, err := ch.Client().TransactionReceipt(context.Background(), attempts[0].Hash)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), r.Status)
+
+	// The user callback should have errored
+	it, err := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
+	require.NoError(t, err)
+	var fulfillments []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+	for it.Next() {
+		fulfillments = append(fulfillments, it.Event)
+	}
+	require.Equal(t, 1, len(fulfillments))
+	require.Equal(t, false, fulfillments[0].Success)
+
+	// It should not have succeeded in placing another request.
+	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil)
+	require.NoError(t, err2)
+	var requests []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+	for it2.Next() {
+		requests = append(requests, it2.Event)
+	}
+	require.Equal(t, 1, len(requests))
 }
 
 func TestRequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -352,7 +473,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -362,7 +483,6 @@ func TestMaxConsumersCost(t *testing.T) {
 	uni.backend.Commit()
 	subId, err := uni.consumerContract.SSubId(nil)
 	require.NoError(t, err)
-	t.Log(subId)
 	var addrs []common.Address
 	for i := 0; i < 98; i++ {
 		addrs = append(addrs, cltest.NewAddress())
@@ -374,7 +494,7 @@ func TestMaxConsumersCost(t *testing.T) {
 		uni.rootContractAddress, uni.coordinatorABI,
 		"removeConsumer", subId, uni.consumerContractAddress)
 	t.Log(estimate)
-	assert.Less(t, estimate, uint64(260000))
+	assert.Less(t, estimate, uint64(265000))
 	estimate = estimateGas(t, uni.backend, uni.consumerContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
 		"addConsumer", subId, cltest.NewAddress())
@@ -386,7 +506,7 @@ func TestFulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -415,10 +535,10 @@ func TestFulfillmentCost(t *testing.T) {
 		uni.backend.Commit()
 	}
 
-	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey)
-	s, err := proof.BigToSeed(requestLog.PreSeedAndRequestId)
+	requestLog := FindLatestRandomnessRequestedLog(t, uni.rootContract, vrfkey.PublicKey.MustHash())
+	s, err := proof.BigToSeed(requestLog.PreSeed)
 	require.NoError(t, err)
-	proof, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
+	proof, rc, err := proof.GenerateProofResponseV2(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
 		PreSeed:          s,
 		BlockHash:        requestLog.Raw.BlockHash,
 		BlockNum:         requestLog.Raw.BlockNumber,
@@ -430,7 +550,7 @@ func TestFulfillmentCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, common.Address{},
 		uni.rootContractAddress, uni.coordinatorABI,
-		"fulfillRandomWords", proof[:])
+		"fulfillRandomWords", proof, rc)
 	t.Log("estimate", estimate)
 	// Establish very rough bounds on fulfillment cost
 	assert.Greater(t, estimate, uint64(130000))
@@ -439,10 +559,10 @@ func TestFulfillmentCost(t *testing.T) {
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract *vrf_coordinator_v2.VRFCoordinatorV2,
-	vrfkey secp256k1.PublicKey) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
+	keyHash [32]byte) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{vrfkey.MustHash()}, []common.Address{})
+		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)

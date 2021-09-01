@@ -12,13 +12,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -54,10 +54,9 @@ type Runner interface {
 type runner struct {
 	orm             ORM
 	config          Config
-	ethClient       eth.Client
+	chainSet        evm.ChainSet
 	ethKeyStore     ETHKeyStore
 	vrfKeyStore     VRFKeyStore
-	txManager       TxManager
 	runReaperWorker utils.SleeperTask
 
 	// test helper
@@ -98,14 +97,13 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, vrfks VRFKeyStore, txManager TxManager) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore) *runner {
 	r := &runner{
 		orm:         orm,
 		config:      config,
-		ethClient:   ethClient,
+		chainSet:    chainSet,
 		ethKeyStore: ethks,
 		vrfKeyStore: vrfks,
-		txManager:   txManager,
 		chStop:      make(chan struct{}),
 		wgDone:      sync.WaitGroup{},
 		runFinished: func(*Run) {},
@@ -240,19 +238,17 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).ethClient = r.ethClient
+			task.(*ETHCallTask).chainSet = r.chainSet
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
-			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
+			task.(*EstimateGasLimitTask).chainSet = r.chainSet
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
-			task.(*ETHTxTask).config = r.config
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
-			task.(*ETHTxTask).txManager = r.txManager
+			task.(*ETHTxTask).chainSet = r.chainSet
 		default:
 		}
 	}

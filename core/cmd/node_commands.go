@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
@@ -24,7 +24,7 @@ func (p *NodePresenter) ToRow() []string {
 		p.Name,
 		p.EVMChainID.ToInt().String(),
 		p.WSURL.ValueOrZero(),
-		p.HTTPURL,
+		p.HTTPURL.ValueOrZero(),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 	}
@@ -81,11 +81,11 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 		wsURL = null.StringFrom(ws)
 	}
 
-	params := evm.NewNode{
+	params := evmtypes.NewNode{
 		Name:       name,
 		EVMChainID: *utils.NewBigI(chainID),
 		WSURL:      wsURL,
-		HTTPURL:    httpURL,
+		HTTPURL:    null.StringFrom(httpURL),
 		SendOnly:   t == "sendonly",
 	}
 

@@ -291,17 +291,38 @@ func (sub *subscription) Close() {
 }
 
 // NullEventBroadcaster implements null pattern for event broadcaster
-type NullEventBroadcaster struct{}
+type NullEventBroadcaster struct {
+	Sub *NullSubscription
+}
+
+func NewNullEventBroadcaster() *NullEventBroadcaster {
+	sub := &NullSubscription{make(chan (Event))}
+	return &NullEventBroadcaster{sub}
+}
+
+var _ EventBroadcaster = &NullEventBroadcaster{}
 
 func (*NullEventBroadcaster) Start() error   { return nil }
 func (*NullEventBroadcaster) Close() error   { return nil }
 func (*NullEventBroadcaster) Ready() error   { return nil }
 func (*NullEventBroadcaster) Healthy() error { return nil }
 
-func (*NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
-	return nil, nil
+func (ne *NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
+	return ne.Sub, nil
 }
 func (*NullEventBroadcaster) Notify(channel string, payload string) error { return nil }
 func (*NullEventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error {
 	return nil
 }
+
+var _ Subscription = &NullSubscription{}
+
+type NullSubscription struct {
+	Ch chan (Event)
+}
+
+func (ns *NullSubscription) Events() <-chan Event          { return ns.Ch }
+func (ns *NullSubscription) Close()                        {}
+func (ns *NullSubscription) ChannelName() string           { return "" }
+func (ns *NullSubscription) InterestedIn(event Event) bool { return false }
+func (ns *NullSubscription) Send(event Event)              {}
