@@ -177,32 +177,14 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 		*js = JSONSerializable{}
 	}
 
-	if err := json.Unmarshal(bs, &js.Val); err != nil {
-		return err
-	}
-
-	// This "hack" is needed to solve the issue related to "\u0000" characters that should be stored in DB.
-	// PostgreSQL does not allow to store such characters so it should be HEX encoded.
-	if val, ok := js.Val.(string); ok {
-		if strings.HasPrefix(val, "hex:") {
-			val = strings.TrimPrefix(val, "hex:")
-			valRaw, err := hex.DecodeString(val)
-			if err != nil {
-				return err
-			}
-
-			js.Val = valRaw
-		}
-	}
-
-	return nil
+	return json.Unmarshal(bs, &js.Val)
 }
 
 // MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal("hex:" + hex.EncodeToString(x))
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
