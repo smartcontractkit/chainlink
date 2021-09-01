@@ -185,9 +185,9 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	case []byte:
 		if json.Valid(x) {
 			return json.Marshal(string(x))
-		} else {
-			return json.Marshal(hex.EncodeToString(x))
 		}
+
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
