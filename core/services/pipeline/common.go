@@ -132,7 +132,7 @@ type TaskRunResult struct {
 }
 
 func (result *TaskRunResult) IsPending() bool {
-	return !result.FinishedAt.Valid
+	return !result.FinishedAt.Valid && result.Result == Result{}
 }
 
 func (result *TaskRunResult) IsTerminal() bool {
@@ -183,7 +183,11 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(hex.EncodeToString(x))
+		if json.Valid(x) {
+			return json.Marshal(string(x))
+		} else {
+			return json.Marshal(hex.EncodeToString(x))
+		}
 	default:
 		return json.Marshal(js.Val)
 	}
