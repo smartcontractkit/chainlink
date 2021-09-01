@@ -189,7 +189,7 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 		}
 
 		// Don't need to HEX encode if it is already HEX encoded value
-		if _, err := strconv.ParseUint(string(x), 16, 64); err == nil {
+		if _, err := hex.DecodeString(strings.TrimPrefix(string(x), "0x")); err == nil {
 			return json.Marshal(string(x))
 		}
 
