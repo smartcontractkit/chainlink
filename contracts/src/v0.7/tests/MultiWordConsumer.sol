@@ -176,4 +176,12 @@ contract MultiWordConsumer is ChainlinkClient{
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
   }
+
+  function publicGetNextRequestCount()
+    external
+    view
+    returns (uint256)
+  {
+    return getNextRequestCount();
+  }
 }

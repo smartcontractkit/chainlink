@@ -102,7 +102,7 @@ contract Operator is
    * @param callbackAddress The consumer of the request
    * @param payment The amount of payment given (specified in wei)
    * @param specId The Job Specification ID
-   * @param callbackAddress ignored and expected to be equal to consumer
+   * @param callbackAddress The address the oracle data will be sent to
    * @param callbackFunctionId The callback function ID for the response
    * @param nonce The nonce sent by the requester
    * @param dataVersion The specified data version
