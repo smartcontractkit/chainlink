@@ -8,9 +8,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
 //
@@ -18,15 +18,15 @@ import (
 //     []byte
 //
 type ETHCallTask struct {
-	BaseTask   `mapstructure:",squash"`
-	Contract   string `json:"contract"`
-	Data       string `json:"data"`
+	BaseTask            `mapstructure:",squash"`
+	Contract            string `json:"contract"`
+	Data                string `json:"data"`
 	Gas                 string `json:"gas"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
-	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	chainSet evm.ChainSet
-	config    Config
+	config   Config
 }
 
 var _ Task = (*ETHCallTask)(nil)

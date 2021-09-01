@@ -108,7 +108,7 @@ func TestETHCallTask(t *testing.T) {
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			cc := cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
-			task.HelperSetDependencies(cc)
+			task.HelperSetDependencies(cc, cfg)
 
 			result := task.Run(context.Background(), test.vars, test.inputs)
 

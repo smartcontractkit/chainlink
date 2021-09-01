@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
