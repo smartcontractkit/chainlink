@@ -127,7 +127,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 			}, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID)
+		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID, 0)
 		require.NoError(t, err)
 
 		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID)
