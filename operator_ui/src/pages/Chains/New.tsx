@@ -43,15 +43,6 @@ const SuccessNotification = ({ id }: { id: string }) => (
   </>
 )
 
-// const validate = ({ overrides }: { overrides: string }) => {
-//   try {
-//     JSON.parse(overrides)
-//   } catch (e) {
-//     return false
-//   }
-//   return true
-// }
-
 function apiCall({
   chainID,
   config,
