@@ -16,12 +16,13 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -189,7 +190,7 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 		}
 
 		// Don't need to HEX encode if it is already HEX encoded value
-		if _, err := hex.DecodeString(strings.TrimPrefix(string(x), "0x")); err == nil {
+		if utils.IsHexBytes(x) {
 			return json.Marshal(string(x))
 		}
 

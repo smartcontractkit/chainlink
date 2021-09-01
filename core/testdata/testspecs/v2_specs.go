@@ -101,6 +101,7 @@ schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "%s"
 fromAddress     = "%s"
+evmChainID      = 4
 externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
 
 
