@@ -112,7 +112,6 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
-		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -122,6 +121,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
+
+		require.NoError(t, bm.Start())
+		defer bm.Close()
 
 		// Do the thing
 		bm.OnNewLongestChain(context.TODO(), *head)
@@ -163,6 +165,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	ethClient.AssertExpectations(t)
 
 	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
+	require.NoError(t, bm.Start())
 
 	head := cltest.Head(0)
 

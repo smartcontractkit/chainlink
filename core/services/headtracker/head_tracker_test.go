@@ -317,6 +317,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 	trackable := new(htmocks.HeadTrackable)
+	trackable.Test(t)
 	ht := createHeadTrackerWithChecker(ethClient, config, orm, trackable)
 
 	require.NoError(t, orm.IdempotentInsertHead(context.Background(), *heads[2]))
@@ -352,6 +353,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
+	checker.Test(t)
 	orm := headtracker.NewORM(store.DB, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
@@ -476,6 +478,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
+	checker.Test(t)
 	orm := headtracker.NewORM(store.DB, cltest.FixtureChainID)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(ethClient, evmcfg, orm, checker)
@@ -494,7 +497,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
-	require.NoError(t, ht.Start())
 
 	headSeq := cltest.NewHeadBuffer(t)
 	headSeq.Append(blocks.Head(0))
@@ -571,6 +573,8 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 			require.Equal(t, h.Parent.Parent.Parent.Parent.Hash, blocksForked.Head(1).Hash)
 			close(lastHead)
 		}).Return().Once()
+
+	require.NoError(t, ht.Start())
 
 	headers := <-chchHeaders
 
