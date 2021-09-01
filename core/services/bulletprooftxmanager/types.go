@@ -30,6 +30,9 @@ type Receipt struct {
 	BlockHash         common.Hash     `json:"blockHash,omitempty"`
 	BlockNumber       *big.Int        `json:"blockNumber,omitempty"`
 	TransactionIndex  uint            `json:"transactionIndex"`
+
+	// Chain-specific, e.g. Arbitrum
+	ReturnData string `json:"returnData"`
 }
 
 // FromGethReceipt converts a gethTypes.Receipt to a Receipt
@@ -53,6 +56,7 @@ func FromGethReceipt(gr *gethTypes.Receipt) *Receipt {
 		gr.BlockHash,
 		gr.BlockNumber,
 		gr.TransactionIndex,
+		"",
 	}
 }
 
@@ -86,6 +90,7 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 		BlockHash         common.Hash     `json:"blockHash,omitempty"`
 		BlockNumber       *hexutil.Big    `json:"blockNumber,omitempty"`
 		TransactionIndex  hexutil.Uint    `json:"transactionIndex"`
+		ReturnData        *hexutil.Bytes  `json:"returnData"`
 	}
 	var enc Receipt
 	enc.PostState = r.PostState
@@ -99,6 +104,14 @@ func (r Receipt) MarshalJSON() ([]byte, error) {
 	enc.BlockHash = r.BlockHash
 	enc.BlockNumber = (*hexutil.Big)(r.BlockNumber)
 	enc.TransactionIndex = hexutil.Uint(r.TransactionIndex)
+	if r.ReturnData != "" {
+		returnData, err := hexutil.Decode(r.ReturnData)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to decode: %v", r.ReturnData)
+		}
+		bytes := hexutil.Bytes(returnData)
+		enc.ReturnData = &bytes
+	}
 	return json.Marshal(&enc)
 }
 
@@ -116,6 +129,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		BlockHash         *common.Hash     `json:"blockHash,omitempty"`
 		BlockNumber       *hexutil.Big     `json:"blockNumber,omitempty"`
 		TransactionIndex  *hexutil.Uint    `json:"transactionIndex"`
+		ReturnData        *hexutil.Bytes   `json:"returnData"` //
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -151,6 +165,9 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 	}
 	if dec.TransactionIndex != nil {
 		r.TransactionIndex = uint(*dec.TransactionIndex)
+	}
+	if dec.ReturnData != nil {
+		r.ReturnData = dec.ReturnData.String()
 	}
 	return nil
 }

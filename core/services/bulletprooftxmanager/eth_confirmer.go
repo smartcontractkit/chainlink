@@ -414,7 +414,11 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 		}
 
 		if receipt.Status == 0 {
-			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			if receipt.ReturnData != "" {
+				l.Warnf("transaction %s reverted on-chain - returnData: %v", receipt.TxHash, receipt.ReturnData)
+			} else {
+				l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			}
 			ec.logRevertReason(ctx, l, &attempt, receipt)
 			// This is safe to increment here because we save the receipt immediately after
 			// and once its saved we do not fetch it again.
