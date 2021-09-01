@@ -264,7 +264,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
-			ReturnData:       "some-return-data",
+			ReturnData:       "0x01010101abcdef",
 		}
 
 		message := "important revert reason"
