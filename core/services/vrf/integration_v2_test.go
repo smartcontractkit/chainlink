@@ -335,11 +335,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true, true)
 	defer cleanupDB()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.EvmGasLimitDefault = null.IntFrom(2000000)
+	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	defer cleanup()
@@ -402,7 +402,9 @@ func TestMaliciousConsumer(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	r, err := app.GetEthClient().TransactionReceipt(context.Background(), attempts[0].Hash)
+	ch, err := app.GetChainSet().Default()
+	require.NoError(t, err)
+	r, err := ch.Client().TransactionReceipt(context.Background(), attempts[0].Hash)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), r.Status)
 
