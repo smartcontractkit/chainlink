@@ -43,14 +43,14 @@ const SuccessNotification = ({ id }: { id: string }) => (
   </>
 )
 
-const validate = ({ overrides }: { overrides: string }) => {
-  try {
-    JSON.parse(overrides)
-  } catch (e) {
-    return false
-  }
-  return true
-}
+// const validate = ({ overrides }: { overrides: string }) => {
+//   try {
+//     JSON.parse(overrides)
+//   } catch (e) {
+//     return false
+//   }
+//   return true
+// }
 
 function apiCall({
   chainID,
@@ -71,20 +71,53 @@ export const New = ({
   const dispatch = useDispatch()
   const [overrides, setOverrides] = useState<string>('{}')
   const [chainID, setChainID] = useState<string>('')
-  const [valid, setValid] = useState<boolean>(true)
-  const [valueErrorMsg, setValueErrorMsg] = useState<string>('')
+  const [validChainID, setValidChainID] = useState<boolean>(true)
+  const [validOverrides, setValidOverrides] = useState<boolean>(true)
+  const [overridesErrorMsg, setOverridesErrorMsg] = useState<string>('')
+  const [chainIDErrorMsg, setChainIDErrorMsg] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
+
+  function validate({
+    chainID,
+    overrides,
+  }: {
+    chainID: string
+    overrides: string
+  }) {
+    if (!(parseInt(chainID, 10) > 0)) {
+      setValidChainID(false)
+      setChainIDErrorMsg('Invalid chain ID')
+      return false
+    }
+    try {
+      JSON.parse(overrides)
+    } catch (e) {
+      setValidOverrides(false)
+      setOverridesErrorMsg('Invalid JSON')
+      return false
+    }
+    setValidOverrides(true)
+    setValidChainID(true)
+    setChainIDErrorMsg('')
+    setOverridesErrorMsg('')
+    return true
+  }
+
+  function handleChainIDChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    setChainID(event.target.value)
+    setValidChainID(true)
+    setChainIDErrorMsg('')
+  }
 
   function handleOverrideChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     setOverrides(event.target.value)
-    setValid(true)
-    setValueErrorMsg('')
+    setValidOverrides(true)
+    setOverridesErrorMsg('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isValid = validate({ overrides })
-    setValid(isValid)
+    const isValid = validate({ chainID, overrides })
 
     if (isValid) {
       setLoading(true)
@@ -98,11 +131,9 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setValueErrorMsg('Invalid JSON')
-          } else {
-            setValueErrorMsg(error.toString())
+            setValidChainID(false)
+            setChainIDErrorMsg('Invalid ChainID')
           }
-          setValid(false)
         })
         .finally(() => {
           setLoading(false)
@@ -121,20 +152,22 @@ export const New = ({
                 <Grid container>
                   <Grid item xs={12}>
                     <TextField
+                      error={!validChainID}
+                      helperText={!validChainID && chainIDErrorMsg}
                       label="Chain ID"
                       name="ID"
                       placeholder="ID"
                       value={chainID}
-                      onChange={(e) => setChainID(e.target.value)}
+                      onChange={handleChainIDChange}
                     />
                   </Grid>
                   <Grid item xs={12}>
                     <FormLabel>Config Overrides</FormLabel>
                     <TextField
-                      error={!valid}
+                      error={!validOverrides}
                       value={overrides}
                       onChange={handleOverrideChange}
-                      helperText={!valid && valueErrorMsg}
+                      helperText={!validOverrides && overridesErrorMsg}
                       autoComplete="off"
                       label={'JSON'}
                       rows={10}
@@ -154,7 +187,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading || Boolean(valueErrorMsg)}
+                      disabled={loading || Boolean(overridesErrorMsg)}
                     >
                       Create Chain
                       {loading && (
