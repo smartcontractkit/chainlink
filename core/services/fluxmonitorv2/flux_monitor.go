@@ -72,8 +72,9 @@ type FluxMonitor struct {
 
 	logger *logger.Logger
 
-	backlog       *utils.BoundedPriorityQueue
-	chProcessLogs chan struct{}
+	backlog                   *utils.BoundedPriorityQueue
+	previousNewRoundsFromLogs []uint32
+	chProcessLogs             chan struct{}
 
 	utils.StartStopOnce
 	chStop     chan struct{}
@@ -636,6 +637,24 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		return
 	}
 
+	//TODO: what if the job was just started?
+
+	for _, previousLogRoundId := range fm.previousNewRoundsFromLogs {
+		if previousLogRoundId == logRoundID {
+			newRoundLogger.Debugf("Received an already seen NewRound log - a possible reorg, hence deleting round ids from %v to %v", logRoundID, mostRecentRoundID)
+			err = fm.orm.DeleteFluxMonitorRoundsBackThrough(fm.contractAddress, logRoundID)
+			if err != nil {
+				newRoundLogger.Errorf("error deleting reorged Flux Monitor rounds from DB: %v", err)
+				return
+			}
+		}
+	}
+	fm.previousNewRoundsFromLogs = append(fm.previousNewRoundsFromLogs, logRoundID)
+
+	if len(fm.previousNewRoundsFromLogs) > X {
+		fm.previousNewRoundsFromLogs = fm.previousNewRoundsFromLogs[1:]
+	}
+
 	if logRoundID < mostRecentRoundID {
 		newRoundLogger.Debugf("Received an older round log - a possible reorg, hence deleting round ids from %v to %v", logRoundID, mostRecentRoundID)
 		err = fm.orm.DeleteFluxMonitorRoundsBackThrough(fm.contractAddress, logRoundID)
@@ -645,7 +664,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		}
 	}
 
-	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(logRoundID)
+	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(logRoundID, blockHash)
 	if err != nil {
 		newRoundLogger.Errorf("error determining round stats / run status for round: %v", err)
 		return
