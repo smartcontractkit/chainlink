@@ -71,8 +71,6 @@ export const New = ({
   const dispatch = useDispatch()
   const [overrides, setOverrides] = useState<string>('{}')
   const [chainID, setChainID] = useState<string>('')
-  const [validChainID, setValidChainID] = useState<boolean>(true)
-  const [validOverrides, setValidOverrides] = useState<boolean>(true)
   const [overridesErrorMsg, setOverridesErrorMsg] = useState<string>('')
   const [chainIDErrorMsg, setChainIDErrorMsg] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
@@ -84,34 +82,27 @@ export const New = ({
     chainID: string
     overrides: string
   }) {
+    let valid = true
     if (!(parseInt(chainID, 10) > 0)) {
-      setValidChainID(false)
       setChainIDErrorMsg('Invalid chain ID')
-      return false
+      valid = false
     }
     try {
       JSON.parse(overrides)
     } catch (e) {
-      setValidOverrides(false)
       setOverridesErrorMsg('Invalid JSON')
-      return false
+      valid = false
     }
-    setValidOverrides(true)
-    setValidChainID(true)
-    setChainIDErrorMsg('')
-    setOverridesErrorMsg('')
-    return true
+    return valid
   }
 
   function handleChainIDChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     setChainID(event.target.value)
-    setValidChainID(true)
     setChainIDErrorMsg('')
   }
 
   function handleOverrideChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     setOverrides(event.target.value)
-    setValidOverrides(true)
     setOverridesErrorMsg('')
   }
 
@@ -131,7 +122,6 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setValidChainID(false)
             setChainIDErrorMsg('Invalid ChainID')
           }
         })
@@ -152,8 +142,8 @@ export const New = ({
                 <Grid container>
                   <Grid item xs={12}>
                     <TextField
-                      error={!validChainID}
-                      helperText={!validChainID && chainIDErrorMsg}
+                      error={Boolean(chainIDErrorMsg)}
+                      helperText={Boolean(chainIDErrorMsg) && chainIDErrorMsg}
                       label="Chain ID"
                       name="ID"
                       placeholder="ID"
@@ -164,10 +154,12 @@ export const New = ({
                   <Grid item xs={12}>
                     <FormLabel>Config Overrides</FormLabel>
                     <TextField
-                      error={!validOverrides}
+                      error={Boolean(overridesErrorMsg)}
                       value={overrides}
                       onChange={handleOverrideChange}
-                      helperText={!validOverrides && overridesErrorMsg}
+                      helperText={
+                        Boolean(overridesErrorMsg) && overridesErrorMsg
+                      }
                       autoComplete="off"
                       label={'JSON'}
                       rows={10}
@@ -187,7 +179,11 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading || Boolean(overridesErrorMsg)}
+                      disabled={
+                        loading ||
+                        Boolean(overridesErrorMsg) ||
+                        Boolean(chainIDErrorMsg)
+                      }
                     >
                       Create Chain
                       {loading && (
