@@ -17,7 +17,7 @@ func TestKeyStore_SendingKeys(t *testing.T) {
 
 	ks := fluxmonitorv2.NewKeyStore(ethKeyStore)
 
-	key, err := ethKeyStore.Create()
+	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	keys, err := ks.SendingKeys()

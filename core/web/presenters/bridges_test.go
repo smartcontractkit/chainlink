@@ -24,7 +24,7 @@ func TestBridgeResource(t *testing.T) {
 		URL:                    models.WebURL(*url),
 		Confirmations:          1,
 		OutgoingToken:          "vjNL7X8Ea6GFJoa6PBsvK2ECzNK3b8IZ",
-		MinimumContractPayment: assets.NewLink(1),
+		MinimumContractPayment: assets.NewLinkFromJuels(1),
 		CreatedAt:              timestamp,
 	}
 

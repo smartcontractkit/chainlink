@@ -1,32 +1,22 @@
 package evm
 
 import (
-	"github.com/pkg/errors"
+	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
-	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type ORM interface {
-	CreateChain(id utils.Big, config types.ChainCfg) (types.Chain, error)
-	DeleteChain(id utils.Big) error
-	Chains(offset, limit int) ([]types.Chain, int, error)
-	CreateNode(data NewNode) (types.Node, error)
-	DeleteNode(id int64) error
-	Nodes(offset, limit int) ([]types.Node, int, error)
-	NodesForChain(chainID utils.Big, offset, limit int) ([]types.Node, int, error)
-}
-
 type orm struct {
 	db *sqlx.DB
 }
 
-var _ ORM = (*orm)(nil)
+var _ types.ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB) ORM {
+func NewORM(db *sqlx.DB) types.ORM {
 	return &orm{db}
 }
 
@@ -67,15 +57,7 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 	return
 }
 
-type NewNode struct {
-	Name       string      `json:"name"`
-	EVMChainID utils.Big   `json:"evmChainId"`
-	WSURL      null.String `json:"wsURL" db:"ws_url"`
-	HTTPURL    string      `json:"httpURL" db:"http_url"`
-	SendOnly   bool        `json:"sendOnly"`
-}
-
-func (o *orm) CreateNode(data NewNode) (node types.Node, err error) {
+func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
 	sql := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
 	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
 	RETURNING *;`
@@ -103,6 +85,26 @@ func (o *orm) DeleteNode(id int64) error {
 	return nil
 }
 
+func (o *orm) EnabledChainsWithNodes() (chains []types.Chain, err error) {
+	var nodes []types.Node
+	chainsSQL := `SELECT * FROM evm_chains WHERE enabled ORDER BY created_at, id;`
+	if err = o.db.Select(&chains, chainsSQL); err != nil {
+		return
+	}
+	nodesSQL := `SELECT * FROM nodes ORDER BY created_at, id;`
+	if err = o.db.Select(&nodes, nodesSQL); err != nil {
+		return
+	}
+	nodemap := make(map[string][]types.Node)
+	for _, n := range nodes {
+		nodemap[n.EVMChainID.String()] = append(nodemap[n.EVMChainID.String()], n)
+	}
+	for i, c := range chains {
+		chains[i].Nodes = nodemap[c.ID.String()]
+	}
+	return chains, nil
+}
+
 func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error) {
 	if err = o.db.Get(&count, "SELECT COUNT(*) FROM nodes"); err != nil {
 		return
@@ -127,4 +129,36 @@ func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types
 	}
 
 	return
+}
+
+// StoreString saves a string value into the config for the given chain and key
+func (o *orm) StoreString(chainID *big.Int, name, val string) error {
+	res, err := o.db.Exec(`UPDATE evm_chains SET cfg = cfg || jsonb_build_object($1::text, $2::text) WHERE id = $3`, name, val, utils.NewBig(chainID))
+	if err != nil {
+		return errors.Wrapf(err, "failed to store chain config for chain ID %s", chainID.String())
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.Wrapf(ErrNoRowsAffected, "no chain found with ID %s", chainID.String())
+	}
+	return nil
+}
+
+// Clear deletes a config value for the given chain and key
+func (o *orm) Clear(chainID *big.Int, name string) error {
+	res, err := o.db.Exec(`UPDATE evm_chains SET cfg = cfg - $1 WHERE id = $2`, name, utils.NewBig(chainID))
+	if err != nil {
+		return errors.Wrapf(err, "failed to clear chain config for chain ID %s", chainID.String())
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return errors.Wrapf(ErrNoRowsAffected, "no chain found with ID %s", chainID.String())
+	}
+	return nil
 }

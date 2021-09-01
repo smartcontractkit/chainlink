@@ -33,6 +33,7 @@ import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
   ['/runs', 'Runs'],
+  ['/chains', 'Chains'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/keys', 'Keys'],

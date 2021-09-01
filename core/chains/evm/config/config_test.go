@@ -2,27 +2,37 @@ package config_test
 
 import (
 	"math/big"
+	"math/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	config "github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func TestConfig_SetEvmGasPriceDefault(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	config := config.NewEVMConfig(config.NewGeneralConfig())
-	config.SetDB(db)
+func TestChainScopedConfig_EvmGasPriceDefault(t *testing.T) {
+	orm := new(evmmocks.ORM)
+	orm.Test(t)
+	chainID := big.NewInt(rand.Int63())
+	cfg := config.NewGeneralConfig()
+	config := evmconfig.NewChainScopedConfig(orm, cfg.CreateProductionLogger(), cfg, evmtypes.Chain{ID: *utils.NewBig(chainID)})
 
 	t.Run("sets the gas price", func(t *testing.T) {
 		assert.Equal(t, big.NewInt(20000000000), config.EvmGasPriceDefault())
 
+		orm.On("StoreString", chainID, "EvmGasPriceDefault", "42000000000").Return(nil)
 		err := config.SetEvmGasPriceDefault(big.NewInt(42000000000))
 		assert.NoError(t, err)
 
 		assert.Equal(t, big.NewInt(42000000000), config.EvmGasPriceDefault())
+
+		orm.AssertExpectations(t)
 	})
 	t.Run("is not allowed to set gas price to below EvmMinGasPriceWei", func(t *testing.T) {
 		assert.Equal(t, big.NewInt(1000000000), config.EvmMinGasPriceWei())
@@ -42,7 +52,7 @@ func TestConfig_SetEvmGasPriceDefault(t *testing.T) {
 	})
 }
 
-func TestConfig_Profiles(t *testing.T) {
+func TestChainScopedConfig_Profiles(t *testing.T) {
 	tests := []struct {
 		name                           string
 		chainID                        int64
@@ -68,11 +78,10 @@ func TestConfig_Profiles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gcfg := configtest.NewTestGeneralConfig(t)
-			gcfg.Overrides.SetChainID(tt.chainID)
-			config := config.NewEVMConfig(gcfg)
+			config := evmconfig.NewChainScopedConfig(nil, gcfg.CreateProductionLogger(), gcfg, evmtypes.Chain{ID: *utils.NewBigI(tt.chainID)})
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
-			assert.Equal(t, assets.NewLink(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
+			assert.Equal(t, assets.NewLinkFromJuels(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
 		})
 	}
 }

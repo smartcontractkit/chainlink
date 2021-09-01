@@ -13,7 +13,7 @@ import (
 )
 
 func TestEventBroadcaster(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true)
+	config, _, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true, false)
 	defer cleanupDB()
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
