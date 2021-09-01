@@ -7,6 +7,8 @@ import List from '../Jobs/JobRunsList'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
+import { v2 } from 'src/api'
+import { transformPipelineJobRun } from '../Jobs/transformJobRuns'
 
 const styles = (theme) => ({
   breadcrumb: {
@@ -65,9 +67,18 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
+const fetchRuns = async (page, size) => {
+  const response = await v2.runs.getAllJobRuns({ page, size })
+
+  return response.data.map((run) =>
+    transformPipelineJobRun(run.attributes.pipelineSpec.jobID)(run),
+  )
+}
+
 export const Index = (props) => {
   const { jobSpecId, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
+  const [latestJobRuns, setLatestJobRuns] = useState([])
 
   useEffect(() => {
     document.title = 'Job Runs'
@@ -76,10 +87,11 @@ export const Index = (props) => {
   useEffect(() => {
     const queryPage = parseInt(match?.params.jobRunsPage, 10) || FIRST_PAGE
     setPage(queryPage)
-    // TODO - Fetch V2 jobs runs here
+    fetchRuns(1, pageSize).then(setLatestJobRuns)
   }, [jobSpecId, pageSize, match])
+
   const handleChangePage = (_, pageNum) => {
-    // TODO - Fetch V2 jobs runs here
+    fetchRuns(pageNum, pageSize).then(setLatestJobRuns)
     setPage(pageNum)
   }
 
@@ -87,21 +99,19 @@ export const Index = (props) => {
     <Content>
       <Title>Runs</Title>
 
-      {renderDetails(props, { page }, handleChangePage)}
+      {renderDetails({ ...props, latestJobRuns }, { page }, handleChangePage)}
     </Content>
   )
 }
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,
-  latestJobRuns: PropTypes.array,
   jobRunsCount: PropTypes.number,
   pageSize: PropTypes.number.isRequired,
   pagePath: PropTypes.string.isRequired,
 }
 
 Index.defaultProps = {
-  latestJobRuns: [],
   pageSize: 25,
 }
 
