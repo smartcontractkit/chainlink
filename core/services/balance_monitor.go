@@ -168,7 +168,6 @@ func (w *worker) Work() {
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		fmt.Println("BALLS key", key)
 		go func(k ethkey.KeyV2) {
 			defer wg.Done()
 			w.checkAccountBalance(k)

@@ -171,6 +171,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	ethClient := NewEthClientMock(t)
 
 	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+		Once().
+		Return(big.NewInt(1), nil)
 	require.NoError(t, bm.Start())
 
 	head := cltest.Head(0)
