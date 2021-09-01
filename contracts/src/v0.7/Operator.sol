@@ -95,6 +95,19 @@ contract Operator is
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
+  /**
+   * @notice Creates the Chainlink request. This is a backwards compatible API
+   * with the Oracle.sol contract, but the behavior changes because
+   * callbackAddress is assumed to be the same as the request sender.
+   * @param callbackAddress The consumer of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param specId The Job Specification ID
+   * @param callbackAddress ignored and expected to be equal to consumer
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   * @param dataVersion The specified data version
+   * @param data The extra request parameters
+   */
   function oracleRequest(
     address sender,
     uint256 payment,
@@ -131,7 +144,7 @@ contract Operator is
    * @param callbackFunctionId The callback function ID for the response
    * @param nonce The nonce sent by the requester
    * @param dataVersion The specified data version
-   * @param data The CBOR payload of the request
+   * @param data The extra request parameters
    */
   function requestOracleData(
     address sender,
