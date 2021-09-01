@@ -237,6 +237,11 @@ declare module 'core/store/models' {
     toml: string
   }
 
+  export interface CreateChainRequest {
+    chainID: string
+    config: Record<string, JSONPrimitive>
+  }
+
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
