@@ -13,7 +13,7 @@ export class Chains {
   }
 
   @boundMethod
-  public creatChain(
+  public createChain(
     request: models.CreateChainRequest,
   ): Promise<jsonapi.ApiResponse<models.Chain>> {
     return this.create(request)

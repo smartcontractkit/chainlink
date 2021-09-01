@@ -43,7 +43,7 @@ const SuccessNotification = ({ id }: { id: string }) => (
   </>
 )
 
-export function validate({ overrides }: { overrides: string }) {
+const validate = ({ overrides }: { overrides: string }) => {
   try {
     JSON.parse(overrides)
   } catch (e) {
@@ -60,7 +60,7 @@ function apiCall({
   config: Record<string, JSONPrimitive>
 }): Promise<ApiResponse<Chain>> {
   const definition: CreateChainRequest = { chainID, config }
-  return api.v2.chains.creatChain(definition)
+  return api.v2.chains.createChain(definition)
 }
 
 export const New = ({
