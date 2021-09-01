@@ -91,7 +91,7 @@
     "@types/uuid": "^8.3.0",
     "babel-loader": "^8.2.2",
     "clean-webpack-plugin": "^4.0.0",
-    "compression-webpack-plugin": "^7.1.2",
+    "compression-webpack-plugin": "^8.0.1",
     "css-loader": "^3.6.0",
     "depcheck": "^0.9.2",
     "enzyme": "^3.11.0",
