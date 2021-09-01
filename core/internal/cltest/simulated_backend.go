@@ -68,7 +68,6 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 
-	ht := models.MustMakeDuration(10 * time.Millisecond)
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
 	simulatedBackendChain := evmtypes.Chain{
@@ -76,7 +75,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 		Cfg: evmtypes.ChainCfg{
 			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
 			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
-			EvmHeadTrackerSamplingInterval:   &ht,
+			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
 			EthTxResendAfterThreshold:        &zero,
 			EvmFinalityDepth:                 null.IntFrom(15),
 			EthTxReaperThreshold:             &reaperThreshold,
