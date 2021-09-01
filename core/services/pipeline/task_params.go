@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -226,7 +227,12 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 			*b = BytesParam(bs)
 			return nil
 		}
-		*b = BytesParam(v)
+		// try decoding as base64 first, in case this is a string from the database
+		bs, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			bs = []byte(v)
+		}
+		*b = BytesParam(bs)
 	case []byte:
 		*b = BytesParam(v)
 	case nil:
