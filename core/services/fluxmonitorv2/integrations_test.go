@@ -851,6 +851,10 @@ ds1 -> ds1_parse
 
 	j := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
+	// should not allow for creating
+	createError := cltest.CreateJobViaWebExpectingError(t, app, string(requestBody))
+	require.Equal(t, createError.Errors[0].Detail, "Another job spec with this contract address already exists")
+
 	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
 	defer closer()
 

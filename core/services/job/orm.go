@@ -206,7 +206,15 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 		jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
 	case FluxMonitor:
-		err := tx.Create(&jobSpec.FluxMonitorSpec).Error
+		existing := FluxMonitorSpec{}
+		err := o.db.First(&existing, "contract_address = ?", jobSpec.FluxMonitorSpec.ContractAddress).Error
+		if err == nil {
+			return jb, errors.Errorf("Another job spec with this contract address already exists")
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return jb, errors.Wrap(err, "failed to fetch existing FluxMonitorSpec spec")
+		}
+		err = tx.Create(&jobSpec.FluxMonitorSpec).Error
 		if err != nil {
 			return jb, errors.Wrap(err, "failed to create FluxMonitorSpec for jobSpec")
 		}

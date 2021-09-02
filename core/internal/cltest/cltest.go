@@ -848,6 +848,17 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 	return jobResponse
 }
 
+func CreateJobViaWebExpectingError(t testing.TB, app *TestApplication, spec string) *models.JSONAPIErrors {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	defer cleanup()
+
+	AssertServerResponse(t, resp, http.StatusInternalServerError)
+	return ParseJSONAPIErrors(t, resp.Body)
+}
+
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
