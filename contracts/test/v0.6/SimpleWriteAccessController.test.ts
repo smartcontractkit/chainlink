@@ -22,7 +22,7 @@ describe("SimpleWriteAccessController", () => {
     controller = await controllerFactory.connect(personas.Carol).deploy();
   });
 
-  it("has a limited public interface", async () => {
+  it("has a limited public interface [ @skip-coverage ]", async () => {
     publicAbi(controller, [
       "hasAccess",
       "addAccess",
