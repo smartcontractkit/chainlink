@@ -1,6 +1,8 @@
 import React from 'react'
 
 import { v2 } from 'api'
+import BaseLink from 'components/BaseLink'
+import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
 import * as models from 'core/store/models'
@@ -111,6 +113,20 @@ export const ChainsIndex = ({
       <Grid container>
         <Grid item xs={9}>
           <Title>Chains</Title>
+        </Grid>
+
+        <Grid item xs={3}>
+          <Grid container justify="flex-end">
+            <Grid item>
+              <Button
+                variant="secondary"
+                component={BaseLink}
+                href={'/chains/new'}
+              >
+                New Chain
+              </Button>
+            </Grid>
+          </Grid>
         </Grid>
 
         <Grid item xs={12}>

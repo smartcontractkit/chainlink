@@ -20,6 +20,7 @@ func TestClient_IndexChains(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
+	_, initialCount, err := orm.Chains(0, 25)
 
 	id := utils.NewBigI(99)
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
@@ -27,8 +28,8 @@ func TestClient_IndexChains(t *testing.T) {
 
 	require.Nil(t, client.IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.ChainPresenters)
-	require.Len(t, chains, 2) // includes default chain
-	c := chains[1]            // chains 0 is the default chain (id = 1)
+	require.Len(t, chains, initialCount+1)
+	c := chains[initialCount]
 	assert.Equal(t, chain.ID.ToInt().String(), c.ID)
 }
 
@@ -39,18 +40,19 @@ func TestClient_CreateChain(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
+	_, initialCount, err := orm.Chains(0, 25)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.Int64("id", 99, "")
 	set.Parse([]string{`{}`})
 	c := cli.NewContext(nil, set, nil)
 
-	err := client.CreateChain(c)
+	err = client.CreateChain(c)
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
-	require.Len(t, chains, 2) // includes default chain
-	ch := chains[1]           // chains 0 is the default chain (id = 1)
+	require.Len(t, chains, initialCount+1)
+	ch := chains[initialCount]
 	assert.Equal(t, int64(99), ch.ID.ToInt().Int64())
 }
 
@@ -61,12 +63,13 @@ func TestClient_RemoveChain(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
+	_, initialCount, err := orm.Chains(0, 25)
 
 	id := utils.NewBigI(99)
-	_, err := orm.CreateChain(*id, types.ChainCfg{})
+	_, err = orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
-	require.Len(t, chains, 2) // includes default chain
+	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.Parse([]string{"99"})
@@ -76,5 +79,5 @@ func TestClient_RemoveChain(t *testing.T) {
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
-	require.Len(t, chains, 1) // includes default chain
+	require.Len(t, chains, initialCount)
 }

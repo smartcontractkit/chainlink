@@ -4,7 +4,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
 
 var (
@@ -41,13 +41,12 @@ func (t *HTTPTask) HelperSetDependencies(config Config) {
 	t.config = config
 }
 
-func (t *ETHCallTask) HelperSetDependencies(client eth.Client) {
-	t.ethClient = client
+func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet) {
+	t.chainSet = cc
 }
 
-func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, config Config, keyStore ETHKeyStore, txManager TxManager) {
+func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, cc evm.ChainSet, keyStore ETHKeyStore) {
 	t.db = db
-	t.config = config
+	t.chainSet = cc
 	t.keyStore = keyStore
-	t.txManager = txManager
 }

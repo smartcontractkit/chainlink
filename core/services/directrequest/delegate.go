@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -25,13 +25,11 @@ import (
 type (
 	Delegate struct {
 		logger         *logger.Logger
-		logBroadcaster log.Broadcaster
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		db             *gorm.DB
-		ethClient      eth.Client
 		chHeads        chan models.Head
-		config         Config
+		chainSet       evm.ChainSet
 	}
 
 	Config interface {
@@ -44,22 +42,18 @@ var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
 	logger *logger.Logger,
-	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	ethClient eth.Client,
 	db *gorm.DB,
-	config Config,
+	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
 		logger,
-		logBroadcaster,
 		pipelineRunner,
 		pipelineORM,
 		db,
-		ethClient,
 		make(chan models.Head, 1),
-		config,
+		chainSet,
 	}
 }
 
@@ -71,18 +65,22 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jobObj job.Job) ([]job.Service, error) {
-	if jobObj.DirectRequestSpec == nil {
-		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jobObj)
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
+	if jb.DirectRequestSpec == nil {
+		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
-	concreteSpec := jobObj.DirectRequestSpec
+	concreteSpec := jb.DirectRequestSpec
+	chain, err := d.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
 
-	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), d.ethClient)
+	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
 	}
 
-	minIncomingConfirmations := d.config.MinIncomingConfirmations()
+	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
 
 	if concreteSpec.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
 		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
@@ -92,20 +90,20 @@ func (d *Delegate) ServicesForSpec(jobObj job.Job) ([]job.Service, error) {
 		Named("DirectRequest").
 		With(
 			"contract", concreteSpec.ContractAddress.Address().String(),
-			"jobName", jobObj.PipelineSpec.JobName,
-			"jobID", jobObj.PipelineSpec.JobID,
-			"externalJobID", jobObj.ExternalJobID,
+			"jobName", jb.PipelineSpec.JobName,
+			"jobID", jb.PipelineSpec.JobID,
+			"externalJobID", jb.ExternalJobID,
 		)
 
 	logListener := &listener{
 		logger:                   svcLogger,
-		config:                   d.config,
-		logBroadcaster:           d.logBroadcaster,
+		config:                   chain.Config(),
+		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
 		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
-		job:                      jobObj,
+		job:                      jb,
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
 		requesters:               concreteSpec.Requesters,
@@ -292,10 +290,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	} else {
 		minContractPayment = l.config.MinimumContractPayment()
 	}
-	if minContractPayment != nil {
+	if minContractPayment != nil && request.Payment != nil {
 		requestPayment := assets.Link(*request.Payment)
 		if minContractPayment.Cmp(&requestPayment) > 0 {
-			l.logger.Infow("DirectRequest: Rejected run for insufficient payment",
+			l.logger.Warnw("DirectRequest: Rejected run for insufficient payment",
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)

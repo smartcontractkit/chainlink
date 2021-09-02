@@ -20,16 +20,19 @@ import (
 )
 
 var (
-	promCurrentHead = promauto.NewGauge(prometheus.GaugeOpts{
+	promCurrentHead = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "head_tracker_current_head",
 		Help: "The highest seen head number",
-	})
+	}, []string{"evmChainID"})
 
-	promOldHead = promauto.NewCounter(prometheus.CounterOpts{
+	promOldHead = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "head_tracker_very_old_head",
 		Help: "Counter is incremented every time we get a head that is much lower than the highest seen head ('much lower' is defined as a block that is ETH_FINALITY_DEPTH or greater below the highest seen head)",
-	})
+	}, []string{"evmChainID"})
 )
+
+// HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
+const HeadsBufferSize = 10
 
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
@@ -38,6 +41,7 @@ type HeadTracker struct {
 	log             *logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
+	chainID         big.Int
 	config          Config
 
 	backfillMB   utils.Mailbox
@@ -67,10 +71,11 @@ func NewHeadTracker(
 	return &HeadTracker{
 		headBroadcaster: headBroadcaster,
 		ethClient:       ethClient,
+		chainID:         *ethClient.ChainID(),
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
-		callbackMB:      *utils.NewMailbox(1),
+		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
 		chStop:          chStop,
 		wgDone:          &wgDone,
 		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
@@ -97,7 +102,7 @@ func (ht *HeadTracker) logger() *logger.Logger {
 // HeadTrackable argument.
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
-		ht.logger().Debug("Starting HeadTracker")
+		ht.logger().Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
 		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
 		if err != nil {
 			return err
@@ -155,7 +160,6 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -184,7 +188,7 @@ func (ht *HeadTracker) headCallbackLoop() {
 
 	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
-		ht.logger().Infof("Head sampling interval is set to: %v", samplingInterval)
+		ht.logger().Infof("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
 		defer debounceHead.Stop()
 		for {
@@ -192,7 +196,11 @@ func (ht *HeadTracker) headCallbackLoop() {
 			case <-ht.chStop:
 				return
 			case <-debounceHead.C:
-				ht.callbackOnLatestHead()
+				item := ht.callbackMB.RetrieveLatestAndClear()
+				if item == nil {
+					continue
+				}
+				ht.callbackOnLatestHead(item)
 			}
 		}
 	} else {
@@ -202,20 +210,22 @@ func (ht *HeadTracker) headCallbackLoop() {
 			case <-ht.chStop:
 				return
 			case <-ht.callbackMB.Notify():
-				ht.callbackOnLatestHead()
+				for {
+					item, exists := ht.callbackMB.Retrieve()
+					if !exists {
+						break
+					}
+					ht.callbackOnLatestHead(item)
+				}
 			}
 		}
 	}
 }
 
-func (ht *HeadTracker) callbackOnLatestHead() {
+func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	item, exists := ht.callbackMB.Retrieve()
-	if !exists {
-		return
-	}
 	head, ok := item.(models.Head)
 	if !ok {
 		panic(fmt.Sprintf("expected `models.Head`, got %T", item))
@@ -241,8 +251,8 @@ func (ht *HeadTracker) backfiller() {
 					panic(fmt.Sprintf("expected `models.Head`, got %T", head))
 				}
 				{
-					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.config.EvmFinalityDepth())
+					ctx, cancel := eth.DefaultQueryCtx()
+					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -354,13 +364,13 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to save head: %#v", head)
 	}
 
 	if prevHead == nil || head.Number > prevHead.Number {
-		promCurrentHead.Set(float64(head.Number))
+		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EvmFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, uint(ht.config.EvmFinalityDepth()))
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
@@ -380,7 +390,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
-			promOldHead.Inc()
+			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
