@@ -895,10 +895,15 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	t.Parallel()
 
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
+	const (
+		roundZero = uint32(0)
+		roundOne  = uint32(1)
+		roundTwo  = uint32(2)
+	)
 
 	flags := new(fmmocks.Flags)
 	flags.On("ContractExists").Return(true)
@@ -933,11 +938,11 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	// idle ticker
 	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now(), AvailableFunds: big.NewInt(0)}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
 		pollOccured <- struct{}{}
 	})
 	tm.orm.
-		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1), mock.Anything).
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundOne, mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
 			Aggregator:     contractAddress,
 			RoundID:        1,
@@ -951,13 +956,13 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	}
 
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
 		pollOccured <- struct{}{}
 	})
 
 	// Finds an error run, so that retry ticker will be kicked off
 	tm.orm.
-		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1), mock.Anything).
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundOne, mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
 			PipelineRunID:  corenull.NewInt64(int64(1), true),
 			Aggregator:     contractAddress,
@@ -982,16 +987,18 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	// hibernation ticker
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
-	})
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundZero).Return(roundState2, nil).Once()
 	tm.orm.
-		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2), mock.Anything).
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundTwo, mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
 			Aggregator:     contractAddress,
 			RoundID:        2,
 			NumSubmissions: 0,
-		}, nil).Once()
+		}, nil).
+		Run(func(args mock.Arguments) {
+			pollOccured <- struct{}{}
+		}).
+		Once()
 
 	select {
 	case <-pollOccured:
