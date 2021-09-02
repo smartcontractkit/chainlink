@@ -165,14 +165,12 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Load()
+		times := backfillCount.Inc() - 1
 		if times == 0 {
 			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 		} else if times == 1 {
 			require.Equal(t, replayFrom, fromBlock)
 		}
-
-		backfillCount.Store(times + 1)
 	}
 
 	helper.start()
@@ -271,7 +269,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Load()
+		times := backfillCount.Inc() - 1
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
@@ -282,7 +280,6 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 			require.Equal(t, int64(120), fromBlock)
 			require.Equal(t, int64(120), toBlock)
 		}
-		backfillCount.Store(times + 1)
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
@@ -342,9 +339,8 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	backfillCount := atomic.NewInt64(0)
 
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := backfillCount.Load()
+		times := backfillCount.Inc() - 1
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
-		backfillCount.Store(times + 1)
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
