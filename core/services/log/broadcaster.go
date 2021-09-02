@@ -84,10 +84,10 @@ type (
 
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
-		trackedAddressesCount uint32
+		trackedAddressesCount uint32 // atomic
 		replayChannel         chan int64
 		highestSavedHead      *models.Head
-		lastSeenHeadNumber    int64
+		lastSeenHeadNumber    int64 // atomic
 		logger                *logger.Logger
 	}
 

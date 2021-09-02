@@ -97,7 +97,7 @@ type client struct {
 	chainID     *big.Int
 	mocked      bool
 
-	roundRobinCount uint32
+	roundRobinCount uint32 // atomic
 }
 
 var _ Client = (*client)(nil)

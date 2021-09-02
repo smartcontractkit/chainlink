@@ -312,8 +312,8 @@ func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        
 type mockEth struct {
 	ethClient        *mocks.Client
 	sub              *mocks.Subscription
-	subscribeCalls   int32
-	unsubscribeCalls int32
+	subscribeCalls   int32 // atomic
+	unsubscribeCalls int32 // atomic
 	checkFilterLogs  func(int64, int64)
 }
 

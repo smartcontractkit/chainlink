@@ -70,7 +70,7 @@ type explorerClient struct {
 	conn             *websocket.Conn
 	sendText         chan []byte
 	sendBinary       chan []byte
-	dropMessageCount uint32
+	dropMessageCount uint32 // atomic
 	receive          chan []byte
 	sleeper          utils.Sleeper
 	status           ConnectionStatus

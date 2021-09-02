@@ -337,7 +337,7 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	onNewHeadCount int32
+	onNewHeadCount int32 // atomic
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one

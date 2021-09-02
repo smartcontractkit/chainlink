@@ -12,7 +12,7 @@ import (
 )
 
 type countingWorker struct {
-	numJobsPerformed int32
+	numJobsPerformed int32 // atomic
 	delay            time.Duration
 }
 

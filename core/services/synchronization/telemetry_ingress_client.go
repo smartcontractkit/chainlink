@@ -53,7 +53,7 @@ type telemetryIngressClient struct {
 
 	wgDone           sync.WaitGroup
 	chDone           chan struct{}
-	dropMessageCount uint32
+	dropMessageCount uint32 // atomic
 	chTelemetry      chan TelemPayload
 }
 

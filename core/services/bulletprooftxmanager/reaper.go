@@ -28,7 +28,7 @@ type Reaper struct {
 	config         ReaperConfig
 	chainID        utils.Big
 	log            *logger.Logger
-	latestBlockNum int64
+	latestBlockNum int64 // atomic
 	trigger        chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
