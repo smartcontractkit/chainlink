@@ -972,7 +972,7 @@ describe("FluxAggregator", () => {
           await aggregator.connect(personas.Carol).changeOracles([], addresses, addresses, 1, oracles.length, rrDelay);
         });
 
-        it("not use too much gas", async () => {
+        it("not use too much gas [ @skip-coverage ]", async () => {
           let tx: any;
           assert.deepEqual(
             // test adveserial quickselect algo
