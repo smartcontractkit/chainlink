@@ -1249,7 +1249,6 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 
 			var (
 				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
@@ -1293,7 +1292,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 				}).
 				Maybe()
 
-			fm.Start()
+			require.NoError(t, fm.Start())
 			t.Cleanup(func() { fm.Close() })
 
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
@@ -1678,7 +1677,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 
 	t.Run("when poll ticker fires, then an older NewRound log arrives, but does submit on a log arrival after a reorg", func(t *testing.T) {
-		store, cfg, nodeAddr := setupStoreWithKey(t)
+		store, _, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 		fm, tm := setup(t,
 			store.DB,
@@ -1687,7 +1686,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = cfg.MinimumContractPayment().ToInt()
+			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1766,7 +1765,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(olderRoundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, nil))
+		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
 
 		// Simulate a reorg - fire the same NewRound log again, which should result in a submission this time
 		tm.orm.On("MostRecentFluxMonitorRoundID", contractAddress).Return(uint32(roundID), nil)
@@ -1824,7 +1823,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.ExportedRespondToNewRoundLog(&flux_aggregator_wrapper.FluxAggregatorNewRound{
 			RoundId:   big.NewInt(olderRoundID),
 			StartedAt: big.NewInt(0),
-		}, log.NewLogBroadcast(types.Log{}, nil))
+		}, log.NewLogBroadcast(types.Log{}, cltest.FixtureChainID, nil))
 
 		tm.AssertExpectations(t)
 	})
