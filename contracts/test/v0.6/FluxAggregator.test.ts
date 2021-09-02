@@ -164,7 +164,7 @@ describe("FluxAggregator", () => {
     nextRound = 1;
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(aggregator, [
       "acceptAdmin",
       "allocatedFunds",

@@ -71,7 +71,7 @@ describe("Operator", () => {
     await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode.getAddress()]);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(operator, [
       "acceptAuthorizedReceivers",
       "acceptOwnableContracts",
@@ -774,7 +774,7 @@ describe("Operator", () => {
     let gasGuzzlingConsumer: Contract;
     let request: ReturnType<typeof decodeRunRequest>;
 
-    describe("gas guzzling consumer", () => {
+    describe("gas guzzling consumer [ @skip-coverage ]", () => {
       beforeEach(async () => {
         gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
           .connect(roles.consumer)
@@ -1102,7 +1102,7 @@ describe("Operator", () => {
       let gasGuzzlingConsumer: Contract;
       let request: ReturnType<typeof decodeRunRequest>;
 
-      describe("gas guzzling consumer", () => {
+      describe("gas guzzling consumer [ @skip-coverage ]", () => {
         beforeEach(async () => {
           gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
             .connect(roles.consumer)
@@ -1442,7 +1442,7 @@ describe("Operator", () => {
         let gasGuzzlingConsumer: Contract;
         let request: ReturnType<typeof decodeRunRequest>;
 
-        describe("gas guzzling consumer", () => {
+        describe("gas guzzling consumer [ @skip-coverage ]", () => {
           beforeEach(async () => {
             gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
               .connect(roles.consumer)
@@ -1783,7 +1783,7 @@ describe("Operator", () => {
         let gasGuzzlingConsumer: Contract;
         let request: ReturnType<typeof decodeRunRequest>;
 
-        describe("gas guzzling consumer", () => {
+        describe("gas guzzling consumer [ @skip-coverage ]", () => {
           beforeEach(async () => {
             gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
               .connect(roles.consumer)

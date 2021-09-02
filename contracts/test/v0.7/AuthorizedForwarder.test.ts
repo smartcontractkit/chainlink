@@ -35,7 +35,7 @@ describe("AuthorizedForwarder", () => {
       .deploy(link.address, await roles.defaultAccount.getAddress(), zeroAddress, "0x");
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(forwarder, [
       "forward",
       "getAuthorizedSenders",
