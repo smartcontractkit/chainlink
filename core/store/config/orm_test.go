@@ -44,7 +44,7 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 func TestORM_GetConfigBoolValue(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.SetDB(db)
 
 	isSqlStatementEnabled := true

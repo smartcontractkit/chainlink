@@ -8,6 +8,8 @@ import (
 	"math/big"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +28,31 @@ const (
 	// FormatBool encodes the output as bytes containing a bool
 	FormatBool = "bool"
 )
+
+// GenericEncode eth encodes values based on the provided types
+func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
+	if len(values) != len(types) {
+		return nil, errors.New("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func MustGenericEncode(types []string, values ...interface{}) []byte {
+	out, err := GenericEncode(types, values)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {

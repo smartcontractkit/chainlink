@@ -8,6 +8,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,22 +27,23 @@ func TestETHKeyResource(t *testing.T) {
 	}
 
 	state := ethkey.State{
-		ID:        1,
-		Address:   address,
-		CreatedAt: now,
-		UpdatedAt: now,
-		NextNonce: nextNonce,
-		IsFunding: true,
+		ID:         1,
+		EVMChainID: *utils.NewBigI(42),
+		Address:    address,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		NextNonce:  nextNonce,
+		IsFunding:  true,
 	}
 
 	r, err := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLink(1)),
+		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
 	)
 	require.NoError(t, err)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
-	assert.Equal(t, assets.NewLink(1), r.LinkBalance)
+	assert.Equal(t, assets.NewLinkFromJuels(1), r.LinkBalance)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
@@ -53,6 +55,7 @@ func TestETHKeyResource(t *testing.T) {
 		   "id":"%s",
 		   "attributes":{
 			  "address":"%s",
+			  "evmChainID":"42",
 			  "ethBalance":"1",
 			  "linkBalance":"1",
 			  "isFunding":true,
@@ -67,7 +70,7 @@ func TestETHKeyResource(t *testing.T) {
 
 	r, err = NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
-		SetETHKeyLinkBalance(assets.NewLink(1)),
+		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
 	)
 	require.NoError(t, err)
 	b, err = jsonapi.Marshal(r)
@@ -80,6 +83,7 @@ func TestETHKeyResource(t *testing.T) {
 			"id":"%s",
 			"attributes":{
 				"address":"%s",
+			  	"evmChainID":"42",
 				"ethBalance":"1",
 				"linkBalance":"1",
 				"isFunding":true,

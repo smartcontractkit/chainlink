@@ -21,11 +21,7 @@ import (
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	app.Start()
 
@@ -81,11 +77,7 @@ func TestSessionsController_Create(t *testing.T) {
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	app.Start()
 
@@ -115,16 +107,12 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
+	defer cleanup()
 	require.NoError(t, app.Start())
 
 	correctSession := models.NewSession()
 	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
-	defer cleanup()
 
 	config := app.Store.Config
 	client := http.Client{}
@@ -161,11 +149,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	client := http.Client{}
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

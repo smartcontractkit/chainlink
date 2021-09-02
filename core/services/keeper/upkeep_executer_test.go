@@ -16,16 +16,19 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+func newHead() models.Head {
+	return models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000, utils.NewBigI(0))
+}
 
 func setup(t *testing.T) (
 	*store.Store,
@@ -37,20 +40,21 @@ func setup(t *testing.T) (
 	cltest.JobPipelineV2TestHelper,
 	*bptxmmocks.TxManager,
 ) {
-	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	ethClient := cltest.NewEthClientMock(t)
-	registry, job := cltest.MustInsertKeeperRegistry(t, store, keyStore.Eth())
-	cfg := cltest.NewTestEVMConfig(t)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, store.DB, nil, keyStore, nil)
-	headBroadcaster := headtracker.NewHeadBroadcaster(logger.Default)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	registry, job := cltest.MustInsertKeeperRegistry(t, store.DB, keyStore.Eth())
+	cfg := cltest.NewTestGeneralConfig(t)
 	txm := new(bptxmmocks.TxManager)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: store.DB, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore)
+	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, headBroadcaster, logger.Default, store.Config)
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), store.Config.CreateProductionLogger(), store.Config)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
 	require.NoError(t, err)
@@ -96,10 +100,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
-		head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
+		head := newHead()
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
-		assertLastRunHeight(t, store, upkeep, 20)
+		assertLastRunHeight(t, store.DB, upkeep, 20)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
@@ -134,7 +138,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		executer.OnNewLongestChain(context.Background(), head)
 		etxs[0].AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		assertLastRunHeight(t, store, upkeep, 36)
+		assertLastRunHeight(t, store.DB, upkeep, 36)
 		require.Len(t, runs, 1)
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)
@@ -157,7 +161,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		executer.OnNewLongestChain(context.Background(), head)
 		etxs[1].AwaitOrFail(t)
-		assertLastRunHeight(t, store, upkeep, 40)
+		assertLastRunHeight(t, store.DB, upkeep, 40)
 		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 2)
 		_, ok = runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
@@ -180,7 +184,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 		wasCalled.Store(true)
 	})
 
-	head := models.NewHead(big.NewInt(20), utils.NewHash(), utils.NewHash(), 1000)
+	head := newHead()
 	executer.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))

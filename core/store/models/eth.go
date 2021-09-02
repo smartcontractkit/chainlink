@@ -24,18 +24,20 @@ type Head struct {
 	Number        int64
 	L1BlockNumber null.Int64
 	ParentHash    common.Hash
-	Parent        *Head `gorm:"-"`
+	Parent        *Head      `gorm:"-"`
+	EVMChainID    *utils.Big `gorm:"column:evm_chain_id"`
 	Timestamp     time.Time
 	CreatedAt     time.Time
 }
 
 // NewHead returns a Head instance.
-func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64) Head {
+func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, timestamp uint64, chainID *utils.Big) Head {
 	return Head{
 		Number:     number.Int64(),
 		Hash:       blockHash,
 		ParentHash: parentHash,
 		Timestamp:  time.Unix(int64(timestamp), 0),
+		EVMChainID: chainID,
 	}
 }
 

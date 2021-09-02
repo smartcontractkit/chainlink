@@ -20,6 +20,8 @@ import JobsShow from 'pages/Jobs/Show'
 import JobsNew from 'pages/Jobs/New'
 import JobRunsIndex from 'pages/JobRuns/Index'
 import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
+import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
+import ChainsNew from 'pages/Chains/New'
 import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
@@ -94,6 +96,14 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                   <JobRunsIndex {...props} pagePath="/runs/page" />
                 )}
               />
+
+              <PrivateRoute exact path="/chains">
+                <ChainsIndex />
+              </PrivateRoute>
+              <PrivateRoute exact path="/chains/new">
+                <ChainsNew />
+              </PrivateRoute>
+
               <PrivateRoute exact path="/bridges" component={BridgesIndex} />
 
               <PrivateRoute
