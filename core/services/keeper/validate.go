@@ -12,8 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-// expectedObservationSourceRaw this is the expected observation source of the keeper job.
-const expectedObservationSourceRaw = `
+const (
+	// expectedObservationSourceRaw this is the expected observation source of the keeper job.
+	expectedObservationSourceRaw = `
 encode_check_upkeep_tx   [type=ethabiencode
                           abi="checkUpkeep(uint256 id, address from)"
                           data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
@@ -35,6 +36,7 @@ perform_upkeep_tx        [type=ethtx
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
+)
 
 // expectedPipeline it is basically parsed expectedObservationSourceRaw value
 var expectedPipeline pipeline.Pipeline
