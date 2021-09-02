@@ -30,7 +30,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		d, _ := store.DB.DB()
 		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
 
-		subscribeCalls := atomic.NewInt32(0)
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -60,7 +60,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		subscribeCalls := atomic.NewInt32(0)
+		var subscribeCalls atomic.Int32
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
@@ -108,7 +108,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 2)
 
-		subscribeCalls := atomic.NewInt32(0)
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()

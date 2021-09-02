@@ -187,7 +187,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// This second call is Maybe because the SleeperTask may not have started
 	// before we call `OnNewLongestChain` 10 times, in which case it's only
 	// executed once
-	callCount := atomic.NewInt32(0)
+	var callCount atomic.Int32
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { callCount.Inc() }).
 		Maybe().

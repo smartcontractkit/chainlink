@@ -84,7 +84,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
-	backfillCount := atomic.NewInt64(0)
+	var backfillCount atomic.Int64
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
@@ -152,7 +152,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 	maxNumConfirmations := int64(10)
 
-	backfillCount := atomic.NewInt64(0)
+	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
 	helper.register(listener, newMockContract(), uint64(maxNumConfirmations))
@@ -213,7 +213,7 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	helper.globalConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
 	helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
-	backfillCount := atomic.NewInt64(0)
+	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
 	helper.register(listener, newMockContract(), uint64(10))
@@ -264,7 +264,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
 	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(batchSize)
 
-	backfillCount := atomic.NewInt64(0)
+	var backfillCount atomic.Int64
 
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
@@ -336,7 +336,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
 
-	backfillCount := atomic.NewInt64(0)
+	var backfillCount atomic.Int64
 
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
