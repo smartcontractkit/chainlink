@@ -1,5 +1,12 @@
 import { ethers } from "hardhat";
-import { publicAbi, toBytes32String, toWei, stringToBytes, increaseTime5Minutes } from "../test-helpers/helpers";
+import {
+  publicAbi,
+  toBytes32String,
+  toWei,
+  stringToBytes,
+  increaseTime5Minutes,
+  getLog,
+} from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, constants, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
 import { getUsers, Roles } from "../test-helpers/setup";
@@ -2372,7 +2379,9 @@ describe("Operator", () => {
 
         it("emits an event", async () => {
           assert.equal(3, receipt.logs?.length);
-          expect(tx).to.emit(link, "Transfer").withArgs(operator.address, to, payment, args);
+          const transferLog = await getLog(tx, 1);
+          const parsedLog = link.interface.parseLog({ data: transferLog.data, topics: transferLog.topics });
+          await expect(parsedLog.name).to.equal("Transfer");
         });
 
         it("transfers the tokens", async () => {
