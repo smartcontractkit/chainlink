@@ -309,47 +309,42 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	l.shutdownWaitGroup.Add(1)
-	go func() {
-		defer l.shutdownWaitGroup.Done()
+	runCloserChannel := make(chan struct{})
+	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
+	if loaded {
+		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
+	}
+	ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
+	defer cancel()
 
-		runCloserChannel := make(chan struct{})
-		runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
-		if loaded {
-			runCloserChannel, _ = runCloserChannelIf.(chan struct{})
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta":           meta,
+			"logBlockHash":   request.Raw.BlockHash,
+			"logBlockNumber": request.Raw.BlockNumber,
+			"logTxHash":      request.Raw.TxHash,
+			"logAddress":     request.Raw.Address,
+			"logTopics":      request.Raw.Topics,
+			"logData":        request.Raw.Data,
+		},
+	})
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
+		if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+			l.logger.Errorw("DirectRequest: failed mark consumed", "err", err)
 		}
-		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
-		defer cancel()
-
-		vars := pipeline.NewVarsFrom(map[string]interface{}{
-			"jobSpec": map[string]interface{}{
-				"databaseID":    l.job.ID,
-				"externalJobID": l.job.ExternalJobID,
-				"name":          l.job.Name.ValueOrZero(),
-			},
-			"jobRun": map[string]interface{}{
-				"meta":           meta,
-				"logBlockHash":   request.Raw.BlockHash,
-				"logBlockNumber": request.Raw.BlockNumber,
-				"logTxHash":      request.Raw.TxHash,
-				"logAddress":     request.Raw.Address,
-				"logTopics":      request.Raw.Topics,
-				"logData":        request.Raw.Data,
-			},
-		})
-		run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-		_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
-			if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-				l.logger.Errorw("DirectRequest: failed mark consumed", "err", err)
-			}
-			return nil
-		})
-		if ctx.Err() != nil {
-			return
-		} else if err != nil {
-			l.logger.Errorw("DirectRequest: failed executing run", "err", err)
-		}
-	}()
+		return nil
+	})
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
+		l.logger.Errorw("DirectRequest: failed executing run", "err", err)
+	}
 }
 
 func (l *listener) allowRequester(requester common.Address) bool {
