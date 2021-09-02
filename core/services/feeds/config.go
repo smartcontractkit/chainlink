@@ -4,14 +4,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 
 type Config interface {
-	Chain() *chains.Chain
 	ChainID() *big.Int
 	Dev() bool
 	FeatureOffchainReporting() bool

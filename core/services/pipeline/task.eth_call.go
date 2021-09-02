@@ -5,11 +5,10 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 //
@@ -17,11 +16,12 @@ import (
 //     []byte
 //
 type ETHCallTask struct {
-	BaseTask `mapstructure:",squash"`
-	Contract string `json:"contract"`
-	Data     string `json:"data"`
+	BaseTask   `mapstructure:",squash"`
+	Contract   string `json:"contract"`
+	Data       string `json:"data"`
+	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
-	ethClient eth.Client
+	chainSet evm.ChainSet
 }
 
 var _ Task = (*ETHCallTask)(nil)
@@ -55,7 +55,12 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		Data: []byte(data),
 	}
 
-	resp, err := t.ethClient.CallContract(ctx, call, nil)
+	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	if err != nil {
+		return Result{Error: err}
+	}
+
+	resp, err := chain.Client().CallContract(ctx, call, nil)
 	if err != nil {
 		return Result{Error: err}
 	}

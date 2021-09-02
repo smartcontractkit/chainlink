@@ -1,14 +1,25 @@
 package bulletprooftxmanager_test
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
+
+func newReaperWithChainID(db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig, cid big.Int) *bulletprooftxmanager.Reaper {
+	return bulletprooftxmanager.NewReaper(logger.Default, db, cfg, cid)
+}
+
+func newReaper(db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooftxmanager.Reaper {
+	return newReaperWithChainID(db, cfg, cltest.FixtureChainID)
+}
 
 func TestReaper_ReapEthTxes(t *testing.T) {
 	t.Parallel()
@@ -24,11 +35,11 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint32(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := newReaper(store.DB, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -40,11 +51,11 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint32(10))
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := newReaper(store.DB, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -52,13 +63,27 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 1)
 	})
 
-	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least ETH_FINALITY_DEPTH blocks above their receipt", func(t *testing.T) {
+	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint32(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := newReaperWithChainID(store.DB, config, *big.NewInt(42))
+
+		err := r.ReapEthTxes(42)
+		assert.NoError(t, err)
+		// Didn't delete because eth_tx has chain ID of 0
+		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 1)
+	})
+
+	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least ETH_FINALITY_DEPTH blocks above their receipt", func(t *testing.T) {
+		config := new(mocks.ReaperConfig)
+		config.On("EvmFinalityDepth").Return(uint32(10))
+		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
+		config.On("EthTxReaperInterval").Return(1 * time.Hour)
+
+		r := newReaper(store.DB, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -82,11 +107,11 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EvmFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint32(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := bulletprooftxmanager.NewReaper(store.DB, config)
+		r := newReaper(store.DB, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)

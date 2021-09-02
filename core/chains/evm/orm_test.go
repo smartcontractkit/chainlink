@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, evm.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, types.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
@@ -22,7 +22,7 @@ func setupORM(t *testing.T) (*sqlx.DB, evm.ORM) {
 	return db, orm
 }
 
-func mustInsertChain(t *testing.T, orm evm.ORM) types.Chain {
+func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
 	id := utils.NewBigI(99)
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)
@@ -33,6 +33,9 @@ func mustInsertChain(t *testing.T, orm evm.ORM) types.Chain {
 func Test_EVMORM_CreateChain(t *testing.T) {
 	_, orm := setupORM(t)
 
+	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
+
 	id := utils.NewBigI(99)
 	config := types.ChainCfg{}
 	chain, err := orm.CreateChain(*id, config)
@@ -41,19 +44,22 @@ func Test_EVMORM_CreateChain(t *testing.T) {
 
 	chains, count, err := orm.Chains(0, 25)
 	require.NoError(t, err)
-	require.Equal(t, 2, count) // it includes the default Ethereum chain already
-	require.Equal(t, chains[1], chain)
+	require.Equal(t, initialCount+1, count)
+	require.Equal(t, chains[initialCount], chain)
 }
 
 func Test_EVMORM_CreateNode(t *testing.T) {
 	_, orm := setupORM(t)
 	chain := mustInsertChain(t, orm)
 
-	params := evm.NewNode{
+	_, initialCount, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
+
+	params := types.NewNode{
 		Name:       "Test node",
 		EVMChainID: chain.ID,
 		WSURL:      null.StringFrom("ws://localhost:8546"),
-		HTTPURL:    "http://localhost:8546",
+		HTTPURL:    null.StringFrom("http://localhost:8546"),
 		SendOnly:   false,
 	}
 	node, err := orm.CreateNode(params)
@@ -65,6 +71,6 @@ func Test_EVMORM_CreateNode(t *testing.T) {
 
 	nodes, count, err := orm.Nodes(0, 25)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	require.Equal(t, nodes[0], node)
+	require.Equal(t, initialCount+1, count)
+	require.Equal(t, nodes[initialCount], node)
 }

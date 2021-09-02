@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
 
@@ -19,23 +20,25 @@ import (
 type Eth interface {
 	Get(id string) (ethkey.KeyV2, error)
 	GetAll() ([]ethkey.KeyV2, error)
-	Create() (ethkey.KeyV2, error)
-	Add(key ethkey.KeyV2) error
+	Create(chainID *big.Int) (ethkey.KeyV2, error)
+	Add(key ethkey.KeyV2, chainID *big.Int) error
 	Delete(id string) (ethkey.KeyV2, error)
-	Import(keyJSON []byte, password string) (ethkey.KeyV2, error)
+	Import(keyJSON []byte, password string, chainID *big.Int) (ethkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 
-	EnsureKeys() (ethkey.KeyV2, bool, ethkey.KeyV2, bool, error)
+	EnsureKeys(chainID *big.Int) (ethkey.KeyV2, bool, ethkey.KeyV2, bool, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
 
 	SignTx(fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 
 	SendingKeys() (keys []ethkey.KeyV2, err error)
+	FundingKeys() (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error)
 
 	GetState(id string) (ethkey.State, error)
 	SetState(ethkey.State) error
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
+	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 
 	GetV1KeysAsV2() ([]ethkey.KeyV2, []ethkey.State, error)
 }
@@ -73,7 +76,7 @@ func (ks eth) GetAll() (keys []ethkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks eth) Create() (ethkey.KeyV2, error) {
+func (ks eth) Create(chainID *big.Int) (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -83,10 +86,10 @@ func (ks eth) Create() (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, err
 	}
-	return key, ks.add(key)
+	return key, ks.add(key, chainID)
 }
 
-func (ks eth) Add(key ethkey.KeyV2) error {
+func (ks eth) Add(key ethkey.KeyV2, chainID *big.Int) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -95,10 +98,10 @@ func (ks eth) Add(key ethkey.KeyV2) error {
 	if _, found := ks.keyRing.Eth[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.add(key)
+	return ks.add(key, chainID)
 }
 
-func (ks eth) EnsureKeys() (
+func (ks eth) EnsureKeys(chainID *big.Int) (
 	sendingKey ethkey.KeyV2,
 	sendDidExist bool,
 	fundingKey ethkey.KeyV2,
@@ -120,7 +123,7 @@ func (ks eth) EnsureKeys() (
 		if err != nil {
 			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
 		}
-		err = ks.addEthKeyWithState(sendingKey, ethkey.State{IsFunding: false})
+		err = ks.addEthKeyWithState(sendingKey, ethkey.State{EVMChainID: *utils.NewBig(chainID), IsFunding: false})
 		if err != nil {
 			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
 		}
@@ -138,7 +141,7 @@ func (ks eth) EnsureKeys() (
 		if err != nil {
 			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
 		}
-		err = ks.addEthKeyWithState(fundingKey, ethkey.State{IsFunding: true})
+		err = ks.addEthKeyWithState(fundingKey, ethkey.State{EVMChainID: *utils.NewBig(chainID), IsFunding: true})
 		if err != nil {
 			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
 		}
@@ -146,7 +149,7 @@ func (ks eth) EnsureKeys() (
 	return sendingKey, sendDidExist, fundingKey, fundDidExist, nil
 }
 
-func (ks eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
+func (ks eth) Import(keyJSON []byte, password string, chainID *big.Int) (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -159,7 +162,7 @@ func (ks eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
 	if _, found := ks.keyRing.Eth[key.ID()]; found {
 		return ethkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.add(key)
+	return key, ks.add(key, chainID)
 }
 
 func (ks eth) Export(id string, password string) ([]byte, error) {
@@ -216,6 +219,15 @@ func (ks eth) SendingKeys() (sendingKeys []ethkey.KeyV2, err error) {
 		return nil, ErrLocked
 	}
 	return ks.sendingKeys(), nil
+}
+
+func (ks eth) FundingKeys() (fundingKeys []ethkey.KeyV2, err error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	return ks.fundingKeys(), nil
 }
 
 func (ks eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address, error) {
@@ -293,6 +305,20 @@ func (ks eth) GetStatesForKeys(keys []ethkey.KeyV2) (states []ethkey.State, err 
 	return
 }
 
+func (ks eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	for _, s := range ks.keyStates.Eth {
+		if s.EVMChainID.Equal(utils.NewBig(chainID)) {
+			states = append(states, *s)
+		}
+	}
+	return
+}
+
 func (ks eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
@@ -347,8 +373,8 @@ func (ks eth) sendingKeys() (sendingKeys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks eth) add(key ethkey.KeyV2) error {
-	return ks.addEthKeyWithState(key, ethkey.State{})
+func (ks eth) add(key ethkey.KeyV2, chainID *big.Int) error {
+	return ks.addEthKeyWithState(key, ethkey.State{EVMChainID: *utils.NewBig(chainID)})
 }
 
 // caller must hold lock!
