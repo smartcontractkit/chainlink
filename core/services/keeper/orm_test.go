@@ -6,13 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
 )
@@ -340,51 +338,4 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	assertLastRunHeight(t, store.DB, upkeep, 100)
 	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
 	assertLastRunHeight(t, store.DB, upkeep, 0)
-}
-
-func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-	txm := new(bptxmmocks.TxManager)
-	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
-
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	registry, _ := cltest.MustInsertKeeperRegistry(t, store.DB, ethKeyStore)
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
-
-	payload := common.Hex2Bytes("1234")
-	fromAddress := registry.FromAddress.Address()
-	toAddress := registry.ContractAddress.Address()
-
-	var ethTX bulletprooftxmanager.EthTx
-	var err error
-	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-	err = orm.WithTransaction(func(ctx context.Context) error {
-		txm.On("CreateEthTransaction", mock.IsType(store.DB), bulletprooftxmanager.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Meta:           nil,
-			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
-		}).Once().Return(bulletprooftxmanager.EthTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-		}, nil)
-		ethTX, err = orm.CreateEthTransactionForUpkeep(ctx, upkeep, payload)
-		return err
-	})
-	require.NoError(t, err)
-
-	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
-	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
-	require.Equal(t, payload, ethTX.EncodedPayload)
-	require.Equal(t, gasLimit, ethTX.GasLimit)
-
-	txm.AssertExpectations(t)
 }
