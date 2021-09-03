@@ -7,13 +7,13 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -97,7 +97,7 @@ type client struct {
 	chainID     *big.Int
 	mocked      bool
 
-	roundRobinCount uint32 // atomic
+	roundRobinCount atomic.Uint32
 }
 
 var _ Client = (*client)(nil)
@@ -106,12 +106,10 @@ var _ Client = (*client)(nil)
 // Currently only supports one primary
 func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID *big.Int) (*client, error) {
 	return &client{
-		logger,
-		primaryNode,
-		sendOnlyNodes,
-		chainID,
-		false,
-		0,
+		logger:      logger,
+		primary:     primaryNode,
+		secondaries: sendOnlyNodes,
+		chainID:     chainID,
 	}, nil
 }
 
@@ -379,8 +377,8 @@ func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.Ba
 		return client.BatchCallContext(ctx, b)
 	}
 
-	// NOTE: AddUint32 returns the number after addition, so we must -1 to get the "current" count
-	count := atomic.AddUint32(&client.roundRobinCount, 1) - 1
+	// NOTE: Inc returns the number after addition, so we must -1 to get the "current" count
+	count := client.roundRobinCount.Inc() - 1
 	// idx 0 indicates the primary, subsequent indices represent secondaries
 	rr := int(count % uint32(nSecondaries+1))
 
