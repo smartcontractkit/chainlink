@@ -12,9 +12,9 @@ import (
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
-	config.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
+	config.Overrides.EthereumDisabled = null.BoolFrom(true)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
@@ -56,9 +56,9 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
-			config := cltest.NewTestEVMConfig(t)
-			config.GeneralConfig.Overrides.AllowOrigins = null.StringFrom(test.allow)
-			config.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
+			config := cltest.NewTestGeneralConfig(t)
+			config.Overrides.AllowOrigins = null.StringFrom(test.allow)
+			config.Overrides.EthereumDisabled = null.BoolFrom(true)
 			app, cleanup := cltest.NewApplicationWithConfig(t, config)
 			defer cleanup()
 

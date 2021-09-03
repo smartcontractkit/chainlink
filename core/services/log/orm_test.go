@@ -16,7 +16,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	orm := log.NewORM(store.DB)
+	orm := log.NewORM(store.DB, cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, store, addr)
@@ -64,7 +64,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	orm := log.NewORM(store.DB)
+	orm := log.NewORM(store.DB, cltest.FixtureChainID)
 
 	t.Run("returns the correct value", func(t *testing.T) {
 		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)

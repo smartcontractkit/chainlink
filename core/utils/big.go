@@ -137,12 +137,20 @@ func (b *Big) ToInt() *big.Int {
 
 // String returns the base 10 encoding of b.
 func (b *Big) String() string {
-	return b.ToInt().Text(10)
+	return b.ToInt().String()
 }
 
 // Hex returns the hex encoding of b.
 func (b *Big) Hex() string {
 	return hexutil.EncodeBig(b.ToInt())
+}
+
+func (b *Big) Cmp(c *Big) int {
+	return b.ToInt().Cmp(c.ToInt())
+}
+
+func (b *Big) Equal(c *Big) bool {
+	return b.Cmp(c) == 0
 }
 
 // BigIntSlice attaches the methods of sort.Interface to []*big.Int, sorting in increasing order.

@@ -12,5 +12,17 @@ export class Chains {
     return this.index()
   }
 
+  @boundMethod
+  public createChain(
+    request: models.CreateChainRequest,
+  ): Promise<jsonapi.ApiResponse<models.Chain>> {
+    return this.create(request)
+  }
+
   private index = this.api.fetchResource<{}, models.Chain[]>(ENDPOINT)
+
+  private create = this.api.createResource<
+    models.CreateChainRequest,
+    models.Chain
+  >(ENDPOINT)
 }
