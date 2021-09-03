@@ -34,9 +34,9 @@ func (o *orm) CreateChain(id utils.Big, config types.ChainCfg) (chain types.Chai
 	return chain, err
 }
 
-func (o *orm) ConfigureChain(id utils.Big, config types.ChainCfg) (chain types.Chain, err error) {
-	sql := `UPDATE evm_chains SET cfg = $1, updated_at = now() WHERE id = $2 RETURNING *`
-	err = o.db.Get(&chain, sql, config, id)
+func (o *orm) UpdateChain(id utils.Big, enabled bool, config types.ChainCfg) (chain types.Chain, err error) {
+	sql := `UPDATE evm_chains SET enabled = $1, cfg = $2, updated_at = now() WHERE id = $3 RETURNING *`
+	err = o.db.Get(&chain, sql, enabled, config, id)
 	return chain, err
 }
 
