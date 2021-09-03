@@ -22,7 +22,7 @@ type NewNode struct {
 }
 
 type ChainConfigORM interface {
-	ConfigureChain(id utils.Big, config ChainCfg) (Chain, error)
+	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
 	StoreString(chainID *big.Int, key, val string) error
 	Clear(chainID *big.Int, key string) error
 }

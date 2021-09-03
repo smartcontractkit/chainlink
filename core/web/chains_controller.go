@@ -71,6 +71,11 @@ func (cc *ChainsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
 }
 
+type UpdateChainRequest struct {
+	Enabled bool           `json:"enabled"`
+	Config  types.ChainCfg `json:"config"`
+}
+
 func (cc *ChainsController) Update(c *gin.Context) {
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(c.Param("ID")))
@@ -79,13 +84,13 @@ func (cc *ChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	var config types.ChainCfg
-	if err = c.ShouldBindJSON(&config); err != nil {
+	var request UpdateChainRequest
+	if err = c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	chain, err := cc.App.EVMORM().ConfigureChain(id, config)
+	chain, err := cc.App.EVMORM().UpdateChain(id, request.Enabled, request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

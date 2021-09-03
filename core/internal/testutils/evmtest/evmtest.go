@@ -148,7 +148,7 @@ func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes
 	panic("not implemented")
 }
 
-func (mo *MockORM) ConfigureChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
+func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
 	panic("not implemented")
 }
 

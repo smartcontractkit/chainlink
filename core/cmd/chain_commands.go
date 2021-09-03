@@ -28,6 +28,7 @@ func (p *ChainPresenter) ToRow() []string {
 
 	row := []string{
 		p.GetID(),
+		fmt.Sprintf("%v", p.Enabled),
 		string(config),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
@@ -39,7 +40,7 @@ type ChainPresenters []ChainPresenter
 
 // RenderTable implements TableRenderer
 func (ps ChainPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Config", "Created", "Updated"}
+	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -169,7 +170,11 @@ func (cli *Client) ConfigureChain(c *cli.Context) (err error) {
 	}
 
 	// Send the new config
-	body, err := json.Marshal(config)
+	params = map[string]interface{}{
+		"enabled": chain.Enabled,
+		"config":  config,
+	}
+	body, err := json.Marshal(params)
 	if err != nil {
 		return cli.errorOut(err)
 	}
