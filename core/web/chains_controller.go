@@ -1,8 +1,10 @@
 package web
 
 import (
+	"database/sql"
 	"net/http"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -90,9 +92,12 @@ func (cc *ChainsController) Update(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.EVMORM().UpdateChain(id, request.Enabled, request.Config)
+	chain, err := cc.App.GetChainSet().Configure(id.ToInt(), request.Enabled, request.Config)
 
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		jsonAPIError(c, http.StatusNotFound, err)
+		return
+	} else if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}

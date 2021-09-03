@@ -81,27 +81,6 @@ func (_m *ORM) Clear(chainID *big.Int, key string) error {
 	return r0
 }
 
-// ConfigureChain provides a mock function with given fields: id, config
-func (_m *ORM) ConfigureChain(id utils.Big, config types.ChainCfg) (types.Chain, error) {
-	ret := _m.Called(id, config)
-
-	var r0 types.Chain
-	if rf, ok := ret.Get(0).(func(utils.Big, types.ChainCfg) types.Chain); ok {
-		r0 = rf(id, config)
-	} else {
-		r0 = ret.Get(0).(types.Chain)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(utils.Big, types.ChainCfg) error); ok {
-		r1 = rf(id, config)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateChain provides a mock function with given fields: id, config
 func (_m *ORM) CreateChain(id utils.Big, config types.ChainCfg) (types.Chain, error) {
 	ret := _m.Called(id, config)
@@ -267,4 +246,25 @@ func (_m *ORM) StoreString(chainID *big.Int, key string, val string) error {
 	}
 
 	return r0
+}
+
+// UpdateChain provides a mock function with given fields: id, enabled, config
+func (_m *ORM) UpdateChain(id utils.Big, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	ret := _m.Called(id, enabled, config)
+
+	var r0 types.Chain
+	if rf, ok := ret.Get(0).(func(utils.Big, bool, types.ChainCfg) types.Chain); ok {
+		r0 = rf(id, enabled, config)
+	} else {
+		r0 = ret.Get(0).(types.Chain)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(utils.Big, bool, types.ChainCfg) error); ok {
+		r1 = rf(id, enabled, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }

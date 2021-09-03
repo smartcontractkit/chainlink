@@ -22,7 +22,6 @@ type NewNode struct {
 }
 
 type ChainConfigORM interface {
-	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
 	StoreString(chainID *big.Int, key, val string) error
 	Clear(chainID *big.Int, key string) error
 }
@@ -32,6 +31,7 @@ type ORM interface {
 	EnabledChainsWithNodes() ([]Chain, error)
 	Chain(id utils.Big) (chain Chain, err error)
 	CreateChain(id utils.Big, config ChainCfg) (Chain, error)
+	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
 	DeleteChain(id utils.Big) error
 	Chains(offset, limit int) ([]Chain, int, error)
 	CreateNode(data NewNode) (Node, error)
