@@ -60,6 +60,27 @@ func (_m *ChainSet) Close() error {
 	return r0
 }
 
+// Configure provides a mock function with given fields: id, enabled, config
+func (_m *ChainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	ret := _m.Called(id, enabled, config)
+
+	var r0 types.Chain
+	if rf, ok := ret.Get(0).(func(*big.Int, bool, types.ChainCfg) types.Chain); ok {
+		r0 = rf(id, enabled, config)
+	} else {
+		r0 = ret.Get(0).(types.Chain)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*big.Int, bool, types.ChainCfg) error); ok {
+		r1 = rf(id, enabled, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Default provides a mock function with given fields:
 func (_m *ChainSet) Default() (evm.Chain, error) {
 	ret := _m.Called()

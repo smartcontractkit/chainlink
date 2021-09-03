@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true ?")
@@ -29,6 +31,7 @@ type ChainSet interface {
 	service.Service
 	Get(id *big.Int) (Chain, error)
 	Default() (Chain, error)
+	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
 	Chains() []Chain
 	ChainCount() int
 	ORM() types.ORM
@@ -39,6 +42,7 @@ type chainSet struct {
 	chains    map[string]*chain
 	logger    *logger.Logger
 	orm       types.ORM
+	opts      ChainSetOpts
 }
 
 func (cll *chainSet) Start() (err error) {
@@ -89,6 +93,48 @@ func (cll *chainSet) Default() (Chain, error) {
 	}
 
 	return cll.Get(cll.defaultID)
+}
+
+func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	// Update configuration stored in the database
+	bid := utils.NewBig(id)
+	dbchain, err := cll.orm.UpdateChain(*bid, enabled, config)
+	if err != nil {
+		return types.Chain{}, err
+	}
+	// TODO: replace with math.MaxInt once we make go 1.17 mandatory
+	nodes, _, err := cll.orm.NodesForChain(*bid, 0, math.MaxInt16)
+	if err != nil {
+		return types.Chain{}, err
+	}
+	dbchain.Nodes = nodes
+
+	// TODO: the rest of this call likely needs to be synchronized?
+	chain, err := cll.Get(id)
+	exists := err == nil
+	cid := id.String()
+
+	switch {
+	case exists && !enabled:
+		// Chain was toggled to disabled
+		delete(cll.chains, cid)
+		return types.Chain{}, chain.Close()
+	case !exists && enabled:
+		// Chain was toggled to enabled
+		chain, err := newChain(dbchain, cll.opts)
+		if errors.Cause(err) == ErrNoPrimaryNode {
+			cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+		} else if err != nil {
+			return types.Chain{}, err
+		}
+		if err = chain.Start(); err != nil {
+			return types.Chain{}, err
+		}
+		cll.chains[cid] = chain
+		return dbchain, nil
+	}
+
+	return dbchain, nil
 }
 
 func (cll *chainSet) Chains() (c []Chain) {
@@ -144,7 +190,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	}
 	opts.Logger.Infof("Creating ChainSet with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	var err error
-	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), opts.Logger, opts.ORM}
+	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), opts.Logger, opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		opts.Logger.Infof("EVM: Loading chain %s", cid)
