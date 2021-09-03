@@ -9,7 +9,7 @@ import { evmRevert } from "../test-helpers/matchers";
 let concreteChainlinkClientFactory: ContractFactory;
 let emptyOracleFactory: ContractFactory;
 let getterSetterFactory: ContractFactory;
-let oracleFactory: ContractFactory;
+let operatorFactory: ContractFactory;
 let linkTokenFactory: ContractFactory;
 
 let roles: Roles;
@@ -29,7 +29,7 @@ before(async () => {
     "src/v0.5/tests/GetterSetter.sol:GetterSetter",
     roles.defaultAccount,
   );
-  oracleFactory = await ethers.getContractFactory("src/v0.4/Oracle.sol:Oracle", roles.defaultAccount);
+  operatorFactory = await ethers.getContractFactory("Operator", roles.defaultAccount);
   linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
 });
 
@@ -43,8 +43,12 @@ describe("ConcreteChainlinkClient", () => {
 
   beforeEach(async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy();
-    oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address);
-    newoc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address);
+    oc = await operatorFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address, await roles.defaultAccount.getAddress());
+    newoc = await operatorFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address, await roles.defaultAccount.getAddress());
     gs = await getterSetterFactory.connect(roles.defaultAccount).deploy();
     cc = await concreteChainlinkClientFactory.connect(roles.defaultAccount).deploy(link.address, oc.address);
   });
@@ -131,6 +135,68 @@ describe("ConcreteChainlinkClient", () => {
     });
   });
 
+  describe("#requestOracleData", () => {
+    it("emits an event from the contract showing the run ID", async () => {
+      const tx = await cc.publicRequestOracleData(
+        specId,
+        cc.address,
+        ethers.utils.toUtf8Bytes("fulfillRequest(bytes32,bytes32)"),
+        0,
+      );
+
+      const { events, logs } = await tx.wait();
+
+      assert.equal(4, events?.length);
+
+      assert.equal(logs?.[0].address, cc.address);
+      assert.equal(events?.[0].event, "ChainlinkRequested");
+    });
+  });
+
+  describe("#requestOracleDataFrom", () => {
+    it("emits an event from the contract showing the run ID", async () => {
+      const tx = await cc.publicRequestOracleDataFrom(
+        newoc.address,
+        specId,
+        cc.address,
+        ethers.utils.toUtf8Bytes("fulfillRequest(bytes32,bytes32)"),
+        0,
+      );
+      const { events } = await tx.wait();
+
+      assert.equal(4, events?.length);
+      assert.equal(events?.[0].event, "ChainlinkRequested");
+    });
+
+    it("emits an event on the target oracle contract", async () => {
+      const tx = await cc.publicRequestOracleDataFrom(
+        newoc.address,
+        specId,
+        cc.address,
+        ethers.utils.toUtf8Bytes("fulfillRequest(bytes32,bytes32)"),
+        0,
+      );
+      const { logs } = await tx.wait();
+      const event = logs && newoc.interface.parseLog(logs[3]);
+
+      assert.equal(4, logs?.length);
+      assert.equal(event?.name, "OracleRequest");
+    });
+
+    it("does not modify the stored oracle address", async () => {
+      await cc.publicRequestOracleDataFrom(
+        newoc.address,
+        specId,
+        cc.address,
+        ethers.utils.toUtf8Bytes("fulfillRequest(bytes32,bytes32)"),
+        0,
+      );
+
+      const actualOracleAddress = await cc.publicOracleAddress();
+      assert.equal(oc.address, actualOracleAddress);
+    });
+  });
+
   describe("#cancelChainlinkRequest", () => {
     let requestId: string;
     // a concrete chainlink attached to an empty oracle
@@ -184,14 +250,15 @@ describe("ConcreteChainlinkClient", () => {
     });
 
     it("emits an event marking the request fulfilled", async () => {
-      const tx = await oc.fulfillOracleRequest(
-        ...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")),
-      );
+      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
+      const tx = await oc
+        .connect(roles.defaultAccount)
+        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
       const { logs } = await tx.wait();
 
-      const event = logs && cc.interface.parseLog(logs[0]);
+      const event = logs && cc.interface.parseLog(logs[1]);
 
-      assert.equal(1, logs?.length);
+      assert.equal(2, logs?.length);
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args.id);
     });
@@ -213,14 +280,15 @@ describe("ConcreteChainlinkClient", () => {
     });
 
     it("emits an event marking the request fulfilled", async () => {
-      const tx = await oc.fulfillOracleRequest(
-        ...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")),
-      );
+      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
+      const tx = await oc
+        .connect(roles.defaultAccount)
+        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
 
       const { logs } = await tx.wait();
-      const event = logs && cc.interface.parseLog(logs[0]);
+      const event = logs && cc.interface.parseLog(logs[1]);
 
-      assert.equal(1, logs?.length);
+      assert.equal(2, logs?.length);
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args?.id);
     });
@@ -253,6 +321,7 @@ describe("ConcreteChainlinkClient", () => {
     });
 
     it("allows the external request to be fulfilled", async () => {
+      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       await oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
     });
 
