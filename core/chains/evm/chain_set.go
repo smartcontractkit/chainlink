@@ -3,6 +3,7 @@ package evm
 import (
 	"math"
 	"math/big"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -40,16 +41,18 @@ type ChainSet interface {
 type chainSet struct {
 	defaultID *big.Int
 	chains    map[string]*chain
+	chainsMu  sync.RWMutex
 	logger    *logger.Logger
 	orm       types.ORM
 	opts      ChainSetOpts
 }
 
 func (cll *chainSet) Start() (err error) {
-	for _, c := range cll.Chains() {
+	chains := cll.Chains()
+	for _, c := range chains {
 		err = multierr.Combine(err, c.Start())
 	}
-	cll.logger.Infof("EVM: Started %d chains, default chain ID is %d", len(cll.chains), cll.defaultID)
+	cll.logger.Infof("EVM: Started %d chains, default chain ID is %d", len(chains), cll.defaultID)
 	return
 }
 func (cll *chainSet) Close() (err error) {
@@ -77,6 +80,11 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())
 		return cll.Default()
 	}
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
+	if len(cll.chains) == 0 {
+		return nil, ErrNoChains
+	}
 	c, exists := cll.chains[id.String()]
 	if exists {
 		return c, nil
@@ -85,9 +93,6 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 }
 
 func (cll *chainSet) Default() (Chain, error) {
-	if len(cll.chains) == 0 {
-		return nil, ErrNoChains
-	}
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
 	}
@@ -109,10 +114,11 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 	}
 	dbchain.Nodes = nodes
 
-	// TODO: the rest of this call likely needs to be synchronized?
-	chain, err := cll.Get(id)
-	exists := err == nil
 	cid := id.String()
+
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+	chain, exists := cll.chains[cid]
 
 	switch {
 	case exists && !enabled:
@@ -138,6 +144,8 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 }
 
 func (cll *chainSet) Chains() (c []Chain) {
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
 	for _, chain := range cll.chains {
 		c = append(c, chain)
 	}
@@ -145,6 +153,8 @@ func (cll *chainSet) Chains() (c []Chain) {
 }
 
 func (cll *chainSet) ChainCount() int {
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
 	return len(cll.chains)
 }
 
@@ -190,7 +200,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	}
 	opts.Logger.Infof("Creating ChainSet with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	var err error
-	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), opts.Logger, opts.ORM, opts}
+	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), sync.RWMutex{}, opts.Logger, opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		opts.Logger.Infof("EVM: Loading chain %s", cid)
