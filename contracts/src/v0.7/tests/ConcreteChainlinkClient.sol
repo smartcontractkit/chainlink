@@ -68,6 +68,32 @@ contract ConcreteChainlinkClient is ChainlinkClient {
     sendChainlinkRequestTo(_oracle, run, _wei);
   }
 
+  function publicRequestOracleData(
+    bytes32 _id,
+    address _address,
+    bytes memory _fulfillmentSignature,
+    uint256 _wei
+  )
+    public
+  {
+    Chainlink.Request memory req = buildChainlinkRequest(
+      _id, _address, bytes4(keccak256(_fulfillmentSignature)));
+    requestOracleData(req, _wei);
+  }
+
+  function publicRequestOracleDataFrom(
+    address _oracle,
+    bytes32 _id,
+    address _address,
+    bytes memory _fulfillmentSignature,
+    uint256 _wei
+  )
+    public
+  {
+    Chainlink.Request memory run = buildChainlinkRequest(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
+    requestOracleDataFrom(_oracle, run, _wei);
+  }
+
   function publicCancelRequest(
     bytes32 _requestId,
     uint256 _payment,
