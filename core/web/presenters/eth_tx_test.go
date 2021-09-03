@@ -49,7 +49,8 @@ func TestEthTxResource(t *testing.T) {
 			"nonce": "",
 			"sentAt": "",
 			"to": "0x0000000000000000000000000000000000000002",
-			"value": "0.000000000000000001"
+			"value": "0.000000000000000001",
+			"evmChainID": "0"
 		  }
 		}
 	  }
@@ -94,7 +95,8 @@ func TestEthTxResource(t *testing.T) {
 			"nonce": "100",
 			"sentAt": "300",
 			"to": "0x0000000000000000000000000000000000000002",
-			"value": "0.000000000000000001"
+			"value": "0.000000000000000001",
+			"evmChainID": "0"
 		  }
 		}
 	  }

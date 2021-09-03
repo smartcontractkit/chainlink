@@ -21,7 +21,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -32,7 +32,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		err := ns.SyncAll(context.Background(), sendingKeys)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -49,7 +49,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -60,7 +60,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
@@ -75,7 +75,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
@@ -86,7 +86,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 0)
@@ -101,7 +101,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		db := store.DB
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
@@ -118,7 +118,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
 		assertDatabaseNonce(t, db, key1, 5)
@@ -136,7 +136,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 		cltest.MustInsertInProgressEthTxWithAttempt(t, db, 1, key1)
 
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 1 which is ahead of keys.next_nonce (0)
 			// by 1, but does not need to change when taking into account the in_progress tx
@@ -144,13 +144,13 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		})).Return(uint64(1), nil)
 		ns := bulletprooftxmanager.NewNonceSyncer(store.DB, ethClient)
 
-		sendingKeys := cltest.MustSendingKeys(t, ethKeyStore)
+		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 		assertDatabaseNonce(t, db, key1, 0)
 
 		ethClient.AssertExpectations(t)
 
-		ethClient = cltest.NewEthClientMock(t)
+		ethClient = cltest.NewEthClientMockWithDefaultChain(t)
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// key1 has chain nonce of 2 which is ahead of keys.next_nonce (0)
 			// by 2, but only ahead by 1 if we count the in_progress tx as +1

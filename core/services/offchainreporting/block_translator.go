@@ -4,10 +4,14 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
+
+type Chain interface {
+	IsArbitrum() bool
+	IsOptimism() bool
+}
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
 // block number range suitable for query in FilterLogs
@@ -16,10 +20,8 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(chain *chains.Chain, client eth.Client) BlockTranslator {
-	if chain == nil {
-		return &l1BlockTranslator{}
-	} else if chain.IsArbitrum() {
+func NewBlockTranslator(chain Chain, client eth.Client) BlockTranslator {
+	if chain.IsArbitrum() {
 		return NewArbitrumBlockTranslator(client)
 	} else if chain.IsOptimism() {
 		return newOptimismBlockTranslator()

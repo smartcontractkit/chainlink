@@ -42,10 +42,10 @@ func TestNewLockingStrategy(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc := cltest.NewTestGeneralConfig(t)
 
 	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Overrides.DatabaseTimeout = &d
 	delay := tc.DatabaseTimeout()
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
@@ -70,11 +70,11 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc := cltest.NewTestGeneralConfig(t)
 	delay := tc.DatabaseTimeout()
 
 	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Overrides.DatabaseTimeout = &d
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
 		t.Skip("No postgres DatabaseURL set.")
@@ -100,9 +100,9 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc := cltest.NewTestGeneralConfig(t)
 	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Overrides.DatabaseTimeout = &d
 
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
@@ -135,9 +135,9 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc := cltest.NewTestGeneralConfig(t)
 	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Overrides.DatabaseTimeout = &d
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
@@ -167,9 +167,9 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc := cltest.NewTestGeneralConfig(t)
 	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Overrides.DatabaseTimeout = &d
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 

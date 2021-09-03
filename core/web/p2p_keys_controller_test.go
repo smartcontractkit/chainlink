@@ -39,7 +39,7 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
+	app, cleanup := cltest.NewApplicationEVMDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

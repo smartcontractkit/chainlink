@@ -2,10 +2,12 @@ package log
 
 import (
 	"database/sql"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
 
@@ -18,13 +20,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db *gorm.DB
+	db         *gorm.DB
+	evmChainID utils.Big
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB) *orm {
-	return &orm{db}
+func NewORM(db *gorm.DB, evmChainID big.Int) *orm {
+	return &orm{db, *utils.NewBig(&evmChainID)}
 }
 
 func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID int32) (consumed bool, err error) {
@@ -33,11 +36,13 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
         WHERE block_hash = ?
         AND log_index = ?
         AND job_id = ?
+		AND evm_chain_id = ?
     `
 	args := []interface{}{
 		blockHash,
 		logIndex,
 		jobID,
+		o.evmChainID,
 	}
 
 	err = tx.Raw(q, args...).Row().Scan(&consumed)
@@ -53,9 +58,10 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 		SELECT block_hash, log_index, job_id FROM log_broadcasts
 		WHERE block_number >= ?
 		AND block_number <= ?
+		AND evm_chain_id = ?
 		AND consumed = true
 	`
-	err := o.db.Raw(query, fromBlockNum, toBlockNum).Find(&broadcasts).Error
+	err := o.db.Raw(query, fromBlockNum, toBlockNum, o.evmChainID).Find(&broadcasts).Error
 	if err != nil {
 		return make([]LogBroadcast, 0), err
 	}
@@ -64,8 +70,8 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 
 func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error {
 	query := tx.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
-    `, blockHash, blockNumber, logIndex, jobID)
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, consumed, evm_chain_id) VALUES (?, ?, ?, ?, NOW(), true, ?)
+    `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {
@@ -76,9 +82,10 @@ func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNum
 
 // LogBroadcast - gorm-compatible receive data from log_broadcasts table columns
 type LogBroadcast struct {
-	BlockHash common.Hash
-	LogIndex  uint
-	JobID     int32
+	BlockHash  common.Hash
+	LogIndex   uint
+	JobID      int32
+	EVMChainID utils.Big
 }
 
 func (b LogBroadcast) AsKey() LogBroadcastAsKey {
