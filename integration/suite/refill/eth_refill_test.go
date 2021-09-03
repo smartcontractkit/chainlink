@@ -20,14 +20,14 @@ import (
 
 var _ = Describe("FluxAggregator ETH Refill @refill", func() {
 	var (
-		s             *actions.DefaultSuiteSetup
-		adapter       environment.ExternalAdapter
-		nodes         []client.Chainlink
-		nodeAddresses []common.Address
-		err           error
-		fluxInstance  contracts.FluxAggregator
+		s                *actions.DefaultSuiteSetup
+		adapter          environment.ExternalAdapter
+		nodes            []client.Chainlink
+		nodeAddresses    []common.Address
+		err              error
+		fluxInstance     contracts.FluxAggregator
+		fluxRoundTimeout time.Duration = 30 * time.Second
 	)
-	fluxRoundTimeout := 30 * time.Second
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
@@ -147,7 +147,7 @@ var _ = Describe("FluxAggregator ETH Refill @refill", func() {
 			err = s.Client.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())
 
-			fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(3), fluxRoundTimeout)
+			fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
 			s.Client.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 			err = s.Client.WaitForEvents()
 			Expect(err).ShouldNot(HaveOccurred())

@@ -1,11 +1,10 @@
-package refill
+package contracts_test
 
 import (
-	"os"
-	"testing"
-
 	"github.com/smartcontractkit/integrations-framework/config"
 	"github.com/smartcontractkit/integrations-framework/tools"
+	"os"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -14,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestRefill(t *testing.T) {
+func TestContracts(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
 	conf, err := config.NewConfig(tools.ProjectRoot)
@@ -22,6 +21,6 @@ func TestRefill(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../../logs/tests-refill.xml")
-	RunSpecsWithDefaultAndCustomReporters(t, "Refill suite", []Reporter{junitReporter})
+	junitReporter := reporters.NewJUnitReporter("junit.xml")
+	RunSpecsWithDefaultAndCustomReporters(t, "Chaos suite", []Reporter{junitReporter})
 }

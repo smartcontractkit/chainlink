@@ -1,4 +1,4 @@
-package refill
+package performance_test
 
 import (
 	"os"
@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestRefill(t *testing.T) {
+func TestPerformance(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
 	conf, err := config.NewConfig(tools.ProjectRoot)
@@ -22,6 +22,6 @@ func TestRefill(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../../logs/tests-refill.xml")
-	RunSpecsWithDefaultAndCustomReporters(t, "Refill suite", []Reporter{junitReporter})
+	junitReporter := reporters.NewJUnitReporter("../../logs/tests-performance.xml")
+	RunSpecsWithDefaultAndCustomReporters(t, "Performance suite", []Reporter{junitReporter})
 }

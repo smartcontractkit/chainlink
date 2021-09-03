@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuite name="Contract Suite" tests="1" failures="0" errors="0" time="95.386">
+      <testcase name="OCR Feed @ocr Deploys and watches an OCR feed @ocr all the same version" classname="Contract Suite" time="95.38134009"></testcase>
+  </testsuite>

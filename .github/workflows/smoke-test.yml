@@ -39,7 +39,7 @@ jobs:
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           export APPS_CHAINLINK_VERSION=${{ github.event.inputs.versionTag }}
-          ginkgo -r -p -keepGoing --trace --randomizeAllSpecs --progress ./integration/suite/...
+          ginkgo -r -p -keepGoing --trace --randomizeAllSpecs -skipPackage=./integration/suite/performance,./integration/suite/chaos ./integration/suite/...
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
