@@ -258,8 +258,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	attempt2_1 := etx2.EthTxAttempts[0]
 	require.Len(t, attempt2_1.EthReceipts, 0)
 
-	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt", func(t *testing.T) {
+	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt (tx reverted)", func(t *testing.T) {
 		bptxmReceipt := bulletprooftxmanager.Receipt{
+			Status:           0, // a revert
 			TxHash:           attempt1_1.Hash,
 			BlockHash:        utils.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -276,7 +277,9 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			Message: "something different",
 		}
 
+		// a call to get tx revert cause
 		ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, jsonErr)
+
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&

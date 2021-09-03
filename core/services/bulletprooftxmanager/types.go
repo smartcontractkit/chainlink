@@ -129,7 +129,7 @@ func (r *Receipt) UnmarshalJSON(input []byte) error {
 		BlockHash         *common.Hash     `json:"blockHash,omitempty"`
 		BlockNumber       *hexutil.Big     `json:"blockNumber,omitempty"`
 		TransactionIndex  *hexutil.Uint    `json:"transactionIndex"`
-		ReturnData        *hexutil.Bytes   `json:"returnData"` //
+		ReturnData        *hexutil.Bytes   `json:"returnData"`
 	}
 	var dec Receipt
 	if err := json.Unmarshal(input, &dec); err != nil {
