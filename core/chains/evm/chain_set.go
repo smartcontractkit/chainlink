@@ -82,9 +82,6 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	}
 	cll.chainsMu.RLock()
 	defer cll.chainsMu.RUnlock()
-	if len(cll.chains) == 0 {
-		return nil, ErrNoChains
-	}
 	c, exists := cll.chains[id.String()]
 	if exists {
 		return c, nil
@@ -93,6 +90,12 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 }
 
 func (cll *chainSet) Default() (Chain, error) {
+	cll.chainsMu.RLock()
+	len := len(cll.chains)
+	cll.chainsMu.RUnlock()
+	if len == 0 {
+		return nil, ErrNoChains
+	}
 	if cll.defaultID == nil {
 		return nil, errors.New("no default chain ID specified")
 	}
