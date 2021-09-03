@@ -11,13 +11,6 @@ set -ex
 # Our registry, hosted on Public ECR.
 export APPS_CHAINLINK_IMAGE=public.ecr.aws/z0b1w9r9/chainlink
 
-branch="$1"
-tag="$2"
-sha="$3"
-
-branch_tag=$(tools/ci/branch2tag ${branch})     # ie: develop, latest, candidate-*, etc.
-version_tag=$(tools/ci/gittag2dockertag ${tag}) # aka GIT_TAG. v0.9.1 -> 0.9.1
-
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
   # Only if we don't have an explorer tag
@@ -43,5 +36,4 @@ fi
 test() {
   export APPS_CHAINLINK_VERSION=$1 
   echo "Testing with the image $APPS_CHAINLINK_IMAGE:$APPS_CHAINLINK_VERSION"
-  ginkgo -r -p -keepGoing --trace --randomizeAllSpecs --progress ./integration/suite/...
 }

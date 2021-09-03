@@ -1,49 +1,54 @@
 name: Smoke Test
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
+    inputs:
+      versionTag:
+        description: "The docker version tag"
+        required: false
+        default: ""
 
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, sdlc-ghr-prod]
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-      - name: I'm Working!
-        run: echo "I'm Working!"
-      # - name: Configure AWS Credentials
-      #   uses: aws-actions/configure-aws-credentials@v1
-      #   with:
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws-region: ${{ secrets.AWS_REGION }}
-      #     role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-      #     role-duration-seconds: 3600
-      # - name: Prepare KUBECONFIG
-      #   run: echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
-      # - name: Setup go
-      #   uses: actions/setup-go@v1
-      #   with:
-      #     go-version: 1.16
-      # - name: Install Ginkgo CLI
-      #   run: go install github.com/onsi/ginkgo/ginkgo
-      # - name: Download Go Vendor Packages
-      #   run: go mod download
-      # - name: Run Tests
-      #   run: |
-      #     export PATH=$PATH:$(go env GOPATH)/bin
-      #     ./tools/ci/smoke_test_chainlink.sh
-      # - name: Publish Test Results
-      #   uses: mikepenz/action-junit-report@v2
-      #   if: always()
-      #   with:
-      #     report_paths: '**/logs/tests-*.xml'
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      # - name: Publish Artifacts
-      #   if: failure()
-      #   uses: actions/upload-artifact@v1
-      #   with:
-      #     name: test-logs
-      #     path: .integration/suite/logs
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Prepare KUBECONFIG
+        run: echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
+      - name: Setup go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - name: Install Ginkgo CLI
+        run: go install github.com/onsi/ginkgo/ginkgo
+      - name: Download Go Vendor Packages
+        run: go mod download
+      - name: Run Tests
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          export APPS_CHAINLINK_VERSION=${{ github.event.inputs.versionTag }}
+          ginkgo -r -p -keepGoing --trace --randomizeAllSpecs --progress ./integration/suite/...
+      - name: Publish Test Results
+        uses: mikepenz/action-junit-report@v2
+        if: always()
+        with:
+          report_paths: '**/logs/tests-*.xml'
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: test-logs
+          path: .integration/suite/logs
