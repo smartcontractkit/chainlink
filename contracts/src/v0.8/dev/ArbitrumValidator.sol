@@ -8,6 +8,7 @@ import "../SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be re/moved after audit */
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
+import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
 import "./interfaces/FlagsInterface.sol";
 import "./interfaces/ForwarderInterface.sol";
@@ -326,6 +327,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       uint256 minGasCostL2Value = maxSubmissionCost + maxGas * gasPriceBid;
       require(gasCostL2Value >= minGasCostL2Value, "Gas cost provided is too low");
     }
+    // if refund addr not set, default to the L2 xDomain alias address
+    refundAddr = refundAddr == address(0x0) ? AddressAliasHelper.applyL1ToL2Alias(address(this)) : refundAddr;
     s_gasConfig = GasConfiguration(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
     emit GasConfigurationSet(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
   }
