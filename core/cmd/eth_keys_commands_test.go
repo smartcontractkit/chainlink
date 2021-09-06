@@ -126,7 +126,9 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
-	assert.NoError(t, client.CreateETHKey(nilContext))
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.CreateETHKey(c))
 
 	cltest.AssertCount(t, db, ethkey.State{}, 2)
 	keys, err = app.KeyStore.Eth().GetAll()
@@ -134,7 +136,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.Equal(t, 2, len(keys))
 }
 
-func TestClient_DeleteEthKey(t *testing.T) {
+func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
 	ethClient := newEthMock(t)
