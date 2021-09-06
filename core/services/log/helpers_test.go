@@ -77,9 +77,10 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	lb := log.NewBroadcaster(orm, ethClient, config, logger.Default, highestSeenHead)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
-		Client:        ethClient,
-		GeneralConfig: config,
-		DB:            db,
+		Client:         ethClient,
+		GeneralConfig:  config,
+		DB:             db,
+		LogBroadcaster: &log.NullBroadcaster{},
 	})
 	kst := cltest.NewKeyStore(t, db)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, kst)

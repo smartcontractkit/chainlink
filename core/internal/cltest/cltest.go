@@ -944,6 +944,10 @@ const (
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
+
+	// DefaultWaitTimeout - to be used especially in parallel tests, as their
+	// individual execution can get paused for multiple seconds.
+	DefaultWaitTimeout = 30 * time.Second
 )
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
