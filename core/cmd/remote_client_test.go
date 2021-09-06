@@ -102,13 +102,12 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) *mocks.Client {
+func newEthMock(t *testing.T) (*mocks.Client, func()) {
 	t.Helper()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
 
-	return ethClient
+	return ethClient, assertMocksCalled
 }
 
 func keyNameForTest(t *testing.T) string {
@@ -324,9 +323,11 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
+	ethMock, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(newEthMock(t)),
+		withMocks(ethMock),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
 			c.Overrides.EVMDisabled = null.BoolFrom(false)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
