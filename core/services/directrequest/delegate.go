@@ -154,8 +154,9 @@ func (l *listener) Start() error {
 			},
 			NumConfirmations: l.minIncomingConfirmations,
 		})
-		l.shutdownWaitGroup.Add(2)
-		go l.run()
+		l.shutdownWaitGroup.Add(3)
+		go l.processOracleRequests()
+		go l.processCancelOracleRequests()
 
 		go func() {
 			<-l.chStop
@@ -201,88 +202,77 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 	case *operator_wrapper.OperatorOracleRequest:
 		wasOverCapacity := l.mbOracleRequests.Deliver(lb)
 		if wasOverCapacity {
-			l.logger.Error("DirectRequest: OracleRequests log mailbox is over capacity - dropped the oldest log")
+			l.logger.Error("DirectRequest: OracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
 	case *operator_wrapper.OperatorCancelOracleRequest:
 		wasOverCapacity := l.mbOracleCancelRequests.Deliver(lb)
 		if wasOverCapacity {
-			l.logger.Error("DirectRequest: OracleRequests log mailbox is over capacity - dropped the oldest log")
+			l.logger.Error("DirectRequest: CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
 	default:
 		l.logger.Warnf("DirectRequest: unexpected log type %T", log)
 	}
 }
 
-func (l *listener) run() {
+func (l *listener) processOracleRequests() {
 	for {
 		select {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleRequests.Notify():
-			l.handleOracleRequestLogs()
+			l.handleReceivedLogs(l.mbOracleRequests)
+		}
+	}
+}
+
+func (l *listener) processCancelOracleRequests() {
+	for {
+		select {
+		case <-l.chStop:
+			l.shutdownWaitGroup.Done()
+			return
 		case <-l.mbOracleCancelRequests.Notify():
-			l.handleCancelOracleRequestLogs()
+			l.handleReceivedLogs(l.mbOracleCancelRequests)
 		}
 	}
 }
 
-func (l *listener) handleOracleRequestLogs() {
+func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 	for {
-		i, exists := l.mbOracleRequests.Retrieve()
-		shouldProcess, decodedLog, lb := l.shouldProcessLog(i, exists)
-		if !shouldProcess {
+		i, exists := mailbox.Retrieve()
+		if !exists {
 			return
 		}
-		logOracleRequest, ok := decodedLog.(*operator_wrapper.OperatorOracleRequest)
+		lb, ok := i.(log.Broadcast)
 		if !ok {
-			l.logger.Warnf("DirectRequest: unexpected log type %T", decodedLog)
+			panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
+		}
+		ctx, cancel := postgres.DefaultQueryCtx()
+		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
+		cancel()
+		if err != nil {
+			l.logger.Errorw("DirectRequest: could not determine if log was already consumed", "error", err)
+			return
+		} else if was {
 			return
 		}
-		l.handleOracleRequest(logOracleRequest, lb)
-	}
-}
 
-func (l *listener) handleCancelOracleRequestLogs() {
-	for {
-		i, exists := l.mbOracleCancelRequests.Retrieve()
-		shouldProcess, log, lb := l.shouldProcessLog(i, exists)
-		if !shouldProcess {
+		log := lb.DecodedLog()
+		if log == nil || reflect.ValueOf(log).IsNil() {
+			l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
 			return
 		}
-		logCancelOracleRequest, ok := log.(*operator_wrapper.OperatorCancelOracleRequest)
-		if !ok {
+
+		switch log := log.(type) {
+		case *operator_wrapper.OperatorOracleRequest:
+			l.handleOracleRequest(log, lb)
+		case *operator_wrapper.OperatorCancelOracleRequest:
+			l.handleCancelOracleRequest(log, lb)
+		default:
 			l.logger.Warnf("DirectRequest: unexpected log type %T", log)
-			return
 		}
-		l.handleCancelOracleRequest(logCancelOracleRequest, lb)
 	}
-}
-
-func (l *listener) shouldProcessLog(item interface{}, exists bool) (bool, interface{}, log.Broadcast) {
-	if !exists {
-		return false, nil, nil
-	}
-	lb, ok := item.(log.Broadcast)
-	if !ok {
-		panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
-	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
-	cancel()
-	if err != nil {
-		l.logger.Errorw("DirectRequest: could not determine if log was already consumed", "error", err)
-		return false, nil, nil
-	} else if was {
-		return false, nil, nil
-	}
-
-	log := lb.DecodedLog()
-	if log == nil || reflect.ValueOf(log).IsNil() {
-		l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
-		return false, nil, nil
-	}
-	return true, log, lb
 }
 
 func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[string]interface{} {
@@ -317,11 +307,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
-			l.logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
-		}
+		l.markLogConsumed(nil, lb)
 		return
 	}
 
@@ -338,11 +324,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			ctx, cancel := postgres.DefaultQueryCtx()
-			defer cancel()
-			if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
-				l.logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
-			}
+			l.markLogConsumed(nil, lb)
 			return
 		}
 	}
@@ -350,47 +332,40 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
-	l.shutdownWaitGroup.Add(1)
-	go func() {
-		defer l.shutdownWaitGroup.Done()
+	runCloserChannel := make(chan struct{})
+	runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
+	if loaded {
+		runCloserChannel, _ = runCloserChannelIf.(chan struct{})
+	}
+	ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
+	defer cancel()
 
-		runCloserChannel := make(chan struct{})
-		runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
-		if loaded {
-			runCloserChannel, _ = runCloserChannelIf.(chan struct{})
-		}
-		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
-		defer cancel()
-
-		vars := pipeline.NewVarsFrom(map[string]interface{}{
-			"jobSpec": map[string]interface{}{
-				"databaseID":    l.job.ID,
-				"externalJobID": l.job.ExternalJobID,
-				"name":          l.job.Name.ValueOrZero(),
-			},
-			"jobRun": map[string]interface{}{
-				"meta":           meta,
-				"logBlockHash":   request.Raw.BlockHash,
-				"logBlockNumber": request.Raw.BlockNumber,
-				"logTxHash":      request.Raw.TxHash,
-				"logAddress":     request.Raw.Address,
-				"logTopics":      request.Raw.Topics,
-				"logData":        request.Raw.Data,
-			},
-		})
-		run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-		_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
-			if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-				l.logger.Errorw("DirectRequest: failed mark consumed", "err", err)
-			}
-			return nil
-		})
-		if ctx.Err() != nil {
-			return
-		} else if err != nil {
-			l.logger.Errorw("DirectRequest: failed executing run", "err", err)
-		}
-	}()
+	vars := pipeline.NewVarsFrom(map[string]interface{}{
+		"jobSpec": map[string]interface{}{
+			"databaseID":    l.job.ID,
+			"externalJobID": l.job.ExternalJobID,
+			"name":          l.job.Name.ValueOrZero(),
+		},
+		"jobRun": map[string]interface{}{
+			"meta":           meta,
+			"logBlockHash":   request.Raw.BlockHash,
+			"logBlockNumber": request.Raw.BlockNumber,
+			"logTxHash":      request.Raw.TxHash,
+			"logAddress":     request.Raw.Address,
+			"logTopics":      request.Raw.Topics,
+			"logData":        request.Raw.Data,
+		},
+	})
+	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
+	_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
+		l.markLogConsumed(tx, lb)
+		return nil
+	})
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
+		l.logger.Errorw("DirectRequest: failed executing run", "err", err)
+	}
 }
 
 func (l *listener) allowRequester(requester common.Address) bool {
@@ -411,14 +386,21 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	if loaded {
 		close(runCloserChannelIf.(chan struct{}))
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
-		l.logger.Errorw("DirectRequest: failed to mark log consumed", "log", lb.String())
+	l.markLogConsumed(nil, lb)
+}
+
+func (l *listener) markLogConsumed(db *gorm.DB, lb log.Broadcast) {
+	if db == nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		db = l.db.WithContext(ctx)
+	}
+	if err := l.logBroadcaster.MarkConsumed(db, lb); err != nil {
+		l.logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }
 
-// Job complies with log.Listener
+// JobID - Job complies with log.Listener
 func (l *listener) JobID() int32 {
 	return l.job.ID
 }
