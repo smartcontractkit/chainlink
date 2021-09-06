@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -45,7 +45,7 @@ type HeadListener struct {
 	headSubscription ethereum.Subscription
 	connectedMutex   sync.RWMutex
 	connected        bool
-	receivesHeads    int32
+	receivesHeads    atomic.Bool
 	sleeper          utils.Sleeper
 
 	log      *logger.Logger
@@ -137,7 +137,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			// We've received a head, reset the no heads alarm
 			t.Stop()
 			t = time.NewTicker(noHeadsAlarmDuration)
-			atomic.StoreInt32(&hl.receivesHeads, 1)
+			hl.receivesHeads.Store(true)
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
@@ -164,7 +164,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
 			hl.logger().Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
-			atomic.StoreInt32(&hl.receivesHeads, 0)
+			hl.receivesHeads.Store(false)
 		}
 	}
 }
