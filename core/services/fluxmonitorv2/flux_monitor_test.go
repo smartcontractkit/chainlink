@@ -556,9 +556,9 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		}
 	)
 
-	chBlock := make(chan struct{})
-	chSafeToAssert := make(chan struct{})
-	chSafeToFillQueue := make(chan struct{})
+	readyToAssert := cltest.NewAwaiter()
+	readyToFillQueue := cltest.NewAwaiter()
+	logsAwaiter := cltest.NewAwaiter()
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
@@ -567,8 +567,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).
 		Return(makeRoundStateForRoundID(1), nil).
 		Run(func(mock.Arguments) {
-			close(chSafeToFillQueue)
-			<-chBlock
+			readyToFillQueue.ItHappened()
+			logsAwaiter.AwaitOrFail(t)
 		}).
 		Once()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(3)).Return(makeRoundStateForRoundID(3), nil).Once()
@@ -687,7 +687,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		).
 		Return(nil).
 		Once().
-		Run(func(mock.Arguments) { close(chSafeToAssert) })
+		Run(func(mock.Arguments) { readyToAssert.ItHappened() })
 
 	fm.Start()
 
@@ -703,13 +703,16 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	}
 
 	fm.HandleLog(logBroadcasts[0]) // Get the checker to start processing a log so we can freeze it
-	<-chSafeToFillQueue
+
+	readyToFillQueue.AwaitOrFail(t)
+
 	fm.HandleLog(logBroadcasts[1]) // This log is evicted from the priority queue
 	fm.HandleLog(logBroadcasts[2])
 	fm.HandleLog(logBroadcasts[3])
 
-	close(chBlock)
-	<-chSafeToAssert
+	logsAwaiter.ItHappened()
+	readyToAssert.AwaitOrFail(t)
+
 	fm.Close()
 	tm.AssertExpectations(t)
 }
