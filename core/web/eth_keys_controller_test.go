@@ -20,7 +20,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
+	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(true)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
@@ -75,7 +75,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
+	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(false)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)

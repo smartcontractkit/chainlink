@@ -105,9 +105,11 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 
+	ethMock, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(newEthMock(t)),
+		withMocks(ethMock),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
 			c.Overrides.EVMDisabled = null.BoolFrom(false)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
