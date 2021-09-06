@@ -12,7 +12,7 @@ require (
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
-	github.com/ethereum/go-ethereum v1.10.4
+	github.com/ethereum/go-ethereum v1.10.8
 	github.com/fatih/color v1.12.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gin-contrib/cors v1.3.1
@@ -20,6 +20,7 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/securecookie v1.1.1
@@ -41,7 +42,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.14.0
 	github.com/pelletier/go-toml v1.9.3
-	github.com/peterh/liner v1.2.1 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.10.0
 	github.com/rivo/uniseg v0.2.0 // indirect
@@ -52,7 +52,6 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12
-	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.4
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
