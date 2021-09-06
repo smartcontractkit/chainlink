@@ -31,6 +31,8 @@ var _ ChainSet = &chainSet{}
 type ChainSet interface {
 	service.Service
 	Get(id *big.Int) (Chain, error)
+	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
+	Remove(id *big.Int) error
 	Default() (Chain, error)
 	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
 	Chains() []Chain
@@ -103,24 +105,79 @@ func (cll *chainSet) Default() (Chain, error) {
 	return cll.Get(cll.defaultID)
 }
 
+// Requires a lock on chainsMu
+func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
+	// preload nodes
+	// TODO: replace with math.MaxInt once we make go 1.17 mandatory
+	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt16)
+	if err != nil {
+		return err
+	}
+	dbchain.Nodes = nodes
+
+	cid := dbchain.ID.String()
+	chain, err := newChain(*dbchain, cll.opts)
+	if errors.Cause(err) == ErrNoPrimaryNode {
+		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if err = chain.Start(); err != nil {
+		return err
+	}
+	cll.chains[cid] = chain
+	return nil
+}
+
+func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error) {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
+	cid := id.String()
+	if _, exists := cll.chains[cid]; exists {
+		return types.Chain{}, errors.Errorf("chain already exists with id %d", id)
+	}
+
+	bid := utils.NewBig(id)
+	dbchain, err := cll.orm.CreateChain(*bid, config)
+	if err != nil {
+		return types.Chain{}, err
+	}
+	return dbchain, cll.initializeChain(&dbchain)
+}
+
+func (cll *chainSet) Remove(id *big.Int) error {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
+	if err := cll.orm.DeleteChain(*utils.NewBig(id)); err != nil {
+		return err
+	}
+
+	cid := id.String()
+	chain, exists := cll.chains[cid]
+	if !exists {
+		// If a chain was removed from the DB that wasn't loaded into the memory set we're done.
+		return nil
+	}
+	delete(cll.chains, cid)
+	return chain.Close()
+}
+
 func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
 	// Update configuration stored in the database
 	bid := utils.NewBig(id)
 	dbchain, err := cll.orm.UpdateChain(*bid, enabled, config)
 	if err != nil {
 		return types.Chain{}, err
 	}
-	// TODO: replace with math.MaxInt once we make go 1.17 mandatory
-	nodes, _, err := cll.orm.NodesForChain(*bid, 0, math.MaxInt16)
-	if err != nil {
-		return types.Chain{}, err
-	}
-	dbchain.Nodes = nodes
 
 	cid := id.String()
 
-	cll.chainsMu.Lock()
-	defer cll.chainsMu.Unlock()
 	chain, exists := cll.chains[cid]
 
 	switch {
@@ -130,17 +187,13 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 		return types.Chain{}, chain.Close()
 	case !exists && enabled:
 		// Chain was toggled to enabled
-		chain, err := newChain(dbchain, cll.opts)
-		if errors.Cause(err) == ErrNoPrimaryNode {
-			cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
-		} else if err != nil {
-			return types.Chain{}, err
+		return dbchain, cll.initializeChain(&dbchain)
+	case exists:
+		// Exists in memory, no toggling: Update in-memory chain
+		if err = chain.Config().Configure(config); err != nil {
+			return dbchain, err
 		}
-		if err = chain.Start(); err != nil {
-			return types.Chain{}, err
-		}
-		cll.chains[cid] = chain
-		return dbchain, nil
+		// TODO: recreate ethClient etc if node set changed
 	}
 
 	return dbchain, nil

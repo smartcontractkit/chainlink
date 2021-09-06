@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,13 @@ import (
 func TestClient_IndexChains(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t,
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
 	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
@@ -37,7 +44,13 @@ func TestClient_IndexChains(t *testing.T) {
 func TestClient_CreateChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t,
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
 	client, _ := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
@@ -60,7 +73,13 @@ func TestClient_CreateChain(t *testing.T) {
 func TestClient_RemoveChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t,
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
 	client, _ := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
@@ -86,7 +105,13 @@ func TestClient_RemoveChain(t *testing.T) {
 func TestClient_ConfigureChain(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t,
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
 	client, _ := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()

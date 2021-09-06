@@ -63,7 +63,7 @@ func (cc *ChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := cc.App.EVMORM().CreateChain(request.ID, request.Config)
+	chain, err := cc.App.GetChainSet().Add(request.ID.ToInt(), request.Config)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -113,7 +113,7 @@ func (cc *ChainsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = cc.App.EVMORM().DeleteChain(id)
+	err = cc.App.GetChainSet().Remove(id.ToInt())
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
