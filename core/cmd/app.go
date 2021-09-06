@@ -244,6 +244,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for which to rebroadcast transactions. If left blank, default chain will be used.",
+								},
+							},
 						},
 						{
 							Name:   "list",
@@ -272,6 +278,10 @@ func NewApp(client *Client) *cli.App {
 								cli.StringFlag{
 									Name:  "oldpassword, p",
 									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for which to rebroadcast transactions. If left blank, default chain will be used.",
 								},
 							},
 							Action: client.ImportETHKey,
