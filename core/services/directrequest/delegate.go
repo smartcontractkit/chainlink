@@ -186,12 +186,6 @@ func (l *listener) Close() error {
 }
 
 func (l *listener) HandleLog(lb log.Broadcast) {
-	logJobSpecID := lb.RawLog().Topics[1]
-	if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
-		l.logger.Debugw("DirectRequest: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
-		return
-	}
-
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
@@ -255,6 +249,13 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 			l.logger.Errorw("DirectRequest: could not determine if log was already consumed", "error", err)
 			return
 		} else if was {
+			return
+		}
+
+		logJobSpecID := lb.RawLog().Topics[1]
+		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
+			l.logger.Debugw("DirectRequest: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
+			l.markLogConsumed(nil, lb)
 			return
 		}
 
