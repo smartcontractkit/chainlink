@@ -889,7 +889,6 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-	t.Parallel()
 
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
@@ -976,16 +975,18 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	// hibernation ticker
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
-	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
-		pollOccured <- struct{}{}
-	})
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once()
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2)).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
 			Aggregator:     contractAddress,
 			RoundID:        2,
 			NumSubmissions: 0,
-		}, nil).Once()
+		}, nil).
+		Run(func(args mock.Arguments) {
+			pollOccured <- struct{}{}
+		}).
+		Once()
 
 	select {
 	case <-pollOccured:

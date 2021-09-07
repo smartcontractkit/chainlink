@@ -3,7 +3,6 @@ package services_test
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 )
 
 func newHead() models.Head {
@@ -30,9 +30,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		d, _ := store.DB.DB()
 		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
 
-		var subscribeCalls int32
-
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -40,7 +38,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
 
@@ -50,7 +48,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
@@ -62,8 +60,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		var subscribeCalls int32
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
@@ -75,7 +72,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
 		d, _ := store.DB.DB()
@@ -91,7 +88,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
@@ -111,8 +108,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 2)
 
-		var subscribeCalls int32
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -120,7 +116,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
 		reporter.Start()
@@ -129,7 +125,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
