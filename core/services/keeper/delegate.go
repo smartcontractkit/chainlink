@@ -102,6 +102,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.pr,
 		chain.Client(),
 		chain.HeadBroadcaster(),
+		chain.TxManager().GetGasEstimator(),
 		svcLogger.Named("UpkeepExecuter"),
 		d.config,
 	)

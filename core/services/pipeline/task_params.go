@@ -700,11 +700,11 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 	return nil
 }
 
-type BigIntParam struct {
+type MaybeBigIntParam struct {
 	n *big.Int
 }
 
-func (p *BigIntParam) UnmarshalPipelineParam(val interface{}) error {
+func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	var n *big.Int
 	switch v := val.(type) {
 	case uint:
@@ -731,7 +731,7 @@ func (p *BigIntParam) UnmarshalPipelineParam(val interface{}) error {
 		n = big.NewInt(0).SetUint64(uint64(v))
 	case string:
 		if strings.TrimSpace(v) == "" {
-			*p = BigIntParam{n: nil}
+			*p = MaybeBigIntParam{n: nil}
 			return nil
 		}
 		var ok bool
@@ -739,13 +739,17 @@ func (p *BigIntParam) UnmarshalPipelineParam(val interface{}) error {
 		if !ok {
 			return errors.Wrapf(ErrBadInput, "unable to convert %s to big.Int", v)
 		}
+	case *big.Int:
+		n = v
+	case nil:
+		// do nothing
 	default:
 		return ErrBadInput
 	}
-	*p = BigIntParam{n: n}
+	*p = MaybeBigIntParam{n: n}
 	return nil
 }
 
-func (p BigIntParam) BigInt() *big.Int {
+func (p MaybeBigIntParam) BigInt() *big.Int {
 	return p.n
 }

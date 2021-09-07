@@ -46,7 +46,7 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		contractAddr AddressParam
 		data         BytesParam
 		gas          Uint64Param
-		gasPrice     BigIntParam
+		gasPrice     MaybeBigIntParam
 	)
 
 	err = multierr.Combine(

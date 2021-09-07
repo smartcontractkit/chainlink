@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -14,11 +15,13 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -49,11 +52,14 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store.DB, keyStore.Eth())
 	cfg := cltest.NewTestGeneralConfig(t)
 	txm := new(bptxmmocks.TxManager)
+	estimator := new(gasmocks.Estimator)
+	txm.On("GetGasEstimator").Return(estimator)
+	estimator.On("EstimateGas", mock.Anything, mock.Anything).Return(assets.GWei(60), uint64(0), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: store.DB, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), store.Config.CreateProductionLogger(), store.Config)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), store.Config.CreateProductionLogger(), store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
@@ -100,7 +106,14 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
-		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
+		registryMock.MockMatchedResponse(
+			"checkUpkeep",
+			func(callArgs ethereum.CallMsg) bool {
+				return callArgs.GasPrice.String() == assets.GWei(60).String() &&
+					callArgs.Gas == 650_000
+			},
+			checkUpkeepResponse,
+		)
 
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), head)
