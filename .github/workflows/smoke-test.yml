@@ -10,6 +10,47 @@ on:
   pull_request:
 
 jobs:
+  build-chainlink:
+    name: Build chainlink image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+
+      # Login to dockerhub so that we don't get rate limited
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx
+      - name: Build and export
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: core/chainlink.Dockerfile
+          build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: smartcontract/chainlink:latest
+          push: false
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new
+          outputs: type=docker,dest=/tmp/chainlink.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: chainlink
+          path: /tmp/chainlink.tar
+
   smoke:
     runs-on: ubuntu-latest
     env:
@@ -18,8 +59,33 @@ jobs:
       APPS_CHAINLINK_IMAGE: public.ecr.aws/z0b1w9r9/chainlink
       APPS_CHAINLINK_VERSION: latest.${GITHUB_SHA}
     steps:
-      - name: Checkout code
+      - name: Checkout the repo
         uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-single-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-single-buildx
+      - name: Download artifact from build-chainlink
+        uses: actions/download-artifact@v2
+        with:
+          name: chainlink
+          path: /tmp
+      - name: Load Chainlink Docker image
+        run: |
+          docker load --input /tmp/chainlink.tar
+          docker image ls -a
+      # Login to dockerhub so that we don't get rate limited
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
