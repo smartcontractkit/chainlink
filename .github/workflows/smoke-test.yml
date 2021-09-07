@@ -1,4 +1,4 @@
-name: Performance and Chaos Tests
+name: Smoke Tests
 
 on:
   push:
