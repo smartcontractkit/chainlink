@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon_test"
 	"github.com/smartcontractkit/integrations-framework/config"
 
 	. "github.com/onsi/ginkgo"
@@ -17,7 +17,7 @@ import (
 func TestContracts(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
-	conf, err := config.NewConfig(testcommon.ConfigLocation())
+	conf, err := config.NewConfig(testcommon_test.ConfigLocation())
 	if err != nil {
 		Fail("failed to load config")
 	}

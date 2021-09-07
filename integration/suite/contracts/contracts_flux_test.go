@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon_test"
 	"github.com/smartcontractkit/integrations-framework/actions"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -35,7 +35,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(3),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon_test.ConfigLocation(),
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)

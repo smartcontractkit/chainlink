@@ -6,7 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon_test"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
@@ -28,7 +28,7 @@ var _ = Describe("Performance tests", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(numberOfNodes),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon_test.ConfigLocation(),
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)
