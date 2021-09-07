@@ -52,6 +52,7 @@ jobs:
           path: /tmp/chainlink.tar
 
   smoke:
+    needs: build-chainlink
     runs-on: ubuntu-latest
     env:
       KUBECONFIG: /tmp/KUBECONFIG
