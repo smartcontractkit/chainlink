@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -126,14 +127,28 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
+	// create a key on the default chain
 	set := flag.NewFlagSet("test", 0)
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, ethkey.State{}, 2)
+	id := big.NewInt(99)
+	_, err = app.GetChainSet().Add(id, evmtypes.ChainCfg{})
+	require.NoError(t, err)
+
+	// create the key on a specific chainID
+	set = flag.NewFlagSet("test", 0)
+	set.String("evmChainID", "", "")
+	c = cli.NewContext(nil, set, nil)
+	set.Parse([]string{"-evmChainID", id.String()})
+	assert.NoError(t, client.CreateETHKey(c))
+
+	cltest.AssertCount(t, db, ethkey.State{}, 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(keys))
+	require.Equal(t, 3, len(keys))
+	states, err := app.KeyStore.Eth().GetStatesForChain(id)
+	require.Len(t, states, 1)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {

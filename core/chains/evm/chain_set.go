@@ -117,7 +117,7 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 
 	cid := dbchain.ID.String()
 	chain, err := newChain(*dbchain, cll.opts)
-	if errors.Cause(err) == ErrNoPrimaryNode {
+	if errors.Cause(err) == ErrNoPrimaryNode || len(dbchain.Nodes) == 0 {
 		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
 		return nil
 	} else if err != nil {
