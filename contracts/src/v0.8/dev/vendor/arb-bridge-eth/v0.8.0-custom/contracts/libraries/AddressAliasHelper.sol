@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-// NOTICE: pragma different from original (updated from `^0.6.11` -> `^0.8.6`)
+// NOTICE: pragma change from original (^0.6.11;)
 pragma solidity ^0.8.6;
 
 library AddressAliasHelper {

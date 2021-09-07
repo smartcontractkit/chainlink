@@ -21,8 +21,8 @@ import "./interfaces/ForwarderInterface.sol";
  *  - Funds on the contract are managed by the owner
  */
 contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  // Config for L1 -> L2 `createRetryableTicket` call
-  struct GasConfiguration {
+  // Config for L1 -> L2 Arbitrum retryable ticket message
+  struct GasConfig {
     uint256 maxSubmissionCost;
     uint256 gasPriceBid;
     uint256 gasCostL2Value;
@@ -44,8 +44,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address immutable public L2_CROSS_DOMAIN_FORWARDER;
   address immutable public L2_FLAGS;
 
-  AccessControllerInterface private s_gasConfigAccessController;
-  GasConfiguration private s_gasConfig;
+  GasConfig private s_gasConfig;
+  AccessControllerInterface private s_gasConfigAC;
 
   /**
    * @notice emitted when a new gas configuration is set
@@ -54,7 +54,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
    * @param refundAddr address where gas excess on L2 will be sent
    */
-  event GasConfigurationSet(
+  event GasConfigSet(
     uint256 maxSubmissionCost,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
@@ -63,30 +63,30 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   );
 
   /**
-   * @notice emitted when a new ETH withdrawal from L2 was requested
-   * @param id unique id of the published retryable transaction (keccak256(requestID, uint(0))
-   * @param amount of funds to withdraw
-   */
-  event WithdrawalFromL2Requested(
-    uint256 indexed id,
-    uint256 amount
-  );
-
-  /**
    * @notice emitted when a new gas access-control contract is set
    * @param previous the address prior to the current setting
    * @param current the address of the new access-control contract
    */
-  event GasAccessControllerSet(
+  event GasConfigACSet(
     address indexed previous,
     address indexed current
+  );
+
+  /**
+   * @notice emitted when a new ETH withdrawal from L2 was requested
+   * @param id unique id of the published retryable transaction (keccak256(requestID, uint(0))
+   * @param amount of funds to withdraw
+   */
+  event L2WithdrawalRequested(
+    uint256 indexed id,
+    uint256 amount
   );
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
    * @param l2CrossDomainForwarderAddr the L2 Forwarder contract address
    * @param l2FlagsAddr the L2 Flags contract address
-   * @param gasConfigAccessControllerAddr address of the access controller for managing gas price on Arbitrum
+   * @param gasConfigACAddr address of the access controller for managing gas price on Arbitrum
    * @param maxSubmissionCost maximum submission cost willing to pay on L2
    * @param gasPriceBid maximum gas price to pay on L2
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
@@ -97,7 +97,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address crossDomainMessengerAddr,
     address l2CrossDomainForwarderAddr,
     address l2FlagsAddr,
-    address gasConfigAccessControllerAddr,
+    address gasConfigACAddr,
     uint256 maxSubmissionCost,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
@@ -110,9 +110,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
     L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
     L2_FLAGS = l2FlagsAddr;
-    // additional configuration
-    s_gasConfigAccessController = AccessControllerInterface(gasConfigAccessControllerAddr);
-    _setGasConfiguration(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    // Additional L2 payment configuration
+    s_gasConfigAC = AccessControllerInterface(gasConfigACAddr);
+    _setGasConfig(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
   }
 
   /**
@@ -135,28 +135,36 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     return "ArbitrumValidator 0.2.0";
   }
 
+  /// @return stored GasConfig
+  function gasConfig()
+    external
+    view
+    virtual
+    returns (GasConfig memory)
+  {
+    return s_gasConfig;
+  }
+
   /// @return gas config AccessControllerInterface contract address
-  function gasConfigAccessController()
+  function gasConfigAC()
     external
     view
     virtual
     returns (address)
   {
-    return address(s_gasConfigAccessController);
+    return address(s_gasConfigAC);
   }
 
-  /// @return stored GasConfiguration
-  function gasConfig()
+  /**
+   * @notice makes this contract payable
+   * @dev receives funds:
+   *  - to use them (if configured) to pay for L2 execution on L1
+   *  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
+   */
+  receive()
     external
-    view
-    virtual
-    returns (GasConfiguration memory)
-  {
-    return s_gasConfig;
-  }
-
-  /// @notice makes this contract payable as it need funds to pay for L2 transactions fees on L1.
-  receive() external payable {}
+    payable
+  {}
 
   /**
    * @notice withdraws all funds available in this contract to the msg.sender
@@ -222,7 +230,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
         gasPriceBid,
         l1ToL2Calldata
     );
-    emit WithdrawalFromL2Requested(id, amount);
+    emit L2WithdrawalRequested(id, amount);
   }
 
   /**
@@ -230,25 +238,25 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @dev only owner can call this
    * @param accessController new AccessControllerInterface contract address
    */
-  function setGasAccessController(
+  function setGasConfigAC(
     address accessController
   )
     external
     onlyOwner()
   {
-    _setGasAccessController(accessController);
+    _setGasConfigAC(accessController);
   }
 
   /**
    * @notice sets Arbitrum gas configuration
-   * @dev access control provided by s_gasConfigAccessController
+   * @dev access control provided by s_gasConfigAC
    * @param maxSubmissionCost maximum submission cost willing to pay on L2
    * @param gasPriceBid maximum gas price to pay on L2
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param refundAddr address where gas excess on L2 will be sent
    */
-  function setGasConfiguration(
+  function setGasConfig(
     uint256 maxSubmissionCost,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
@@ -257,19 +265,17 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   )
     external
   {
-    require(s_gasConfigAccessController.hasAccess(msg.sender, msg.data), "Access required to set config");
-    _setGasConfiguration(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    require(s_gasConfigAC.hasAccess(msg.sender, msg.data), "No access");
+    _setGasConfig(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
   }
 
   /**
-   * @notice validate method updates the state of an L2 Flag in case of change on the Arbitrum Sequencer.
-   * A one answer considers the service as offline.
-   * In case the previous answer is the same as the current it does not trigger any tx on L2. In other case,
-   * a retryable ticket is created on the Arbitrum L1 Inbox contract. The tx gas fee can be paid from this
-   * contract providing a value, or the same address on L2.
-   * @dev access control provided internally by SimpleWriteAccessController
+   * @notice validate method sends an xDomain L2 tx to update Flags contract, in case of change from `previousAnswer`.
+   * @dev A retryable ticket is created on the Arbitrum L1 Inbox contract. The tx gas fee can be paid from this
+   *   contract providing a value, or if no L1 value is sent with the xDomain message the gas will be paid by
+   *   the L2 xDomain alias account (generated from `address(this)`). This method is accessed controlled.
    * @param previousAnswer previous aggregator answer
-   * @param currentAnswer new aggregator answer
+   * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
     uint256 /* previousRoundId */,
@@ -294,8 +300,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE ? CALL_RAISE_FLAG : CALL_LOWER_FLAG;
     bytes memory message = abi.encodeWithSelector(selector, target, data);
     // Make the xDomain call
-    // NOTICE: if gasCostL2Value is zero the payment is processed on L2 so the L2 address needs to be funded, as it will
-    // paying the fee. We also ignore the returned msg number, that can be queried via the InboxMessageDelivered event.
+    // NOTICE: if `gasCostL2Value` is zero the payment is processed on L2. In that case the L2 xDomain alias address needs to be funded,
+    //   as it will be paying the fee. We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
     IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: s_gasConfig.gasCostL2Value}(
       L2_CROSS_DOMAIN_FORWARDER,
       0, // L2 call value
@@ -313,7 +319,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     return true;
   }
 
-  function _setGasConfiguration(
+  /// @notice internal method that stores the gas configuration
+  function _setGasConfig(
     uint256 maxSubmissionCost,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
@@ -322,26 +329,29 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   )
     internal
   {
-    // L2 will pay the fee if gasCostL2Value is zero
+    // L2 xDomain alias addr pays the fee if `gasCostL2Value` is zero
+    // Else, we check if configured L1 payment is sufficient
     if (gasCostL2Value > 0) {
       uint256 minGasCostL2Value = maxSubmissionCost + maxGas * gasPriceBid;
-      require(gasCostL2Value >= minGasCostL2Value, "Gas cost provided is too low");
+      require(gasCostL2Value >= minGasCostL2Value, "gasCostL2Value is not enough");
     }
-    // if refund addr not set, default to the L2 xDomain alias address
+    // If refund addr not set, default to the L2 xDomain alias address
     refundAddr = refundAddr == address(0x0) ? AddressAliasHelper.applyL1ToL2Alias(address(this)) : refundAddr;
-    s_gasConfig = GasConfiguration(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
-    emit GasConfigurationSet(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+
+    s_gasConfig = GasConfig(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    emit GasConfigSet(maxSubmissionCost, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
   }
 
-  function _setGasAccessController(
+  /// @notice internal method that stores the gas configuration access controller
+  function _setGasConfigAC(
     address accessController
   )
     internal
   {
-    address previousAccessController = address(s_gasConfigAccessController);
+    address previousAccessController = address(s_gasConfigAC);
     if (accessController != previousAccessController) {
-      s_gasConfigAccessController = AccessControllerInterface(accessController);
-      emit GasAccessControllerSet(previousAccessController, accessController);
+      s_gasConfigAC = AccessControllerInterface(accessController);
+      emit GasConfigACSet(previousAccessController, accessController);
     }
   }
 }
