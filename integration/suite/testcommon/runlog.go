@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
@@ -27,37 +27,37 @@ type RunlogSetupInputs struct {
 }
 
 func SetupRunlogTest(i *RunlogSetupInputs) {
-	By("Deploying the environment", func() {
+	ginkgo.By("Deploying the environment", func() {
 		i.S, i.Err = actions.DefaultLocalSetup(
 			environment.NewChainlinkCluster(1),
 			client.NewNetworkFromConfig,
 			ConfigLocation(),
 		)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.Adapter, i.Err = environment.GetExternalAdapter(i.S.Env)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 	})
-	By("Funding Chainlink nodes", func() {
+	ginkgo.By("Funding Chainlink nodes", func() {
 		i.Nodes, i.Err = environment.GetChainlinkClients(i.S.Env)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.NodeAddresses, i.Err = actions.ChainlinkNodeAddresses(i.Nodes)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.Err = actions.FundChainlinkNodes(i.Nodes, i.S.Client, i.S.Wallets.Default(), big.NewFloat(2), nil)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 	})
-	By("Deploying and funding the contracts", func() {
+	ginkgo.By("Deploying and funding the contracts", func() {
 		i.Oracle, i.Err = i.S.Deployer.DeployOracle(i.S.Wallets.Default(), i.S.Link.Address())
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.Consumer, i.Err = i.S.Deployer.DeployAPIConsumer(i.S.Wallets.Default(), i.S.Link.Address())
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.Err = i.Consumer.Fund(i.S.Wallets.Default(), nil, big.NewFloat(2))
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 	})
-	By("Permitting node to fulfill request", func() {
+	ginkgo.By("Permitting node to fulfill request", func() {
 		i.Err = i.Oracle.SetFulfillmentPermission(i.S.Wallets.Default(), i.NodeAddresses[0].Hex(), true)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 	})
-	By("Creating directrequest job", func() {
+	ginkgo.By("Creating directrequest job", func() {
 		i.JobUUID = uuid.NewV4()
 
 		bta := client.BridgeTypeAttributes{
@@ -65,14 +65,14 @@ func SetupRunlogTest(i *RunlogSetupInputs) {
 			URL:  fmt.Sprintf("%s/five", i.Adapter.ClusterURL()),
 		}
 		i.Err = i.Nodes[0].CreateBridge(&bta)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 
 		os := &client.DirectRequestTxPipelineSpec{
 			BridgeTypeAttributes: bta,
 			DataPath:             "data,result",
 		}
 		ost, err := os.String()
-		Expect(err).ShouldNot(HaveOccurred())
+		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 		_, err = i.Nodes[0].CreateJob(&client.DirectRequestJobSpec{
 			Name:              "direct_request",
@@ -80,11 +80,11 @@ func SetupRunlogTest(i *RunlogSetupInputs) {
 			ExternalJobID:     i.JobUUID.String(),
 			ObservationSource: ost,
 		})
-		Expect(err).ShouldNot(HaveOccurred())
+		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 	})
-	By("Calling oracle contract", func() {
+	ginkgo.By("Calling oracle contract", func() {
 		jobUUIDReplaces := strings.Replace(i.JobUUID.String(), "-", "", 4)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		var jobID [32]byte
 		copy(jobID[:], jobUUIDReplaces)
 		i.Err = i.Consumer.CreateRequestTo(
@@ -96,6 +96,6 @@ func SetupRunlogTest(i *RunlogSetupInputs) {
 			"data,result",
 			big.NewInt(100),
 		)
-		Expect(i.Err).ShouldNot(HaveOccurred())
+		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 	})
 }
