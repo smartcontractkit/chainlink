@@ -2,6 +2,9 @@ package testcommon
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -11,8 +14,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
 	"github.com/smartcontractkit/integrations-framework/tools"
-	"math/big"
-	"strings"
 )
 
 type RunlogSetupInputs struct {

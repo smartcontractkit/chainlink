@@ -3,6 +3,9 @@ package testcommon
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
@@ -11,8 +14,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
 	"github.com/smartcontractkit/integrations-framework/tools"
-	"math/big"
-	"time"
 )
 
 type OCRSetupInputs struct {

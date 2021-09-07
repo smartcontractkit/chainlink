@@ -1,6 +1,8 @@
 package contracts
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -8,7 +10,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/chaos/experiments"
 	"github.com/smartcontractkit/integrations-framework/environment"
 	"github.com/smartcontractkit/integrations-framework/suite/testcommon"
-	"time"
 )
 
 var _ = XDescribeTable("OCR chaos tests @chaos-ocr", func(
