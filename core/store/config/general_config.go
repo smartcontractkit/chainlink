@@ -271,10 +271,6 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		_ = v.BindEnv(name, name)
 	}
 
-	// TODO: Remove when implementing
-	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
-	_ = v.BindEnv("MINIMUM_CONTRACT_PAYMENT")
-
 	config := &generalConfig{
 		viper:            v,
 		randomP2PPortMtx: new(sync.RWMutex),
@@ -301,10 +297,8 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
-	// TODO: Remove when implementing
-	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
-	if c.viper.IsSet("MINIMUM_CONTRACT_PAYMENT") {
-		logger.Warn("MINIMUM_CONTRACT_PAYMENT is now deprecated and will be removed from a future release, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
+	if _, exists := os.LookupEnv("MINIMUM_CONTRACT_PAYMENT"); exists {
+		return errors.Errorf("MINIMUM_CONTRACT_PAYMENT is deprecated, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
 	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
