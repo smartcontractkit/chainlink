@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
@@ -527,6 +528,42 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 	return jids, nil
 }
 
+// Preload PipelineSpec.JobID for each Run
+func (o *orm) preloadJobIDs(runs []pipeline.Run) error {
+	db := postgres.UnwrapGormDB(o.db)
+
+	ids := make([]int32, 0, len(runs))
+	for _, run := range runs {
+		ids = append(ids, run.PipelineSpecID)
+	}
+
+	// construct a WHERE IN query
+	sql := `SELECT id, pipeline_spec_id FROM jobs WHERE pipeline_spec_id IN (?);`
+	query, args, err := sqlx.In(sql, ids)
+	if err != nil {
+		return err
+	}
+	query = db.Rebind(query)
+	var results []struct {
+		ID             int32
+		PipelineSpecID int32
+	}
+	if err := db.Select(&results, query, args...); err != nil {
+		return err
+	}
+
+	// fill in fields
+	for i := range runs {
+		for _, result := range results {
+			if result.PipelineSpecID == runs[i].PipelineSpecID {
+				runs[i].PipelineSpec.JobID = result.ID
+			}
+		}
+	}
+
+	return nil
+}
+
 // PipelineRunsByJobID returns all pipeline runs
 func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 	var pipelineRuns []pipeline.Run
@@ -551,6 +588,12 @@ func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
+
+	if err != nil {
+		return pipelineRuns, int(count), err
+	}
+
+	err = o.preloadJobIDs(pipelineRuns)
 
 	return pipelineRuns, int(count), err
 }
@@ -583,6 +626,11 @@ func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
+
+	// can skip preloadJobIDs since we already know the jobID
+	for i := range pipelineRuns {
+		pipelineRuns[i].PipelineSpec.JobID = jobID
+	}
 
 	return pipelineRuns, int(count), err
 }

@@ -165,7 +165,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
-	client, _, runIDs, cleanup := setupPipelineRunsControllerTests(t)
+	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
 	defer cleanup()
 
 	response, cleanup := client.Get("/v2/pipeline/runs")
@@ -183,6 +183,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
@@ -206,6 +207,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
