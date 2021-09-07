@@ -43,8 +43,8 @@ func (r *RunResultSaver) Start() error {
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
 					ctx, cancel := postgres.DefaultQueryCtx()
-					defer cancel()
 					_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
+					cancel()
 					if err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
@@ -68,8 +68,8 @@ func (r *RunResultSaver) Close() error {
 			case rr := <-r.runResults:
 				r.logger.Infow("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
 				ctx, cancel := postgres.DefaultQueryCtx()
-				defer cancel()
 				_, err := r.pipelineRunner.InsertFinishedRun(r.db.WithContext(ctx), rr.Run, rr.TaskRunResults, false)
+				cancel()
 				if err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}
