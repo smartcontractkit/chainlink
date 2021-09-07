@@ -9,20 +9,20 @@ import (
 	"github.com/smartcontractkit/integrations-framework/chaos"
 	"github.com/smartcontractkit/integrations-framework/chaos/experiments"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/suite/testcommon_test"
+	"github.com/smartcontractkit/integrations-framework/suite/testcommon"
 )
 
 var _ = XDescribeTable("OCR chaos tests @chaos-ocr", func(
 	envInit environment.K8sEnvSpecInit,
 	chaosSpec chaos.Experimentable,
 ) {
-	i := &testcommon_test.OCRSetupInputs{}
+	i := &testcommon.OCRSetupInputs{}
 	Context("Runs OCR test with a chaos modifier", func() {
-		testcommon_test.DeployOCRForEnv(i, envInit)
-		testcommon_test.SetupOCRTest(i)
+		testcommon.DeployOCRForEnv(i, envInit)
+		testcommon.SetupOCRTest(i)
 		_, err := i.SuiteSetup.Env.ApplyChaos(chaosSpec)
 		Expect(err).ShouldNot(HaveOccurred())
-		testcommon_test.CheckRound(i)
+		testcommon.CheckRound(i)
 	})
 
 	AfterEach(func() {
