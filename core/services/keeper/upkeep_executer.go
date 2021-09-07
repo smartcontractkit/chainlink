@@ -2,11 +2,15 @@ package keeper
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -32,6 +36,7 @@ type UpkeepExecuter struct {
 	config          Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
+	gasEstimator    gas.Estimator
 	job             job.Job
 	mailbox         *utils.Mailbox
 	orm             ORM
@@ -48,6 +53,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
+	gasEstimator gas.Estimator,
 	logger *logger.Logger,
 	config Config,
 ) *UpkeepExecuter {
@@ -56,6 +62,7 @@ func NewUpkeepExecuter(
 		ethClient:       ethClient,
 		executionQueue:  make(chan struct{}, executionQueueSize),
 		headBroadcaster: headBroadcaster,
+		gasEstimator:    gasEstimator,
 		job:             job,
 		mailbox:         utils.NewMailbox(1),
 		config:          config,
@@ -154,8 +161,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	wg.Wait()
 }
 
-// execute calls checkForUpkeep and, if it succeeds, trigger a job on the CL node
-// DEV: must perform contract call "manually" because abigen wrapper can only send tx
+// execute triggers the pipeline run
 func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 
@@ -164,6 +170,12 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
+
+	gasPrice, err := ex.estimateGasPrice(upkeep)
+	if err != nil {
+		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
+		return
+	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -174,6 +186,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
+			"gasPrice": gasPrice,
 		},
 	})
 
@@ -190,4 +203,20 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			ex.logger.WithError(err).Errorw("failed to set last run height for upkeep")
 		}
 	}
+}
+
+func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int, error) {
+	performTxData, err := RegistryABI.Pack(
+		"performUpkeep",
+		big.NewInt(upkeep.UpkeepID),
+		common.Hex2Bytes("1234"), // placeholder
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
+	}
+	gasPrice, _, err := ex.gasEstimator.EstimateGas(performTxData, upkeep.ExecuteGas)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to estimate gas")
+	}
+	return gasPrice, nil
 }
