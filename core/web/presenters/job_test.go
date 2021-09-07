@@ -89,6 +89,8 @@ func TestJob(t *testing.T) {
 						"directRequestSpec": {
 							"contractAddress": "%s",
 							"minIncomingConfirmations": null,
+							"minContractPaymentLinkJuels": null,
+							"requesters": null,
 							"initiator": "runlog",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"
@@ -152,6 +154,9 @@ func TestJob(t *testing.T) {
 							"idleTimerDisabled": false,
 							"pollTimerPeriod": "1s",
 							"pollTimerDisabled": false,
+              "drumbeatEnabled": false,
+              "drumbeatRandomDelay": null,
+              "drumbeatSchedule": null,
 							"minPayment": "1",
 							"createdAt":"2000-01-01T00:00:00Z",
 							"updatedAt":"2000-01-01T00:00:00Z"

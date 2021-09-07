@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -180,6 +181,18 @@ func TestETHABIEncodeTask(t *testing.T) {
 			"",
 			pipeline.ErrTooManyErrors,
 			"task inputs",
+		},
+		{
+			"hex string to fixed size byte array (note used by fulfillOracleRequest(..., bytes32 data))",
+			"asdf(bytes32 b)",
+			`{ "b": $(foo)}`,
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": "0x0000000000000000000000000000000000000000000000000000000000000001",
+			}),
+			nil,
+			"0x628507ac0000000000000000000000000000000000000000000000000000000000000001",
+			nil,
+			"",
 		},
 	}
 

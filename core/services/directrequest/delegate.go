@@ -95,6 +95,8 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		job:                      job,
 		mbLogs:                   utils.NewMailbox(50),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
+		requesters:               concreteSpec.Requesters,
+		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
 	}
 	services = append(services, logListener)
@@ -119,6 +121,8 @@ type listener struct {
 	shutdownWaitGroup        sync.WaitGroup
 	mbLogs                   *utils.Mailbox
 	minIncomingConfirmations uint64
+	requesters               models.AddressCollection
+	minContractPayment       *assets.Link
 	chStop                   chan struct{}
 	utils.StartStopOnce
 }
@@ -195,8 +199,8 @@ func (l *listener) handleReceivedLogs() {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
 		}
 		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
 		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
+		cancel()
 		if err != nil {
 			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 			return
@@ -254,12 +258,30 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		"data", fmt.Sprintf("%0x", request.Data),
 	)
 
-	minimumContractPayment := l.config.MinimumContractPayment()
-	if minimumContractPayment != nil {
+	if !l.allowRequester(request.Requester) {
+		logger.Infow("Rejected run for invalid requester",
+			"requester", request.Requester,
+			"allowedRequesters", l.requesters.ToStrings(),
+		)
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		if err := l.logBroadcaster.MarkConsumed(l.db.WithContext(ctx), lb); err != nil {
+			logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+		}
+		return
+	}
+
+	var minContractPayment *assets.Link
+	if l.minContractPayment != nil {
+		minContractPayment = l.minContractPayment
+	} else {
+		minContractPayment = l.config.MinimumContractPayment()
+	}
+	if minContractPayment != nil {
 		requestPayment := assets.Link(*request.Payment)
-		if minimumContractPayment.Cmp(&requestPayment) > 0 {
+		if minContractPayment.Cmp(&requestPayment) > 0 {
 			logger.Infow("Rejected run for insufficient payment",
-				"minimumContractPayment", minimumContractPayment.String(),
+				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
 			ctx, cancel := postgres.DefaultQueryCtx()
@@ -329,6 +351,18 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			logger.Errorw("DirectRequest failed to create run", "err", err)
 		}
 	}()
+}
+
+func (l *listener) allowRequester(requester common.Address) bool {
+	if len(l.requesters) == 0 {
+		return true
+	}
+	for _, addr := range l.requesters {
+		if addr == requester {
+			return true
+		}
+	}
+	return false
 }
 
 // Cancels runs that haven't been started yet, with the given request ID

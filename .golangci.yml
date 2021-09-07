@@ -68,7 +68,7 @@ linters-settings:
       - name: get-return
       # - name: flag-parameter
       # - name: early-return
-      # - name: defer
+      - name: defer
       - name: constant-logical-expr
       # - name: confusing-naming
       # - name: confusing-results

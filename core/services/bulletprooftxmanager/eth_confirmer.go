@@ -207,11 +207,11 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	for from, attempts := range attemptsByAddress {
 		ctxInner, cancel := eth.DefaultQueryCtx(ctx)
 		latestBlockNonce, err := ec.getNonceForLatestBlock(ctxInner, from)
-		defer cancel()
 
 		if ctxInner.Err() != nil { // timeout
 			return errors.Wrapf(ctxInner.Err(), "unable to fetch pending nonce for address: %v - timeout or interrupt", from)
 		}
+		cancel()
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}

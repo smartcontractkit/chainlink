@@ -1669,6 +1669,9 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	store, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
+	// a setup with a random delay being zero
+	_, _ = setup(t, store.DB, enableDrumbeatTicker("@every 10s", 0))
+
 	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.Key{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
@@ -1697,7 +1700,11 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			Return(roundState, nil).
 			Once()
 
-		tm.orm.On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(roundID)).
+		tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, roundID).
+			Return(roundState, nil).
+			Once()
+
+		tm.orm.On("FindOrCreateFluxMonitorRoundStats", contractAddress, roundID).
 			Return(fluxmonitorv2.FluxMonitorRoundStatsV2{Aggregator: contractAddress, RoundID: roundID}, nil).
 			Once()
 

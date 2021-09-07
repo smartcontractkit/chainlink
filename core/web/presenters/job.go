@@ -5,6 +5,7 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -34,11 +35,13 @@ const (
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
 type DirectRequestSpec struct {
-	ContractAddress          ethkey.EIP55Address `json:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32       `json:"minIncomingConfirmations"`
-	Initiator                string              `json:"initiator"`
-	CreatedAt                time.Time           `json:"createdAt"`
-	UpdatedAt                time.Time           `json:"updatedAt"`
+	ContractAddress          ethkey.EIP55Address      `json:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32            `json:"minIncomingConfirmations"`
+	MinContractPayment       *assets.Link             `json:"minContractPaymentLinkJuels"`
+	Requesters               models.AddressCollection `json:"requesters"`
+	Initiator                string                   `json:"initiator"`
+	CreatedAt                time.Time                `json:"createdAt"`
+	UpdatedAt                time.Time                `json:"updatedAt"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -47,6 +50,8 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
 		ContractAddress:          spec.ContractAddress,
 		MinIncomingConfirmations: spec.MinIncomingConfirmations,
+		MinContractPayment:       spec.MinContractPayment,
+		Requesters:               spec.Requesters,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
 		Initiator: "runlog",
@@ -57,32 +62,47 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 
 // FluxMonitorSpec defines the spec details of a FluxMonitor Job
 type FluxMonitorSpec struct {
-	ContractAddress   ethkey.EIP55Address `json:"contractAddress"`
-	Threshold         float32             `json:"threshold"`
-	AbsoluteThreshold float32             `json:"absoluteThreshold"`
-	PollTimerPeriod   string              `json:"pollTimerPeriod"`
-	PollTimerDisabled bool                `json:"pollTimerDisabled"`
-	IdleTimerPeriod   string              `json:"idleTimerPeriod"`
-	IdleTimerDisabled bool                `json:"idleTimerDisabled"`
-	MinPayment        *assets.Link        `json:"minPayment"`
-	CreatedAt         time.Time           `json:"createdAt"`
-	UpdatedAt         time.Time           `json:"updatedAt"`
+	ContractAddress     ethkey.EIP55Address `json:"contractAddress"`
+	Threshold           float32             `json:"threshold"`
+	AbsoluteThreshold   float32             `json:"absoluteThreshold"`
+	PollTimerPeriod     string              `json:"pollTimerPeriod"`
+	PollTimerDisabled   bool                `json:"pollTimerDisabled"`
+	IdleTimerPeriod     string              `json:"idleTimerPeriod"`
+	IdleTimerDisabled   bool                `json:"idleTimerDisabled"`
+	DrumbeatEnabled     bool                `json:"drumbeatEnabled"`
+	DrumbeatSchedule    *string             `json:"drumbeatSchedule"`
+	DrumbeatRandomDelay *string             `json:"drumbeatRandomDelay"`
+	MinPayment          *assets.Link        `json:"minPayment"`
+	CreatedAt           time.Time           `json:"createdAt"`
+	UpdatedAt           time.Time           `json:"updatedAt"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
 // job.FluxMonitorSpec
 func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
+	var drumbeatSchedulePtr *string
+	if spec.DrumbeatEnabled {
+		drumbeatSchedulePtr = &spec.DrumbeatSchedule
+	}
+	var drumbeatRandomDelayPtr *string
+	if spec.DrumbeatRandomDelay > 0 {
+		drumbeatRandomDelay := spec.DrumbeatRandomDelay.String()
+		drumbeatRandomDelayPtr = &drumbeatRandomDelay
+	}
 	return &FluxMonitorSpec{
-		ContractAddress:   spec.ContractAddress,
-		Threshold:         spec.Threshold,
-		AbsoluteThreshold: spec.AbsoluteThreshold,
-		PollTimerPeriod:   spec.PollTimerPeriod.String(),
-		PollTimerDisabled: spec.PollTimerDisabled,
-		IdleTimerPeriod:   spec.IdleTimerPeriod.String(),
-		IdleTimerDisabled: spec.IdleTimerDisabled,
-		MinPayment:        spec.MinPayment,
-		CreatedAt:         spec.CreatedAt,
-		UpdatedAt:         spec.UpdatedAt,
+		ContractAddress:     spec.ContractAddress,
+		Threshold:           spec.Threshold,
+		AbsoluteThreshold:   spec.AbsoluteThreshold,
+		PollTimerPeriod:     spec.PollTimerPeriod.String(),
+		PollTimerDisabled:   spec.PollTimerDisabled,
+		IdleTimerPeriod:     spec.IdleTimerPeriod.String(),
+		IdleTimerDisabled:   spec.IdleTimerDisabled,
+		DrumbeatEnabled:     spec.DrumbeatEnabled,
+		DrumbeatSchedule:    drumbeatSchedulePtr,
+		DrumbeatRandomDelay: drumbeatRandomDelayPtr,
+		MinPayment:          spec.MinPayment,
+		CreatedAt:           spec.CreatedAt,
+		UpdatedAt:           spec.UpdatedAt,
 	}
 }
 
