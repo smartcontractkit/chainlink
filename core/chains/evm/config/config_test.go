@@ -101,23 +101,23 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		expectedGasLimitDefault        uint64
 		expectedMinimumContractPayment int64
 	}{
-		{"default", 0, 500000, 100000000000000},
+		{"default", 0, 500000, 10000000000000},
 		{"mainnet", 1, 500000, 100000000000000000},
 		{"kovan", 42, 500000, 100000000000000000},
 
-		{"optimism", 10, 500000, 100000000000000},
-		{"optimism", 69, 500000, 100000000000000},
-		{"optimism", 420, 500000, 100000000000000},
+		{"optimism", 10, 500000, 10000000000000},
+		{"optimism", 69, 500000, 10000000000000},
+		{"optimism", 420, 500000, 10000000000000},
 
-		{"bscMainnet", 56, 500000, 100000000000000},
-		{"hecoMainnet", 128, 500000, 100000000000000},
-		{"fantomMainnet", 250, 500000, 100000000000000},
-		{"fantomTestnet", 4002, 500000, 100000000000000},
-		{"polygonMatic", 800001, 500000, 100000000000000},
-		{"harmonyMainnet", 1666600000, 500000, 100000000000000},
-		{"harmonyTestnet", 1666700000, 500000, 100000000000000},
+		{"bscMainnet", 56, 500000, 10000000000000},
+		{"hecoMainnet", 128, 500000, 10000000000000},
+		{"fantomMainnet", 250, 500000, 10000000000000},
+		{"fantomTestnet", 4002, 500000, 10000000000000},
+		{"polygonMatic", 800001, 500000, 10000000000000},
+		{"harmonyMainnet", 1666600000, 500000, 10000000000000},
+		{"harmonyTestnet", 1666700000, 500000, 10000000000000},
 
-		{"xDai", 100, 500000, 100000000000000},
+		{"xDai", 100, 500000, 10000000000000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
