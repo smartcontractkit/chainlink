@@ -75,7 +75,7 @@ linters-settings:
       # - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
-  stylecheck: 
+  stylecheck:
     # https://staticcheck.io/docs/options#dot_import_whitelist
     dot-import-whitelist:
       - github.com/onsi/gomega

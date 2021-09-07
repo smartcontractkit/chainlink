@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 type RunlogSetupInputs struct {
@@ -32,7 +31,7 @@ func SetupRunlogTest(i *RunlogSetupInputs) {
 		i.S, i.Err = actions.DefaultLocalSetup(
 			environment.NewChainlinkCluster(1),
 			client.NewNetworkFromConfig,
-			tools.ProjectRoot,
+			ConfigLocation(),
 		)
 		Expect(i.Err).ShouldNot(HaveOccurred())
 		i.Adapter, i.Err = environment.GetExternalAdapter(i.S.Env)

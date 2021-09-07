@@ -24,6 +24,7 @@ var _ = XDescribeTable("OCR chaos tests @chaos-ocr", func(
 		Expect(err).ShouldNot(HaveOccurred())
 		testcommon.CheckRound(i)
 	})
+
 	AfterEach(func() {
 		By("Restoring chaos", func() {
 			err := i.SuiteSetup.Env.StopAllChaos()

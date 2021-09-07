@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: .integration/suite/logs
+          path: ./integration/suite/logs
 
   performance:
     needs: build-chainlink
@@ -193,4 +193,4 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: .integration/suite/logs
+          path: ./integration/suite/logs

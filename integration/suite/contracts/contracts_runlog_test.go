@@ -13,11 +13,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 var _ = Describe("Direct request suite @runlog", func() {
@@ -37,7 +37,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfig,
-				tools.ProjectRoot,
+				testcommon.ConfigLocation(),
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			adapter, err = environment.GetExternalAdapter(s.Env)

@@ -4,8 +4,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/config"
-	"github.com/smartcontractkit/integrations-framework/tools"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -17,7 +17,7 @@ import (
 func TestRefill(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
-	conf, err := config.NewConfig(tools.ProjectRoot)
+	conf, err := config.NewConfig(testcommon.ConfigLocation())
 	if err != nil {
 		Fail("failed to load config")
 	}

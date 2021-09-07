@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -13,8 +14,17 @@ import (
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
+
+func ConfigLocation() string {
+	relPath := "../config.yml"
+	path, err := filepath.Abs(relPath)
+	if err != nil {
+		log.Err(err).Str("Relative Path", relPath).Msg("Error finding the local config")
+		return ""
+	}
+	return path
+}
 
 type OCRSetupInputs struct {
 	SuiteSetup     *actions.DefaultSuiteSetup
@@ -31,7 +41,7 @@ func DeployOCRForEnv(i *OCRSetupInputs, envInit environment.K8sEnvSpecInit) {
 		i.SuiteSetup, err = actions.DefaultLocalSetup(
 			envInit,
 			client.NewNetworkFromConfig,
-			tools.ProjectRoot,
+			ConfigLocation(),
 		)
 		Expect(err).ShouldNot(HaveOccurred())
 		i.Em, err = environment.GetExplorerMockClient(i.SuiteSetup.Env)

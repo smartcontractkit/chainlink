@@ -4,10 +4,10 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 
 	"github.com/smartcontractkit/integrations-framework/client"
 
@@ -25,7 +25,7 @@ var _ = Describe("Basic Contract Interactions @contract", func() {
 			suiteSetup, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(0),
 				client.NewNetworkFromConfig,
-				tools.ProjectRoot,
+				testcommon.ConfigLocation(),
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			defaultWallet = suiteSetup.Wallets.Default()

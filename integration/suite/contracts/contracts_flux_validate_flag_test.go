@@ -9,8 +9,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/actions"
-	"github.com/smartcontractkit/integrations-framework/tools"
 
 	"github.com/ethereum/go-ethereum/common"
 	. "github.com/onsi/ginkgo"
@@ -41,7 +41,7 @@ var _ = Describe("Flux monitor external validator suite @flux", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(3),
 				client.NewNetworkFromConfig,
-				tools.ProjectRoot,
+				testcommon.ConfigLocation(),
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)
