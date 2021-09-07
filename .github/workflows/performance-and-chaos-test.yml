@@ -1,6 +1,12 @@
-name: Smoke Test
+name: Performance and Chaos Tests
 
-on: workflow_dispatch
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - develop
+      - main
 
 jobs:
   smoke:
@@ -34,7 +40,7 @@ jobs:
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./tools/ci/smoke_test_chainlink.sh 0
+          ./tools/ci/smoke_test_chainlink.sh 1     
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
@@ -47,3 +53,4 @@ jobs:
         with:
           name: test-logs
           path: .integration/suite/logs
+  

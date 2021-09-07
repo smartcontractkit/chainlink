@@ -22,6 +22,6 @@ func TestContracts(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../../logs/tests-contracts.xml")
+	junitReporter := reporters.NewJUnitReporter("../logs/tests-contracts.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Contract Suite", []Reporter{junitReporter})
 }
