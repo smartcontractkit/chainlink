@@ -5,11 +5,12 @@ describe('transformPipelineJobRun', () => {
   it('transforms api response to PipelineJobRun', () => {
     const apiResponse = jobRunAPIResponse({
       id: '1',
+      errors: ['task inputs: too many errors'],
     })
 
     expect(transformPipelineJobRun('1')(apiResponse.data)).toEqual({
       createdAt: '2020-09-22T11:48:20.410Z',
-      errors: [],
+      errors: ['task inputs: too many errors'],
       finishedAt: '2020-09-22T11:48:20.410Z',
       id: '1',
       jobId: '1',

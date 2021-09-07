@@ -4,12 +4,11 @@ import (
 	"context"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/null"
+	"go.uber.org/atomic"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -84,10 +84,10 @@ type (
 
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
-		trackedAddressesCount uint32
+		trackedAddressesCount atomic.Uint32
 		replayChannel         chan int64
 		highestSavedHead      *models.Head
-		lastSeenHeadNumber    int64
+		lastSeenHeadNumber    atomic.Int64
 		logger                *logger.Logger
 	}
 
@@ -160,7 +160,7 @@ func (b *broadcaster) BackfillBlockNumber() null.Int64 {
 }
 
 func (b *broadcaster) TrackedAddressesCount() uint32 {
-	return atomic.LoadUint32(&b.trackedAddressesCount)
+	return b.trackedAddressesCount.Load()
 }
 
 func (b *broadcaster) ReplayFromBlock(number int64) {
@@ -300,7 +300,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		b.connected.Set()
 
-		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
+		b.trackedAddressesCount.Store(uint32(len(addresses)))
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
@@ -397,7 +397,7 @@ func (b *broadcaster) onNewHeads() {
 		b.logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
-		atomic.StoreInt64(&b.lastSeenHeadNumber, latestHead.Number)
+		b.lastSeenHeadNumber.Store(latestHead.Number)
 
 		keptLogsDepth := uint64(b.config.EvmFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
@@ -512,7 +512,7 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 }
 
 func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64) {
-	lastSeenHeadNumber := atomic.LoadInt64(&b.lastSeenHeadNumber)
+	lastSeenHeadNumber := b.lastSeenHeadNumber.Load()
 	diff := logBlockNumber - lastSeenHeadNumber
 	if diff < 0 {
 		diff = -diff
