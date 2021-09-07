@@ -797,6 +797,3 @@ var whitespace = regexp.MustCompile(`\s+`)
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
-
-// flags is an abbreviated way to express a CLI flag
-func flags(s string) []cli.Flag { return []cli.Flag{cli.StringFlag{Name: s}} }

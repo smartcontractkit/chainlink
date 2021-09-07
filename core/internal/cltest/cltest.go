@@ -673,12 +673,6 @@ func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func())
 	return store, storeCleanup
 }
 
-type fastScriptConfig struct{}
-
-func (fastScriptConfig) InsecureFastScrypt() bool {
-	return true
-}
-
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams)
