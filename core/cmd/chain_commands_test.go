@@ -29,6 +29,7 @@ func TestClient_IndexChains(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 
 	id := utils.NewBigI(99)
 	chain, err := orm.CreateChain(*id, types.ChainCfg{})
@@ -55,6 +56,7 @@ func TestClient_CreateChain(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 
 	set := flag.NewFlagSet("cli", 0)
 	set.Int64("id", 99, "")
@@ -65,6 +67,7 @@ func TestClient_CreateChain(t *testing.T) {
 	require.NoError(t, err)
 
 	chains, _, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 	ch := chains[initialCount]
 	assert.Equal(t, int64(99), ch.ID.ToInt().Int64())
@@ -84,11 +87,13 @@ func TestClient_RemoveChain(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 
 	id := utils.NewBigI(99)
 	_, err = orm.CreateChain(*id, types.ChainCfg{})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
@@ -99,6 +104,7 @@ func TestClient_RemoveChain(t *testing.T) {
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
 }
 
@@ -127,6 +133,7 @@ func TestClient_ConfigureChain(t *testing.T) {
 	})
 	require.NoError(t, err)
 	chains, _, err := orm.Chains(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
@@ -138,6 +145,7 @@ func TestClient_ConfigureChain(t *testing.T) {
 	require.NoError(t, err)
 
 	chains, _, err = orm.Chains(0, 25)
+	require.NoError(t, err)
 	ch := chains[initialCount]
 
 	assert.Equal(t, null.IntFrom(int64(9)), ch.Cfg.BlockHistoryEstimatorBlockDelay) // this key was changed
