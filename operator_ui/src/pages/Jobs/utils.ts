@@ -41,7 +41,7 @@ export function getOcrJobStatus({
   if (finishedAt === null) {
     return RunStatus.IN_PROGRESS
   }
-  if (errors[0] !== null) {
+  if (errorsExist(errors)) {
     return RunStatus.ERRORED
   }
   return RunStatus.COMPLETED
@@ -92,4 +92,8 @@ export function getTaskList({
     list,
     error,
   }
+}
+
+function errorsExist(errors: PipelineTaskError[]): boolean {
+  return errors !== null && errors.length > 0 && errors[0] !== null
 }
