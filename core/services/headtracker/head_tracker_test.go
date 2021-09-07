@@ -500,7 +500,6 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
-	assert.NoError(t, ht.Start())
 
 	headSeq := cltest.NewHeadBuffer(t)
 	headSeq.Append(blocks.Head(0))

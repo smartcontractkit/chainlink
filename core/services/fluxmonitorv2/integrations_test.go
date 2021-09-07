@@ -492,8 +492,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 	assert.Eventually(t, func() bool {
-		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
+		return app.LogBroadcaster.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
 	}, 3*time.Second, 200*time.Millisecond)
 
 	// Initial Poll
