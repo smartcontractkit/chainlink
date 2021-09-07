@@ -100,6 +100,7 @@ describe("VRFCoordinatorV2", () => {
       "hashOfKey",
       "fulfillRandomWords",
       "registerProvingKey",
+      "deregisterProvingKey",
       "oracleWithdraw",
       // Subscription management
       "createSubscription",
@@ -120,28 +121,75 @@ describe("VRFCoordinatorV2", () => {
     ]);
   });
 
-  it("configuration management", async function () {
-    await expect(
-      vrfCoordinatorV2
-        .connect(subOwner)
-        .setConfig(
-          c.minimumRequestBlockConfirmations,
-          c.fulfillmentFlatFeePPM,
-          c.maxGasLimit,
-          c.stalenessSeconds,
-          c.gasAfterPaymentCalculation,
-          c.weiPerUnitLink,
-          c.minimumSubscriptionBalance,
-        ),
-    ).to.be.revertedWith("Only callable by owner");
-    // Anyone can read the config.
-    const resp = await vrfCoordinatorV2.connect(random).getConfig();
-    assert(resp[0] == c.minimumRequestBlockConfirmations);
-    assert(resp[1] == c.fulfillmentFlatFeePPM);
-    assert(resp[2] == c.maxGasLimit);
-    assert(resp[3] == c.stalenessSeconds);
-    assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString());
-    assert(resp[5].toString() == c.weiPerUnitLink.toString());
+  describe("#setConfig", async function () {
+    it("only owner can set", async function () {
+      await expect(
+        vrfCoordinatorV2
+          .connect(subOwner)
+          .setConfig(
+            c.minimumRequestBlockConfirmations,
+            c.fulfillmentFlatFeePPM,
+            c.maxGasLimit,
+            c.stalenessSeconds,
+            c.gasAfterPaymentCalculation,
+            c.minimumSubscriptionBalance,
+            c.weiPerUnitLink,
+          ),
+      ).to.be.revertedWith("Only callable by owner");
+      // Anyone can read the config.
+      const resp = await vrfCoordinatorV2.connect(random).getConfig();
+      assert(resp[0] == c.minimumRequestBlockConfirmations);
+      assert(resp[1] == c.fulfillmentFlatFeePPM);
+      assert(resp[2] == c.maxGasLimit);
+      assert(resp[3] == c.stalenessSeconds);
+      assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString());
+      assert(resp[5].toString() == c.weiPerUnitLink.toString());
+    });
+
+    it("max req confs", async function () {
+      await expect(
+        vrfCoordinatorV2
+          .connect(owner)
+          .setConfig(
+            201,
+            c.fulfillmentFlatFeePPM,
+            c.maxGasLimit,
+            c.stalenessSeconds,
+            c.gasAfterPaymentCalculation,
+            c.minimumSubscriptionBalance,
+            c.weiPerUnitLink,
+          ),
+      ).to.be.revertedWith("InvalidRequestConfirmations(201, 201, 200)");
+    });
+
+    it("positive fallback price", async function () {
+      await expect(
+        vrfCoordinatorV2
+          .connect(owner)
+          .setConfig(
+            c.minimumRequestBlockConfirmations,
+            c.fulfillmentFlatFeePPM,
+            c.maxGasLimit,
+            c.stalenessSeconds,
+            c.gasAfterPaymentCalculation,
+            c.minimumSubscriptionBalance,
+            0,
+          ),
+      ).to.be.revertedWith("InvalidLinkWeiPrice(0)");
+      await expect(
+        vrfCoordinatorV2
+          .connect(owner)
+          .setConfig(
+            c.minimumRequestBlockConfirmations,
+            c.fulfillmentFlatFeePPM,
+            c.maxGasLimit,
+            c.stalenessSeconds,
+            c.gasAfterPaymentCalculation,
+            c.minimumSubscriptionBalance,
+            -1,
+          ),
+      ).to.be.revertedWith("InvalidLinkWeiPrice(-1)");
+    });
   });
 
   async function createSubscription(): Promise<number> {
@@ -739,9 +787,109 @@ describe("VRFCoordinatorV2", () => {
         ),
       ).to.be.revertedWith(`PaymentTooLarge()`);
     });
+
+    it("non-positive link wei price should revert", async function () {
+      let mockAggregatorV3Factory = await ethers.getContractFactory(
+        "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
+        owner,
+      );
+      let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("VRFCoordinatorV2TestHelper", owner);
+      const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0);
+      const vrfCoordinatorV2TestHelperZero = await vrfCoordinatorV2TestHelperFactory.deploy(
+        linkToken.address,
+        blockHashStore.address,
+        mockLinkEthZero.address,
+      );
+      await expect(
+        vrfCoordinatorV2TestHelperZero.connect(oracle).calculatePaymentAmountTest(
+          BigNumber.from("11450102"),
+          BigNumber.from("0"), // Gas after payment
+          0, // Fee PPM
+          BigNumber.from("1000000000000000000"),
+        ),
+      ).to.be.revertedWith(`InvalidLinkWeiPrice(0)`);
+      const mockLinkEthNegative = await mockAggregatorV3Factory.deploy(0, -1);
+      const vrfCoordinatorV2TestHelperNegative = await vrfCoordinatorV2TestHelperFactory.deploy(
+        linkToken.address,
+        blockHashStore.address,
+        mockLinkEthNegative.address,
+      );
+      await expect(
+        vrfCoordinatorV2TestHelperNegative.connect(oracle).calculatePaymentAmountTest(
+          BigNumber.from("11450102"),
+          BigNumber.from("0"), // Gas after payment
+          0, // Fee PPM
+          BigNumber.from("1000000000000000000"),
+        ),
+      ).to.be.revertedWith(`InvalidLinkWeiPrice(-1)`);
+    });
+  });
+
+  describe("#keyRegistration", async function () {
+    it("register key emits log", async function () {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      await expect(vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey))
+        .to.emit(vrfCoordinatorV2, "ProvingKeyRegistered")
+        .withArgs(kh, subOwnerAddress);
+    });
+    it("cannot re-register key", async function () {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey);
+      await expect(vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey)).to.be.revertedWith(
+        `ProvingKeyAlreadyRegistered("${kh}")`,
+      );
+    });
+    it("deregister key emits log", async function () {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey);
+      await expect(vrfCoordinatorV2.deregisterProvingKey(testKey))
+        .to.emit(vrfCoordinatorV2, "ProvingKeyDeregistered")
+        .withArgs(kh, subOwnerAddress);
+    });
+    it("cannot deregister unregistered key", async function () {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      let kh = await vrfCoordinatorV2.hashOfKey(testKey);
+      await expect(vrfCoordinatorV2.deregisterProvingKey(testKey)).to.be.revertedWith(`NoSuchProvingKey("${kh}")`);
+    });
+    it("can register after deregister", async function () {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey);
+      await vrfCoordinatorV2.deregisterProvingKey(testKey);
+      await vrfCoordinatorV2.registerProvingKey(randomAddress, testKey);
+    });
   });
 
   describe("#fulfillRandomWords", async function () {
+    beforeEach(async () => {
+      const testKey = [BigNumber.from("1"), BigNumber.from("2")];
+      await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey);
+    });
+    it("unregistered key should fail", async function () {
+      const proof = [
+        [BigNumber.from("1"), BigNumber.from("3")], // pk NOT registered
+        [BigNumber.from("1"), BigNumber.from("2")], // gamma
+        BigNumber.from("1"), // c
+        BigNumber.from("1"), // s
+        BigNumber.from("1"), // seed
+        randomAddress, // uWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // cGammaWitness
+        [BigNumber.from("1"), BigNumber.from("2")], // sHashWitness
+        BigNumber.from("1"),
+      ]; // 13 words in proof
+      const rc = [
+        1, // blockNum
+        2, // subId
+        3, // callbackGasLimit
+        4, // numWords
+        randomAddress, // sender
+      ];
+      await expect(vrfCoordinatorV2.connect(oracle).fulfillRandomWords(proof, rc)).to.be.revertedWith(
+        `NoSuchProvingKey("0xa15bc60c955c405d20d9149c709e2460f1c2d9a497496a7f46004d1772c3054c")`,
+      );
+    });
     it("no corresponding request", async function () {
       const proof = [
         [BigNumber.from("1"), BigNumber.from("2")], // pk

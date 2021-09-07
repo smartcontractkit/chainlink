@@ -187,6 +187,10 @@ contract VRF {
 
     // True iff p is on secp256k1
     function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
+        // Section 2.3.6. in https://www.secg.org/sec1-v2.pdf
+        // requires each ordinate to be in [0, ..., FIELD_SIZE-1]
+        require(p[0] < FIELD_SIZE, "invalid x-ordinate");
+        require(p[1] < FIELD_SIZE, "invalid y-ordinate");
         return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
     }
 
@@ -425,7 +429,7 @@ contract VRF {
     internal pure returns (uint256[2] memory) {
         unchecked {
             // Note we are relying on the wrap around here
-            require(cp1Witness[0] - sp2Witness[0] % FIELD_SIZE != 0, "points in sum must be distinct");
+            require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0, "points in sum must be distinct");
             require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
             require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
             return affineECAdd(cp1Witness, sp2Witness, zInv);

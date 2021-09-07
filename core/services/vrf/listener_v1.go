@@ -322,7 +322,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 			"reqID", hex.EncodeToString(req.RequestID[:]),
 			"newConfs", newConfs)
 	}
-	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestID])
+	return newConfs
 }
 
 func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, lb log.Broadcast) {

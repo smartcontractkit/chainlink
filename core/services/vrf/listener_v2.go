@@ -287,7 +287,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 			"reqID", req.RequestId.String(),
 			"newConfs", newConfs)
 	}
-	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestId.String()])
+	return newConfs
 }
 
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {

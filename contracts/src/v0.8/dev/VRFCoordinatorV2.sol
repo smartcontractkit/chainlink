@@ -74,8 +74,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
-  error KeyHashAlreadyRegistered(bytes32 keyHash);
-  error InvalidFeedResponse(int256 linkWei);
+  error ProvingKeyAlreadyRegistered(bytes32 keyHash);
+  error NoSuchProvingKey(bytes32 keyHash);
+  error InvalidLinkWeiPrice(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
@@ -89,10 +90,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 numWords;
     address sender;
   }
-  mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
+  mapping(bytes32 /* keyHash */ => address /* oracle */) private s_provingKeys;
   mapping(address /* oracle */ => uint96 /* LINK balance */) private s_withdrawableTokens;
   mapping(uint256 /* requestID */ => bytes32 /* commitment */) private s_requestCommitments;
-  event NewServiceAgreement(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -162,11 +164,30 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     onlyOwner()
   {
     bytes32 kh = hashOfKey(publicProvingKey);
-    if (s_serviceAgreements[kh] != address(0)) {
-      revert KeyHashAlreadyRegistered(kh);
+    if (s_provingKeys[kh] != address(0)) {
+      revert ProvingKeyAlreadyRegistered(kh);
     }
-    s_serviceAgreements[kh] = oracle;
-    emit NewServiceAgreement(kh, oracle);
+    s_provingKeys[kh] = oracle;
+    emit ProvingKeyRegistered(kh, oracle);
+  }
+
+  /**
+   * @notice Deregisters a proving key to an oracle.
+   * @param publicProvingKey key that oracle can use to submit vrf fulfillments
+   */
+  function deregisterProvingKey(
+    uint256[2] calldata publicProvingKey
+  )
+    external
+    onlyOwner()
+  {
+    bytes32 kh = hashOfKey(publicProvingKey);
+    address oracle = s_provingKeys[kh];
+    if (oracle == address(0)) {
+      revert NoSuchProvingKey(kh);
+    }
+    delete s_provingKeys[kh];
+    emit ProvingKeyDeregistered(kh, oracle);
   }
 
   /**
@@ -197,6 +218,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     onlyOwner()
   {
+    if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
+      revert InvalidRequestConfirmations(minimumRequestConfirmations, minimumRequestConfirmations, MAX_REQUEST_CONFIRMATIONS);
+    }
+    if (fallbackWeiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
+    }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
       fulfillmentFlatFeeLinkPPM: fulfillmentFlatFeeLinkPPM,
@@ -380,6 +407,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256 randomness
     ) {
       keyHash = hashOfKey(proof.pk);
+      // Only registered proving keys are permitted.
+      if (s_provingKeys[keyHash] == address(0)) {
+        revert NoSuchProvingKey(keyHash);
+      }
       requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
       bytes32 commitment = s_requestCommitments[requestId];
       if (commitment == 0) {
@@ -453,7 +484,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InsufficientBalance();
     }
     s_subscriptions[rc.subId].balance -= payment;
-    s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
+    s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
   }
 
   // Get the amount of gas used for fulfillment
@@ -471,8 +502,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink < 0) {
-      revert InvalidFeedResponse(weiPerUnitLink);
+    if (weiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink);
