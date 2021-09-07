@@ -23,6 +23,7 @@ type EthKeyPresenter struct {
 func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
+		p.EVMChainID.String(),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.IsFunding),
@@ -33,7 +34,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
 	renderList(headers, rows, rt.Writer)
@@ -45,7 +46,7 @@ type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
