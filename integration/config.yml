@@ -8,36 +8,36 @@ network: 'ethereum_geth' # Selected network for test execution
 keep_environments: Never # Options: Always, OnFail, Never
 
 apps:
-    chainlink:
-        image: smartcontract/chainlink
-        version: 0.10.3
-        requests:
-            memory: 768Mi
-            cpu: 300m
-        limits:
-            memory: 1024Mi
-            cpu: 450m
-    postgres:
-        requests:
-            memory: 512Mi
-            cpu: 200m
-        limits:
-            memory: 1024Mi
-            cpu: 350m
-    geth:
-        requests:
-            memory: 1536Mi
-            cpu: 250m
-        limits:
-            memory: 2048Mi
-            cpu: 375m
-    adapter:
-        requests:
-            memory: 64Mi
-            cpu: 25m
-        limits:
-            memory: 96Mi
-            cpu: 50m
+  chainlink:
+    image: smartcontract/chainlink
+    version: 0.10.3
+    requests:
+      memory: 768Mi
+      cpu: 300m
+    limits:
+      memory: 1024Mi
+      cpu: 450m
+  postgres:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1024Mi
+      cpu: 350m
+  geth:
+    requests:
+      memory: 1536Mi
+      cpu: 250m
+    limits:
+      memory: 2048Mi
+      cpu: 375m
+  adapter:
+    requests:
+      memory: 64Mi
+      cpu: 25m
+    limits:
+      memory: 96Mi
+      cpu: 50m
 
 private_keys: &private_keys
   private_keys:
