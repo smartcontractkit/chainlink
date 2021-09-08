@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -26,7 +23,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"gorm.io/gorm"
 )
 
@@ -356,7 +358,7 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID *big.Int, etx EthTx, 
 	)
 
 	transaction := gethTypes.NewTx(&tx)
-	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, transaction, chainID)
+	hash, signedTxBytes, err := SignTx(ks, etx.FromAddress, transaction, chainID)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -381,17 +383,33 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 }
 
-func signTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
+func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
 	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	rlp := new(bytes.Buffer)
-	if err := signedTx.EncodeRLP(rlp); err != nil {
-		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
+	if err = signedTx.EncodeRLP(rlp); err != nil {
+		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
-	return signedTx.Hash(), rlp.Bytes(), nil
+	var hash common.Hash
+	hash, err = signedTxHash(signedTx, chainID)
+	if err != nil {
+		return hash, nil, err
+	}
+	return hash, rlp.Bytes(), nil
+}
 
+func signedTxHash(signedTx *gethTypes.Transaction, chainID *big.Int) (hash common.Hash, err error) {
+	if evmtypes.IsExChain(chainID) {
+		hash, err = exchainutils.Hash(signedTx)
+		if err != nil {
+			return hash, errors.Wrapf(err, "error getting signed tx hash from exchain (chain ID %s)", chainID.String())
+		}
+	} else {
+		hash = signedTx.Hash()
+	}
+	return hash, nil
 }
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
@@ -408,10 +426,10 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta, "gasLimit", e.GasLimit)
+	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta, "gasLimit", e.GasLimit)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
+		logger.Debugw("transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
 	}
 	return eth.NewSendError(err)

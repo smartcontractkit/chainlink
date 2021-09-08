@@ -84,6 +84,10 @@ func IsL2(id *big.Int) bool {
 	return IsOptimism(id) || IsArbitrum(id)
 }
 
+func IsExChain(id *big.Int) bool {
+	return id.Cmp(big.NewInt(65)) == 0 || id.Cmp(big.NewInt(66)) == 0
+}
+
 type Node struct {
 	ID         int64 `gorm:"primary_key"`
 	Name       string
