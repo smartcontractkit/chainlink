@@ -208,10 +208,8 @@ declare module 'core/store/models' {
 
   export interface OcrKey {
     configPublicKey: string
-    createdAt: time.Time
     offChainPublicKey: string
     onChainSigningAddress: common.Address
-    updatedAt: time.Time
   }
   //#endregion ocrkey/key_bundle.go
   //#region p2pKey/p2p_key.go
@@ -223,9 +221,6 @@ declare module 'core/store/models' {
   export interface P2PKey {
     peerId: string
     publicKey: string
-    createdAt: time.Time
-    updatedAt: time.Time
-    deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
 
@@ -390,7 +385,7 @@ declare module 'core/store/models' {
     | VRFJob
 
   export type Chain = {
-    config: Record<string, JSONPrimitive>, 
+    config: Record<string, JSONPrimitive>,
     createdAt: time.Time,
     updatedAt: time.Time
   }
@@ -428,8 +423,6 @@ declare module 'core/store/models' {
 
   export interface CSAKey {
     publicKey: string
-    createdAt: time.Time
-    updatedAt: time.Tome
   }
 
   export interface FeedsManager {

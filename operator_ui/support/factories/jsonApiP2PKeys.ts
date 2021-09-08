@@ -21,8 +21,6 @@ export const jsonApiP2PKeys = (keys: P2PKeyBundle[]) => {
         attributes: {
           peerId,
           publicKey,
-          createdAt: new Date().toISOString(),
-          UpdatedAt: new Date().toISOString(),
         },
       }
     }),
