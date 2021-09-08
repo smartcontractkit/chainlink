@@ -721,6 +721,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
 	testCases := []struct {
 		name              string
 		idleTimerDisabled bool
@@ -773,7 +775,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
-				require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
 
 				chBlock := make(chan struct{})
 				// NewRound resets the idle timer
@@ -789,14 +791,15 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 				fm.HandleLog(tm.logBroadcast)
 
-				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
+				g.Eventually(chBlock).Should(gomega.BeClosed())
 
 				// idleDuration 2
 				roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
-				require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
+
+				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
 			}
 
 			fm.Close()
@@ -812,6 +815,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
 
+	g := gomega.NewGomegaWithT(t)
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -853,7 +857,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	require.Eventually(t, func() bool { return len(pollOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
 
 	// hiberation tick 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
@@ -875,7 +879,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	require.Eventually(t, func() bool { return len(pollOccured) == 2 }, 6*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
 
 	// hiberation tick 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
@@ -890,7 +894,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	require.Eventually(t, func() bool { return len(pollOccured) == 3 }, 8*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(3))
 	tm.AssertExpectations(t)
 }
 
@@ -1019,6 +1023,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
+	g := gomega.NewGomegaWithT(t)
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1058,7 +1063,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		initialPollOccurred <- struct{}{}
 	})
 	require.Len(t, idleDurationOccured, 0, "no Job Runs created")
-	require.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(initialPollOccurred) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
 
 	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
@@ -1079,7 +1084,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
 
 	// idleDuration 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
@@ -1094,7 +1099,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
 
 	// idleDuration 3 triggers from the previous new round
 	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
@@ -1117,13 +1122,14 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
 
-	require.Eventually(t, func() bool { return len(idleDurationOccured) == 4 }, 3*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(4))
 	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
+	g := gomega.NewGomegaWithT(t)
 	store, _, nodeAddr := setupStoreWithKey(t)
 
 	var (
@@ -1164,13 +1170,15 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	fm.ExportedRoundState()
 	fm.Start()
 
-	gomega.NewGomegaWithT(t).Eventually(ch).Should(gomega.BeClosed())
+	g.Eventually(ch).Should(gomega.BeClosed())
 
 	fm.Close()
 	tm.AssertExpectations(t)
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1223,9 +1231,9 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			fm.Start()
 
 			if test.expectedToSubmit {
-				gomega.NewGomegaWithT(t).Eventually(chRoundState).Should(gomega.BeClosed())
+				g.Eventually(chRoundState).Should(gomega.BeClosed())
 			} else {
-				gomega.NewGomegaWithT(t).Consistently(chRoundState).ShouldNot(gomega.BeClosed())
+				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
 
 			fm.Close()
@@ -1235,6 +1243,8 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1305,9 +1315,9 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			assert.Eventually(t, func() bool { return len(initialPollOccurred) == 1 }, 3*time.Second, 10*time.Millisecond)
 
 			if tc.expectedToSubmit {
-				gomega.NewGomegaWithT(t).Eventually(chRoundState).Should(gomega.BeClosed())
+				g.Eventually(chRoundState).Should(gomega.BeClosed())
 			} else {
-				gomega.NewGomegaWithT(t).Consistently(chRoundState).ShouldNot(gomega.BeClosed())
+				g.Consistently(chRoundState).ShouldNot(gomega.BeClosed())
 			}
 			tm.AssertExpectations(t)
 		})
@@ -1317,6 +1327,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
+	g := gomega.NewGomegaWithT(t)
 	store, _, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1385,8 +1396,8 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	// To mark it consumed, we need to be eligible to submit.
 	fm.HandleLog(tm.logBroadcast)
 
-	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
-	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
+	g.Eventually(chRoundState1).Should(gomega.BeClosed())
+	g.Eventually(chRoundState2).Should(gomega.BeClosed())
 
 	time.Sleep(time.Duration(2*timeout) * time.Second)
 	fm.Close()

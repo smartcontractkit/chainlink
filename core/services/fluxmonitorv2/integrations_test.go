@@ -409,10 +409,11 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}, 5*time.Second).Should(gomega.BeTrue())
+	}, cltest.DefaultWaitTimeout).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -496,10 +497,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
-	}, 3*time.Second, 200*time.Millisecond)
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
+	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
@@ -574,6 +575,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -644,10 +646,10 @@ ds1 -> ds1_parse
 
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
-	}, 3*time.Second, 200*time.Millisecond)
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
+	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -680,6 +682,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -773,12 +776,12 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() int {
 		ilogs, err := fa.flagsContract.FilterFlagRaised(nil, []common.Address{})
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
-		return len(logs) == 4
-	}, 7*time.Second, 100*time.Millisecond)
+		return len(logs)
+	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)
