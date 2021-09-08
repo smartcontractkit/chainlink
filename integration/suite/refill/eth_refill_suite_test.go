@@ -17,7 +17,7 @@ import (
 func TestRefill(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
-	conf, err := config.NewConfig(testcommon.ConfigLocation())
+	conf, err := config.NewConfig(testcommon.ConfigLocation)
 	if err != nil {
 		Fail("failed to load config")
 	}

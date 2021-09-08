@@ -5,26 +5,22 @@ import (
 	"fmt"
 	"math/big"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
 )
 
-func ConfigLocation() string {
-	relPath := "../config.yml"
-	path, err := filepath.Abs(relPath)
-	if err != nil {
-		log.Err(err).Str("Relative Path", relPath).Msg("Error finding the local config")
-		return ""
-	}
-	return path
-}
+var (
+	_, b, _, _ = runtime.Caller(0)
+	// ProjectRoot Root folder of this project
+	ConfigLocation = filepath.Join(filepath.Dir(b), "/../..")
+)
 
 type OCRSetupInputs struct {
 	SuiteSetup     *actions.DefaultSuiteSetup
@@ -40,7 +36,7 @@ func DeployOCRForEnv(i *OCRSetupInputs, envInit environment.K8sEnvSpecInit) {
 		i.SuiteSetup, err = actions.DefaultLocalSetup(
 			envInit,
 			client.NewNetworkFromConfig,
-			ConfigLocation(),
+			ConfigLocation,
 		)
 		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 		i.Adapter, err = environment.GetExternalAdapter(i.SuiteSetup.Env)

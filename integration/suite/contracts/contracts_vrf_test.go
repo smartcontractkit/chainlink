@@ -33,7 +33,7 @@ var _ = Describe("VRF suite @vrf", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)

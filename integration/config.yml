@@ -7,11 +7,6 @@
 network: 'ethereum_geth' # Selected network for test execution
 keep_environments: Never # Options: Always, OnFail, Never
 
-apps:
-  chainlink:
-  image: public.ecr.aws/chainlink/chainlink
-  version: 0.10.10
-
 private_keys: &private_keys
   private_keys:
     - ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
@@ -96,7 +91,7 @@ kubernetes:
   qps: 50
   burst: 50
   # How long to wait for the environment to deploy & be marked as healthy before test errors
-  deployment_timeout: 3m
+  deployment_timeout: 7m
 
 logging:
   # panic=5, fatal=4, error=3, warn=2, info=1, debug=0, trace=-1

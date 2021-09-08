@@ -27,7 +27,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)

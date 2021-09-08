@@ -34,7 +34,7 @@ var _ = Describe("Keeper suite @keeper", func() {
 				// need to register at least 5 nodes to perform upkeep
 				environment.NewChainlinkCluster(5),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)

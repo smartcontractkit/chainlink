@@ -37,7 +37,7 @@ var _ = Describe("Direct request suite @runlog", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			adapter, err = environment.GetExternalAdapter(s.Env)

@@ -35,7 +35,7 @@ var _ = Describe("Flux monitor suite @flux", func() {
 			s, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(3),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)

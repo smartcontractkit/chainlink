@@ -31,7 +31,7 @@ func SetupRunlogTest(i *RunlogSetupInputs) {
 		i.S, i.Err = actions.DefaultLocalSetup(
 			environment.NewChainlinkCluster(1),
 			client.NewNetworkFromConfig,
-			ConfigLocation(),
+			ConfigLocation,
 		)
 		gomega.Expect(i.Err).ShouldNot(gomega.HaveOccurred())
 		i.Adapter, i.Err = environment.GetExternalAdapter(i.S.Env)

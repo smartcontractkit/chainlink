@@ -25,7 +25,7 @@ var _ = Describe("Alerts suite", func() {
 			suiteSetup, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkClusterForAlertsTesting(3),
 				client.NewNetworkFromConfig,
-				testcommon.ConfigLocation(),
+				testcommon.ConfigLocation,
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 
