@@ -95,7 +95,6 @@ type client struct {
 	primary     *Node
 	secondaries []*SecondaryNode
 	chainID     *big.Int
-	mocked      bool
 
 	roundRobinCount atomic.Uint32
 }
@@ -141,9 +140,6 @@ func NewClient(lggr *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondar
 // Dial opens websocket connections if necessary and sanity-checks that tthe
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
-	if client.mocked {
-		return nil
-	}
 	if err := client.primary.Dial(ctx); err != nil {
 		return errors.Wrap(err, "Failed to dial primary client")
 	}
