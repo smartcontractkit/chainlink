@@ -19,7 +19,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 constant MAXIMUM_CONSUMERS = 100;
+  uint16 public constant MAXIMUM_CONSUMERS = 100;
   error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint64 subId, address consumer);
@@ -66,11 +66,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
-  uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
-  uint32 constant MAX_NUM_WORDS = 500;
+  uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
+  uint32 public constant MAX_NUM_WORDS = 500;
   // The minimum gas limit that could be requested for a callback.
   // Set to 5k to ensure plenty of room to make the call itself.
-  uint256 constant private MINIMUM_GAS_LIMIT = 5_000;
+  uint256 public constant private MINIMUM_GAS_LIMIT = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
@@ -127,7 +127,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Re-entrancy protection.
     bool reentrancyLock;
   }
-  int256 s_fallbackWeiPerUnitLink;
+  int256 public s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -379,6 +379,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       bool success
     )
   {
+    // solhint-disable-next-line no-inline-assembly
     assembly{
       let g := gas()
       // Compute g -= MINIMUM_GAS_LIMIT and check for underflow
@@ -527,6 +528,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 timestamp;
     int256 weiPerUnitLink;
     (,weiPerUnitLink,,timestamp,) = LINK_ETH_FEED.latestRoundData();
+    // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
