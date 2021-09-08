@@ -80,7 +80,8 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -105,7 +106,8 @@ func TestClient_ListETHKeys(t *testing.T) {
 func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -137,7 +139,8 @@ func TestClient_CreateETHKey(t *testing.T) {
 func TestClient_DeleteEthKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethClient),
@@ -167,7 +170,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -255,7 +259,8 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withMocks(ethClient),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {

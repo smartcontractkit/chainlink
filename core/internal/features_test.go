@@ -331,8 +331,6 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
-	t.Parallel()
-
 	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 	// in a single callback.
 	config := cltest.NewTestGeneralConfig(t)
