@@ -55,7 +55,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // A discrepancy with this contracts link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
-  event SubscriptionCreated(uint64 indexed subId, address owner, address[] consumers);
+  event SubscriptionCreated(uint64 indexed subId, address owner);
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
   event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
@@ -408,7 +408,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     ) {
       keyHash = hashOfKey(proof.pk);
       // Only registered proving keys are permitted.
-      if (s_provingKeys[keyHash] == address(0)) {
+      address oracle = s_provingKeys[keyHash];
+      if (oracle == address(0)) {
         revert NoSuchProvingKey(keyHash);
       }
       requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
@@ -598,35 +599,24 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     );
   }
 
-  function createSubscription(
-    address[] memory consumers // permitted consumers of the subscription
-  )
+  function createSubscription()
     external
     nonReentrant()
     returns (
       uint64
     )
   {
-    if (consumers.length > MAXIMUM_CONSUMERS) {
-      revert TooManyConsumers();
-    }
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
+    address[] memory consumers = new address[](0);
     s_subscriptions[currentSubId] = Subscription({
       balance: 0,
       owner: msg.sender,
       requestedOwner: address(0),
       consumers: consumers
     });
-    for (uint256 i; i < consumers.length; i++) {
-      // Note since we just created this sub, its not possible that a consumer
-      // already exists at this consumer and subId.
-      s_consumers[consumers[i]][currentSubId] = Consumer({
-        subId: currentSubId,
-        nonce: 0
-      });
-    }
-    emit SubscriptionCreated(currentSubId, msg.sender, consumers);
+
+    emit SubscriptionCreated(currentSubId, msg.sender);
     return currentSubId;
   }
 
@@ -705,6 +695,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     if (s_consumers[consumer][subId].subId != 0) {
       // Idempotence - do nothing if already added.
+      // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
     s_consumers[consumer][subId] = Consumer({

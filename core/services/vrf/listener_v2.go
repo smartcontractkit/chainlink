@@ -36,7 +36,7 @@ const (
 		2*2100 - // cold read oracle address and oracle balance
 		4800 + // request delete refund, note pre-london fork was 15k
 		21000 + // base cost of the transaction
-		8890 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		6874 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 var (
@@ -287,7 +287,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 			"reqID", req.RequestId.String(),
 			"newConfs", newConfs)
 	}
-	return newConfs
+	return req.Raw.BlockNumber + newConfs
 }
 
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {

@@ -91,6 +91,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     {
         address[] memory consumers = new address[](1);
         consumers[0] = address(this);
-        s_requestConfig.subId = COORDINATOR.createSubscription(consumers);
+        s_requestConfig.subId = COORDINATOR.createSubscription();
+        COORDINATOR.addConsumer(s_requestConfig.subId, consumers[0]);
     }
 }

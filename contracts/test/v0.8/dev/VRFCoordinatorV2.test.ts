@@ -193,43 +193,47 @@ describe("VRFCoordinatorV2", () => {
   });
 
   async function createSubscription(): Promise<number> {
-    let consumers: string[] = [await consumer.getAddress()];
-    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
+    // let consumers: string[] = [await consumer.getAddress()];
+    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription();
     const receipt = await tx.wait();
-    return receipt.events[0].args["subId"];
+    const subId = receipt.events[0].args["subId"];
+    await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, await consumer.getAddress());
+    return subId;
   }
 
   async function createSubscriptionWithConsumers(consumers: string[]): Promise<number> {
-    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
+    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription();
     const receipt = await tx.wait();
-    return receipt.events[0].args["subId"];
+    const subId = receipt.events[0].args["subId"];
+    for (let i = 0; i < consumers.length; i++) {
+      await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, consumers[i]);
+    }
+    return subId;
   }
 
   describe("#createSubscription", async function () {
     it("can create a subscription", async function () {
-      let consumers: string[] = [await consumer.getAddress()];
-      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription())
         .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
-        .withArgs(1, subOwnerAddress, consumers);
+        .withArgs(1, subOwnerAddress);
       const s = await vrfCoordinatorV2.getSubscription(1);
       assert(s.balance.toString() == "0", "invalid balance");
       assert(s.owner == subOwnerAddress, "invalid address");
     });
     it("subscription id increments", async function () {
-      let consumers: string[] = [await consumer.getAddress()];
-      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription())
         .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
-        .withArgs(1, subOwnerAddress, consumers);
-      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers))
+        .withArgs(1, subOwnerAddress);
+      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription())
         .to.emit(vrfCoordinatorV2, "SubscriptionCreated")
-        .withArgs(2, subOwnerAddress, consumers);
+        .withArgs(2, subOwnerAddress);
     });
     it("cannot create more than the max", async function () {
-      let consumers: string[] = [];
-      for (let i = 0; i < 101; i++) {
-        consumers.push(randomAddressString());
+      const subId = createSubscriptionWithConsumers([]);
+      for (let i = 0; i < 100; i++) {
+        await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddressString());
       }
-      await expect(vrfCoordinatorV2.connect(subOwner).createSubscription(consumers)).to.be.revertedWith(
+      await expect(vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddressString())).to.be.revertedWith(
         `TooManyConsumers()`,
       );
     });
@@ -498,13 +502,12 @@ describe("VRFCoordinatorV2", () => {
 
   it("subscription lifecycle", async function () {
     // Create subscription.
-    let consumers: string[] = [await consumer.getAddress()];
-    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription(consumers);
+    const tx = await vrfCoordinatorV2.connect(subOwner).createSubscription();
     const receipt = await tx.wait();
     assert(receipt.events[0].event == "SubscriptionCreated");
     assert(receipt.events[0].args["owner"] == subOwnerAddress, "sub owner");
-    assert(receipt.events[0].args["consumers"][0] == consumers[0], "wrong consumers");
     const subId = receipt.events[0].args["subId"];
+    await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, await consumer.getAddress());
 
     // Subscription owner cannot fund
     const s = defaultAbiCoder.encode(["uint64"], [subId]);
