@@ -8,11 +8,11 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be re/moved after audit */
+import "./interfaces/ForwarderInterface.sol";
+import "./interfaces/FlagsInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
-import "./interfaces/FlagsInterface.sol";
-import "./interfaces/ForwarderInterface.sol";
 
 /**
  * @title ArbitrumValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
@@ -127,7 +127,10 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @notice versions:
    *
    * - ArbitrumValidator 0.1.0: initial release
-   * - ArbitrumValidator 0.2.0: critical Arbitrum network update, xDomain `msg.sender` backwards incompatible change
+   * - ArbitrumValidator 0.2.0: critical Arbitrum network update
+   *   - xDomain `msg.sender` backwards incompatible change (now an alias address)
+   *   - new `withdrawFundsFromL2` fn that withdraws from L2 xDomain alias address
+   *   - approximation of `maxSubmissionCost` using a L1 gas price feed
    *
    * @inheritdoc TypeAndVersionInterface
    */
@@ -217,27 +220,22 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     onlyOwner()
     returns (uint256 id)
   {
-    // We want the L1 to L2 tx to trigger the Arbsys precompile
-    // then create a L2 to L1 transaction transferring `amount`
-    bytes memory l1ToL2Calldata = abi.encodeWithSelector(
-        ArbSys.sendTxToL1.selector,
-        address(this)
-    );
-
+    // Build an xDomain message to trigger the ArbSys precompile, which will create a L2 -> L1 tx transferring `amount`
+    bytes memory message = abi.encodeWithSelector(ArbSys.sendTxToL1.selector, address(this));
     // If `refundAddr` not set, default to the L2 xDomain alias address
     refundAddr = _selectRefundAddr(refundAddr);
     // If `maxSubmissionCost` not set, approximate
-    maxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, s_gasConfig.gasFeedAddr, l1ToL2Calldata.length);
+    maxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, s_gasConfig.gasFeedAddr, message.length);
 
     id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite(
         ARBSYS_ADDR,
         amount,
         maxSubmissionCost,
-        refundAddr,
-        refundAddr,
+        refundAddr, // excessFeeRefundAddress
+        refundAddr, // callValueRefundAddress
         100_000, // static `maxGas` for L2 -> L1 transfer
         s_gasConfig.gasPriceBid,
-        l1ToL2Calldata
+        message
     );
     emit L2WithdrawalRequested(id, amount);
   }
@@ -318,7 +316,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       0, // L2 call value
       // NOTICE: Max submission cost of sending data length. If not set, we approximate the `maxSubmissionCost`.
       // On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
-      _selectMaxSubmissionCost(s_gasConfig.maxSubmissionCost, s_gasConfig.gasFeedAddr, FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES),
+      _selectMaxSubmissionCost(s_gasConfig.maxSubmissionCost, s_gasConfig.gasFeedAddr, message.length),
       s_gasConfig.refundAddr, // excessFeeRefundAddress
       s_gasConfig.refundAddr, // callValueRefundAddress
       s_gasConfig.maxGas,
@@ -377,6 +375,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     view
     returns (address)
   {
+    // NOTICE: we don't alias the configured `refundAddr`, only if not set we refund to the L2 xDomain alias of `address(this)`
     return refundAddr == address(0x0) ? AddressAliasHelper.applyL1ToL2Alias(address(this)) : refundAddr;
   }
 
