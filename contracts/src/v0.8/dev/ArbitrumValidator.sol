@@ -227,7 +227,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // If `refundAddr` not set, default to the L2 xDomain alias address
     refundAddr = _selectRefundAddr(refundAddr);
     // If `maxSubmissionCost` not set, approximate
-    maxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, l1ToL2Calldata.length);
+    maxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, s_gasConfig.gasFeedAddr, l1ToL2Calldata.length);
 
     id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite(
         ARBSYS_ADDR,
@@ -312,14 +312,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     bytes memory message = abi.encodeWithSelector(selector, target, data);
     // Make the xDomain call
     // NOTICE: if `gasCostL2Value` is zero the payment is processed on L2. In that case the L2 xDomain alias address needs to be funded,
-    //   as it will be paying the fee. We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
+    // as it will be paying the fee. We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
     IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: s_gasConfig.gasCostL2Value}(
       L2_CROSS_DOMAIN_FORWARDER,
       0, // L2 call value
-      // NOTICE: maxSubmissionCost info will possibly become available on L1 after the London fork. At that time this
-      // contract could start querying/calculating it directly so we wouldn't need to configure it statically. On L2 this
-      // info is available via `ArbRetryableTx.getSubmissionPrice`.
-      s_gasConfig.maxSubmissionCost, // Max submission cost of sending data length
+      // NOTICE: Max submission cost of sending data length. If not set, we approximate the `maxSubmissionCost`.
+      // On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
+      _selectMaxSubmissionCost(s_gasConfig.maxSubmissionCost, s_gasConfig.gasFeedAddr, FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES),
       s_gasConfig.refundAddr, // excessFeeRefundAddress
       s_gasConfig.refundAddr, // callValueRefundAddress
       s_gasConfig.maxGas,
@@ -344,7 +343,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // L2 xDomain alias addr pays the fee if `gasCostL2Value` is zero
     // Else, we check if configured L1 payment is sufficient (and not excessive)
     if (gasCostL2Value > 0) {
-      uint256 minGasCostL2Value = _selectMaxSubmissionCost(maxSubmissionCost, FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES) + maxGas * gasPriceBid;
+      uint256 selectedMaxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, gasFeedAddr, FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES);
+      uint256 minGasCostL2Value = selectedMaxSubmissionCost + maxGas * gasPriceBid;
       uint256 maxGasCostL2Value = 2 * minGasCostL2Value;
       require(gasCostL2Value >= minGasCostL2Value, "gasCostL2Value < MIN");
       require(gasCostL2Value < maxGasCostL2Value, "gasCostL2Value >= MAX");
@@ -383,24 +383,27 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   /// @notice internal method that selects the `maxSubmissionCost` (either configured or approximated)
   function _selectMaxSubmissionCost(
     uint256 maxSubmissionCost,
+    address gasFeedAddr,
     uint256 calldataSizeInBytes
   )
     internal
     view
     returns (uint256)
   {
-    return maxSubmissionCost != 0 ? maxSubmissionCost : _approximateMaxSubmissionCost(calldataSizeInBytes);
+    return maxSubmissionCost != 0 ? maxSubmissionCost : _approximateMaxSubmissionCost(gasFeedAddr, calldataSizeInBytes);
   }
 
   /// @notice internal method that approximates the `maxSubmissionCost` (using the gas price feed)
   function _approximateMaxSubmissionCost(
+    address gasFeedAddr,
     uint256 calldataSizeInBytes
   )
     internal
     view
     returns (uint256)
   {
-    (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(s_gasConfig.gasFeedAddr).latestRoundData();
+    require(gasFeedAddr != address(0), "Gas price Aggregator is zero address");
+    (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(gasFeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 2; // add 100% buffer
     return l1GasPriceEstimate * calldataSizeInBytes / 256 + l1GasPriceEstimate;
   }
