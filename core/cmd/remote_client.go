@@ -16,6 +16,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -228,6 +229,58 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	var js presenters.JobSpec
 	err = cli.renderAPIResponse(resp, &js)
 	return err
+}
+
+// MigrateJobSpec migrates a JobSpec based on JSON input
+func (cli *Client) MigrateJobSpec(c *clipkg.Context) (err error) {
+	result, err := cli.MigrateJobSpecForResult(c)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("")
+	fmt.Println(result)
+	return nil
+}
+
+func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, err error) {
+	if !c.Args().Present() {
+		return s, cli.errorOut(errors.New("Must pass in JSON or filepath"))
+	}
+
+	buf, err := getBufferFromJSON(c.Args().First())
+	if err != nil {
+		return s, cli.errorOut(err)
+	}
+	var jsr models.JobSpecRequest
+	err = json.Unmarshal(buf.Bytes(), &jsr)
+	if err != nil {
+		return s, cli.errorOut(err)
+	}
+
+	js := models.NewJobFromRequest(jsr)
+
+	//logger.Warnf("JOB: %v", js)
+	jobSpec, err := MigrateJobSpec(js)
+	if err != nil {
+		return s, cli.errorOut(err)
+	}
+
+	flat := job.JobCronFlat{
+		ExternalJobID:     jobSpec.ExternalJobID,
+		CronSchedule:      jobSpec.CronSpec.CronSchedule,
+		Type:              job.Cron,
+		SchemaVersion:     1,
+		Name:              jobSpec.Name,
+		ObservationSource: jobSpec.PipelineSpec.DotDagSource,
+	}
+
+	bytes, err := toml.Marshal(flat)
+	if err != nil {
+		return s, cli.errorOut(err)
+	}
+
+	return string(bytes), nil
 }
 
 // ArchiveJobSpec soft deletes a job and its associated runs.

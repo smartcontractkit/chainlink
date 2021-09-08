@@ -95,6 +95,15 @@ type Job struct {
 	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
+type JobCronFlat struct {
+	ExternalJobID     uuid.UUID `toml:"externalJobID"`
+	CronSchedule      string    `toml:"schedule"`
+	Type              Type
+	SchemaVersion     uint32
+	Name              null.String
+	ObservationSource string `toml:"observationSource" multiline:"true"`
+}
+
 // The external job ID (UUID) can be encoded into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.

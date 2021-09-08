@@ -236,6 +236,11 @@ func NewApp(client *Client) *cli.App {
 					Action: client.CreateJobSpec,
 				},
 				{
+					Name:   "migrate",
+					Usage:  "Migrate Job from a Job Specification JSON",
+					Action: client.MigrateJobSpec,
+				},
+				{
 					Name:   "archive",
 					Usage:  "Archive a Job and all its associated Runs",
 					Action: client.ArchiveJobSpec,

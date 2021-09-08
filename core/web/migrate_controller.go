@@ -83,6 +83,11 @@ func MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 			return jb, errors.New("need to enable FEATURE_FLUX_MONITOR_V2=true to migrate FM jobs")
 		}
 		return migrateFluxMonitorJob(js)
+	case models.InitiatorCron:
+		if !c.FeatureCronV2() {
+			return jb, errors.New("need to enable FEATURE_CRON_V2=true to migrate Cron jobs")
+		}
+		return migrateCronJob(js)
 	default:
 		return jb, errors.Wrapf(ErrInvalidInitiatorType, "%v", v1JobType)
 	}
@@ -110,7 +115,7 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildFMTaskDAG(js)
+	ps, pd, err := BuildTaskDAG(js)
 	if err != nil {
 		return jb, err
 	}
@@ -121,7 +126,32 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 	return jb, nil
 }
 
-func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
+func migrateCronJob(js models.JobSpec) (job.Job, error) {
+	var jb job.Job
+	initr := js.Initiators[0]
+	jb = job.Job{
+		Name: null.StringFrom(js.Name),
+		CronSpec: &job.CronSpec{
+			CronSchedule: string(initr.InitiatorParams.Schedule),
+			CreatedAt:    js.CreatedAt,
+			UpdatedAt:    js.UpdatedAt,
+		},
+		Type:          job.Cron,
+		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
+	}
+	ps, pd, err := BuildTaskDAG(js)
+	if err != nil {
+		return jb, err
+	}
+	jb.PipelineSpec = &pipeline.Spec{
+		DotDagSource: ps,
+	}
+	jb.Pipeline = *pd
+	return jb, nil
+}
+
+func BuildTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 	dg := pipeline.NewGraph()
 	// First add the feeds as parallel HTTP tasks,
 	// which all coalesce into a single median task.
@@ -179,9 +209,9 @@ func BuildFMTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 			dg.SetEdge(dg.NewEdge(last, n))
 			last = n
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
-			// Do nothing. This is implicit in FMv2.
+			// Do nothing. This is implicit in FMv2 / Cron
 		case adapters.TaskTypeEthTx:
-			// Do nothing. This is implicit in FMV2.
+			// Do nothing. This is implicit in FMV2 / Cron
 			foundEthTx = true
 		default:
 			return "", nil, errors.Errorf("unsupported task type %v", ts.Type)

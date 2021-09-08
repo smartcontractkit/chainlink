@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -798,4 +799,33 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	level, err := app.Logger.ServiceLogLevel(logPkg)
 	require.NoError(t, err)
 	assert.Equal(t, logLevel, level)
+}
+
+func TestClient_MigrateCron(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("migrate", 0)
+	set.Parse([]string{"../testdata/jsonspecs/example-cron2.json"})
+	c := cli.NewContext(nil, set, nil)
+
+	toml, err := client.MigrateJobSpecForResult(c)
+	require.NoError(t, err)
+
+	fmt.Println(toml)
+
+	_, err = job.ValidateSpec(toml)
+	require.NoError(t, err)
+
+	var jb job.Job
+	jb, err = cron.ValidatedCronSpec(toml)
+
+	if err != nil {
+		return
+	}
+
+	jb, err = app.AddJobV2(context.Background(), jb, jb.Name)
+	require.Error(t, err, "augur-sportsdataio: no such bridge exists")
 }

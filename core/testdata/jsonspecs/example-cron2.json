@@ -1,0 +1,24 @@
+ {
+   "name": "Augur NFL Market Resolution Cron 0x111155234dd9d2CCE0912D6132F5Db70bC40287",
+   "initiators": [
+     {
+       "id": 1,
+       "jobSpecId": "1111a31c-922d-41ce-895c-36938cb35c4b",
+       "type": "cron",
+       "params": {
+         "schedule": "CRON_TZ=UTC 02 */2 * * *"
+       }
+     }
+   ],
+   "tasks": [
+     {
+       "jobSpecId": "1111a31c922d41ce895c36938cb35c4b",
+       "type": "augur-sportsdataio",
+       "params": {
+         "sport": "NFL",
+         "method": "resolve",
+         "contractAddress": "0x1111355234dd9d2CCE0912D6132F5Db70bC40287"
+       }
+     }
+   ]
+ }
