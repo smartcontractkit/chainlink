@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
@@ -29,6 +30,7 @@ var _ = Describe("Cronjob suite @cron", func() {
 				client.NewNetworkFromConfig,
 				testcommon.ConfigLocation,
 			)
+			log.Info().Str("Image", s.Config.Apps.Chainlink.Image).Str("Version", s.Config.Apps.Chainlink.Version).Msg("Conf values")
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(s.Env)
 			Expect(err).ShouldNot(HaveOccurred())
