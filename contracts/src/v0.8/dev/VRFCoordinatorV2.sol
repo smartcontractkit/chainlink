@@ -19,7 +19,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 public constant MAXIMUM_CONSUMERS = 100;
+  uint16 public constant MAX_CONSUMERS = 100;
   error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint64 subId, address consumer);
@@ -70,7 +70,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   uint32 public constant MAX_NUM_WORDS = 500;
   // The minimum gas limit that could be requested for a callback.
   // Set to 5k to ensure plenty of room to make the call itself.
-  uint256 private constant MINIMUM_GAS_LIMIT = 5_000;
+  uint256 public constant MIN_GAS_LIMIT = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
@@ -127,7 +127,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Re-entrancy protection.
     bool reentrancyLock;
   }
-  int256 public s_fallbackWeiPerUnitLink;
+  int256 internal s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -367,7 +367,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    * The maximum amount of gasAmount is all gas available but 1/64th.
-   * The minimum amount of gasAmount MINIMUM_GAS_LIMIT.
+   * The minimum amount of gasAmount MIN_GAS_LIMIT.
    */
   function callWithExactGas(
     uint256 gasAmount,
@@ -382,9 +382,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // solhint-disable-next-line no-inline-assembly
     assembly{
       let g := gas()
-      // Compute g -= MINIMUM_GAS_LIMIT and check for underflow
-      if lt(g, MINIMUM_GAS_LIMIT) { revert(0, 0) }
-      g := sub(g, MINIMUM_GAS_LIMIT)
+      // Compute g -= MIN_GAS_LIMIT and check for underflow
+      if lt(g, MIN_GAS_LIMIT) { revert(0, 0) }
+      g := sub(g, MIN_GAS_LIMIT)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) { revert(0, 0) }
@@ -666,7 +666,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_consumers[consumer][subId].subId == 0) {
       revert InvalidConsumer(subId, consumer);
     }
-    // Note bounded by MAXIMUM_CONSUMERS
+    // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptions[subId].consumers;
     uint256 lastConsumerIndex = consumers.length-1;
     for (uint256 i = 0; i < consumers.length; i++) {
@@ -692,7 +692,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     nonReentrant()
   {
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subId].consumers.length == MAXIMUM_CONSUMERS) {
+    if (s_subscriptions[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
     if (s_consumers[consumer][subId].subId != 0) {
@@ -742,7 +742,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
-    // Note bounded by MAXIMUM_CONSUMERS;
+    // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; i++) {
       delete s_consumers[sub.consumers[i]][subId];

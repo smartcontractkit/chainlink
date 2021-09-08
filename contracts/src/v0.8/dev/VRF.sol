@@ -226,7 +226,7 @@ contract VRF {
 
     // Domain-separation tag for initial hash in hashToCurve. Corresponds to
     // vrf.go/hashToCurveHashPrefix
-    uint256 public constant HASH_TO_CURVE_HASH_PREFIX = 1;
+    uint256 internal constant HASH_TO_CURVE_HASH_PREFIX = 1;
 
     // Cryptographic hash function onto the curve.
     //
@@ -438,7 +438,7 @@ contract VRF {
 
     // Domain-separation tag for the hash taken in scalarFromCurvePoints.
     // Corresponds to scalarFromCurveHashPrefix in vrf.go
-    uint256 public constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
+    uint256 internal constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
 
     // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
@@ -501,19 +501,7 @@ contract VRF {
 
     // Domain-separation tag for the hash used as the final VRF output.
     // Corresponds to vrfRandomOutputHashPrefix in vrf.go
-    uint256 public constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
-
-    // Length of proof marshaled to bytes array. Shows layout of proof
-    uint public constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
-    64 + // Gamma
-    32 + // C
-    32 + // S
-    32 + // Seed
-    0 + // Dummy entry: The following elements are included for gas efficiency:
-    32 + // uWitness (gets padded to 256 bits, even though it's only 160)
-    64 + // cGammaWitness
-    64 + // sHashWitness
-    32; // zInv  (Leave Output out, because that can be efficiently calculated)
+    uint256 internal constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
 
     struct Proof {
         uint256[2] pk;
@@ -536,7 +524,6 @@ contract VRF {
      * Throws if proof is invalid, otherwise:
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
-     * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
      */
     function randomValueFromVRFProof(Proof memory proof, uint256 seed)
     internal view returns (uint256 output) {

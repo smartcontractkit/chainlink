@@ -86,6 +86,11 @@ describe("VRFCoordinatorV2", () => {
 
   it("has a limited public interface", async () => {
     publicAbi(vrfCoordinatorV2, [
+      // Public constants
+      "MAX_CONSUMERS",
+      "MIN_GAS_LIMIT",
+      "MAX_NUM_WORDS",
+      "MAX_REQUEST_CONFIRMATIONS",
       // Owner
       "acceptOwnership",
       "transferOwnership",
@@ -117,7 +122,6 @@ describe("VRFCoordinatorV2", () => {
       "BLOCKHASH_STORE",
       "LINK",
       "LINK_ETH_FEED",
-      "PROOF_LENGTH", // Inherited from VRF.sol as public.
     ]);
   });
 
