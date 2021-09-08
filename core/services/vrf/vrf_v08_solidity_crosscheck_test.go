@@ -310,13 +310,13 @@ func TestVRFV08_CheckSolidityLinearComination(t *testing.T) {
 			cNum, big.NewInt(1)), p1Pair, cp1Pair, sNum, p2Pair, sp2Pair, zInv)
 		assert.Error(t, err,
 			"on-chain LinearCombination accepted a bad product relation! ((c+1)*p1)")
-		assert.Contains(t, err.Error(), "First multiplication check failed",
+		assert.Contains(t, err.Error(), "First mul check failed",
 			"revert message wrong.")
 		_, err = deployVRFV08TestHelper(t).LinearCombination(nil, cNum, p1Pair,
 			cp1Pair, big.NewInt(0).Add(sNum, big.NewInt(1)), p2Pair, sp2Pair, zInv)
 		assert.Error(t, err,
 			"on-chain LinearCombination accepted a bad product relation! ((s+1)*p2)")
-		assert.Contains(t, err.Error(), "Second multiplication check failed",
+		assert.Contains(t, err.Error(), "Second mul check failed",
 			"revert message wrong.")
 	}
 }
