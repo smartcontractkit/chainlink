@@ -39,7 +39,7 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: smartcontract/chainlink:latest
+          tags: chainlink:local-build
           push: false
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
@@ -57,8 +57,8 @@ jobs:
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
-      APPS_CHAINLINK_IMAGE: smartcontract/chainlink
-      APPS_CHAINLINK_VERSION: latest
+      APPS_CHAINLINK_IMAGE: chainlink
+      APPS_CHAINLINK_VERSION: local-build
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
