@@ -56,7 +56,7 @@ export const simpleNodeFilter = (search: string) => (node: NodeSpecV2) => {
   return matchSimple(node, search)
 }
 
-// matchSimple does a simple match on the id
+// matchSimple does a simple match on the id, name, and EVM chain ID
 function matchSimple(node: NodeSpecV2, term: string) {
   const match = searchIncludes(term)
 
