@@ -41,6 +41,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   int256 constant private ANSWER_SEQ_OFFLINE = 1;
+  // Forward.forward.selector (4) + address target (32) + bytes data (FlagsInterface.raise/lowerFlag.selector (4) + address subject (32))
+  uint256 constant private FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES = 72;
 
   address immutable public CROSS_DOMAIN_MESSENGER;
   address immutable public L2_CROSS_DOMAIN_FORWARDER;
@@ -342,7 +344,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // L2 xDomain alias addr pays the fee if `gasCostL2Value` is zero
     // Else, we check if configured L1 payment is sufficient (and not excessive)
     if (gasCostL2Value > 0) {
-      uint256 minGasCostL2Value = _selectMaxSubmissionCost(maxSubmissionCost, CALL_RAISE_FLAG.length) + maxGas * gasPriceBid;
+      uint256 minGasCostL2Value = _selectMaxSubmissionCost(maxSubmissionCost, FORWARD_FLAG_CALLDATA_SIZE_IN_BYTES) + maxGas * gasPriceBid;
       uint256 maxGasCostL2Value = 2 * minGasCostL2Value;
       require(gasCostL2Value >= minGasCostL2Value, "gasCostL2Value < MIN");
       require(gasCostL2Value < maxGasCostL2Value, "gasCostL2Value >= MAX");
@@ -400,6 +402,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   {
     (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(s_gasConfig.gasFeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 2; // add 100% buffer
-    return (l1GasPriceEstimate / 256) * calldataSizeInBytes + l1GasPriceEstimate;
+    return l1GasPriceEstimate * calldataSizeInBytes / 256 + l1GasPriceEstimate;
   }
 }
