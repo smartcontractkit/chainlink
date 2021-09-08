@@ -1,77 +1,147 @@
 import React from 'react'
-import { useHistory, useLocation } from 'react-router-dom'
-import { Card, TablePagination } from '@material-ui/core'
+
+import { v2 } from 'api'
 import Content from 'components/Content'
 import NodesList from './NodesList'
-import TableButtons from 'components/TableButtons'
+import * as models from 'core/store/models'
+import { Title } from 'components/Title'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
-interface Props {
-  //   ErrorComponent: React.FC
-  //   LoadingPlaceholder: React.FC
-  //   error: unknown
-  //   getJobRuns: (props: { page: number; size: number }) => Promise<void>
+import Grid from '@material-ui/core/Grid'
+import Card from '@material-ui/core/Card'
+import CardContent from '@material-ui/core/CardContent'
+import SearchIcon from '@material-ui/icons/Search'
+import {
+  createStyles,
+  withStyles,
+  WithStyles,
+  Theme,
+} from '@material-ui/core/styles'
+import TextField from '@material-ui/core/TextField'
+
+interface Node<T> {
+  attributes: T
+  id: string
+  type: string
 }
 
-const NodesIndex = () =>
-  //   {
-  //       ErrorComponent,
-  //       LoadingPlaceholder,
-  //       error,
-  //       getJobRuns,
-  //     }: Props) => {
-  //   },
-  {
-    const location = useLocation()
-    const params = new URLSearchParams(location.search)
-    const [{ page, pageSize }, setPagination] = React.useState<{
-      page: number
-      pageSize: number
-    }>({
-      page: parseInt(params.get('page') || '1', 10),
-      pageSize: parseInt(params.get('size') || '10', 10),
+export type NodeSpecV2 = Node<models.Node>
+
+async function getNodes() {
+  return Promise.all([v2.nodes.getNodes()]).then(([v2Nodes]) => {
+    const nodesByDate = v2Nodes.data.sort((a: NodeSpecV2, b: NodeSpecV2) => {
+      const nodeA = new Date(a.attributes.createdAt).getTime()
+      const nodeB = new Date(b.attributes.createdAt).getTime()
+      return nodeA > nodeB ? -1 : 1
     })
 
-    const history = useHistory()
+    return nodesByDate
+  })
+}
 
-    //   React.useEffect(() => {
-    //     getJobRuns({ page, size: pageSize })
-    //     history.replace({
-    //       search: `?page=${page}&size=${pageSize}`,
-    //     })
-    //   }, [getJobRuns, history, page, pageSize])
+const searchIncludes = (searchParam: string) => {
+  const lowerCaseSearchParam = searchParam.toLowerCase()
 
-    return (
-      <Content>
-        {/* <ErrorComponent />
-        <LoadingPlaceholder /> */}
-        <Card>
-          {/* {!error && <JobRunsList runs={recentRuns} />} */}
-          <TablePagination
-            component="div"
-            count={25}
-            rowsPerPage={pageSize}
-            rowsPerPageOptions={[10, 25, 50, 100]}
-            page={page - 1}
-            onChangePage={
-              () => {} /* handler required by component, so make it a no-op */
-            }
-            onChangeRowsPerPage={(e) => {
-              setPagination({ page: 1, pageSize: parseInt(e.target.value, 10) })
-            }}
-            ActionsComponent={() => (
-              <TableButtons
-                count={25}
-                onChangePage={(_: React.SyntheticEvent, newPage: number) =>
-                  setPagination({ page: newPage, pageSize })
-                }
-                page={page}
-                rowsPerPage={pageSize}
-              />
-            )}
-          />
-        </Card>
-      </Content>
-    )
+  return (stringToSearch: string) => {
+    return stringToSearch.toLowerCase().includes(lowerCaseSearchParam)
+  }
+}
+
+export const simpleNodeFilter = (search: string) => (node: NodeSpecV2) => {
+  if (search === '') {
+    return true
   }
 
-export default NodesIndex
+  return matchSimple(node, search)
+}
+
+// matchSimple does a simple match on the id
+function matchSimple(node: NodeSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    node.id,
+    node.attributes.name,
+    node.attributes.evmChainID,
+  ]
+
+  return dataset.some(match)
+}
+
+const styles = (theme: Theme) =>
+  createStyles({
+    card: {
+      padding: theme.spacing.unit,
+      marginBottom: theme.spacing.unit * 3,
+    },
+    search: {
+      marginBottom: theme.spacing.unit,
+    },
+  })
+
+export const NodesIndex = ({
+  classes,
+}: {
+  classes: WithStyles<typeof styles>['classes']
+}) => {
+  const [search, setSearch] = React.useState('')
+  const [nodes, setNodes] = React.useState<NodeSpecV2[]>()
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !nodes)
+
+  React.useEffect(() => {
+    document.title = 'Nodes'
+  }, [])
+
+  React.useEffect(() => {
+    getNodes().then(setNodes).catch(setError)
+  }, [setError])
+
+  const nodeFilter = React.useMemo(() => simpleNodeFilter(search.trim()), [
+    search,
+  ])
+
+  return (
+    <Content>
+      <Grid container>
+        <Grid item xs={9}>
+          <Title>Nodes</Title>
+        </Grid>
+
+        <Grid item xs={12}>
+          <ErrorComponent />
+          <LoadingPlaceholder />
+          {!error && nodes && (
+            <Card className={classes.card}>
+              <CardContent>
+                <Grid
+                  container
+                  spacing={8}
+                  alignItems="flex-end"
+                  className={classes.search}
+                >
+                  <Grid item>
+                    <SearchIcon />
+                  </Grid>
+                  <Grid item>
+                    <TextField
+                      label="Search"
+                      value={search}
+                      name="search"
+                      onChange={(event) => setSearch(event.target.value)}
+                    />
+                  </Grid>
+                </Grid>
+
+                <NodesList nodes={nodes} nodeFilter={nodeFilter} />
+              </CardContent>
+            </Card>
+          )}
+        </Grid>
+      </Grid>
+    </Content>
+  )
+}
+
+export default withStyles(styles)(NodesIndex)
