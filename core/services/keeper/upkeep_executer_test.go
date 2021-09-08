@@ -105,10 +105,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
-		assertLastRunHeight(t, store.DB, upkeep, 20)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
+		assertLastRunHeight(t, store.DB, upkeep, 20)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -137,11 +137,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := *cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
-		etxs[0].AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		assertLastRunHeight(t, store.DB, upkeep, 36)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
+		etxs[0].AwaitOrFail(t)
+		assertLastRunHeight(t, store.DB, upkeep, 36)
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
@@ -160,11 +160,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })
 
 		executer.OnNewLongestChain(context.Background(), head)
-		etxs[1].AwaitOrFail(t)
-		assertLastRunHeight(t, store.DB, upkeep, 40)
 		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 2)
 		assert.False(t, runs[1].HasErrors())
+		etxs[1].AwaitOrFail(t)
+		assertLastRunHeight(t, store.DB, upkeep, 40)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
