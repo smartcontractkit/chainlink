@@ -16,7 +16,6 @@ var _ = Describe("OCR Feed @ocr", func() {
 		testcommon.DeployOCRForEnv(i, envInit)
 		testcommon.SetupOCRTest(i)
 		testcommon.CheckRound(i)
-		testcommon.CheckTelemetry(i)
 		By("Tearing down the environment", i.SuiteSetup.TearDown())
 	},
 		Entry("all the same version", environment.NewChainlinkCluster(5)),

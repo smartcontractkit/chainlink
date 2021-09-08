@@ -125,7 +125,7 @@ jobs:
   performance:
     needs: build-chainlink
     # Only run performance tests on significant PRs
-    if: startsWith(github.base_ref, 'v') || contains(github.base_ref, 'main') || contains(github.base_ref, 'develop')
+    if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop')
     runs-on: ubuntu-latest
     env:
       KUBECONFIG: /tmp/KUBECONFIG

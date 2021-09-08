@@ -32,7 +32,6 @@ type OCRSetupInputs struct {
 	Adapter        environment.ExternalAdapter
 	DefaultWallet  client.BlockchainWallet
 	OCRInstance    contracts.OffchainAggregator
-	Em             *client.ExplorerClient
 }
 
 func DeployOCRForEnv(i *OCRSetupInputs, envInit environment.K8sEnvSpecInit) {
@@ -43,8 +42,6 @@ func DeployOCRForEnv(i *OCRSetupInputs, envInit environment.K8sEnvSpecInit) {
 			client.NewNetworkFromConfig,
 			ConfigLocation(),
 		)
-		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
-		i.Em, err = environment.GetExplorerMockClient(i.SuiteSetup.Env)
 		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 		i.Adapter, err = environment.GetExternalAdapter(i.SuiteSetup.Env)
 		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -167,23 +164,5 @@ func CheckRound(i *OCRSetupInputs) {
 		answer, err = i.OCRInstance.GetLatestAnswer(context.Background())
 		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
 		gomega.Expect(answer.Int64()).Should(gomega.Equal(int64(10)), "Latest answer from OCR is not as expected")
-	})
-}
-
-func CheckTelemetry(i *OCRSetupInputs) {
-	ginkgo.By("Checking explorer telemetry", func() {
-		mc, err := i.Em.Count()
-		log.Debug().Interface("Telemetry", mc).Msg("Explorer messages count")
-		gomega.Expect(err).ShouldNot(gomega.HaveOccurred())
-		gomega.Expect(mc.Errors).Should(gomega.Equal(0))
-		gomega.Expect(mc.Unknown).Should(gomega.Equal(0))
-		gomega.Expect(mc.Broadcast).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.DHTAnnounce).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.NewEpoch).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.ObserveReq).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.Received).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.ReportReq).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.RoundStarted).Should(gomega.BeNumerically(">", 1))
-		gomega.Expect(mc.Sent).Should(gomega.BeNumerically(">", 1))
 	})
 }
