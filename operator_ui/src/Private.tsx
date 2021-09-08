@@ -105,11 +105,9 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <ChainsNew />
               </PrivateRoute>
 
-              <PrivateRoute
-                exact
-                path="/nodes"
-                render={(props) => <NodesIndex {...props} />}
-              />
+              <PrivateRoute exact path="/nodes">
+                <NodesIndex />
+              </PrivateRoute>
 
               <PrivateRoute exact path="/bridges" component={BridgesIndex} />
 
