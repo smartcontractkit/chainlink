@@ -1025,6 +1025,10 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
+	if head.ChainLength() < uint32(ec.config.EvmFinalityDepth()) {
+		logger.Warnw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, or some other problem",
+			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth())
+	}
 	etxs, err := findTransactionsConfirmedInBlockRange(ec.db, head.Number, head.EarliestInChain().Number)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
@@ -1207,7 +1211,11 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
-	return tx.Hash(), nil
+	hash, err := signedTxHash(tx, ec.config.ChainID())
+	if err != nil {
+		return hash, err
+	}
+	return hash, nil
 }
 
 // findEthTxWithNonce returns any broadcast ethtx with the given nonce

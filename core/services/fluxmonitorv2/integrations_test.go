@@ -487,8 +487,14 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	initialBalance := currentBalance(t, &fa).Int64()
 
 	jobResponse := cltest.CreateJobViaWeb2(t, app, string(requestBody))
-
 	jobID, err := strconv.ParseInt(jobResponse.ID, 10, 0)
+
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		return app.LogBroadcaster.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
+	}, 3*time.Second, 200*time.Millisecond)
+
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
@@ -629,6 +635,12 @@ ds1 -> ds1_parse
 	assert.NoError(t, err)
 
 	cltest.CreateJobViaWeb2(t, app, string(requestBody))
+
+	// Waiting for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
+	assert.Eventually(t, func() bool {
+		return app.LogBroadcaster.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
+	}, 3*time.Second, 200*time.Millisecond)
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
