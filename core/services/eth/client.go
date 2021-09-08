@@ -93,7 +93,7 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 type client struct {
 	logger      *logger.Logger
 	primary     *Node
-	secondaries []*SecondaryNode
+	secondaries []*SendOnlyNode
 	chainID     *big.Int
 
 	roundRobinCount atomic.Uint32
@@ -103,7 +103,7 @@ var _ Client = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SecondaryNode, chainID *big.Int) (*client, error) {
+func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes []*SendOnlyNode, chainID *big.Int) (*client, error) {
 	return &client{
 		logger:      logger,
 		primary:     primaryNode,
@@ -112,7 +112,7 @@ func NewClientWithNodes(logger *logger.Logger, primaryNode *Node, sendOnlyNodes 
 	}, nil
 }
 
-func NewClient(lggr *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL, chainID *big.Int) (*client, error) {
+func NewClient(lggr *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -127,11 +127,11 @@ func NewClient(lggr *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondar
 	// for now only one primary is supported
 	c.primary = NewNode(lggr, *parsed, rpcHTTPURL, "eth-primary-0")
 
-	for i, url := range secondaryRPCURLs {
+	for i, url := range sendonlyRPCURLs {
 		if url.Scheme != "http" && url.Scheme != "https" {
-			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", url.String())
+			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", url.String())
 		}
-		s := NewSecondaryNode(lggr, url, fmt.Sprintf("eth-secondary-%d", i))
+		s := NewSendOnlyNode(lggr, url, fmt.Sprintf("eth-sendonly-%d", i))
 		c.secondaries = append(c.secondaries, s)
 	}
 	return &c, nil
@@ -170,7 +170,7 @@ func (client *client) Dial(ctx context.Context) error {
 	}
 	for _, s := range client.secondaries {
 		if err := s.Dial(); err != nil {
-			return errors.Wrapf(err, "Failed to dial secondary client: %v", s.uri)
+			return errors.Wrapf(err, "Failed to dial sendonly client: %v", s.uri)
 		}
 		if client.chainID != nil {
 			if chainID, err := s.ChainID(ctx); err != nil {
@@ -254,14 +254,14 @@ func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.He
 	return client.primary.HeaderByNumber(ctx, n)
 }
 
-// SendTransaction also uses the secondary HTTP RPC URLs if set
+// SendTransaction also uses the sendonly HTTP RPC URLs if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for _, s := range client.secondaries {
-		// Parallel send to secondary node
+		// Parallel send to sendonly node
 		wg.Add(1)
-		go func(s *SecondaryNode) {
+		go func(s *SendOnlyNode) {
 			defer wg.Done()
 			err := NewSendError(s.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
@@ -269,7 +269,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
-			client.logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			client.logger.Warnw("sendonly eth client returned error", "err", err, "tx", tx)
 		}(s)
 	}
 
