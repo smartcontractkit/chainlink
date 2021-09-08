@@ -34,7 +34,6 @@ describe('pages/Keys/P2PKeys', () => {
 
       const wrapper = mountWithProviders(<P2PKeys />)
       await syncFetch(wrapper)
-      expect(wrapper.text()).toContain('just now')
       expect(wrapper.text()).toContain('Delete')
       expect(wrapper.find('tbody').children().length).toEqual(2)
       expect(wrapper.text()).toContain(expectedKey1.publicKey)
