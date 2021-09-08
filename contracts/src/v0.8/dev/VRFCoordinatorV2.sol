@@ -70,7 +70,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   uint32 public constant MAX_NUM_WORDS = 500;
   // The minimum gas limit that could be requested for a callback.
   // Set to 5k to ensure plenty of room to make the call itself.
-  uint256 public constant private MINIMUM_GAS_LIMIT = 5_000;
+  uint256 private constant MINIMUM_GAS_LIMIT = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
