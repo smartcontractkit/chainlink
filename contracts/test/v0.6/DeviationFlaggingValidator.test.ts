@@ -37,7 +37,7 @@ describe("DeviationFlaggingValidator", () => {
     await ac.connect(personas.Carol).addAccess(validator.address);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(validator, [
       "THRESHOLD_MULTIPLIER",
       "flaggingThreshold",

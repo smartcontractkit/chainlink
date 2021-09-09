@@ -31,7 +31,7 @@ describe("ValidatorProxy", () => {
     validatorProxy = await validatorProxy.deployed();
   });
 
-  it("has a limited public interface", async () => {
+  it("has a limited public interface [ @skip-coverage ]", async () => {
     publicAbi(validatorProxy, [
       // ConfirmedOwner functions
       "acceptOwnership",
@@ -287,7 +287,7 @@ describe("ValidatorProxy", () => {
               .withArgs(1, 200, 300, 400, 500);
           });
 
-          it("uses a specific amount of gas", async () => {
+          it("uses a specific amount of gas [ @skip-coverage ]", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(200, 300, 400, 500);
             const receipt = await resp.wait();
             assert.equal(receipt.gasUsed.toString(), "32406");
@@ -316,7 +316,7 @@ describe("ValidatorProxy", () => {
               .withArgs(2, 2000, 3000, 4000, 5000);
           });
 
-          it("uses a specific amount of gas", async () => {
+          it("uses a specific amount of gas [ @skip-coverage ]", async () => {
             const resp = await validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000);
             const receipt = await resp.wait();
             assert.equal(receipt.gasUsed.toString(), "40495");
