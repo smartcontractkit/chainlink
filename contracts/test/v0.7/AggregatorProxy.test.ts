@@ -60,7 +60,7 @@ describe("AggregatorProxy", () => {
       .deploy(link.address, 0, 0, emptyAddress, 0, 0, 18, "TEST / LINK");
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(proxy, [
       "aggregator",
       "confirmAggregator",

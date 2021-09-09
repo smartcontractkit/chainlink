@@ -1,6 +1,7 @@
 import "@nomiclabs/hardhat-waffle";
 import "hardhat-contract-sizer";
 import "hardhat-abi-exporter";
+import "solidity-coverage";
 
 const COMPILER_SETTINGS = {
   optimizer: {
@@ -56,5 +57,8 @@ export default {
     alphaSort: true,
     runOnCompile: false,
     disambiguatePaths: false,
+  },
+  mocha: {
+    timeout: 100000,
   },
 };

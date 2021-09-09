@@ -84,7 +84,7 @@ describe("VRFCoordinatorV2", () => {
       );
   });
 
-  it("has a limited public interface", async () => {
+  it("has a limited public interface [ @skip-coverage ]", async () => {
     publicAbi(vrfCoordinatorV2, [
       // Owner
       "acceptOwnership",
@@ -704,11 +704,10 @@ describe("VRFCoordinatorV2", () => {
     });
   });
 
-  describe("#calculatePaymentAmount", async function () {
+  describe("#calculatePaymentAmount [ @skip-coverage ]", async function () {
     it("output within sensible range", async function () {
       // By default, hardhat sends txes with the block limit as their gas limit.
       await vrfCoordinatorV2TestHelper.connect(oracle).calculatePaymentAmountTest(
-        BigNumber.from("11450102"), // Start gas
         BigNumber.from("0"), // Gas after payment
         0, // Fee PPM
         BigNumber.from("1000000000"), // Wei per unit gas (gas price)
@@ -732,7 +731,6 @@ describe("VRFCoordinatorV2", () => {
       // 3.333333333E28 > 1e27 (all link in existence)
       await expect(
         vrfCoordinatorV2TestHelper.connect(oracle).calculatePaymentAmountTest(
-          BigNumber.from("11450102"),
           BigNumber.from("0"), // Gas after payment
           0, // Fee PPM
           BigNumber.from("1000000000000000000"),
