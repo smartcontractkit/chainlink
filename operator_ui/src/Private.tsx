@@ -28,6 +28,7 @@ import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 import { FeedsManagerScreen } from 'pages/FeedsManager/FeedsManagerScreen'
 import { JobProposalScreen } from 'pages/JobProposal/JobProposalScreen'
+import NodesIndex from './pages/NodesIndex/NodesIndex'
 
 const styles = (theme: Theme) => {
   return {
@@ -102,6 +103,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
               <PrivateRoute exact path="/chains/new">
                 <ChainsNew />
+              </PrivateRoute>
+
+              <PrivateRoute exact path="/nodes">
+                <NodesIndex />
               </PrivateRoute>
 
               <PrivateRoute exact path="/bridges" component={BridgesIndex} />
