@@ -94,7 +94,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(bulletprooftxmanager.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{
+				ID: 1,
+			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
@@ -103,11 +105,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
-		assertLastRunHeight(t, store.DB, upkeep, 20)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
+		assertLastRunHeight(t, store.DB, upkeep, 20)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -136,12 +137,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := *cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
-		etxs[0].AwaitOrFail(t)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		assertLastRunHeight(t, store.DB, upkeep, 36)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
+		etxs[0].AwaitOrFail(t)
+		assertLastRunHeight(t, store.DB, upkeep, 36)
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
@@ -160,12 +160,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })
 
 		executer.OnNewLongestChain(context.Background(), head)
+		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		require.Len(t, runs, 2)
+		assert.False(t, runs[1].HasErrors())
 		etxs[1].AwaitOrFail(t)
 		assertLastRunHeight(t, store.DB, upkeep, 40)
-		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		require.Len(t, runs, 2)
-		_, ok = runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -190,15 +189,4 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	cltest.AssertCountStays(t, store, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
-}
-
-func Test_UpkeepExecuter_ConstructCheckUpkeepCallMsg(t *testing.T) {
-	store, _, executer, registry, upkeep, _, _, _ := setup(t)
-	msg, err := executer.ExportedConstructCheckUpkeepCallMsg(upkeep)
-	require.NoError(t, err)
-	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryCheckGasOverhead() + store.Config.KeeperRegistryPerformGasOverhead()
-	require.Equal(t, expectedGasLimit, msg.Gas)
-	require.Equal(t, registry.ContractAddress.Address(), *msg.To)
-	require.Equal(t, utils.ZeroAddress, msg.From)
-	require.Nil(t, msg.Value)
 }

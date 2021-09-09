@@ -164,5 +164,5 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.Equal(t, 3, len(runs))
 	prr := webpresenters.NewPipelineRunResource(runs[0])
 	require.Equal(t, 1, len(prr.Outputs))
-	require.NotNil(t, prr.Outputs[0])
+	require.Nil(t, prr.Outputs[0])
 }
