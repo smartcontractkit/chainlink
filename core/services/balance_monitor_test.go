@@ -3,7 +3,6 @@ package services_test
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/pkg/errors"
 )
@@ -187,9 +187,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// This second call is Maybe because the SleeperTask may not have started
 	// before we call `OnNewLongestChain` 10 times, in which case it's only
 	// executed once
-	var callCount int32
+	var callCount atomic.Int32
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { atomic.AddInt32(&callCount, 1) }).
+		Run(func(mock.Arguments) { callCount.Inc() }).
 		Maybe().
 		Return(big.NewInt(42), nil)
 
@@ -206,7 +206,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	bm.Close()
 
 	// Make sure the BalanceAt mock wasn't called more than once
-	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))
+	assert.LessOrEqual(t, callCount.Load(), int32(1))
 
 	ethClient.AssertExpectations(t)
 }

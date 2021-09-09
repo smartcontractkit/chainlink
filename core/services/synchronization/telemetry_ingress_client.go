@@ -5,7 +5,8 @@ import (
 	"errors"
 	"net/url"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -53,7 +54,7 @@ type telemetryIngressClient struct {
 
 	wgDone           sync.WaitGroup
 	chDone           chan struct{}
-	dropMessageCount uint32
+	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
 }
 
@@ -162,7 +163,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 // 300
 // etc...
 func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
-	count := atomic.AddUint32(&tc.dropMessageCount, 1)
+	count := tc.dropMessageCount.Inc()
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		logger.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
@@ -188,7 +189,7 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 func (tc *telemetryIngressClient) Send(payload TelemPayload) {
 	select {
 	case tc.chTelemetry <- payload:
-		atomic.StoreUint32(&tc.dropMessageCount, 0)
+		tc.dropMessageCount.Store(0)
 	case <-payload.Ctx.Done():
 		return
 	default:
