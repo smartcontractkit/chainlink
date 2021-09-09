@@ -678,10 +678,10 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	return run
 }
 
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
+func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *gorm.DB, pipelineRunID int64) pipeline.TaskRun {
 	/* #nosec G404 */
 	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID, ID: uuid.NewV4()}
-	require.NoError(t, store.DB.Create(&p).Error)
+	require.NoError(t, db.Create(&p).Error)
 	return p
 }
 
