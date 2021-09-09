@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // JobsController manages jobs
@@ -58,7 +58,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	}
 
 	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
 	}
@@ -145,7 +145,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 	}
 
 	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return
 	}
