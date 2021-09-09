@@ -122,7 +122,6 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
-	AdvisoryLocker           postgres.AdvisoryLocker
 	EventBroadcaster         postgres.EventBroadcaster
 	ShutdownSignal           gracefulpanic.Signal
 	Store                    *strpkg.Store
@@ -143,7 +142,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.GormDB
 	gormTxm := postgres.NewGormTransactionManager(db)
 	cfg := opts.Config
-	advisoryLocker := opts.AdvisoryLocker
 	store := opts.Store
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
@@ -186,7 +184,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
 	)
 
 	for _, chain := range chainSet.Chains() {

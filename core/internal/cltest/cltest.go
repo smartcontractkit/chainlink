@@ -198,7 +198,7 @@ type JobPipelineV2TestHelper struct {
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{}, keyStore)
+	jrm := job.NewORM(db, cc, prm, eb, keyStore)
 	t.Cleanup(cleanup)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
@@ -432,7 +432,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	ta := &TestApplication{t: t}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		AdvisoryLocker:           advisoryLocker,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,

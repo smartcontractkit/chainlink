@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -126,7 +125,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil)
 		defer runner.Close()
-		jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
 		defer jobORM.Close()
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
