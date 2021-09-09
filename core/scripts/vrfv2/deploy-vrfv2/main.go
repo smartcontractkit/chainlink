@@ -36,6 +36,7 @@ func main() {
 	chainID := int64(34055)
 	// Preloaded devnet key https://github.com/smartcontractkit/devnet/blob/master/passwords.json
 	key, err := crypto.HexToECDSA("34d2ee6c703f755f9a205e322c68b8ff3425d915072ca7483190ac69684e548c")
+	panicErr(err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
 	panicErr(err)
 
@@ -48,6 +49,7 @@ func main() {
 	panicErr(err)
 	tx := types.NewTransaction(nonce, common.HexToAddress(oracleAddress), big.NewInt(500000000000000000), uint64(21000), gasPrice, nil)
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(chainID)), key)
+	panicErr(err)
 	err = ec.SendTransaction(context.Background(), signedTx)
 	panicErr(err)
 	time.Sleep(waitForMine)

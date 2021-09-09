@@ -21,6 +21,7 @@ func main() {
 	// Make a request to an already deployed setup
 	chainID := int64(34055)
 	key, err := crypto.HexToECDSA("34d2ee6c703f755f9a205e322c68b8ff3425d915072ca7483190ac69684e548c")
+	panicErr(err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
 	panicErr(err)
 	ec, err := ethclient.Dial("http://127.0.0.1:8545")

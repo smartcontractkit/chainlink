@@ -23,8 +23,9 @@ func main() {
 	panicErr(err)
 	var rw []*big.Int
 	nw := 3
+	var r *big.Int
 	for i := 0; i < nw; i++ {
-		r, err := consumer.SRandomWords(nil, big.NewInt(int64(i)))
+		r, err = consumer.SRandomWords(nil, big.NewInt(int64(i)))
 		panicErr(err)
 		rw = append(rw, r)
 	}
