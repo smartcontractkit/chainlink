@@ -68,7 +68,6 @@ type EthConfirmer struct {
 	chainID        big.Int
 	config         Config
 	keystore       KeyStore
-	advisoryLocker postgres.AdvisoryLocker
 	estimator      gas.Estimator
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
@@ -81,7 +80,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker,
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
@@ -93,7 +92,6 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		*ethClient.ChainID(),
 		config,
 		keystore,
-		advisoryLocker,
 		estimator,
 		resumeCallback,
 		keyStates,
@@ -162,9 +160,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head models.Head) error
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
-	return ec.advisoryLocker.WithAdvisoryLock(context.Background(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
-		return ec.processHead(ctx, head)
-	})
+	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
@@ -1190,7 +1186,6 @@ func unbroadcastAttempt(db *gorm.DB, attempt EthTxAttempt) error {
 // If an eth_tx doesn't exist for this nonce, we send a zero transaction.
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
-// Deliberately does not take the advisory lock (we don't write to the database so this is safe from a data integrity perspective).
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
 func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
 	ec.logger.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)

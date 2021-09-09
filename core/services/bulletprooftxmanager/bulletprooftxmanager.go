@@ -99,7 +99,6 @@ type BulletproofTxManager struct {
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
@@ -119,7 +118,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, valu
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -127,7 +126,6 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		ethClient:        ethClient,
 		config:           config,
 		keyStore:         keyStore,
-		advisoryLocker:   advisoryLocker,
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
@@ -158,8 +156,8 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		b.logger.Debugw("BulletproofTxManager: booting", "keyStates", keyStates)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
@@ -231,8 +229,8 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfCalling(eb.Close)
 			b.logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			b.logger.ErrorIfCalling(eb.Start)
 			b.logger.ErrorIfCalling(ec.Start)
