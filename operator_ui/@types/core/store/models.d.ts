@@ -395,6 +395,15 @@ declare module 'core/store/models' {
     updatedAt: time.Time
   }
 
+  export type Node = {
+    name: string
+    evmChainID: string
+    httpURL: string
+    wsURL: string
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
   export interface JobRunV2 {
     state: string
     outputs: PipelineTaskOutput[]
