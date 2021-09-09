@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -254,7 +253,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ethClient,
 		evmcfg,
 		ethKeyStore,
-		&postgres.NullAdvisoryLocker{},
 		&postgres.NullEventBroadcaster{},
 		[]ethkey.State{keyState},
 		estimator,
@@ -1146,30 +1144,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	})
 
 	// Should have done nothing
-	ethClient.AssertExpectations(t)
-}
-
-func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
-	advisoryLocker1 := new(mocks.AdvisoryLocker)
-	db := pgtest.NewGormDB(t)
-
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	key, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	keyState, err := ethKeyStore.GetState(key.ID())
-	require.NoError(t, err)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-
-	advisoryLocker1.On("WithAdvisoryLock", mock.Anything, mock.AnythingOfType("int32"), keyState.ID, mock.AnythingOfType("func() error")).Return(nil)
-
-	cfg := cltest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	eb := bulletprooftxmanager.NewEthBroadcaster(db, ethClient, evmcfg, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.State{keyState}, nil, logger.Default)
-
-	require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
-
-	advisoryLocker1.AssertExpectations(t)
-	advisoryLocker1.On("Close").Return(nil)
-
 	ethClient.AssertExpectations(t)
 }
 

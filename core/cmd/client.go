@@ -106,7 +106,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		SQLxDB:           sqlxDB,
 		ORM:              evm.NewORM(sqlxDB),
 		KeyStore:         keyStore.Eth(),
-		AdvisoryLocker:   advisoryLocker,
 		EventBroadcaster: eventBroadcaster,
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
