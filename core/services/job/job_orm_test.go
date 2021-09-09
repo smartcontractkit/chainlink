@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -23,7 +22,6 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -44,7 +42,7 @@ func TestORM(t *testing.T) {
 	defer cleanupORM()
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer orm.Close()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -88,81 +86,24 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer d.Close()
 
-	orm2 := job.NewORM(db2, cc, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	orm2 := job.NewORM(db2, cc, pipeline.NewORM(db2), eventBroadcaster, keyStore)
 	defer orm2.Close()
 
-	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
+	t.Run("it deletes jobs from the DB", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-
-		unclaimed, err := orm.ClaimUnclaimedJobs(ctx)
-		require.NoError(t, err)
-		require.Len(t, unclaimed, 2)
-		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
-		require.Equal(t, int32(1), unclaimed[0].ID)
-		require.Equal(t, int32(1), *unclaimed[0].OffchainreportingOracleSpecID)
-		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
-		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
-
-		dbSpec2 := makeOCRJobSpec(t, address)
-		_, err = orm.CreateJob(context.Background(), dbSpec2, dbSpec2.Pipeline)
-		require.NoError(t, err)
-
-		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel2()
-
-		unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
-		require.NoError(t, err)
-		require.Len(t, unclaimed, 1)
-		compareOCRJobSpecs(t, *dbSpec2, unclaimed[0])
-		require.Equal(t, int32(3), unclaimed[0].ID)
-		require.Equal(t, int32(3), *unclaimed[0].OffchainreportingOracleSpecID)
-		require.Equal(t, int32(3), unclaimed[0].PipelineSpecID)
-		require.Equal(t, int32(3), unclaimed[0].OffchainreportingOracleSpec.ID)
-	})
-
-	t.Run("it can delete jobs claimed by other nodes", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		err := orm2.DeleteJob(ctx, dbSpec.ID)
-		require.NoError(t, err)
 
 		var dbSpecs []job.Job
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, dbSpecs, 2)
-	})
-
-	t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		// Check that it is claimed
-		claimedJobIDs := job.GetORMClaimedJobIDs(orm)
-		require.Contains(t, claimedJobIDs, dbSpec.ID)
 
 		err := orm.DeleteJob(ctx, dbSpec.ID)
 		require.NoError(t, err)
 
-		// Check that it is no longer claimed
-		claimedJobIDs = job.GetORMClaimedJobIDs(orm)
-		assert.NotContains(t, claimedJobIDs, dbSpec.ID)
-
-		var dbSpecs []job.Job
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
-		require.Len(t, dbSpecs, 2)
-
-		var oracleSpecs []job.OffchainReportingOracleSpec
-		err = db.Find(&oracleSpecs).Error
-		require.NoError(t, err)
-		require.Len(t, oracleSpecs, 2)
-
-		var pipelineSpecs []pipeline.Spec
-		err = db.Find(&pipelineSpecs).Error
-		require.NoError(t, err)
-		require.Len(t, pipelineSpecs, 2)
+		require.Len(t, dbSpecs, 1)
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
@@ -250,68 +191,26 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	defer cleanupORM()
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer orm.Close()
 
-	claimedJobs := make([]job.Job, 3)
-	for i := range claimedJobs {
+	activeJobIDs := make([]int32, 3)
+	for i := range activeJobIDs {
 		dbSpec := makeOCRJobSpec(t, address)
 		_, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-		claimedJobs[i] = *dbSpec
+		activeJobIDs[i] = dbSpec.ID
 	}
-	job.SetORMClaimedJobs(orm, claimedJobs)
 
-	deletedID := claimedJobs[0].ID
+	deletedID := activeJobIDs[0]
 	require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, deletedID).Error)
 
-	deletedJobIDs, err := orm.CheckForDeletedJobs(context.Background())
+	deletedJobIDs, err := orm.CheckForDeletedJobs(context.Background(), activeJobIDs)
 	require.NoError(t, err)
 
 	require.Len(t, deletedJobIDs, 1)
 	require.Equal(t, deletedID, deletedJobIDs[0])
 
-}
-
-func TestORM_UnclaimJob(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
-
-	advisoryLocker := new(mocks.AdvisoryLocker)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
-	defer orm.Close()
-
-	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
-
-	claimedJobs := make([]job.Job, 3)
-	for i := range claimedJobs {
-		dbSpec := makeOCRJobSpec(t, address)
-		dbSpec.ID = int32(i)
-		claimedJobs[i] = *dbSpec
-	}
-
-	job.SetORMClaimedJobs(orm, claimedJobs)
-
-	jobID := claimedJobs[0].ID
-	advisoryLocker.On("Unlock", mock.Anything, job.GetORMAdvisoryLockClassID(orm), jobID).Once().Return(nil)
-
-	require.NoError(t, orm.UnclaimJob(context.Background(), jobID))
-
-	claimedJobs = job.GetORMClaimedJobs(orm)
-	require.Len(t, claimedJobs, 2)
-	require.NotContains(t, claimedJobs, jobID)
-
-	advisoryLocker.AssertExpectations(t)
 }
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
@@ -325,7 +224,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer orm.Close()
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {

@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -30,7 +29,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
 
 	spec := &job.Job{
 		Type:          job.Cron,
