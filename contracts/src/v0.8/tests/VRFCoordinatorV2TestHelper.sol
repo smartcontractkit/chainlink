@@ -15,15 +15,13 @@ contract VRFCoordinatorV2TestHelper is VRFCoordinatorV2 {
         VRFCoordinatorV2(link, blockhashStore, linkEthFeed) { /* empty */ }
 
     function calculatePaymentAmountTest(
-        uint256 startGas,
         uint256 gasAfterPaymentCalculation,
         uint32  fulfillmentFlatFeeLinkPPM,
         uint256 weiPerUnitGas
     )
         external
     {
-        s_gasStart = gasleft();
-        s_paymentAmount = calculatePaymentAmount(startGas, gasAfterPaymentCalculation, fulfillmentFlatFeeLinkPPM, weiPerUnitGas);
+        s_paymentAmount = calculatePaymentAmount(gasleft(), gasAfterPaymentCalculation, fulfillmentFlatFeeLinkPPM, weiPerUnitGas);
     }
 
     function getPaymentAmount()

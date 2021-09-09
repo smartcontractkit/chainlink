@@ -5,9 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -163,7 +160,6 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	defer done()
 
 	svcLogger := ex.logger.With("blockNum", headNumber, "upkeepID", upkeep.UpkeepID)
-
 	svcLogger.Debug("checking upkeep")
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
@@ -182,17 +178,16 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, func(tx *gorm.DB) error {
-		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
-		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
-		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
+	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, nil); err != nil {
+		ex.logger.WithError(err).Errorw("failed executing run")
+		return
+	}
+
+	// Only after task runs where a tx was broadcast
+	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
 		if err != nil {
-			return errors.Wrap(err, "failed to set last run height for upkeep")
+			ex.logger.WithError(err).Errorw("failed to set last run height for upkeep")
 		}
-
-		return nil
-	}); err != nil {
-		ex.logger.Errorw("failed executing run", "err", err)
 	}
 }
