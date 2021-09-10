@@ -381,8 +381,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
-		case postgres.AdvisoryLocker:
-			advisoryLocker = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
 		case evmtypes.Chain:
