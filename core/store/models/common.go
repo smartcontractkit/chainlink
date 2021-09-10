@@ -211,22 +211,6 @@ func (j JSON) CBOR() ([]byte, error) {
 	}
 }
 
-// MarshalToMap converts a struct (typically) to a map[string] so it can be
-// manipulated without repeatedly serializing/deserializing
-func MarshalToMap(input interface{}) (map[string]interface{}, error) {
-	bytes, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-	var output map[string]interface{}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		// Technically this should be impossible
-		return nil, err
-	}
-	return output, nil
-}
-
 // WebURL contains the URL of the endpoint.
 type WebURL url.URL
 
@@ -435,13 +419,6 @@ func (i Interval) Value() (driver.Value, error) {
 
 func (i Interval) IsZero() bool {
 	return time.Duration(i) == time.Duration(0)
-}
-
-// WithdrawalRequest request to withdraw LINK.
-type WithdrawalRequest struct {
-	DestinationAddress common.Address `json:"address"`
-	ContractAddress    common.Address `json:"contractAddress"`
-	Amount             *assets.Link   `json:"amount"`
 }
 
 // SendEtherRequest represents a request to transfer ETH.
