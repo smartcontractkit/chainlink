@@ -31,7 +31,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
-	if ekc.App.GetStore().Config.Dev() {
+	if ekc.App.GetConfig().Dev() {
 		keys, err = ethKeyStore.GetAll()
 	} else {
 		keys, err = ethKeyStore.SendingKeys()
