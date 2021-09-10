@@ -21,9 +21,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -32,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
@@ -135,96 +132,6 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	json, err := sjson.Delete(json, path)
 	require.NoError(t, err)
 	return json
-}
-
-var (
-	// RunLogTopic20190207withoutIndexes was the new RunRequest filter topic as of 2019-01-28,
-	// after renaming Solidity variables, moving data version, and removing the cast of requestId to uint256
-	RunLogTopic20190207withoutIndexes = utils.MustHash("OracleRequest(bytes32,address,bytes32,uint256,address,bytes4,uint256,uint256,bytes)")
-)
-
-// NewRunLog create types.Log for given jobid, address, block, and json
-func NewRunLog(
-	t *testing.T,
-	jobID common.Hash,
-	emitter common.Address,
-	requester common.Address,
-	blk int,
-	json string,
-) types.Log {
-	return types.Log{
-		Address:     emitter,
-		BlockNumber: uint64(blk),
-		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
-		TxHash:      utils.NewHash(),
-		BlockHash:   utils.NewHash(),
-		Topics: []common.Hash{
-			RunLogTopic20190207withoutIndexes,
-			jobID,
-		},
-	}
-}
-
-func StringToVersionedLogData20190207withoutIndexes(
-	t *testing.T,
-	internalID string,
-	requester common.Address,
-	str string,
-) []byte {
-	requesterBytes := requester.Hash().Bytes()
-	buf := bytes.NewBuffer(requesterBytes)
-
-	requestID := hexutil.MustDecode(StringToHash(internalID).Hex())
-	buf.Write(requestID)
-
-	payment := hexutil.MustDecode(evmconfig.DefaultMinimumContractPayment.ToHash().Hex())
-	buf.Write(payment)
-
-	callbackAddr := utils.EVMWordUint64(0)
-	buf.Write(callbackAddr)
-
-	callbackFunc := utils.EVMWordUint64(0)
-	buf.Write(callbackFunc)
-
-	expiration := utils.EVMWordUint64(4000000000)
-	buf.Write(expiration)
-
-	version := utils.EVMWordUint64(1)
-	buf.Write(version)
-
-	dataLocation := utils.EVMWordUint64(common.HashLength * 8)
-	buf.Write(dataLocation)
-
-	cbor, err := JSONFromString(t, str).CBOR()
-	require.NoError(t, err)
-	buf.Write(utils.EVMWordUint64(uint64(len(cbor))))
-	paddedLength := common.HashLength * ((len(cbor) / common.HashLength) + 1)
-	buf.Write(common.RightPadBytes(cbor, paddedLength))
-
-	return buf.Bytes()
-}
-
-// BigHexInt create hexutil.Big value from given value
-func BigHexInt(val interface{}) hexutil.Big {
-	switch x := val.(type) {
-	case int: // Single case allows compiler to narrow x's type.
-		return hexutil.Big(*big.NewInt(int64(x)))
-	case uint32:
-		return hexutil.Big(*big.NewInt(int64(x)))
-	case uint64:
-		return hexutil.Big(*big.NewInt(0).SetUint64(x))
-	case int64:
-		return hexutil.Big(*big.NewInt(x))
-	default:
-		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
-		return hexutil.Big{}
-	}
-}
-
-type MockSigner struct{}
-
-func (s MockSigner) SignHash(common.Hash) (models.Signature, error) {
-	return models.NewSignature("0xb7a987222fc36c4c8ed1b91264867a422769998aadbeeb1c697586a04fa2b616025b5ca936ec5bdb150999e298b6ecf09251d3c4dd1306dedec0692e7037584800")
 }
 
 func EmptyCLIContext() *cli.Context {
@@ -496,13 +403,6 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
-	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
-	err := store.DB.Create(&h).Error
-	require.NoError(t, err)
-	return h
-}
-
 func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
@@ -655,16 +555,6 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, r
 	err = db.Create(&upkeep).Error
 	require.NoError(t, err)
 	return upkeep
-}
-
-func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
-	return flux_aggregator_wrapper.OracleRoundState{
-		RoundId:          roundID,
-		EligibleToSubmit: true,
-		LatestSubmission: latestSubmission,
-		AvailableFunds:   evmconfig.DefaultMinimumContractPayment.ToInt(),
-		PaymentAmount:    evmconfig.DefaultMinimumContractPayment.ToInt(),
-	}
 }
 
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
