@@ -85,11 +85,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	l := logger.CreateLogger(logger.Default.SugaredLogger.With(
+	l := logger.CreateLogger(logger.Default.SugaredLogger).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
-	))
+	)
 
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
