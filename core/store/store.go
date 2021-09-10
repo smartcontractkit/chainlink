@@ -27,11 +27,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	// AutoMigrate is a flag that automatically migrates the DB when passed to initializeORM
-	AutoMigrate = "auto_migrate"
-)
-
 // Store contains fields for the database, Config
 // for keeping the application state in sync with the database.
 type Store struct {
