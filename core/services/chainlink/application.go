@@ -61,6 +61,7 @@ type Application interface {
 	GetLogger() *loggerPkg.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
+	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster

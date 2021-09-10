@@ -76,7 +76,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	t.Cleanup(cleanup)
 	app.Logger = l
-	app.Logger.SetDB(app.GetStore().DB)
+	app.Logger.SetDB(app.GetDB())
 
 	require.NoError(t, app.Start())
 
@@ -499,7 +499,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
 	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
