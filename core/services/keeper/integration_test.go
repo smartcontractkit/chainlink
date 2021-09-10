@@ -134,7 +134,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
-	cltest.WaitForCount(t, app.Store, keeper.UpkeepRegistration{}, 0)
+	cltest.WaitForCount(t, app.Store.DB, keeper.UpkeepRegistration{}, 0)
 
 	// add new upkeep (same target contract)
 	_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
@@ -156,7 +156,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	var registry keeper.Registry
 	require.NoError(t, app.Store.DB.First(&registry).Error)
-	cltest.AssertRecordEventually(t, app.Store, &registry, func() bool {
+	cltest.AssertRecordEventually(t, app.Store.DB, &registry, func() bool {
 		return registry.KeeperIndex == -1
 	})
 	runs, err := app.PipelineORM().GetAllRuns()

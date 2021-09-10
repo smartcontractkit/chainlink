@@ -16,13 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -47,15 +47,15 @@ var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
 }
 
 func setupRegistrySync(t *testing.T) (
-	*store.Store,
+	*gorm.DB,
 	*keeper.RegistrySynchronizer,
 	*mocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-	db := store.DB
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	config.SetDB(db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
@@ -77,9 +77,9 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(db, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, nil, config, bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default)
-	return store, synchronizer, ethClient, lbMock, j
+	return db, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {
@@ -92,7 +92,7 @@ func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {
 }
 
 func Test_RegistrySynchronizer_Start(t *testing.T) {
-	store, synchronizer, ethMock, _, job := setupRegistrySync(t)
+	db, synchronizer, ethMock, _, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -108,7 +108,7 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 	require.NoError(t, err)
 	defer synchronizer.Close()
 
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
 
 	err = synchronizer.Start()
 	require.Error(t, err)
@@ -123,8 +123,7 @@ func Test_RegistrySynchronizer_CalcPositioningConstant(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_FullSync(t *testing.T) {
-	store, synchronizer, ethMock, _, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, _, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -174,8 +173,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -188,7 +186,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 
 	require.NoError(t, synchronizer.Start())
 	defer synchronizer.Close()
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
 	var registry keeper.Registry
 	require.NoError(t, db.First(&registry).Error)
 
@@ -210,7 +208,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 	synchronizer.ExportedProcessLogs()
 
-	cltest.AssertRecordEventually(t, store, &registry, func() bool {
+	cltest.AssertRecordEventually(t, db, &registry, func() bool {
 		return registry.BlockCountPerTurn == 40
 	})
 	cltest.AssertCount(t, db, keeper.Registry{}, 1)
@@ -219,8 +217,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -233,7 +230,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 
 	require.NoError(t, synchronizer.Start())
 	defer synchronizer.Close()
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
 	var registry keeper.Registry
 	require.NoError(t, db.First(&registry).Error)
 
@@ -255,7 +252,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 	synchronizer.ExportedProcessLogs()
 
-	cltest.AssertRecordEventually(t, store, &registry, func() bool {
+	cltest.AssertRecordEventually(t, db, &registry, func() bool {
 		return registry.NumKeepers == 2
 	})
 	cltest.AssertCount(t, db, keeper.Registry{}, 1)
@@ -264,8 +261,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -279,8 +275,8 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 
 	require.NoError(t, synchronizer.Start())
 	defer synchronizer.Close()
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
-	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 3)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.UpkeepRegistration{}, 3)
 
 	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
@@ -296,14 +292,13 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 	synchronizer.ExportedProcessLogs()
 
-	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 2)
+	cltest.WaitForCount(t, db, keeper.UpkeepRegistration{}, 2)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
 
 func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
-	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -316,7 +311,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 
 	require.NoError(t, synchronizer.Start())
 	defer synchronizer.Close()
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
 
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Once()
 
@@ -334,7 +329,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	synchronizer.HandleLog(logBroadcast)
 	synchronizer.ExportedProcessLogs()
 
-	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 1)
+	cltest.WaitForCount(t, db, keeper.UpkeepRegistration{}, 1)
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)
 }
@@ -342,8 +337,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
-	db := store.DB
+	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -357,8 +351,8 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 
 	require.NoError(t, synchronizer.Start())
 	defer synchronizer.Close()
-	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
-	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 1)
+	cltest.WaitForCount(t, db, keeper.Registry{}, 1)
+	cltest.WaitForCount(t, db, keeper.UpkeepRegistration{}, 1)
 
 	var upkeep keeper.UpkeepRegistration
 	require.NoError(t, db.First(&upkeep).Error)
@@ -380,7 +374,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	synchronizer.ExportedProcessLogs()
 
 	g.Eventually(func() int64 {
-		err := store.DB.Find(&upkeep).Error
+		err := db.Find(&upkeep).Error
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
 	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
