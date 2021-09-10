@@ -503,17 +503,17 @@ func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head
 	return h
 }
 
-func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
+func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
 	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
-	err = store.DB.Create(&pipelineSpec).Error
+	err = db.Create(&pipelineSpec).Error
 	require.NoError(t, err)
 
-	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store.DB, addr)
+	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
 	jb := job.Job{
 		OffchainreportingOracleSpec:   &oracleSpec,
 		OffchainreportingOracleSpecID: &oracleSpec.ID,
@@ -524,7 +524,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 		PipelineSpecID:                pipelineSpec.ID,
 	}
 
-	err = store.DB.Create(&jb).Error
+	err = db.Create(&jb).Error
 	require.NoError(t, err)
 	return jb
 }
