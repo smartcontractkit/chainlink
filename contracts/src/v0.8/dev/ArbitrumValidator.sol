@@ -25,7 +25,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   enum PaymentStrategy { L1, L2 }
   // Config for L1 -> L2 Arbitrum retryable ticket message
   struct GasConfig {
-    address gasFeedAddr;
+    address gasPriceL1FeedAddr;
     uint256 gasPriceBid;
     uint256 maxGas;
   }
@@ -60,12 +60,12 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice emitted when a new gas configuration is set
-   * @param gasFeedAddr address of the L1 gas feed (used to approximate Arbitrum `maxSubmissionCost`, if `maxSubmissionCost == 0`)
-   * @param gasPriceBid maximum gas price to pay on L2
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
+   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt.
    */
   event GasConfigSet(
-    address indexed gasFeedAddr,
+    address indexed gasPriceL1FeedAddr,
     uint256 gasPriceBid,
     uint256 maxGas
   );
@@ -95,9 +95,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
    * @param l2CrossDomainForwarderAddr the L2 Forwarder contract address
    * @param l2FlagsAddr the L2 Flags contract address
-   * @param gasConfigACAddr address of the access controller for managing gas price on Arbitrum
-   * @param gasFeedAddr address of the L1 gas feed (used to approximate Arbitrum `maxSubmissionCost`, if `maxSubmissionCost == 0`)
-   * @param gasPriceBid maximum gas price to pay on L2
+   * @param configACAddr address of the access controller for managing gas price on Arbitrum
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
+   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
@@ -105,8 +105,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address crossDomainMessengerAddr,
     address l2CrossDomainForwarderAddr,
     address l2FlagsAddr,
-    address gasConfigACAddr,
-    address gasFeedAddr,
+    address configACAddr,
+    address gasPriceL1FeedAddr,
     uint256 gasPriceBid,
     uint256 maxGas,
     PaymentStrategy paymentStrategy
@@ -118,8 +118,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
     L2_FLAGS = l2FlagsAddr;
     // Additional L2 payment configuration
-    s_configAC = AccessControllerInterface(gasConfigACAddr);
-    _setGasConfig(gasFeedAddr, gasPriceBid, maxGas);
+    s_configAC = AccessControllerInterface(configACAddr);
+    _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -239,14 +239,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1 ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid) : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
     id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
-        ARBSYS_ADDR, // target
-        amount, // L2 call value (requested)
-        maxSubmissionCost,
-        refundAddr, // excessFeeRefundAddress
-        refundAddr, // callValueRefundAddress
-        maxGas,
-        gasPriceBid,
-        message
+      ARBSYS_ADDR, // target
+      amount, // L2 call value (requested)
+      maxSubmissionCost,
+      refundAddr, // excessFeeRefundAddress
+      refundAddr, // callValueRefundAddress
+      maxGas,
+      gasPriceBid,
+      message
     );
     emit L2WithdrawalRequested(id, amount, refundAddr);
   }
@@ -267,25 +267,25 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice sets Arbitrum gas configuration
-   * @dev access control provided by s_configAC
-   * @param gasFeedAddr address of the L1 gas feed (used to approximate Arbitrum `maxSubmissionCost`, if `maxSubmissionCost == 0`)
-   * @param gasPriceBid maximum gas price to pay on L2
+   * @dev access control provided by `configAC`
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
+   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    */
   function setGasConfig(
-    address gasFeedAddr,
+    address gasPriceL1FeedAddr,
     uint256 gasPriceBid,
     uint256 maxGas
   )
     external
   {
     require(s_configAC.hasAccess(msg.sender, msg.data), "No access");
-    _setGasConfig(gasFeedAddr, gasPriceBid, maxGas);
+    _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
   }
 
   /**
    * @notice sets the payment strategy
-   * @dev access control provided by s_configAC
+   * @dev access control provided by `configAC`
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
   function setPaymentStrategy(
@@ -363,15 +363,15 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @notice internal method that stores the gas configuration
   function _setGasConfig(
-    address gasFeedAddr,
+    address gasPriceL1FeedAddr,
     uint256 gasPriceBid,
     uint256 maxGas
   )
     internal
   {
-    require(gasFeedAddr != address(0), "Gas price Aggregator is zero address");
-    s_gasConfig = GasConfig(gasFeedAddr, gasPriceBid, maxGas);
-    emit GasConfigSet(gasFeedAddr, gasPriceBid, maxGas);
+    require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
+    s_gasConfig = GasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
+    emit GasConfigSet(gasPriceL1FeedAddr, gasPriceBid, maxGas);
   }
 
   /// @notice Internal method that stores the configuration access controller
@@ -388,7 +388,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /**
-   * @notice Internal method that approximates the `maxSubmissionCost` (using the gas price feed)
+   * @notice Internal method that approximates the `maxSubmissionCost` (using the L1 gas price feed)
    * @dev On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
    * @param calldataSizeInBytes xDomain message size in bytes
    */
@@ -399,7 +399,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     view
     returns (uint256)
   {
-    (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(s_gasConfig.gasFeedAddr).latestRoundData();
+    (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 3; // add 200% buffer (price volatility error margin)
     return l1GasPriceEstimate * calldataSizeInBytes / 256 + l1GasPriceEstimate;
   }
