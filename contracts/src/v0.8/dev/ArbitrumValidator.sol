@@ -43,6 +43,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address immutable public CROSS_DOMAIN_MESSENGER;
   address immutable public L2_CROSS_DOMAIN_FORWARDER;
   address immutable public L2_FLAGS;
+  // L2 xDomain alias address of this contract
+  address immutable public L2_ALIAS = AddressAliasHelper.applyL1ToL2Alias(address(this));
 
   PaymentStrategy private s_paymentStrategy;
   GasConfig private s_gasConfig;
@@ -320,7 +322,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     }
 
     // Excess gas on L2 will be sent to the L2 xDomain alias address of this contract
-    address refundAddr = AddressAliasHelper.applyL1ToL2Alias(address(this));
+    address refundAddr = L2_ALIAS;
     // Encode the Forwarder call
     bytes4 selector = ForwarderInterface.forward.selector;
     address target = L2_FLAGS;
