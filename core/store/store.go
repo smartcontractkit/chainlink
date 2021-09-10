@@ -48,12 +48,6 @@ func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker,
 	return newStore(config, advisoryLock, shutdownSignal)
 }
 
-// NewInsecureStore creates a new store with the given config using an insecure keystore.
-// NOTE: Should only be used for testing!
-func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLocker, shutdownSignal)
-}
-
 func newStore(
 	config config.GeneralConfig,
 	advisoryLocker postgres.AdvisoryLocker,
