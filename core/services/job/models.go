@@ -23,13 +23,14 @@ import (
 )
 
 const (
-	Cron              Type = "cron"
-	DirectRequest     Type = "directrequest"
-	FluxMonitor       Type = "fluxmonitor"
-	OffchainReporting Type = "offchainreporting"
-	Keeper            Type = "keeper"
-	VRF               Type = "vrf"
-	Webhook           Type = "webhook"
+	Cron               Type = "cron"
+	DirectRequest      Type = "directrequest"
+	FluxMonitor        Type = "fluxmonitor"
+	OffchainReporting  Type = "offchainreporting"
+	OffchainReporting2 Type = "offchainreporting2"
+	Keeper             Type = "keeper"
+	VRF                Type = "vrf"
+	Webhook            Type = "webhook"
 )
 
 //revive:disable:redefines-builtin-id
@@ -53,59 +54,64 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
-		Cron:              true,
-		DirectRequest:     true,
-		FluxMonitor:       true,
-		OffchainReporting: false, // bootstrap jobs do not require it
-		Keeper:            true,
-		VRF:               true,
-		Webhook:           true,
+		Cron:               true,
+		DirectRequest:      true,
+		FluxMonitor:        true,
+		OffchainReporting:  false, // bootstrap jobs do not require it
+		OffchainReporting2: false,
+		Keeper:             true,
+		VRF:                true,
+		Webhook:            true,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:              true,
-		DirectRequest:     true,
-		FluxMonitor:       false,
-		OffchainReporting: false,
-		Keeper:            true,
-		VRF:               true,
-		Webhook:           true,
+		Cron:               true,
+		DirectRequest:      true,
+		FluxMonitor:        false,
+		OffchainReporting:  false,
+		OffchainReporting2: false,
+		Keeper:             true,
+		VRF:                true,
+		Webhook:            true,
 	}
 	schemaVersions = map[Type]uint32{
-		Cron:              1,
-		DirectRequest:     1,
-		FluxMonitor:       1,
-		OffchainReporting: 1,
-		Keeper:            2,
-		VRF:               1,
-		Webhook:           1,
+		Cron:               1,
+		DirectRequest:      1,
+		FluxMonitor:        1,
+		OffchainReporting:  1,
+		OffchainReporting2: 1,
+		Keeper:             2,
+		VRF:                1,
+		Webhook:            1,
 	}
 )
 
 type Job struct {
-	ID                            int32     `toml:"-" gorm:"primary_key"`
-	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
-	OffchainreportingOracleSpecID *int32
-	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
-	CronSpecID                    *int32
-	CronSpec                      *CronSpec
-	DirectRequestSpecID           *int32
-	DirectRequestSpec             *DirectRequestSpec
-	FluxMonitorSpecID             *int32
-	FluxMonitorSpec               *FluxMonitorSpec
-	KeeperSpecID                  *int32
-	KeeperSpec                    *KeeperSpec
-	VRFSpecID                     *int32
-	VRFSpec                       *VRFSpec
-	WebhookSpecID                 *int32
-	WebhookSpec                   *WebhookSpec
-	PipelineSpecID                int32
-	PipelineSpec                  *pipeline.Spec
-	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
-	Type                          Type
-	SchemaVersion                 uint32
-	Name                          null.String
-	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
+	ID                             int32     `toml:"-" gorm:"primary_key"`
+	ExternalJobID                  uuid.UUID `toml:"externalJobID"`
+	OffchainreportingOracleSpecID  *int32
+	OffchainreportingOracleSpec    *OffchainReportingOracleSpec
+	Offchainreporting2OracleSpecID *int32
+	Offchainreporting2OracleSpec   *OffchainReporting2OracleSpec
+	CronSpecID                     *int32
+	CronSpec                       *CronSpec
+	DirectRequestSpecID            *int32
+	DirectRequestSpec              *DirectRequestSpec
+	FluxMonitorSpecID              *int32
+	FluxMonitorSpec                *FluxMonitorSpec
+	KeeperSpecID                   *int32
+	KeeperSpec                     *KeeperSpec
+	VRFSpecID                      *int32
+	VRFSpec                        *VRFSpec
+	WebhookSpecID                  *int32
+	WebhookSpec                    *WebhookSpec
+	PipelineSpecID                 int32
+	PipelineSpec                   *pipeline.Spec
+	JobSpecErrors                  []SpecError `gorm:"foreignKey:JobID"`
+	Type                           Type
+	SchemaVersion                  uint32
+	Name                           null.String
+	MaxTaskDuration                models.Interval
+	Pipeline                       pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -220,6 +226,51 @@ func (s *OffchainReportingOracleSpec) BeforeSave(db *gorm.DB) error {
 
 func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
+}
+
+type OffchainReporting2OracleSpec struct {
+	ID                                     int32                `toml:"-" gorm:"primary_key"`
+	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
+	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
+	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                null.String          `toml:"keyBundleID" gorm:"type:bytea"`
+	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
+	ObservationTimeout                     models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
+	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
+	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
+	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
+	CreatedAt                              time.Time            `toml:"-"`
+	UpdatedAt                              time.Time            `toml:"-"`
+}
+
+func (s OffchainReporting2OracleSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *OffchainReporting2OracleSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
+}
+
+func (s *OffchainReporting2OracleSpec) BeforeCreate(db *gorm.DB) error {
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (s *OffchainReporting2OracleSpec) BeforeSave(db *gorm.DB) error {
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (OffchainReporting2OracleSpec) TableName() string {
+	return "offchainreporting2_oracle_specs"
 }
 
 type ExternalInitiatorWebhookSpec struct {

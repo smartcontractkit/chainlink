@@ -96,6 +96,7 @@ func PreloadAllJobTypes(db *gorm.DB) *gorm.DB {
 		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("Offchainreporting2OracleSpec").
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
 		Preload("CronSpec").
@@ -237,6 +238,26 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 			return jb, errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
 		}
 		jobSpec.OffchainreportingOracleSpecID = &jobSpec.OffchainreportingOracleSpec.ID
+	case OffchainReporting2:
+		err := tx.Create(&jobSpec.Offchainreporting2OracleSpec).Error
+		pqErr, ok := err.(*pgconn.PgError)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.ConstraintName == "offchainreporting2_oracle_specs_p2p_peer_id_fkey" {
+				return jb, errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.Offchainreporting2OracleSpec.P2PPeerID)
+			}
+			if jobSpec.Offchainreporting2OracleSpec != nil && !jobSpec.Offchainreporting2OracleSpec.IsBootstrapPeer {
+				if pqErr.ConstraintName == "offchainreporting2_oracle_specs_transmitter_address_fkey" {
+					return jb, errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.Offchainreporting2OracleSpec.TransmitterAddress)
+				}
+				if pqErr.ConstraintName == "offchainreporting2_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+					return jb, errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.Offchainreporting2OracleSpec.EncryptedOCRKeyBundleID)
+				}
+			}
+		}
+		if err != nil {
+			return jb, errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
+		}
+		jobSpec.Offchainreporting2OracleSpecID = &jobSpec.Offchainreporting2OracleSpec.ID
 	case Keeper:
 		err := tx.Create(&jobSpec.KeeperSpec).Error
 		if err != nil {

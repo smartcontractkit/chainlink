@@ -43,7 +43,6 @@ type Store struct {
 }
 
 // NewStore will create a new store
-// func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStore(config, advisoryLock, shutdownSignal)
 }

@@ -165,6 +165,41 @@ type ConfigSchema struct {
 	TriggerFallbackDBPollInterval              time.Duration                 `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	UnAuthenticatedRateLimit                   int64                         `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod             time.Duration                 `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
+
+	// Offchain reporting 2 configuration
+	FeatureOffchainReporting2 bool `env:"FEATURE_OFFCHAIN_REPORTING2" default:"false"`
+
+	OCR2BlockchainTimeout                  time.Duration `env:"OCR2_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	OCR2ContractPollInterval               time.Duration `env:"OCR2_CONTRACT_POLL_INTERVAL" default:"1m"`
+	OCR2ContractSubscribeInterval          time.Duration `env:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
+	OCR2ContractTransmitterTransmitTimeout time.Duration `env:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
+	OCR2DHTLookupInterval                  int           `env:"OCR2_DHT_LOOKUP_INTERVAL" default:"10"`
+	OCR2DatabaseTimeout                    time.Duration `env:"OCR2_DATABASE_TIMEOUT" default:"10s"`
+	OCR2DefaultTransactionQueueDepth       uint32        `env:"OCR2_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
+	OCR2IncomingMessageBufferSize          int           `env:"OCR2_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCR2KeyBundleID                        string        `env:"OCR2_KEY_BUNDLE_ID"`
+	OCR2NewStreamTimeout                   time.Duration `env:"OCR2_NEW_STREAM_TIMEOUT" default:"10s"`
+	OCR2ObservationGracePeriod             time.Duration `env:"OCR2_OBSERVATION_GRACE_PERIOD" default:"1s"`
+	OCR2ObservationTimeout                 time.Duration `env:"OCR2_OBSERVATION_TIMEOUT" default:"12s"`
+	OCR2OutgoingMessageBufferSize          int           `env:"OCR2_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCR2TraceLogging                       bool          `env:"OCR2_TRACE_LOGGING" default:"false"`
+	OCR2TransmitterAddress                 string        `env:"OCR2_TRANSMITTER_ADDRESS"`
+
+	OCR2P2PAnnounceIP                       net.IP   `env:"OCR2_P2P_ANNOUNCE_IP"`
+	OCR2P2PAnnouncePort                     uint16   `env:"OCR2_P2P_ANNOUNCE_PORT"`
+	OCR2P2PBootstrapPeers                   []string `env:"OCR2_P2P_BOOTSTRAP_PEERS"`
+	OCR2P2PDHTAnnouncementCounterUserPrefix uint32   `env:"OCR2_P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`
+	OCR2P2PListenIP                         net.IP   `env:"OCR2_P2P_LISTEN_IP" default:"0.0.0.0"`
+	OCR2P2PListenPort                       uint16   `env:"OCR2_P2P_LISTEN_PORT"`
+	// FIXME: Should be V1V2
+	OCR2P2PNetworkingStack        ocrnetworking.NetworkingStack `env:"OCR2_P2P_NETWORKING_STACK" default:"V2"`
+	OCR2P2PPeerID                 p2pkey.PeerID                 `env:"OCR2_P2P_PEER_ID"`
+	OCR2P2PPeerstoreWriteInterval time.Duration                 `env:"OCR2_P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
+	OCR2P2PV2AnnounceAddresses    []string                      `env:"OCR2_P2PV2_ANNOUNCE_ADDRESSES"`
+	OCR2P2PV2Bootstrappers        []string                      `env:"OCR2_P2PV2_BOOTSTRAPPERS"`
+	OCR2P2PV2DeltaDial            time.Duration                 `env:"OCR2_P2PV2_DELTA_DIAL" default:"15s"`
+	OCR2P2PV2DeltaReconcile       time.Duration                 `env:"OCR2_P2PV2_DELTA_RECONCILE" default:"1m"`
+	OCR2P2PV2ListenAddresses      []string                      `env:"OCR2_P2PV2_LISTEN_ADDRESSES"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

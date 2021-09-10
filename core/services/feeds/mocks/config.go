@@ -75,6 +75,132 @@ func (_m *Config) FeatureOffchainReporting() bool {
 	return r0
 }
 
+// FeatureOffchainReporting2 provides a mock function with given fields:
+func (_m *Config) FeatureOffchainReporting2() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// OCR2BlockchainTimeout provides a mock function with given fields:
+func (_m *Config) OCR2BlockchainTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractConfirmations provides a mock function with given fields:
+func (_m *Config) OCR2ContractConfirmations() uint16 {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// OCR2ContractPollInterval provides a mock function with given fields:
+func (_m *Config) OCR2ContractPollInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractSubscribeInterval provides a mock function with given fields:
+func (_m *Config) OCR2ContractSubscribeInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ContractTransmitterTransmitTimeout provides a mock function with given fields:
+func (_m *Config) OCR2ContractTransmitterTransmitTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2DatabaseTimeout provides a mock function with given fields:
+func (_m *Config) OCR2DatabaseTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ObservationGracePeriod provides a mock function with given fields:
+func (_m *Config) OCR2ObservationGracePeriod() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// OCR2ObservationTimeout provides a mock function with given fields:
+func (_m *Config) OCR2ObservationTimeout() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // OCRBlockchainTimeout provides a mock function with given fields:
 func (_m *Config) OCRBlockchainTimeout() time.Duration {
 	ret := _m.Called()

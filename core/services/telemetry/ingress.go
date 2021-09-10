@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type IngressAgentWrapper struct {
@@ -16,7 +16,7 @@ func NewIngressAgentWrapper(telemetryIngressClient synchronization.TelemetryIngr
 	return &IngressAgentWrapper{telemetryIngressClient}
 }
 
-func (t *IngressAgentWrapper) GenMonitoringEndpoint(addr common.Address) ocrtypes.MonitoringEndpoint {
+func (t *IngressAgentWrapper) GenMonitoringEndpoint(addr common.Address) ocrcommontypes.MonitoringEndpoint {
 	return NewIngressAgent(t.telemetryIngressClient, addr)
 }
 

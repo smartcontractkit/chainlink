@@ -1,4 +1,4 @@
-package offchainreporting_test
+package ocrcommon_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +19,7 @@ func Test_BlockTranslator(t *testing.T) {
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {
 		chain := evmtest.ChainEthMainnet()
 
-		bt := offchainreporting.NewBlockTranslator(chain, ethClient)
+		bt := ocrcommon.NewBlockTranslator(chain, ethClient)
 
 		from, to := bt.NumberToQueryRange(ctx, 42)
 
@@ -28,23 +28,23 @@ func Test_BlockTranslator(t *testing.T) {
 	})
 
 	t.Run("for optimism, returns an initial block number and nil", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(evmtest.ChainOptimismMainnet(), ethClient)
+		bt := ocrcommon.NewBlockTranslator(evmtest.ChainOptimismMainnet(), ethClient)
 		from, to := bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 
-		bt = offchainreporting.NewBlockTranslator(evmtest.ChainOptimismKovan(), ethClient)
+		bt = ocrcommon.NewBlockTranslator(evmtest.ChainOptimismKovan(), ethClient)
 		from, to = bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumMainnet(), ethClient)
-		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
+		bt := ocrcommon.NewBlockTranslator(evmtest.ChainArbitrumMainnet(), ethClient)
+		assert.IsType(t, &ocrcommon.ArbitrumBlockTranslator{}, bt)
 
-		bt = offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(), ethClient)
-		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
+		bt = ocrcommon.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(), ethClient)
+		assert.IsType(t, &ocrcommon.ArbitrumBlockTranslator{}, bt)
 	})
 
 	ethClient.AssertExpectations(t)

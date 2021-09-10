@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -100,6 +101,39 @@ type EnvPrinter struct {
 	TLSHost                                    string          `json:"CHAINLINK_TLS_HOST"`
 	TLSPort                                    uint16          `json:"CHAINLINK_TLS_PORT"`
 	TLSRedirect                                bool            `json:"CHAINLINK_TLS_REDIRECT"`
+
+	FeatureOffchainReporting2 bool `json:"FEATURE_OFFCHAIN_REPORTING2"`
+
+	OCR2BlockchainTimeout                  time.Duration `json:"OCR2_BLOCKCHAIN_TIMEOUT"`
+	OCR2ContractPollInterval               time.Duration `json:"OCR2_CONTRACT_POLL_INTERVAL"`
+	OCR2ContractSubscribeInterval          time.Duration `json:"OCR2_CONTRACT_SUBSCRIBE_INTERVAL"`
+	OCR2ContractTransmitterTransmitTimeout time.Duration `json:"OCR2_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
+	OCR2DHTLookupInterval                  int           `json:"OCR2_DHT_LOOKUP_INTERVAL"`
+	OCR2DatabaseTimeout                    time.Duration `json:"OCR2_DATABASE_TIMEOUT"`
+	OCR2DefaultTransactionQueueDepth       uint32        `json:"OCR2_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
+	OCR2IncomingMessageBufferSize          int           `json:"OCR2_INCOMING_MESSAGE_BUFFER_SIZE"`
+	OCR2KeyBundleID                        string        `json:"OCR2_KEY_BUNDLE_ID"`
+	OCR2NewStreamTimeout                   time.Duration `json:"OCR2_NEW_STREAM_TIMEOUT"`
+	OCR2ObservationGracePeriod             time.Duration `json:"OCR2_OBSERVATION_GRACE_PERIOD"`
+	OCR2ObservationTimeout                 time.Duration `json:"OCR2_OBSERVATION_TIMEOUT"`
+	OCR2OutgoingMessageBufferSize          int           `json:"OCR2_OUTGOING_MESSAGE_BUFFER_SIZE"`
+	OCR2TraceLogging                       bool          `json:"OCR2_TRACE_LOGGING"`
+	OCR2TransmitterAddress                 string        `json:"OCR2_TRANSMITTER_ADDRESS"`
+
+	OCR2P2PAnnounceIP                       string        `json:"OCR2_P2P_ANNOUNCE_IP"`
+	OCR2P2PAnnouncePort                     uint16        `json:"OCR2_P2P_ANNOUNCE_PORT"`
+	OCR2P2PBootstrapPeers                   string        `json:"OCR2_P2P_BOOTSTRAP_PEERS"`
+	OCR2P2PDHTAnnouncementCounterUserPrefix uint32        `json:"OCR2_P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX"`
+	OCR2P2PListenIP                         string        `json:"OCR2_P2P_LISTEN_IP"`
+	OCR2P2PListenPort                       uint16        `json:"OCR2_P2P_LISTEN_PORT"`
+	OCR2P2PNetworkingStack                  string        `json:"OCR2_P2P_NETWORKING_STACK"`
+	OCR2P2PPeerID                           string        `json:"OCR2_P2P_PEER_ID"`
+	OCR2P2PPeerstoreWriteInterval           time.Duration `json:"OCR2_P2P_PEERSTORE_WRITE_INTERVAL"`
+	OCR2P2PV2AnnounceAddresses              string        `json:"OCR2_P2PV2_ANNOUNCE_ADDRESSES"`
+	OCR2P2PV2Bootstrappers                  string        `json:"OCR2_P2PV2_BOOTSTRAPPERS"`
+	OCR2P2PV2DeltaDial                      time.Duration `json:"OCR2_P2PV2_DELTA_DIAL"`
+	OCR2P2PV2DeltaReconcile                 time.Duration `json:"OCR2_P2PV2_DELTA_RECONCILE"`
+	OCR2P2PV2ListenAddresses                string        `json:"OCR2_P2PV2_LISTEN_ADDRESSES"`
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
@@ -117,6 +151,30 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 	if config.TelemetryIngressURL() != nil {
 		telemetryIngressURL = config.TelemetryIngressURL().String()
 	}
+	ocr2KeyBundleID, _ := config.OCR2KeyBundleID()
+	ocr2TransmitterAddress := ""
+	ocr2TransmitterAddressRaw, err := config.OCR2TransmitterAddress()
+	if err != nil {
+		ocr2TransmitterAddress = ocr2TransmitterAddressRaw.String()
+	}
+	ocr2P2PBootstrapPeers := ""
+	ocr2P2PBootstrapPeersRaw, _ := config.OCR2P2PBootstrapPeers()
+	if err != nil {
+		ocr2P2PBootstrapPeers = strings.Join(ocr2P2PBootstrapPeersRaw, ",")
+	}
+	ocr2P2PPeerID := ""
+	ocr2P2PPeerIDRaw, err := config.OCR2P2PPeerID()
+	if err != nil {
+		ocr2P2PPeerID = ocr2P2PPeerIDRaw.String()
+	}
+	ocr2P2PV2Bootstrappers := ""
+	for _, peer := range config.OCR2P2PV2Bootstrappers() {
+		ocr2P2PV2Bootstrappers += fmt.Sprintf("%s@[%s] ", peer.PeerID, strings.Join(peer.Addrs, ", "))
+	}
+
+	ocr2P2PV2AnnounceAddresses := strings.Join(config.OCR2P2PV2AnnounceAddresses(), ", ")
+	ocr2P2PV2ListenAddresses := strings.Join(config.OCR2P2PV2ListenAddresses(), ", ")
+
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
@@ -180,6 +238,39 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 			TelemetryIngressServerPubKey:          config.TelemetryIngressServerPubKey(),
 			TelemetryIngressURL:                   telemetryIngressURL,
 			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
+
+			FeatureOffchainReporting2: config.FeatureOffchainReporting2(),
+
+			OCR2BlockchainTimeout:                  config.OCR2BlockchainTimeout(),
+			OCR2ContractPollInterval:               config.OCR2ContractPollInterval(),
+			OCR2ContractSubscribeInterval:          config.OCR2ContractSubscribeInterval(),
+			OCR2ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
+			OCR2DHTLookupInterval:                  config.OCR2DHTLookupInterval(),
+			OCR2DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
+			OCR2DefaultTransactionQueueDepth:       config.OCR2DefaultTransactionQueueDepth(),
+			OCR2IncomingMessageBufferSize:          config.OCR2IncomingMessageBufferSize(),
+			OCR2KeyBundleID:                        ocr2KeyBundleID,
+			OCR2NewStreamTimeout:                   config.OCR2NewStreamTimeout(),
+			OCR2ObservationGracePeriod:             config.OCR2ObservationGracePeriod(),
+			OCR2ObservationTimeout:                 config.OCR2ObservationTimeout(),
+			OCR2OutgoingMessageBufferSize:          config.OCR2OutgoingMessageBufferSize(),
+			OCR2TraceLogging:                       config.OCR2TraceLogging(),
+			OCR2TransmitterAddress:                 ocr2TransmitterAddress,
+
+			OCR2P2PAnnounceIP:                       config.OCR2P2PAnnounceIP().String(),
+			OCR2P2PAnnouncePort:                     config.OCR2P2PAnnouncePort(),
+			OCR2P2PBootstrapPeers:                   ocr2P2PBootstrapPeers,
+			OCR2P2PDHTAnnouncementCounterUserPrefix: config.OCR2P2PDHTAnnouncementCounterUserPrefix(),
+			OCR2P2PListenIP:                         config.OCR2P2PListenIP().String(),
+			OCR2P2PListenPort:                       config.OCR2P2PListenPort(),
+			OCR2P2PNetworkingStack:                  config.OCR2P2PNetworkingStack().String(),
+			OCR2P2PPeerID:                           ocr2P2PPeerID,
+			OCR2P2PPeerstoreWriteInterval:           config.OCR2P2PPeerstoreWriteInterval(),
+			OCR2P2PV2AnnounceAddresses:              ocr2P2PV2AnnounceAddresses,
+			OCR2P2PV2Bootstrappers:                  ocr2P2PV2Bootstrappers,
+			OCR2P2PV2DeltaDial:                      config.OCR2P2PV2DeltaDial(),
+			OCR2P2PV2DeltaReconcile:                 config.OCR2P2PV2DeltaReconcile(),
+			OCR2P2PV2ListenAddresses:                ocr2P2PV2ListenAddresses,
 		},
 	}, nil
 }

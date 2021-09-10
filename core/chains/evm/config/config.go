@@ -58,10 +58,12 @@ type ChainScopedOnlyConfig interface {
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	OCRContractConfirmations() uint16
+	OCR2ContractConfirmations() uint16
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
 //go:generate mockery --name ChainScopedConfig --output ./mocks/ --case=underscore
+
 type ChainScopedConfig interface {
 	config.GeneralConfig
 	ChainScopedOnlyConfig
@@ -557,6 +559,15 @@ func (c *chainScopedConfig) LinkContractAddress() string {
 		return val
 	}
 	return c.defaultSet.linkContractAddress
+}
+
+func (c *chainScopedConfig) OCR2ContractConfirmations() uint16 {
+	val, ok := c.GeneralConfig.GlobalOCR2ContractConfirmations()
+	if ok {
+		c.logEnvOverrideOnce("OCR2ContractConfirmations", val)
+		return val
+	}
+	return c.defaultSet.ocr2ContractConfirmations
 }
 
 func (c *chainScopedConfig) OCRContractConfirmations() uint16 {
