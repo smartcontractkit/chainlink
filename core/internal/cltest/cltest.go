@@ -368,7 +368,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	var lggr *logger.Logger = cfg.CreateProductionLogger()
 	shutdownSignal := &testShutdownSignal{t}
-	store, err := strpkg.NewInsecureStore(cfg, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
 	require.NoError(t, err)
 	db := store.DB
 	sqlxDB := postgres.UnwrapGormDB(db)
@@ -652,7 +652,7 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(c, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewStore(c, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
