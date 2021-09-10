@@ -10,6 +10,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
@@ -54,15 +55,16 @@ func setupRegistrySync(t *testing.T) (
 ) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	db := store.DB
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
 	lbMock.On("AddDependents", 1).Maybe()
-	j := cltest.MustInsertKeeperJob(t, store.DB, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	j := cltest.MustInsertKeeperJob(t, db, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg := cltest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: store.DB, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
-	keyStore := cltest.NewKeyStore(t, store.DB)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
+	keyStore := cltest.NewKeyStore(t, db)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
@@ -75,15 +77,15 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(store.DB, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, nil, store.Config, bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default)
 	return store, synchronizer, ethClient, lbMock, j
 }
 
-func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int64) {
+func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {
 	g := gomega.NewGomegaWithT(t)
 	var upkeepIDs []int64
-	err := store.DB.Model(keeper.UpkeepRegistration{}).Pluck("upkeep_id", &upkeepIDs).Error
+	err := db.Model(keeper.UpkeepRegistration{}).Pluck("upkeep_id", &upkeepIDs).Error
 	require.NoError(t, err)
 	require.Equal(t, len(expected), len(upkeepIDs))
 	g.Expect(upkeepIDs).To(gomega.ContainElements(expected))
@@ -142,8 +144,8 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
-	require.NoError(t, store.DB.First(&registry).Error)
-	require.NoError(t, store.DB.First(&upkeepRegistration).Error)
+	require.NoError(t, db.First(&registry).Error)
+	require.NoError(t, db.First(&upkeepRegistration).Error)
 	require.Equal(t, job.KeeperSpec.ContractAddress, registry.ContractAddress)
 	require.Equal(t, job.KeeperSpec.FromAddress, registry.FromAddress)
 	require.Equal(t, int32(20), registry.BlockCountPerTurn)
@@ -152,7 +154,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 	require.Equal(t, upkeepConfig.CheckData, upkeepRegistration.CheckData)
 	require.Equal(t, uint64(upkeepConfig.ExecuteGas), upkeepRegistration.ExecuteGas)
 
-	assertUpkeepIDs(t, store, []int64{0, 2})
+	assertUpkeepIDs(t, db, []int64{0, 2})
 	ethMock.AssertExpectations(t)
 
 	// 2nd sync
@@ -167,7 +169,7 @@ func Test_RegistrySynchronizer_FullSync(t *testing.T) {
 
 	cltest.AssertCount(t, db, keeper.Registry{}, 1)
 	cltest.AssertCount(t, db, keeper.UpkeepRegistration{}, 2)
-	assertUpkeepIDs(t, store, []int64{2, 4})
+	assertUpkeepIDs(t, db, []int64{2, 4})
 	ethMock.AssertExpectations(t)
 }
 
@@ -188,13 +190,13 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
 	var registry keeper.Registry
-	require.NoError(t, store.DB.First(&registry).Error)
+	require.NoError(t, db.First(&registry).Error)
 
 	registryConfig.BlockCountPerTurn = big.NewInt(40) // change from default
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 
-	head := cltest.MustInsertHead(t, store, 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := keeper_registry_wrapper.KeeperRegistryConfigSet{}
 	logBroadcast := new(logmocks.Broadcast)
@@ -233,13 +235,13 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 	defer synchronizer.Close()
 	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
 	var registry keeper.Registry
-	require.NoError(t, store.DB.First(&registry).Error)
+	require.NoError(t, db.First(&registry).Error)
 
 	addresses := []common.Address{fromAddress, cltest.NewAddress()} // change from default
 	registryMock.MockResponse("getConfig", registryConfig).Once()
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 
-	head := cltest.MustInsertHead(t, store, 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := keeper_registry_wrapper.KeeperRegistryKeepersUpdated{}
 	logBroadcast := new(logmocks.Broadcast)
@@ -263,6 +265,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 
 func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -279,7 +282,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	cltest.WaitForCount(t, store, keeper.Registry{}, 1)
 	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 3)
 
-	head := cltest.MustInsertHead(t, store, 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := keeper_registry_wrapper.KeeperRegistryUpkeepCanceled{Id: big.NewInt(1)}
 	logBroadcast := new(logmocks.Broadcast)
@@ -300,6 +303,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 
 func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -316,7 +320,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Once()
 
-	head := cltest.MustInsertHead(t, store, 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{Id: big.NewInt(3)}
 	logBroadcast := new(logmocks.Broadcast)
@@ -339,6 +343,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	store, synchronizer, ethMock, lb, job := setupRegistrySync(t)
+	db := store.DB
 
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
@@ -356,11 +361,11 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 1)
 
 	var upkeep keeper.UpkeepRegistration
-	require.NoError(t, store.DB.First(&upkeep).Error)
+	require.NoError(t, db.First(&upkeep).Error)
 	upkeep.LastRunBlockHeight = 100
-	require.NoError(t, store.DB.Save(&upkeep).Error)
+	require.NoError(t, db.Save(&upkeep).Error)
 
-	head := cltest.MustInsertHead(t, store, 1)
+	head := cltest.MustInsertHead(t, db, 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0)}
 	logBroadcast := new(logmocks.Broadcast)
