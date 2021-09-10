@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -232,7 +233,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
-	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
+	if cfg.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 		subservices = append(subservices, concretePW)
@@ -247,6 +248,23 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
+	}
+
+	if cfg.Dev() && cfg.FeatureOffchainReporting2() {
+		logger.Debug("Off-chain reporting v2 enabled")
+		concretePW := offchainreporting2.NewSingletonPeerWrapper(keyStore, cfg, db)
+		subservices = append(subservices, concretePW)
+		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+			store.DB,
+			jobORM,
+			keyStore.OCR2(),
+			pipelineRunner,
+			concretePW,
+			monitoringEndpointGen,
+			chainSet,
+		)
+	} else {
+		logger.Debug("Off-chain reporting v2 disabled")
 	}
 
 	var webhookJobRunner webhook.JobRunner

@@ -8,6 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -19,13 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"gorm.io/gorm"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -59,8 +62,8 @@ type (
 		logger           logger.Logger
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
-		blockTranslator  BlockTranslator
-		chain            Chain
+		blockTranslator  ocrcommon.BlockTranslator
+		chain            ocrcommon.Chain
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -102,7 +105,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
-	chain Chain,
+	chain ocrcommon.Chain,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -117,7 +120,7 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
-		NewBlockTranslator(chain, ethClient),
+		ocrcommon.NewBlockTranslator(chain, ethClient),
 		chain,
 		headBroadcaster,
 		nil,

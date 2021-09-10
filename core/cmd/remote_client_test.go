@@ -451,6 +451,39 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, client.TriggerPipelineRun(c))
 }
 
+func TestClient_RunOCR2Job_HappyPath(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
+	var ocrJobSpecFromFile job.Job
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec-2.toml")
+	require.NoError(t, err)
+	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	require.NoError(t, err)
+	var ocrSpec job.OffchainReporting2OracleSpec
+	err = tree.Unmarshal(&ocrSpec)
+	require.NoError(t, err)
+	ocrJobSpecFromFile.Offchainreporting2OracleSpec = &ocrSpec
+	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
+	ocrJobSpecFromFile.Offchainreporting2OracleSpec.TransmitterAddress = &key.Address
+
+	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.TriggerPipelineRun(c))
+}
+
 func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	t.Parallel()
 

@@ -189,6 +189,7 @@ func (js *spawner) startUnclaimedServices() {
 			continue
 		}
 
+		logger.Debugw("Loading delegate for spec", "spec.Type", spec.Type)
 		delegate, exists := js.jobTypeDelegates[spec.Type]
 		if !exists {
 			logger.Errorw("Job type has not been registered with job.Spawner", "type", spec.Type, "jobID", spec.ID)

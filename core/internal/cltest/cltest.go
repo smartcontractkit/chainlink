@@ -107,6 +107,8 @@ const (
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
+	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
+	DefaultOCR2KeyBundleID = "92be59c45d0d7b192ef88d391f444ea7c78644f8607f567aab11d53668c27a4d"
 )
 
 var (
@@ -114,6 +116,8 @@ var (
 	NonExistentP2PPeerID p2pkey.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
+	DefaultOCR2KeyBundleIDSha256 models.Sha256Hash
+
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	FixtureChainID              = *big.NewInt(0)
 	source                      rand.Source
@@ -150,6 +154,10 @@ func init() {
 	}
 	NonExistentP2PPeerID = p2pkey.PeerID(nonExistentP2PPeerID)
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultOCR2KeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCR2KeyBundleID)
 	if err != nil {
 		panic(err)
 	}

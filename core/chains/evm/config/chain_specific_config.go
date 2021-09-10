@@ -51,6 +51,7 @@ type (
 		minimumContractPayment                     *assets.Link
 		nonceAutoSync                              bool
 		ocrContractConfirmations                   uint16
+		ocr2ContractConfirmations                  uint16
 		rpcDefaultBatchSize                        uint32
 		// set true indicates its not the empty struct
 		set bool

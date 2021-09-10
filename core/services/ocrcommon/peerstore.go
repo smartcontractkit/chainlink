@@ -1,4 +1,4 @@
-package offchainreporting
+package ocrcommon
 
 import (
 	"context"
@@ -165,6 +165,10 @@ func (p *Pstorewrapper) WriteToDB() error {
 			valueArgs = append(valueArgs, p.ID)
 			valueArgs = append(valueArgs, p.Addr)
 			valueArgs = append(valueArgs, p.PeerID)
+		}
+
+		if len(peers) < 1 {
+			return nil
 		}
 
 		/* #nosec G201 */

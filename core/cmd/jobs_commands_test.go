@@ -36,18 +36,15 @@ func TestJobPresenter_RenderTable(t *testing.T) {
 
 	p := cmd.JobPresenter{
 		JobResource: presenters.JobResource{
-			JAID:              presenters.NewJAID(id),
-			Name:              name,
-			Type:              presenters.JobSpecType(jobSpecType),
-			SchemaVersion:     schemaVersion,
-			MaxTaskDuration:   maxTaskDuration,
-			DirectRequestSpec: nil,
+			JAID:            presenters.NewJAID(id),
+			Name:            name,
+			Type:            presenters.JobSpecType(jobSpecType),
+			SchemaVersion:   schemaVersion,
+			MaxTaskDuration: maxTaskDuration,
 			FluxMonitorSpec: &presenters.FluxMonitorSpec{
 				CreatedAt: createdAt,
 				UpdatedAt: updatedAt,
 			},
-			OffChainReportingSpec: nil,
-			KeeperSpec:            nil,
 			PipelineSpec: presenters.PipelineSpec{
 				ID:           1,
 				DotDAGSource: "ds1 [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",

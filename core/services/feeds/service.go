@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -21,7 +22,8 @@ import (
 //go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
-	ErrOCRDisabled = errors.New("ocr is disabled")
+	ErrOCRDisabled  = errors.New("ocr is disabled")
+	ErrOCR2Disabled = errors.New("ocr2 is disabled")
 )
 
 type Service interface {
@@ -501,6 +503,11 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
+		}
+	case job.OffchainReporting2:
+		js, err = offchainreporting2.ValidatedOracleSpecToml(s.chainSet, spec)
+		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting2() {
+			return nil, ErrOCR2Disabled
 		}
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)

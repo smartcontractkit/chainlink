@@ -188,6 +188,10 @@ Three new configuration variables are added for the new telemetry ingress servic
   behind a feature flag until usage is enabled.
 * Adds support for the new telemetry ingress service.
 
+**Offchain Reporting 2**
+
+Generalized Off-chain Reporting is available behind the FEATURE_OFFCHAIN_REPORTING2 feature flag.
+
 ### Changed
 
 **The legacy job pipeline (JSON specs) has been officially deprecated and support for these jobs will be dropped in an upcoming release.**

@@ -20,9 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -47,7 +49,7 @@ type Config interface {
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PBootstrapPeers() ([]string, error)
 	P2PPeerID() (p2pkey.PeerID, error)
-	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator
 	FlagsContractAddress() string
 }
 
@@ -171,7 +173,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := NewLogger(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := ocrcommon.NewLogger(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
@@ -182,15 +184,16 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
 	if concreteSpec.IsBootstrapPeer {
-		var bootstrapper *ocr.BootstrapNode
-		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
+		bootstrapNodeArgs := ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       bootstrapPeers,
 			ContractConfigTracker: tracker,
 			Database:              ocrdb,
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
-		})
+		}
+		logger.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
+		bootstrapper, err := ocr.NewBootstrapNode(bootstrapNodeArgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
@@ -233,7 +236,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(chain.TxManager(), d.db, ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+			ocrcommon.NewTransmitter(chain.TxManager(), d.db, ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),
@@ -290,7 +293,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.Service{NewResultRunSaver(
+		services = append([]job.Service{ocrcommon.NewResultRunSaver(
 			postgres.UnwrapGormDB(d.db),
 			runResults,
 			d.pipelineRunner,
