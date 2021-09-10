@@ -11,16 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-// StatusCodeForError returns an http status code for an error type.
-func StatusCodeForError(err interface{}) int {
-	switch err.(type) {
-	case *models.ValidationError:
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
 func jsonAPIError(c *gin.Context, statusCode int, err error) {
