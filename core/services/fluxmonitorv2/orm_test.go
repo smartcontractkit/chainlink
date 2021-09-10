@@ -80,7 +80,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
+	corestore, cleanup := cltest.NewStore(t, cfg)
 	t.Cleanup(cleanup)
 
 	keyStore := cltest.NewKeyStore(t, corestore.DB)
