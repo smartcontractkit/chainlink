@@ -29,7 +29,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 gasPriceBid;
     uint256 gasCostL2Value;
     uint256 maxGas;
-    address refundAddr;
   }
 
   /// @dev Precompiled contract that exists in every Arbitrum chain at address(100). Exposes a variety of system-level functionality.
@@ -57,15 +56,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasFeedAddr address of the L1 gas feed (used to approximate Arbitrum `maxSubmissionCost`, if `maxSubmissionCost == 0`)
    * @param gasPriceBid maximum gas price to pay on L2
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
-   * @param refundAddr address where gas excess on L2 will be sent
+   * @param maxGas gas limit for immediate L2 execution attempt.
    */
   event GasConfigSet(
     uint256 maxSubmissionCost,
     address indexed gasFeedAddr,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
-    uint256 maxGas,
-    address indexed refundAddr
+    uint256 maxGas
   );
 
   /**
@@ -98,7 +96,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasPriceBid maximum gas price to pay on L2
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
-   * @param refundAddr address where gas excess on L2 will be sent
    */
   constructor(
     address crossDomainMessengerAddr,
@@ -109,8 +106,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address gasFeedAddr,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
-    uint256 maxGas,
-    address refundAddr
+    uint256 maxGas
   ) {
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
     require(l2CrossDomainForwarderAddr != address(0), "Invalid L2 xDomain Forwarder address");
@@ -120,7 +116,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     L2_FLAGS = l2FlagsAddr;
     // Additional L2 payment configuration
     s_gasConfigAC = AccessControllerInterface(gasConfigACAddr);
-    _setGasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    _setGasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas);
   }
 
   /**
@@ -209,6 +205,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param amount of funds to withdraws
    * @param maxSubmissionCost maximum submission cost willing to pay on L2
    * @param refundAddr address where gas excess on L2 will be sent
+   *   WARNING: `refundAddr` is not aliased! Make sure you can recover the refunded funds on L2.
    * @return id unique id of the published retryable transaction (keccak256(requestID, uint(0))
    */
   function withdrawFundsFromL2(
@@ -222,8 +219,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   {
     // Build an xDomain message to trigger the ArbSys precompile, which will create a L2 -> L1 tx transferring `amount`
     bytes memory message = abi.encodeWithSelector(ArbSys.sendTxToL1.selector, address(this));
-    // If `refundAddr` not set, default to the L2 xDomain alias address
-    refundAddr = _selectRefundAddr(refundAddr);
     // If `maxSubmissionCost` not set, approximate
     maxSubmissionCost = _selectMaxSubmissionCost(maxSubmissionCost, s_gasConfig.gasFeedAddr, message.length);
 
@@ -262,20 +257,18 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasPriceBid maximum gas price to pay on L2
    * @param gasCostL2Value value to send to L2 to cover cost (submission + gas)
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
-   * @param refundAddr address where gas excess on L2 will be sent
    */
   function setGasConfig(
     uint256 maxSubmissionCost,
     address gasFeedAddr,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
-    uint256 maxGas,
-    address refundAddr
+    uint256 maxGas
   )
     external
   {
     require(s_gasConfigAC.hasAccess(msg.sender, msg.data), "No access");
-    _setGasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    _setGasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas);
   }
 
   /**
@@ -302,6 +295,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       return true;
     }
 
+    // Excess gas on L2 will be sent to the L2 xDomain alias address of this contract
+    address refundAddr = AddressAliasHelper.applyL1ToL2Alias(address(this));
     // Encode the Forwarder call
     bytes4 selector = ForwarderInterface.forward.selector;
     address target = L2_FLAGS;
@@ -317,8 +312,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       // NOTICE: Max submission cost of sending data length. If not set, we approximate the `maxSubmissionCost`.
       // On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
       _selectMaxSubmissionCost(s_gasConfig.maxSubmissionCost, s_gasConfig.gasFeedAddr, message.length),
-      s_gasConfig.refundAddr, // excessFeeRefundAddress
-      s_gasConfig.refundAddr, // callValueRefundAddress
+      refundAddr, // excessFeeRefundAddress
+      refundAddr, // callValueRefundAddress
       s_gasConfig.maxGas,
       s_gasConfig.gasPriceBid,
       message
@@ -333,8 +328,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address gasFeedAddr,
     uint256 gasPriceBid,
     uint256 gasCostL2Value,
-    uint256 maxGas,
-    address refundAddr
+    uint256 maxGas
   )
     internal
   {
@@ -347,11 +341,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       require(gasCostL2Value >= minGasCostL2Value, "gasCostL2Value < MIN");
       require(gasCostL2Value < maxGasCostL2Value, "gasCostL2Value >= MAX");
     }
-    // If `refundAddr` not set, default to the L2 xDomain alias address
-    refundAddr = _selectRefundAddr(refundAddr);
 
-    s_gasConfig = GasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
-    emit GasConfigSet(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas, refundAddr);
+    s_gasConfig = GasConfig(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas);
+    emit GasConfigSet(maxSubmissionCost, gasFeedAddr, gasPriceBid, gasCostL2Value, maxGas);
   }
 
   /// @notice internal method that stores the gas configuration access controller
@@ -365,18 +357,6 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
       s_gasConfigAC = AccessControllerInterface(accessController);
       emit GasConfigACSet(previousAccessController, accessController);
     }
-  }
-
-  /// @notice internal method that selects the `refundAddr` (either configured or L2 xDomain alias of `address(this)`)
-  function _selectRefundAddr(
-    address refundAddr
-  )
-    internal
-    view
-    returns (address)
-  {
-    // NOTICE: we don't alias the configured `refundAddr`, only if not set we refund to the L2 xDomain alias of `address(this)`
-    return refundAddr == address(0x0) ? AddressAliasHelper.applyL1ToL2Alias(address(this)) : refundAddr;
   }
 
   /// @notice internal method that selects the `maxSubmissionCost` (either configured or approximated)
