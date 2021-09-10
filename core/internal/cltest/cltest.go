@@ -1011,34 +1011,6 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 	return prs
 }
 
-func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var attempts []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() int {
-		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
-		assert.NoError(t, err)
-		return len(attempts)
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">", 0))
-	return attempts
-}
-
-func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var txas []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
-		assert.NoError(t, err)
-		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txas
-}
-
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
 func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
@@ -1256,19 +1228,6 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	})
 	require.NoError(t, err)
 	return all
-}
-
-func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-
-	var txa bulletprooftxmanager.EthTxAttempt
-	var count int64
-	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&txa).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return txa
 }
 
 type Awaiter chan struct{}
