@@ -102,7 +102,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	user, isUser := authenticatedUser(c)
 	ei, _ := authenticatedEI(c)
-	authorizer := webhook.NewAuthorizer(prc.App.GetStore().DB, user, ei)
+	authorizer := webhook.NewAuthorizer(prc.App.GetDB(), user, ei)
 
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)
