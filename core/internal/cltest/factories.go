@@ -403,6 +403,13 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
+func MustInsertHead(t *testing.T, db *gorm.DB, number int64) models.Head {
+	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+	err := db.Create(&h).Error
+	require.NoError(t, err)
+	return h
+}
+
 func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
