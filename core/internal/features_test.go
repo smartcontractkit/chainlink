@@ -210,7 +210,7 @@ observationSource   = """
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, 401)
 
-		cltest.AssertCountStays(t, app.Store, &pipeline.Run{}, 0)
+		cltest.AssertCountStays(t, app.GetDB(), &pipeline.Run{}, 0)
 	})
 
 	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
@@ -219,8 +219,8 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, app.GetChainSet(), pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
+		pipelineORM := pipeline.NewORM(app.GetDB())
+		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
