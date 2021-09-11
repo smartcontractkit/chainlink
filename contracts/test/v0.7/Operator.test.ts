@@ -1,5 +1,12 @@
 import { ethers } from "hardhat";
-import { publicAbi, toBytes32String, toWei, stringToBytes, increaseTime5Minutes } from "../test-helpers/helpers";
+import {
+  publicAbi,
+  toBytes32String,
+  toWei,
+  stringToBytes,
+  increaseTime5Minutes,
+  getLog,
+} from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, constants, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
 import { getUsers, Roles } from "../test-helpers/setup";
@@ -71,7 +78,7 @@ describe("Operator", () => {
     await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode.getAddress()]);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(operator, [
       "acceptAuthorizedReceivers",
       "acceptOwnableContracts",
@@ -774,7 +781,7 @@ describe("Operator", () => {
     let gasGuzzlingConsumer: Contract;
     let request: ReturnType<typeof decodeRunRequest>;
 
-    describe("gas guzzling consumer", () => {
+    describe("gas guzzling consumer [ @skip-coverage ]", () => {
       beforeEach(async () => {
         gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
           .connect(roles.consumer)
@@ -1102,7 +1109,7 @@ describe("Operator", () => {
       let gasGuzzlingConsumer: Contract;
       let request: ReturnType<typeof decodeRunRequest>;
 
-      describe("gas guzzling consumer", () => {
+      describe("gas guzzling consumer [ @skip-coverage ]", () => {
         beforeEach(async () => {
           gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
             .connect(roles.consumer)
@@ -1442,7 +1449,7 @@ describe("Operator", () => {
         let gasGuzzlingConsumer: Contract;
         let request: ReturnType<typeof decodeRunRequest>;
 
-        describe("gas guzzling consumer", () => {
+        describe("gas guzzling consumer [ @skip-coverage ]", () => {
           beforeEach(async () => {
             gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
               .connect(roles.consumer)
@@ -1783,7 +1790,7 @@ describe("Operator", () => {
         let gasGuzzlingConsumer: Contract;
         let request: ReturnType<typeof decodeRunRequest>;
 
-        describe("gas guzzling consumer", () => {
+        describe("gas guzzling consumer [ @skip-coverage ]", () => {
           beforeEach(async () => {
             gasGuzzlingConsumer = await gasGuzzlingConsumerFactory
               .connect(roles.consumer)
@@ -2372,7 +2379,9 @@ describe("Operator", () => {
 
         it("emits an event", async () => {
           assert.equal(3, receipt.logs?.length);
-          expect(tx).to.emit(link, "Transfer").withArgs(operator.address, to, payment, args);
+          const transferLog = await getLog(tx, 1);
+          const parsedLog = link.interface.parseLog({ data: transferLog.data, topics: transferLog.topics });
+          await expect(parsedLog.name).to.equal("Transfer");
         });
 
         it("transfers the tokens", async () => {
