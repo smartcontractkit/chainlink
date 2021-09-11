@@ -52,7 +52,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, defundSubscription, cancelSubscription and oracleWithdraw.
-  // A discrepancy with this contracts link balance indicates someone
+  // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
   event SubscriptionCreated(uint64 indexed subId, address owner);
@@ -367,7 +367,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    * The maximum amount of gasAmount is all gas available but 1/64th.
-   * The minimum amount of gasAmount MIN_GAS_LIMIT.
+   * The minimum amount of gasAmount is MIN_GAS_LIMIT.
    */
   function callWithExactGas(
     uint256 gasAmount,

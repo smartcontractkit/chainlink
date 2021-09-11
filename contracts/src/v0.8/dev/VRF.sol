@@ -259,7 +259,7 @@ contract VRF {
      * @param multiplicand: secp256k1 point
      * @param scalar: non-zero GF(GROUP_ORDER) scalar
      * @param product: secp256k1 expected to be multiplier * multiplicand
-     * @return verifies true iff product==scalar*ecmulVerify*multiplicand, with cryptographically high probability
+     * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
      */
     function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
         uint256[2] memory product) internal pure returns(bool verifies)
