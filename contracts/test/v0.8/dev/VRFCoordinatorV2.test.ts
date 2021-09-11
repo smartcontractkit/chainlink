@@ -798,7 +798,7 @@ describe("VRFCoordinatorV2", () => {
         "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
         owner,
       );
-      let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("src/v0.8/tests/VRFCoordinatorV2TestHelper.sol:VRFCoordinatorV2TestHelper", owner);
+      let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("VRFCoordinatorV2TestHelper", owner);
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0);
       const vrfCoordinatorV2TestHelperZero = await vrfCoordinatorV2TestHelperFactory.deploy(
         linkToken.address,
@@ -807,7 +807,6 @@ describe("VRFCoordinatorV2", () => {
       );
       await expect(
         vrfCoordinatorV2TestHelperZero.connect(oracle).calculatePaymentAmountTest(
-          BigNumber.from("11450102"),
           BigNumber.from("0"), // Gas after payment
           0, // Fee PPM
           BigNumber.from("1000000000000000000"),
@@ -820,8 +819,7 @@ describe("VRFCoordinatorV2", () => {
         mockLinkEthNegative.address,
       );
       await expect(
-        vrfCoordinatorV2TestHelperNegative.connect(oracle).calculatePaymentAmountTest(
-          BigNumber.from("11450102"),
+        vrfCoordinatorV2TestHelperNegative.connect(owner).calculatePaymentAmountTest(
           BigNumber.from("0"), // Gas after payment
           0, // Fee PPM
           BigNumber.from("1000000000000000000"),
