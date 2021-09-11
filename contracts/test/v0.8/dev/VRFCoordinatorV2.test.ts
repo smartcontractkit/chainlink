@@ -800,7 +800,7 @@ describe("VRFCoordinatorV2", () => {
         "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
         owner,
       );
-      let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("VRFCoordinatorV2TestHelper", owner);
+      let vrfCoordinatorV2TestHelperFactory = await ethers.getContractFactory("src/v0.8/tests/VRFCoordinatorV2TestHelper.sol:VRFCoordinatorV2TestHelper", owner);
       const mockLinkEthZero = await mockAggregatorV3Factory.deploy(0, 0);
       const vrfCoordinatorV2TestHelperZero = await vrfCoordinatorV2TestHelperFactory.deploy(
         linkToken.address,
