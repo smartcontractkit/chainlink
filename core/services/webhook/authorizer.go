@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -22,7 +23,7 @@ var (
 	_ Authorizer = &neverAuthorizer{}
 )
 
-func NewAuthorizer(db *sql.DB, user *models.User, ei *models.ExternalInitiator) Authorizer {
+func NewAuthorizer(db *sql.DB, user *sessions.User, ei *models.ExternalInitiator) Authorizer {
 	if user != nil {
 		return &alwaysAuthorizer{}
 	} else if ei != nil {

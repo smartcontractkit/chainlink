@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -95,13 +94,6 @@ func (s *Store) Unscoped() *Store {
 	cpy := *s
 	cpy.ORM = s.ORM.Unscoped()
 	return &cpy
-}
-
-// AuthorizedUserWithSession will return the one API user if the Session ID exists
-// and hasn't expired, and update session's LastUsed field.
-func (s *Store) AuthorizedUserWithSession(sessionID string) (models.User, error) {
-	return s.ORM.AuthorizedUserWithSession(
-		sessionID, s.Config.SessionTimeout().Duration())
 }
 
 func CheckSquashUpgrade(db *gorm.DB) error {

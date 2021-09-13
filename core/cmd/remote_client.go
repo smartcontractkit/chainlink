@@ -20,6 +20,7 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -195,7 +196,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 	return nil
 }
 
-func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
+func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
 	}
