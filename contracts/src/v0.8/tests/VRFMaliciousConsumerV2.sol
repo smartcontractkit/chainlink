@@ -48,9 +48,8 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
         external
     {
         if (s_subId == 0) {
-            address[] memory consumers = new address[](1);
-            consumers[0] = address(this);
-            s_subId = COORDINATOR.createSubscription(consumers);
+            s_subId = COORDINATOR.createSubscription();
+            COORDINATOR.addConsumer(s_subId, address(this));
         }
         // Approve the link transfer.
         LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -398,7 +397,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 }
 
 func (ht *HeadTracker) Healthy() error {
-	if atomic.LoadInt32(&ht.headListener.receivesHeads) != 1 {
+	if !ht.headListener.receivesHeads.Load() {
 		return errors.New("Heads are not being received")
 	}
 	if !ht.headListener.Connected() {

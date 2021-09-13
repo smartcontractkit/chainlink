@@ -24,7 +24,7 @@ func (t *ETHABIDecodeTask) Type() TaskType {
 }
 
 func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) Result {
-	_, err := CheckInputs(inputs, -1, -1, 0)
+	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
@@ -34,7 +34,7 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) Re
 		theABI BytesParam
 	)
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars))), "data"),
+		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), Input(inputs, 0))), "data"),
 		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
 	if err != nil {

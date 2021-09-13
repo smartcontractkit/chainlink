@@ -14,6 +14,7 @@ import { Runs } from './runs'
 import { Transactions } from './transactions'
 import { User } from './user'
 import { LogConfig } from './logConfig'
+import { Nodes } from './nodes'
 
 export class V2 {
   constructor(private api: Api) {}
@@ -26,6 +27,7 @@ export class V2 {
   public features = new Features(this.api)
   public feedsManagers = new FeedsManagers(this.api)
   public logConfig = new LogConfig(this.api)
+  public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
   public jobProposals = new JobProposals(this.api)
   public ocrKeys = new OcrKeys(this.api)
