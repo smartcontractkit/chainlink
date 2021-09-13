@@ -124,7 +124,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 	}
 
 	bt, err := btc.App.BridgeORM().FindBridge(taskType)
-	if errors.Cause(err) == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 		return
 	}
@@ -149,7 +149,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 
 	orm := btc.App.BridgeORM()
 	bt, err := orm.FindBridge(taskType)
-	if errors.Cause(err) == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 		return
 	}
@@ -186,7 +186,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 
 	orm := btc.App.BridgeORM()
 	bt, err := orm.FindBridge(taskType)
-	if errors.Cause(err) == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("bridge not found"))
 		return
 	}

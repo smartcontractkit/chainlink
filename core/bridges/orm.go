@@ -1,7 +1,8 @@
 package bridges
 
 import (
-	"github.com/pkg/errors"
+	"database/sql"
+
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -23,8 +24,6 @@ func NewORM(db *sqlx.DB) ORM {
 	return &orm{db}
 }
 
-var ErrNoRowsAffected = errors.New("no rows affected")
-
 // FindBridge looks up a Bridge by its Name.
 func (o *orm) FindBridge(name TaskType) (bt BridgeType, err error) {
 	sql := "SELECT * FROM bridge_types WHERE name = $1"
@@ -34,8 +33,8 @@ func (o *orm) FindBridge(name TaskType) (bt BridgeType, err error) {
 
 // DeleteBridgeType removes the bridge type
 func (o *orm) DeleteBridgeType(bt *BridgeType) error {
-	sql := "DELETE FROM bridge_types WHERE name = $1"
-	result, err := o.db.Exec(sql, bt.Name)
+	query := "DELETE FROM bridge_types WHERE name = $1"
+	result, err := o.db.Exec(query, bt.Name)
 	if err != nil {
 		return err
 	}
@@ -44,7 +43,7 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 		return err
 	}
 	if rowsAffected == 0 {
-		return ErrNoRowsAffected
+		return sql.ErrNoRows
 	}
 	return err
 }
