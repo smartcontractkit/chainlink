@@ -35,6 +35,8 @@ import (
 
 	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
+	sessions "github.com/smartcontractkit/chainlink/core/sessions"
+
 	store "github.com/smartcontractkit/chainlink/core/store"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -408,6 +410,22 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 	}
 
 	return r0, r1
+}
+
+// SessionORM provides a mock function with given fields:
+func (_m *Application) SessionORM() sessions.ORM {
+	ret := _m.Called()
+
+	var r0 sessions.ORM
+	if rf, ok := ret.Get(0).(func() sessions.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.ORM)
+		}
+	}
+
+	return r0
 }
 
 // SetServiceLogger provides a mock function with given fields: ctx, service, level
