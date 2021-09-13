@@ -28,13 +28,7 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import TextField from '@material-ui/core/TextField'
 
-interface Chain<T> {
-  attributes: T
-  id: string
-  type: string
-}
-
-export type ChainSpecV2 = Chain<models.Chain>
+export type ChainSpecV2 = models.Resource<models.Chain>
 
 async function getChains() {
   return Promise.all([v2.chains.getChains()]).then(([v2Chains]) => {
