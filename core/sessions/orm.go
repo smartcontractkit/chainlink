@@ -185,7 +185,11 @@ func (o *orm) Sessions(offset, limit int) (sessions []Session, err error) {
 // TEMP: Appease AuthStorer
 func (o *orm) FindExternalInitiator(
 	eia *auth.Token,
-) (initiator *models.ExternalInitiator, err error) {
-	err = o.db.Get("SELECT * FROM external_initiators WHERE access_key = $1", eia.AccessKey)
-	return
+) (*models.ExternalInitiator, error) {
+	var initiator = &models.ExternalInitiator{}
+	err := o.db.Get(initiator, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	if err != nil {
+		return nil, err
+	}
+	return initiator, nil
 }

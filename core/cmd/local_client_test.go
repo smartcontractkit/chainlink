@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -110,7 +112,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			store := cltest.NewStore(t)
 			keyStore := cltest.NewKeyStore(t, store.DB)
 			// Clear out fixture
-			err := store.DeleteUser()
+			err := sessions.NewORM(postgres.UnwrapGormDB(store.DB), time.Minute).DeleteUser()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
@@ -209,12 +211,12 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
-
 			store := cltest.NewStoreWithConfig(t, cfg)
 			// Clear out fixture
-			store.DeleteUser()
+			err := sessions.NewORM(postgres.UnwrapGormDB(store.DB), time.Minute).DeleteUser()
+			require.NoError(t, err)
 			keyStore := cltest.NewKeyStore(t, store.DB)
-			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
+			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := cltest.NewEthClientMock(t)
