@@ -293,8 +293,8 @@ var ErrNoPrimaryNode = errors.New("no primary node found")
 func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
-	var primary *eth.Node
-	var sendonlys []*eth.SendOnlyNode
+	var primaries []eth.Node
+	var sendonlys []eth.SendOnlyNode
 	for _, node := range nodes {
 		if node.SendOnly {
 			sendonly, err := newSendOnly(lggr, node)
@@ -303,23 +303,20 @@ func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, 
 			}
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			if primary != nil {
-				return nil, errors.Errorf("Got multiple primaries for chain %d, only one primary is currently supported", chain.ID.ToInt())
-			}
-			var err error
-			primary, err = newPrimary(lggr, node)
+			primary, err := newPrimary(lggr, node)
 			if err != nil {
 				return nil, err
 			}
+			primaries = append(primaries, primary)
 		}
 	}
-	if primary == nil {
+	if len(primaries) == 0 {
 		return nil, ErrNoPrimaryNode
 	}
-	return eth.NewClientWithNodes(lggr, primary, sendonlys, &chainID)
+	return eth.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr *logger.Logger, n types.Node) (*eth.Node, error) {
+func newPrimary(lggr *logger.Logger, n types.Node) (eth.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -342,7 +339,7 @@ func newPrimary(lggr *logger.Logger, n types.Node) (*eth.Node, error) {
 	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
 }
 
-func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SendOnlyNode, error) {
+func newSendOnly(lggr *logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
 	if !n.SendOnly {
 		return nil, errors.New("cannot cast non send-only node to send-only node")
 	}
