@@ -4,7 +4,7 @@ import Content from 'components/Content'
 import React from 'react'
 import { ChainSpecV2 } from '../ChainsIndex/ChainsIndex'
 import ChainNodesList from '../NodesIndex/NodesList'
-import { NodeSpecV2 } from './Show'
+import { NodeSpecV2 } from '../NodesIndex/NodesIndex'
 
 interface Props {
   nodes: NodeSpecV2[]
