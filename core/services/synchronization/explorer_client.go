@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -17,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -70,7 +70,7 @@ type explorerClient struct {
 	conn             *websocket.Conn
 	sendText         chan []byte
 	sendBinary       chan []byte
-	dropMessageCount uint32
+	dropMessageCount atomic.Uint32
 	receive          chan []byte
 	sleeper          utils.Sleeper
 	status           ConnectionStatus
@@ -147,7 +147,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	}
 	select {
 	case send <- data:
-		atomic.StoreUint32(&ec.dropMessageCount, 0)
+		ec.dropMessageCount.Store(0)
 	case <-ctx.Done():
 		return
 	default:
@@ -168,7 +168,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 // 300
 // etc...
 func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
-	count := atomic.AddUint32(&ec.dropMessageCount, 1)
+	count := ec.dropMessageCount.Inc()
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		logger.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
 	}

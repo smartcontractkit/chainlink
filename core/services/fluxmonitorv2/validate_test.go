@@ -133,7 +133,7 @@ ds1 -> ds1_parse;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
+				assert.EqualError(t, err, "PollTimerPeriod (400ms) must be equal or greater than the smallest value of MaxTaskDuration param, DEFAULT_HTTP_TIMEOUT config var, or MinTimeout of all tasks (500ms)")
 			},
 		},
 		{

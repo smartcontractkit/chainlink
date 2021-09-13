@@ -566,15 +566,43 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 
 func MustInsertKeeperJob(t *testing.T, db *gorm.DB, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
-	pipelineSpec := pipeline.Spec{}
-	err := db.Create(&pipelineSpec).Error
-	require.NoError(t, err)
+
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
 	}
-	err = db.Create(&keeperSpec).Error
+	err := db.Create(&keeperSpec).Error
 	require.NoError(t, err)
+
+	pipelineSpec := pipeline.Spec{
+		DotDagSource: `
+encode_check_upkeep_tx   [type=ethabiencode
+                          abi="checkUpkeep(uint256 id, address from)"
+                          data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          data="$(encode_check_upkeep_tx)"]
+decode_check_upkeep_tx   [type=ethabidecode
+                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+encode_perform_upkeep_tx [type=ethabiencode
+                          abi="performUpkeep(uint256 id, bytes calldata performData)"
+                          data="{\"id\": $(jobSpec.upkeepID),\"performData\":$(decode_check_upkeep_tx.performData)}"]
+perform_upkeep_tx        [type=ethtx
+                          minConfirmations=0
+                          to="$(jobSpec.contractAddress)"
+                          data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\"jobID\":$(jobSpec.jobID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`,
+		JobID:   keeperSpec.ID,
+		JobName: "keeper",
+	}
+	err = db.Create(&pipelineSpec).Error
+	require.NoError(t, err)
+
 	specDB := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
