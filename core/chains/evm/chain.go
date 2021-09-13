@@ -100,9 +100,6 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
-		// FIXME: InitServiceLevelLogger appears to discard label/values set by previous `with`
-		// See: https://app.clubhouse.io/chainlinklabs/story/15452/initservicelevellogger-appears-to-discard-label-values-set-by-previous-with
-		headTrackerLogger = headTrackerLogger.With("chainID", chainID.String())
 		orm := headtracker.NewORM(db, *chainID)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
 	} else {
