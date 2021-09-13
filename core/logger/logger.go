@@ -23,6 +23,7 @@ type Logger struct {
 	dir         string
 	jsonConsole bool
 	toDisk      bool
+	fields      []interface{}
 }
 
 // Constants for service names for package specific logging configuration
@@ -49,24 +50,26 @@ func (l *Logger) Write(b []byte) (int, error) {
 
 // With creates a new logger with the given arguments
 func (l *Logger) With(args ...interface{}) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.With(args...))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
+	newLogger.fields = copyFields(l.fields, args...)
+	return &newLogger
+}
+
+// copyFields returns a copy of fields with add appended.
+func copyFields(fields []interface{}, add ...interface{}) []interface{} {
+	f := make([]interface{}, 0, len(fields)+len(add))
+	f = append(f, fields...)
+	f = append(f, add...)
+	return f
 }
 
 // Named creates a new named logger with the given name
 func (l *Logger) Named(name string) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.Named(name).With("id", name))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.Named(name).With("id", name)
+	newLogger.fields = copyFields(l.fields, "id", name)
+	return &newLogger
 }
 
 // WithError adds the given error to the log
@@ -137,17 +140,6 @@ func CreateLogger(zl *zap.SugaredLogger) *Logger {
 	}
 }
 
-// CreateLoggerWithConfig creates a new Logger with the given SugaredLogger and configuration options
-func CreateLoggerWithConfig(zl *zap.SugaredLogger, lvl zapcore.Level, dir string, jsonConsole bool, toDisk bool) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-		lvl:           lvl,
-		dir:           dir,
-		jsonConsole:   jsonConsole,
-		toDisk:        toDisk,
-	}
-}
-
 // initLogConfig builds a zap.Config for a logger
 func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) zap.Config {
 	config := zap.NewProductionConfig()
@@ -173,7 +165,13 @@ func CreateProductionLogger(
 	if err != nil {
 		log.Fatal(err)
 	}
-	return CreateLoggerWithConfig(zl.Sugar(), lvl, dir, jsonConsole, toDisk)
+	return &Logger{
+		SugaredLogger: zl.Sugar(),
+		lvl:           lvl,
+		dir:           dir,
+		jsonConsole:   jsonConsole,
+		toDisk:        toDisk,
+	}
 }
 
 // InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
@@ -190,7 +188,10 @@ func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*L
 		return nil, err
 	}
 
-	return CreateLoggerWithConfig(zl.Named(serviceName).Sugar(), ll, l.dir, l.jsonConsole, l.toDisk), nil
+	newLogger := *l
+	newLogger.SugaredLogger = zl.Named(serviceName).Sugar().With(l.fields...)
+	newLogger.fields = copyFields(l.fields)
+	return &newLogger, nil
 }
 
 // ServiceLogLevel is the log level set for a specified package
