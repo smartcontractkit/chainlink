@@ -1052,7 +1052,7 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
-		logger.Warnw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, or some other problem",
+		logger.Debugw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. This is normal shortly after application boot and should die down. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, remote node out of sync, or some other problem",
 			"chainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth())
 	}
 	etxs, err := findTransactionsConfirmedInBlockRange(ec.db, head.Number, head.EarliestInChain().Number, ec.chainID)
