@@ -9,7 +9,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gonum.org/v1/gonum/graph/encoding/dot"
@@ -24,46 +23,11 @@ func MigrateJobSpec(js models.JobSpec) (job.Job, error) {
 	}
 	v1JobType := js.Initiators[0].Type
 	switch v1JobType {
-	case models.InitiatorFluxMonitor:
-		return migrateFluxMonitorJob(js)
 	case models.InitiatorCron:
 		return migrateCronJob(js)
 	default:
 		return jb, errors.Wrapf(errors.New("Invalid initiator type"), "%v", v1JobType)
 	}
-}
-
-func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
-	var jb job.Job
-	initr := js.Initiators[0]
-	ca := ethkey.EIP55AddressFromAddress(initr.Address)
-	jb = job.Job{
-		Name: null.StringFrom(js.Name),
-		FluxMonitorSpec: &job.FluxMonitorSpec{
-			ContractAddress:   ca,
-			Threshold:         initr.Threshold,
-			AbsoluteThreshold: initr.AbsoluteThreshold,
-			PollTimerPeriod:   initr.PollTimer.Period.Duration(),
-			PollTimerDisabled: initr.PollTimer.Disabled,
-			IdleTimerPeriod:   initr.IdleTimer.Duration.Duration(),
-			IdleTimerDisabled: initr.IdleTimer.Disabled,
-			MinPayment:        js.MinPayment,
-			CreatedAt:         js.CreatedAt,
-			UpdatedAt:         js.UpdatedAt,
-		},
-		Type:          job.FluxMonitor,
-		SchemaVersion: 1,
-		ExternalJobID: uuid.NewV4(),
-	}
-	ps, pd, err := BuildTaskDAG(js, job.FluxMonitor)
-	if err != nil {
-		return jb, err
-	}
-	jb.PipelineSpec = &pipeline.Spec{
-		DotDagSource: ps,
-	}
-	jb.Pipeline = *pd
-	return jb, nil
 }
 
 func migrateCronJob(js models.JobSpec) (job.Job, error) {
@@ -80,7 +44,7 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	ps, pd, err := BuildTaskDAG(js, job.Cron)
+	ps, pd, err := BuildTaskDAG(js)
 	if err != nil {
 		return jb, err
 	}
@@ -91,7 +55,7 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 	return jb, nil
 }
 
-func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, error) {
+func BuildTaskDAG(js models.JobSpec) (string, *pipeline.Pipeline, error) {
 	replacements := make(map[string]string)
 	i := 0
 
