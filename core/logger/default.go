@@ -29,9 +29,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(&Logger{
-		SugaredLogger: zl.Sugar(),
-	})
+	SetLogger(CreateLogger(zl.Sugar()))
 }
 
 // SetLogger sets the internal logger to the given input.
