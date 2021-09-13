@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -14,16 +15,19 @@ import (
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 func newHead() models.Head {
@@ -49,11 +53,14 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store.DB, keyStore.Eth())
 	cfg := cltest.NewTestGeneralConfig(t)
 	txm := new(bptxmmocks.TxManager)
+	estimator := new(gasmocks.Estimator)
+	txm.On("GetGasEstimator").Return(estimator)
+	estimator.On("EstimateGas", mock.Anything, mock.Anything).Return(assets.GWei(60), uint64(0), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: store.DB, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, store.DB, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(store.DB, txm, store.Config, bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), store.Config.CreateProductionLogger(), store.Config)
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), store.Config.CreateProductionLogger(), store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store.DB, store.Config, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
@@ -89,25 +96,35 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		store, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
 
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+store.Config.KeeperGasPriceBufferPercent()), 100)
+
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
 			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
-			Return(bulletprooftxmanager.EthTx{}, nil).
+			Return(bulletprooftxmanager.EthTx{
+				ID: 1,
+			}, nil).
 			Run(func(mock.Arguments) { ethTxCreated.ItHappened() })
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
-		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
+		registryMock.MockMatchedResponse(
+			"checkUpkeep",
+			func(callArgs ethereum.CallMsg) bool {
+				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
+					callArgs.Gas == 650_000
+			},
+			checkUpkeepResponse,
+		)
 
 		head := newHead()
 		executer.OnNewLongestChain(context.Background(), head)
 		ethTxCreated.AwaitOrFail(t)
-		assertLastRunHeight(t, store.DB, upkeep, 20)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
+		assertLastRunHeight(t, store.DB, upkeep, 20)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -136,12 +153,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head := *cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
-		etxs[0].AwaitOrFail(t)
-		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		assertLastRunHeight(t, store.DB, upkeep, 36)
+		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
+		assert.False(t, runs[0].HasErrors())
+		etxs[0].AwaitOrFail(t)
+		assertLastRunHeight(t, store.DB, upkeep, 36)
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
@@ -160,12 +176,11 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 			Run(func(mock.Arguments) { etxs[1].ItHappened() })
 
 		executer.OnNewLongestChain(context.Background(), head)
+		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
+		require.Len(t, runs, 2)
+		assert.False(t, runs[1].HasErrors())
 		etxs[1].AwaitOrFail(t)
 		assertLastRunHeight(t, store.DB, upkeep, 40)
-		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 2, 0, jpv2.Jrm, time.Second, 100*time.Millisecond)
-		require.Len(t, runs, 2)
-		_, ok = runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
-		assert.True(t, ok)
 
 		ethMock.AssertExpectations(t)
 		txm.AssertExpectations(t)
@@ -190,15 +205,4 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	cltest.AssertCountStays(t, store, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
-}
-
-func Test_UpkeepExecuter_ConstructCheckUpkeepCallMsg(t *testing.T) {
-	store, _, executer, registry, upkeep, _, _, _ := setup(t)
-	msg, err := executer.ExportedConstructCheckUpkeepCallMsg(upkeep)
-	require.NoError(t, err)
-	expectedGasLimit := upkeep.ExecuteGas + uint64(registry.CheckGas) + store.Config.KeeperRegistryCheckGasOverhead() + store.Config.KeeperRegistryPerformGasOverhead()
-	require.Equal(t, expectedGasLimit, msg.Gas)
-	require.Equal(t, registry.ContractAddress.Address(), *msg.To)
-	require.Equal(t, utils.ZeroAddress, msg.From)
-	require.Nil(t, msg.Value)
 }

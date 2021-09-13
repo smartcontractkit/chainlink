@@ -25,7 +25,7 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
 });
 
-describe("Operator Gas Tests", () => {
+describe("Operator Gas Tests [ @skip-coverage ]", () => {
   const specId = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
   let link: Contract;
   let oracle1: Contract;

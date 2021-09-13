@@ -78,7 +78,6 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	ks := keystore.New(db, utils.FastScryptParams)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{}, ks)
-	t.Cleanup(func() { txm.AssertExpectations(t) })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err = ks.Eth().Create(big.NewInt(0))
@@ -141,7 +140,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
+func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job, func()) {
 	db := pgtest.NewGormDB(t)
 	c := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, c)
@@ -168,11 +167,11 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	go func() {
 		listener.runHeadListener(func() {})
 	}()
-	t.Cleanup(func() {
+	return vuni, listener, jb, func() {
 		listener.chStop <- struct{}{}
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
-	})
-	return vuni, listener, jb
+		vuni.txm.AssertExpectations(t)
+	}
 }
 
 func TestStartingCounts(t *testing.T) {
@@ -311,7 +310,8 @@ func TestResponsePruning(t *testing.T) {
 }
 
 func TestDelegate_ReorgAttackProtection(t *testing.T) {
-	vuni, listener, jb := setup(t)
+	vuni, listener, jb, assertMocksCalled := setup(t)
+	defer assertMocksCalled()
 
 	// Same request has already been fulfilled twice
 	reqID := utils.NewHash()
@@ -354,7 +354,8 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 }
 
 func TestDelegate_ValidLog(t *testing.T) {
-	vuni, listener, jb := setup(t)
+	vuni, listener, jb, assertMocksCalled := setup(t)
+	defer assertMocksCalled()
 	txHash := utils.NewHash()
 	reqID1 := utils.NewHash()
 	reqID2 := utils.NewHash()
@@ -479,7 +480,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 }
 
 func TestDelegate_InvalidLog(t *testing.T) {
-	vuni, listener, jb := setup(t)
+	vuni, listener, jb, assertMocksCalled := setup(t)
+	defer assertMocksCalled()
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -538,7 +540,8 @@ func TestDelegate_InvalidLog(t *testing.T) {
 }
 
 func TestFulfilledCheck(t *testing.T) {
-	vuni, listener, jb := setup(t)
+	vuni, listener, jb, assertMocksCalled := setup(t)
+	defer assertMocksCalled()
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
