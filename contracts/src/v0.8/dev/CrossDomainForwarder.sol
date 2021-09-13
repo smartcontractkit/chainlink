@@ -20,6 +20,7 @@ abstract contract CrossDomainForwarder is ForwarderInterface, ConfirmedOwner {
 
   /**
    * @notice creates a new xDomain Forwarder contract
+   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`.
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
   constructor(
@@ -27,7 +28,7 @@ abstract contract CrossDomainForwarder is ForwarderInterface, ConfirmedOwner {
   )
     ConfirmedOwner(msg.sender)
   {
-    s_l1Owner = l1OwnerAddr;
+    _setL1Owner(l1OwnerAddr);
   }
 
   /// @return xDomain messenger address (L2 `msg.sender`)
@@ -49,7 +50,7 @@ abstract contract CrossDomainForwarder is ForwarderInterface, ConfirmedOwner {
 
   /**
    * @notice transfer ownership of this account to a new L1 owner
-   * @dev only owner can call this
+   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by owner.
    * @param to new L1 owner that will be allowed to call the forward fn
    */
   function transferL1Ownership(
@@ -58,6 +59,15 @@ abstract contract CrossDomainForwarder is ForwarderInterface, ConfirmedOwner {
     external
     virtual
     onlyOwner
+  {
+    _setL1Owner(to);
+  }
+
+  /// @notice internal method that stores the L1 owner
+  function _setL1Owner(
+    address to
+  )
+    internal
   {
     address from = s_l1Owner;
     if (from != to) {
