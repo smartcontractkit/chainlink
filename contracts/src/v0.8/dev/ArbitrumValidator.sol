@@ -26,9 +26,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   enum PaymentStrategy { L1, L2 }
   // Config for L1 -> L2 Arbitrum retryable ticket message
   struct GasConfig {
-    address gasPriceL1FeedAddr;
-    uint256 gasPriceBid;
     uint256 maxGas;
+    uint256 gasPriceBid;
+    address gasPriceL1FeedAddr;
   }
 
   /// @dev Precompiled contract that exists in every Arbitrum chain at address(100). Exposes a variety of system-level functionality.
@@ -61,14 +61,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /**
    * @notice emitted when a new gas configuration is set
-   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
-   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt.
+   * @param gasPriceBid maximum L2 gas price to pay
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
    */
   event GasConfigSet(
-    address indexed gasPriceL1FeedAddr,
+    uint256 maxGas,
     uint256 gasPriceBid,
-    uint256 maxGas
+    address indexed gasPriceL1FeedAddr
   );
 
   /**
@@ -97,9 +97,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param l2CrossDomainForwarderAddr the L2 Forwarder contract address
    * @param l2FlagsAddr the L2 Flags contract address
    * @param configACAddr address of the access controller for managing gas price on Arbitrum
-   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
-   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
+   * @param gasPriceBid maximum L2 gas price to pay
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
   constructor(
@@ -107,9 +107,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address l2CrossDomainForwarderAddr,
     address l2FlagsAddr,
     address configACAddr,
-    address gasPriceL1FeedAddr,
-    uint256 gasPriceBid,
     uint256 maxGas,
+    uint256 gasPriceBid,
+    address gasPriceL1FeedAddr,
     PaymentStrategy paymentStrategy
   ) {
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
@@ -120,7 +120,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     L2_FLAGS = l2FlagsAddr;
     // Additional L2 payment configuration
     _setConfigAC(configACAddr);
-    _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
+    _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -271,19 +271,19 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   /**
    * @notice sets Arbitrum gas configuration
    * @dev access control provided by `configAC`
-   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
-   * @param gasPriceBid maximum L2 gas price to pay
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
+   * @param gasPriceBid maximum L2 gas price to pay
+   * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
    */
   function setGasConfig(
-    address gasPriceL1FeedAddr,
+    uint256 maxGas,
     uint256 gasPriceBid,
-    uint256 maxGas
+    address gasPriceL1FeedAddr
   )
     external
     onlyOwnerOrConfigAccess()
   {
-    _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
+    _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 
   /**
@@ -366,17 +366,17 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @notice internal method that stores the gas configuration
   function _setGasConfig(
-    address gasPriceL1FeedAddr,
+    uint256 maxGas,
     uint256 gasPriceBid,
-    uint256 maxGas
+    address gasPriceL1FeedAddr
   )
     internal
   {
-    require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
-    require(gasPriceBid > 0, "Gas price bid is zero");
     require(maxGas > 0, "Max gas is zero");
-    s_gasConfig = GasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
-    emit GasConfigSet(gasPriceL1FeedAddr, gasPriceBid, maxGas);
+    require(gasPriceBid > 0, "Gas price bid is zero");
+    require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
+    s_gasConfig = GasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
+    emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 
   /// @notice Internal method that stores the configuration access controller
