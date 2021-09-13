@@ -30,6 +30,7 @@ type ExternalInitiator struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt time.Time // TODO: deprecated?
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an
