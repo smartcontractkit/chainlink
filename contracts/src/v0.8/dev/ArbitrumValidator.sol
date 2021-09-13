@@ -119,7 +119,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
     L2_FLAGS = l2FlagsAddr;
     // Additional L2 payment configuration
-    s_configAC = AccessControllerInterface(configACAddr);
+    _setConfigAC(configACAddr);
     _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
     _setPaymentStrategy(paymentStrategy);
   }
@@ -281,8 +281,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxGas
   )
     external
+    onlyOwnerOrConfigAccess()
   {
-    require(s_configAC.hasAccess(msg.sender, msg.data), "No access");
     _setGasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
   }
 
@@ -295,8 +295,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     PaymentStrategy paymentStrategy
   )
     external
+    onlyOwnerOrConfigAccess()
   {
-    require(s_configAC.hasAccess(msg.sender, msg.data), "No access");
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -373,6 +373,8 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     internal
   {
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
+    require(gasPriceBid > 0, "Gas price bid is zero");
+    require(maxGas > 0, "Max gas is zero");
     s_gasConfig = GasConfig(gasPriceL1FeedAddr, gasPriceBid, maxGas);
     emit GasConfigSet(gasPriceL1FeedAddr, gasPriceBid, maxGas);
   }
@@ -418,5 +420,15 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     returns (uint256)
   {
     return maxSubmissionCost + maxGas * gasPriceBid;
+  }
+
+  /// @dev reverts if the caller does not have access to change the configuration
+  modifier onlyOwnerOrConfigAccess() {
+    require(
+      msg.sender == owner() ||
+        address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data),
+      "No access"
+    );
+    _;
   }
 }
