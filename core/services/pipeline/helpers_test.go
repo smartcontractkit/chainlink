@@ -41,8 +41,9 @@ func (t *HTTPTask) HelperSetDependencies(config Config) {
 	t.config = config
 }
 
-func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet) {
+func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
 	t.chainSet = cc
+	t.config = config
 }
 
 func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, cc evm.ChainSet, keyStore ETHKeyStore) {

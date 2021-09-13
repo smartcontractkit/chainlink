@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"net/url"
@@ -15,15 +16,17 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -168,17 +171,30 @@ type JSONSerializable struct {
 	Null bool
 }
 
+// UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
+
 	return json.Unmarshal(bs, &js.Val)
 }
 
+// MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(string(x))
+		// Don't need to HEX encode if it is a valid JSON string
+		if json.Valid(x) {
+			return json.Marshal(string(x))
+		}
+
+		// Don't need to HEX encode if it is already HEX encoded value
+		if utils.IsHexBytes(x) {
+			return json.Marshal(string(x))
+		}
+
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
