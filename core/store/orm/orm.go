@@ -39,12 +39,6 @@ var (
 	ErrorNotFound = gorm.ErrRecordNotFound
 	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
 	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
-	// ErrReleaseLockFailed  is returned when releasing the advisory lock fails.
-	ErrReleaseLockFailed = errors.New("advisory lock release failed")
-	// ErrOptimisticUpdateConflict is returned when a record update failed
-	// because another update occurred while the model was in memory and the
-	// differences must be reconciled.
-	ErrOptimisticUpdateConflict = errors.New("conflict while updating record")
 )
 
 // ORM contains the database object used by Chainlink.
