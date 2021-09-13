@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
 		job:                      job,
-		mbLogs:                   utils.NewMailbox(50),
+		mbLogs:                   utils.NewHighCapacityMailbox(),
 		minIncomingConfirmations: uint64(minIncomingConfirmations),
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
