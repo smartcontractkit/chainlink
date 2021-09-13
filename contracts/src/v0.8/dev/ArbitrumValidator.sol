@@ -13,6 +13,7 @@ import "./interfaces/FlagsInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/arb-os/e8d9696f21/contracts/arbos/builtin/ArbSys.sol";
+import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
  * @title ArbitrumValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
@@ -195,22 +196,24 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     external
     onlyOwner()
   {
-    address payable to = payable(msg.sender);
-    to.transfer(address(this).balance);
+    address payable recipient = payable(msg.sender);
+    uint256 amount = address(this).balance;
+    Address.sendValue(recipient, amount);
   }
 
   /**
    * @notice withdraws all funds available in this contract to the address specified
    * @dev only owner can call this
-   * @param to address where to send the funds
+   * @param recipient address where to send the funds
    */
   function withdrawFundsTo(
-    address payable to
+    address payable recipient
   ) 
     external
     onlyOwner()
   {
-    to.transfer(address(this).balance);
+    uint256 amount = address(this).balance;
+    Address.sendValue(recipient, amount);
   }
 
   /**
