@@ -157,7 +157,7 @@ const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
               href={navItemPath}
               className={classNames(
                 classes.horizontalNavLink,
-                pathname.includes(navItemPath) && classes.activeNavLink,
+                pathname.startsWith(navItemPath) && classes.activeNavLink,
               )}
             >
               {text}

@@ -28,8 +28,6 @@ interface Props extends WithStyles<typeof definitionStyles> {
 }
 
 export const ChainConfig = withStyles(definitionStyles)(({ chain }: Props) => {
-  console.log('rendered chainconfig')
-
   React.useEffect(() => {
     document.title = chain?.id
       ? `Chain ${chain?.id} | Config overrides`
