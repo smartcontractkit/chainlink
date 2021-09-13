@@ -64,6 +64,7 @@ type ChainCfg struct {
 	MinRequiredOutgoingConfirmations      null.Int
 	MinimumContractPayment                *assets.Link
 	OCRObservationTimeout                 *models.Duration
+	KeySpecific                           map[string]ChainCfg
 }
 
 func (c *ChainCfg) Scan(value interface{}) error {

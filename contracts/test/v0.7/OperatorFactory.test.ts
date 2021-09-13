@@ -35,7 +35,7 @@ describe("OperatorFactory", () => {
     operatorGenerator = await operatorGeneratorFactory.connect(roles.defaultAccount).deploy(link.address);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(operatorGenerator, [
       "created",
       "deployNewOperator",

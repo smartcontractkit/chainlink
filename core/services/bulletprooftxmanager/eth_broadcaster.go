@@ -258,7 +258,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "failed to estimate gas")
 		}
-		a, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, *etx, gasPrice, gasLimit)
+		a, err := NewAttempt(eb.config, eb.ethClient, eb.keystore, eb.chainID, *etx, gasPrice, gasLimit)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -477,18 +477,18 @@ func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *EthTx, fromAddres
 		Error
 }
 
-func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, newAttemptState EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
+func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	if !(newAttemptState == EthTxAttemptBroadcast) {
-		return errors.Errorf("new attempt state must be broadcast, got: %s", newAttemptState)
+	if !(NewAttemptState == EthTxAttemptBroadcast) {
+		return errors.Errorf("new attempt state must be broadcast, got: %s", NewAttemptState)
 	}
 	etx.State = EthTxUnconfirmed
-	attempt.State = newAttemptState
+	attempt.State = NewAttemptState
 	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, etx.EVMChainID.ToInt(), *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
@@ -534,7 +534,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := newAttempt(eb.ethClient, eb.keystore, eb.chainID, etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := NewAttempt(eb.config, eb.ethClient, eb.keystore, eb.chainID, etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}

@@ -46,7 +46,7 @@ describe("VRFD20", () => {
     await link.transfer(vrfD20.address, deposit);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(vrfD20, [
       // Owned
       "acceptOwnership",
