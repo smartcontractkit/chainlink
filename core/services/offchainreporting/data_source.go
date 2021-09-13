@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -24,7 +24,7 @@ type dataSource struct {
 	spec                  pipeline.Spec
 	ocrLogger             logger.Logger
 	runResults            chan<- pipeline.Run
-	currentBridgeMetadata models.BridgeMetaData
+	currentBridgeMetadata bridges.BridgeMetaData
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
@@ -33,7 +33,7 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
-	md, err := models.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
+	md, err := bridges.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
@@ -80,7 +80,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot convert observation to decimal")
 	}
-	ds.currentBridgeMetadata = models.BridgeMetaData{
+	ds.currentBridgeMetadata = bridges.BridgeMetaData{
 		LatestAnswer: asDecimal.BigInt(),
 		UpdatedAt:    big.NewInt(time.Now().Unix()),
 	}

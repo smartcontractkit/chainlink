@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -74,14 +75,14 @@ func TestRunner(t *testing.T) {
 		{
 			mockElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
 				func(header http.Header, s string) {
-					var md models.BridgeMetaDataJSON
+					var md bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal([]byte(s), &md))
 					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
 					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
 				})
 			mockVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
 				func(header http.Header, s string) {
-					var md models.BridgeMetaDataJSON
+					var md bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal([]byte(s), &md))
 					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
 					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
@@ -105,7 +106,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
+		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), *logger.Default, true)
 		require.NoError(t, err)
@@ -758,8 +759,8 @@ func TestRunner_AsyncJob(t *testing.T) {
 			bridgeCalled <- struct{}{}
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		app.Store.CreateBridgeType(&models.BridgeType{
-			Name: models.TaskType("bridge"),
+		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.TaskType("bridge"),
 			URL:  models.WebURL(*u),
 		})
 		defer bridgeServer.Close()
@@ -805,7 +806,7 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
+		pipelineORM := pipeline.NewORM(app.GetDB())
 		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		// Trigger v2/resume

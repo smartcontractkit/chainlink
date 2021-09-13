@@ -5,6 +5,8 @@ package mocks
 import (
 	big "math/big"
 
+	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+
 	config "github.com/smartcontractkit/chainlink/core/store/config"
 
 	context "context"
@@ -68,6 +70,22 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.Stri
 	}
 
 	return r0, r1
+}
+
+// BridgeORM provides a mock function with given fields:
+func (_m *Application) BridgeORM() bridges.ORM {
+	ret := _m.Called()
+
+	var r0 bridges.ORM
+	if rf, ok := ret.Get(0).(func() bridges.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(bridges.ORM)
+		}
+	}
+
+	return r0
 }
 
 // DeleteJob provides a mock function with given fields: ctx, jobID

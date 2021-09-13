@@ -118,6 +118,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,
 		GormDB:                   db,
+		SqlxDB:                   sqlxDB,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		EventBroadcaster:         eventBroadcaster,

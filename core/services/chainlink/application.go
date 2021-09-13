@@ -18,11 +18,13 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -76,6 +78,7 @@ type Application interface {
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
 	PipelineORM() pipeline.ORM
+	BridgeORM() bridges.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -102,6 +105,7 @@ type ChainlinkApplication struct {
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
+	bridgeORM                bridges.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Store                    *strpkg.Store
@@ -126,6 +130,7 @@ type ApplicationOpts struct {
 	ShutdownSignal           gracefulpanic.Signal
 	Store                    *strpkg.Store
 	GormDB                   *gorm.DB
+	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
 	Logger                   *loggerPkg.Logger
@@ -183,6 +188,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(db)
+		bridgeORM      = bridges.NewORM(opts.SqlxDB)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
 	)
@@ -277,6 +283,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
+		bridgeORM:                bridgeORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -467,6 +474,10 @@ func (app *ChainlinkApplication) JobSpawner() job.Spawner {
 
 func (app *ChainlinkApplication) JobORM() job.ORM {
 	return app.jobORM
+}
+
+func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
+	return app.bridgeORM
 }
 
 func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {

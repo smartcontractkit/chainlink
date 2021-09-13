@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -15,6 +16,48 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	url := cltest.WebURL(t, "https://a.web.url")
+
+	//  Add duplicate
+	exi := models.ExternalInitiator{
+		Name: "duplicate",
+		URL:  &url,
+	}
+
+	assert.NoError(t, store.CreateExternalInitiator(&exi))
+
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"basic", `{"name":"bitcoin","url":"https://test.url"}`, false},
+		{"basic w/ underscore", `{"name":"bit_coin","url":"https://test.url"}`, false},
+		{"basic w/ underscore in url", `{"name":"bitcoin","url":"https://chainlink_bit-coin_1.url"}`, false},
+		{"missing url", `{"name":"missing_url"}`, false},
+		{"duplicate name", `{"name":"duplicate","url":"https://test.url"}`, true},
+		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
+		{"missing name", `{"url":"https://test.url"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var exr models.ExternalInitiatorRequest
+
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
+			result := web.ValidateExternalInitiator(&exr, store)
+
+			cltest.AssertError(t, test.wantError, result)
+		})
+	}
+}
 
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()

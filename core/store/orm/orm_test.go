@@ -56,38 +56,6 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	require.NoError(t, store.CreateExternalInitiator(exi))
 }
 
-func TestORM_FindBridge(t *testing.T) {
-	t.Parallel()
-
-	store := cltest.NewStore(t)
-
-	bt := models.BridgeType{}
-	bt.Name = models.MustNewTaskType("solargridreporting")
-	bt.URL = cltest.WebURL(t, "https://denergy.eth")
-	assert.NoError(t, store.CreateBridgeType(&bt))
-
-	cases := []struct {
-		description string
-		name        models.TaskType
-		want        models.BridgeType
-		errored     bool
-	}{
-		{"actual external adapter", bt.Name, bt, false},
-		{"core adapter", "ethtx", models.BridgeType{}, true},
-		{"non-existent adapter", "nonExistent", models.BridgeType{}, true},
-	}
-
-	for _, test := range cases {
-		t.Run(test.description, func(t *testing.T) {
-			tt, err := store.FindBridge(test.name)
-			tt.CreatedAt = test.want.CreatedAt
-			tt.UpdatedAt = test.want.UpdatedAt
-			assert.Equal(t, test.want, tt)
-			assert.Equal(t, test.errored, err != nil)
-		})
-	}
-}
-
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
@@ -267,25 +235,4 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
 	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
-}
-
-func TestORM_UpdateBridgeType(t *testing.T) {
-	store := cltest.NewStore(t)
-
-	firstBridge := &models.BridgeType{
-		Name: "UniqueName",
-		URL:  cltest.WebURL(t, "http:/oneurl.com"),
-	}
-
-	require.NoError(t, store.CreateBridgeType(firstBridge))
-
-	updateBridge := &models.BridgeTypeRequest{
-		URL: cltest.WebURL(t, "http:/updatedurl.com"),
-	}
-
-	require.NoError(t, store.UpdateBridgeType(firstBridge, updateBridge))
-
-	foundbridge, err := store.FindBridge("UniqueName")
-	require.NoError(t, err)
-	require.Equal(t, updateBridge.URL, foundbridge.URL)
 }
