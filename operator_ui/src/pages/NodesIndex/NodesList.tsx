@@ -16,6 +16,7 @@ interface Props {
 }
 
 const List = ({ nodes, nodeFilter }: Props) => {
+  const filteredNodes = nodes.filter(nodeFilter)
   return (
     <Table>
       <TableHead>
@@ -45,8 +46,16 @@ const List = ({ nodes, nodeFilter }: Props) => {
           </TableCell>
         </TableRow>
       </TableHead>
+
       <TableBody>
-        {nodes.filter(nodeFilter).map((node) => (
+        {!filteredNodes.length && (
+          <TableRow>
+            <TableCell component="th" scope="row" colSpan={3}>
+              No nodes found.
+            </TableCell>
+          </TableRow>
+        )}
+        {filteredNodes.map((node) => (
           <NodeRow key={node.id} node={node} />
         ))}
       </TableBody>

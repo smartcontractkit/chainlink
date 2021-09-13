@@ -22,6 +22,7 @@ import JobRunsIndex from 'pages/JobRuns/Index'
 import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
 import ChainsNew from 'pages/Chains/New'
+import ChainShow from 'pages/Chains/Show'
 import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
@@ -103,6 +104,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
               <PrivateRoute exact path="/chains/new">
                 <ChainsNew />
+              </PrivateRoute>
+
+              <PrivateRoute path="/chains/:chainId">
+                <ChainShow />
               </PrivateRoute>
 
               <PrivateRoute exact path="/nodes">
