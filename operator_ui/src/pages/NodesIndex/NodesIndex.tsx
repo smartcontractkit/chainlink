@@ -20,13 +20,7 @@ import {
 } from '@material-ui/core/styles'
 import TextField from '@material-ui/core/TextField'
 
-interface Node<T> {
-  attributes: T
-  id: string
-  type: string
-}
-
-export type NodeSpecV2 = Node<models.Node>
+export type NodeSpecV2 = models.Resource<models.Node>
 
 async function getNodes() {
   return Promise.all([v2.nodes.getNodes()]).then(([v2Nodes]) => {
