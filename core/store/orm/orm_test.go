@@ -3,18 +3,15 @@ package orm_test
 import (
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
@@ -54,141 +51,6 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 	require.Error(t, err)
 
 	require.NoError(t, store.CreateExternalInitiator(exi))
-}
-
-func TestORM_FindUser(t *testing.T) {
-	t.Parallel()
-
-	store := cltest.NewStore(t)
-	user1 := cltest.MustNewUser(t, "test1@email1.net", "password1")
-	user2 := cltest.MustNewUser(t, "test2@email2.net", "password2")
-	user2.CreatedAt = time.Now().Add(-24 * time.Hour)
-
-	require.NoError(t, store.SaveUser(&user1))
-	require.NoError(t, store.SaveUser(&user2))
-
-	actual, err := store.FindUser()
-	require.NoError(t, err)
-	assert.Equal(t, user1.Email, actual.Email)
-	assert.Equal(t, user1.HashedPassword, actual.HashedPassword)
-}
-
-func TestORM_AuthorizedUserWithSession(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name            string
-		sessionID       string
-		sessionDuration time.Duration
-		wantError       bool
-		wantEmail       string
-	}{
-		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), false, "have@email"},
-		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), true, ""},
-		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), true, ""},
-		{"empty", "", cltest.MustParseDuration(t, "3m"), true, ""},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store := cltest.NewStore(t)
-
-			user := cltest.MustNewUser(t, "have@email", "password")
-			require.NoError(t, store.SaveUser(&user))
-
-			prevSession := cltest.NewSession("correctID")
-			prevSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "2m"))
-			require.NoError(t, store.DB.Save(&prevSession).Error)
-
-			expectedTime := utils.ISO8601UTC(time.Now())
-			actual, err := store.ORM.AuthorizedUserWithSession(test.sessionID, test.sessionDuration)
-			assert.Equal(t, test.wantEmail, actual.Email)
-			if test.wantError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				var bumpedSession models.Session
-				err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-					return db.First(&bumpedSession, "ID = ?", prevSession.ID).Error
-				})
-				require.NoError(t, err)
-				assert.Equal(t, expectedTime[0:13], utils.ISO8601UTC(bumpedSession.LastUsed)[0:13]) // only compare up to the hour
-			}
-		})
-	}
-}
-
-func TestORM_DeleteUser(t *testing.T) {
-	t.Parallel()
-
-	store := cltest.NewStore(t)
-
-	_, err := store.FindUser()
-	require.NoError(t, err)
-
-	err = store.DeleteUser()
-	require.NoError(t, err)
-
-	_, err = store.FindUser()
-	require.Error(t, err)
-}
-
-func TestORM_DeleteUserSession(t *testing.T) {
-	t.Parallel()
-
-	store := cltest.NewStore(t)
-
-	session := models.NewSession()
-	require.NoError(t, store.DB.Save(&session).Error)
-
-	err := store.DeleteUserSession(session.ID)
-	require.NoError(t, err)
-
-	_, err = store.FindUser()
-	require.NoError(t, err)
-
-	sessions, err := postgres.Sessions(store.DB, 0, 10)
-	assert.NoError(t, err)
-	require.Empty(t, sessions)
-}
-
-func TestORM_CreateSession(t *testing.T) {
-	t.Parallel()
-
-	store := cltest.NewStore(t)
-
-	initial := cltest.MustRandomUser()
-	require.NoError(t, store.SaveUser(&initial))
-
-	tests := []struct {
-		name        string
-		email       string
-		password    string
-		wantSession bool
-	}{
-		{"correct", initial.Email, cltest.Password, true},
-		{"incorrect email", "bogus@town.org", cltest.Password, false},
-		{"incorrect pwd", initial.Email, "jamaicandundada", false},
-		{"incorrect both", "dudus@coke.ja", "jamaicandundada", false},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			sessionRequest := models.SessionRequest{
-				Email:    test.email,
-				Password: test.password,
-			}
-
-			sessionID, err := store.CreateSession(sessionRequest)
-			if test.wantSession {
-				require.NoError(t, err)
-				assert.NotEmpty(t, sessionID)
-			} else {
-				require.Error(t, err)
-				assert.Empty(t, sessionID)
-			}
-		})
-	}
 }
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {

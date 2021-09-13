@@ -250,8 +250,9 @@ func TestIntegration_AuthToken(t *testing.T) {
 	// set up user
 	mockUser := cltest.MustRandomUser()
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
-	require.NoError(t, mockUser.SetAuthToken(&apiToken))
-	require.NoError(t, app.Store.SaveUser(&mockUser))
+	orm := app.SessionORM()
+	require.NoError(t, orm.CreateUser(&mockUser))
+	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)

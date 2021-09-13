@@ -49,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -79,6 +80,7 @@ type Application interface {
 	EVMORM() evmtypes.ORM
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
+	SessionORM() sessions.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -106,6 +108,7 @@ type ChainlinkApplication struct {
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
+	sessionORM               sessions.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Store                    *strpkg.Store
@@ -189,6 +192,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db)
 		bridgeORM      = bridges.NewORM(opts.SqlxDB)
+		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
 	)
@@ -284,6 +288,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
+		sessionORM:               sessionORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -478,6 +483,10 @@ func (app *ChainlinkApplication) JobORM() job.ORM {
 
 func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
+}
+
+func (app *ChainlinkApplication) SessionORM() sessions.ORM {
+	return app.sessionORM
 }
 
 func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {

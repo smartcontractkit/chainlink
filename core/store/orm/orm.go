@@ -1,7 +1,6 @@
 package orm
 
 import (
-	"crypto/subtle"
 	"database/sql"
 	"net/url"
 	"sync"
@@ -19,9 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
 
 	gormpostgres "gorm.io/driver/postgres"
@@ -241,102 +238,6 @@ func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxA
 		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
 	}
 	return ethTxAttempt, nil
-}
-
-// FindUser will return the one API user, or an error.
-func (orm *ORM) FindUser() (models.User, error) {
-	return findUser(orm.DB)
-}
-
-func findUser(db *gorm.DB) (user models.User, err error) {
-	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
-}
-
-// AuthorizedUserWithSession will return the one API user if the Session ID exists
-// and hasn't expired, and update session's LastUsed field.
-func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
-	if len(sessionID) == 0 {
-		return models.User{}, errors.New("Session ID cannot be empty")
-	}
-
-	var session models.Session
-	err := orm.DB.First(&session, "id = ?", sessionID).Error
-	if err != nil {
-		return models.User{}, err
-	}
-	now := time.Now()
-	if session.LastUsed.Add(sessionDuration).Before(now) {
-		return models.User{}, errors.New("Session has expired")
-	}
-	session.LastUsed = now
-	if err := orm.DB.Save(&session).Error; err != nil {
-		return models.User{}, err
-	}
-	return orm.FindUser()
-}
-
-// DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() error {
-	return postgres.GormTransactionWithDefaultContext(orm.DB, func(dbtx *gorm.DB) error {
-		user, err := findUser(dbtx)
-		if err != nil {
-			return err
-		}
-
-		if err = dbtx.Delete(&user).Error; err != nil {
-			return err
-		}
-
-		return dbtx.Exec("DELETE FROM sessions").Error
-	})
-}
-
-// DeleteUserSession will erase the session ID for the sole API User.
-func (orm *ORM) DeleteUserSession(sessionID string) error {
-	return orm.DB.Delete(models.Session{ID: sessionID}).Error
-}
-
-// CreateSession will check the password in the SessionRequest against
-// the hashed API User password in the db.
-func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
-	user, err := orm.FindUser()
-	if err != nil {
-		return "", err
-	}
-
-	if !constantTimeEmailCompare(sr.Email, user.Email) {
-		return "", errors.New("Invalid email")
-	}
-
-	if utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
-		session := models.NewSession()
-		return session.ID, orm.DB.Save(&session).Error
-	}
-	return "", errors.New("Invalid password")
-}
-
-const constantTimeEmailLength = 256
-
-func constantTimeEmailCompare(left, right string) bool {
-	length := utils.MaxInt(constantTimeEmailLength, len(left), len(right))
-	leftBytes := make([]byte, length)
-	rightBytes := make([]byte, length)
-	copy(leftBytes, left)
-	copy(rightBytes, right)
-	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
-}
-
-// ClearNonCurrentSessions removes all sessions but the id passed in.
-func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
-	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
-}
-
-// SaveUser saves the user.
-func (orm *ORM) SaveUser(user *models.User) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.Save(user).Error
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {

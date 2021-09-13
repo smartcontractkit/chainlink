@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -481,9 +482,9 @@ func TestClient_AutoLogin(t *testing.T) {
 	app := startNewApplication(t)
 
 	user := cltest.MustRandomUser()
-	require.NoError(t, app.Store.SaveUser(&user))
+	require.NoError(t, app.SessionORM().CreateUser(&user))
 
-	sr := models.SessionRequest{
+	sr := sessions.SessionRequest{
 		Email:    user.Email,
 		Password: cltest.Password,
 	}
@@ -507,9 +508,9 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	app := startNewApplication(t)
 
 	user := cltest.MustRandomUser()
-	require.NoError(t, app.Store.SaveUser(&user))
+	require.NoError(t, app.SessionORM().CreateUser(&user))
 
-	sr := models.SessionRequest{
+	sr := sessions.SessionRequest{
 		Email:    user.Email,
 		Password: cltest.Password,
 	}
@@ -529,7 +530,7 @@ func (FailingAuthenticator) Cookie() (*http.Cookie, error) {
 }
 
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
-func (FailingAuthenticator) Authenticate(sessionRequest models.SessionRequest) (*http.Cookie, error) {
+func (FailingAuthenticator) Authenticate(sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
 	return nil, errors.New("no luck")
 }
 
