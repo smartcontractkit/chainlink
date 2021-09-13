@@ -1,7 +1,7 @@
 import React from 'react'
 import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
 import { v2 } from 'api'
-import * as models from 'core/store/models'
+import { NodeSpecV2 } from '../NodesIndex/NodesIndex'
 import RegionalNav from './RegionalNav'
 import { ChainSpecV2 } from '../ChainsIndex/ChainsIndex'
 import { ChainNodes } from './ChainNodes'
@@ -10,14 +10,6 @@ import { ChainConfig } from './ChainConfig'
 interface RouteParams {
   chainId: string
 }
-
-interface Node<T> {
-  attributes: T
-  id: string
-  type: string
-}
-
-export type NodeSpecV2 = Node<models.Node>
 
 export const ChainsShow = () => {
   const { chainId } = useParams<RouteParams>()
