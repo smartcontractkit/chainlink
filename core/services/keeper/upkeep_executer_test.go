@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 func newHead() models.Head {
@@ -95,6 +96,8 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		store, ethMock, executer, registry, upkeep, job, jpv2, txm := setup(t)
 
 		gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
+		gasPrice := bigmath.Div(bigmath.Mul(assets.GWei(60), 100+store.Config.KeeperGasPriceBufferPercent()), 100)
+
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
 			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
@@ -109,7 +112,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		registryMock.MockMatchedResponse(
 			"checkUpkeep",
 			func(callArgs ethereum.CallMsg) bool {
-				return callArgs.GasPrice.String() == assets.GWei(60).String() &&
+				return bigmath.Equal(callArgs.GasPrice, gasPrice) &&
 					callArgs.Gas == 650_000
 			},
 			checkUpkeepResponse,
