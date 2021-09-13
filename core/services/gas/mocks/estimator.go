@@ -6,8 +6,9 @@ import (
 	context "context"
 	big "math/big"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 	gas "github.com/smartcontractkit/chainlink/core/services/gas"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
