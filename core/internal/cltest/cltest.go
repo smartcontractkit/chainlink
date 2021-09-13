@@ -413,6 +413,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,
 		GormDB:                   db,
+		SqlxDB:                   sqlxDB,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		Logger:                   lggr,

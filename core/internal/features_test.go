@@ -28,6 +28,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -158,8 +159,8 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			io.WriteString(w, `{}`)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		app.Store.CreateBridgeType(&models.BridgeType{
-			Name: models.TaskType("substrate-adapter1"),
+		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.TaskType("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
 		defer bridgeServer.Close()
@@ -620,7 +621,7 @@ isBootstrapPeer    = true
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := ioutil.ReadAll(req.Body)
 			require.NoError(t, err)
-			var m models.BridgeMetaDataJSON
+			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 				metaLock.Lock()
@@ -632,8 +633,8 @@ isBootstrapPeer    = true
 		}))
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].Store.CreateBridgeType(&models.BridgeType{
-			Name: models.TaskType(fmt.Sprintf("bridge%d", i)),
+		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		})
 

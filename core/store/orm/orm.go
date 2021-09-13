@@ -136,14 +136,6 @@ func (orm *ORM) Unscoped() *ORM {
 	}
 }
 
-// FindBridge looks up a Bridge by its Name.
-func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return bt, err
-	}
-	return bt, orm.DB.First(&bt, "name = ?", name.String()).Error
-}
-
 // ExternalInitiatorsSorted returns many ExternalInitiators sorted by Name from the store adhering
 // to the passed parameters.
 func (orm *ORM) ExternalInitiatorsSorted(offset int, limit int) ([]models.ExternalInitiator, int, error) {
@@ -310,14 +302,6 @@ func (orm *ORM) DeleteUserSession(sessionID string) error {
 	return orm.DB.Delete(models.Session{ID: sessionID}).Error
 }
 
-// DeleteBridgeType removes the bridge type
-func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.Delete(bt).Error
-}
-
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
@@ -353,47 +337,12 @@ func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
 	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
 }
 
-// BridgeTypes returns bridge types ordered by name filtered limited by the
-// passed params.
-func (orm *ORM) BridgeTypes(offset int, limit int) ([]models.BridgeType, int, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, 0, err
-	}
-	count, err := orm.CountOf(&models.BridgeType{})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var bridges []models.BridgeType
-	err = orm.getRecords(&bridges, "name asc", offset, limit)
-	return bridges, count, err
-}
-
 // SaveUser saves the user.
 func (orm *ORM) SaveUser(user *models.User) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
 	return orm.DB.Save(user).Error
-}
-
-// CreateBridgeType saves the bridge type.
-func (orm *ORM) CreateBridgeType(bt *models.BridgeType) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.Create(bt).Error
-}
-
-// UpdateBridgeType updates the bridge type.
-func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRequest) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	bt.URL = btr.URL
-	bt.Confirmations = btr.Confirmations
-	bt.MinimumContractPayment = btr.MinimumContractPayment
-	return orm.DB.Save(bt).Error
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {
@@ -523,22 +472,4 @@ func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 	d.SetMaxIdleConns(ct.maxIdleConns)
 
 	return db, nil
-}
-
-// SortType defines the different sort orders available.
-type SortType int
-
-const (
-	// Ascending is the sort order going up, i.e. 1,2,3.
-	Ascending SortType = iota
-	// Descending is the sort order going down, i.e. 3,2,1.
-	Descending
-)
-
-func (s SortType) String() string {
-	orderStr := "asc"
-	if s == Descending {
-		orderStr = "desc"
-	}
-	return orderStr
 }

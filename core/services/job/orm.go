@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -115,7 +116,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		if task.Type() == pipeline.TaskTypeBridge {
 			// Bridge must exist
 			name := task.(*pipeline.BridgeTask).Name
-			bt := models.BridgeType{}
+			bt := bridges.BridgeType{}
 			if err := o.db.First(&bt, "name = ?", name).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return jb, errors.Wrap(pipeline.ErrNoSuchBridge, name)

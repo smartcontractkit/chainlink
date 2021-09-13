@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -443,7 +444,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		func(r *http.Request) {
 			b, err1 := ioutil.ReadAll(r.Body)
 			require.NoError(t, err1)
-			var m models.BridgeMetaDataJSON
+			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 				key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
@@ -453,7 +454,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	)
 	t.Cleanup(mockServer.Close)
 	u, _ := url.Parse(mockServer.URL)
-	app.Store.CreateBridgeType(&models.BridgeType{
+	app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 		Name: "bridge",
 		URL:  models.WebURL(*u),
 	})

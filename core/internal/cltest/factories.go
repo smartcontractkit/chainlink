@@ -21,6 +21,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -74,13 +75,13 @@ func Random32Byte() (b [32]byte) {
 }
 
 // NewBridgeType create new bridge type given info slice
-func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthentication, *models.BridgeType) {
-	btr := &models.BridgeTypeRequest{}
+func NewBridgeType(t testing.TB, info ...string) (*bridges.BridgeTypeAuthentication, *bridges.BridgeType) {
+	btr := &bridges.BridgeTypeRequest{}
 
 	if len(info) > 0 {
-		btr.Name = models.MustNewTaskType(info[0])
+		btr.Name = bridges.MustNewTaskType(info[0])
 	} else {
-		btr.Name = models.MustNewTaskType("defaultFixtureBridgeType")
+		btr.Name = bridges.MustNewTaskType("defaultFixtureBridgeType")
 	}
 
 	if len(info) > 1 {
@@ -89,7 +90,7 @@ func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthenticati
 		btr.URL = WebURL(t, "https://bridge.example.com/api")
 	}
 
-	bta, bt, err := models.NewBridgeType(btr)
+	bta, bt, err := bridges.NewBridgeType(btr)
 	require.NoError(t, err)
 	return bta, bt
 }
