@@ -164,11 +164,7 @@ describe("ConcreteChainlink", () => {
 
   describe("#addStringArray", () => {
     it("stores and logs keys and values", async () => {
-      await ccl.addStringArray("word", [
-        ethers.utils.formatBytes32String("seinfeld"),
-        ethers.utils.formatBytes32String('"4"'),
-        ethers.utils.formatBytes32String("LIFE"),
-      ]);
+      await ccl.addStringArray("word", ["seinfeld", '"4"', "LIFE"]);
       const tx = await ccl.closeEvent();
       const [payload] = await parseCCLEvent(tx);
       const decoded = await decodeDietCBOR(payload);
