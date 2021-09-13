@@ -742,7 +742,8 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
 	case *big.Int:
 		n = v
 	case nil:
-		// do nothing
+		*p = MaybeBigIntParam{n: nil}
+		return nil
 	default:
 		return ErrBadInput
 	}

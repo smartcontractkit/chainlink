@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// funcSigLength is the length of the function signature (including the 0x)
+// ex: 0x1234ABCD
 const funcSigLength = 10
 
 func NewContractMockReceiver(t *testing.T, ethMock *mocks.Client, abi abi.ABI, address common.Address) contractMockReceiver {

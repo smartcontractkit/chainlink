@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -218,5 +219,10 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int,
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to estimate gas")
 	}
+	// add GasPriceBuffer to gasPrice
+	gasPrice = bigmath.Div(
+		bigmath.Mul(gasPrice, 100+ex.config.KeeperGasPriceBufferPercent()),
+		100,
+	)
 	return gasPrice, nil
 }

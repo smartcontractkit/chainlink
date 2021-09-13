@@ -100,6 +100,7 @@ type GeneralOnlyConfig interface {
 	JobPipelineReaperThreshold() time.Duration
 	JobPipelineResultWriteQueueDepth() uint64
 	KeeperDefaultTransactionQueueDepth() uint32
+	KeeperGasPriceBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
@@ -641,6 +642,12 @@ func (c *generalConfig) KeeperRegistryPerformGasOverhead() uint64 {
 // Set to 0 to use SendEvery strategy instead
 func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
+}
+
+// KeeperGasPriceBufferPercent controls the queue size for DropOldestStrategy in Keeper
+// Set to 0 to use SendEvery strategy instead
+func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
+	return c.viper.GetUint32(EnvVarName("KeeperGasPriceBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
