@@ -294,7 +294,7 @@ func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, 
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
 	var primary *eth.Node
-	var sendonlys []*eth.SecondaryNode
+	var sendonlys []*eth.SendOnlyNode
 	for _, node := range nodes {
 		if node.SendOnly {
 			sendonly, err := newSendOnly(lggr, node)
@@ -342,9 +342,9 @@ func newPrimary(lggr *logger.Logger, n types.Node) (*eth.Node, error) {
 	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
 }
 
-func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SecondaryNode, error) {
+func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SendOnlyNode, error) {
 	if !n.SendOnly {
-		return nil, errors.New("cannot cast non send-only node to secondarynode")
+		return nil, errors.New("cannot cast non send-only node to send-only node")
 	}
 	if !n.HTTPURL.Valid {
 		return nil, errors.New("send only node was missing HTTP url")
@@ -354,5 +354,5 @@ func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SecondaryNode, error) 
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return eth.NewSecondaryNode(lggr, *httpuri, n.Name), nil
+	return eth.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
 }
