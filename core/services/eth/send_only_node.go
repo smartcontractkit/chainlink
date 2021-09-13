@@ -12,12 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
-// SecondaryNode represents one ethereum node used as a secondary
+// SendOnlyNode represents one ethereum node used as a sendonly
 // It only supports sending transactions
 // It must a http(s) url
-// TODO: Rename to SendOnlyNode
-// See: https://app.clubhouse.io/chainlinklabs/story/15451/rename-secondarynode-sendonlynode
-type SecondaryNode struct {
+type SendOnlyNode struct {
 	uri    url.URL
 	rpc    *rpc.Client
 	geth   *ethclient.Client
@@ -26,18 +24,18 @@ type SecondaryNode struct {
 	name   string
 }
 
-func NewSecondaryNode(lggr *logger.Logger, httpuri url.URL, name string) (s *SecondaryNode) {
-	s = new(SecondaryNode)
+func NewSendOnlyNode(lggr *logger.Logger, httpuri url.URL, name string) (s *SendOnlyNode) {
+	s = new(SendOnlyNode)
 	s.name = name
 	s.log = lggr.With(
 		"nodeName", name,
-		"nodeTier", "secondary",
+		"nodeTier", "sendonly",
 	)
 	s.uri = httpuri
 	return
 }
 
-func (s *SecondaryNode) Dial() error {
+func (s *SendOnlyNode) Dial() error {
 	s.log.Debugw("eth.Client#Dial(...)")
 	if s.dialed {
 		panic("eth.Client.Dial(...) should only be called once during the node's lifetime.")
@@ -54,27 +52,27 @@ func (s *SecondaryNode) Dial() error {
 	return nil
 }
 
-func (s SecondaryNode) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (s SendOnlyNode) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	s.log.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 	)
 	return s.wrap(s.geth.SendTransaction(ctx, tx))
 }
 
-func (s SecondaryNode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+func (s SendOnlyNode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	s.log.Debugw("eth.Client#BatchCall(...)",
 		"nBatchElems", len(b),
 	)
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))
 }
 
-func (s SecondaryNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+func (s SendOnlyNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
 	s.log.Debugw("eth.Client#ChainID(...)")
 	chainID, err = s.geth.ChainID(ctx)
 	err = s.wrap(err)
 	return
 }
 
-func (s SecondaryNode) wrap(err error) error {
-	return wrap(err, fmt.Sprintf("secondary http (%s)", s.uri.String()))
+func (s SendOnlyNode) wrap(err error) error {
+	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.String()))
 }
