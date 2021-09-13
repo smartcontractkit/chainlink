@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -403,8 +404,8 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *gorm.DB, number int64) models.Head {
-	h := models.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+func MustInsertHead(t *testing.T, db *gorm.DB, number int64) eth.Head {
+	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	err := db.Create(&h).Error
 	require.NoError(t, err)
 	return h

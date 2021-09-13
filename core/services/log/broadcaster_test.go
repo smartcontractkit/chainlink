@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -977,7 +977,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Times(3)
 
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: blockHeight}, nil)
+		Return(&eth.Head{Number: blockHeight}, nil)
 
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1192,7 +1192,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
 				Blocks:        blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
 					logger.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						logger.Warnf("  ** not exists")
@@ -1217,7 +1217,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			<-headsDone
 			cleanup()
 
-			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: test.blockHeight2}, nil).Once()
+			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: test.blockHeight2}, nil).Once()
 
 			combinedLogs := append(pickLogs(logsA, test.backfillableLogs), pickLogs(logsB, test.backfillableLogs)...)
 			call := helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
@@ -1244,7 +1244,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock:    test.blockHeight2,
 				BackfillDepth: backfillDepth,
 				Blocks:        blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						select {
 						case chRawLogs2 <- logsA[uint(head.Number)]:
@@ -1436,7 +1436,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	go func() {
 		for _, event := range events {
 			switch x := event.(type) {
-			case *models.Head:
+			case *eth.Head:
 				(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(context.Background(), *x)
 			case types.Log:
 				chRawLogs <- x
@@ -1463,7 +1463,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
-	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil).Times(2)
+	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: blockHeight}, nil).Times(2)
 	helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(2)
 
 	helper.start()

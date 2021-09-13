@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -139,9 +138,9 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(models.Head)
+				h, is := head.(eth.Head)
 				if !is {
-					ec.logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", models.Head{}, head)
+					ec.logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", eth.Head{}, head)
 					continue
 				}
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
@@ -156,7 +155,7 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
@@ -164,7 +163,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head models.Head) error
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head eth.Head) error {
 	mark := time.Now()
 
 	ec.logger.Debugw("EthConfirmer: processHead", "headNum", head.Number, "id", "eth_confirmer")
@@ -1046,7 +1045,7 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head eth.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logger.Debugw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. This is normal shortly after application boot and should die down. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, remote node out of sync, or some other problem",
 			"chainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth())
@@ -1103,7 +1102,7 @@ func findTransactionsConfirmedInBlockRange(db *gorm.DB, highBlockNumber, lowBloc
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
-func hasReceiptInLongestChain(etx EthTx, head models.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1119,7 +1118,7 @@ func hasReceiptInLongestChain(etx EthTx, head models.Head) bool {
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head models.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head eth.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1254,7 +1253,7 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 	return &etx, errors.Wrap(err, "findEthTxsWithNonce failed")
 }
 
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head eth.Head) error {
 	sqlxDB := postgres.UnwrapGormDB(ec.db)
 
 	type x struct {

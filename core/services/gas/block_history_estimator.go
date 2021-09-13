@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -93,7 +92,7 @@ func NewBlockHistoryEstimator(lggr *logger.Logger, ethClient eth.Client, config 
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	b.mb.Deliver(head)
 }
 
@@ -162,16 +161,16 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("BlockHistoryEstimator: no head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(models.Head)
+			h, is := head.(eth.Head)
 			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))
+				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
 			}
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head eth.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 
@@ -184,7 +183,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 }
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
-func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
+func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
 
 	if len(b.rollingBlockHistory) == 0 {
@@ -220,7 +219,7 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileGasPrice.Int64()))
 }
 
-func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head models.Head) error {
+func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head eth.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
 	// fetch block 7.

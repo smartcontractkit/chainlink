@@ -1048,18 +1048,18 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 }
 
 // Head given the value convert it into an Head
-func Head(val interface{}) *models.Head {
-	var h models.Head
+func Head(val interface{}) *eth.Head {
+	var h eth.Head
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case int64:
-		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case *big.Int:
-		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -1507,7 +1507,7 @@ type Blocks struct {
 	t       *testing.T
 	Hashes  []common.Hash
 	mHashes map[int64]common.Hash
-	Heads   map[int64]*models.Head
+	Heads   map[int64]*eth.Head
 }
 
 func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
@@ -1534,7 +1534,7 @@ func (b *Blocks) HashesMap() map[int64]common.Hash {
 	return b.mHashes
 }
 
-func (b *Blocks) Head(number uint64) *models.Head {
+func (b *Blocks) Head(number uint64) *eth.Head {
 	return b.Heads[int64(number)]
 }
 
@@ -1553,13 +1553,13 @@ func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
 	return forked
 }
 
-func (b *Blocks) NewHead(number uint64) *models.Head {
+func (b *Blocks) NewHead(number uint64) *eth.Head {
 	parentNumber := number - 1
 	parent, ok := b.Heads[int64(parentNumber)]
 	if !ok {
 		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
 	}
-	head := &models.Head{
+	head := &eth.Head{
 		Number:     parent.Number + 1,
 		Hash:       utils.NewHash(),
 		ParentHash: parent.Hash,
@@ -1571,12 +1571,12 @@ func (b *Blocks) NewHead(number uint64) *models.Head {
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
-	heads := make(map[int64]*models.Head)
+	heads := make(map[int64]*eth.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &models.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
+		heads[i] = &eth.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1600,18 +1600,18 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 // HeadBuffer - stores heads in sequence, with increasing timestamps
 type HeadBuffer struct {
 	t     *testing.T
-	Heads []*models.Head
+	Heads []*eth.Head
 }
 
 func NewHeadBuffer(t *testing.T) *HeadBuffer {
 	return &HeadBuffer{
 		t:     t,
-		Heads: make([]*models.Head, 0),
+		Heads: make([]*eth.Head, 0),
 	}
 }
 
-func (hb *HeadBuffer) Append(head *models.Head) {
-	cloned := &models.Head{
+func (hb *HeadBuffer) Append(head *eth.Head) {
+	cloned := &eth.Head{
 		Number:     head.Number,
 		Hash:       head.Hash,
 		ParentHash: head.ParentHash,
@@ -1621,9 +1621,9 @@ func (hb *HeadBuffer) Append(head *models.Head) {
 	hb.Heads = append(hb.Heads, cloned)
 }
 
-type HeadTrackableFunc func(context.Context, models.Head)
+type HeadTrackableFunc func(context.Context, eth.Head)
 
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	fn(ctx, head)
 }
 
