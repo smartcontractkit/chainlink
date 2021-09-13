@@ -11,44 +11,84 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	config "github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func TestChainScopedConfig_EvmGasPriceDefault(t *testing.T) {
+func TestChainScopedConfig(t *testing.T) {
 	orm := new(evmmocks.ORM)
 	orm.Test(t)
 	chainID := big.NewInt(rand.Int63())
-	cfg := config.NewGeneralConfig()
-	config := evmconfig.NewChainScopedConfig(orm, cfg.CreateProductionLogger(), cfg, evmtypes.Chain{ID: *utils.NewBig(chainID)})
-
-	t.Run("sets the gas price", func(t *testing.T) {
-		assert.Equal(t, big.NewInt(20000000000), config.EvmGasPriceDefault())
-
-		orm.On("StoreString", chainID, "EvmGasPriceDefault", "42000000000").Return(nil)
-		err := config.SetEvmGasPriceDefault(big.NewInt(42000000000))
-		assert.NoError(t, err)
-
-		assert.Equal(t, big.NewInt(42000000000), config.EvmGasPriceDefault())
-
-		orm.AssertExpectations(t)
+	gcfg := configtest.NewTestGeneralConfig(t)
+	lggr := gcfg.CreateProductionLogger()
+	lggr = lggr.With("evmChainID", chainID.String())
+	cfg := evmconfig.NewChainScopedConfig(orm, lggr, gcfg, evmtypes.Chain{
+		ID: *utils.NewBig(chainID),
+		Cfg: evmtypes.ChainCfg{
+			KeySpecific: make(map[string]evmtypes.ChainCfg),
+		},
 	})
-	t.Run("is not allowed to set gas price to below EvmMinGasPriceWei", func(t *testing.T) {
-		assert.Equal(t, big.NewInt(1000000000), config.EvmMinGasPriceWei())
 
-		err := config.SetEvmGasPriceDefault(big.NewInt(1))
-		assert.EqualError(t, err, "cannot set default gas price to 1, it is below the minimum allowed value of 1000000000")
+	t.Run("EvmGasPriceDefault", func(t *testing.T) {
+		t.Run("sets the gas price", func(t *testing.T) {
+			assert.Equal(t, big.NewInt(20000000000), cfg.EvmGasPriceDefault())
 
-		assert.Equal(t, big.NewInt(42000000000), config.EvmGasPriceDefault())
+			orm.On("StoreString", chainID, "EvmGasPriceDefault", "42000000000").Return(nil)
+			err := cfg.SetEvmGasPriceDefault(big.NewInt(42000000000))
+			assert.NoError(t, err)
+
+			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
+
+			orm.AssertExpectations(t)
+		})
+		t.Run("is not allowed to set gas price to below EvmMinGasPriceWei", func(t *testing.T) {
+			assert.Equal(t, big.NewInt(1000000000), cfg.EvmMinGasPriceWei())
+
+			err := cfg.SetEvmGasPriceDefault(big.NewInt(1))
+			assert.EqualError(t, err, "cannot set default gas price to 1, it is below the minimum allowed value of 1000000000")
+
+			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
+		})
+		t.Run("is not allowed to set gas price to above EvmMaxGasPriceWei", func(t *testing.T) {
+			assert.Equal(t, big.NewInt(5000000000000), cfg.EvmMaxGasPriceWei())
+
+			err := cfg.SetEvmGasPriceDefault(big.NewInt(999999999999999))
+			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 5000000000000")
+
+			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
+		})
 	})
-	t.Run("is not allowed to set gas price to above EvmMaxGasPriceWei", func(t *testing.T) {
-		assert.Equal(t, big.NewInt(5000000000000), config.EvmMaxGasPriceWei())
 
-		err := config.SetEvmGasPriceDefault(big.NewInt(999999999999999))
-		assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 5000000000000")
+	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
+		addr := cltest.NewAddress()
+		randomOtherAddr := cltest.NewAddress()
+		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
+		evmconfig.PersistedCfgPtr(cfg).KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
 
-		assert.Equal(t, big.NewInt(42000000000), config.EvmGasPriceDefault())
+		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
+			assert.Equal(t, big.NewInt(5000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
+		})
+
+		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
+			val := utils.NewBigI(rand.Int63())
+			evmconfig.PersistedCfgPtr(cfg).EvmMaxGasPriceWei = val
+
+			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses key-specific override value when that is set", func(t *testing.T) {
+			val := utils.NewBigI(rand.Int63())
+			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
+			evmconfig.PersistedCfgPtr(cfg).KeySpecific[addr.Hex()] = keySpecific
+
+			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
+		t.Run("uses global value when that is set", func(t *testing.T) {
+			val := big.NewInt(rand.Int63())
+			gcfg.Overrides.GlobalEvmMaxGasPriceWei = val
+
+			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
+		})
 	})
 }
 
