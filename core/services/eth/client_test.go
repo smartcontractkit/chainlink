@@ -320,8 +320,8 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	secondaryUrl := *cltest.MustParseURL(server.URL)
-	ethClient, err := eth.NewClient(logger.Default, wsUrl, nil, []url.URL{secondaryUrl, secondaryUrl}, nil)
+	sendonlyUrl := *cltest.MustParseURL(server.URL)
+	ethClient, err := eth.NewClient(logger.Default, wsUrl, nil, []url.URL{sendonlyUrl, sendonlyUrl}, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)

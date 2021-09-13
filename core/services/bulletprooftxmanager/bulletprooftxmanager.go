@@ -40,6 +40,9 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
+	EthTxReaperInterval() time.Duration
+	EthTxReaperThreshold() time.Duration
+	EthTxResendAfterThreshold() time.Duration
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
@@ -54,10 +57,8 @@ type Config interface {
 	EvmMinGasPriceWei() *big.Int
 	EvmNonceAutoSync() bool
 	EvmRPCDefaultBatchSize() uint32
-	EthTxReaperInterval() time.Duration
-	EthTxReaperThreshold() time.Duration
-	EthTxResendAfterThreshold() time.Duration
 	GasEstimatorMode() string
+	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
 }
 
@@ -345,8 +346,10 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 	return etx, err
 }
 
-func newAttempt(ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
-	attempt := EthTxAttempt{}
+func NewAttempt(cfg Config, ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
+	if err = validateGas(cfg, gasPrice, gasLimit, etx); err != nil {
+		return attempt, errors.Wrap(err, "error validating gas")
+	}
 
 	tx := newLegacyTransaction(
 		uint64(*etx.Nonce),
@@ -370,6 +373,23 @@ func newAttempt(ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, g
 	attempt.Hash = hash
 
 	return attempt, nil
+}
+
+// validateGas is a sanity check - we have other checks elsewhere, but this
+// makes sure we _never_ create an invalid attempt
+func validateGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx) error {
+	if gasPrice == nil {
+		panic("gas price missing")
+	}
+	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	if gasPrice.Cmp(max) > 0 {
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.Hex())
+	}
+	min := cfg.EvmMinGasPriceWei()
+	if gasPrice.Cmp(min) < 0 {
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.Hex())
+	}
+	return nil
 }
 
 func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) gethTypes.LegacyTx {

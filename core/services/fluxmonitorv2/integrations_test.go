@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
@@ -235,9 +235,9 @@ func checkOraclesAdded(t *testing.T, f fluxAggregatorUniverse, oracleList []comm
 	}
 }
 
-func generatePriceResponseFn(price *int64) func() string {
+func generatePriceResponseFn(price *atomic.Int64) func() string {
 	return func() string {
-		return fmt.Sprintf(`{"data":{"result": %d}}`, atomic.LoadInt64(price))
+		return fmt.Sprintf(`{"data":{"result": %d}}`, price.Load())
 	}
 }
 
@@ -409,10 +409,11 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		return consumed
-	}, 5*time.Second).Should(gomega.BeTrue())
+	}, cltest.DefaultWaitTimeout).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -432,9 +433,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	type k struct{ latestAnswer, updatedAt string }
 	expectedMeta := map[k]int{}
 
-	reportPrice := int64(100)
+	reportPrice := atomic.NewInt64(100)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
-		generatePriceResponseFn(&reportPrice),
+		generatePriceResponseFn(reportPrice),
 		func(r *http.Request) {
 			b, err1 := ioutil.ReadAll(r.Body)
 			require.NoError(t, err1)
@@ -496,17 +497,17 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 1
-	}, 3*time.Second, 200*time.Millisecond)
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
+	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 	// Initial Poll
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
 	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
-	assert.Equal(t, atomic.LoadInt64(&reportPrice), answer,
+	assert.Equal(t, reportPrice.Load(), answer,
 		"failed to report correct price to contract")
 
 	checkSubmission(t,
@@ -534,12 +535,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
-	reportPrice = int64(103)
+	reportPrice.Store(103)
 	receiptBlock, answer = awaitSubmission(t, submissionReceived)
 
 	logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
-	assert.Equal(t, atomic.LoadInt64(&reportPrice), answer,
+	assert.Equal(t, reportPrice.Load(), answer,
 		"failed to report correct price to contract")
 
 	checkSubmission(t,
@@ -565,7 +566,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobId), 8)
 
 	// Should not received a submission as it is inside the deviation
-	reportPrice = int64(104)
+	reportPrice.Store(104)
 	assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
 
 	assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
@@ -574,6 +575,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -594,9 +596,9 @@ func TestFluxMonitor_NewRound(t *testing.T) {
 	initialBalance := currentBalance(t, &fa).Int64()
 
 	// Create mock server
-	reportPrice := int64(1)
+	reportPrice := atomic.NewInt64(1)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(&reportPrice),
+		generatePriceResponseFn(reportPrice),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -644,10 +646,10 @@ ds1 -> ds1_parse
 
 	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
-		return lb.(log.BroadcasterInTest).TrackedAddressesCount() >= 2
-	}, 3*time.Second, 200*time.Millisecond)
+		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
+	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -680,6 +682,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -698,9 +701,9 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// Create mock server
-	reportPrice := int64(1)
+	reportPrice := atomic.NewInt64(1)
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(&reportPrice),
+		generatePriceResponseFn(reportPrice),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -755,7 +758,7 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 	awaitSubmission(t, submissionReceived)
 
-	reportPrice = int64(2) // change in price should trigger run
+	reportPrice.Store(2) // change in price should trigger run
 	awaitSubmission(t, submissionReceived)
 
 	// lower contract's flag - should have no effect
@@ -764,7 +767,7 @@ ds1 -> ds1_parse
 	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run because FM is already hibernating")
 
 	// change in price should trigger run
-	reportPrice = int64(4)
+	reportPrice.Store(4)
 	awaitSubmission(t, submissionReceived)
 
 	// raise both flags
@@ -773,15 +776,15 @@ ds1 -> ds1_parse
 	fa.backend.Commit()
 
 	// wait for FM to receive flags raised logs
-	assert.Eventually(t, func() bool {
+	g.Eventually(func() int {
 		ilogs, err := fa.flagsContract.FilterFlagRaised(nil, []common.Address{})
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
-		return len(logs) == 4
-	}, 7*time.Second, 100*time.Millisecond)
+		return len(logs)
+	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
-	reportPrice = int64(8)
+	reportPrice.Store(8)
 	assertNoSubmission(t, submissionReceived, 5*pollTimerPeriod, "should not trigger a new run, while flag is raised")
 }
 
@@ -808,9 +811,9 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 
 	// Report a price that is above the maximum allowed value,
 	// causing it to revert.
-	reportPrice := int64(10001) // 10001 ETH/USD price is outside the range.
+	reportPrice := atomic.NewInt64(10001) // 10001 ETH/USD price is outside the range.
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
-		generatePriceResponseFn(&reportPrice),
+		generatePriceResponseFn(reportPrice),
 	)
 	t.Cleanup(mockServer.Close)
 
@@ -900,9 +903,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// The initial balance is the LINK balance of flux aggregator contract. We
 	// use it to check that the fee for submitting an answer has been paid out.
 	initialBalance := currentBalance(t, &fa).Int64()
-	reportPrice := answer
+	reportPrice := atomic.NewInt64(answer)
 	priceResponse := func() string {
-		return fmt.Sprintf(`{"data":{"result": %d}}`, atomic.LoadInt64(&reportPrice))
+		return fmt.Sprintf(`{"data":{"result": %d}}`, reportPrice.Load())
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	t.Cleanup(mockServer.Close)
@@ -947,7 +950,7 @@ ds1 -> ds1_parse -> ds1_multiply
 
 	receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
-	assert.Equal(t, 100*atomic.LoadInt64(&reportPrice), answer,
+	assert.Equal(t, 100*reportPrice.Load(), answer,
 		"failed to report correct price to contract")
 	checkSubmission(t,
 		answerParams{
@@ -964,11 +967,11 @@ ds1 -> ds1_parse -> ds1_multiply
 	//- have the malicious node start the next round.
 	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
-	atomic.StoreInt64(&reportPrice, answer+1)
+	reportPrice.Store(answer + 1)
 
 	receiptBlock, _ = awaitSubmission(t, submissionReceived)
 	newRound := roundId + 1
-	processedAnswer = 100 * atomic.LoadInt64(&reportPrice)
+	processedAnswer = 100 * reportPrice.Load()
 	checkSubmission(t,
 		answerParams{
 			fa:              &fa,
@@ -995,7 +998,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	// Have the malicious node try to start another round. It should not pass as
 	// restartDelay has not been reached.
 	newRound = newRound + 1
-	processedAnswer = 100 * atomic.LoadInt64(&reportPrice)
+	processedAnswer = 100 * reportPrice.Load()
 
 	submitMaliciousAnswer(t,
 		answerParams{
@@ -1023,7 +1026,7 @@ ds1 -> ds1_parse -> ds1_multiply
 		completesAnswer: true})
 
 	// start a legitimate new round
-	atomic.StoreInt64(&reportPrice, reportPrice+3)
+	reportPrice.Add(3)
 
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node

@@ -22,7 +22,7 @@ type LegacyEthNodeConfig interface {
 
 func ClobberNodesFromEnv(db *gorm.DB, config LegacyEthNodeConfig) error {
 	ethChainID := utils.NewBig(config.DefaultChainID())
-	logger.Infof("CLOBBER_NODES_FROM_ENV is on, upserting chain %s and replacing primary/secondary nodes. It is recommended to set CLOBBER_NODES_FROM_ENV=false on subsequent runs and use the API to administer chains/nodes instead", ethChainID.String())
+	logger.Infof("CLOBBER_NODES_FROM_ENV is on, upserting chain %s and replacing primary/send-only nodes. It is recommended to set CLOBBER_NODES_FROM_ENV=false on subsequent runs and use the API to administer chains/nodes instead", ethChainID.String())
 
 	if err := db.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (?, NOW(), NOW()) ON CONFLICT DO NOTHING;", ethChainID.String()).Error; err != nil {
 		return errors.Wrap(err, "failed to insert evm_chain")
@@ -43,7 +43,7 @@ func ClobberNodesFromEnv(db *gorm.DB, config LegacyEthNodeConfig) error {
 	}
 
 	for i, url := range config.EthereumSecondaryURLs() {
-		name := fmt.Sprintf("secondary-%d-%s", i, ethChainID)
+		name := fmt.Sprintf("sendonly-%d-%s", i, ethChainID)
 		if err := db.Exec(stmt, name, ethChainID, nil, url.String(), true, ethChainID, nil, url.String()).Error; err != nil {
 			return errors.Wrapf(err, "failed to upsert %s", name)
 		}

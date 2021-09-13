@@ -85,11 +85,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	l := logger.CreateLogger(logger.Default.SugaredLogger.With(
+	l := logger.CreateLogger(logger.Default.SugaredLogger).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
-	))
+	)
 
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
@@ -110,7 +110,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				gethks:             d.ks.Eth(),
 				pipelineORM:        d.porm,
 				job:                jb,
-				reqLogs:            utils.NewMailbox(100000),
+				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
@@ -137,7 +137,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewMailbox(100000),
+				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
