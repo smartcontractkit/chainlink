@@ -10,15 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 )
 
-func newHead() models.Head {
-	return models.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
+func newHead() eth.Head {
+	return eth.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
 }
 
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -103,7 +102,7 @@ type BulletproofTxManager struct {
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
-	chHeads        chan models.Head
+	chHeads        chan eth.Head
 	trigger        chan common.Address
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
@@ -129,7 +128,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
-		chHeads:          make(chan models.Head),
+		chHeads:          make(chan eth.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 	}
@@ -239,7 +238,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -541,10 +540,10 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
-func (n *NullTxManager) Start() error                                   { return nil }
-func (n *NullTxManager) Close() error                                   { return nil }
-func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
+func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
+func (n *NullTxManager) Start() error                                { return nil }
+func (n *NullTxManager) Close() error                                { return nil }
+func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }

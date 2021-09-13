@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -28,7 +29,7 @@ type (
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		db             *gorm.DB
-		chHeads        chan models.Head
+		chHeads        chan eth.Head
 		chainSet       evm.ChainSet
 	}
 
@@ -52,7 +53,7 @@ func NewDelegate(
 		pipelineRunner,
 		pipelineORM,
 		db,
-		make(chan models.Head, 1),
+		make(chan eth.Head, 1),
 		chainSet,
 	}
 }

@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
@@ -1974,13 +1974,13 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
-	head := models.Head{
+	head := eth.Head{
 		Hash:   utils.NewHash(),
 		Number: 10,
-		Parent: &models.Head{
+		Parent: &eth.Head{
 			Hash:   utils.NewHash(),
 			Number: 9,
-			Parent: &models.Head{
+			Parent: &eth.Head{
 				Number: 8,
 				Hash:   utils.NewHash(),
 				Parent: nil,
@@ -2261,13 +2261,13 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
-	head := models.Head{
+	head := eth.Head{
 		Hash:   utils.NewHash(),
 		Number: 10,
-		Parent: &models.Head{
+		Parent: &eth.Head{
 			Hash:   utils.NewHash(),
 			Number: 9,
-			Parent: &models.Head{
+			Parent: &eth.Head{
 				Number: 8,
 				Hash:   utils.NewHash(),
 				Parent: nil,

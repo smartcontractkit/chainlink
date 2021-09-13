@@ -62,8 +62,8 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan gethTypes.Log:
 		close(mes.channel.(chan gethTypes.Log))
-	case chan *models.Head:
-		close(mes.channel.(chan *models.Head))
+	case chan *eth.Head:
+		close(mes.channel.(chan *eth.Head))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
@@ -341,7 +341,7 @@ type MockHeadTrackable struct {
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, models.Head) {
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, eth.Head) {
 	m.onNewHeadCount.Inc()
 }
 
