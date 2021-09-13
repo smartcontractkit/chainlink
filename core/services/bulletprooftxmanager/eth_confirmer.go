@@ -855,7 +855,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 		bumpedGasPrice = ec.config.EvmGasPriceDefault()
 		bumpedGasLimit = etx.GasLimit
 	}
-	return newAttempt(ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
+	return NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
 }
 
 func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
@@ -890,9 +890,9 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
 			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := newAttempt(ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
+		replacementAttempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
 		if err != nil {
-			return errors.Wrap(err, "newAttempt failed")
+			return errors.Wrap(err, "NewAttempt failed")
 		}
 
 		if err := saveReplacementInProgressAttempt(ec.db, attempt, &replacementAttempt); err != nil {
@@ -1213,7 +1213,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := newAttempt(ec.ethClient, ec.keystore, ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				ec.logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
