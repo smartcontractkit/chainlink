@@ -110,7 +110,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				gethks:             d.ks.Eth(),
 				pipelineORM:        d.porm,
 				job:                jb,
-				reqLogs:            utils.NewMailbox(100000),
+				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
@@ -137,7 +137,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				job:             jb,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewMailbox(100000),
+				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
