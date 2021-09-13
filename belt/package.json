@@ -22,7 +22,7 @@
     "@0x/sol-compiler": "4.0.8",
     "@oclif/command": "^1",
     "@oclif/config": "^1",
-    "@oclif/plugin-help": "^3",
+    "@oclif/plugin-help": "^3.3.0",
     "@oclif/plugin-not-found": "^1.2.3",
     "@typechain/ethers-v4": "^4.0.0",
     "chalk": "^4.1.0",
