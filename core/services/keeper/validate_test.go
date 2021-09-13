@@ -64,6 +64,7 @@ encode_check_upkeep_tx   [type=ethabiencode abi="checkUpkeep(uint256 id, address
 check_upkeep_tx          [type=ethcall
                           failEarly=true
                           gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
                           extractRevertReason=true
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
@@ -110,6 +111,7 @@ encode_check_upkeep_tx   [type=ethabiencode abi="checkUpkeep(uint256 id, address
 check_upkeep_tx          [type=ethcall
                           failEarly=true
                           gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
                           contract="$(jobSpec.contractAddress)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
