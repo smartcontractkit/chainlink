@@ -106,7 +106,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
-	cltest.MustInsertKeeperJob(t, app.Store.DB, nodeAddressEIP55, regAddrEIP55)
+	cltest.MustInsertKeeperJob(t, app.GetDB(), nodeAddressEIP55, regAddrEIP55)
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {
@@ -134,7 +134,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
-	cltest.WaitForCount(t, app.Store.DB, keeper.UpkeepRegistration{}, 0)
+	cltest.WaitForCount(t, app.GetDB(), keeper.UpkeepRegistration{}, 0)
 
 	// add new upkeep (same target contract)
 	_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
@@ -155,8 +155,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	var registry keeper.Registry
-	require.NoError(t, app.Store.DB.First(&registry).Error)
-	cltest.AssertRecordEventually(t, app.Store.DB, &registry, func() bool {
+	require.NoError(t, app.GetDB().First(&registry).Error)
+	cltest.AssertRecordEventually(t, app.GetDB(), &registry, func() bool {
 		return registry.KeeperIndex == -1
 	})
 	runs, err := app.PipelineORM().GetAllRuns()

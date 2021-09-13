@@ -52,7 +52,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		defer cleanup()
 
 		_, bridge := cltest.NewBridgeType(t, "my_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 	}
 
 	// Add the job
@@ -115,7 +115,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		defer cleanup()
 
 		_, bridge := cltest.NewBridgeType(t, "fetch_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 
 		mockServer, cleanup = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 			defer r.Body.Close()
@@ -126,7 +126,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		defer cleanup()
 
 		_, bridge = cltest.NewBridgeType(t, "submit_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 	}
 
 	// Add the job

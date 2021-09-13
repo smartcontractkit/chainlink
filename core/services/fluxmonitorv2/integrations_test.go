@@ -522,7 +522,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance,
 		receiptBlock,
 	)
-	assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
+	assertPipelineRunCreated(t, app.GetDB(), 1, float64(100))
 
 	// make sure the log is sent from LogBroadcaster
 	fa.backend.Commit()
@@ -531,7 +531,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobId), 5)
+	checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 5)
 
 	logger.Info("Updating price to 103")
 	// Change reported price to a value outside the deviation
@@ -555,7 +555,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance-fee,
 		receiptBlock,
 	)
-	assertPipelineRunCreated(t, app.Store.DB, 2, float64(103))
+	assertPipelineRunCreated(t, app.GetDB(), 2, float64(103))
 
 	stopMining := cltest.Mine(fa.backend, time.Second)
 	defer stopMining()
@@ -563,7 +563,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Need to wait until NewRound log is consumed - otherwise there is a chance
 	// it will arrive after the next answer is submitted, and cause
 	// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-	checkLogWasConsumed(t, fa, app.Store.DB, int32(jobId), 8)
+	checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 8)
 
 	// Should not received a submission as it is inside the deviation
 	reportPrice.Store(104)
