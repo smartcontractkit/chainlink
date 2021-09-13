@@ -346,6 +346,9 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 }
 
 func newAttempt(ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (EthTxAttempt, error) {
+	if gasPrice == nil {
+		panic("gas price missing")
+	}
 	attempt := EthTxAttempt{}
 
 	tx := newLegacyTransaction(
