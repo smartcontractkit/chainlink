@@ -87,8 +87,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
-	defer cfgCleanup()
+	config, _ := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
 	d := 24 * time.Hour
 	// disable full sync ticker for test
 	config.Overrides.KeeperRegistrySyncInterval = &d
@@ -100,8 +99,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	// helps prevent missed heads
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(100)
-	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
-	defer appCleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	require.NoError(t, app.Start())
 
 	// create job

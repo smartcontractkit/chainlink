@@ -13,8 +13,7 @@ import (
 )
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)

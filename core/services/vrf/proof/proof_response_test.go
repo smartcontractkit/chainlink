@@ -19,8 +19,7 @@ import (
 )
 
 func TestMarshaledProof(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	keyStore := cltest.NewKeyStore(t, store.DB)
 	key := cltest.DefaultVRFKey
 	keyStore.VRF().Add(key)

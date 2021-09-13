@@ -42,8 +42,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	sqlEnabled := true
 	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -70,8 +69,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 

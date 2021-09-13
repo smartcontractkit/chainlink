@@ -19,8 +19,7 @@ import (
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -50,8 +49,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 func TestTransfersController_TransferError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -73,8 +71,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
