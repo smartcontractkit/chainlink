@@ -22,6 +22,7 @@ type ETHCallTask struct {
 	Contract            string `json:"contract"`
 	Data                string `json:"data"`
 	Gas                 string `json:"gas"`
+	GasPrice            string `json:"gasPrice"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
@@ -45,11 +46,14 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		contractAddr AddressParam
 		data         BytesParam
 		gas          Uint64Param
+		gasPrice     MaybeBigIntParam
 	)
+
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false))), "data"),
 		errors.Wrap(ResolveParam(&gas, From(VarExpr(t.Gas, vars), NonemptyString(t.Gas), 0)), "gas"),
+		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -58,9 +62,10 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	}
 
 	call := ethereum.CallMsg{
-		To:   (*common.Address)(&contractAddr),
-		Data: []byte(data),
-		Gas:  uint64(gas),
+		To:       (*common.Address)(&contractAddr),
+		Data:     []byte(data),
+		Gas:      uint64(gas),
+		GasPrice: gasPrice.BigInt(),
 	}
 
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
