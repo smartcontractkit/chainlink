@@ -137,7 +137,10 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "keeper",
-			toml: testspecs.KeeperSpec,
+			toml: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
+				ContractAddress: "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+				FromAddress:     "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+			}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 

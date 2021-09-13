@@ -19,7 +19,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 constant MAXIMUM_CONSUMERS = 100;
+  uint16 public constant MAX_CONSUMERS = 100;
   error TooManyConsumers();
   error InsufficientBalance();
   error InvalidConsumer(uint64 subId, address consumer);
@@ -52,10 +52,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, defundSubscription, cancelSubscription and oracleWithdraw.
-  // A discrepancy with this contracts link balance indicates someone
+  // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
-  event SubscriptionCreated(uint64 indexed subId, address owner, address[] consumers);
+  event SubscriptionCreated(uint64 indexed subId, address owner);
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
   event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
@@ -66,16 +66,17 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
-  uint16 constant MAX_REQUEST_CONFIRMATIONS = 200;
-  uint32 constant MAX_NUM_WORDS = 500;
+  uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
+  uint32 public constant MAX_NUM_WORDS = 500;
   // The minimum gas limit that could be requested for a callback.
   // Set to 5k to ensure plenty of room to make the call itself.
-  uint256 constant private MINIMUM_GAS_LIMIT = 5_000;
+  uint256 public constant MIN_GAS_LIMIT = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
-  error KeyHashAlreadyRegistered(bytes32 keyHash);
-  error InvalidFeedResponse(int256 linkWei);
+  error ProvingKeyAlreadyRegistered(bytes32 keyHash);
+  error NoSuchProvingKey(bytes32 keyHash);
+  error InvalidLinkWeiPrice(int256 linkWei);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
@@ -89,10 +90,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 numWords;
     address sender;
   }
-  mapping(bytes32 /* keyHash */ => address /* oracle */) private s_serviceAgreements;
+  mapping(bytes32 /* keyHash */ => address /* oracle */) private s_provingKeys;
   mapping(address /* oracle */ => uint96 /* LINK balance */) private s_withdrawableTokens;
   mapping(uint256 /* requestID */ => bytes32 /* commitment */) private s_requestCommitments;
-  event NewServiceAgreement(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -125,7 +127,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Re-entrancy protection.
     bool reentrancyLock;
   }
-  int256 s_fallbackWeiPerUnitLink;
+  int256 internal s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -162,11 +164,30 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     onlyOwner()
   {
     bytes32 kh = hashOfKey(publicProvingKey);
-    if (s_serviceAgreements[kh] != address(0)) {
-      revert KeyHashAlreadyRegistered(kh);
+    if (s_provingKeys[kh] != address(0)) {
+      revert ProvingKeyAlreadyRegistered(kh);
     }
-    s_serviceAgreements[kh] = oracle;
-    emit NewServiceAgreement(kh, oracle);
+    s_provingKeys[kh] = oracle;
+    emit ProvingKeyRegistered(kh, oracle);
+  }
+
+  /**
+   * @notice Deregisters a proving key to an oracle.
+   * @param publicProvingKey key that oracle can use to submit vrf fulfillments
+   */
+  function deregisterProvingKey(
+    uint256[2] calldata publicProvingKey
+  )
+    external
+    onlyOwner()
+  {
+    bytes32 kh = hashOfKey(publicProvingKey);
+    address oracle = s_provingKeys[kh];
+    if (oracle == address(0)) {
+      revert NoSuchProvingKey(kh);
+    }
+    delete s_provingKeys[kh];
+    emit ProvingKeyDeregistered(kh, oracle);
   }
 
   /**
@@ -197,6 +218,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     external
     onlyOwner()
   {
+    if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
+      revert InvalidRequestConfirmations(minimumRequestConfirmations, minimumRequestConfirmations, MAX_REQUEST_CONFIRMATIONS);
+    }
+    if (fallbackWeiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
+    }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
       fulfillmentFlatFeeLinkPPM: fulfillmentFlatFeeLinkPPM,
@@ -340,7 +367,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    * The maximum amount of gasAmount is all gas available but 1/64th.
-   * The minimum amount of gasAmount MINIMUM_GAS_LIMIT.
+   * The minimum amount of gasAmount is MIN_GAS_LIMIT.
    */
   function callWithExactGas(
     uint256 gasAmount,
@@ -352,11 +379,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       bool success
     )
   {
+    // solhint-disable-next-line no-inline-assembly
     assembly{
       let g := gas()
-      // Compute g -= MINIMUM_GAS_LIMIT and check for underflow
-      if lt(g, MINIMUM_GAS_LIMIT) { revert(0, 0) }
-      g := sub(g, MINIMUM_GAS_LIMIT)
+      // Compute g -= MIN_GAS_LIMIT and check for underflow
+      if lt(g, MIN_GAS_LIMIT) { revert(0, 0) }
+      g := sub(g, MIN_GAS_LIMIT)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) { revert(0, 0) }
@@ -380,6 +408,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       uint256 randomness
     ) {
       keyHash = hashOfKey(proof.pk);
+      // Only registered proving keys are permitted.
+      address oracle = s_provingKeys[keyHash];
+      if (oracle == address(0)) {
+        revert NoSuchProvingKey(keyHash);
+      }
       requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
       bytes32 commitment = s_requestCommitments[requestId];
       if (commitment == 0) {
@@ -453,7 +486,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InsufficientBalance();
     }
     s_subscriptions[rc.subId].balance -= payment;
-    s_withdrawableTokens[s_serviceAgreements[keyHash]] += payment;
+    s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
   }
 
   // Get the amount of gas used for fulfillment
@@ -471,8 +504,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink < 0) {
-      revert InvalidFeedResponse(weiPerUnitLink);
+    if (weiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
     uint256 paymentNoFee = 1e18*weiPerUnitGas*(gasAfterPaymentCalculation + startGas - gasleft()) / uint256(weiPerUnitLink);
@@ -495,6 +528,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint256 timestamp;
     int256 weiPerUnitLink;
     (,weiPerUnitLink,,timestamp,) = LINK_ETH_FEED.latestRoundData();
+    // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
@@ -567,35 +601,24 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     );
   }
 
-  function createSubscription(
-    address[] memory consumers // permitted consumers of the subscription
-  )
+  function createSubscription()
     external
     nonReentrant()
     returns (
       uint64
     )
   {
-    if (consumers.length > MAXIMUM_CONSUMERS) {
-      revert TooManyConsumers();
-    }
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
+    address[] memory consumers = new address[](0);
     s_subscriptions[currentSubId] = Subscription({
       balance: 0,
       owner: msg.sender,
       requestedOwner: address(0),
       consumers: consumers
     });
-    for (uint256 i; i < consumers.length; i++) {
-      // Note since we just created this sub, its not possible that a consumer
-      // already exists at this consumer and subId.
-      s_consumers[consumers[i]][currentSubId] = Consumer({
-        subId: currentSubId,
-        nonce: 0
-      });
-    }
-    emit SubscriptionCreated(currentSubId, msg.sender, consumers);
+
+    emit SubscriptionCreated(currentSubId, msg.sender);
     return currentSubId;
   }
 
@@ -643,7 +666,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_consumers[consumer][subId].subId == 0) {
       revert InvalidConsumer(subId, consumer);
     }
-    // Note bounded by MAXIMUM_CONSUMERS
+    // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptions[subId].consumers;
     uint256 lastConsumerIndex = consumers.length-1;
     for (uint256 i = 0; i < consumers.length; i++) {
@@ -669,11 +692,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     nonReentrant()
   {
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subId].consumers.length == MAXIMUM_CONSUMERS) {
+    if (s_subscriptions[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
     if (s_consumers[consumer][subId].subId != 0) {
       // Idempotence - do nothing if already added.
+      // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
     s_consumers[consumer][subId] = Consumer({
@@ -718,7 +742,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   {
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
-    // Note bounded by MAXIMUM_CONSUMERS;
+    // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; i++) {
       delete s_consumers[sub.consumers[i]][subId];

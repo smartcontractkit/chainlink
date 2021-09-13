@@ -239,6 +239,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*BridgeTask).db = r.orm.DB()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
+			task.(*ETHCallTask).config = r.config
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
@@ -425,7 +426,7 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
 }
 
-// ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
+// ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	run, trrs, err := r.ExecuteRun(ctx, spec, vars, l)
 	if err != nil {
@@ -454,7 +455,12 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
+	ctx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
+	defer cancel()
+
+	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(ctx, func(ctx context.Context) error {
+		tx := postgres.TxFromContext(ctx, r.orm.DB())
+
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()
@@ -476,14 +482,13 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if err = r.orm.CreateRun(postgres.UnwrapGorm(tx), run); err != nil {
 				return err
 			}
-
 		}
 
 		if fn != nil {
 			return fn(tx)
 		}
 		return nil
-	})
+	}, postgres.WithoutDeadline())
 	if err != nil {
 		return false, err
 	}

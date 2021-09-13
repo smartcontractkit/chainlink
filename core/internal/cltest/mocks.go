@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"runtime/debug"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"go.uber.org/atomic"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -337,17 +337,17 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	onNewHeadCount int32
+	onNewHeadCount atomic.Int32
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
 func (m *MockHeadTrackable) OnNewLongestChain(context.Context, models.Head) {
-	atomic.AddInt32(&m.onNewHeadCount, 1)
+	m.onNewHeadCount.Inc()
 }
 
 // OnNewLongestChainCount returns the count of new heads, safely.
 func (m *MockHeadTrackable) OnNewLongestChainCount() int32 {
-	return atomic.LoadInt32(&m.onNewHeadCount)
+	return m.onNewHeadCount.Load()
 }
 
 // NeverSleeper is a struct that never sleeps
