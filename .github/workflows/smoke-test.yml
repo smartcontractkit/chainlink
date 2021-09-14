@@ -23,6 +23,17 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
@@ -39,8 +50,8 @@ jobs:
           context: .
           file: core/chainlink.Dockerfile
           build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-          tags: chainlink:local-build
-          push: false
+          tags: ${{ secrets.AWS_ACCESS_KEY_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
+          push: true
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
           outputs: type=docker,dest=/tmp/chainlink.tar
@@ -57,8 +68,8 @@ jobs:
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
-      APPS_CHAINLINK_IMAGE: chainlink
-      APPS_CHAINLINK_VERSION: local-build
+      APPS_CHAINLINK_IMAGE: ${{ secrets.AWS_ACCESS_KEY_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+      APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -95,6 +106,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
       - name: Prepare KUBECONFIG
         run: echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
       - name: Setup go
@@ -130,8 +144,8 @@ jobs:
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
-      APPS_CHAINLINK_IMAGE: smartcontract/chainlink
-      APPS_CHAINLINK_VERSION: latest
+      APPS_CHAINLINK_IMAGE: ${{ secrets.AWS_ACCESS_KEY_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+      APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
       NETWORK: ethereum_geth_performance
     steps:
       - name: Checkout the repo
@@ -168,6 +182,9 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
           role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
       - name: Prepare KUBECONFIG
         run: echo "${{ secrets.KUBECONFIG }}" > $KUBECONFIG
       - name: Setup go
