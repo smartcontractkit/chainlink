@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -59,7 +58,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		estimator := newBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -93,7 +92,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == int(historySize)
@@ -129,7 +128,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 

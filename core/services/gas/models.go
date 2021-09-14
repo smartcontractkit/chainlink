@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var (
@@ -40,7 +39,7 @@ func NewEstimator(lggr *logger.Logger, ethClient eth.Client, config Config) Esti
 // Estimator provides an interface for estimating gas price and limit
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
-	OnNewLongestChain(context.Context, models.Head)
+	OnNewLongestChain(context.Context, eth.Head)
 	Start() error
 	Close() error
 	EstimateGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)

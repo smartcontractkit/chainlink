@@ -44,14 +44,13 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
-	logger         *logger.Logger
-	db             *gorm.DB
-	ethClient      eth.Client
-	chainID        big.Int
-	config         Config
-	keystore       KeyStore
-	advisoryLocker postgres.AdvisoryLocker
-	estimator      gas.Estimator
+	logger    *logger.Logger
+	db        *gorm.DB
+	ethClient eth.Client
+	chainID   big.Int
+	config    Config
+	keystore  KeyStore
+	estimator gas.Estimator
 
 	ethTxInsertListener postgres.Subscription
 	eventBroadcaster    postgres.EventBroadcaster
@@ -72,7 +71,7 @@ type EthBroadcaster struct {
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster,
+	eventBroadcaster postgres.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,7 +83,6 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		chainID:          *ethClient.ChainID(),
 		config:           config,
 		keystore:         keystore,
-		advisoryLocker:   advisoryLocker,
 		estimator:        estimator,
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
@@ -208,9 +206,7 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 }
 
 func (eb *EthBroadcaster) ProcessUnstartedEthTxs(keyState ethkey.State) error {
-	return eb.advisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthBroadcaster, keyState.ID, func() error {
-		return eb.processUnstartedEthTxs(keyState.Address.Address())
-	})
+	return eb.processUnstartedEthTxs(keyState.Address.Address())
 }
 
 // NOTE: This MUST NOT be run concurrently for the same address or it could

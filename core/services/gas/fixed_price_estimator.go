@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 var _ Estimator = &fixedPriceEstimator{}
@@ -17,9 +17,9 @@ func NewFixedPriceEstimator(config Config) Estimator {
 	return &fixedPriceEstimator{config}
 }
 
-func (f *fixedPriceEstimator) Start() error                                       { return nil }
-func (f *fixedPriceEstimator) Close() error                                       { return nil }
-func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ models.Head) {}
+func (f *fixedPriceEstimator) Start() error                                    { return nil }
+func (f *fixedPriceEstimator) Close() error                                    { return nil }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ eth.Head) {}
 
 func (f *fixedPriceEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()

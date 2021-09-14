@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
@@ -101,7 +100,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head models.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -126,9 +125,9 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(models.Head)
+	head, ok := item.(eth.Head)
 	if !ok {
-		ex.logger.Errorf("expected `models.Head`, got %T", head)
+		ex.logger.Errorf("expected `eth.Head`, got %T", head)
 		return
 	}
 

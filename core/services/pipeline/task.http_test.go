@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -144,8 +145,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
 			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
@@ -160,12 +160,12 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(cfg, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
 			bridge.URL = *feedWebURL
-			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+			require.NoError(t, db.Create(&bridge).Error)
 
 			test.vars.Set("meta", test.meta)
 			result := task.Run(context.Background(), test.vars, test.inputs)

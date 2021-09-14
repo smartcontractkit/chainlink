@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"math"
 	"reflect"
 	"strconv"
 	"sync"
@@ -174,7 +175,8 @@ func (js *spawner) startUnclaimedServices() {
 	ctx, cancel := utils.CombinedContext(js.chStop, 5*time.Second)
 	defer cancel()
 
-	specs, err := js.orm.ClaimUnclaimedJobs(ctx)
+	// TODO: rename to find AllJobs
+	specs, _, err := js.orm.JobsV2(0, math.MaxUint32)
 	if err != nil {
 		logger.Errorf("Couldn't fetch unclaimed jobs: %v", err)
 		return
@@ -183,9 +185,11 @@ func (js *spawner) startUnclaimedServices() {
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
+	// do a diff between allJobs and activeJobs
+
 	for _, spec := range specs {
 		if _, exists := js.activeJobs[spec.ID]; exists {
-			logger.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", spec.ID)
+			// job already started, skip
 			continue
 		}
 
@@ -259,7 +263,7 @@ func (js *spawner) stopService(jobID int32) {
 }
 
 func (js *spawner) checkForDeletedJobs(ctx context.Context) {
-	jobIDs, err := js.orm.CheckForDeletedJobs(ctx)
+	jobIDs, err := js.orm.CheckForDeletedJobs(ctx, js.activeJobIDs())
 	if err != nil {
 		logger.Errorw("failed to CheckForDeletedJobs", "err", err)
 		return
@@ -271,15 +275,7 @@ func (js *spawner) checkForDeletedJobs(ctx context.Context) {
 
 func (js *spawner) unloadDeletedJob(ctx context.Context, jobID int32) {
 	logger.Infow("Unloading deleted job", "jobID", jobID)
-
 	js.stopService(jobID)
-
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	if err := js.orm.UnclaimJob(ctx, jobID); err != nil {
-		logger.Errorw("Unexpected error unclaiming job", "jobID", jobID)
-	}
 }
 
 func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
@@ -371,6 +367,17 @@ func (js *spawner) ActiveJobs() map[int32]Job {
 		m[jobID] = js.activeJobs[jobID].spec
 	}
 	return m
+}
+
+func (js *spawner) activeJobIDs() []int32 {
+	js.activeJobsMu.RLock()
+	defer js.activeJobsMu.RUnlock()
+
+	ids := make([]int32, 0, len(js.activeJobs))
+	for jobID := range js.activeJobs {
+		ids = append(ids, jobID)
+	}
+	return ids
 }
 
 var _ Delegate = &NullDelegate{}

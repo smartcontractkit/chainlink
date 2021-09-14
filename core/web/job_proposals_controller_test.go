@@ -410,7 +410,7 @@ func setupJobProposalsTest(t *testing.T) *TestJobProposalsController {
 	client := app.NewHTTPClient()
 
 	// Defer the FK requirement of a feeds manager.
-	require.NoError(t, app.Store.DB.Exec(
+	require.NoError(t, app.GetDB().Exec(
 		`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
 	).Error)
 
