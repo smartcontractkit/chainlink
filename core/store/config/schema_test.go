@@ -98,6 +98,7 @@ func TestConfigSchema(t *testing.T) {
 		"JobPipelineReaperThreshold":                 "JOB_PIPELINE_REAPER_THRESHOLD",
 		"JobPipelineResultWriteQueueDepth":           "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",
 		"KeeperDefaultTransactionQueueDepth":         "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
+		"KeeperGasPriceBufferPercent":                "KEEPER_GAS_PRICE_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                   "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperMinimumRequiredConfirmations":         "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
 		"KeeperRegistryCheckGasOverhead":             "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",

@@ -31,7 +31,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var keys []ethkey.KeyV2
 	var err error
-	if ekc.App.GetStore().Config.Dev() {
+	if ekc.App.GetConfig().Dev() {
 		keys, err = ethKeyStore.GetAll()
 	} else {
 		keys, err = ethKeyStore.SendingKeys()
@@ -55,8 +55,8 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 		r, err := presenters.NewETHKeyResource(key, state,
-			ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-			ekc.setLinkBalance(key.Address.Address()),
+			ekc.setEthBalance(c.Request.Context(), state),
+			ekc.setLinkBalance(state),
 		)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -98,8 +98,8 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 	r, err := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -149,8 +149,8 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	}
 
 	r, err := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -196,8 +196,8 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 	}
 
 	r, err := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -224,14 +224,12 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // setEthBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr common.Address) presenters.NewETHKeyOption {
-	// FIXME: This doesn't work if multiple chains are specified
-	// See: https://app.clubhouse.io/chainlinklabs/story/14623/showing-balance-in-ui-and-cli-should-work-for-all-chains-regression
+func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
 	var bal *big.Int
-	chain, err := ekc.App.GetChainSet().Default()
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
-		bal, err = ethClient.BalanceAt(ctx, accountAddr, nil)
+		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
 	}
 	return func(r *presenters.ETHKeyResource) error {
 		if errors.Cause(err) == evm.ErrNoChains {
@@ -251,15 +249,13 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // setLinkBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
-	// FIXME: This doesn't work if multiple chains are specified
-	// See: https://app.clubhouse.io/chainlinklabs/story/14623/showing-balance-in-ui-and-cli-should-work-for-all-chains-regression
+func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewETHKeyOption {
 	var bal *assets.Link
-	chain, err := ekc.App.GetChainSet().Default()
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
 	if err == nil {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().LinkContractAddress())
-		bal, err = ethClient.GetLINKBalance(addr, accountAddr)
+		bal, err = ethClient.GetLINKBalance(addr, state.Address.Address())
 	}
 
 	return func(r *presenters.ETHKeyResource) error {

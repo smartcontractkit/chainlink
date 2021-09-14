@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Add support for OKEx/ExChain.
 
+Chainlink now supports more than one primary eth node per chain. Requests are round-robined.
+
 ## [v1.0.0]
 
 

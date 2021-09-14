@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -27,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -77,7 +77,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{}, ks)
+	jrm := job.NewORM(db, cc, prm, eb, ks)
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err = ks.Eth().Create(big.NewInt(0))
@@ -442,7 +442,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
-		listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+		listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
@@ -515,7 +515,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}, vuni.cid, nil))
 	waitForChannel(t, added, time.Second, "request not queued")
 	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
@@ -575,7 +575,7 @@ func TestFulfilledCheck(t *testing.T) {
 
 	// Should queue the request, even though its already fulfilled
 	waitForChannel(t, added, time.Second, "request not queued")
-	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run

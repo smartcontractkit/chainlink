@@ -2,20 +2,21 @@ package keeper
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
 
 const (
@@ -35,6 +36,7 @@ type UpkeepExecuter struct {
 	config          Config
 	executionQueue  chan struct{}
 	headBroadcaster httypes.HeadBroadcasterRegistry
+	gasEstimator    gas.Estimator
 	job             job.Job
 	mailbox         *utils.Mailbox
 	orm             ORM
@@ -51,6 +53,7 @@ func NewUpkeepExecuter(
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
+	gasEstimator gas.Estimator,
 	logger *logger.Logger,
 	config Config,
 ) *UpkeepExecuter {
@@ -59,6 +62,7 @@ func NewUpkeepExecuter(
 		ethClient:       ethClient,
 		executionQueue:  make(chan struct{}, executionQueueSize),
 		headBroadcaster: headBroadcaster,
+		gasEstimator:    gasEstimator,
 		job:             job,
 		mailbox:         utils.NewMailbox(1),
 		config:          config,
@@ -96,7 +100,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head models.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -121,9 +125,9 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(models.Head)
+	head, ok := item.(eth.Head)
 	if !ok {
-		ex.logger.Errorf("expected `models.Head`, got %T", head)
+		ex.logger.Errorf("expected `eth.Head`, got %T", head)
 		return
 	}
 
@@ -157,17 +161,21 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 	wg.Wait()
 }
 
-// execute calls checkForUpkeep and, if it succeeds, trigger a job on the CL node
-// DEV: must perform contract call "manually" because abigen wrapper can only send tx
+// execute triggers the pipeline run
 func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 
 	svcLogger := ex.logger.With("blockNum", headNumber, "upkeepID", upkeep.UpkeepID)
-
 	svcLogger.Debug("checking upkeep")
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
+
+	gasPrice, err := ex.estimateGasPrice(upkeep)
+	if err != nil {
+		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
+		return
+	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
@@ -178,21 +186,42 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
+			"gasPrice": gasPrice,
 		},
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, func(tx *gorm.DB) error {
-		// NOTE: this is the block that initiated the run, not the block height when broadcast nor the block
-		// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
-		// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
+	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, nil); err != nil {
+		ex.logger.WithError(err).Errorw("failed executing run")
+		return
+	}
+
+	// Only after task runs where a tx was broadcast
+	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
 		if err != nil {
-			return errors.Wrap(err, "failed to set last run height for upkeep")
+			ex.logger.WithError(err).Errorw("failed to set last run height for upkeep")
 		}
-
-		return nil
-	}); err != nil {
-		ex.logger.Errorw("failed executing run", "err", err)
 	}
+}
+
+func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int, error) {
+	performTxData, err := RegistryABI.Pack(
+		"performUpkeep",
+		big.NewInt(upkeep.UpkeepID),
+		common.Hex2Bytes("1234"), // placeholder
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
+	}
+	gasPrice, _, err := ex.gasEstimator.EstimateGas(performTxData, upkeep.ExecuteGas)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to estimate gas")
+	}
+	// add GasPriceBuffer to gasPrice
+	gasPrice = bigmath.Div(
+		bigmath.Mul(gasPrice, 100+ex.config.KeeperGasPriceBufferPercent()),
+		100,
+	)
+	return gasPrice, nil
 }

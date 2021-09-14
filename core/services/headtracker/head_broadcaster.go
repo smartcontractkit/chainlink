@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -51,7 +51,7 @@ type headBroadcaster struct {
 	chClose   chan struct{}
 	wgDone    sync.WaitGroup
 	utils.StartStopOnce
-	latest *models.Head
+	latest *eth.Head
 }
 
 var _ httypes.HeadTrackable = (*headBroadcaster)(nil)
@@ -77,13 +77,13 @@ func (hr *headBroadcaster) Close() error {
 	})
 }
 
-func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	hr.mailbox.Deliver(head)
 }
 
 // Subscribe - Subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
+func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
 	if callback == nil {
 		panic("callback must be non-nil func")
 	}
@@ -125,9 +125,9 @@ func (hr *headBroadcaster) executeCallbacks() {
 		hr.logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
 		return
 	}
-	head, ok := item.(models.Head)
+	head, ok := item.(eth.Head)
 	if !ok {
-		hr.logger.Errorf("expected `models.Head`, got %T", head)
+		hr.logger.Errorf("expected `eth.Head`, got %T", head)
 		return
 	}
 	hr.mutex.Lock()
@@ -170,10 +170,10 @@ func newID() (id callbackID, _ error) {
 
 type NullBroadcaster struct{}
 
-func (*NullBroadcaster) Start() error                                            { return nil }
-func (*NullBroadcaster) Close() error                                            { return nil }
-func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
-func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
+func (*NullBroadcaster) Start() error                                         { return nil }
+func (*NullBroadcaster) Close() error                                         { return nil }
+func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {}
+func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
 	return nil, func() {}
 }
 func (n *NullBroadcaster) Healthy() error { return nil }

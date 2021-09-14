@@ -113,7 +113,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&jb, "type = ?", job.OffchainReporting).Error)
+				require.NoError(t, app.GetDB().Preload("OffchainreportingOracleSpec").First(&jb, "type = ?", job.OffchainReporting).Error)
 
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
@@ -145,7 +145,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("KeeperSpec").First(&jb, "type = ?", job.Keeper).Error)
+				require.NoError(t, app.GetDB().Preload("KeeperSpec").First(&jb, "type = ?", job.Keeper).Error)
 
 				resource := presenters.JobResource{}
 				b := cltest.ParseResponseBody(t, r)
@@ -169,7 +169,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("CronSpec").First(&jb, "type = ?", job.Cron).Error)
+				require.NoError(t, app.GetDB().Preload("CronSpec").First(&jb, "type = ?", job.Cron).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
@@ -183,7 +183,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440004'", job.DirectRequest).Error)
+				require.NoError(t, app.GetDB().Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440004'", job.DirectRequest).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
@@ -200,7 +200,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440014'", job.DirectRequest).Error)
+				require.NoError(t, app.GetDB().Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440014'", job.DirectRequest).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
@@ -220,7 +220,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("FluxMonitorSpec").First(&jb, "type = ?", job.FluxMonitor).Error)
+				require.NoError(t, app.GetDB().Preload("FluxMonitorSpec").First(&jb, "type = ?", job.FluxMonitor).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
@@ -239,7 +239,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
-				require.NoError(t, app.Store.DB.Preload("VRFSpec").First(&jb, "type = ?", job.VRF).Error)
+				require.NoError(t, app.GetDB().Preload("VRFSpec").First(&jb, "type = ?", job.VRF).Error)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(resp, &resource)
@@ -272,9 +272,9 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.NewBridgeType(t, "fetch_bridge", "http://foo.bar")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 	_, bridge = cltest.NewBridgeType(t, "submit_bridge", "http://foo.bar")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 
 	client := app.NewHTTPClient()
 
@@ -287,7 +287,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.Job{}
-	require.NoError(t, app.Store.DB.Preload("WebhookSpec").First(&jb).Error)
+	require.NoError(t, app.GetDB().Preload("WebhookSpec").First(&jb).Error)
 
 	resource := presenters.JobResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
@@ -391,9 +391,9 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+	require.NoError(t, app.GetDB().Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
@@ -409,9 +409,9 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+	require.NoError(t, app.GetDB().Create(bridge2).Error)
 
 	client := app.NewHTTPClient()
 

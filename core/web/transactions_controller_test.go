@@ -83,7 +83,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+	db := app.GetDB()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
@@ -117,7 +117,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+	db := app.GetDB()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)

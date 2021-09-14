@@ -20,7 +20,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+	db := app.GetDB()
 	client := app.NewHTTPClient()
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)

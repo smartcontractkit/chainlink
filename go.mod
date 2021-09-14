@@ -5,7 +5,6 @@ go 1.16
 require (
 	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
-	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/coreos/go-semver v0.3.0
@@ -25,7 +24,7 @@ require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/jackc/pgconn v1.10.0
-	github.com/jackc/pgtype v1.8.1
+	github.com/jackc/pgtype v1.8.1 // indirect
 	github.com/jackc/pgx/v4 v4.12.1-0.20210724153913-640aa07df17c
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/jpillora/backoff v1.0.0
@@ -89,3 +88,6 @@ require (
 // If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
 // for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
 replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
+
+// severed-websocket-1.10.8
+replace github.com/ethereum/go-ethereum => github.com/smartcontractkit/go-ethereum v1.10.9-0.20210909134823-a177d470d620

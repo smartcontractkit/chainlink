@@ -12,8 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -52,7 +52,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		latestBlock := blocks[1000]
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			*tmp = blocks[args[1].(*big.Int).Int64()]
 		})
@@ -74,7 +74,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		latestBlock := blocks[1000]
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			*tmp = blocks[args[1].(*big.Int).Int64()]
 		})
@@ -96,7 +96,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		latestBlock := blocks[1000]
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
@@ -121,7 +121,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		latestBlock := blocks[1000]
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
@@ -146,7 +146,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		latestBlock := blocks[1000]
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
@@ -173,7 +173,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 		// Latest is never cached
 		client.On("HeadByNumber", ctx, (*big.Int)(nil)).Return(&latestBlock, nil).Once()
 
-		tmp := new(models.Head)
+		tmp := new(eth.Head)
 		client.On("HeadByNumber", ctx, mock.AnythingOfType("*big.Int")).Times(20+18+14).Return(tmp, nil).Run(func(args mock.Arguments) {
 			h := blocks[args[1].(*big.Int).Int64()]
 			*tmp = h
@@ -240,14 +240,14 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 	})
 }
 
-func generateDeterministicL2Blocks() (heads []models.Head) {
+func generateDeterministicL2Blocks() (heads []eth.Head) {
 	source := mrand.NewSource(0)
 	deterministicRand := mrand.New(source)
 	l2max := 1000
 	var l1BlockNumber int64 = 5000
 	var parentHash common.Hash
 	for i := 0; i <= l2max; i++ {
-		head := models.Head{
+		head := eth.Head{
 			Number:        int64(i),
 			L1BlockNumber: null.Int64From(l1BlockNumber),
 			Hash:          utils.NewHash(),

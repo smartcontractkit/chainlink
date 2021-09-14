@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
@@ -164,7 +164,7 @@ func (o *optimismEstimator) BumpGas(originalGasPrice *big.Int, originalGasLimit 
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
-func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ models.Head) {}
+func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ eth.Head) {}
 
 func (o *optimismEstimator) calcGas(calldata []byte, l2GasLimit uint64) (chainSpecificGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	l1GasPrice, l2GasPrice := o.getGasPrices()
