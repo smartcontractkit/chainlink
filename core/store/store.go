@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
@@ -35,13 +34,6 @@ type Store struct {
 
 // NewStore will create a new store
 func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, shutdownSignal)
-}
-
-func newStore(
-	config config.GeneralConfig,
-	shutdownSignal gracefulpanic.Signal,
-) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		return nil, errors.Wrap(err, "error while creating project root dir")
 	}
@@ -80,39 +72,6 @@ func (s *Store) Healthy() error {
 	return nil
 }
 
-func CheckSquashUpgrade(db *gorm.DB) error {
-	// Ensure that we don't try to run a node version later than the
-	// squashed database versions without first migrating up to just before the squash.
-	// If we don't see the latest migration and node version >= S, error and recommend
-	// first running version S - 1 (S = version in which migrations are squashed).
-	if static.Version == "unset" {
-		return nil
-	}
-	squashVersionMinus1 := semver.New("0.9.10")
-	currentVersion, err := semver.NewVersion(static.Version)
-	if err != nil {
-		return errors.Wrapf(err, "expected VERSION to be valid semver (for example 1.42.3). Got: %s", static.Version)
-	}
-	lastV1Migration := "1611847145"
-	if squashVersionMinus1.LessThan(*currentVersion) {
-		// Completely empty database is fine to run squashed migrations on
-		if !db.Migrator().HasTable("migrations") {
-			return nil
-		}
-		// Running code later than S - 1. Ensure that we see
-		// the last v1 migration.
-		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
-		if q.Error != nil {
-			return q.Error
-		}
-		if q.RowsAffected == 0 {
-			// Do not have the S-1 migration.
-			return errors.Errorf("Need to upgrade to chainlink version %v first before upgrading to version %v in order to run migrations", squashVersionMinus1, currentVersion)
-		}
-	}
-	return nil
-}
-
 func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := cfg.DatabaseURL()
 	dbOrm, err := orm.NewORM(dbURL.String(), cfg.DatabaseTimeout(), shutdownSignal, cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
@@ -146,9 +105,6 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
-	}
-	if err = CheckSquashUpgrade(dbOrm.DB); err != nil {
-		panic(err)
 	}
 	if cfg.MigrateDatabase() {
 		dbOrm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
