@@ -39,7 +39,7 @@ schemaVersion                = 1
 requesters                   = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
 minContractPaymentLinkJuels  = "1000000000000000000000"
 name                         = "example eth request event spec with requesters and min contract payment"
-contractAddress              = "0x613a38AC1659769640aaE063C651F48E0250454C"
+contractAddress              = "0x3e4a23dB81D1F1268983f0CE78F1a9dC329A5b36"
 externalJobID                = "123e4567-e89b-12d3-a456-426655440014"
 observationSource            = """
     ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];

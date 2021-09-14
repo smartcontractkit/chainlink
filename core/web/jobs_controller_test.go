@@ -260,8 +260,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			})
 			require.NoError(t, err)
 			response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-			defer cleanup()
 			c.assertion(t, response)
+			cleanup()
 		})
 	}
 }

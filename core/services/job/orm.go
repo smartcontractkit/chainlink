@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -201,26 +202,23 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 
 	switch jobSpec.Type {
 	case DirectRequest:
+		if err := o.failIfExisting(&DirectRequestSpec{}, jobSpec.DirectRequestSpec.ContractAddress); err != nil {
+			return jb, err
+		}
 		err := tx.Create(&jobSpec.DirectRequestSpec).Error
 		if err != nil {
 			return jb, errors.Wrap(err, "failed to create DirectRequestSpec for jobSpec")
 		}
 		jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
 	case FluxMonitor:
-		existing := FluxMonitorSpec{}
-		err := o.db.First(&existing, "contract_address = ?", jobSpec.FluxMonitorSpec.ContractAddress).Error
-		if err == nil {
-			return jb, errors.Errorf("Another job spec with this contract address already exists")
-		}
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return jb, errors.Wrap(err, "failed to fetch existing FluxMonitorSpec spec")
-		}
-		err = tx.Create(&jobSpec.FluxMonitorSpec).Error
-		if err != nil {
-			return jb, errors.Wrap(err, "failed to create FluxMonitorSpec for jobSpec")
+		if err := o.failIfExisting(&FluxMonitorSpec{}, jobSpec.FluxMonitorSpec.ContractAddress); err != nil {
+			return jb, err
 		}
 		jobSpec.FluxMonitorSpecID = &jobSpec.FluxMonitorSpec.ID
 	case OffchainReporting:
+		if err := o.failIfExisting(&OffchainReportingOracleSpec{}, jobSpec.OffchainreportingOracleSpec.ContractAddress); err != nil {
+			return jb, err
+		}
 		if jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.Valid {
 			_, err := o.keyStore.OCR().Get(jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String)
 			if err != nil {
@@ -246,6 +244,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 		jobSpec.OffchainreportingOracleSpecID = &jobSpec.OffchainreportingOracleSpec.ID
 	case Keeper:
+		if err := o.failIfExisting(&KeeperSpec{}, jobSpec.KeeperSpec.ContractAddress); err != nil {
+			return jb, err
+		}
 		err := tx.Create(&jobSpec.KeeperSpec).Error
 		if err != nil {
 			return jb, errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
@@ -297,6 +298,18 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	}
 
 	return o.FindJob(ctx, jobSpec.ID)
+}
+
+// failIfExisting returns an error if a job with given contract address already exists
+func (o *orm) failIfExisting(dest interface{}, contractAddress ethkey.EIP55Address) error {
+	err := o.db.First(dest, "contract_address = ?", contractAddress).Error
+	if err == nil {
+		return errors.Errorf("another job spec with this contract address already exists")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.Wrapf(err, "failed to fetch existing spec by contract address: %v", contractAddress)
+	}
+	return nil
 }
 
 // DeleteJob removes a job that is claimed by this orm
