@@ -99,7 +99,6 @@ export const NodesShow = ({ classes, deleteNode }: Props) => {
   const [deleted, setDeleted] = useState(false)
 
   const handleDelete = (id: string) => {
-    console.log('NodeID: ', id)
     deleteNode(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
     setDeleted(true)
   }
