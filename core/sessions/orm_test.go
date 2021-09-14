@@ -25,13 +25,14 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
-	_, orm := setupORM(t)
+	db, orm := setupORM(t)
 	user1 := cltest.MustNewUser(t, "test1@email1.net", "password1")
 	user2 := cltest.MustNewUser(t, "test2@email2.net", "password2")
-	user2.CreatedAt = time.Now().Add(-24 * time.Hour)
 
 	require.NoError(t, orm.CreateUser(&user1))
 	require.NoError(t, orm.CreateUser(&user2))
+	_, err := db.Exec("UPDATE users SET created_at = now() - interval '1 day' WHERE email = $1", user2.Email)
+	require.NoError(t, err)
 
 	actual, err := orm.FindUser()
 	require.NoError(t, err)
