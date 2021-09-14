@@ -807,7 +807,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
+		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		// Trigger v2/resume
 		select {
