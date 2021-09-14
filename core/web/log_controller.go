@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"go.uber.org/zap/zapcore"
 )
@@ -89,7 +91,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		cc.App.GetStore().SetLogging(*request.SqlEnabled)
+		cc.App.GetDB().Logger = postgres.NewLogWrapper(logger.Default, *request.SqlEnabled, time.Second)
 	}
 	svcs = append(svcs, "IsSqlEnabled")
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
