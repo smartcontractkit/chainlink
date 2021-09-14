@@ -192,16 +192,6 @@ func (orm *ORM) CountOf(t interface{}) (int, error) {
 	return int(count), orm.DB.Model(t).Count(&count).Error
 }
 
-func (orm *ORM) getRecords(collection interface{}, order string, offset, limit int) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.DB.
-		Preload(clause.Associations).
-		Order(order).Limit(limit).Offset(offset).
-		Find(collection).Error
-}
-
 func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
