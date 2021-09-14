@@ -52,10 +52,8 @@ jobs:
     env:
       KUBECONFIG: /tmp/KUBECONFIG
       CGO_ENABLED: 0
-      # APPS_CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
-      # APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
-      APPS_CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
-      APPS_CHAINLINK_VERSION: 0.10.14
+      APPS_CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+      APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2

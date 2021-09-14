@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func TestContracts(t *testing.T) {
+func TestChaos(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
 	conf, err := config.NewConfig(testcommon.ConfigLocation)
