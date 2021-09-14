@@ -754,7 +754,7 @@ ds1 -> ds1_parse
 
 	// node doesn't submit initial response, because flag is up
 	// Wait here so the next lower flags doesn't trigger immediately
-	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.Store, 0)
+	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
@@ -863,7 +863,7 @@ ds1 -> ds1_parse
 	jobID, err := strconv.ParseInt(j.ID, 10, 32)
 	require.NoError(t, err)
 
-	jse := cltest.WaitForSpecErrorV2(t, app.Store, int32(jobID), 1)
+	jse := cltest.WaitForSpecErrorV2(t, app.GetDB(), int32(jobID), 1)
 	assert.Contains(t, jse[0].Description, "Answer is outside acceptable range")
 }
 
