@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -99,12 +98,11 @@ type BulletproofTxManager struct {
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	advisoryLocker   postgres.AdvisoryLocker
 	eventBroadcaster postgres.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
-	chHeads        chan models.Head
+	chHeads        chan eth.Head
 	trigger        chan common.Address
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
@@ -119,7 +117,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, valu
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, advisoryLocker postgres.AdvisoryLocker, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -127,11 +125,10 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		ethClient:        ethClient,
 		config:           config,
 		keyStore:         keyStore,
-		advisoryLocker:   advisoryLocker,
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
-		chHeads:          make(chan models.Head),
+		chHeads:          make(chan eth.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 	}
@@ -158,8 +155,8 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		b.logger.Debugw("BulletproofTxManager: booting", "keyStates", keyStates)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
-		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
 		}
@@ -231,8 +228,8 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfCalling(eb.Close)
 			b.logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
-			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, b.advisoryLocker, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			b.logger.ErrorIfCalling(eb.Start)
 			b.logger.ErrorIfCalling(ec.Start)
@@ -241,7 +238,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -543,10 +540,10 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, models.Head) {}
-func (n *NullTxManager) Start() error                                   { return nil }
-func (n *NullTxManager) Close() error                                   { return nil }
-func (n *NullTxManager) Trigger(common.Address)                         { panic(n.ErrMsg) }
+func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
+func (n *NullTxManager) Start() error                                { return nil }
+func (n *NullTxManager) Close() error                                { return nil }
+func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }

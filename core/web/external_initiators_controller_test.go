@@ -24,7 +24,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	db := app.GetStore().DB
+	db := app.GetDB()
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",

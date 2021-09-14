@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
@@ -24,9 +25,7 @@ func newReaper(db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooft
 func TestReaper_ReapEthTxes(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
-	db := store.DB
+	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -39,7 +38,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(store.DB, config)
+		r := newReaper(db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -55,7 +54,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(store.DB, config)
+		r := newReaper(db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -69,7 +68,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaperWithChainID(store.DB, config, *big.NewInt(42))
+		r := newReaperWithChainID(db, config, *big.NewInt(42))
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -83,14 +82,14 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(store.DB, config)
+		r := newReaper(db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 1)
 
-		store.DB.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo)
+		db.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo)
 
 		err = r.ReapEthTxes(12)
 		assert.NoError(t, err)
@@ -111,14 +110,14 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(store.DB, config)
+		r := newReaper(db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, bulletprooftxmanager.EthTx{}, 1)
 
-		store.DB.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo)
+		db.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo)
 
 		err = r.ReapEthTxes(42)
 		assert.NoError(t, err)

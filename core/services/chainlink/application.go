@@ -61,6 +61,7 @@ type Application interface {
 	GetLogger() *loggerPkg.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
+	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
@@ -122,7 +123,6 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
-	AdvisoryLocker           postgres.AdvisoryLocker
 	EventBroadcaster         postgres.EventBroadcaster
 	ShutdownSignal           gracefulpanic.Signal
 	Store                    *strpkg.Store
@@ -143,7 +143,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.GormDB
 	gormTxm := postgres.NewGormTransactionManager(db)
 	cfg := opts.Config
-	advisoryLocker := opts.AdvisoryLocker
 	store := opts.Store
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
@@ -186,7 +185,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -571,7 +570,7 @@ func (app *ChainlinkApplication) RunJobV2(
 		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
 		// TODO: Once all jobs have a pipeline this can be removed
 		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.Store.DB.WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
+		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.GetDB().WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }

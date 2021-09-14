@@ -76,7 +76,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	t.Cleanup(cleanup)
 	app.Logger = l
-	app.Logger.SetDB(app.GetStore().DB)
+	app.Logger.SetDB(app.GetDB())
 
 	require.NoError(t, app.Start())
 
@@ -425,9 +425,9 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+	require.NoError(t, app.GetDB().Create(bridge2).Error)
 
 	var ocrJobSpecFromFile job.Job
 	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
@@ -499,7 +499,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
 	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }

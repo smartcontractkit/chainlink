@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -32,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
@@ -254,7 +253,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ethClient,
 		evmcfg,
 		ethKeyStore,
-		&postgres.NullAdvisoryLocker{},
 		&postgres.NullEventBroadcaster{},
 		[]ethkey.State{keyState},
 		estimator,
@@ -680,8 +678,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 	})
 }
 
-func getLocalNextNonce(t *testing.T, str *store.Store, fromAddress gethCommon.Address) uint64 {
-	n, err := bulletprooftxmanager.GetNextNonce(str.DB, fromAddress, &cltest.FixtureChainID)
+func getLocalNextNonce(t *testing.T, db *gorm.DB, fromAddress gethCommon.Address) uint64 {
+	n, err := bulletprooftxmanager.GetNextNonce(db, fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	require.NotNil(t, n)
 	return uint64(n)
@@ -697,9 +695,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	gasLimit := uint64(242)
 	encodedPayload := []byte{0, 1}
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
+	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -755,7 +751,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("geth client returns an error in the fatal errors category", func(t *testing.T) {
 		fatalErrorExample := "exceeds block gas limit"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -797,7 +793,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("geth client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
 		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -838,7 +834,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
 		retryableErrorExample := "geth shit the bed again"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -900,7 +896,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
@@ -956,7 +952,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("failed to reach node for some reason", func(t *testing.T) {
 		failedToReachNodeError := context.DeadlineExceeded
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
@@ -985,7 +981,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
 		// It should pretend it was accepted into the mempool and hand off to ethConfirmer to bump gas as normal
 		temporarilyUnderpricedError := "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 
 		// Re-use the previously unfinished transaction, no need to insert new
 
@@ -1015,7 +1011,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// configured for the transaction pool.
 		// This is a configuration error by the node operator, since it means they set the base gas level too low.
 		underpricedError := "transaction underpriced"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 		// In this scenario the node operator REALLY fucked up and set the bump
 		// to zero (even though that should not be possible due to config
 		// validation)
@@ -1050,7 +1046,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
 		insufficientEthError := "insufficient funds for transfer"
-		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
 		etx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -1146,30 +1142,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	})
 
 	// Should have done nothing
-	ethClient.AssertExpectations(t)
-}
-
-func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
-	advisoryLocker1 := new(mocks.AdvisoryLocker)
-	db := pgtest.NewGormDB(t)
-
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	key, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	keyState, err := ethKeyStore.GetState(key.ID())
-	require.NoError(t, err)
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-
-	advisoryLocker1.On("WithAdvisoryLock", mock.Anything, mock.AnythingOfType("int32"), keyState.ID, mock.AnythingOfType("func() error")).Return(nil)
-
-	cfg := cltest.NewTestGeneralConfig(t)
-	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	eb := bulletprooftxmanager.NewEthBroadcaster(db, ethClient, evmcfg, ethKeyStore, advisoryLocker1, &postgres.NullEventBroadcaster{}, []ethkey.State{keyState}, nil, logger.Default)
-
-	require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
-
-	advisoryLocker1.AssertExpectations(t)
-	advisoryLocker1.On("Close").Return(nil)
-
 	ethClient.AssertExpectations(t)
 }
 

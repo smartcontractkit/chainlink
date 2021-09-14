@@ -119,8 +119,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	store := app.GetStore()
-	db := store.DB
+	db := app.GetDB()
 	client, _ := app.NewClientAndRenderer()
 
 	cltest.AssertCount(t, db, ethkey.State{}, 1) // The initial funding key

@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -210,7 +211,7 @@ observationSource   = """
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, 401)
 
-		cltest.AssertCountStays(t, app.Store, &pipeline.Run{}, 0)
+		cltest.AssertCountStays(t, app.GetDB(), &pipeline.Run{}, 0)
 	})
 
 	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
@@ -219,8 +220,8 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.Store.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, app.GetChainSet(), pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{}, app.KeyStore)
+		pipelineORM := pipeline.NewORM(app.GetDB())
+		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -757,7 +758,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
 	defer assertMocksCalled()
-	chchNewHeads := make(chan chan<- *models.Head, 1)
+	chchNewHeads := make(chan chan<- *eth.Head, 1)
 
 	db := pgtest.NewGormDB(t)
 	kst := cltest.NewKeyStore(t, db)
@@ -787,15 +788,15 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
-	h40 := models.Head{Hash: utils.NewHash(), Number: 40}
-	h41 := models.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
-	h42 := models.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
+	h40 := eth.Head{Hash: utils.NewHash(), Number: 40}
+	h41 := eth.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41}
+	h42 := eth.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42}
 
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *eth.Head) }).
 		Return(sub, nil)
 	// Nonce syncer
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
@@ -817,7 +818,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start())
-	var newHeads chan<- *models.Head
+	var newHeads chan<- *eth.Head
 	select {
 	case newHeads = <-chchNewHeads:
 	case <-time.After(10 * time.Second):

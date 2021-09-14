@@ -60,7 +60,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
@@ -583,8 +583,6 @@ ds1 -> ds1_parse;
 		}
 
 		// Ensure we can delete an errored
-		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
-		require.NoError(t, err)
 		err = jobORM.DeleteJob(context.Background(), jb.ID)
 		require.NoError(t, err)
 		err = db.Find(&se).Error
@@ -818,7 +816,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{}, app.KeyStore)
+		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		// Trigger v2/resume
 		select {

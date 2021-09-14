@@ -24,16 +24,14 @@ import (
 func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
+	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 10, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -45,15 +43,15 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	}
 	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(10))
-	require.NoError(t, store.DB.Create(&attempt1_2).Error)
+	require.NoError(t, db.Create(&attempt1_2).Error)
 
 	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID)
 	attempt3_2.GasPrice = *utils.NewBig(big.NewInt(10))
-	require.NoError(t, store.DB.Create(&attempt3_2).Error)
+	require.NoError(t, db.Create(&attempt3_2).Error)
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 0, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -62,7 +60,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 1, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
