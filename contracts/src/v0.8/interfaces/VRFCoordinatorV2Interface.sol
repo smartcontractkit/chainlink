@@ -69,18 +69,15 @@ interface VRFCoordinatorV2Interface {
 
   /**
    * @notice Create a VRF subscription.
-   * @param consumers - a list of the consuming addresses if known ahead of time.
-   * You can manage the consumer set dynamically with addConsumer/removeConsumer.
    * @return subId - A unique subscription id.
+   * @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
    * @dev Note to fund the subscription, use transferAndCall. For example
    * @dev  LINKTOKEN.transferAndCall(
    * @dev    address(COORDINATOR),
    * @dev    amount,
    * @dev    abi.encode(subId));
    */
-  function createSubscription(
-    address[] memory consumers
-  )
+  function createSubscription()
     external
     returns (
       uint64 subId

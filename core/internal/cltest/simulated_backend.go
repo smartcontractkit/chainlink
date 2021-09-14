@@ -290,7 +290,7 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 	panic("can never reach here")
 }
 
-func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (*eth.Head, error) {
 	if n == nil {
 		n = c.currentBlockNumber()
 	}
@@ -300,7 +300,7 @@ func (c *SimulatedBackendClient) HeadByNumber(ctx context.Context, n *big.Int) (
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	return &models.Head{
+	return &eth.Head{
 		EVMChainID: utils.NewBigI(SimulatedBackendEVMChainID),
 		Hash:       header.Hash(),
 		Number:     header.Number.Int64(),
@@ -346,15 +346,15 @@ func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
 // Note the sim's API only accepts types.Head so we have this goroutine
-// to convert those into models.Head.
+// to convert those into eth.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
-	channel chan<- *models.Head,
+	channel chan<- *eth.Head,
 ) (ethereum.Subscription, error) {
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
-		var lastHead *models.Head
+		var lastHead *eth.Head
 
 		for {
 			select {
@@ -363,7 +363,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				case nil:
 					channel <- nil
 				default:
-					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
+					head := &eth.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
 					lastHead = head
 					select {
 					// In head tracker shutdown the heads reader is closed, so the channel <- head write
@@ -455,10 +455,6 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 		}
 	}
 	return nil
-}
-
-func (c *SimulatedBackendClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return c.BatchCallContext(ctx, b)
 }
 
 func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {

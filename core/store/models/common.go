@@ -13,7 +13,6 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
@@ -212,22 +211,6 @@ func (j JSON) CBOR() ([]byte, error) {
 	}
 }
 
-// MarshalToMap converts a struct (typically) to a map[string] so it can be
-// manipulated without repeatedly serializing/deserializing
-func MarshalToMap(input interface{}) (map[string]interface{}, error) {
-	bytes, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-	var output map[string]interface{}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		// Technically this should be impossible
-		return nil, err
-	}
-	return output, nil
-}
-
 // WebURL contains the URL of the endpoint.
 type WebURL url.URL
 
@@ -281,95 +264,6 @@ func (w *WebURL) Scan(value interface{}) error {
 	}
 	*w = WebURL(*u)
 	return nil
-}
-
-// AnyTime holds a common field for time, and serializes it as
-// a json number.
-type AnyTime struct {
-	time.Time
-	Valid bool
-}
-
-// NewAnyTime creates a new Time.
-func NewAnyTime(t time.Time) AnyTime {
-	return AnyTime{Time: t, Valid: true}
-}
-
-// MarshalJSON implements json.Marshaler.
-// It will encode null if this time is null.
-func (t AnyTime) MarshalJSON() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.UTC().MarshalJSON()
-}
-
-// UnmarshalJSON parses the raw time stored in JSON-encoded
-// data and stores it to the Time field.
-func (t *AnyTime) UnmarshalJSON(b []byte) error {
-	var str string
-
-	var n json.Number
-	if err := json.Unmarshal(b, &n); err == nil {
-		str = n.String()
-	} else if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	if len(str) == 0 {
-		t.Valid = false
-		return nil
-	}
-
-	newTime, err := dateparse.ParseAny(str)
-	t.Time = newTime.UTC()
-	t.Valid = true
-	return err
-}
-
-// MarshalText returns null if not set, or the time.
-func (t AnyTime) MarshalText() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.MarshalText()
-}
-
-// UnmarshalText parses null or a valid time.
-func (t *AnyTime) UnmarshalText(text []byte) error {
-	str := string(text)
-	if str == "" || str == "null" {
-		t.Valid = false
-		return nil
-	}
-	if err := t.Time.UnmarshalText(text); err != nil {
-		return err
-	}
-	t.Valid = true
-	return nil
-}
-
-// Value returns this instance serialized for database storage.
-func (t AnyTime) Value() (driver.Value, error) {
-	if !t.Valid {
-		return nil, nil
-	}
-	return t.Time, nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *AnyTime) Scan(value interface{}) error {
-	switch temp := value.(type) {
-	case time.Time:
-		t.Time = temp.UTC()
-		t.Valid = true
-		return nil
-	case nil:
-		t.Valid = false
-		return nil
-	default:
-		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
-	}
 }
 
 // Cron holds the string that will represent the spec of the cron-job.
@@ -525,13 +419,6 @@ func (i Interval) Value() (driver.Value, error) {
 
 func (i Interval) IsZero() bool {
 	return time.Duration(i) == time.Duration(0)
-}
-
-// WithdrawalRequest request to withdraw LINK.
-type WithdrawalRequest struct {
-	DestinationAddress common.Address `json:"address"`
-	ContractAddress    common.Address `json:"contractAddress"`
-	Amount             *assets.Link   `json:"amount"`
 }
 
 // SendEtherRequest represents a request to transfer ETH.

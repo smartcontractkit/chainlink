@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/atomic"
 )
@@ -41,7 +40,7 @@ type HeadListener struct {
 	config           Config
 	ethClient        eth.Client
 	chainID          big.Int
-	headers          chan *models.Head
+	headers          chan *eth.Head
 	headSubscription ethereum.Subscription
 	connectedMutex   sync.RWMutex
 	connected        bool
@@ -95,7 +94,7 @@ func (hl *HeadListener) logger() *logger.Logger {
 	return hl.log
 }
 
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error) {
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error) {
 	defer hl.wgDone.Done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
@@ -125,7 +124,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
-func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header models.Head) error) error {
+func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header eth.Head) error) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 
@@ -200,7 +199,7 @@ func (hl *HeadListener) subscribeToHead() error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
-	hl.headers = make(chan *models.Head)
+	hl.headers = make(chan *eth.Head)
 
 	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.headers)
 	if err != nil {

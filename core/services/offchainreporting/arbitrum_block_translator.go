@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -64,7 +63,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 		duration := time.Since(mark)
 		logger.Debugw(fmt.Sprintf("ArbitrumBlockTranslator#binarySearch completed in %s with %d total lookups", duration, n), "finishedIn", duration, "err", err, "nLookups", n)
 	}()
-	var h *models.Head
+	var h *eth.Head
 
 	// l2lower..l2upper is the inclusive range of L2 block numbers in which
 	// transactions that called block.number will return the given L1 block

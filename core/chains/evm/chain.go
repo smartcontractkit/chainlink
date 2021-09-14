@@ -100,9 +100,6 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
-		// FIXME: InitServiceLevelLogger appears to discard label/values set by previous `with`
-		// See: https://app.clubhouse.io/chainlinklabs/story/15452/initservicelevellogger-appears-to-discard-label-values-set-by-previous-with
-		headTrackerLogger = headTrackerLogger.With("chainID", chainID.String())
 		orm := headtracker.NewORM(db, *chainID)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
 	} else {
@@ -113,7 +110,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
-		txm = bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.AdvisoryLocker, opts.EventBroadcaster, l)
+		txm = bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l)
 	} else {
 		txm = opts.GenTxManager(dbchain)
 	}
@@ -296,8 +293,8 @@ var ErrNoPrimaryNode = errors.New("no primary node found")
 func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
-	var primary *eth.Node
-	var sendonlys []*eth.SecondaryNode
+	var primaries []eth.Node
+	var sendonlys []eth.SendOnlyNode
 	for _, node := range nodes {
 		if node.SendOnly {
 			sendonly, err := newSendOnly(lggr, node)
@@ -306,23 +303,20 @@ func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, 
 			}
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			if primary != nil {
-				return nil, errors.Errorf("Got multiple primaries for chain %d, only one primary is currently supported", chain.ID.ToInt())
-			}
-			var err error
-			primary, err = newPrimary(lggr, node)
+			primary, err := newPrimary(lggr, node)
 			if err != nil {
 				return nil, err
 			}
+			primaries = append(primaries, primary)
 		}
 	}
-	if primary == nil {
+	if len(primaries) == 0 {
 		return nil, ErrNoPrimaryNode
 	}
-	return eth.NewClientWithNodes(lggr, primary, sendonlys, &chainID)
+	return eth.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr *logger.Logger, n types.Node) (*eth.Node, error) {
+func newPrimary(lggr *logger.Logger, n types.Node) (eth.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -345,9 +339,9 @@ func newPrimary(lggr *logger.Logger, n types.Node) (*eth.Node, error) {
 	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
 }
 
-func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SecondaryNode, error) {
+func newSendOnly(lggr *logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
 	if !n.SendOnly {
-		return nil, errors.New("cannot cast non send-only node to secondarynode")
+		return nil, errors.New("cannot cast non send-only node to send-only node")
 	}
 	if !n.HTTPURL.Valid {
 		return nil, errors.New("send only node was missing HTTP url")
@@ -357,5 +351,5 @@ func newSendOnly(lggr *logger.Logger, n types.Node) (*eth.SecondaryNode, error) 
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return eth.NewSecondaryNode(lggr, *httpuri, n.Name), nil
+	return eth.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
 }

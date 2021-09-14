@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // NullClient satisfies the Client but has no side effects
@@ -62,7 +61,7 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 	return nil
 }
 
-func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*Head, error) {
 	logger.Debug("NullClient#HeadByNumber")
 	return nil, nil
 }
@@ -83,7 +82,7 @@ func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return &nullSubscription{}, nil
 }
 
-func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
+func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error) {
 	logger.Debug("NullClient#SubscribeNewHead")
 	return &nullSubscription{}, nil
 }
@@ -166,10 +165,6 @@ func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockN
 }
 
 func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return nil
-}
-
-func (nc *NullClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return nil
 }
 

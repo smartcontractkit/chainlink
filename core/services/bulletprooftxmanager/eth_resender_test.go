@@ -24,16 +24,14 @@ import (
 func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
+	db := pgtest.NewGormDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 10, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 10, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -45,15 +43,15 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	}
 	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(10))
-	require.NoError(t, store.DB.Create(&attempt1_2).Error)
+	require.NoError(t, db.Create(&attempt1_2).Error)
 
 	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID)
 	attempt3_2.GasPrice = *utils.NewBig(big.NewInt(10))
-	require.NoError(t, store.DB.Create(&attempt3_2).Error)
+	require.NoError(t, db.Create(&attempt3_2).Error)
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 0, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 0, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -62,7 +60,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(store.DB, olderThan, 1, cltest.FixtureChainID)
+		attempts, err := bulletprooftxmanager.FindEthTxesRequiringResend(db, olderThan, 1, cltest.FixtureChainID)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -94,12 +92,12 @@ func Test_EthResender_Start(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress, time.Now().Add(1*time.Hour))
 
 		// First batch of 1
-		ethClient.On("RoundRobinBatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx)
 		})).Return(nil)
 		// Second batch of 1
-		ethClient.On("RoundRobinBatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
 				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx2.EthTxAttempts[0].SignedRawTx)
 		})).Return(nil).Run(func(args mock.Arguments) {

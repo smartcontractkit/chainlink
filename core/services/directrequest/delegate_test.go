@@ -23,7 +23,6 @@ import (
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -75,7 +74,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
 
 	cleanup := func() {
 		cleanupPipeline()
@@ -223,8 +222,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
-
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{{}, {}},
 		})

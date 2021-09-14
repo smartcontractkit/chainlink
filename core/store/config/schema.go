@@ -99,6 +99,7 @@ type ConfigSchema struct {
 	JobPipelineReaperThreshold                 time.Duration                 `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"24h"`
 	JobPipelineResultWriteQueueDepth           uint64                        `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
 	KeeperDefaultTransactionQueueDepth         uint32                        `env:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
+	KeeperGasPriceBufferPercent                uint32                        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                   int64                         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	KeeperMinimumRequiredConfirmations         uint64                        `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
 	KeeperRegistryCheckGasOverhead             uint64                        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
