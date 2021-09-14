@@ -36,6 +36,7 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -1198,10 +1199,10 @@ func NewSession(optionalSessionID ...string) clsessions.Session {
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, store *strpkg.Store) []bridges.ExternalInitiator {
 	t.Helper()
 
-	var all []models.ExternalInitiator
+	var all []bridges.ExternalInitiator
 	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Find(&all).Error
 	})

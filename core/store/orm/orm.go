@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -125,61 +124,6 @@ func (orm *ORM) Unscoped() *ORM {
 		DB:              orm.DB.Unscoped(),
 		lockingStrategy: orm.lockingStrategy,
 	}
-}
-
-// ExternalInitiatorsSorted returns many ExternalInitiators sorted by Name from the store adhering
-// to the passed parameters.
-func (orm *ORM) ExternalInitiatorsSorted(offset int, limit int) ([]models.ExternalInitiator, int, error) {
-	count, err := orm.CountOf(&models.ExternalInitiator{})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var exis []models.ExternalInitiator
-	err = orm.getRecords(&exis, "name asc", offset, limit)
-	return exis, count, err
-}
-
-// CreateExternalInitiator inserts a new external initiator
-func (orm *ORM) CreateExternalInitiator(externalInitiator *models.ExternalInitiator) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	err := orm.DB.Create(externalInitiator).Error
-	return err
-}
-
-// DeleteExternalInitiator removes an external initiator
-func (orm *ORM) DeleteExternalInitiator(name string) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	err := orm.DB.Exec("DELETE FROM external_initiators WHERE name = ?", name).Error
-	return err
-}
-
-// FindExternalInitiator finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiator(
-	eia *auth.Token,
-) (*models.ExternalInitiator, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	initiator := &models.ExternalInitiator{}
-	err := orm.DB.Where("access_key = ?", eia.AccessKey).First(initiator).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "error finding external initiator")
-	}
-
-	return initiator, nil
-}
-
-// FindExternalInitiatorByName finds an external initiator given an authentication request
-func (orm *ORM) FindExternalInitiatorByName(iname string) (exi models.ExternalInitiator, err error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return exi, err
-	}
-	return exi, orm.DB.First(&exi, "lower(name) = lower(?)", iname).Error
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt

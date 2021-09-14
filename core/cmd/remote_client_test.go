@@ -14,6 +14,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
@@ -165,7 +165,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			require.NoError(t, err)
 
-			var exi models.ExternalInitiator
+			var exi bridges.ExternalInitiator
 			err = app.Store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 				return db.Where("name = ?", test.args[0]).Find(&exi).Error
 			})
@@ -218,11 +218,11 @@ func TestClient_DestroyExternalInitiator(t *testing.T) {
 	client, r := app.NewClientAndRenderer()
 
 	token := auth.NewToken()
-	exi, err := models.NewExternalInitiator(token,
-		&models.ExternalInitiatorRequest{Name: "name"},
+	exi, err := bridges.NewExternalInitiator(token,
+		&bridges.ExternalInitiatorRequest{Name: "name"},
 	)
 	require.NoError(t, err)
-	err = app.Store.CreateExternalInitiator(exi)
+	err = app.BridgeORM().CreateExternalInitiator(exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)

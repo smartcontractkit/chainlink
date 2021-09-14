@@ -3,6 +3,7 @@ package bridges
 import (
 	"database/sql"
 
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -12,6 +13,12 @@ type ORM interface {
 	BridgeTypes(offset int, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(bt *BridgeType) error
 	UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error
+
+	ExternalInitiators(offset int, limit int) ([]ExternalInitiator, int, error)
+	CreateExternalInitiator(externalInitiator *ExternalInitiator) error
+	DeleteExternalInitiator(name string) error
+	FindExternalInitiator(eia *auth.Token) (*ExternalInitiator, error)
+	FindExternalInitiatorByName(iname string) (exi ExternalInitiator, err error)
 }
 
 type orm struct {
@@ -79,4 +86,65 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
 	sql := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
 	return o.db.Get(bt, sql, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+}
+
+// --- External Initiator
+
+// ExternalInitiators returns many ExternalInitiators sorted by Name from the store adhering
+// to the passed parameters.
+func (o *orm) ExternalInitiators(offset int, limit int) (exis []ExternalInitiator, count int, err error) {
+	if err = o.db.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
+		return
+	}
+
+	sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
+	if err = o.db.Select(&exis, sql, limit, offset); err != nil {
+		return
+	}
+	return
+}
+
+// CreateExternalInitiator inserts a new external initiator
+func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) error {
+	sql := `INSERT INTO external_initiators (name, url, access_key, salt, hashed_secret, outgoing_secret, outgoing_token, created_at, updated_at)
+	VALUES (:name, :url, :access_key, :salt, :hashed_secret, :outgoing_secret, :outgoing_token, now(), now())
+	RETURNING *
+	`
+	stmt, err := o.db.PrepareNamed(sql)
+	if err != nil {
+		return err
+	}
+	return stmt.Get(externalInitiator, externalInitiator)
+}
+
+// DeleteExternalInitiator removes an external initiator
+func (o *orm) DeleteExternalInitiator(name string) error {
+	query := "DELETE FROM external_initiators WHERE name = $1"
+	result, err := o.db.Exec(query, name)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return err
+}
+
+// FindExternalInitiator finds an external initiator given an authentication request
+func (o *orm) FindExternalInitiator(
+	eia *auth.Token,
+) (*ExternalInitiator, error) {
+	exi := &ExternalInitiator{}
+	err := o.db.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	return exi, err
+}
+
+// FindExternalInitiatorByName finds an external initiator given an authentication request
+func (o *orm) FindExternalInitiatorByName(iname string) (exi ExternalInitiator, err error) {
+	err = o.db.Get(&exi, `SELECT * FROM external_initiators WHERE lower(name) = lower($1)`, iname)
+	return
 }

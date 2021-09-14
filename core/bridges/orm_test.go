@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -75,4 +76,43 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	foundbridge, err := orm.FindBridge("UniqueName")
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
+}
+
+func TestORM_CreateExternalInitiator(t *testing.T) {
+	_, orm := setupORM(t)
+
+	token := auth.NewToken()
+	req := bridges.ExternalInitiatorRequest{
+		Name: "externalinitiator",
+	}
+	exi, err := bridges.NewExternalInitiator(token, &req)
+	require.NoError(t, err)
+	require.NoError(t, orm.CreateExternalInitiator(exi))
+
+	exi2, err := bridges.NewExternalInitiator(token, &req)
+	require.NoError(t, err)
+	require.Equal(t, `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`, orm.CreateExternalInitiator(exi2).Error())
+}
+
+func TestORM_DeleteExternalInitiator(t *testing.T) {
+	_, orm := setupORM(t)
+
+	token := auth.NewToken()
+	req := bridges.ExternalInitiatorRequest{
+		Name: "externalinitiator",
+	}
+	exi, err := bridges.NewExternalInitiator(token, &req)
+	require.NoError(t, err)
+	require.NoError(t, orm.CreateExternalInitiator(exi))
+
+	_, err = orm.FindExternalInitiator(token)
+	require.NoError(t, err)
+
+	err = orm.DeleteExternalInitiator(exi.Name)
+	require.NoError(t, err)
+
+	_, err = orm.FindExternalInitiator(token)
+	require.Error(t, err)
+
+	require.NoError(t, orm.CreateExternalInitiator(exi))
 }
