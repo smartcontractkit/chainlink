@@ -32,6 +32,7 @@ import (
 	loggerPkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -81,6 +82,7 @@ type Application interface {
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
+	BPTXMORM() bulletprooftxmanager.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -109,6 +111,7 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
 	sessionORM               sessions.ORM
+	bptxmORM                 bulletprooftxmanager.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	store                    *strpkg.Store
@@ -195,6 +198,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
+		bptxmORM       = bulletprooftxmanager.NewORM(opts.SqlxDB)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -289,6 +293,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
 		sessionORM:               sessionORM,
+		bptxmORM:                 bptxmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -495,6 +500,10 @@ func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
+}
+
+func (app *ChainlinkApplication) BPTXMORM() bulletprooftxmanager.ORM {
+	return app.bptxmORM
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
