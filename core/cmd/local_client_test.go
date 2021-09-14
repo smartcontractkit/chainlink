@@ -329,7 +329,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	require.NoError(t, connectedStore.Start())
 
 	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -405,11 +404,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.SetDialect(dialects.PostgresWithoutLock)
-			store := cltest.NewStoreWithConfig(t, config)
 			require.NoError(t, connectedStore.Start())
 
 			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
 			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -438,7 +435,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Check that the Dialect was set back when the command was run.
 			assert.Equal(t, dialects.PostgresWithoutLock, config.GetDatabaseDialectConfiguredOrDefault())
 
-			cltest.AssertEthTxAttemptCountStays(t, store.DB, 1)
+			cltest.AssertEthTxAttemptCountStays(t, app.GetDB(), 1)
 			app.AssertExpectations(t)
 			ethClient.AssertExpectations(t)
 		})
