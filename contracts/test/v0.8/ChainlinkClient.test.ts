@@ -18,7 +18,7 @@ before(async () => {
   roles = (await getUsers()).roles;
 
   concreteChainlinkClientFactory = await ethers.getContractFactory(
-    "src/v0.8/tests/ConcreteChainlinkClient.sol:ConcreteChainlinkClient",
+    "src/v0.8/tests/ChainlinkClientTestHelper.sol:ChainlinkClientTestHelper",
     roles.defaultAccount,
   );
   emptyOracleFactory = await ethers.getContractFactory(
@@ -33,7 +33,7 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
 });
 
-describe("ConcreteChainlinkClient", () => {
+describe("ChainlinkClientTestHelper", () => {
   const specId = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
   let cc: Contract;
   let gs: Contract;

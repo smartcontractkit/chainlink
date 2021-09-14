@@ -5,7 +5,7 @@ import { Contract, ContractFactory, providers, Signer } from "ethers";
 import { Roles, getUsers } from "../test-helpers/setup";
 import { makeDebug } from "../test-helpers/debug";
 
-const debug = makeDebug("ConcreteChainlink");
+const debug = makeDebug("ChainlinkTestHelper");
 let concreteChainlinkFactory: ContractFactory;
 
 let roles: Roles;
@@ -13,12 +13,12 @@ let roles: Roles;
 before(async () => {
   roles = (await getUsers()).roles;
   concreteChainlinkFactory = await ethers.getContractFactory(
-    "src/v0.7/tests/ConcreteChainlink.sol:ConcreteChainlink",
+    "src/v0.7/tests/ChainlinkTestHelper.sol:ChainlinkTestHelper",
     roles.defaultAccount,
   );
 });
 
-describe("ConcreteChainlink", () => {
+describe("ChainlinkTestHelper", () => {
   let ccl: Contract;
   let defaultAccount: Signer;
 

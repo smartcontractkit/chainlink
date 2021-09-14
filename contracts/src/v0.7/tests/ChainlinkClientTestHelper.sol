@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.7.0;
 
 import "../ChainlinkClient.sol";
+import "../vendor/SafeMathChainlink.sol";
 
-contract ConcreteChainlinkClient is ChainlinkClient {
+contract ChainlinkClientTestHelper is ChainlinkClient {
+  using SafeMathChainlink for uint256;
 
   constructor(
     address _link,
@@ -120,7 +122,7 @@ contract ConcreteChainlinkClient is ChainlinkClient {
   )
     public
   {
-    emit LinkAmount(LINK_DIVISIBILITY * _amount);
+    emit LinkAmount(LINK_DIVISIBILITY.mul(_amount));
   }
 
   function publicOracleAddress()

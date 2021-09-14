@@ -5,7 +5,7 @@ import "../Chainlink.sol";
 import "../vendor/CBORChainlink.sol";
 import "../vendor/BufferChainlink.sol";
 
-contract ConcreteChainlink {
+contract ChainlinkTestHelper {
   using Chainlink for Chainlink.Request;
   using CBORChainlink for BufferChainlink.buffer;
 
