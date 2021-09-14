@@ -555,7 +555,7 @@ func (ta *TestApplication) Stop() error {
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.Store)
+	cleanUpStore(ta.t, ta.GetStore())
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -567,7 +567,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
+	require.NoError(ta.t, ta.GetDB().Save(&session).Error)
 	return session.ID
 }
 

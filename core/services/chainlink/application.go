@@ -111,7 +111,7 @@ type ChainlinkApplication struct {
 	sessionORM               sessions.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Store                    *strpkg.Store
+	store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -281,7 +281,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	app := &ChainlinkApplication{
 		ChainSet:                 chainSet,
-		Store:                    store,
+		store:                    store,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -360,7 +360,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	if err := app.Store.Start(); err != nil {
+	if err := app.store.Start(); err != nil {
 		return err
 	}
 
@@ -434,7 +434,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Stopping SessionReaper...")
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
 			app.logger.Debug("Closing Store...")
-			merr = multierr.Append(merr, app.Store.Close())
+			merr = multierr.Append(merr, app.store.Close())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
 			if app.FeedsService != nil {
@@ -619,7 +619,7 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 }
 
 func (app *ChainlinkApplication) GetStore() *strpkg.Store {
-	return app.Store
+	return app.store
 }
 
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
@@ -627,5 +627,5 @@ func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.Store.DB
+	return app.store.DB
 }

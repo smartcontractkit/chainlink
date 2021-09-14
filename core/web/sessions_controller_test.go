@@ -108,7 +108,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
+	require.NoError(t, app.GetDB().Save(&correctSession).Error)
 
 	config := app.GetConfig()
 	client := http.Client{}
@@ -149,7 +149,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
+	require.NoError(t, app.GetDB().Save(&correctSession).Error)
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
