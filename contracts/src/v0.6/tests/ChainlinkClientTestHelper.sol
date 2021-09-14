@@ -4,7 +4,7 @@ pragma solidity ^0.6.0;
 import "../ChainlinkClient.sol";
 import "../vendor/SafeMathChainlink.sol";
 
-contract ConcreteChainlinkClient is ChainlinkClient {
+contract ChainlinkClientTestHelper is ChainlinkClient {
   using SafeMathChainlink for uint256;
 
   constructor(
