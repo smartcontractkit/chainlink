@@ -1,11 +1,13 @@
-package orm_test
+package bulletprooftxmanager_test
 
 import (
 	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -13,8 +15,8 @@ import (
 )
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
-	store := cltest.NewStore(t)
-	db := store.DB
+	db := pgtest.NewGormDB(t)
+	orm := bulletprooftxmanager.NewORM(postgres.UnwrapGormDB(db))
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -28,19 +30,22 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, store.DB.Create(&attempt).Error)
+	require.NoError(t, db.Create(&attempt).Error)
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = bulletprooftxmanager.EthTxUnstarted
 	tx3.FromAddress = from
-	require.NoError(t, store.DB.Save(&tx3).Error)
+	require.NoError(t, db.Save(&tx3).Error)
 
-	count, err := store.CountOf(bulletprooftxmanager.EthTx{})
+	var count int
+	var c int64
+	err := db.Model(bulletprooftxmanager.EthTx{}).Count(&c).Error
+	count = int(c)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
-	txs, count, err := store.EthTransactionsWithAttempts(0, 100) // should omit tx3
+	txs, count, err := orm.EthTransactionsWithAttempts(0, 100) // should omit tx3
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 2)
@@ -51,7 +56,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
 	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
 
-	txs, count, err = store.EthTransactionsWithAttempts(0, 1)
+	txs, count, err = orm.EthTransactionsWithAttempts(0, 1)
 	require.NoError(t, err)
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")

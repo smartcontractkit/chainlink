@@ -11,12 +11,10 @@ import (
 
 	"gorm.io/gorm/clause"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 
@@ -31,8 +29,6 @@ import (
 )
 
 var (
-	// ErrorNotFound is returned when finding a single value fails.
-	ErrorNotFound = gorm.ErrRecordNotFound
 	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
 	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
 )
@@ -108,66 +104,6 @@ func (orm *ORM) Close() error {
 		)
 	})
 	return err
-}
-
-// EthTransactionsWithAttempts returns all eth transactions with at least one attempt
-// limited by passed parameters. Attempts are sorted by created_at.
-func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]bulletprooftxmanager.EthTx, int, error) {
-	ethTXIDs := orm.DB.
-		Select("DISTINCT eth_tx_id").
-		Table("eth_tx_attempts")
-
-	var count int64
-	err := orm.DB.
-		Table("eth_txes").
-		Where("id IN (?)", ethTXIDs).
-		Count(&count).Error
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var txs []bulletprooftxmanager.EthTx
-	err = orm.DB.
-		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at desc")
-		}).
-		Where("id IN (?)", ethTXIDs).
-		Order("id desc").Limit(limit).Offset(offset).
-		Find(&txs).Error
-
-	return txs, int(count), err
-}
-
-// EthTxAttempts returns the last tx attempts sorted by created_at descending.
-func (orm *ORM) EthTxAttempts(offset, limit int) ([]bulletprooftxmanager.EthTxAttempt, int, error) {
-	count, err := orm.CountOf(&bulletprooftxmanager.EthTxAttempt{})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var attempts []bulletprooftxmanager.EthTxAttempt
-	err = orm.DB.
-		Preload("EthTx").
-		Order("created_at desc").
-		Limit(limit).
-		Offset(offset).
-		Find(&attempts).Error
-
-	return attempts, count, err
-}
-
-// FindEthTxAttempt returns an individual EthTxAttempt
-func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxAttempt, error) {
-	ethTxAttempt := &bulletprooftxmanager.EthTxAttempt{}
-	if err := orm.DB.Preload("EthTx").First(ethTxAttempt, "hash = ?", hash).Error; err != nil {
-		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
-	}
-	return ethTxAttempt, nil
-}
-
-func (orm *ORM) CountOf(t interface{}) (int, error) {
-	var count int64
-	return int(count), orm.DB.Model(t).Count(&count).Error
 }
 
 func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {

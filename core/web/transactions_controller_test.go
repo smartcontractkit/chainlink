@@ -40,7 +40,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, db.Create(&attempt).Error)
 
-	_, count, err := app.GetStore().EthTransactionsWithAttempts(0, 100)
+	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
