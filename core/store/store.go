@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -30,21 +29,17 @@ import (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         config.GeneralConfig
-	Clock          utils.AfterNower
-	AdvisoryLocker postgres.AdvisoryLocker
-	closeOnce      *sync.Once
+	Config    config.GeneralConfig
+	closeOnce *sync.Once
 }
 
 // NewStore will create a new store
-// func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLock, shutdownSignal)
+	return newStore(config, shutdownSignal)
 }
 
 func newStore(
 	config config.GeneralConfig,
-	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -57,11 +52,9 @@ func newStore(
 	}
 
 	store := &Store{
-		Clock:          utils.Clock{},
-		AdvisoryLocker: advisoryLocker,
-		Config:         config,
-		ORM:            orm,
-		closeOnce:      &sync.Once{},
+		Config:    config,
+		ORM:       orm,
+		closeOnce: &sync.Once{},
 	}
 	return store, nil
 }
@@ -75,7 +68,6 @@ func (s *Store) Close() error {
 	var err error
 	s.closeOnce.Do(func() {
 		err = s.ORM.Close()
-		err = multierr.Append(err, s.AdvisoryLocker.Close())
 	})
 	return err
 }
@@ -86,14 +78,6 @@ func (s *Store) Ready() error {
 
 func (s *Store) Healthy() error {
 	return nil
-}
-
-// Unscoped returns a shallow copy of the store, with an unscoped ORM allowing
-// one to work with soft deleted records.
-func (s *Store) Unscoped() *Store {
-	cpy := *s
-	cpy.ORM = s.ORM.Unscoped()
-	return &cpy
 }
 
 func CheckSquashUpgrade(db *gorm.DB) error {

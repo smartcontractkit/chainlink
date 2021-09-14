@@ -73,14 +73,6 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 	return orm, nil
 }
 
-func (orm *ORM) MustSQLDB() *sql.DB {
-	d, err := orm.DB.DB()
-	if err != nil {
-		panic(err)
-	}
-	return d
-}
-
 // MustEnsureAdvisoryLock sends a shutdown signal to the ORM if it an advisory
 // lock cannot be acquired.
 func (orm *ORM) MustEnsureAdvisoryLock() error {
@@ -116,14 +108,6 @@ func (orm *ORM) Close() error {
 		)
 	})
 	return err
-}
-
-// Unscoped returns a new instance of this ORM that includes soft deleted items.
-func (orm *ORM) Unscoped() *ORM {
-	return &ORM{
-		DB:              orm.DB.Unscoped(),
-		lockingStrategy: orm.lockingStrategy,
-	}
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
@@ -174,9 +158,6 @@ func (orm *ORM) EthTxAttempts(offset, limit int) ([]bulletprooftxmanager.EthTxAt
 
 // FindEthTxAttempt returns an individual EthTxAttempt
 func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxAttempt, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
 	ethTxAttempt := &bulletprooftxmanager.EthTxAttempt{}
 	if err := orm.DB.Preload("EthTx").First(ethTxAttempt, "hash = ?", hash).Error; err != nil {
 		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
@@ -185,9 +166,6 @@ func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*bulletprooftxmanager.EthTxA
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return 0, err
-	}
 	var count int64
 	return int(count), orm.DB.Model(t).Count(&count).Error
 }
