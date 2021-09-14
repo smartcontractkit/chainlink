@@ -8,7 +8,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"gorm.io/gorm"
 )
 
 // jsonAPIError adds an error to the gin context and sets
@@ -33,7 +33,7 @@ func paginatedResponseWithMeta(
 	err error,
 	meta map[string]interface{},
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		err = nil
 	}
 
@@ -55,7 +55,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		err = nil
 	}
 
