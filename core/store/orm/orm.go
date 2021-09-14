@@ -28,11 +28,6 @@ import (
 	_ "github.com/jackc/pgx/v4"
 )
 
-var (
-	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
-	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
-)
-
 // ORM contains the database object used by Chainlink.
 type ORM struct {
 	DB                  *gorm.DB
@@ -81,13 +76,6 @@ func (orm *ORM) MustEnsureAdvisoryLock() error {
 	return nil
 }
 
-func displayTimeout(timeout models.Duration) string {
-	if timeout.IsInstant() {
-		return "indefinite"
-	}
-	return timeout.String()
-}
-
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
 	orm.DB.Logger = NewOrmLogWrapper(logger.Default, enabled, time.Second)
@@ -130,8 +118,6 @@ type Connection struct {
 func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
 	ct := Connection{
 		advisoryLockID: advisoryLockID,
-		locking:        true,
-		name:           dialect,
 		uri:            uri,
 		maxOpenConns:   maxOpenConns,
 		maxIdleConns:   maxIdleConns,
