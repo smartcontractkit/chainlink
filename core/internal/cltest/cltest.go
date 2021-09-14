@@ -928,13 +928,13 @@ const (
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
+func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
 	g := gomega.NewGomegaWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
-		err := store.DB.
+		err := db.
 			Where("job_id = ?", jobID).
 			Find(&jse).Error
 		assert.NoError(t, err)
@@ -976,13 +976,13 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 }
 
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
-func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
-		err := store.DB.
+		err := db.
 			Where("pipeline_spec_id = ?", pipelineSpecID).
 			Find(&prs).Error
 		assert.NoError(t, err)
@@ -992,14 +992,14 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
+		err = db.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1199,11 +1199,11 @@ func NewSession(optionalSessionID ...string) clsessions.Session {
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, store *strpkg.Store) []bridges.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, db *gorm.DB) []bridges.ExternalInitiator {
 	t.Helper()
 
 	var all []bridges.ExternalInitiator
-	err := store.DB.Find(&all).Error
+	err := db.Find(&all).Error
 	require.NoError(t, err)
 	return all
 }
