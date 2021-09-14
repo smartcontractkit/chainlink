@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration/suite/testcommon"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/contracts"
@@ -23,7 +22,6 @@ var _ = Describe("Basic Contract Interactions @contract", func() {
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			var err error
-			log.Info().Str("LOC", testcommon.ConfigLocation).Msg("CONFIG LOC")
 			suiteSetup, err = actions.DefaultLocalSetup(
 				environment.NewChainlinkCluster(0),
 				client.NewNetworkFromConfig,

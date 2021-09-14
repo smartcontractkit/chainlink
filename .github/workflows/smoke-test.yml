@@ -46,12 +46,6 @@ jobs:
           tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
           push: true
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: chainlink
-          path: /tmp/chainlink.tar
-
   smoke:
     needs: build-chainlink
     runs-on: ubuntu-latest
@@ -105,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: ./integration/suite/logs
+          path: ./integration/logs
 
   performance:
     needs: build-chainlink
@@ -163,4 +157,4 @@ jobs:
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: ./integration/suite/logs
+          path: ./integration/logs

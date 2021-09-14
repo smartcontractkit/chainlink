@@ -22,6 +22,6 @@ func TestRefill(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../logs/tests-refill.xml")
+	junitReporter := reporters.NewJUnitReporter("../../logs/tests-refill.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Refill suite", []Reporter{junitReporter})
 }
