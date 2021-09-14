@@ -643,7 +643,7 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 	t.Cleanup(func() {
 		cleanUpStore(t, s)
 	})
-	s.Config.SetDB(s.DB)
+	c.SetDB(s.DB)
 	return s
 }
 
@@ -1203,9 +1203,7 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []bridges.External
 	t.Helper()
 
 	var all []bridges.ExternalInitiator
-	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Find(&all).Error
-	})
+	err := store.DB.Find(&all).Error
 	require.NoError(t, err)
 	return all
 }

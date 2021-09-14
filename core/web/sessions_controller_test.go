@@ -23,7 +23,7 @@ func TestSessionsController_Create(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	config := app.Store.Config
+	config := app.GetConfig()
 	client := http.Client{}
 	tests := []struct {
 		name        string
@@ -110,7 +110,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	correctSession := sessions.NewSession()
 	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
 
-	config := app.Store.Config
+	config := app.GetConfig()
 	client := http.Client{}
 	tests := []struct {
 		name, sessionID string

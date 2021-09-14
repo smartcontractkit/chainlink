@@ -86,9 +86,9 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
 	eventBroadcaster := postgres.NewEventBroadcaster(
-		corestore.Config.DatabaseURL(),
-		corestore.Config.DatabaseListenerMinReconnectInterval(),
-		corestore.Config.DatabaseListenerMaxReconnectDuration(),
+		cfg.DatabaseURL(),
+		cfg.DatabaseListenerMinReconnectInterval(),
+		cfg.DatabaseListenerMaxReconnectDuration(),
 	)
 	pipelineORM := pipeline.NewORM(corestore.DB)
 

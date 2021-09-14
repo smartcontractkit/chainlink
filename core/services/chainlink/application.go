@@ -524,7 +524,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if !app.Store.Config.Dev() {
+	if !app.GetConfig().Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
