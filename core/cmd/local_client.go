@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -129,18 +128,9 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return err
 	}
 
-	if !store.Config.EthereumDisabled() {
-		fundingKey, currentBalance, err := ensureKeys(context.TODO(), app.GetEthClient(), keyStore.Eth())
-		if err != nil {
-			return cli.errorOut(errors.Wrap(err, "failed to generate eth keys"))
-		}
-		if store.Config.Dev() {
-			if currentBalance.Cmp(big.NewInt(0)) == 0 {
-				logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address.Hex(), "balance", currentBalance)
-			} else {
-				logger.Infow("Funding address ready", "address", fundingKey.Address.Hex(), "current-balance", currentBalance)
-			}
-		}
+	err = ensureKeys(context.TODO(), store.Config, app.GetEthClient(), keyStore)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure keys"))
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -228,24 +218,50 @@ func logConfigVariables(cfg config.GeneralConfig) error {
 	return nil
 }
 
-func ensureKeys(ctx context.Context,
-	etClient eth.Client,
-	ethKeyStore keystore.Eth,
-) (key ethkey.KeyV2, balance *big.Int, err error) {
-	sendingKey, sendDidExist, fundingKey, fundDidExist, err := ethKeyStore.EnsureKeys()
+func ensureKeys(ctx context.Context, cfg config.GeneralConfig, ethClient eth.Client, ks keystore.Master) error {
+	if !cfg.EthereumDisabled() {
+		balance := big.NewInt(0)
+		sendingKey, sendDidExist, fundingKey, fundDidExist, err := ks.Eth().EnsureKeys()
+		if err != nil {
+			return errors.Wrap(err, "while ensuring eth key")
+		}
+		if !sendDidExist {
+			logger.Infow("New sending address created", "address", sendingKey.Address.Hex(), "balance", 0)
+		}
+		if fundDidExist {
+			// TODO How to make sure the EthClient is connected?
+			balance, err = ethClient.BalanceAt(ctx, fundingKey.Address.Address(), nil)
+			if err != nil {
+				return errors.Wrapf(err, "while fetching eth balance for key %s", fundingKey.ID())
+			}
+		} else {
+			logger.Infow("New funding address created", "address", fundingKey.Address.Hex(), "balance", 0)
+		}
+		if cfg.Dev() {
+			if balance.Cmp(big.NewInt(0)) == 0 {
+				logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address.Hex(), "balance", balance)
+			} else {
+				logger.Infow("Funding address ready", "address", fundingKey.Address.Hex(), "current-balance", balance)
+			}
+		}
+	}
+
+	ocrKey, didExist, err := ks.OCR().EnsureKey()
 	if err != nil {
-		return key, nil, err
+		return errors.Wrap(err, "failed to ensure ocr key")
 	}
-	if !sendDidExist {
-		logger.Infow("New sending address created", "address", sendingKey.Address.Hex(), "balance", 0)
+	if !didExist {
+		logger.Infow("Created OCR key with ID %s", ocrKey.ID())
 	}
-	if fundDidExist {
-		// TODO How to make sure the EthClient is connected?
-		balance, ethErr := etClient.BalanceAt(ctx, fundingKey.Address.Address(), nil)
-		return fundingKey, balance, ethErr
+	p2pKey, didExist, err := ks.P2P().EnsureKey()
+	if err != nil {
+		return errors.Wrap(err, "failed to ensure p2p key")
 	}
-	logger.Infow("New funding address created", "address", fundingKey.Address.Hex(), "balance", 0)
-	return fundingKey, big.NewInt(0), nil
+	if !didExist {
+		logger.Infow("Created P2P key with ID %s", p2pKey.ID())
+	}
+
+	return nil
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of
