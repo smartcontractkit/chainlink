@@ -8,8 +8,9 @@ import (
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -20,18 +21,18 @@ import (
 func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlxDB(t)
+	orm := bridges.NewORM(db)
 
 	url := cltest.WebURL(t, "https://a.web.url")
 
 	//  Add duplicate
-	exi := models.ExternalInitiator{
+	exi := bridges.ExternalInitiator{
 		Name: "duplicate",
 		URL:  &url,
 	}
 
-	assert.NoError(t, store.CreateExternalInitiator(&exi))
+	assert.NoError(t, orm.CreateExternalInitiator(&exi))
 
 	tests := []struct {
 		name      string
@@ -49,10 +50,10 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var exr models.ExternalInitiatorRequest
+			var exr bridges.ExternalInitiatorRequest
 
 			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
-			result := web.ValidateExternalInitiator(&exr, store)
+			result := web.ValidateExternalInitiator(&exr, orm)
 
 			cltest.AssertError(t, test.wantError, result)
 		})
@@ -192,10 +193,10 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	exi := models.ExternalInitiator{
+	exi := bridges.ExternalInitiator{
 		Name: "abracadabra",
 	}
-	err := app.GetStore().CreateExternalInitiator(&exi)
+	err := app.BridgeORM().CreateExternalInitiator(&exi)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()

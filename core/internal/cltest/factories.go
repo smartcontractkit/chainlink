@@ -643,7 +643,7 @@ func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHa
 	}
 }
 
-func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei models.ExternalInitiator) {
+func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei bridges.ExternalInitiator) {
 	return MustInsertExternalInitiatorWithOpts(t, db, ExternalInitiatorOpts{})
 }
 
@@ -654,7 +654,7 @@ type ExternalInitiatorOpts struct {
 	OutgoingToken  string
 }
 
-func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts ExternalInitiatorOpts) (ei models.ExternalInitiator) {
+func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix

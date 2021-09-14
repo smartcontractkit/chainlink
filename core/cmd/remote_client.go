@@ -20,6 +20,7 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -36,7 +37,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
-	var request models.ExternalInitiatorRequest
+	var request bridges.ExternalInitiatorRequest
 	request.Name = c.Args().Get(0)
 
 	// process optional URL

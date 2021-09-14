@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -26,7 +26,7 @@ type ORM interface {
 	SetPassword(user *User, newPassword string) error
 	Sessions(offset, limit int) ([]Session, error)
 
-	FindExternalInitiator(eia *auth.Token) (initiator *models.ExternalInitiator, err error)
+	FindExternalInitiator(eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
 
 type orm struct {
@@ -185,11 +185,8 @@ func (o *orm) Sessions(offset, limit int) (sessions []Session, err error) {
 // TEMP: Appease AuthStorer
 func (o *orm) FindExternalInitiator(
 	eia *auth.Token,
-) (*models.ExternalInitiator, error) {
-	var initiator = &models.ExternalInitiator{}
-	err := o.db.Get(initiator, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
-	if err != nil {
-		return nil, err
-	}
-	return initiator, nil
+) (*bridges.ExternalInitiator, error) {
+	exi := &bridges.ExternalInitiator{}
+	err := o.db.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	return exi, err
 }

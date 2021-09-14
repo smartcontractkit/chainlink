@@ -4,54 +4,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestORM_CreateExternalInitiator(t *testing.T) {
-	store := cltest.NewStore(t)
-
-	token := auth.NewToken()
-	req := models.ExternalInitiatorRequest{
-		Name: "externalinitiator",
-	}
-	exi, err := models.NewExternalInitiator(token, &req)
-	require.NoError(t, err)
-	require.NoError(t, store.CreateExternalInitiator(exi))
-
-	exi2, err := models.NewExternalInitiator(token, &req)
-	require.NoError(t, err)
-	require.Equal(t, `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`, store.CreateExternalInitiator(exi2).Error())
-}
-
-func TestORM_DeleteExternalInitiator(t *testing.T) {
-	store := cltest.NewStore(t)
-
-	token := auth.NewToken()
-	req := models.ExternalInitiatorRequest{
-		Name: "externalinitiator",
-	}
-	exi, err := models.NewExternalInitiator(token, &req)
-	require.NoError(t, err)
-	require.NoError(t, store.CreateExternalInitiator(exi))
-
-	_, err = store.FindExternalInitiator(token)
-	require.NoError(t, err)
-
-	err = store.DeleteExternalInitiator(exi.Name)
-	require.NoError(t, err)
-
-	_, err = store.FindExternalInitiator(token)
-	require.Error(t, err)
-
-	require.NoError(t, store.CreateExternalInitiator(exi))
-}
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store := cltest.NewStore(t)

@@ -5,9 +5,9 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,7 @@ const (
 
 type AuthStorer interface {
 	AuthorizedUserWithSession(sessionID string) (clsessions.User, error)
-	FindExternalInitiator(eia *auth.Token) (*models.ExternalInitiator, error)
+	FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error)
 	FindUser() (clsessions.User, error)
 }
 
@@ -50,7 +50,7 @@ func AuthenticateExternalInitiator(store AuthStorer, c *gin.Context) error {
 		return errors.Wrap(err, "finding external intiator")
 	}
 
-	ok, err := models.AuthenticateExternalInitiator(eia, ei)
+	ok, err := bridges.AuthenticateExternalInitiator(eia, ei)
 	if err != nil {
 		return err
 	}
@@ -65,12 +65,12 @@ func AuthenticateExternalInitiator(store AuthStorer, c *gin.Context) error {
 
 var _ authType = AuthenticateExternalInitiator
 
-func authenticatedEI(c *gin.Context) (*models.ExternalInitiator, bool) {
+func authenticatedEI(c *gin.Context) (*bridges.ExternalInitiator, bool) {
 	obj, ok := c.Get(SessionExternalInitiatorKey)
 	if !ok {
 		return nil, false
 	}
-	return obj.(*models.ExternalInitiator), ok
+	return obj.(*bridges.ExternalInitiator), ok
 }
 
 // AuthenticateByToken authenticates a User by their API token.
