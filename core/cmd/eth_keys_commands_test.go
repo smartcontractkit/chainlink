@@ -140,9 +140,16 @@ func TestClient_DeleteEthKey(t *testing.T) {
 
 	ethClient, assertMocksCalled := newEthMock(t)
 	defer assertMocksCalled()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethClient),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
 	)
 	ethKeyStore := app.GetKeyStore().Eth()
 	client, _ := app.NewClientAndRenderer()
