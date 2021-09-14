@@ -179,63 +179,48 @@ func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
 
 // Connection manages all of the possible database connection setup and config.
 type Connection struct {
-	name               dialects.DialectName
-	uri                string
-	dialect            dialects.DialectName
-	locking            bool
-	advisoryLockID     int64
-	lockRetryInterval  time.Duration
-	transactionWrapped bool
-	maxOpenConns       int
-	maxIdleConns       int
+	name              dialects.DialectName
+	uri               string
+	dialect           dialects.DialectName
+	locking           bool
+	advisoryLockID    int64
+	lockRetryInterval time.Duration
+	maxOpenConns      int
+	maxIdleConns      int
 }
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
 func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
+	ct := Connection{
+		advisoryLockID: advisoryLockID,
+		locking:        true,
+		name:           dialect,
+		uri:            uri,
+		maxOpenConns:   maxOpenConns,
+		maxIdleConns:   maxIdleConns,
+	}
 	switch dialect {
 	case dialects.Postgres:
-		return Connection{
-			advisoryLockID:     advisoryLockID,
-			dialect:            dialects.Postgres,
-			locking:            true,
-			name:               dialect,
-			transactionWrapped: false,
-			uri:                uri,
-			lockRetryInterval:  lockRetryInterval,
-			maxOpenConns:       maxOpenConns,
-			maxIdleConns:       maxIdleConns,
-		}, nil
+		ct.dialect = dialects.Postgres
+		ct.locking = true
+		ct.lockRetryInterval = lockRetryInterval
 	case dialects.PostgresWithoutLock:
-		return Connection{
-			advisoryLockID:     advisoryLockID,
-			dialect:            dialects.Postgres,
-			locking:            false,
-			name:               dialect,
-			transactionWrapped: false,
-			uri:                uri,
-			maxOpenConns:       maxOpenConns,
-			maxIdleConns:       maxIdleConns,
-		}, nil
+		ct.dialect = dialects.Postgres
+		ct.locking = false
 	case dialects.TransactionWrappedPostgres:
-		return Connection{
-			advisoryLockID:     advisoryLockID,
-			dialect:            dialects.TransactionWrappedPostgres,
-			locking:            true,
-			name:               dialect,
-			transactionWrapped: true,
-			uri:                uri,
-			lockRetryInterval:  lockRetryInterval,
-			maxOpenConns:       maxOpenConns,
-			maxIdleConns:       maxIdleConns,
-		}, nil
+		ct.dialect = dialects.TransactionWrappedPostgres
+		ct.locking = true
+		ct.lockRetryInterval = lockRetryInterval
+	default:
+		return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 	}
-	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
+	return ct, nil
 }
 
 func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 	originalURI := ct.uri
-	if ct.transactionWrapped {
+	if ct.dialect == dialects.TransactionWrappedPostgres {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
 		// unique id.
