@@ -6,13 +6,14 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
 var (
@@ -186,9 +187,14 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	id, err := orm.CreateJobProposal(context.Background(), jp)
 	require.NoError(t, err)
 
-	count, err = orm.CountJobProposals(context.Background())
+	actual, err := orm.GetJobProposal(context.Background(), id)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), count)
+	require.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
+	require.Equal(t, jp.Status, actual.Status)
+	require.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	require.NotEmpty(t, actual.CreatedAt)
+	require.Equal(t, actual.CreatedAt.String(), actual.UpdatedAt.String())
+	require.Equal(t, actual.CreatedAt.String(), actual.ProposedAt.String())
 
 	assert.NotZero(t, id)
 }
@@ -245,6 +251,7 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
 	assert.NotEqual(t, createdActual.UpdatedAt, actual.UpdatedAt)
 	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
+	assert.NotEqual(t, createdActual.ProposedAt, actual.ProposedAt)
 }
 
 func Test_ORM_ListJobProposals(t *testing.T) {
@@ -293,6 +300,9 @@ func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 	id, err := orm.CreateJobProposal(ctx, jp)
 	require.NoError(t, err)
 
+	actualCreated, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
 	err = orm.UpdateJobProposalSpec(ctx, id, "updated spec")
 	require.NoError(t, err)
 
@@ -301,6 +311,12 @@ func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, "updated spec", actual.Spec)
+	assert.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	require.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
+	require.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
+	require.NotEqual(t, actualCreated.UpdatedAt, actual.UpdatedAt)
 }
 
 func Test_ORM_GetJobProposal(t *testing.T) {
@@ -369,6 +385,9 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	id, err := orm.CreateJobProposal(ctx, jp)
 	require.NoError(t, err)
 
+	actualCreated, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
 	err = orm.UpdateJobProposalStatus(ctx, id, feeds.JobProposalStatusRejected)
 	require.NoError(t, err)
 
@@ -377,6 +396,9 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, feeds.JobProposalStatusRejected, actual.Status)
+	assert.NotEqual(t, actualCreated.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
+	assert.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
 }
 
 func Test_ORM_ApproveJobProposal(t *testing.T) {
@@ -402,6 +424,9 @@ func Test_ORM_ApproveJobProposal(t *testing.T) {
 	id, err := orm.CreateJobProposal(ctx, jp)
 	require.NoError(t, err)
 
+	actualCreated, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
 	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
 	require.NoError(t, err)
 
@@ -411,6 +436,9 @@ func Test_ORM_ApproveJobProposal(t *testing.T) {
 	assert.Equal(t, id, actual.ID)
 	assert.Equal(t, externalJobID, actual.ExternalJobID)
 	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+	assert.NotEqual(t, actualCreated.UpdatedAt, actual.UpdatedAt)
+	assert.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
+	assert.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
 }
 
 // createFeedsManager is a test helper to create a feeds manager
