@@ -44,6 +44,7 @@ func TestClient_IndexNodes(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexNodes(cltest.EmptyCLIContext()))
+	require.NotEmpty(t, r.Renders)
 	nodes := *r.Renders[0].(*cmd.NodePresenters)
 	require.Len(t, nodes, initialCount+1)
 	n := nodes[initialCount]

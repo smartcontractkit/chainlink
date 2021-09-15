@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -15,6 +15,6 @@ type HeadTrackable struct {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *HeadTrackable) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (_m *HeadTrackable) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	_m.Called(ctx, head)
 }

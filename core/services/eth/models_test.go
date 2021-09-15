@@ -1,4 +1,4 @@
-package models_test
+package eth_test
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -35,7 +35,7 @@ func TestHead_NewHead(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.want, func(t *testing.T) {
-			num := models.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0, nil)
+			num := eth.NewHead(test.input, utils.NewHash(), utils.NewHash(), 0, nil)
 			assert.Equal(t, test.want, fmt.Sprintf("%x", num.ToInt()))
 		})
 	}
@@ -45,8 +45,8 @@ func TestHead_GreaterThan(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name    string
-		left    *models.Head
-		right   *models.Head
+		left    *eth.Head
+		right   *eth.Head
 		greater bool
 	}{
 		{"nil nil", nil, nil, false},
@@ -67,7 +67,7 @@ func TestHead_NextInt(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
-		bn   *models.Head
+		bn   *eth.Head
 		want *big.Int
 	}{
 		{"nil", nil, nil},
@@ -86,8 +86,7 @@ func TestEthTx_GetID(t *testing.T) {
 }
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -112,9 +111,9 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 }
 
 func TestHead_ChainLength(t *testing.T) {
-	head := models.Head{
-		Parent: &models.Head{
-			Parent: &models.Head{},
+	head := eth.Head{
+		Parent: &eth.Head{
+			Parent: &eth.Head{},
 		},
 	}
 
@@ -123,20 +122,20 @@ func TestHead_ChainLength(t *testing.T) {
 
 func TestModels_HexToFunctionSelector(t *testing.T) {
 	t.Parallel()
-	fid := models.HexToFunctionSelector("0xb3f98adc")
+	fid := eth.HexToFunctionSelector("0xb3f98adc")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_HexToFunctionSelectorOverflow(t *testing.T) {
 	t.Parallel()
-	fid := models.HexToFunctionSelector("0xb3f98adc123456")
+	fid := eth.HexToFunctionSelector("0xb3f98adc123456")
 	assert.Equal(t, "0xb3f98adc", fid.String())
 }
 
 func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 	t.Parallel()
 	bytes := []byte(`"0xb3f98adc"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xb3f98adc", fid.String())
@@ -145,7 +144,7 @@ func TestModels_FunctionSelectorUnmarshalJSON(t *testing.T) {
 func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
 	t.Parallel()
 	literalSelectorBytes := []byte(`"setBytes(bytes)"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(literalSelectorBytes, &fid)
 	assert.NoError(t, err)
 	assert.Equal(t, "0xda359dc8", fid.String())
@@ -154,14 +153,14 @@ func TestModels_FunctionSelectorUnmarshalJSONLiteral(t *testing.T) {
 func TestModels_FunctionSelectorUnmarshalJSONError(t *testing.T) {
 	t.Parallel()
 	bytes := []byte(`"0xb3f98adc123456"`)
-	var fid models.FunctionSelector
+	var fid eth.FunctionSelector
 	err := json.Unmarshal(bytes, &fid)
 	assert.Error(t, err)
 }
 
 func TestSafeByteSlice_Success(t *testing.T) {
 	tests := []struct {
-		ary      models.UntrustedBytes
+		ary      eth.UntrustedBytes
 		start    int
 		end      int
 		expected []byte
@@ -182,7 +181,7 @@ func TestSafeByteSlice_Success(t *testing.T) {
 
 func TestSafeByteSlice_Error(t *testing.T) {
 	tests := []struct {
-		ary   models.UntrustedBytes
+		ary   eth.UntrustedBytes
 		start int
 		end   int
 	}{
@@ -204,11 +203,11 @@ func TestSafeByteSlice_Error(t *testing.T) {
 }
 
 func TestHead_EarliestInChain(t *testing.T) {
-	head := models.Head{
+	head := eth.Head{
 		Number: 3,
-		Parent: &models.Head{
+		Parent: &eth.Head{
 			Number: 2,
-			Parent: &models.Head{
+			Parent: &eth.Head{
 				Number: 1,
 			},
 		},
@@ -222,13 +221,13 @@ func TestHead_IsInChain(t *testing.T) {
 	hash2 := utils.NewHash()
 	hash3 := utils.NewHash()
 
-	head := models.Head{
+	head := eth.Head{
 		Number: 3,
 		Hash:   hash3,
-		Parent: &models.Head{
+		Parent: &eth.Head{
 			Hash:   hash2,
 			Number: 2,
-			Parent: &models.Head{
+			Parent: &eth.Head{
 				Hash:   hash1,
 				Number: 1,
 			},
@@ -257,7 +256,7 @@ func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			receipt := cltest.TxReceiptFromFixture(t, test.path)
-			require.Equal(t, test.want, models.ReceiptIndicatesRunLogFulfillment(*receipt))
+			require.Equal(t, test.want, eth.ReceiptIndicatesRunLogFulfillment(*receipt))
 		})
 	}
 }
@@ -266,11 +265,11 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
 		json     string
-		expected models.Head
+		expected eth.Head
 	}{
 		{"geth",
 			`{"difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
-			models.Head{
+			eth.Head{
 				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:     0x100,
 				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -279,7 +278,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"parity",
 			`{"author":"0xd1aeb42885a43b72b518182ef893125814811048","difficulty":"0xf3a00","extraData":"0xd883010503846765746887676f312e372e318664617277696e","gasLimit":"0xffc001","gasUsed":"0x0","hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","miner":"0xd1aeb42885a43b72b518182ef893125814811048","mixHash":"0x0f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","nonce":"0x0ece08ea8c49dfd9","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","receiptsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","sealFields":["0xa00f98b15f1a4901a7e9204f3c500a7bd527b3fb2c3340e12176a44b83e414a69e","0x880ece08ea8c49dfd9"],"sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","size":"0x218","stateRoot":"0xc7b01007a10da045eacb90385887dd0c38fcb5db7393006bdde24b93873c334b","timestamp":"0x58318da2","totalDifficulty":"0x1f3a00","transactions":[],"transactionsRoot":"0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421","uncles":[]}`,
-			models.Head{
+			eth.Head{
 				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:     0x100,
 				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -288,7 +287,7 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"arbitrum",
 			`{"number":"0x15156","hash":"0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871","parentHash":"0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34","mixHash":"0x0000000000000000000000000000000000000000000000000000000000000000","nonce":"0x0000000000000000","sha3Uncles":"0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347","logsBloom":"0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","transactionsRoot":"0x71448077f5ce420a8e24db62d4d58e8d8e6ad2c7e76318868e089d41f7e0faf3","stateRoot":"0x0000000000000000000000000000000000000000000000000000000000000000","receiptsRoot":"0x2c292672b8fc9d223647a2569e19721f0757c96a1421753a93e141f8e56cf504","miner":"0x0000000000000000000000000000000000000000","difficulty":"0x0","totalDifficulty":"0x0","extraData":"0x","size":"0x0","gasLimit":"0x11278208","gasUsed":"0x3d1fe9","timestamp":"0x60d0952d","transactions":["0xa1ea93556b93ed3b45cb24f21c8deb584e6a9049c35209242651bf3533c23b98","0xfc6593c45ba92351d17173aa1381e84734d252ab0169887783039212c4a41024","0x85ee9d04fd0ebb5f62191eeb53cb45d9c0945d43eba444c3548de2ac8421682f","0x50d120936473e5b75f6e04829ad4eeca7a1df7d3c5026ebb5d34af936a39b29c"],"uncles":[],"l1BlockNumber":"0x8652f9"}`,
-			models.Head{
+			eth.Head{
 				Hash:          common.HexToHash("0x752dab43f7a2482db39227d46cd307623b26167841e2207e93e7566ab7ab7871"),
 				Number:        0x15156,
 				ParentHash:    common.HexToHash("0x923ad1e27c1d43cb2d2fb09e26d2502ca4b4914a2e0599161d279c6c06117d34"),
@@ -298,14 +297,14 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 		},
 		{"not found",
 			`null`,
-			models.Head{},
+			eth.Head{},
 		},
 	}
 
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			var head models.Head
+			var head eth.Head
 			err := head.UnmarshalJSON([]byte(test.json))
 			require.NoError(t, err)
 			assert.Equal(t, test.expected.Hash, head.Hash)
@@ -320,11 +319,11 @@ func TestHead_UnmarshalJSON(t *testing.T) {
 func TestHead_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name     string
-		head     models.Head
+		head     eth.Head
 		expected string
 	}{
 		{"happy",
-			models.Head{
+			eth.Head{
 				Hash:       common.HexToHash("0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a"),
 				Number:     0x100,
 				ParentHash: common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
@@ -333,7 +332,7 @@ func TestHead_MarshalJSON(t *testing.T) {
 			`{"hash":"0x41800b5c3f1717687d85fc9018faac0a6e90b39deaa0b99e7fe4fe796ddeb26a","number":"0x100","parentHash":"0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d","timestamp":"0x58318da2"}`,
 		},
 		{"empty",
-			models.Head{},
+			eth.Head{},
 			`{"number":"0x0"}`,
 		},
 	}

@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,8 +32,8 @@ import (
 	"gorm.io/gorm"
 )
 
-func firstHead(t *testing.T, db *gorm.DB) models.Head {
-	h := models.Head{}
+func firstHead(t *testing.T, db *gorm.DB) eth.Head {
+	h := eth.Head{}
 	if err := db.Order("number asc").First(&h).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -102,8 +101,8 @@ func TestHeadTracker_Get(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		initial *models.Head
-		toSave  *models.Head
+		initial *eth.Head
+		toSave  *eth.Head
 		want    *big.Int
 	}{
 		{"greater", start, cltest.Head(6), big.NewInt(6)},
@@ -187,10 +186,10 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
-	chchHeaders := make(chan chan<- *models.Head, 1)
+	chchHeaders := make(chan chan<- *eth.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *models.Head)
+			chchHeaders <- args.Get(1).(chan<- *eth.Head)
 		}).
 		Return(sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
@@ -205,7 +204,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
-	headers <- &models.Head{Number: 1}
+	headers <- &eth.Head{Number: 1}
 	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())
@@ -254,9 +253,9 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
-	chchHeaders := make(chan chan<- *models.Head, 1)
+	chchHeaders := make(chan chan<- *eth.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *eth.Head) }).
 		Twice().
 		Return(sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
@@ -294,7 +293,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 
-	heads := []*models.Head{
+	heads := []*eth.Head{
 		cltest.Head(0),
 		cltest.Head(1),
 		cltest.Head(2),
@@ -323,7 +322,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	require.NoError(t, orm.IdempotentInsertHead(context.Background(), *heads[2]))
 
 	trackable.On("Connect", mock.Anything).Return(nil)
-	trackable.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h models.Head) bool {
+	trackable.On("OnNewLongestChain", mock.Anything, mock.MatchedBy(func(h eth.Head) bool {
 		return h.Number == 3 && h.Hash == heads[3].Hash && h.ParentHash == heads[2].Hash && h.Parent.Number == 2 && h.Parent.Hash == heads[2].Hash && h.Parent.Parent == nil
 	})).Once().Return()
 	assert.Nil(t, ht.Start())
@@ -337,8 +336,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
-	t.Cleanup(cleanupDB)
+	config, _ := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
@@ -347,8 +345,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	d := 1500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	t.Cleanup(cleanup)
+	store := cltest.NewStoreWithConfig(t, config)
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
@@ -357,9 +354,9 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	orm := headtracker.NewORM(store.DB, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
-	chchHeaders := make(chan chan<- *models.Head, 1)
+	chchHeaders := make(chan chan<- *eth.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *eth.Head) }).
 		Return(sub, nil)
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -368,7 +365,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
-	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	head0 := blocks.Head(0) // eth.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
 	assert.Nil(t, ht.Start())
@@ -397,7 +394,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	// the callback is only called for head number 5 because of head sampling
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 
 			require.Equal(t, int64(5), h.Number)
 			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
@@ -418,7 +415,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
-	latestHeadByNumber := make(map[int64]*models.Head)
+	latestHeadByNumber := make(map[int64]*eth.Head)
 	latestHeadByNumberMu := new(sync.Mutex)
 
 	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
@@ -463,8 +460,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
-	t.Cleanup(cleanupDB)
+	config, _ := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
 
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
@@ -472,8 +468,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	d := 0 * time.Second
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	t.Cleanup(cleanup)
+	store := cltest.NewStoreWithConfig(t, config)
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
@@ -483,9 +478,9 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(ethClient, evmcfg, orm, checker)
 
-	chchHeaders := make(chan chan<- *models.Head, 1)
+	chchHeaders := make(chan chan<- *eth.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { chchHeaders <- args.Get(1).(chan<- *eth.Head) }).
 		Return(sub, nil)
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -494,7 +489,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	lastHead := make(chan struct{})
 	blocks := cltest.NewBlocks(t, 10)
 
-	head0 := blocks.Head(0) // models.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
+	head0 := blocks.Head(0) // eth.Head{Number: 0, Hash: utils.NewHash(), ParentHash: utils.NewHash(), Timestamp: time.Unix(0, 0)}
 	// Initial query
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head0, nil)
 
@@ -521,28 +516,28 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 			require.Equal(t, int64(0), h.Number)
 			require.Equal(t, blocks.Head(0).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 			require.Equal(t, int64(1), h.Number)
 			require.Equal(t, blocks.Head(1).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 			require.Equal(t, int64(3), h.Number)
 			require.Equal(t, blocks.Head(3).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 			require.Equal(t, int64(4), h.Number)
 			require.Equal(t, blocks.Head(4).Hash, h.Hash)
 
@@ -557,7 +552,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(models.Head)
+			h := args.Get(1).(eth.Head)
 
 			require.Equal(t, int64(5), h.Number)
 			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
@@ -580,7 +575,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	// This grotesque construction is the only way to do dynamic return values using
 	// the mock package.  We need dynamic returns because we're simulating reorgs.
-	latestHeadByNumber := make(map[int64]*models.Head)
+	latestHeadByNumber := make(map[int64]*eth.Head)
 	latestHeadByNumberMu := new(sync.Mutex)
 
 	fnCall := ethClient.On("HeadByNumber", mock.Anything, mock.Anything)
@@ -639,7 +634,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: gethCommon.BigToHash(big.NewInt(0)),
 		Time:       now,
 	}
-	head0 := models.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, utils.NewBig(&cltest.FixtureChainID))
+	head0 := eth.NewHead(gethHead0.Number, utils.NewHash(), gethHead0.ParentHash, gethHead0.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h1 := *cltest.Head(1)
 	h1.ParentHash = head0.Hash
@@ -649,7 +644,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: utils.NewHash(),
 		Time:       now,
 	}
-	head8 := models.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, utils.NewBig(&cltest.FixtureChainID))
+	head8 := eth.NewHead(gethHead8.Number, utils.NewHash(), gethHead8.ParentHash, gethHead8.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h9 := *cltest.Head(9)
 	h9.ParentHash = head8.Hash
@@ -659,7 +654,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ParentHash: h9.Hash,
 		Time:       now,
 	}
-	head10 := models.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, utils.NewBig(&cltest.FixtureChainID))
+	head10 := eth.NewHead(gethHead10.Number, utils.NewHash(), gethHead10.ParentHash, gethHead10.Time, utils.NewBig(&cltest.FixtureChainID))
 
 	h11 := *cltest.Head(11)
 	h11.ParentHash = head10.Hash
@@ -679,7 +674,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	h15 := *cltest.Head(15)
 	h15.ParentHash = h14.Hash
 
-	heads := []models.Head{
+	heads := []eth.Head{
 		h9,
 		h11,
 		h12,
@@ -926,7 +921,7 @@ type headTrackerUniverse struct {
 	headBroadcaster httypes.HeadBroadcaster
 }
 
-func (u headTrackerUniverse) Backfill(ctx context.Context, head models.Head, depth uint) error {
+func (u headTrackerUniverse) Backfill(ctx context.Context, head eth.Head, depth uint) error {
 	return u.headTracker.Backfill(ctx, head, depth)
 }
 

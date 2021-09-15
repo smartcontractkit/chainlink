@@ -1,4 +1,4 @@
-package models
+package vrf
 
 import (
 	"math/big"

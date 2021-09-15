@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -129,7 +128,7 @@ func (lsn *listenerV2) Start() error {
 	})
 }
 
-func (lsn *listenerV2) Connect(head *models.Head) error {
+func (lsn *listenerV2) Connect(head *eth.Head) error {
 	lsn.latestHead = uint64(head.Number)
 	return nil
 }
@@ -152,7 +151,7 @@ func (lsn *listenerV2) extractConfirmedLogs() []pendingRequest {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head models.Head) {
+func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -160,7 +159,7 @@ func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head models.Head) {
 	}
 }
 
-func (lsn *listenerV2) setLatestHead(h models.Head) {
+func (lsn *listenerV2) setLatestHead(h eth.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)

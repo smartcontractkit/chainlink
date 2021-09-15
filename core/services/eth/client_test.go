@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -162,7 +161,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
-			functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
 			_, url, cleanup := cltest.NewWSServer(`{

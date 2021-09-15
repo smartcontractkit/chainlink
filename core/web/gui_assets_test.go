@@ -14,8 +14,7 @@ import (
 func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -45,8 +44,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -79,8 +77,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.Dev = null.BoolFrom(false)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -102,8 +99,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 func TestGuiAssets_AssetsExact(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -120,8 +116,7 @@ func TestGuiAssets_AssetsExact(t *testing.T) {
 func TestGuiAssets_AssetsExactCompressed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}

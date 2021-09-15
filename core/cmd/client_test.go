@@ -46,8 +46,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	tests := []struct {
@@ -136,8 +135,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			store := cltest.NewStore(t)
 
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
@@ -166,8 +164,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	initialUser := cltest.MustRandomUser()
 	require.NoError(t, store.SaveUser(&initialUser))
@@ -195,10 +192,9 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
+			store := cltest.NewStore(t)
 			// Clear out fixture user
 			store.DeleteUser()
-			defer cleanup()
 
 			tfi := cmd.NewFileAPIInitializer(test.file)
 			user, err := tfi.Initialize(store)
@@ -218,8 +214,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	tests := []struct {
 		name      string

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -141,7 +140,7 @@ func (ht *HeadTracker) Start() error {
 	})
 }
 
-func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
+func (ht *HeadTracker) getInitialHead() (*eth.Head, error) {
 	ctx, cancel := eth.DefaultQueryCtx()
 	defer cancel()
 	head, err := ht.ethClient.HeadByNumber(ctx, nil)
@@ -165,15 +164,15 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
+func (ht *HeadTracker) Save(ctx context.Context, h eth.Head) error {
 	return ht.headSaver.Save(ctx, h)
 }
 
-func (ht *HeadTracker) HighestSeenHead() *models.Head {
+func (ht *HeadTracker) HighestSeenHead() *eth.Head {
 	return ht.headSaver.HighestSeenHead()
 }
 
-func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+func (ht *HeadTracker) HighestSeenHeadFromDB() (*eth.Head, error) {
 	return ht.headSaver.HighestSeenHeadFromDB()
 }
 
@@ -225,9 +224,9 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	head, ok := item.(models.Head)
+	head, ok := item.(eth.Head)
 	if !ok {
-		panic(fmt.Sprintf("expected `models.Head`, got %T", item))
+		panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
 	}
 
 	ht.headBroadcaster.OnNewLongestChain(ctx, head)
@@ -245,9 +244,9 @@ func (ht *HeadTracker) backfiller() {
 				if !exists {
 					break
 				}
-				h, is := head.(models.Head)
+				h, is := head.(eth.Head)
 				if !is {
-					panic(fmt.Sprintf("expected `models.Head`, got %T", head))
+					panic(fmt.Sprintf("expected `eth.Head`, got %T", head))
 				}
 				{
 					ctx, cancel := eth.DefaultQueryCtx()
@@ -266,7 +265,7 @@ func (ht *HeadTracker) backfiller() {
 }
 
 // Backfill given a head will fill in any missing heads up to the given depth
-func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain models.Head, depth uint) (err error) {
+func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -280,7 +279,7 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain models.Head, 
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -309,7 +308,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		var existingHead *models.Head
+		var existingHead *eth.Head
 		existingHead, err = ht.headSaver.HeadByHash(ctx, head.ParentHash)
 		if ctx.Err() != nil {
 			break
@@ -331,26 +330,26 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 	return nil
 }
 
-func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
+func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
 	ht.logger().Debugw("HeadTracker: fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
-		return models.Head{}, nil
+		return eth.Head{}, nil
 	} else if err != nil {
-		return models.Head{}, err
+		return eth.Head{}, err
 	} else if head == nil {
-		return models.Head{}, errors.New("got nil head")
+		return eth.Head{}, errors.New("got nil head")
 	}
 	err = ht.headSaver.IdempotentInsertHead(ctx, *head)
 	if ctx.Err() != nil {
-		return models.Head{}, nil
+		return eth.Head{}, nil
 	} else if err != nil {
-		return models.Head{}, err
+		return eth.Head{}, err
 	}
 	return *head, nil
 }
 
-func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) error {
+func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 	prevHead := ht.HighestSeenHead()
 
 	ht.logger().Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
@@ -410,7 +409,7 @@ var _ httypes.Tracker = &NullTracker{}
 
 type NullTracker struct{}
 
-func (n *NullTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+func (n *NullTracker) HighestSeenHeadFromDB() (*eth.Head, error) {
 	return nil, nil
 }
 func (*NullTracker) Start() error   { return nil }

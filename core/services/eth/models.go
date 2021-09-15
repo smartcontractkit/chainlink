@@ -1,4 +1,4 @@
-package models
+package eth
 
 import (
 	"database/sql/driver"
