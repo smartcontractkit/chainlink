@@ -2,11 +2,6 @@ name: Smoke Tests
 
 on:
   push:
-    tags:
-      - v*
-    branches:
-      - develop
-      - main
   pull_request:
 
 jobs:
