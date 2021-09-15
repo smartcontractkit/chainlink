@@ -251,8 +251,8 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	assert.NotEqual(t, createdActual.Status, actual.Status)
 	assert.NotEqual(t, createdActual.Multiaddrs, actual.Multiaddrs)
 	assert.NotEqual(t, createdActual.UpdatedAt, actual.UpdatedAt)
-	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt)   // CreatedAt does not change
-	assert.Equal(t, createdActual.ProposedAt, actual.ProposedAt) // ProposedAt does not change
+	assert.Equal(t, createdActual.CreatedAt, actual.CreatedAt) // CreatedAt does not change
+	assert.NotEqual(t, createdActual.ProposedAt, actual.ProposedAt)
 }
 
 func Test_ORM_ListJobProposals(t *testing.T) {
@@ -301,6 +301,9 @@ func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 	id, err := orm.CreateJobProposal(ctx, jp)
 	require.NoError(t, err)
 
+	actualCreated, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
 	err = orm.UpdateJobProposalSpec(ctx, id, "updated spec")
 	require.NoError(t, err)
 
@@ -312,9 +315,9 @@ func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 	assert.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
 	assert.Equal(t, jp.Status, actual.Status)
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
-	require.Equal(t, jp.ProposedAt, actual.ProposedAt)
-	require.Equal(t, jp.CreatedAt, actual.CreatedAt)
-	require.NotEqual(t, jp.UpdatedAt, actual.UpdatedAt)
+	require.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
+	require.Equal(t, actualCreated.CreatedAt, actual.CreatedAt)
+	require.NotEqual(t, actualCreated.UpdatedAt, actual.UpdatedAt)
 }
 
 func Test_ORM_GetJobProposal(t *testing.T) {
