@@ -101,13 +101,8 @@ func (cc *LogController) Patch(c *gin.Context) {
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]
-			var level zapcore.Level
-			if err := level.UnmarshalText([]byte(svcLvl)); err != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err)
-				return
-			}
 
-			if err := cc.App.SetServiceLogger(c.Request.Context(), svcName, level); err != nil {
+			if err := cc.App.SetServiceLogger(c.Request.Context(), svcName, svcLvl); err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
 			}
@@ -125,7 +120,9 @@ func (cc *LogController) Patch(c *gin.Context) {
 
 	// Set default logger with new configurations
 	logger.SetLogger(cc.App.GetConfig().CreateProductionLogger())
-	cc.App.GetLogger().SetDB(cc.App.GetDB())
+	cc.App.SetLogger(func(old logger.Logger) logger.Logger {
+		return old.WithDB(cc.App.GetDB())
+	})
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

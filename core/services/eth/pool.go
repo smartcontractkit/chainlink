@@ -23,10 +23,10 @@ type Pool struct {
 	sendonlys       []SendOnlyNode
 	chainID         *big.Int
 	roundRobinCount atomic.Uint32
-	logger          *logger.Logger
+	logger          logger.Logger
 }
 
-func NewPool(logger *logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
+func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
 	return &Pool{nodes, sendonlys, chainID, atomic.Uint32{}, logger}
 }
 

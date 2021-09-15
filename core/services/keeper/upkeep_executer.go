@@ -41,7 +41,7 @@ type UpkeepExecuter struct {
 	mailbox         *utils.Mailbox
 	orm             ORM
 	pr              pipeline.Runner
-	logger          *logger.Logger
+	logger          logger.Logger
 	wgDone          sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -54,7 +54,7 @@ func NewUpkeepExecuter(
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	gasEstimator gas.Estimator,
-	logger *logger.Logger,
+	logger logger.Logger,
 	config Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
@@ -191,7 +191,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, nil); err != nil {
+	if _, err := ex.pr.Run(ctxService, &run, ex.logger, true, nil); err != nil {
 		ex.logger.WithError(err).Errorw("failed executing run")
 		return
 	}

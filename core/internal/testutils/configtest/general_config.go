@@ -352,7 +352,7 @@ func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error)
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c *TestGeneralConfig) CreateProductionLogger() *logger.Logger {
+func (c *TestGeneralConfig) CreateProductionLogger() logger.Logger {
 	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 

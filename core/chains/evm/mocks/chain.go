@@ -191,15 +191,15 @@ func (_m *Chain) LogBroadcaster() log.Broadcaster {
 }
 
 // Logger provides a mock function with given fields:
-func (_m *Chain) Logger() *logger.Logger {
+func (_m *Chain) Logger() logger.Logger {
 	ret := _m.Called()
 
-	var r0 *logger.Logger
-	if rf, ok := ret.Get(0).(func() *logger.Logger); ok {
+	var r0 logger.Logger
+	if rf, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logger.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 

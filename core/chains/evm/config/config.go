@@ -75,7 +75,7 @@ var _ ChainScopedConfig = &chainScopedConfig{}
 
 type chainScopedConfig struct {
 	config.GeneralConfig
-	logger       *logger.Logger
+	logger       logger.Logger
 	orm          *chainScopedConfigORM
 	persistedCfg evmtypes.ChainCfg
 	defaultSet   chainSpecificConfigDefaultSet
@@ -85,9 +85,7 @@ type chainScopedConfig struct {
 	onceMapMu    sync.RWMutex
 }
 
-// TODO: Use logger interface instead of *logger.Logger
-// See: https://app.clubhouse.io/chainlinklabs/story/15088/use-global-logger-interface-everywhere-instead-of-logger-logger
-func NewChainScopedConfig(orm evmtypes.ChainConfigORM, lggr *logger.Logger, gcfg config.GeneralConfig, chain evmtypes.Chain) ChainScopedConfig {
+func NewChainScopedConfig(orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig, chain evmtypes.Chain) ChainScopedConfig {
 	csorm := &chainScopedConfigORM{chain.ID.ToInt(), orm}
 	defaultSet, exists := chainSpecificConfigDefaultSets[chain.ID.ToInt().Int64()]
 	if !exists {

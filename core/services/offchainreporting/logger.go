@@ -3,21 +3,19 @@ package offchainreporting
 import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"go.uber.org/zap"
 )
 
 var _ ocrtypes.Logger = &ocrLogger{}
 
 type ocrLogger struct {
-	internal  *logger.Logger
+	internal  logger.Logger
 	trace     bool
 	saveError func(string)
 }
 
-func NewLogger(l *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
-	internal := logger.CreateLogger(l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar())
+func NewLogger(l logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
 	return &ocrLogger{
-		internal:  internal,
+		internal:  l.WithCallerSkip(1),
 		trace:     trace,
 		saveError: saveError,
 	}
