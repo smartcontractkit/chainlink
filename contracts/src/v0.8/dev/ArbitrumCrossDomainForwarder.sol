@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-// @unsupported: evm
-pragma solidity >=0.7.6 <0.9.0;
+pragma solidity ^0.8.0;
 
 import "../interfaces/TypeAndVersionInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
