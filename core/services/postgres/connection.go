@@ -57,3 +57,7 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdow
 
 	return db, gormDB, nil
 }
+
+func SetLogging(db *gorm.DB, enabled bool) {
+	db.Logger = NewLogWrapper(logger.Default, enabled, time.Second)
+}

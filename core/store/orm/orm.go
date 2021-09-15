@@ -77,11 +77,6 @@ func (orm *ORM) MustEnsureAdvisoryLock() error {
 	return nil
 }
 
-// SetLogging turns on SQL statement logging
-func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.Logger = logger.NewGormWrapper(logger.Default, enabled, time.Second)
-}
-
 // Close closes the underlying database connection.
 func (orm *ORM) Close() error {
 	var err error
