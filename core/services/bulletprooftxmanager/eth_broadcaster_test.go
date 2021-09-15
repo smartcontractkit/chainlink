@@ -231,9 +231,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, orm := heavyweight.FullTestORM(t, "eth_broadcaster_optimistic_locking", true, true)
+	cfg, _, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking", true, true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	db := orm.DB
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1179,8 +1178,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
-	cfg, orm := heavyweight.FullTestORM(t, "eth_tx_triggers", true, true)
-	db := orm.DB
+	cfg, _, db := heavyweight.FullTestDB(t, "eth_tx_triggers", true, true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()

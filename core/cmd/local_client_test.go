@@ -429,7 +429,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// that it was set back to WithoutLock at the end of the test.
 			assert.NoError(t, client.RebroadcastTransactions(c))
 			// Check that the Dialect was set back when the command was run.
-			assert.Equal(t, dialects.PostgresWithoutLock, config.GetDatabaseDialectConfiguredOrDefault())
+			assert.Equal(t, dialects.Postgres, config.GetDatabaseDialectConfiguredOrDefault())
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetDB(), 1)
 			app.AssertExpectations(t)
