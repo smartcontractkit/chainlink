@@ -3,6 +3,7 @@ import React from 'react'
 import { NodeSpecV2 } from './NodesIndex'
 import { tableStyles } from 'components/Table'
 import { TimeAgo } from 'components/TimeAgo'
+import Link from 'components/Link'
 
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'
@@ -18,7 +19,9 @@ export const NodeRow = withStyles(tableStyles)(({ node, classes }: Props) => {
   return (
     <TableRow className={classes.row} hover>
       <TableCell className={classes.cell} component="th" scope="row">
-        {node.id}
+        <Link className={classes.link} href={`/nodes/${node.id}`}>
+          {node.id}
+        </Link>
       </TableCell>
 
       <TableCell>{node.attributes.name}</TableCell>
