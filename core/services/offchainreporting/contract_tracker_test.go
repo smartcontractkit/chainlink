@@ -74,8 +74,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = new(htmocks.HeadBroadcaster)
 	uni.ec = cltest.NewEthClientMock(t)
 
-	s, c := cltest.NewStore(t)
-	t.Cleanup(c)
+	s := cltest.NewStore(t)
 	uni.tracker = offchainreporting.NewOCRContractTracker(
 		contract,
 		filterer,
