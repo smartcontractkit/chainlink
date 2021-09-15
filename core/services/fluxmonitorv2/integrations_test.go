@@ -373,10 +373,16 @@ func assertNoSubmission(t *testing.T,
 	duration time.Duration,
 	msg string,
 ) {
+
+	// drain the channel
+	for len(submissionReceived) > 0 {
+		<-submissionReceived
+	}
+
 	select {
 	case <-submissionReceived:
-		assert.Fail(t, "flags are up, but submission was sent")
-	case <-time.After(2 * time.Second):
+		assert.Fail(t, "flags are up, but submission was sent", msg)
+	case <-time.After(duration):
 	}
 }
 
