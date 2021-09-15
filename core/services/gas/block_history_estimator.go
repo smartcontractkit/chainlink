@@ -8,15 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const (
@@ -346,7 +346,13 @@ func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, er
 	for _, block := range b.rollingBlockHistory {
 		for _, tx := range block.Transactions {
 			if isUsableTx(tx, minGasPriceWei, &b.chainID) {
-				gasPrices = append(gasPrices, tx.GasPrice)
+				gasPrice := b.EffectiveGasPrice(block, tx)
+				if gasPrice != nil {
+					gasPrices = append(gasPrices, gasPrice)
+				} else {
+					b.logger.Warnw("BlockHistoryEstimator: unable to get gas price for tx", "tx", tx, "block", block)
+					continue
+				}
 			}
 		}
 	}
@@ -390,11 +396,38 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	if tx.GasLimit == 0 {
 		return false
 	}
-	// NOTE: This really shouldn't be possible, but at least one node op has
-	// reported it happening on mainnet so we need to handle this case
-	if tx.GasPrice == nil {
-		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
-		return false
-	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)
+}
+
+func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *big.Int {
+	switch tx.Type {
+	case 0x0, 0x1:
+		return tx.GasPrice
+	case 0x2:
+		if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
+			b.logger.Warnw("BlockHistoryEstimator: got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
+			return tx.GasPrice
+		}
+		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+
+		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
+		priorityFeePerGas := tx.MaxPriorityFeePerGas
+		maxFeeMinusBaseFee := big.NewInt(0).Sub(tx.MaxFeePerGas, block.BaseFeePerGas)
+		if maxFeeMinusBaseFee.Cmp(priorityFeePerGas) < 0 {
+			priorityFeePerGas = maxFeeMinusBaseFee
+		}
+
+		gasPrice := big.NewInt(0).Add(priorityFeePerGas, block.BaseFeePerGas)
+		return gasPrice
+	default:
+		b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: unknown transaction type %v, falling back to gasPrice", tx.Type), "block", block, "tx", tx)
+		return tx.GasPrice
+	}
 }
