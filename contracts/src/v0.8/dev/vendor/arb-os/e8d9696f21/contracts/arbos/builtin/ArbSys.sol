@@ -1,4 +1,4 @@
-// NOTICE: pragma change from original (>=0.4.21 <0.7.0;)
+// NOTICE: pragma change from original (>=0.4.21 <0.7.0)
 pragma solidity >=0.4.21 <0.9.0;
 
 /**
