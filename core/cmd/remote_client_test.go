@@ -12,7 +12,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -811,7 +813,7 @@ func TestClient_MigrateCron(t *testing.T) {
 	set.Parse([]string{"../testdata/jsonspecs/example-cron2.json"})
 	c := cli.NewContext(nil, set, nil)
 
-	toml, err := client.MigrateJobSpecForResult(c)
+	toml, _, err := client.MigrateJobSpecForResult(c)
 	require.NoError(t, err)
 
 	fmt.Println(toml)
@@ -821,10 +823,58 @@ func TestClient_MigrateCron(t *testing.T) {
 
 	var jb job.Job
 	jb, err = cron.ValidatedCronSpec(toml)
+	require.NoError(t, err)
 
-	if err != nil {
-		return
-	}
+	jb, err = app.AddJobV2(context.Background(), jb, jb.Name)
+	require.Error(t, err, "augur-sportsdataio: no such bridge exists")
+}
+
+func TestClient_MigrateRunLog(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("migrate", 0)
+	set.Parse([]string{"../testdata/jsonspecs/example-runlog.json"})
+	c := cli.NewContext(nil, set, nil)
+
+	toml, j, err := client.MigrateJobSpecForResult(c)
+	require.NoError(t, err)
+
+	fmt.Println(toml)
+
+	_, err = job.ValidateSpec(toml)
+	require.NoError(t, err)
+
+	var jb job.Job
+	jb, err = directrequest.ValidatedDirectRequestSpec(toml)
+	require.NoError(t, err)
+
+	require.Equal(t, "0xfe8F390fFD3c74870367121cE251C744d3DC01Ed", jb.DirectRequestSpec.ContractAddress.String())
+	require.Equal(t, clnull.Uint32From(10), jb.DirectRequestSpec.MinIncomingConfirmations)
+	require.Equal(t, fmt.Sprintf(
+		`Name = "QDT Price Prediction"
+SchemaVersion = 1
+Type = "directrequest"
+contractAddress = "0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
+externalJobID = "%v"
+minIncomingConfirmations = "10"
+observationSource = """
+send_to_bridge [
+	name=qdt
+	requestData=<{"endpoint":"price"}>
+	type=bridge
+	];
+	multiply1 [
+	times=100000000
+	type=multiply
+	];
+	
+	// Edge definitions.
+	send_to_bridge -> multiply1;
+	"""
+`, j.ExternalJobID), toml)
 
 	jb, err = app.AddJobV2(context.Background(), jb, jb.Name)
 	require.Error(t, err, "augur-sportsdataio: no such bridge exists")

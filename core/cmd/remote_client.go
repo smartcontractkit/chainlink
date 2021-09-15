@@ -233,7 +233,7 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 
 // MigrateJobSpec migrates a JobSpec based on JSON input
 func (cli *Client) MigrateJobSpec(c *clipkg.Context) (err error) {
-	result, err := cli.MigrateJobSpecForResult(c)
+	result, _, err := cli.MigrateJobSpecForResult(c)
 	if err != nil {
 		return err
 	}
@@ -243,44 +243,55 @@ func (cli *Client) MigrateJobSpec(c *clipkg.Context) (err error) {
 	return nil
 }
 
-func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, err error) {
+func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, j *job.Job, err error) {
 	if !c.Args().Present() {
-		return s, cli.errorOut(errors.New("Must pass in JSON or filepath"))
+		return s, nil, cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
 
 	buf, err := getBufferFromJSON(c.Args().First())
 	if err != nil {
-		return s, cli.errorOut(err)
+		return s, nil, cli.errorOut(err)
 	}
 	var jsr models.JobSpecRequest
 	err = json.Unmarshal(buf.Bytes(), &jsr)
 	if err != nil {
-		return s, cli.errorOut(err)
+		return s, nil, cli.errorOut(err)
 	}
 
 	js := models.NewJobFromRequest(jsr)
 
-	//logger.Warnf("JOB: %v", js)
 	jobSpec, err := MigrateJobSpec(js)
 	if err != nil {
-		return s, cli.errorOut(err)
+		return s, nil, cli.errorOut(err)
 	}
 
-	flat := job.JobCronFlat{
-		ExternalJobID:     jobSpec.ExternalJobID,
-		CronSchedule:      jobSpec.CronSpec.CronSchedule,
-		Type:              job.Cron,
-		SchemaVersion:     1,
-		Name:              jobSpec.Name,
-		ObservationSource: jobSpec.PipelineSpec.DotDagSource,
+	var flat interface{}
+	if jobSpec.CronSpec != nil {
+		flat = job.JobCronFlat{
+			ExternalJobID:     jobSpec.ExternalJobID,
+			CronSchedule:      jobSpec.CronSpec.CronSchedule,
+			Type:              jobSpec.Type,
+			SchemaVersion:     1,
+			Name:              jobSpec.Name,
+			ObservationSource: jobSpec.PipelineSpec.DotDagSource,
+		}
 	}
-
-	bytes, err := toml.Marshal(flat)
+	if jobSpec.DirectRequestSpec != nil {
+		flat = job.JobDirectRequestFlat{
+			ExternalJobID:            jobSpec.ExternalJobID,
+			ContractAddress:          jobSpec.DirectRequestSpec.ContractAddress,
+			MinIncomingConfirmations: jobSpec.DirectRequestSpec.MinIncomingConfirmations,
+			Type:                     jobSpec.Type,
+			SchemaVersion:            1,
+			Name:                     jobSpec.Name,
+			ObservationSource:        jobSpec.PipelineSpec.DotDagSource,
+		}
+	}
+	result, err := toml.Marshal(flat)
 	if err != nil {
-		return s, cli.errorOut(err)
+		return s, nil, cli.errorOut(err)
 	}
-
-	return string(bytes), nil
+	return string(result), &jobSpec, nil
 }
 
 // ArchiveJobSpec soft deletes a job and its associated runs.

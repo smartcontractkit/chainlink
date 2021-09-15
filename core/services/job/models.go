@@ -104,6 +104,16 @@ type JobCronFlat struct {
 	ObservationSource string `toml:"observationSource" multiline:"true"`
 }
 
+type JobDirectRequestFlat struct {
+	ExternalJobID            uuid.UUID           `toml:"externalJobID"`
+	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
+	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+	Type                     Type
+	SchemaVersion            uint32
+	Name                     null.String
+	ObservationSource        string `toml:"observationSource" multiline:"true"`
+}
+
 // The external job ID (UUID) can be encoded into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
