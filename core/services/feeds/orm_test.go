@@ -187,15 +187,14 @@ func Test_ORM_CreateJobProposal(t *testing.T) {
 	id, err := orm.CreateJobProposal(context.Background(), jp)
 	require.NoError(t, err)
 
-	listJobs, err := orm.ListJobProposals(context.Background())
+	actual, err := orm.GetJobProposal(context.Background(), id)
 	require.NoError(t, err)
-	require.Len(t, listJobs, 1)
-	require.Equal(t, jp.RemoteUUID, listJobs[0].RemoteUUID)
-	require.Equal(t, jp.Status, listJobs[0].Status)
-	require.Equal(t, jp.FeedsManagerID, listJobs[0].FeedsManagerID)
-	require.NotEmpty(t, listJobs[0].CreatedAt)
-	require.Equal(t, listJobs[0].CreatedAt.String(), listJobs[0].UpdatedAt.String())
-	require.Equal(t, listJobs[0].CreatedAt.String(), listJobs[0].ProposedAt.String())
+	require.Equal(t, jp.RemoteUUID, actual.RemoteUUID)
+	require.Equal(t, jp.Status, actual.Status)
+	require.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+	require.NotEmpty(t, actual.CreatedAt)
+	require.Equal(t, actual.CreatedAt.String(), actual.UpdatedAt.String())
+	require.Equal(t, actual.CreatedAt.String(), actual.ProposedAt.String())
 
 	assert.NotZero(t, id)
 }
