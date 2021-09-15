@@ -14,8 +14,7 @@ import (
 )
 
 func Test_Peerstore_Start(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
 	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
@@ -61,8 +60,7 @@ func Test_Peerstore_Start(t *testing.T) {
 }
 
 func Test_Peerstore_WriteToDB(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
 	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)

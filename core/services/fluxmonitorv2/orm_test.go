@@ -23,8 +23,7 @@ import (
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
+	corestore := cltest.NewStore(t)
 
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
@@ -80,8 +79,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	corestore, cleanup := cltest.NewStore(t, cfg)
-	t.Cleanup(cleanup)
+	corestore := cltest.NewStore(t, cfg)
 
 	keyStore := cltest.NewKeyStore(t, corestore.DB)
 
@@ -167,8 +165,7 @@ func makeJob(t *testing.T) *job.Job {
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
-	t.Cleanup(cleanup)
+	corestore := cltest.NewStore(t)
 	ethKeyStore := cltest.NewKeyStore(t, corestore.DB).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
