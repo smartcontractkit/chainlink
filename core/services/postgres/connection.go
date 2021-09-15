@@ -14,6 +14,13 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	// We've specified a later version in go.mod than is currently used by gorm
+	// to get this fix in https://github.com/jackc/pgx/pull/975.
+	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
+	// bumps their version to 4.12, we can remove this.
+	_ "github.com/jackc/pgx/v4"
 )
 
 func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (db *sqlx.DB, gormDB *gorm.DB, err error) {
@@ -47,6 +54,8 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdow
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", uri, db)
 	}
+	// For some reason this incantation fixes https://github.com/go-gorm/gorm/issues/4586
+	gormDB = gormDB.Omit(clause.Associations).Session(&gorm.Session{})
 
 	// Set connection options
 	if _, err = db.Exec(`SET TIME ZONE 'UTC'`); err != nil {
