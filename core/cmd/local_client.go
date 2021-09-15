@@ -570,14 +570,14 @@ func migrateDB(config config.GeneralConfig) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+	postgres.SetLogging(orm.DB, config.LogSQLStatements() || config.LogSQLMigrations())
 
 	db := postgres.UnwrapGormDB(orm.DB).DB
 
 	if err = migrate.Migrate(db); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements())
+	postgres.SetLogging(orm.DB, config.LogSQLStatements())
 	return orm.Close()
 }
 
