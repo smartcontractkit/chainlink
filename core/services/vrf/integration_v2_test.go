@@ -387,7 +387,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	var attempts []bulletprooftxmanager.EthTxAttempt
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
-		attempts, _, err = app.GetStore().EthTxAttempts(0, 1000)
+		attempts, _, err = app.BPTXMORM().EthTxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
