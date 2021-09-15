@@ -87,17 +87,12 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	eventBroadcaster := postgres.NewEventBroadcaster(
-		cfg.DatabaseURL(),
-		cfg.DatabaseListenerMinReconnectInterval(),
-		cfg.DatabaseListenerMaxReconnectDuration(),
-	)
 	pipelineORM := pipeline.NewORM(db)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore)
 	orm := fluxmonitorv2.NewORM(db, nil, nil)
 
 	address := cltest.NewAddress()

@@ -21,17 +21,17 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	// FindJob -> find error
 	j, err := app.JobORM().FindJob(context.Background(), jID)
 	require.NoError(t, err)
-	require.Len(t, j.JobSpecErrors, 1)
-	jse := j.JobSpecErrors[0]
+	require.Len(t, j.JobSpecErrors, 2)
+	jse := j.JobSpecErrors[1]
 
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/pipeline/job_spec_errors/%v", jse.ID))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 
-	// FindJob -> errors are empty
+	// FindJob -> error is gone
 	j, err = app.JobORM().FindJob(context.Background(), j.ID)
 	require.NoError(t, err)
-	require.Len(t, j.JobSpecErrors, 0)
+	require.Len(t, j.JobSpecErrors, 1)
 }
 
 func TestPipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {
