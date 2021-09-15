@@ -317,11 +317,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 7, 42, fromAddress)
 
-	// Use the same config as the connectedStore so that the advisory
-	// lock ID is the same. We set the config to be Postgres Without
-	// Lock, because the db locking strategy is decided when we
-	// initialize the store/ORM.
-
 	app := new(mocks.Application)
 	app.On("GetDB").Return(db)
 	app.On("GetKeyStore").Return(keyStore)
@@ -346,11 +341,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 		})).Once().Return(nil)
 	}
 
-	// We set the dialect back after initialization so that we can check
-	// that it was set back to WithoutLock at the end of the test.
 	assert.NoError(t, client.RebroadcastTransactions(c))
-	// Check that the Dialect was set back when the command was run.
-	assert.Equal(t, dialects.Postgres, config.GetDatabaseDialectConfiguredOrDefault())
 
 	app.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
@@ -394,13 +385,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 			cltest.MustInsertConfirmedEthTxWithAttempt(t, db, int64(test.nonce), 42, fromAddress)
 
-			// Use the same config as the connectedStore so that the advisory
-			// lock ID is the same. We set the config to be Postgres Without
-			// Lock, because the db locking strategy is decided when we
-			// initialize the store/ORM.
-			// config.SetDialect(dialects.PostgresWithoutLock)
-			// require.NoError(t, connectedStore.Start())
-
 			app := new(mocks.Application)
 			app.On("GetDB").Return(db)
 			app.On("GetKeyStore").Return(keyStore)
@@ -425,11 +409,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 				})).Once().Return(nil)
 			}
 
-			// We set the dialect back after initialization so that we can check
-			// that it was set back to WithoutLock at the end of the test.
 			assert.NoError(t, client.RebroadcastTransactions(c))
-			// Check that the Dialect was set back when the command was run.
-			assert.Equal(t, dialects.Postgres, config.GetDatabaseDialectConfiguredOrDefault())
 
 			cltest.AssertEthTxAttemptCountStays(t, app.GetDB(), 1)
 			app.AssertExpectations(t)
