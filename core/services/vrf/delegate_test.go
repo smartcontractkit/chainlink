@@ -191,10 +191,12 @@ func TestStartingCounts(t *testing.T) {
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
+	md1_ := datatypes.JSON(md1)
 	m2 := bulletprooftxmanager.EthTxMeta{
 		RequestID: utils.PadByteToHash(0x11),
 	}
 	md2, err := json.Marshal(&m2)
+	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	var txes = []bulletprooftxmanager.EthTx{
 		{
@@ -204,7 +206,7 @@ func TestStartingCounts(t *testing.T) {
 			BroadcastAt:    &b,
 			CreatedAt:      b,
 			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           datatypes.JSON{},
+			Meta:           &datatypes.JSON{},
 			EncodedPayload: []byte{},
 		},
 		{
@@ -214,7 +216,7 @@ func TestStartingCounts(t *testing.T) {
 			BroadcastAt:    &b,
 			CreatedAt:      b,
 			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           datatypes.JSON(md1),
+			Meta:           &md1_,
 			EncodedPayload: []byte{},
 		},
 		{
@@ -224,7 +226,7 @@ func TestStartingCounts(t *testing.T) {
 			BroadcastAt:    &b,
 			CreatedAt:      b,
 			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           datatypes.JSON(md2),
+			Meta:           &md2_,
 			EncodedPayload: []byte{},
 		},
 		{
@@ -234,7 +236,7 @@ func TestStartingCounts(t *testing.T) {
 			BroadcastAt:    &b,
 			CreatedAt:      b,
 			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           datatypes.JSON(md2),
+			Meta:           &md2_,
 			EncodedPayload: []byte{},
 		},
 	}
