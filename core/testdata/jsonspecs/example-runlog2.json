@@ -1,0 +1,31 @@
+{
+  "name": "",
+  "initiators": [
+    {
+      "id": 1,
+      "jobSpecId": "c78accff-3f7a-47ee-a178-37ca07b8c9d3",
+      "type": "runlog",
+      "params": {
+        "address": "0x3a8b67c0d153d1f8f931e610c5c79a7ee51bde3f"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "jobSpecId": "c78accff3f7a47eea17837ca07b8c9d3",
+      "type": "httpget"
+    },
+    {
+      "jobSpecId": "c78accff3f7a47eea17837ca07b8c9d3",
+      "type": "jsonparse"
+    },
+    {
+      "jobSpecId": "c78accff3f7a47eea17837ca07b8c9d3",
+      "type": "ethbytes32"
+    },
+    {
+      "jobSpecId": "c78accff3f7a47eea17837ca07b8c9d3",
+      "type": "ethtx"
+    }
+  ]
+}

@@ -91,7 +91,39 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 	var foundEthTx = false
 	var last *pipeline.GraphNode
 	for i, ts := range js.Tasks {
+		var n *pipeline.GraphNode
 		switch ts.Type {
+		case adapters.TaskTypeHTTPGet:
+			mapp := make(map[string]interface{})
+			err := json.Unmarshal(ts.Params.Bytes(), &mapp)
+			if err != nil {
+				return "", nil, err
+			}
+			marshal, err := json.Marshal(&mapp)
+			if err != nil {
+				return "", nil, err
+			}
+
+			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+			replacements["\""+template+"\""] = string(marshal)
+			attrs := map[string]string{
+				"type":        pipeline.TaskTypeHTTP.String(),
+				"method":      "GET",
+				"requestData": template,
+			}
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_%d", i), attrs)
+
+		case adapters.TaskTypeJSONParse:
+			attrs := map[string]string{
+				"type": pipeline.TaskTypeJSONParse.String(),
+			}
+			if ts.Params.Get("path").Exists() {
+				attrs["path"] = ts.Params.Get("path").String()
+			} else {
+				return "", nil, errors.New("no path param on jsonparse task")
+			}
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs)
+
 		case adapters.TaskTypeMultiply:
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeMultiply.String(),
@@ -101,12 +133,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			} else {
 				return "", nil, errors.New("no times param on multiply task")
 			}
-			n := pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply%d", i), attrs)
-			dg.AddNode(n)
-			if last != nil {
-				dg.SetEdge(dg.NewEdge(last, n))
-			}
-			last = n
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs)
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2 / DR
 		case adapters.TaskTypeEthTx:
@@ -132,9 +159,12 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			}
 			replacements["\""+template+"\""] = string(marshal)
 
-			n := pipeline.NewGraphNode(dg.NewNode(), "send_to_bridge", attrs)
-			dg.AddNode(n)
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_to_bridge_%d", i), attrs)
 			i++
+		}
+
+		if n != nil {
+			dg.AddNode(n)
 			if last != nil {
 				dg.SetEdge(dg.NewEdge(last, n))
 			}
