@@ -20,8 +20,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
-	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, cfg)
 	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)

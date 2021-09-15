@@ -10,8 +10,7 @@ import (
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	db := store.DB
 	require.NoError(t, db.Exec(`SET CONSTRAINTS offchainreporting_discoverer_announcements_local_peer_id_fkey DEFERRED`).Error)

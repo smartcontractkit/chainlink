@@ -71,15 +71,10 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 
 	db := pgtest.NewGormDB(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
-	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
+	orm, eventBroadcaster := cltest.NewPipelineORM(t, cfg, db)
 
 	keyStore := cltest.NewKeyStore(t, db)
 	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
-
-	cleanup := func() {
-		cleanupPipeline()
-		jobORM.Close()
-	}
 
 	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, orm, db, cc)
 
@@ -102,7 +97,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 		jobORM:         jobORM,
 		listener:       nil,
 		logBroadcaster: broadcaster,
-		cleanup:        cleanup,
+		cleanup:        func() { jobORM.Close() },
 	}
 
 	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {

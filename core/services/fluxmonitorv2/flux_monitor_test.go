@@ -284,11 +284,9 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupStoreWithKey(t *testing.T) (*store.Store, common.Address) {
-	store, cleanup := cltest.NewStore(t)
+	store := cltest.NewStore(t)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-
-	t.Cleanup(cleanup)
 
 	return store, nodeAddr
 }

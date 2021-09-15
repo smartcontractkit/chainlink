@@ -140,7 +140,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job, func()) {
+func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewGormDB(t)
 	c := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, c)
@@ -167,11 +167,12 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job, func()) {
 	go func() {
 		listener.runHeadListener(func() {})
 	}()
-	return vuni, listener, jb, func() {
+	t.Cleanup(func() {
 		listener.chStop <- struct{}{}
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
 		vuni.txm.AssertExpectations(t)
-	}
+	})
+	return vuni, listener, jb
 }
 
 func TestStartingCounts(t *testing.T) {
@@ -310,8 +311,7 @@ func TestResponsePruning(t *testing.T) {
 }
 
 func TestDelegate_ReorgAttackProtection(t *testing.T) {
-	vuni, listener, jb, assertMocksCalled := setup(t)
-	defer assertMocksCalled()
+	vuni, listener, jb := setup(t)
 
 	// Same request has already been fulfilled twice
 	reqID := utils.NewHash()
@@ -354,8 +354,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 }
 
 func TestDelegate_ValidLog(t *testing.T) {
-	vuni, listener, jb, assertMocksCalled := setup(t)
-	defer assertMocksCalled()
+	vuni, listener, jb := setup(t)
 	txHash := utils.NewHash()
 	reqID1 := utils.NewHash()
 	reqID2 := utils.NewHash()
@@ -480,8 +479,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 }
 
 func TestDelegate_InvalidLog(t *testing.T) {
-	vuni, listener, jb, assertMocksCalled := setup(t)
-	defer assertMocksCalled()
+	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -540,8 +538,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 }
 
 func TestFulfilledCheck(t *testing.T) {
-	vuni, listener, jb, assertMocksCalled := setup(t)
-	defer assertMocksCalled()
+	vuni, listener, jb := setup(t)
 	vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 	done := make(chan struct{})
 	vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {

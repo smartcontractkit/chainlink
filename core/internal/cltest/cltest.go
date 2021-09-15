@@ -99,8 +99,6 @@ const (
 	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
-	// AllowUnstarted enable an application that can be used in tests without being started
-	AllowUnstarted = "allow_unstarted"
 	// DefaultPeerID is the peer ID of the default p2p key
 	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 	// A peer ID without an associated p2p key.
@@ -197,9 +195,8 @@ type JobPipelineV2TestHelper struct {
 }
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
-	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
+	prm, eb := NewPipelineORM(t, cfg, db)
 	jrm := job.NewORM(db, cc, prm, eb, keyStore)
-	t.Cleanup(cleanup)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
@@ -209,24 +206,22 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return pipeline.NewORM(db), eventBroadcaster, func() {
-		eventBroadcaster.Close()
-	}
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
+	return pipeline.NewORM(db), eventBroadcaster
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default), func() {
-		assert.NoError(t, eventBroadcaster.Close())
-	}
+	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default)
 }
 
 func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
@@ -239,13 +234,12 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evm
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger         *logger.Logger
-	Server         *httptest.Server
-	wsServer       *httptest.Server
-	Started        bool
-	Backend        *backends.SimulatedBackend
-	Key            ethkey.KeyV2
-	allowUnstarted bool
+	Logger   *logger.Logger
+	Server   *httptest.Server
+	wsServer *httptest.Server
+	Started  bool
+	Backend  *backends.SimulatedBackend
+	Key      ethkey.KeyV2
 }
 
 // NewWSServer returns a  new wsserver
@@ -295,45 +289,40 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 
 // NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
 // Useful for testing controllers
-func NewApplicationEVMDisabled(t *testing.T) (*TestApplication, func()) {
+func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
 	c.Overrides.EVMDisabled = null.BoolFrom(true)
 
-	app, cleanup := NewApplicationWithConfig(t, c)
-
-	return app, cleanup
+	return NewApplicationWithConfig(t, c)
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
 
-	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-
-	return app, cleanup
+	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
-	return app, cleanup
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
+	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
 	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
@@ -350,7 +339,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
 	}
 
-	return app, cleanup
+	return app
 }
 
 const (
@@ -359,7 +348,7 @@ const (
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
-func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
@@ -449,17 +438,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
 
+	ta.Server = server
+	return ta
+}
+
+func contains(flagsAndDeps []interface{}, value interface{}) bool {
 	for _, flag := range flagsAndDeps {
-		if flag == AllowUnstarted {
-			ta.allowUnstarted = true
+		if flag == value {
+			return true
 		}
 	}
-
-	ta.Server = server
-	return ta, func() {
-		err := ta.StopIfStarted()
-		require.NoError(t, err)
-	}
+	return false
 }
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
@@ -539,6 +528,7 @@ func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+// Start starts the chainlink app and registers Stop to clean up at end of test.
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
@@ -547,7 +537,12 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	return ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start()
+	if err != nil {
+		return err
+	}
+	ta.t.Cleanup(func() { require.NoError(ta.t, ta.Stop()) })
+	return nil
 }
 
 // Stop will stop the test application and perform cleanup
@@ -555,9 +550,6 @@ func (ta *TestApplication) Stop() error {
 	ta.t.Helper()
 
 	if !ta.Started {
-		if ta.allowUnstarted {
-			return nil
-		}
 		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
 	}
 
@@ -640,7 +632,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -654,19 +646,19 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 	if err != nil {
 		require.NoError(t, err)
 	}
-	s.Config.SetDB(s.DB)
-	return s, func() {
+	t.Cleanup(func() {
 		cleanUpStore(t, s)
-	}
+	})
+	s.Config.SetDB(s.DB)
+	return s
 }
 
 // NewStore creates a new store
-func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStore(t *testing.T, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
-	store, storeCleanup := NewStoreWithConfig(t, c, flagsAndDeps...)
-	return store, storeCleanup
+	return NewStoreWithConfig(t, c, flagsAndDeps...)
 }
 
 type fastScriptConfig struct{}
