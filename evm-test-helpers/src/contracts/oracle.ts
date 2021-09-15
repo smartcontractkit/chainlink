@@ -256,9 +256,9 @@ export function encodeOracleRequest(
 }
 
 /**
- * Abi encode parameters to call the `requestOracleData` method on the Operator.sol contract.
+ * Abi encode parameters to call the `operatorRequest` method on the Operator.sol contract.
  * ```solidity
- *  function requestOracleData(
+ *  function operatorRequest(
  *    address _sender,
  *    uint256 _payment,
  *    bytes32 _specId,

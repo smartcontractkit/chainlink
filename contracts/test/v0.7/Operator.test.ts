@@ -93,10 +93,10 @@ describe("Operator", () => {
       "getExpiryTime",
       "isAuthorizedSender",
       "onTokenTransfer",
+      "operatorRequest",
       "oracleRequest",
       "ownerForward",
       "ownerTransferAndCall",
-      "requestOracleData",
       "setAuthorizedSenders",
       "setAuthorizedSendersOn",
       "transferOwnableContracts",
@@ -701,14 +701,14 @@ describe("Operator", () => {
     });
   });
 
-  describe("#requestOracleData", () => {
+  describe("#operatorRequest", () => {
     describe("when called through the LINK token", () => {
       const paid = 100;
       let log: providers.Log | undefined;
       let receipt: providers.TransactionReceipt;
 
       beforeEach(async () => {
-        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero);
+        const args = encodeRequestOracleData(specId, fHash, 1, constants.HashZero);
         const tx = await link.transferAndCall(operator.address, paid, args);
         receipt = await tx.wait();
         assert.equal(3, receipt?.logs?.length);
@@ -733,7 +733,7 @@ describe("Operator", () => {
       });
 
       it("does not allow the same requestId to be used twice", async () => {
-        const args2 = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero);
+        const args2 = encodeRequestOracleData(specId, fHash, 1, constants.HashZero);
         await evmRevert(link.transferAndCall(operator.address, paid, args2));
       });
 
@@ -759,7 +759,7 @@ describe("Operator", () => {
     describe("when dataVersion is higher than 255", () => {
       it("throws an error", async () => {
         const paid = 100;
-        const args = encodeRequestOracleData(specId, to, fHash, 1, constants.HashZero, 256);
+        const args = encodeRequestOracleData(specId, fHash, 1, constants.HashZero, 256);
         await evmRevert(link.transferAndCall(operator.address, paid, args));
       });
     });
@@ -2289,8 +2289,8 @@ describe("Operator", () => {
       let request: ReturnType<typeof decodeRunRequest>;
 
       beforeEach(async () => {
-        const mock = await getterSetterFactory.connect(roles.defaultAccount).deploy();
-        const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.HashZero);
+        const requester = await roles.defaultAccount.getAddress();
+        const args = encodeOracleRequest(specId, requester, fHash, 0, constants.HashZero);
         const tx = await link.transferAndCall(operator.address, payment, args);
         const receipt = await tx.wait();
         assert.equal(3, receipt.logs?.length);
@@ -2407,8 +2407,8 @@ describe("Operator", () => {
     const amount = toWei("1");
 
     beforeEach(async () => {
-      const mock = await getterSetterFactory.connect(roles.defaultAccount).deploy();
-      const args = encodeOracleRequest(specId, mock.address, fHash, 0, constants.HashZero);
+      const requester = await roles.defaultAccount.getAddress();
+      const args = encodeOracleRequest(specId, requester, fHash, 0, constants.HashZero);
       const tx = await link.transferAndCall(operator.address, amount, args);
       const receipt = await tx.wait();
       assert.equal(3, receipt.logs?.length);

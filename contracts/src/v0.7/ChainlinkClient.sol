@@ -4,6 +4,7 @@ pragma solidity ^0.7.0;
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/OperatorInterface.sol";
 import "./interfaces/PointerInterface.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
@@ -45,13 +46,13 @@ abstract contract ChainlinkClient {
   /**
    * @notice Creates a request that can hold additional parameters
    * @param specId The Job Specification ID that the request will be created for
-   * @param callbackAddress The callback address that the response will be sent to
-   * @param callbackFunctionSignature The callback function signature to use for the callback address
+   * @param callbackAddr address to operate the callback on
+   * @param callbackFunctionSignature function signature to use for the callback
    * @return A Chainlink Request struct in memory
    */
   function buildChainlinkRequest(
     bytes32 specId,
-    address callbackAddress,
+    address callbackAddr,
     bytes4 callbackFunctionSignature
   )
     internal
@@ -61,7 +62,27 @@ abstract contract ChainlinkClient {
     )
   {
     Chainlink.Request memory req;
-    return req.initialize(specId, callbackAddress, callbackFunctionSignature);
+    return req.initialize(specId, callbackAddr, callbackFunctionSignature);
+  }
+
+  /**
+   * @notice Creates a request that can hold additional parameters
+   * @param specId The Job Specification ID that the request will be created for
+   * @param callbackFunctionSignature function signature to use for the callback
+   * @return A Chainlink Request struct in memory
+   */
+  function buildOperatorRequest(
+    bytes32 specId,
+    bytes4 callbackFunctionSignature
+  )
+    internal
+    view
+    returns (
+      Chainlink.Request memory
+    )
+  {
+    Chainlink.Request memory req;
+    return req.initialize(specId, address(this), callbackFunctionSignature);
   }
 
   /**
@@ -103,18 +124,30 @@ abstract contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return _rawRequest(oracleAddress, req, payment, ORACLE_ARGS_VERSION, ChainlinkRequestInterface.oracleRequest.selector);
+    uint256 nonce = s_requestCount;
+    s_requestCount = nonce + 1;
+    bytes memory encodedRequest = abi.encodeWithSelector(
+      ChainlinkRequestInterface.oracleRequest.selector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      req.id,
+      address(this),
+      req.callbackFunctionId,
+      nonce,
+      ORACLE_ARGS_VERSION,
+      req.buf.buf);
+    return _rawRequest(oracleAddress, nonce, payment, encodedRequest);
   }
 
   /**
    * @notice Creates a Chainlink request to the stored oracle address
    * @dev This function supports multi-word response
-   * @dev Calls `requestOracleDataFrom` with the stored oracle address
+   * @dev Calls `sendOperatorRequestTo` with the stored oracle address
    * @param req The initialized Chainlink Request
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function requestOracleData(
+  function sendOperatorRequest(
     Chainlink.Request memory req,
     uint256 payment
   )
@@ -123,7 +156,7 @@ abstract contract ChainlinkClient {
       bytes32
     )
   {
-    return requestOracleDataFrom(address(s_oracle), req, payment);
+    return sendOperatorRequestTo(address(s_oracle), req, payment);
   }
 
   /**
@@ -137,7 +170,7 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function requestOracleDataFrom(
+  function sendOperatorRequestTo(
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment
@@ -147,45 +180,43 @@ abstract contract ChainlinkClient {
       bytes32 requestId
     )
   {
-    return _rawRequest(oracleAddress, req, payment, OPERATOR_ARGS_VERSION, OperatorInterface.requestOracleData.selector);
+    uint256 nonce = s_requestCount;
+    s_requestCount = nonce + 1;
+    bytes memory encodedRequest = abi.encodeWithSelector(
+      OperatorInterface.operatorRequest.selector,
+      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
+      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
+      req.id,
+      req.callbackFunctionId,
+      nonce,
+      OPERATOR_ARGS_VERSION,
+      req.buf.buf);
+    return _rawRequest(oracleAddress, nonce, payment, encodedRequest);
   }
 
   /**
    * @notice Make a request to an oracle
    * @param oracleAddress The address of the oracle for the request
-   * @param req The initialized Chainlink Request
+   * @param nonce used to generate the request ID
    * @param payment The amount of LINK to send for the request
-   * @param argsVersion The version of data support (single word, multi word)
+   * @param encodedRequest data encoded for request type specific format
    * @return requestId The request ID
    */
   function _rawRequest(
     address oracleAddress,
-    Chainlink.Request memory req,
+    uint256 nonce,
     uint256 payment,
-    uint256 argsVersion,
-    bytes4 funcSelector
+    bytes memory encodedRequest
   )
     private
     returns (
       bytes32 requestId
     )
   {
-    requestId = keccak256(abi.encodePacked(this, s_requestCount));
-    req.nonce = s_requestCount;
+    requestId = keccak256(abi.encodePacked(this, nonce));
     s_pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    bytes memory encodedData = abi.encodeWithSelector(
-      funcSelector,
-      SENDER_OVERRIDE, // Sender value - overridden by onTokenTransfer by the requesting contract's address
-      AMOUNT_OVERRIDE, // Amount value - overridden by onTokenTransfer by the actual amount of LINK sent
-      req.id,
-      req.callbackAddress,
-      req.callbackFunctionId,
-      req.nonce,
-      argsVersion,
-      req.buf.buf);
-    s_requestCount += 1;
-    require(s_link.transferAndCall(oracleAddress, payment, encodedData), "unable to transferAndCall to oracle");
+    require(s_link.transferAndCall(oracleAddress, payment, encodedRequest), "unable to transferAndCall to oracle");
   }
 
   /**

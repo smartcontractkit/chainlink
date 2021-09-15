@@ -41,8 +41,8 @@ contract Operator is
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
   // oracleRequest is intended for version 1, enabling single word responses
   bytes4 constant private ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
-  // requestOracleData is intended for version 2, enabling multi-word responses
-  bytes4 constant private OPERATOR_REQUEST_SELECTOR = this.requestOracleData.selector;
+  // operatorRequest is intended for version 2, enabling multi-word responses
+  bytes4 constant private OPERATOR_REQUEST_SELECTOR = this.operatorRequest.selector;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -120,46 +120,7 @@ contract Operator is
   )
     external
     override
-  {
-    requestOracleData(
-      sender,
-      payment,
-      specId,
-      callbackAddress,
-      callbackFunctionId,
-      nonce,
-      dataVersion,
-      data
-    );
-  }
-
-  /**
-   * @notice Creates the Chainlink request
-   * @dev Stores the hash of the params as the on-chain commitment for the request.
-   * Emits OracleRequest event for the Chainlink node to detect.
-   * @param sender The sender of the request
-   * @param payment The amount of payment given (specified in wei)
-   * @param specId The Job Specification ID
-   * @param callbackAddress The callback address for the response
-   * @param callbackFunctionId The callback function ID for the response
-   * @param nonce The nonce sent by the requester
-   * @param dataVersion The specified data version
-   * @param data The extra request parameters
-   */
-  function requestOracleData(
-    address sender,
-    uint256 payment,
-    bytes32 specId,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 nonce,
-    uint256 dataVersion,
-    bytes calldata data
-  )
-    public
-    override
     validateFromLINK()
-    validateNotToLINK(callbackAddress)
   {
     (bytes32 requestId, uint256 expiration) = _verifyAndProcessOracleRequest(
       sender,
@@ -174,7 +135,52 @@ contract Operator is
       sender,
       requestId,
       payment,
-      callbackAddress,
+      sender,
+      callbackFunctionId,
+      expiration,
+      dataVersion,
+      data);
+  }
+
+  /**
+   * @notice Creates the Chainlink request
+   * @dev Stores the hash of the params as the on-chain commitment for the request.
+   * Emits OracleRequest event for the Chainlink node to detect.
+   * @param sender The sender of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param specId The Job Specification ID
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   * @param dataVersion The specified data version
+   * @param data The extra request parameters
+   */
+  function operatorRequest(
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
+  )
+    external
+    override
+    validateFromLINK()
+  {
+    (bytes32 requestId, uint256 expiration) = _verifyAndProcessOracleRequest(
+      sender,
+      payment,
+      sender,
+      callbackFunctionId,
+      nonce,
+      dataVersion
+    );
+    emit OracleRequest(
+      specId,
+      sender,
+      requestId,
+      payment,
+      sender,
       callbackFunctionId,
       expiration,
       dataVersion,
@@ -564,6 +570,7 @@ contract Operator is
     uint256 dataVersion
   )
     private
+    validateNotToLINK(callbackAddress)
     returns (
       bytes32 requestId,
       uint256 expiration
