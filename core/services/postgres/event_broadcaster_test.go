@@ -13,12 +13,11 @@ import (
 )
 
 func TestEventBroadcaster(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "event_broadcaster", true, false)
-	defer cleanupDB()
+	config, _ := heavyweight.FullTestORM(t, "event_broadcaster", true, false)
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Close()
+	require.NoError(t, eventBroadcaster.Start())
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	t.Run("doesn't broadcast unrelated events (no payload filter)", func(t *testing.T) {
 		sub, err := eventBroadcaster.Subscribe("foo", "")

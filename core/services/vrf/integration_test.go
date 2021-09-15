@@ -26,12 +26,10 @@ import (
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true, true)
-	defer cleanupDB()
+	config, _ := heavyweight.FullTestORM(t, "vrf_jpv2", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	require.NoError(t, app.Start())
 
 	vrfkey, err := app.KeyStore.VRF().Create()

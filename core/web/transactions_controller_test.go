@@ -20,8 +20,7 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
@@ -66,8 +65,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -79,10 +77,9 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
+
 	db := app.GetDB()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
@@ -113,10 +110,9 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
+
 	db := app.GetDB()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)

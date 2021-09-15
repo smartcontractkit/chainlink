@@ -104,8 +104,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	d := 500 * time.Millisecond
 	tc.Overrides.DatabaseTimeout = &d
 
-	store, cleanup := cltest.NewStoreWithConfig(t, tc)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, tc)
 
 	delay := store.Config.DatabaseTimeout()
 
@@ -138,8 +137,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	tc := cltest.NewTestGeneralConfig(t)
 	d := 500 * time.Millisecond
 	tc.Overrides.DatabaseTimeout = &d
-	store, cleanup := cltest.NewStoreWithConfig(t, tc)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, tc)
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
@@ -170,8 +168,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	tc := cltest.NewTestGeneralConfig(t)
 	d := 500 * time.Millisecond
 	tc.Overrides.DatabaseTimeout = &d
-	store, cleanup := cltest.NewStoreWithConfig(t, tc)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, tc)
 
 	delay := store.Config.DatabaseTimeout()
 

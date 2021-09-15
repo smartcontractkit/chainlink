@@ -29,8 +29,7 @@ import (
 
 func TestORM(t *testing.T) {
 	t.Parallel()
-	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_orm", true, true)
-	defer cleanupDB()
+	config, oldORM := heavyweight.FullTestORM(t, "services_job_orm", true, true)
 	db := oldORM.DB
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
@@ -38,8 +37,7 @@ func TestORM(t *testing.T) {
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
+	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
@@ -187,8 +185,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
 
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
+	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
@@ -221,8 +218,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
-	defer cleanupORM()
+	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer orm.Close()

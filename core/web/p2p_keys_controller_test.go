@@ -39,8 +39,7 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 	keyStore := app.GetKeyStore()
@@ -98,8 +97,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)

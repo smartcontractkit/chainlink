@@ -17,8 +17,7 @@ import (
 )
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
-	app, cleanup := cltest.NewApplication(b)
-	b.Cleanup(cleanup)
+	app := cltest.NewApplication(b)
 	client := app.NewHTTPClient()
 
 	b.ResetTimer()
@@ -32,8 +31,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -99,8 +97,7 @@ func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.Bri
 func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -128,8 +125,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -152,9 +148,9 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	bt := &models.BridgeType{
@@ -182,8 +178,7 @@ func TestBridgeController_Show(t *testing.T) {
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -199,8 +194,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -216,8 +210,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
