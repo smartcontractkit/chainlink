@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -33,7 +34,7 @@ func paginatedResponseWithMeta(
 	err error,
 	meta map[string]interface{},
 ) {
-	if errors.Cause(err) == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 
@@ -55,7 +56,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if errors.Cause(err) == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 
