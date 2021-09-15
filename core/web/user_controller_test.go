@@ -16,9 +16,9 @@ import (
 )
 
 func TestUserController_UpdatePassword(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
 	testCases := []struct {
@@ -69,8 +69,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -92,8 +91,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -109,8 +107,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -127,8 +124,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

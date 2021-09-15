@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
 
@@ -15,11 +14,6 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
 	config.Overrides.EthereumDisabled = null.BoolFrom(true)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	t.Cleanup(cleanup)
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
 
 	tests := []struct {
 		origin     string
@@ -32,6 +26,10 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
+			app := cltest.NewApplicationWithConfig(t, config)
+
+			client := app.NewHTTPClient()
+
 			headers := map[string]string{"Origin": test.origin}
 			resp, cleanup := client.Get("/v2/config", headers)
 			defer cleanup()
@@ -59,8 +57,7 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			config := cltest.NewTestGeneralConfig(t)
 			config.Overrides.AllowOrigins = null.StringFrom(test.allow)
 			config.Overrides.EthereumDisabled = null.BoolFrom(true)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config)
-			defer cleanup()
+			app := cltest.NewApplicationWithConfig(t, config)
 
 			client := app.NewHTTPClient()
 

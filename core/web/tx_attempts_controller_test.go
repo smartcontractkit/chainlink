@@ -16,10 +16,9 @@ import (
 func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
+
 	db := app.GetDB()
 	client := app.NewHTTPClient()
 
@@ -48,10 +47,9 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
 	t.Cleanup(cleanup)
