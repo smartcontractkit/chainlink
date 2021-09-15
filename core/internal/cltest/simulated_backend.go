@@ -61,7 +61,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	cfg *configtest.TestGeneralConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
-) (app *TestApplication, cleanup func()) {
+) *TestApplication {
 	chainId := backend.Blockchain().Config().ChainID
 	cfg.Overrides.DefaultChainID = chainId
 
@@ -88,10 +88,8 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 
 	flagsAndDeps = append(flagsAndDeps, client, eventBroadcaster, simulatedBackendChain)
 
-	app, appCleanup := NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
-
-	// appCleanup calls app.Stop() which will client.Close on the simulated backend
-	return app, appCleanup
+	//  app.Stop() will call client.Close on the simulated backend
+	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
 func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {

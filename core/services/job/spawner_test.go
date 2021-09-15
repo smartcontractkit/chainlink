@@ -48,8 +48,7 @@ func clearDB(t *testing.T, db *gorm.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
-	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
-	defer cleanupDB()
+	config, oldORM := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
 	db := oldORM.DB
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
@@ -57,8 +56,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Close()
+	require.NoError(t, eventBroadcaster.Start())
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")

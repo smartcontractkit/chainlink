@@ -17,8 +17,7 @@ import (
 )
 
 func TestStore_SquashMigrationUpgrade(t *testing.T) {
-	_, orm, cleanup := heavyweight.FullTestORM(t, "migrationssquash", false, false)
-	defer cleanup()
+	_, orm := heavyweight.FullTestORM(t, "migrationssquash", false, false)
 	db := orm.DB
 
 	// Latest migrations should work fine.
@@ -34,8 +33,7 @@ func TestStore_UpsertLatestNodeVersion(t *testing.T) {
 	t.Parallel()
 
 	t.Run("static version unset", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		t.Cleanup(cleanup)
+		store := cltest.NewStore(t)
 		verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
 			postgres.MustSQLDB(store.DB)),
 		)
@@ -49,8 +47,7 @@ func TestStore_UpsertLatestNodeVersion(t *testing.T) {
 
 	t.Run("static version set", func(t *testing.T) {
 		static.Version = "0.9.11"
-		store, cleanup := cltest.NewStore(t)
-		t.Cleanup(cleanup)
+		store := cltest.NewStore(t)
 		verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
 			postgres.MustSQLDB(store.DB)),
 		)
@@ -66,16 +63,14 @@ func TestStore_UpsertLatestNodeVersion(t *testing.T) {
 
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	assert.NoError(t, store.Start())
 }
 
 func TestStore_Close(t *testing.T) {
 	t.Parallel()
 
-	s, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	s := cltest.NewStore(t)
 
 	assert.NoError(t, s.Close())
 }
