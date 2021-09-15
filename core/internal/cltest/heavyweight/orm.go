@@ -40,7 +40,6 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
-	// orm, err := orm.NewORM(migrationTestDBURL, gcfg.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, gcfg.GlobalLockRetryInterval().Duration(), gcfg.ORMMaxOpenConns(), gcfg.ORMMaxIdleConns())
 	db, gormDB, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), gcfg, gracefulpanic.NewSignal())
 	require.NoError(t, err)
 	t.Cleanup(func() {

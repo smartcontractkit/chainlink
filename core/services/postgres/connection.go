@@ -30,7 +30,7 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdow
 	}
 	// NOTE: SetConsumerName was already called in config.DatabaseURL(), we don't need to do it here
 
-	newLogger := NewLogWrapper(logger.Default, cfg.LogSQLStatements(), time.Second)
+	newLogger := logger.NewGormWrapper(logger.Default, cfg.LogSQLStatements(), time.Second)
 
 	// Initialize sql/sqlx
 	db, err = sqlx.Open(dialect, uri)
@@ -59,5 +59,5 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdow
 }
 
 func SetLogging(db *gorm.DB, enabled bool) {
-	db.Logger = NewLogWrapper(logger.Default, enabled, time.Second)
+	db.Logger = logger.NewGormWrapper(logger.Default, enabled, time.Second)
 }

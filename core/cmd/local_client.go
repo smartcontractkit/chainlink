@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -446,14 +445,12 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg, gracefulpanic.NewSignal())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err := migrate.Rollback(db, version); err != nil {
+	if err := migrate.Rollback(db.DB, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -469,14 +466,12 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg, gracefulpanic.NewSignal())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	version, err := migrate.Current(db)
+	version, err := migrate.Current(db.DB)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -494,14 +489,12 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg, gracefulpanic.NewSignal())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Status(db); err != nil {
+	if err = migrate.Status(db.DB); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -520,19 +513,17 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
 
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg, gracefulpanic.NewSignal())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
 
 	migrationType := c.String("type")
 	if migrationType != "go" {
 		migrationType = "sql"
 	}
 
-	if err = migrate.Create(db, c.Args().First(), migrationType); err != nil {
+	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -566,19 +557,14 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 
 func migrateDB(config config.GeneralConfig) error {
 	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	db, _, err := postgres.NewConnection(dbURL.String(), string(config.GetDatabaseDialectConfiguredOrDefault()), config, gracefulpanic.NewSignal())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	postgres.SetLogging(orm.DB, config.LogSQLStatements() || config.LogSQLMigrations())
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Migrate(db); err != nil {
+	if err = migrate.Migrate(db.DB); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
-	postgres.SetLogging(orm.DB, config.LogSQLStatements())
-	return orm.Close()
+	return db.Close()
 }
 
 func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
