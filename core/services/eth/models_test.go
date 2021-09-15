@@ -86,8 +86,7 @@ func TestEthTx_GetID(t *testing.T) {
 }
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})

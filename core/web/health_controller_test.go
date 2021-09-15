@@ -29,8 +29,7 @@ func TestHealthController_Readyz(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t)
-			t.Cleanup(cleanup)
+			app := cltest.NewApplicationWithKey(t)
 			healthChecker := new(mocks.Checker)
 			healthChecker.On("Start").Return(nil).Once()
 			healthChecker.On("IsReady").Return(tc.ready, nil).Once()
