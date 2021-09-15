@@ -238,6 +238,7 @@ describe("ChainlinkClientTestHelper", () => {
     let request: RunRequest;
 
     beforeEach(async () => {
+      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       const tx = await cc.publicRequest(
         specId,
         cc.address,
@@ -250,7 +251,6 @@ describe("ChainlinkClientTestHelper", () => {
     });
 
     it("emits an event marking the request fulfilled", async () => {
-      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       const tx = await oc
         .connect(roles.defaultAccount)
         .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
@@ -262,12 +262,35 @@ describe("ChainlinkClientTestHelper", () => {
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args.id);
     });
+
+    it("should only allow one fulfillment per id", async () => {
+      await oc
+        .connect(roles.defaultAccount)
+        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+
+      await evmRevert(
+        oc
+          .connect(roles.defaultAccount)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Must have a valid requestId",
+      );
+    });
+
+    it("should only allow the oracle to fulfill the request", async () => {
+      await evmRevert(
+        oc
+          .connect(roles.stranger)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Not authorized sender",
+      );
+    });
   });
 
   describe("#fulfillChainlinkRequest(function)", () => {
     let request: RunRequest;
 
     beforeEach(async () => {
+      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       const tx = await cc.publicRequest(
         specId,
         cc.address,
@@ -280,7 +303,6 @@ describe("ChainlinkClientTestHelper", () => {
     });
 
     it("emits an event marking the request fulfilled", async () => {
-      await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       const tx = await oc
         .connect(roles.defaultAccount)
         .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
@@ -291,6 +313,28 @@ describe("ChainlinkClientTestHelper", () => {
       assert.equal(2, logs?.length);
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args?.id);
+    });
+
+    it("should only allow one fulfillment per id", async () => {
+      await oc
+        .connect(roles.defaultAccount)
+        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+
+      await evmRevert(
+        oc
+          .connect(roles.defaultAccount)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Must have a valid requestId",
+      );
+    });
+
+    it("should only allow the oracle to fulfill the request", async () => {
+      await evmRevert(
+        oc
+          .connect(roles.stranger)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Not authorized sender",
+      );
     });
   });
 
