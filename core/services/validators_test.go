@@ -15,8 +15,7 @@ import (
 func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	tests := []struct {
 		description string
@@ -108,8 +107,7 @@ func TestValidateBridgeType(t *testing.T) {
 func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	// Create a duplicate
 	bt := models.BridgeType{}
@@ -128,8 +126,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	url := cltest.WebURL(t, "https://a.web.url")
 
