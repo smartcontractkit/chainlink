@@ -79,7 +79,7 @@ func (txm *gormTransactionManager) TransactWithContext(ctx context.Context, fn T
 
 	// Start the transaction and insert it into the context.
 	tx := txm.db.Begin(&opts.txOpts)
-	ctx = context.WithValue(ctx, txKey{}, tx)
+	ctx = InjectTxIntoContext(ctx, tx)
 
 	// Ensure that a deadline is set unless disabled by an option.
 	if !opts.withoutDeadline {
@@ -127,4 +127,19 @@ func TxFromContext(ctx context.Context, db *gorm.DB) *gorm.DB {
 	}
 
 	return db
+}
+
+// GetTxFromContext extracts the tx from the context. Returns nil if no
+// tx exists.
+func GetTxFromContext(ctx context.Context) *gorm.DB {
+	if tx, ok := ctx.Value(txKey{}).(*gorm.DB); ok {
+		return tx
+	}
+
+	return nil
+}
+
+// InjectTxIntoContext injects the tx into the context
+func InjectTxIntoContext(ctx context.Context, tx *gorm.DB) context.Context {
+	return context.WithValue(ctx, txKey{}, tx)
 }

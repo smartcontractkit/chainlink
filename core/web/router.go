@@ -288,6 +288,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/job_proposals", jpc.Index)
 		authv2.GET("/job_proposals/:id", jpc.Show)
 		authv2.POST("/job_proposals/:id/approve", jpc.Approve)
+		authv2.POST("/job_proposals/:id/cancel", jpc.Cancel)
 		authv2.POST("/job_proposals/:id/reject", jpc.Reject)
 		authv2.PATCH("/job_proposals/:id/spec", jpc.UpdateSpec)
 
