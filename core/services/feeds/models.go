@@ -5,8 +5,9 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
 // We only support OCR and FM for the feeds manager
@@ -61,6 +62,7 @@ type JobProposal struct {
 	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
 	Multiaddrs     pq.StringArray `gorm:"type:text[]"`
+	ProposedAt     time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
