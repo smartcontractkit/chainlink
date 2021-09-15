@@ -6,11 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -18,8 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
