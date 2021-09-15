@@ -6,14 +6,14 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"gorm.io/gorm"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
@@ -48,16 +48,13 @@ func clearDB(t *testing.T, db *gorm.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
-	config, oldORM := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
-	db := oldORM.DB
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	config.SetDB(db)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
-
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	require.NoError(t, eventBroadcaster.Start())
-	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -79,7 +76,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), keyStore)
 		defer orm.Close()
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -139,7 +136,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	clearDB(t, db)
 
-	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
+	t.Run("starts and stops job services from the DB when .Start()/.Stop() is called", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)
 
 		eventually := cltest.NewAwaiter()
@@ -148,45 +145,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 		}, txm)
 
-		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
-		require.NoError(t, err)
-		delegateA.jobID = jobA.ID
-
-		spawner.Start()
-		defer spawner.Close()
-
-		eventually.AwaitOrFail(t)
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
-
-		serviceA1.On("Close").Return(nil).Once()
-		serviceA2.On("Close").Return(nil).Once()
-	})
-
-	clearDB(t, db)
-
-	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-		jobSpecA := makeOCRJobSpec(t, address)
-
-		eventually := cltest.NewAwaiter()
-		serviceA1 := new(mocks.Service)
-		serviceA2 := new(mocks.Service)
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
-		defer orm.Close()
-		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
-		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
-			jobSpecA.Type: delegateA,
-		}, txm)
-
-		serviceA1.On("Start").Return(nil).Once()
-		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
-		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
 		delegateA.jobID = jobA.ID
 
@@ -205,7 +171,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	clearDB(t, db)
 
-	t.Run("closes job services on 'delete_from_jobs' postgres event", func(t *testing.T) {
+	t.Run("closes job services on 'DeleteJob()'", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)
 
 		eventuallyStart := cltest.NewAwaiter()
@@ -214,14 +180,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 		}, txm)
 
-		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
 		jobSpecIDA := jobA.ID
 		delegateA.jobID = jobSpecIDA
@@ -242,7 +208,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once().Run(func(mock.Arguments) { eventuallyClose.ItHappened() })
 
-		require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, jobSpecIDA).Error)
+		err = spawner.DeleteJob(context.Background(), jobSpecIDA)
+		require.NoError(t, err)
 
 		eventuallyClose.AwaitOrFail(t)
 

@@ -182,30 +182,19 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
-	Eb  postgres.EventBroadcaster
 	Jrm job.ORM
 	Pr  pipeline.Runner
 }
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
-	prm, eb := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cc, prm, eb, keyStore)
+	prm := pipeline.NewORM(db)
+	jrm := job.NewORM(db, cc, prm, keyStore)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
-		eb,
 		jrm,
 		pr,
 	}
-}
-
-func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster) {
-	t.Helper()
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
-	err := eventBroadcaster.Start()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
-	return pipeline.NewORM(db), eventBroadcaster
 }
 
 func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {

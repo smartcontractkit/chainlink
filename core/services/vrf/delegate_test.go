@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -69,18 +68,14 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(logger.Default)
 
 	// Don't mock db interactions
-	eb := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
-	err := eb.Start()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, eb, ks)
+	jrm := job.NewORM(db, cc, prm, ks)
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
-	_, err = ks.Eth().Create(big.NewInt(0))
+	_, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
 	submitter, err := ks.Eth().GetRoundRobinAddress()
 	require.NoError(t, err)

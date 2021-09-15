@@ -16,15 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -43,13 +42,11 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	config, oldORM := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	config.SetDB(db)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
-	db := oldORM.DB
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	require.NoError(t, eventBroadcaster.Start())
-	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
@@ -60,7 +57,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
@@ -807,7 +804,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
+		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
 
 		// Trigger v2/resume
 		select {
