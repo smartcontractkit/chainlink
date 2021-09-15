@@ -195,6 +195,24 @@ describe("ChainlinkClientTestHelper", () => {
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args.id);
     });
+
+    it("should only allow one fulfillment per id", async () => {
+      await oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+
+      await evmRevert(
+        oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Must have a valid requestId",
+      );
+    });
+
+    it("should only allow the oracle to fulfill the request", async () => {
+      await evmRevert(
+        oc
+          .connect(roles.stranger)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Not an authorized node to fulfill requests",
+      );
+    });
   });
 
   describe("#fulfillChainlinkRequest(function)", () => {
@@ -223,6 +241,24 @@ describe("ChainlinkClientTestHelper", () => {
       assert.equal(1, logs?.length);
       assert.equal(event?.name, "ChainlinkFulfilled");
       assert.equal(request.requestId, event?.args?.id);
+    });
+
+    it("should only allow one fulfillment per id", async () => {
+      await oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+
+      await evmRevert(
+        oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Must have a valid requestId",
+      );
+    });
+
+    it("should only allow the oracle to fulfill the request", async () => {
+      await evmRevert(
+        oc
+          .connect(roles.stranger)
+          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+        "Not an authorized node to fulfill requests",
+      );
     });
   });
 
