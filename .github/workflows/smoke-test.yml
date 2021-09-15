@@ -47,7 +47,7 @@ jobs:
   #         push: true
 
   smoke:
-    needs: build-chainlink
+    # needs: build-chainlink
     runs-on: ubuntu-latest
     env:
       KUBECONFIG: /tmp/KUBECONFIG
