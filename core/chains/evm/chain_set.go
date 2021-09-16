@@ -54,7 +54,7 @@ func (cll *chainSet) Start() (err error) {
 	for _, c := range chains {
 		err = multierr.Combine(err, c.Start())
 	}
-	cll.logger.Infof("EVM: Started %d chains, default chain ID is %d", len(chains), cll.defaultID)
+	cll.logger.Infof("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String())
 	return
 }
 func (cll *chainSet) Close() (err error) {
@@ -88,7 +88,7 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Errorf("chain not found with id %d", id)
+	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
 func (cll *chainSet) Default() (Chain, error) {
@@ -136,7 +136,7 @@ func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error
 
 	cid := id.String()
 	if _, exists := cll.chains[cid]; exists {
-		return types.Chain{}, errors.Errorf("chain already exists with id %d", id)
+		return types.Chain{}, errors.Errorf("chain already exists with id %s", id.String())
 	}
 
 	bid := utils.NewBig(id)
