@@ -241,8 +241,6 @@ type generalConfig struct {
 	p2ppeerIDmtx     sync.Mutex
 }
 
-const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
-
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
 func NewGeneralConfig() GeneralConfig {

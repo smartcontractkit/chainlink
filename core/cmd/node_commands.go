@@ -110,7 +110,7 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 // RemoveNode removes a specific Node by name.
 func (cli *Client) RemoveNode(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the name of the node to be removed"))
+		return cli.errorOut(errors.New("must pass the id of the node to be removed"))
 	}
 	nodeID := c.Args().First()
 	resp, err := cli.HTTP.Delete("/v2/nodes/" + nodeID)

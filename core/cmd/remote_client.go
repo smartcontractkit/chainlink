@@ -324,7 +324,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 }
 
 func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
+	return url.QueryEscape(strings.TrimSpace(password))
 }
 
 // SetLogLevel sets the log level on the node

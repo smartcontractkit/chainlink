@@ -104,7 +104,6 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	evmORM                   evmtypes.ORM
 	Store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
