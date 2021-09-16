@@ -389,7 +389,11 @@ describe("VRFCoordinatorV2", () => {
     it("insufficient balance", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(
         vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, subOwnerAddress, BigNumber.from("1001")),
       ).to.be.revertedWith(`InsufficientBalance()`);
@@ -397,7 +401,11 @@ describe("VRFCoordinatorV2", () => {
     it("can defund", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("999")))
         .to.emit(vrfCoordinatorV2, "SubscriptionDefunded")
         .withArgs(subId, BigNumber.from("1000"), BigNumber.from("1"));
@@ -424,7 +432,11 @@ describe("VRFCoordinatorV2", () => {
     it("can cancel", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
         .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
         .withArgs(subId, randomAddress, BigNumber.from("1000"));
@@ -435,7 +447,11 @@ describe("VRFCoordinatorV2", () => {
     it("can add same consumer after canceling", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
       await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
       subId = await createSubscription();
