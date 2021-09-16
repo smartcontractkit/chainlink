@@ -2,7 +2,7 @@
 
 pragma solidity 0.7.6;
 
-import '../KeeperCompatible.sol';
+import "../KeeperCompatible.sol";
 
 contract UpkeepMock is KeeperCompatible {
   bool public canCheck;
