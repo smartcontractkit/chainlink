@@ -3330,12 +3330,12 @@
     "@types/connect" "*"
     "@types/node" "*"
 
-"@types/cbor@^6.0.0":
-  version "6.0.0"
-  resolved "https://registry.npmjs.org/@types/cbor/-/cbor-6.0.0.tgz#ddead015e14ef4463287d40cd92a6297a34dac8d"
-  integrity sha512-mGQ1lbYOwVti5Xlarn1bTeBZqgY0kstsdjnkoEovgohYKdBjGejHyNGXHdMBeqyQazIv32Jjp33+5pBEaSRy2w==
+"@types/cbor@5.0.1":
+  version "5.0.1"
+  resolved "https://registry.npmjs.org/@types/cbor/-/cbor-5.0.1.tgz#e147bbe09ada4db7000ec6c23eafb5f67f5422a5"
+  integrity sha512-zVqJy2KzusZPLOgyGJDnOIbu3DxIGGqxYbEwtEEe4Z+la8jwIhOyb+GMrlHafs5tvKruwf8f8qOYP6zTvse/pw==
   dependencies:
-    cbor "*"
+    "@types/node" "*"
 
 "@types/chai@*", "@types/chai@^4.2.18":
   version "4.2.18"
@@ -6075,13 +6075,6 @@ caseless@~0.12.0:
   version "0.12.0"
   resolved "https://registry.npmjs.org/caseless/-/caseless-0.12.0.tgz#1b681c21ff84033c826543090689420d187151dc"
   integrity sha1-G2gcIf+EAzyCZUMJBolCDRhxUdw=
-
-cbor@*, cbor@^8.0.0:
-  version "8.0.0"
-  resolved "https://registry.npmjs.org/cbor/-/cbor-8.0.0.tgz#51657d26a99a6a1866f8c3258e948576eb17d709"
-  integrity sha512-nMmaLWbj7+bC6MsApKRIig8h+yjgNLhPLXaCelq5+C7mpWsHgIcseZSdvgexSY5uE1Q3m2uPvIDZwSdxdo7qig==
-  dependencies:
-    nofilter "^3.0.2"
 
 cbor@^5.1.0:
   version "5.2.0"
@@ -13214,11 +13207,6 @@ nofilter@^1.0.4:
   version "1.0.4"
   resolved "https://registry.npmjs.org/nofilter/-/nofilter-1.0.4.tgz#78d6f4b6a613e7ced8b015cec534625f7667006e"
   integrity sha512-N8lidFp+fCz+TD51+haYdbDGrcBWwuHX40F5+z0qkUjMJ5Tp+rdSuAkMJ9N9eoolDlEVTf6u5icM+cNKkKW2mA==
-
-nofilter@^3.0.2:
-  version "3.0.3"
-  resolved "https://registry.npmjs.org/nofilter/-/nofilter-3.0.3.tgz#3ff3b142efdccb403434ccae4a0c2c835cb9b522"
-  integrity sha512-TN/MCrQmXQk5DyUJ8TGUq1Il8rv4fTsjddLmMopV006QP8DMkglmGgYfQKD5620vXLRXfr8iGI6ZZ4/ZWld2cQ==
 
 nopt@3.x:
   version "3.0.6"
