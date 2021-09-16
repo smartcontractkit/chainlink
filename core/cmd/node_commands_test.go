@@ -31,6 +31,7 @@ func TestClient_IndexNodes(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
 	chain := mustInsertChain(t, orm)
 
 	params := types.NewNode{
@@ -63,6 +64,7 @@ func TestClient_CreateNode(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialNodesCount, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
 
 	chain := mustInsertChain(t, orm)
 
@@ -88,6 +90,7 @@ func TestClient_CreateNode(t *testing.T) {
 	require.NoError(t, err)
 
 	nodes, _, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
 	require.Len(t, nodes, initialNodesCount+2)
 	n := nodes[initialNodesCount]
 	assert.Equal(t, "Example", n.Name)
@@ -111,6 +114,7 @@ func TestClient_RemoveNode(t *testing.T) {
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
 
 	chain := mustInsertChain(t, orm)
 
@@ -124,6 +128,7 @@ func TestClient_RemoveNode(t *testing.T) {
 	node, err := orm.CreateNode(params)
 	require.NoError(t, err)
 	chains, _, err := orm.Nodes(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount+1)
 
 	set := flag.NewFlagSet("cli", 0)
@@ -134,5 +139,6 @@ func TestClient_RemoveNode(t *testing.T) {
 	require.NoError(t, err)
 
 	chains, _, err = orm.Nodes(0, 25)
+	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
 }
