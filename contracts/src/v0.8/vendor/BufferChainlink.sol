@@ -173,11 +173,13 @@ library BufferChainlink {
     }
 
     // Copy remaining bytes
-    uint mask = 256 ** (32 - len) - 1;
-    assembly {
-      let srcpart := and(mload(src), not(mask))
-      let destpart := and(mload(dest), mask)
-      mstore(dest, or(destpart, srcpart))
+    unchecked {
+      uint mask = (256 ** (32 - len)) - 1;
+      assembly {
+        let srcpart := and(mload(src), not(mask))
+        let destpart := and(mload(dest), mask)
+        mstore(dest, or(destpart, srcpart))
+      }
     }
 
     return buf;
@@ -309,18 +311,20 @@ library BufferChainlink {
       resize(buf, (len + off) * 2);
     }
 
-    uint mask = 256 ** len - 1;
-    // Right-align data
-    data = data >> (8 * (32 - len));
-    assembly {
-      // Memory address of the buffer data
-      let bufptr := mload(buf)
-      // Address = buffer address + sizeof(buffer length) + off + len
-      let dest := add(add(bufptr, off), len)
-      mstore(dest, or(and(mload(dest), not(mask)), data))
-      // Update buffer length if we extended it
-      if gt(add(off, len), mload(bufptr)) {
-        mstore(bufptr, add(off, len))
+    unchecked {
+      uint mask = (256 ** len) - 1;
+      // Right-align data
+      data = data >> (8 * (32 - len));
+      assembly {
+        // Memory address of the buffer data
+        let bufptr := mload(buf)
+        // Address = buffer address + sizeof(buffer length) + off + len
+        let dest := add(add(bufptr, off), len)
+        mstore(dest, or(and(mload(dest), not(mask)), data))
+        // Update buffer length if we extended it
+        if gt(add(off, len), mload(bufptr)) {
+          mstore(bufptr, add(off, len))
+        }
       }
     }
     return buf;
@@ -413,7 +417,7 @@ library BufferChainlink {
       resize(buf, (len + off) * 2);
     }
 
-    uint mask = 256 ** len - 1;
+    uint mask = (256 ** len) - 1;
     assembly {
       // Memory address of the buffer data
       let bufptr := mload(buf)
