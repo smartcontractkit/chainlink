@@ -26,12 +26,10 @@ import (
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_jpv2", true, true)
-	defer cleanupDB()
+	config, _ := heavyweight.FullTestORM(t, "vrf_jpv2", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	require.NoError(t, app.Start())
 
 	vrfkey, err := app.KeyStore.VRF().Create()
@@ -87,7 +85,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.Store.DB, key.Address.Address(), cltest.FixtureChainID)
+		uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetDB(), key.Address.Address(), cltest.FixtureChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

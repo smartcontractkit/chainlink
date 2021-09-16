@@ -23,7 +23,6 @@ import (
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -72,15 +71,10 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 
 	db := pgtest.NewGormDB(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
-	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, cfg, db)
+	orm, eventBroadcaster := cltest.NewPipelineORM(t, cfg, db)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
-
-	cleanup := func() {
-		cleanupPipeline()
-		jobORM.Close()
-	}
+	jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
 
 	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, orm, db, cc)
 
@@ -103,7 +97,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 		jobORM:         jobORM,
 		listener:       nil,
 		logBroadcaster: broadcaster,
-		cleanup:        cleanup,
+		cleanup:        func() { jobORM.Close() },
 	}
 
 	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {
@@ -223,8 +217,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
-
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{{}, {}},
 		})

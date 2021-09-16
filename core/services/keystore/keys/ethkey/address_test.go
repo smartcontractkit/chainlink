@@ -1,4 +1,4 @@
-package models
+package ethkey_test
 
 import (
 	"encoding/json"

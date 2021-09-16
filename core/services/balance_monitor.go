@@ -15,7 +15,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -89,7 +88,7 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head eth.Head) {
 	ok := bm.IfStarted(func() {
 		bm.checkBalance(&head)
 	})
@@ -99,7 +98,7 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 
 }
 
-func (bm *balanceMonitor) checkBalance(head *models.Head) {
+func (bm *balanceMonitor) checkBalance(head *eth.Head) {
 	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
@@ -203,15 +202,15 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                            { return nil }
-func (*NullBalanceMonitor) Close() error                                            { return nil }
-func (*NullBalanceMonitor) Ready() error                                            { return nil }
-func (*NullBalanceMonitor) Healthy() error                                          { return nil }
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
+func (*NullBalanceMonitor) Start() error                                         { return nil }
+func (*NullBalanceMonitor) Close() error                                         { return nil }
+func (*NullBalanceMonitor) Ready() error                                         { return nil }
+func (*NullBalanceMonitor) Healthy() error                                       { return nil }
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head eth.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())
-	weif := new(big.Float).SetInt(models.WeiPerEth)
+	weif := new(big.Float).SetInt(eth.WeiPerEth)
 	bf := new(big.Float).Quo(ef, weif)
 	f64, _ := bf.Float64()
 	if f64 == math.Inf(1) || f64 == math.Inf(-1) {

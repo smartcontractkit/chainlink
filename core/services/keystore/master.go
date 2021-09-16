@@ -1,11 +1,14 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
 
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -14,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 var ErrLocked = errors.New("Keystore is locked")
@@ -210,7 +212,8 @@ func (km *keyManager) save(callbacks ...func(*gorm.DB) error) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt keyRing")
 	}
-	return postgres.GormTransactionWithDefaultContext(km.orm.db, func(tx *gorm.DB) error {
+	return postgres.NewGormTransactionManager(km.orm.db).Transact(func(ctx context.Context) error {
+		tx := postgres.TxFromContext(ctx, km.orm.db)
 		err := NewORM(tx).saveEncryptedKeyRing(&ekb)
 		if err != nil {
 			return err

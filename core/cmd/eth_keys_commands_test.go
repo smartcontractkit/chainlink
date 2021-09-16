@@ -80,7 +80,8 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -105,7 +106,8 @@ func TestClient_ListETHKeys(t *testing.T) {
 func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -117,8 +119,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	store := app.GetStore()
-	db := store.DB
+	db := app.GetDB()
 	client, _ := app.NewClientAndRenderer()
 
 	cltest.AssertCount(t, db, ethkey.State{}, 1) // The initial funding key
@@ -158,10 +159,18 @@ func TestClient_CreateETHKey(t *testing.T) {
 func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
 		withKey(),
 		withMocks(ethClient),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
 	)
 	ethKeyStore := app.GetKeyStore().Eth()
 	client, _ := app.NewClientAndRenderer()
@@ -188,7 +197,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
 	app := startNewApplication(t,
@@ -276,7 +286,8 @@ func TestClient_ImportExportETHKey_WithChains(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	ethClient := newEthMock(t)
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withMocks(ethClient),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {

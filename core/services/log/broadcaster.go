@@ -4,12 +4,11 @@ import (
 	"context"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/null"
+	"go.uber.org/atomic"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,10 +17,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -84,10 +83,10 @@ type (
 
 		chStop                chan struct{}
 		wgDone                sync.WaitGroup
-		trackedAddressesCount uint32
+		trackedAddressesCount atomic.Uint32
 		replayChannel         chan int64
-		highestSavedHead      *models.Head
-		lastSeenHeadNumber    int64
+		highestSavedHead      *eth.Head
+		lastSeenHeadNumber    atomic.Int64
 		logger                *logger.Logger
 	}
 
@@ -125,7 +124,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger.Logger, highestSavedHead *models.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger.Logger, highestSavedHead *eth.Head) *broadcaster {
 	chStop := make(chan struct{})
 
 	return &broadcaster{
@@ -160,7 +159,7 @@ func (b *broadcaster) BackfillBlockNumber() null.Int64 {
 }
 
 func (b *broadcaster) TrackedAddressesCount() uint32 {
-	return atomic.LoadUint32(&b.trackedAddressesCount)
+	return b.trackedAddressesCount.Load()
 }
 
 func (b *broadcaster) ReplayFromBlock(number int64) {
@@ -218,7 +217,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		b.logger.Debugw("LogBroadcaster: TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
@@ -300,7 +299,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		b.connected.Set()
 
-		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
+		b.trackedAddressesCount.Store(uint32(len(addresses)))
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
@@ -375,16 +374,16 @@ func (b *broadcaster) onNewLog(log types.Log) {
 }
 
 func (b *broadcaster) onNewHeads() {
-	var latestHead *models.Head
+	var latestHead *eth.Head
 	for {
 		// We only care about the most recent head
 		item := b.newHeads.RetrieveLatestAndClear()
 		if item == nil {
 			break
 		}
-		head, ok := item.(models.Head)
+		head, ok := item.(eth.Head)
 		if !ok {
-			b.logger.Errorf("expected `models.Head`, got %T", item)
+			b.logger.Errorf("expected `eth.Head`, got %T", item)
 			continue
 		}
 		latestHead = &head
@@ -397,7 +396,7 @@ func (b *broadcaster) onNewHeads() {
 		b.logger.Debugw("LogBroadcaster: Received head", "blockNumber", latestHead.Number,
 			"blockHash", latestHead.Hash, "parentHash", latestHead.ParentHash, "chainLen", latestHead.ChainLength())
 
-		atomic.StoreInt64(&b.lastSeenHeadNumber, latestHead.Number)
+		b.lastSeenHeadNumber.Store(latestHead.Number)
 
 		keptLogsDepth := uint64(b.config.EvmFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
@@ -512,7 +511,7 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 }
 
 func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64) {
-	lastSeenHeadNumber := atomic.LoadInt64(&b.lastSeenHeadNumber)
+	lastSeenHeadNumber := b.lastSeenHeadNumber.Load()
 	diff := logBlockNumber - lastSeenHeadNumber
 	if diff < 0 {
 		diff = -diff
@@ -564,9 +563,9 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                                {}
-func (n *NullBroadcaster) Start() error                                   { return nil }
-func (n *NullBroadcaster) Close() error                                   { return nil }
-func (n *NullBroadcaster) Healthy() error                                 { return nil }
-func (n *NullBroadcaster) Ready() error                                   { return nil }
-func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}
+func (n *NullBroadcaster) DependentReady()                             {}
+func (n *NullBroadcaster) Start() error                                { return nil }
+func (n *NullBroadcaster) Close() error                                { return nil }
+func (n *NullBroadcaster) Healthy() error                              { return nil }
+func (n *NullBroadcaster) Ready() error                                { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, eth.Head) {}

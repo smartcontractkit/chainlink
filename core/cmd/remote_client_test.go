@@ -69,14 +69,11 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 		sopts.SetConfig(config)
 	}
 
-	var app *cltest.TestApplication
-	var cleanup func()
 	l := config.CreateProductionLogger().With("testname", t.Name())
 	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
-	app, cleanup = cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
 	app.Logger = l
-	app.Logger.SetDB(app.GetStore().DB)
+	app.Logger.SetDB(app.GetDB())
 
 	require.NoError(t, app.Start())
 
@@ -102,13 +99,12 @@ func withKey() func(opts *startOptions) {
 	}
 }
 
-func newEthMock(t *testing.T) *mocks.Client {
+func newEthMock(t *testing.T) (*mocks.Client, func()) {
 	t.Helper()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
 
-	return ethClient
+	return ethClient, assertMocksCalled
 }
 
 func keyNameForTest(t *testing.T) string {
@@ -324,9 +320,11 @@ func TestClient_ChangePassword(t *testing.T) {
 func TestClient_SetDefaultGasPrice(t *testing.T) {
 	t.Parallel()
 
+	ethMock, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(newEthMock(t)),
+		withMocks(ethMock),
 		withConfigSet(func(c *configtest.TestGeneralConfig) {
 			c.Overrides.EVMDisabled = null.BoolFrom(false)
 			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
@@ -424,9 +422,9 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	require.NoError(t, app.GetDB().Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+	require.NoError(t, app.GetDB().Create(bridge2).Error)
 
 	var ocrJobSpecFromFile job.Job
 	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
@@ -498,7 +496,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	require.NoError(t, app.GetStore().ORM.DB.Exec("delete from sessions;").Error)
+	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
 	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }

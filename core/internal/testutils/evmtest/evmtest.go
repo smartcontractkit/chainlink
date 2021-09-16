@@ -52,7 +52,6 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		SQLxDB:           postgres.TryUnwrapGormDB(testopts.DB),
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: postgres.NewNullEventBroadcaster(),
-		AdvisoryLocker:   postgres.NewNullAdvisoryLocker(),
 	}
 	if testopts.Client != nil {
 		opts.GenEthClient = func(c evmtypes.Chain) eth.Client {

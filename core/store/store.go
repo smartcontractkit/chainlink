@@ -27,11 +27,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	// AutoMigrate is a flag that automatically migrates the DB when passed to initializeORM
-	AutoMigrate = "auto_migrate"
-)
-
 // Store contains fields for the database, Config
 // for keeping the application state in sync with the database.
 type Store struct {
@@ -46,12 +41,6 @@ type Store struct {
 // func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStore(config, advisoryLock, shutdownSignal)
-}
-
-// NewInsecureStore creates a new store with the given config using an insecure keystore.
-// NOTE: Should only be used for testing!
-func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
 func newStore(

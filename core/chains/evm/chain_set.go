@@ -225,7 +225,6 @@ type ChainSetOpts struct {
 	GormDB           *gorm.DB
 	SQLxDB           *sqlx.DB
 	KeyStore         keystore.Eth
-	AdvisoryLocker   postgres.AdvisoryLocker
 	EventBroadcaster postgres.EventBroadcaster
 	ORM              types.ORM
 

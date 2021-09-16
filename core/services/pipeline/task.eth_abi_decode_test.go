@@ -44,6 +44,24 @@ func TestETHABIDecodeTask(t *testing.T) {
 			"",
 		},
 		{
+			"bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth",
+			"bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth",
+			"$(foo)",
+			pipeline.NewVarsFrom(map[string]interface{}{
+				"foo": "0x00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000002cc18069c8a2800000000000000000000000000000000000000000000000000000000000002625a000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000000000000000000000000000000000000bebc20000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+			}),
+			nil,
+			map[string]interface{}{
+				"performData":    []uint8{0x0},
+				"maxLinkPayment": big.NewInt(3225000000000000000),
+				"gasLimit":       big.NewInt(2500000),
+				"adjustedGasWei": big.NewInt(200),
+				"linkEth":        big.NewInt(200000000),
+			},
+			nil,
+			"",
+		},
+		{
 			"weird spaces / address, uint80[3][], bytes, bytes32",
 			"address  a , uint80[3][] u , bytes b, bytes32 b32  ",
 			"$(foo)",

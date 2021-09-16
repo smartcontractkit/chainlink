@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/pkg/errors"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -53,6 +54,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
+	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
 	MinRequiredOutgoingConfirmations() uint64
@@ -173,7 +175,7 @@ func (c *chainScopedConfig) logEnvOverrideOnce(name string, envVal interface{}) 
 	if _, ok := c.onceMap[k]; ok {
 		return
 	}
-	c.logger.Warnf("Global ENV var set %s=%v, overriding chain-specific default value for %s", config.TryEnvVarName(name), envVal, name)
+	c.logger.Warnf("Global ENV var set %s=%v, overriding all other values for %s", config.TryEnvVarName(name), envVal, name)
 	c.onceMap[k] = struct{}{}
 }
 
@@ -191,6 +193,23 @@ func (c *chainScopedConfig) logPersistedOverrideOnce(name string, pstVal interfa
 		return
 	}
 	c.logger.Infof("User-specified var set %s=%v, overriding chain-specific default value for %s", name, pstVal, name)
+	c.onceMap[k] = struct{}{}
+}
+
+func (c *chainScopedConfig) logKeySpecificOverrideOnce(name string, addr gethcommon.Address, pstVal interface{}) {
+	k := fmt.Sprintf("ksp-%s", name)
+	c.onceMapMu.RLock()
+	if _, ok := c.onceMap[k]; ok {
+		c.onceMapMu.RUnlock()
+		return
+	}
+	c.onceMapMu.RUnlock()
+	c.onceMapMu.Lock()
+	defer c.onceMapMu.Unlock()
+	if _, ok := c.onceMap[k]; ok {
+		return
+	}
+	c.logger.Infof("Key-specific var set %s=%v for key %s, overriding chain-specific values for %s", name, pstVal, addr.Hex(), name)
 	c.onceMap[k] = struct{}{}
 }
 
@@ -249,7 +268,7 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 		return val
 	}
 	if c.persistedCfg.EvmMaxGasPriceWei != nil {
-		c.logPersistedOverrideOnce("EvmMaxGasPriceWei", c.persistedCfg.EvmGasBumpWei)
+		c.logPersistedOverrideOnce("EvmMaxGasPriceWei", c.persistedCfg.EvmMaxGasPriceWei)
 		return c.persistedCfg.EvmMaxGasPriceWei.ToInt()
 	}
 	n := c.defaultSet.maxGasPriceWei
@@ -552,6 +571,20 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 		return c.persistedCfg.GasEstimatorMode.String
 	}
 	return c.defaultSet.gasEstimatorMode
+}
+
+func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int {
+	val, ok := c.GeneralConfig.GlobalEvmMaxGasPriceWei()
+	if ok {
+		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
+		return val
+	}
+	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
+	if keySpecific != nil {
+		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
+		return keySpecific.ToInt()
+	}
+	return c.EvmMaxGasPriceWei()
 }
 
 // LinkContractAddress represents the address of the official LINK token

@@ -11,6 +11,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -185,7 +186,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, nil, logger.Default)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, logger.Default)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -284,7 +285,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, nil, logger.Default)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, logger.Default)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -365,7 +366,6 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.Test(t)
 	kst := new(ksmocks.Eth)
 	kst.Test(t)
-	advisoryLocker := &postgres.NullAdvisoryLocker{}
 	eventBroadcaster := new(pgmocks.EventBroadcaster)
 	eventBroadcaster.Test(t)
 
@@ -381,7 +381,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, advisoryLocker, eventBroadcaster, logger.Default)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, logger.Default)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
@@ -452,5 +452,18 @@ func TestBulletproofTxManager_SignTx(t *testing.T) {
 		require.NotNil(t, rawBytes)
 		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")
 		require.Equal(t, "0x1458742e3ba53316481eb18237ced517a536c1cdef61e7b7fb2a9569d84e41a6", hash.Hex())
+	})
+}
+
+func TestBulletproofTxManager_NewAttempt(t *testing.T) {
+	t.Run("verifies max gas price", func(t *testing.T) {
+		gcfg := cltest.NewTestGeneralConfig(t)
+		cfg := evmtest.NewChainScopedConfig(t, gcfg)
+		gcfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(50)
+
+		addr := cltest.NewAddress()
+		_, err := bulletprooftxmanager.NewAttempt(cfg, nil, nil, *big.NewInt(1), bulletprooftxmanager.EthTx{FromAddress: addr}, big.NewInt(100), 100)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 would exceed max configured gas price of 50 for key %s", addr.Hex()))
 	})
 }

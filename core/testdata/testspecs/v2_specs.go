@@ -8,14 +8,6 @@ import (
 )
 
 var (
-	KeeperSpec = `
-type            = "keeper"
-schemaVersion   = 1
-name            = "example keeper spec"
-contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
-`
 	CronSpec = `
 type                = "cron"
 schemaVersion       = 1
@@ -87,6 +79,63 @@ answer1 [type=median index=0];
 """
 `
 )
+
+type KeeperSpecParams struct {
+	ContractAddress string
+	FromAddress     string
+	EvmChainID      int
+}
+
+type KeeperSpec struct {
+	KeeperSpecParams
+	toml string
+}
+
+func (os KeeperSpec) Toml() string {
+	return os.toml
+}
+
+func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
+	template := `
+type            = "keeper"
+schemaVersion   = 2
+name            = "example keeper spec"
+contractAddress = "%s"
+fromAddress     = "%s"
+evmChainID      = %d
+externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
+
+
+observationSource = """
+encode_check_upkeep_tx   [type=ethabiencode
+                          abi="checkUpkeep(uint256 id, address from)"
+                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          data="$(encode_check_upkeep_tx)"]
+decode_check_upkeep_tx   [type=ethabidecode
+                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+encode_perform_upkeep_tx [type=ethabiencode
+                          abi="performUpkeep(uint256 id, bytes calldata performData)"
+                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
+perform_upkeep_tx        [type=ethtx
+                          minConfirmations=0
+                          to="$(jobSpec.contractAddress)"
+                          data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
+"""
+`
+	return KeeperSpec{
+		KeeperSpecParams: params,
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID),
+	}
+}
 
 type VRFSpecParams struct {
 	JobID              string

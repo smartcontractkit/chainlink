@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
@@ -33,7 +33,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type broadcasterHelper struct {
@@ -67,7 +66,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	return helper
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *eth.Head) *broadcasterHelper {
 	db := pgtest.NewGormDB(t)
 
 	globalConfig := cltest.NewTestGeneralConfig(t)
@@ -77,9 +76,10 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	lb := log.NewBroadcaster(orm, ethClient, config, logger.Default, highestSeenHead)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
-		Client:        ethClient,
-		GeneralConfig: config,
-		DB:            db,
+		Client:         ethClient,
+		GeneralConfig:  config,
+		DB:             db,
+		LogBroadcaster: &log.NullBroadcaster{},
 	})
 	kst := cltest.NewKeyStore(t, db)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, kst)
@@ -312,8 +312,8 @@ func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        
 type mockEth struct {
 	ethClient        *mocks.Client
 	sub              *mocks.Subscription
-	subscribeCalls   int32
-	unsubscribeCalls int32
+	subscribeCalls   atomic.Int32
+	unsubscribeCalls atomic.Int32
 	checkFilterLogs  func(int64, int64)
 }
 
@@ -323,11 +323,11 @@ func (mock *mockEth) assertExpectations(t *testing.T) {
 }
 
 func (mock *mockEth) subscribeCallCount() int32 {
-	return atomic.LoadInt32(&mock.subscribeCalls)
+	return mock.subscribeCalls.Load()
 }
 
 func (mock *mockEth) unsubscribeCallCount() int32 {
-	return atomic.LoadInt32(&mock.unsubscribeCalls)
+	return mock.unsubscribeCalls.Load()
 }
 
 type mockEthClientExpectedCalls struct {
@@ -348,14 +348,14 @@ func newMockEthClient(t *testing.T, chchRawLogs chan chan<- types.Log, blockHeig
 	mockEth.ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			atomic.AddInt32(&(mockEth.subscribeCalls), 1)
+			mockEth.subscribeCalls.Inc()
 			chchRawLogs <- args.Get(2).(chan<- types.Log)
 		}).
 		Return(mockEth.sub, nil).
 		Times(expectedCalls.SubscribeFilterLogs)
 
 	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: blockHeight}, nil).
+		Return(&eth.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
 	if expectedCalls.FilterLogs > 0 {
@@ -377,6 +377,6 @@ func newMockEthClient(t *testing.T, chchRawLogs chan chan<- types.Log, blockHeig
 
 	mockEth.sub.On("Unsubscribe").
 		Return().
-		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })
+		Run(func(mock.Arguments) { mockEth.unsubscribeCalls.Inc() })
 	return mockEth
 }

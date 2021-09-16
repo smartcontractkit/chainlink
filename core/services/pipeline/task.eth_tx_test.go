@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -358,14 +358,13 @@ func TestETHTxTask(t *testing.T) {
 
 			keyStore := new(keystoremocks.Eth)
 			txManager := new(bptxmmocks.TxManager)
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 
-			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: store.DB, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 
 			test.setupClientMocks(cfg, keyStore, txManager)
-			task.HelperSetDependencies(store.DB, cc, keyStore)
+			task.HelperSetDependencies(db, cc, keyStore)
 
 			result := task.Run(context.Background(), test.vars, test.inputs)
 

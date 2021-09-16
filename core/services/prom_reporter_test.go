@@ -3,36 +3,33 @@ package services_test
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 )
 
-func newHead() models.Head {
-	return models.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
+func newHead() eth.Head {
+	return eth.Head{Number: 42, EVMChainID: utils.NewBigI(0)}
 }
 
 func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with nothing in the database", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
+		d := pgtest.NewSqlDB(t)
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
-		d, _ := store.DB.DB()
 		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
 
-		var subscribeCalls int32
-
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -40,7 +37,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
 
@@ -50,20 +47,17 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-		db := store.DB
+		db := pgtest.NewGormDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-		var subscribeCalls int32
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
@@ -75,10 +69,10 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
-		d, _ := store.DB.DB()
+		d, _ := db.DB()
 		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
 		reporter.Start()
 		defer reporter.Close()
@@ -86,33 +80,32 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
-		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = ?`, etx.ID).Error)
+		require.NoError(t, db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = ?`, etx.ID).Error)
 
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
+		db := pgtest.NewGormDB(t)
+		d, _ := db.DB()
 
-		require.NoError(t, store.DB.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`).Error)
+		_, err := d.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
+		require.NoError(t, err)
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
-		d, _ := store.DB.DB()
 		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
 
-		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)
-		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)
-		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 2)
+		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
+		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
+		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 2)
 
-		var subscribeCalls int32
-		subscribeCallsPrt := &subscribeCalls
+		var subscribeCalls atomic.Int32
 
 		backend.On("SetUnconfirmedTransactions", big.NewInt(0), int64(0)).Return()
 		backend.On("SetMaxUnconfirmedAge", big.NewInt(0), float64(0)).Return()
@@ -120,7 +113,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).
 			Run(func(args mock.Arguments) {
-				atomic.AddInt32(&subscribeCalls, 1)
+				subscribeCalls.Inc()
 			}).
 			Return()
 		reporter.Start()
@@ -129,7 +122,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		head := newHead()
 		reporter.OnNewLongestChain(context.Background(), head)
 
-		require.Eventually(t, func() bool { return atomic.LoadInt32(subscribeCallsPrt) >= 1 }, 12*time.Second, 100*time.Millisecond)
+		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
 		backend.AssertExpectations(t)
 	})

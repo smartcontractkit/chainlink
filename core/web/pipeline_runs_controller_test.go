@@ -37,22 +37,20 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
 
 	// Setup the bridge
 	{
-		mockServer, cleanup := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+		mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 			defer r.Body.Close()
 			bs, err := ioutil.ReadAll(r.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"result":"12345"}`, string(bs))
 		})
-		defer cleanup()
 
 		_, bridge := cltest.NewBridgeType(t, "my_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 	}
 
 	// Add the job
@@ -105,28 +103,25 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
 
 	// Setup the bridges
 	{
-		mockServer, cleanup := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
-		defer cleanup()
+		mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
 
 		_, bridge := cltest.NewBridgeType(t, "fetch_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 
-		mockServer, cleanup = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+		mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 			defer r.Body.Close()
 			bs, err := ioutil.ReadAll(r.Body)
 			require.NoError(t, err)
 			require.Equal(t, `{"result":"12345"}`, string(bs))
 		})
-		defer cleanup()
 
 		_, bridge = cltest.NewBridgeType(t, "submit_bridge", mockServer.URL)
-		require.NoError(t, app.Store.DB.Create(bridge).Error)
+		require.NoError(t, app.GetDB().Create(bridge).Error)
 	}
 
 	// Add the job
@@ -167,8 +162,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
-	client, _, runIDs, cleanup := setupPipelineRunsControllerTests(t)
-	defer cleanup()
+	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/pipeline/runs")
 	defer cleanup()
@@ -185,13 +179,13 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
-	defer cleanup()
+	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs")
 	defer cleanup()
@@ -208,13 +202,13 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
-	defer cleanup()
+	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
 	defer cleanup()
@@ -236,8 +230,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
-	defer cleanup()
+	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
 	defer cleanup()
@@ -257,8 +250,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -267,18 +259,18 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
-func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
+func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	client := app.NewHTTPClient()
-	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
+	mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -320,8 +312,5 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	secondRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)
 	require.NoError(t, err)
 
-	return client, jb.ID, []int64{firstRunID, secondRunID}, func() {
-		cleanup()
-		cleanupHTTP()
-	}
+	return client, jb.ID, []int64{firstRunID, secondRunID}
 }

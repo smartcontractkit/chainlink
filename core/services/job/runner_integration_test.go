@@ -42,14 +42,13 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
-	defer cleanupDB()
+	config, oldORM := heavyweight.FullTestORM(t, "pipeline_runner", true, true)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Close()
+	require.NoError(t, eventBroadcaster.Start())
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
@@ -60,7 +59,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
 	defer jobORM.Close()
 
 	runner.Start()
@@ -73,15 +72,14 @@ func TestRunner(t *testing.T) {
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+			mockElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
 				func(header http.Header, s string) {
 					var md models.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal([]byte(s), &md))
 					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
 					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
 				})
-			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+			mockVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
 				func(header http.Header, s string) {
 					var md models.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal([]byte(s), &md))
@@ -89,9 +87,7 @@ func TestRunner(t *testing.T) {
 					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
 				},
 			)
-			defer cleanupVoterTurnout()
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
-			defer cleanupHTTP()
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
 			_, bridgeER := cltest.NewBridgeType(t, "election_winner", mockElectionWinner.URL)
 			err := db.Create(bridgeER).Error
@@ -197,8 +193,7 @@ func TestRunner(t *testing.T) {
 		var httpURL string
 		resp := `{"USD": null}`
 		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
 			httpURL = mockHTTP.URL
 		}
 
@@ -245,8 +240,7 @@ func TestRunner(t *testing.T) {
 		var httpURL string
 		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
 		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
 			httpURL = mockHTTP.URL
 		}
 
@@ -291,8 +285,7 @@ func TestRunner(t *testing.T) {
 		var httpURL string
 		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
 		{
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
 			httpURL = mockHTTP.URL
 		}
 
@@ -583,8 +576,6 @@ ds1 -> ds1_parse;
 		}
 
 		// Ensure we can delete an errored
-		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
-		require.NoError(t, err)
 		err = jobORM.DeleteJob(context.Background(), jb.ID)
 		require.NoError(t, err)
 		err = db.Find(&se).Error
@@ -602,8 +593,7 @@ ds1 -> ds1_parse;
 		var httpURL string
 		{
 			resp := `{"USD": 42.42}`
-			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			defer cleanupHTTP()
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
 			httpURL = mockHTTP.URL
 		}
 
@@ -680,11 +670,9 @@ func TestRunner_AsyncJob(t *testing.T) {
 	cfg.Overrides.FeatureExternalInitiators = null.BoolFrom(true)
 	cfg.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetDB(), Client: ethClient, GeneralConfig: cfg})
-
 	require.NoError(t, app.Start())
 
 	var (
@@ -818,7 +806,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.Store.ORM.DB)
-		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, &postgres.NullAdvisoryLocker{}, app.KeyStore)
+		jobORM := job.NewORM(app.Store.ORM.DB, cc, pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
 
 		// Trigger v2/resume
 		select {

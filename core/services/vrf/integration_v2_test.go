@@ -156,16 +156,14 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration", true, true)
-	defer cleanupDB()
+	config, _ := heavyweight.FullTestORM(t, "vrf_v2_integration", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
 
 	gasPrice := decimal.NewFromBigInt(evmconfig.DefaultGasPrice, 0)
 
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	require.NoError(t, app.Start())
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -329,20 +327,18 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	counts := vrf.GetStartingResponseCountsV2(app.Store.DB, app.Logger)
+	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger)
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _, cleanupDB := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true, true)
-	defer cleanupDB()
+	config, _ := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
 
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	require.NoError(t, app.Start())
 
 	err := app.GetKeyStore().Unlock(cltest.Password)
@@ -433,8 +429,7 @@ func TestRequestCost(t *testing.T) {
 	uni := newVRFCoordinatorV2Universe(t, key)
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start())
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
@@ -474,8 +469,7 @@ func TestMaxConsumersCost(t *testing.T) {
 	uni := newVRFCoordinatorV2Universe(t, key)
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start())
 	_, err := uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
 		big.NewInt(1000000000000000000)) // 0.1 LINK
@@ -507,8 +501,7 @@ func TestFulfillmentCost(t *testing.T) {
 	uni := newVRFCoordinatorV2Universe(t, key)
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
-	defer cleanup()
+	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start())
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()

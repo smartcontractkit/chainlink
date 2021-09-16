@@ -69,9 +69,7 @@ func CreateTestLogger(lvl zapcore.Level) *Logger {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{
-		SugaredLogger: zl.Sugar(),
-	}
+	return CreateLogger(zl.Sugar())
 }
 
 // CreateMemoryTestLogger creates a logger that only directs output to the
@@ -86,7 +84,5 @@ func CreateMemoryTestLogger(lvl zapcore.Level) *Logger {
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{
-		SugaredLogger: zl.Sugar(),
-	}
+	return CreateLogger(zl.Sugar())
 }

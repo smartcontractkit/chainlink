@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -36,7 +35,7 @@ const (
 		2*2100 - // cold read oracle address and oracle balance
 		4800 + // request delete refund, note pre-london fork was 15k
 		21000 + // base cost of the transaction
-		8890 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		6874 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 var (
@@ -129,7 +128,7 @@ func (lsn *listenerV2) Start() error {
 	})
 }
 
-func (lsn *listenerV2) Connect(head *models.Head) error {
+func (lsn *listenerV2) Connect(head *eth.Head) error {
 	lsn.latestHead = uint64(head.Number)
 	return nil
 }
@@ -152,7 +151,7 @@ func (lsn *listenerV2) extractConfirmedLogs() []pendingRequest {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head models.Head) {
+func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -160,7 +159,7 @@ func (lsn *listenerV2) OnNewLongestChain(_ context.Context, head models.Head) {
 	}
 }
 
-func (lsn *listenerV2) setLatestHead(h models.Head) {
+func (lsn *listenerV2) setLatestHead(h eth.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)
@@ -287,7 +286,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 			"reqID", req.RequestId.String(),
 			"newConfs", newConfs)
 	}
-	return req.Raw.BlockNumber + uint64(minConfs)*(1<<lsn.respCount[req.RequestId.String()])
+	return req.Raw.BlockNumber + newConfs
 }
 
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {

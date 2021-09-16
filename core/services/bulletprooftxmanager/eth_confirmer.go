@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -68,7 +67,6 @@ type EthConfirmer struct {
 	chainID        big.Int
 	config         Config
 	keystore       KeyStore
-	advisoryLocker postgres.AdvisoryLocker
 	estimator      gas.Estimator
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
@@ -81,7 +79,7 @@ type EthConfirmer struct {
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
-func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore, advisoryLocker postgres.AdvisoryLocker,
+func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
@@ -93,7 +91,6 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		*ethClient.ChainID(),
 		config,
 		keystore,
-		advisoryLocker,
 		estimator,
 		resumeCallback,
 		keyStates,
@@ -141,9 +138,9 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(models.Head)
+				h, is := head.(eth.Head)
 				if !is {
-					ec.logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", models.Head{}, head)
+					ec.logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", eth.Head{}, head)
 					continue
 				}
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
@@ -158,17 +155,15 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
-	return ec.advisoryLocker.WithAdvisoryLock(context.Background(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
-		return ec.processHead(ctx, head)
-	})
+	return ec.processHead(ctx, head)
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head eth.Head) error {
 	mark := time.Now()
 
 	ec.logger.Debugw("EthConfirmer: processHead", "headNum", head.Number, "id", "eth_confirmer")
@@ -855,7 +850,7 @@ func (ec *EthConfirmer) attemptForRebroadcast(ctx context.Context, etx EthTx) (a
 		bumpedGasPrice = ec.config.EvmGasPriceDefault()
 		bumpedGasLimit = etx.GasLimit
 	}
-	return newAttempt(ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
+	return NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
 }
 
 func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
@@ -890,9 +885,9 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
 			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
-		replacementAttempt, err := newAttempt(ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
+		replacementAttempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, etx, bumpedGasPrice, bumpedGasLimit)
 		if err != nil {
-			return errors.Wrap(err, "newAttempt failed")
+			return errors.Wrap(err, "NewAttempt failed")
 		}
 
 		if err := saveReplacementInProgressAttempt(ec.db, attempt, &replacementAttempt); err != nil {
@@ -1050,9 +1045,9 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head eth.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
-		logger.Warnw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, or some other problem",
+		logger.Debugw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. This is normal shortly after application boot and should die down. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, remote node out of sync, or some other problem",
 			"chainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth())
 	}
 	etxs, err := findTransactionsConfirmedInBlockRange(ec.db, head.Number, head.EarliestInChain().Number, ec.chainID)
@@ -1107,7 +1102,7 @@ func findTransactionsConfirmedInBlockRange(db *gorm.DB, highBlockNumber, lowBloc
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
-func hasReceiptInLongestChain(etx EthTx, head models.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1123,7 +1118,7 @@ func hasReceiptInLongestChain(etx EthTx, head models.Head) bool {
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head models.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head eth.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1190,7 +1185,6 @@ func unbroadcastAttempt(db *gorm.DB, attempt EthTxAttempt) error {
 // If an eth_tx doesn't exist for this nonce, we send a zero transaction.
 // This operates completely orthogonal to the normal EthConfirmer and can result in untracked attempts!
 // Only for emergency usage.
-// Deliberately does not take the advisory lock (we don't write to the database so this is safe from a data integrity perspective).
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
 func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, gasPriceWei uint64, address gethCommon.Address, overrideGasLimit uint64) error {
 	ec.logger.Infof("ForceRebroadcast: will rebroadcast transactions for all nonces between %v and %v", beginningNonce, endingNonce)
@@ -1213,7 +1207,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := newAttempt(ec.ethClient, ec.keystore, ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err := NewAttempt(ec.config, ec.ethClient, ec.keystore, ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				ec.logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
@@ -1259,7 +1253,7 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 	return &etx, errors.Wrap(err, "findEthTxsWithNonce failed")
 }
 
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head models.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head eth.Head) error {
 	sqlxDB := postgres.UnwrapGormDB(ec.db)
 
 	type x struct {
