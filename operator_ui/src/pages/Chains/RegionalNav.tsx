@@ -175,7 +175,7 @@ const RegionalNavComponent = ({
                     variant="h5"
                     color="secondary"
                   >
-                    - All associated RPC Nodes will be deleted
+                    - All associated RPC Nodes must be deleted separately
                   </Typography>
                   <Typography
                     className={classes.infoText}
@@ -223,17 +223,21 @@ const RegionalNavComponent = ({
                 )}
               </Grid>
               <Grid item xs={6} className={classes.actions}>
-                <Button
-                  className={classes.regionalNavButton}
-                  onClick={() => setModalOpen(true)}
-                >
-                  Delete
-                </Button>
                 <Link href={`/chains/${chainId}/nodes/new`}>
-                  <Button className={classes.regionalNavButton}>
+                  <Button
+                    className={classes.regionalNavButton}
+                    variant="secondary"
+                  >
                     Add Node
                   </Button>
                 </Link>
+                <Button
+                  className={classes.regionalNavButton}
+                  onClick={() => setModalOpen(true)}
+                  variant="danger"
+                >
+                  Delete Chain
+                </Button>
               </Grid>
             </Grid>
           </Grid>
