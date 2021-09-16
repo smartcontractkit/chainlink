@@ -104,7 +104,6 @@ type ChainlinkApplication struct {
 	pipelineRunner           pipeline.Runner
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	evmORM                   evmtypes.ORM
 	Store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
@@ -206,7 +205,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				cfg,
 				chainSet),
 			job.VRF: vrf.NewDelegate(
 				db,

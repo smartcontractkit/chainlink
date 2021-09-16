@@ -20,7 +20,6 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	config   Config
 	logger   *logger.Logger
 	db       *gorm.DB
 	jrm      job.ORM
@@ -34,12 +33,10 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger *logger.Logger,
-	config Config,
 	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
 		logger:   logger,
-		config:   config,
 		db:       db,
 		jrm:      jrm,
 		pr:       pr,
@@ -77,9 +74,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, d.config.KeeperDefaultTransactionQueueDepth())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
 
-	orm := NewORM(d.db, chain.TxManager(), d.config, strategy)
+	orm := NewORM(d.db, chain.TxManager(), chain.Config(), strategy)
 
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
@@ -92,8 +89,8 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		orm,
 		d.jrm,
 		chain.LogBroadcaster(),
-		d.config.KeeperRegistrySyncInterval(),
-		d.config.KeeperMinimumRequiredConfirmations(),
+		chain.Config().KeeperRegistrySyncInterval(),
+		chain.Config().KeeperMinimumRequiredConfirmations(),
 		svcLogger.Named("RegistrySynchronizer"),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
@@ -104,7 +101,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.HeadBroadcaster(),
 		chain.TxManager().GetGasEstimator(),
 		svcLogger.Named("UpkeepExecuter"),
-		d.config,
+		chain.Config(),
 	)
 
 	return []job.Service{
