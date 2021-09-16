@@ -31,7 +31,6 @@ jobs:
         uses: github/codeql-action/init@b7dd4a6f2c343e29a9ab8e181b2f540816f28bd7
         with:
           languages: ${{ matrix.language }}
-          config-file: ./.github/codeql/codeql-config.yml
 
       # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
       # If this step fails, then you should remove it and run the build manually (see below)

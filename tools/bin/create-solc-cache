@@ -1,6 +1,0 @@
-#!/bin/sh
-CACHE_SRC=./node_modules/@0x/sol-compiler/solc_bin/
-CACHE_DST=./
-
-echo "Caching $CACHE_SRC containing:\n $(ls $CACHE_SRC)"
-cp -R  $CACHE_SRC $CACHE_DST

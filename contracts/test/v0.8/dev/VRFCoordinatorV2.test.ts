@@ -1,7 +1,6 @@
 import { ethers } from "hardhat";
 import { Signer, Contract, BigNumber } from "ethers";
 import { assert, expect } from "chai";
-import { defaultAbiCoder } from "ethers/utils";
 import { publicAbi } from "../../test-helpers/helpers";
 import { randomAddressString } from "hardhat/internal/hardhat-network/provider/fork/random";
 
@@ -390,7 +389,11 @@ describe("VRFCoordinatorV2", () => {
     it("insufficient balance", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(
         vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, subOwnerAddress, BigNumber.from("1001")),
       ).to.be.revertedWith(`InsufficientBalance()`);
@@ -398,7 +401,11 @@ describe("VRFCoordinatorV2", () => {
     it("can defund", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(vrfCoordinatorV2.connect(subOwner).defundSubscription(subId, randomAddress, BigNumber.from("999")))
         .to.emit(vrfCoordinatorV2, "SubscriptionDefunded")
         .withArgs(subId, BigNumber.from("1000"), BigNumber.from("1"));
@@ -425,7 +432,11 @@ describe("VRFCoordinatorV2", () => {
     it("can cancel", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await expect(vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress))
         .to.emit(vrfCoordinatorV2, "SubscriptionCanceled")
         .withArgs(subId, randomAddress, BigNumber.from("1000"));
@@ -436,7 +447,11 @@ describe("VRFCoordinatorV2", () => {
     it("can add same consumer after canceling", async function () {
       await linkToken
         .connect(subOwner)
-        .transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), defaultAbiCoder.encode(["uint64"], [subId]));
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from("1000"),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
+        );
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
       await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
       subId = await createSubscription();
@@ -458,7 +473,7 @@ describe("VRFCoordinatorV2", () => {
       const balanceChangingFns: Array<bf> = [
         [
           async function () {
-            const s = defaultAbiCoder.encode(["uint64"], [subId]);
+            const s = ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]);
             await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), s);
           },
           BigNumber.from("1000"),
@@ -492,7 +507,7 @@ describe("VRFCoordinatorV2", () => {
     it("owner can recover link transferred", async function () {
       // Set the internal balance
       assert(BigNumber.from("0"), linkToken.balanceOf(randomAddress));
-      const s = defaultAbiCoder.encode(["uint64"], [subId]);
+      const s = ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]);
       await linkToken.connect(subOwner).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000"), s);
       // Circumvent internal balance
       await linkToken.connect(subOwner).transfer(vrfCoordinatorV2.address, BigNumber.from("1000"));
@@ -514,7 +529,7 @@ describe("VRFCoordinatorV2", () => {
     await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, await consumer.getAddress());
 
     // Subscription owner cannot fund
-    const s = defaultAbiCoder.encode(["uint64"], [subId]);
+    const s = ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]);
     await expect(
       linkToken.connect(random).transferAndCall(vrfCoordinatorV2.address, BigNumber.from("1000000000000000000"), s),
     ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`);
@@ -526,7 +541,7 @@ describe("VRFCoordinatorV2", () => {
         .transferAndCall(
           vrfCoordinatorV2.address,
           BigNumber.from("1000000000000000000"),
-          defaultAbiCoder.encode(["uint64"], [subId]),
+          ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
         ),
     )
       .to.emit(vrfCoordinatorV2, "SubscriptionFunded")
@@ -644,7 +659,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       await expect(
         vrfCoordinatorV2.connect(consumer).requestRandomWords(
@@ -661,7 +676,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const r1 = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // keyhash
@@ -688,7 +703,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const reqTx = await vrfCoordinatorV2.connect(consumer).requestRandomWords(
         kh, // keyhash
@@ -715,7 +730,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress);
       await vrfCoordinatorV2.connect(subOwner).removeConsumer(subId, randomAddress);
@@ -733,7 +748,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       await vrfCoordinatorV2.connect(subOwner).cancelSubscription(subId, randomAddress);
       subId = await createSubscriptionWithConsumers([]);
@@ -921,7 +936,7 @@ describe("VRFCoordinatorV2", () => {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,
         BigNumber.from("1000000000000000000"), // 1 link > 0.1 min.
-        defaultAbiCoder.encode(["uint64"], [subId]),
+        ethers.utils.defaultAbiCoder.encode(["uint64"], [subId]),
       );
       const testKey = [BigNumber.from("1"), BigNumber.from("2")];
       let kh = await vrfCoordinatorV2.hashOfKey(testKey);
