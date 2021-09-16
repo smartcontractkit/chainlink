@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"net/url"
 	"strconv"
 	"strings"
@@ -697,4 +698,59 @@ func (p *JSONPathParam) UnmarshalPipelineParam(val interface{}) error {
 	}
 	*p = ssp
 	return nil
+}
+
+type MaybeBigIntParam struct {
+	n *big.Int
+}
+
+func (p *MaybeBigIntParam) UnmarshalPipelineParam(val interface{}) error {
+	var n *big.Int
+	switch v := val.(type) {
+	case uint:
+		n = big.NewInt(0).SetUint64(uint64(v))
+	case uint8:
+		n = big.NewInt(0).SetUint64(uint64(v))
+	case uint16:
+		n = big.NewInt(0).SetUint64(uint64(v))
+	case uint32:
+		n = big.NewInt(0).SetUint64(uint64(v))
+	case uint64:
+		n = big.NewInt(0).SetUint64(v)
+	case int:
+		n = big.NewInt(int64(v))
+	case int8:
+		n = big.NewInt(int64(v))
+	case int16:
+		n = big.NewInt(int64(v))
+	case int32:
+		n = big.NewInt(int64(v))
+	case int64:
+		n = big.NewInt(int64(v))
+	case float64: // when decoding from db: JSON numbers are floats
+		n = big.NewInt(0).SetUint64(uint64(v))
+	case string:
+		if strings.TrimSpace(v) == "" {
+			*p = MaybeBigIntParam{n: nil}
+			return nil
+		}
+		var ok bool
+		n, ok = big.NewInt(0).SetString(v, 10)
+		if !ok {
+			return errors.Wrapf(ErrBadInput, "unable to convert %s to big.Int", v)
+		}
+	case *big.Int:
+		n = v
+	case nil:
+		*p = MaybeBigIntParam{n: nil}
+		return nil
+	default:
+		return ErrBadInput
+	}
+	*p = MaybeBigIntParam{n: n}
+	return nil
+}
+
+func (p MaybeBigIntParam) BigInt() *big.Int {
+	return p.n
 }

@@ -20,13 +20,12 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
+	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(true)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 
 	app.KeyStore.Unlock(cltest.Password)
 
@@ -75,18 +74,17 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
+	defer assertMocksCalled()
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.Dev = null.BoolFrom(false)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 	cfg.Overrides.GlobalGasEstimatorMode = null.StringFrom("FixedPrice")
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
-	t.Cleanup(cleanup)
 
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
 	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(256), nil).Once()
 
+	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -111,8 +109,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -134,8 +131,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
 	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
 	defer verify()

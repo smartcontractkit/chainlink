@@ -39,7 +39,7 @@ describe("BasicConsumer", () => {
     cc = await basicConsumerFactory.connect(roles.defaultAccount).deploy(link.address, oc.address, specId);
   });
 
-  it("has a predictable gas price", async () => {
+  it("has a predictable gas price [ @skip-coverage ]", async () => {
     const rec = await ethers.provider.getTransactionReceipt(cc.deployTransaction.hash ?? "");
     assert.isBelow(rec.gasUsed?.toNumber() ?? -1, 1750000);
   });
@@ -74,7 +74,7 @@ describe("BasicConsumer", () => {
         assert.deepEqual(expected, cbor.decodeFirstSync(request.data));
       });
 
-      it("has a reasonable gas cost", async () => {
+      it("has a reasonable gas cost [ @skip-coverage ]", async () => {
         const tx = await cc.requestEthereumPrice(currency, payment);
         const receipt = await tx.wait();
 

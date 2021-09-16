@@ -5,10 +5,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 //
@@ -16,12 +18,16 @@ import (
 //     []byte
 //
 type ETHCallTask struct {
-	BaseTask   `mapstructure:",squash"`
-	Contract   string `json:"contract"`
-	Data       string `json:"data"`
-	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
+	BaseTask            `mapstructure:",squash"`
+	Contract            string `json:"contract"`
+	Data                string `json:"data"`
+	Gas                 string `json:"gas"`
+	GasPrice            string `json:"gasPrice"`
+	ExtractRevertReason bool   `json:"extractRevertReason"`
+	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	chainSet evm.ChainSet
+	config   Config
 }
 
 var _ Task = (*ETHCallTask)(nil)
@@ -39,10 +45,15 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	var (
 		contractAddr AddressParam
 		data         BytesParam
+		gas          Uint64Param
+		gasPrice     MaybeBigIntParam
 	)
+
 	err = multierr.Combine(
-		errors.Wrap(ResolveParam(&contractAddr, From(NonemptyString(t.Contract))), "contract"),
+		errors.Wrap(ResolveParam(&contractAddr, From(VarExpr(t.Contract, vars), NonemptyString(t.Contract))), "contract"),
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false))), "data"),
+		errors.Wrap(ResolveParam(&gas, From(VarExpr(t.Gas, vars), NonemptyString(t.Gas), 0)), "gas"),
+		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -51,8 +62,10 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	}
 
 	call := ethereum.CallMsg{
-		To:   (*common.Address)(&contractAddr),
-		Data: []byte(data),
+		To:       (*common.Address)(&contractAddr),
+		Data:     []byte(data),
+		Gas:      uint64(gas),
+		GasPrice: gasPrice.BigInt(),
 	}
 
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
@@ -62,7 +75,21 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 
 	resp, err := chain.Client().CallContract(ctx, call, nil)
 	if err != nil {
+		if t.ExtractRevertReason {
+			err = t.retrieveRevertReason(err)
+		}
+
 		return Result{Error: err}
 	}
 	return Result{Value: resp}
+}
+
+func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
+	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
+	if err != nil {
+		logger.Default.WithError(err).Errorw("failed to extract revert reason", "baseErr", baseErr)
+		return baseErr
+	}
+
+	return errors.Wrap(baseErr, reason)
 }

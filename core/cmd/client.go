@@ -106,7 +106,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		SQLxDB:           sqlxDB,
 		ORM:              evm.NewORM(sqlxDB),
 		KeyStore:         keyStore.Eth(),
-		AdvisoryLocker:   advisoryLocker,
 		EventBroadcaster: eventBroadcaster,
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
@@ -116,7 +115,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		AdvisoryLocker:           advisoryLocker,
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,
 		GormDB:                   db,

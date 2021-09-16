@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -14,8 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 )
 
 var (
@@ -41,11 +40,11 @@ type HeadListener struct {
 	config           Config
 	ethClient        eth.Client
 	chainID          big.Int
-	headers          chan *models.Head
+	headers          chan *eth.Head
 	headSubscription ethereum.Subscription
 	connectedMutex   sync.RWMutex
 	connected        bool
-	receivesHeads    int32
+	receivesHeads    atomic.Bool
 	sleeper          utils.Sleeper
 
 	log      *logger.Logger
@@ -95,7 +94,7 @@ func (hl *HeadListener) logger() *logger.Logger {
 	return hl.log
 }
 
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error) {
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error) {
 	defer hl.wgDone.Done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
@@ -125,7 +124,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
-func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header models.Head) error) error {
+func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header eth.Head) error) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 
@@ -137,7 +136,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 			// We've received a head, reset the no heads alarm
 			t.Stop()
 			t = time.NewTicker(noHeadsAlarmDuration)
-			atomic.StoreInt32(&hl.receivesHeads, 1)
+			hl.receivesHeads.Store(true)
 			if !open {
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
@@ -164,7 +163,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
 			hl.logger().Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
-			atomic.StoreInt32(&hl.receivesHeads, 0)
+			hl.receivesHeads.Store(false)
 		}
 	}
 }
@@ -200,7 +199,7 @@ func (hl *HeadListener) subscribeToHead() error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
-	hl.headers = make(chan *models.Head)
+	hl.headers = make(chan *eth.Head)
 
 	sub, err := hl.ethClient.SubscribeNewHead(context.Background(), hl.headers)
 	if err != nil {

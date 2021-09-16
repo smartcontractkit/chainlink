@@ -292,7 +292,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
 		c.Overrides.EVMDisabled = null.BoolFrom(false)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
@@ -319,7 +319,7 @@ func TestClient_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
-		c.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+		c.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
 		c.Overrides.EVMDisabled = null.BoolFrom(false)
 		c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
 		c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)

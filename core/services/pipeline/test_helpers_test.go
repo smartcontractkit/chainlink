@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -36,7 +36,7 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 	})
 }
 
-func makeBridge(t *testing.T, store *store.Store, name string, expectedRequest, response interface{}) *httptest.Server {
+func makeBridge(t *testing.T, db *gorm.DB, name string, expectedRequest, response interface{}) *httptest.Server {
 	t.Helper()
 
 	server := httptest.NewServer(fakeExternalAdapter(t, expectedRequest, response))
@@ -47,6 +47,6 @@ func makeBridge(t *testing.T, store *store.Store, name string, expectedRequest, 
 
 	_, bridge := cltest.NewBridgeType(t, name)
 	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 	return server
 }

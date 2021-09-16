@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -13,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
@@ -38,7 +38,6 @@ var (
 type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
 	ListenForDeletedJobs() (postgres.Subscription, error)
-	ClaimUnclaimedJobs(ctx context.Context) ([]Job, error)
 	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) (Job, error)
 	JobsV2(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
@@ -47,23 +46,18 @@ type ORM interface {
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
 	DismissError(ctx context.Context, errorID int32) error
-	UnclaimJob(ctx context.Context, id int32) error
-	CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error)
+	CheckForDeletedJobs(ctx context.Context, currentJobIDs []int32) (deletedJobIDs []int32, err error)
 	Close() error
 	PipelineRuns(offset, size int) ([]pipeline.Run, int, error)
 	PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error)
 }
 
 type orm struct {
-	db                  *gorm.DB
-	chainSet            evm.ChainSet
-	keyStore            keystore.Master
-	advisoryLocker      postgres.AdvisoryLocker
-	advisoryLockClassID int32
-	pipelineORM         pipeline.ORM
-	eventBroadcaster    postgres.EventBroadcaster
-	claimedJobs         map[int32]Job
-	claimedJobsMu       *sync.RWMutex
+	db               *gorm.DB
+	chainSet         evm.ChainSet
+	keyStore         keystore.Master
+	pipelineORM      pipeline.ORM
+	eventBroadcaster postgres.EventBroadcaster
 }
 
 var _ ORM = (*orm)(nil)
@@ -73,19 +67,14 @@ func NewORM(
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
 	eventBroadcaster postgres.EventBroadcaster,
-	advisoryLocker postgres.AdvisoryLocker,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 ) *orm {
 	return &orm{
-		db:                  db,
-		chainSet:            chainSet,
-		keyStore:            keyStore,
-		advisoryLocker:      advisoryLocker,
-		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
-		pipelineORM:         pipelineORM,
-		eventBroadcaster:    eventBroadcaster,
-		claimedJobs:         make(map[int32]Job),
-		claimedJobsMu:       new(sync.RWMutex),
+		db:               db,
+		chainSet:         chainSet,
+		keyStore:         keyStore,
+		pipelineORM:      pipelineORM,
+		eventBroadcaster: eventBroadcaster,
 	}
 }
 
@@ -112,61 +101,6 @@ func (o *orm) ListenForNewJobs() (postgres.Subscription, error) {
 
 func (o *orm) ListenForDeletedJobs() (postgres.Subscription, error) {
 	return o.eventBroadcaster.Subscribe(postgres.ChannelJobDeleted, "")
-}
-
-// ClaimUnclaimedJobs locks all currently unlocked jobs and returns all jobs locked by this process
-func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
-	o.claimedJobsMu.Lock()
-	defer o.claimedJobsMu.Unlock()
-
-	claimedJobIDs := o.claimedJobIDs()
-
-	var join string
-	var args []interface{}
-	if len(claimedJobIDs) > 0 {
-		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
-		// but prevents the optimiser from trying to pull the where condition
-		// up out of the subquery
-		join = `
-            INNER JOIN (
-                SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
-                FROM (SELECT id FROM jobs WHERE NOT (id = ANY(?)) OFFSET 0) not_claimed_by_us
-            ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
-        `
-		args = []interface{}{o.advisoryLockClassID, pq.Array(claimedJobIDs)}
-	} else {
-		join = `
-            INNER JOIN (
-                SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
-                FROM jobs not_claimed_by_us
-            ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
-        `
-		args = []interface{}{o.advisoryLockClassID}
-	}
-
-	var newlyClaimedJobs []Job
-	err := postgres.GormTransactionWithDefaultContext(o.db, func(tx *gorm.DB) error {
-		err := PreloadAllJobTypes(tx.
-			Joins(join, args...)).
-			Find(&newlyClaimedJobs).Error
-		if err != nil {
-			return err
-		}
-
-		for i := range newlyClaimedJobs {
-			o.claimedJobs[newlyClaimedJobs[i].ID] = newlyClaimedJobs[i]
-		}
-		return nil
-	})
-	return newlyClaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
-}
-
-func (o *orm) claimedJobIDs() (ids []int32) {
-	ids = []int32{}
-	for _, job := range o.claimedJobs {
-		ids = append(ids, job.ID)
-	}
-	return
 }
 
 // CreateJob creates the job and it's associated spec record.
@@ -290,11 +224,8 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 	return o.FindJob(ctx, jobSpec.ID)
 }
 
-// DeleteJob removes a job that is claimed by this orm
+// DeleteJob removes a job
 func (o *orm) DeleteJob(ctx context.Context, id int32) error {
-	o.claimedJobsMu.Lock()
-	defer o.claimedJobsMu.Unlock()
-
 	err := o.db.Exec(`
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = ? RETURNING
@@ -334,23 +265,14 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
 	}
 
-	if err := o.unclaimJob(ctx, id); err != nil {
-		return errors.Wrap(err, "DeleteJob failed to unclaim job")
-	}
-
 	return nil
 }
 
-func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error) {
-	o.claimedJobsMu.RLock()
-	defer o.claimedJobsMu.RUnlock()
-	var claimedJobIDs = o.claimedJobIDs()
-
-	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs)).Rows()
+func (o *orm) CheckForDeletedJobs(ctx context.Context, currentJobIDs []int32) (deletedJobIDs []int32, err error) {
+	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(currentJobIDs)).Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not query for jobs")
 	}
-	defer logger.ErrorIfCalling(rows.Close)
 
 	foundJobs := make(map[int32]struct{})
 	for rows.Next() {
@@ -360,30 +282,17 @@ func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, e
 		}
 		foundJobs[id] = struct{}{}
 	}
+	if err := rows.Close(); err != nil {
+		return nil, errors.Wrap(err, "could not close rows")
+	}
 
-	var deletedClaimedJobs []int32
-
-	for _, claimedID := range claimedJobIDs {
-		if _, ok := foundJobs[claimedID]; !ok {
-			deletedClaimedJobs = append(deletedClaimedJobs, claimedID)
+	for _, currentID := range currentJobIDs {
+		if _, ok := foundJobs[currentID]; !ok {
+			deletedJobIDs = append(deletedJobIDs, currentID)
 		}
 	}
 
-	return deletedClaimedJobs, nil
-}
-
-func (o *orm) UnclaimJob(ctx context.Context, id int32) error {
-	o.claimedJobsMu.Lock()
-	defer o.claimedJobsMu.Unlock()
-	return o.unclaimJob(ctx, id)
-}
-
-func (o *orm) unclaimJob(ctx context.Context, id int32) error {
-	if _, ok := o.claimedJobs[id]; ok {
-		delete(o.claimedJobs, id)
-		return errors.Wrap(o.advisoryLocker.Unlock(ctx, o.advisoryLockClassID, id), "DeleteJob failed to unlock job")
-	}
-	return nil
+	return deletedJobIDs, nil
 }
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
@@ -535,6 +444,42 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 	return jids, nil
 }
 
+// Preload PipelineSpec.JobID for each Run
+func (o *orm) preloadJobIDs(runs []pipeline.Run) error {
+	db := postgres.UnwrapGormDB(o.db)
+
+	ids := make([]int32, 0, len(runs))
+	for _, run := range runs {
+		ids = append(ids, run.PipelineSpecID)
+	}
+
+	// construct a WHERE IN query
+	sql := `SELECT id, pipeline_spec_id FROM jobs WHERE pipeline_spec_id IN (?);`
+	query, args, err := sqlx.In(sql, ids)
+	if err != nil {
+		return err
+	}
+	query = db.Rebind(query)
+	var results []struct {
+		ID             int32
+		PipelineSpecID int32
+	}
+	if err := db.Select(&results, query, args...); err != nil {
+		return err
+	}
+
+	// fill in fields
+	for i := range runs {
+		for _, result := range results {
+			if result.PipelineSpecID == runs[i].PipelineSpecID {
+				runs[i].PipelineSpec.JobID = result.ID
+			}
+		}
+	}
+
+	return nil
+}
+
 // PipelineRunsByJobID returns all pipeline runs
 func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 	var pipelineRuns []pipeline.Run
@@ -559,6 +504,12 @@ func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
+
+	if err != nil {
+		return pipelineRuns, int(count), err
+	}
+
+	err = o.preloadJobIDs(pipelineRuns)
 
 	return pipelineRuns, int(count), err
 }
@@ -591,6 +542,11 @@ func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
+
+	// can skip preloadJobIDs since we already know the jobID
+	for i := range pipelineRuns {
+		pipelineRuns[i].PipelineSpec.JobID = jobID
+	}
 
 	return pipelineRuns, int(count), err
 }

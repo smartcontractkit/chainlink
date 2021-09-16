@@ -32,8 +32,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	debug := config.LogLevel{Level: zapcore.DebugLevel}
 	cfg.Overrides.LogLevel = &debug
-	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, cfg)
 	keyStore := cltest.NewKeyStore(t, store.DB)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -108,8 +107,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			store := cltest.NewStore(t)
 			keyStore := cltest.NewKeyStore(t, store.DB)
 			// Clear out fixture
 			err := store.DeleteUser()
@@ -154,8 +152,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	keyStore := cltest.NewKeyStore(t, store.DB)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -213,10 +210,9 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 
-			store, cleanup := cltest.NewStoreWithConfig(t, cfg)
+			store := cltest.NewStoreWithConfig(t, cfg)
 			// Clear out fixture
 			store.DeleteUser()
-			defer cleanup()
 			keyStore := cltest.NewKeyStore(t, store.DB)
 			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
@@ -292,10 +288,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions", true, true)
-	defer cleanup()
-	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
-	defer connectedCleanup()
+	config, _ := heavyweight.FullTestORM(t, "rebroadcasttransactions", true, true)
+	connectedStore := cltest.NewStoreWithConfig(t, config)
 	keyStore := cltest.NewKeyStore(t, connectedStore.DB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -322,8 +316,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	config.SetDialect(dialects.PostgresWithoutLock)
 
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, config)
 	require.NoError(t, connectedStore.Start())
 
 	app := new(mocks.Application)
@@ -379,11 +372,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, cleanup := heavyweight.FullTestORM(t, "rebroadcasttransactions_outsiderange", true, true)
-			defer cleanup()
+			config, _ := heavyweight.FullTestORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			config.SetDialect(dialects.Postgres)
-			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
-			defer connectedCleanup()
+			connectedStore := cltest.NewStoreWithConfig(t, config)
 			keyStore := cltest.NewKeyStore(t, connectedStore.DB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
@@ -405,8 +396,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.SetDialect(dialects.PostgresWithoutLock)
-			store, cleanup := cltest.NewStoreWithConfig(t, config)
-			defer cleanup()
+			store := cltest.NewStoreWithConfig(t, config)
 			require.NoError(t, connectedStore.Start())
 
 			app := new(mocks.Application)
@@ -448,11 +438,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, _, cleanup := heavyweight.FullTestORM(t, "setnextnonce", true, true)
-	defer cleanup()
+	config, _ := heavyweight.FullTestORM(t, "setnextnonce", true, true)
 	config.SetDialect(dialects.Postgres)
-	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
+	store := cltest.NewStoreWithConfig(t, config)
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	client := cmd.Client{

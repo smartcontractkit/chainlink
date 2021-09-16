@@ -37,13 +37,12 @@ func TestLogController_GetLogConfig(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.EthereumDisabled = null.BoolFrom(true)
-	logLevel := config.LogLevel{zapcore.WarnLevel}
+	logLevel := config.LogLevel{Level: zapcore.WarnLevel}
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
 	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
 
-	app, cleanup := cltest.NewApplicationWithConfig(t, cfg)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -70,8 +69,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEVMDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 

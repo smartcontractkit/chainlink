@@ -99,8 +99,6 @@ const (
 	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
-	// AllowUnstarted enable an application that can be used in tests without being started
-	AllowUnstarted = "allow_unstarted"
 	// DefaultPeerID is the peer ID of the default p2p key
 	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 	// A peer ID without an associated p2p key.
@@ -197,9 +195,8 @@ type JobPipelineV2TestHelper struct {
 }
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
-	prm, eb, cleanup := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cc, prm, eb, &postgres.NullAdvisoryLocker{}, keyStore)
-	t.Cleanup(cleanup)
+	prm, eb := NewPipelineORM(t, cfg, db)
+	jrm := job.NewORM(db, cc, prm, eb, keyStore)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
@@ -209,29 +206,27 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster) {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return pipeline.NewORM(db), eventBroadcaster, func() {
-		eventBroadcaster.Close()
-	}
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
+	return pipeline.NewORM(db), eventBroadcaster
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default), func() {
-		assert.NoError(t, eventBroadcaster.Close())
-	}
+	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default)
 }
 
 func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
 }
 
@@ -239,13 +234,12 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evm
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger         *logger.Logger
-	Server         *httptest.Server
-	wsServer       *httptest.Server
-	Started        bool
-	Backend        *backends.SimulatedBackend
-	Key            ethkey.KeyV2
-	allowUnstarted bool
+	Logger   *logger.Logger
+	Server   *httptest.Server
+	wsServer *httptest.Server
+	Started  bool
+	Backend  *backends.SimulatedBackend
+	Key      ethkey.KeyV2
 }
 
 // NewWSServer returns a  new wsserver
@@ -295,45 +289,40 @@ func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 
 // NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
 // Useful for testing controllers
-func NewApplicationEVMDisabled(t *testing.T) (*TestApplication, func()) {
+func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
 	c.Overrides.EVMDisabled = null.BoolFrom(true)
 
-	app, cleanup := NewApplicationWithConfig(t, c)
-
-	return app, cleanup
+	return NewApplicationWithConfig(t, c)
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
 
-	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-
-	return app, cleanup
+	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
-	return app, cleanup
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
+	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 	require.NoError(t, app.KeyStore.Unlock(Password))
 	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
@@ -350,7 +339,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfi
 		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
 	}
 
-	return app, cleanup
+	return app
 }
 
 const (
@@ -359,7 +348,7 @@ const (
 
 // NewApplicationWithConfig creates a New TestApplication with specified test config.
 // This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
-func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
@@ -368,7 +357,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	var lggr *logger.Logger = cfg.CreateProductionLogger()
 	shutdownSignal := &testShutdownSignal{t}
-	store, err := strpkg.NewInsecureStore(cfg, advisoryLocker, shutdownSignal)
+	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
 	require.NoError(t, err)
 	db := store.DB
 	sqlxDB := postgres.UnwrapGormDB(db)
@@ -381,8 +370,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
-		case postgres.AdvisoryLocker:
-			advisoryLocker = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
 		case evmtypes.Chain:
@@ -416,7 +403,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		GormDB:           db,
 		SQLxDB:           sqlxDB,
 		KeyStore:         keyStore.Eth(),
-		AdvisoryLocker:   advisoryLocker,
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(c evmtypes.Chain) eth.Client {
 			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
@@ -432,7 +418,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	ta := &TestApplication{t: t}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
-		AdvisoryLocker:           advisoryLocker,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,
@@ -453,17 +438,17 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
 
+	ta.Server = server
+	return ta
+}
+
+func contains(flagsAndDeps []interface{}, value interface{}) bool {
 	for _, flag := range flagsAndDeps {
-		if flag == AllowUnstarted {
-			ta.allowUnstarted = true
+		if flag == value {
+			return true
 		}
 	}
-
-	ta.Server = server
-	return ta, func() {
-		err := ta.StopIfStarted()
-		require.NoError(t, err)
-	}
+	return false
 }
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
@@ -543,6 +528,7 @@ func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+// Start starts the chainlink app and registers Stop to clean up at end of test.
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
@@ -551,7 +537,12 @@ func (ta *TestApplication) Start() error {
 		return err
 	}
 
-	return ta.ChainlinkApplication.Start()
+	err = ta.ChainlinkApplication.Start()
+	if err != nil {
+		return err
+	}
+	ta.t.Cleanup(func() { require.NoError(ta.t, ta.Stop()) })
+	return nil
 }
 
 // Stop will stop the test application and perform cleanup
@@ -559,9 +550,6 @@ func (ta *TestApplication) Stop() error {
 	ta.t.Helper()
 
 	if !ta.Started {
-		if ta.allowUnstarted {
-			return nil
-		}
 		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
 	}
 
@@ -644,7 +632,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -654,23 +642,23 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(c, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewStore(c, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	s.Config.SetDB(s.DB)
-	return s, func() {
+	t.Cleanup(func() {
 		cleanUpStore(t, s)
-	}
+	})
+	s.Config.SetDB(s.DB)
+	return s
 }
 
 // NewStore creates a new store
-func NewStore(t *testing.T, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStore(t *testing.T, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
 	c := NewTestGeneralConfig(t)
-	store, storeCleanup := NewStoreWithConfig(t, c, flagsAndDeps...)
-	return store, storeCleanup
+	return NewStoreWithConfig(t, c, flagsAndDeps...)
 }
 
 // NewKeyStore returns a new, unlocked keystore
@@ -938,6 +926,10 @@ const (
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
+
+	// DefaultWaitTimeout - to be used especially in parallel tests, as their
+	// individual execution can get paused for multiple seconds.
+	DefaultWaitTimeout = 30 * time.Second
 )
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
@@ -967,21 +959,20 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 		assert.NoError(t, err)
 		var completed []pipeline.Run
 
-		for i := range prs {
-			if prs[i].State == pipeline.RunStatusCompleted {
-				if !prs[i].Outputs.Null {
-					if !prs[i].Errors.HasError() {
-						// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-						// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
-						if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
-							completed = append(completed, prs[i])
-						}
-					}
-				}
+		for _, pr := range prs {
+			if pr.State != pipeline.RunStatusCompleted {
+				continue
+			}
+
+			// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+			// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+			if len(pr.PipelineTaskRuns) == expectedTaskRuns {
+				completed = append(completed, pr)
 			}
 		}
+
 		numPipelineRuns = len(completed)
-		if len(completed) >= expectedPipelineRuns {
+		if numPipelineRuns >= expectedPipelineRuns {
 			pr = completed
 			return true
 		}
@@ -1004,34 +995,6 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
-}
-
-func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var attempts []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() int {
-		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
-		assert.NoError(t, err)
-		return len(attempts)
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">", 0))
-	return attempts
-}
-
-func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var txas []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
-		assert.NoError(t, err)
-		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txas
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
@@ -1071,18 +1034,18 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 }
 
 // Head given the value convert it into an Head
-func Head(val interface{}) *models.Head {
-	var h models.Head
+func Head(val interface{}) *eth.Head {
+	var h eth.Head
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case int64:
-		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case *big.Int:
-		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
+		h = eth.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -1251,19 +1214,6 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	})
 	require.NoError(t, err)
 	return all
-}
-
-func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-
-	var txa bulletprooftxmanager.EthTxAttempt
-	var count int64
-	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&txa).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return txa
 }
 
 type Awaiter chan struct{}
@@ -1543,7 +1493,7 @@ type Blocks struct {
 	t       *testing.T
 	Hashes  []common.Hash
 	mHashes map[int64]common.Hash
-	Heads   map[int64]*models.Head
+	Heads   map[int64]*eth.Head
 }
 
 func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
@@ -1570,7 +1520,7 @@ func (b *Blocks) HashesMap() map[int64]common.Hash {
 	return b.mHashes
 }
 
-func (b *Blocks) Head(number uint64) *models.Head {
+func (b *Blocks) Head(number uint64) *eth.Head {
 	return b.Heads[int64(number)]
 }
 
@@ -1589,13 +1539,13 @@ func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
 	return forked
 }
 
-func (b *Blocks) NewHead(number uint64) *models.Head {
+func (b *Blocks) NewHead(number uint64) *eth.Head {
 	parentNumber := number - 1
 	parent, ok := b.Heads[int64(parentNumber)]
 	if !ok {
 		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
 	}
-	head := &models.Head{
+	head := &eth.Head{
 		Number:     parent.Number + 1,
 		Hash:       utils.NewHash(),
 		ParentHash: parent.Hash,
@@ -1607,12 +1557,12 @@ func (b *Blocks) NewHead(number uint64) *models.Head {
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
-	heads := make(map[int64]*models.Head)
+	heads := make(map[int64]*eth.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &models.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
+		heads[i] = &eth.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -1636,18 +1586,18 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 // HeadBuffer - stores heads in sequence, with increasing timestamps
 type HeadBuffer struct {
 	t     *testing.T
-	Heads []*models.Head
+	Heads []*eth.Head
 }
 
 func NewHeadBuffer(t *testing.T) *HeadBuffer {
 	return &HeadBuffer{
 		t:     t,
-		Heads: make([]*models.Head, 0),
+		Heads: make([]*eth.Head, 0),
 	}
 }
 
-func (hb *HeadBuffer) Append(head *models.Head) {
-	cloned := &models.Head{
+func (hb *HeadBuffer) Append(head *eth.Head) {
+	cloned := &eth.Head{
 		Number:     head.Number,
 		Hash:       head.Hash,
 		ParentHash: head.ParentHash,
@@ -1657,9 +1607,9 @@ func (hb *HeadBuffer) Append(head *models.Head) {
 	hb.Heads = append(hb.Heads, cloned)
 }
 
-type HeadTrackableFunc func(context.Context, models.Head)
+type HeadTrackableFunc func(context.Context, eth.Head)
 
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	fn(ctx, head)
 }
 
@@ -1701,35 +1651,35 @@ func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	require.Equal(t, expected, count)
 }
 
-func WaitForCount(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
+func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
-		err = store.DB.Model(model).Count(&count).Error
+		err = db.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
+func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = store.DB.Model(model).Count(&count).Error
+		err = db.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}, check func() bool) {
+func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
-		err := store.DB.Find(model).Error
+		err := db.Find(model).Error
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
