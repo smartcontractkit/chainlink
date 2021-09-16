@@ -25,7 +25,6 @@ COPY patches patches
 COPY solc_bin solc_bin
 COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
-COPY belt belt
 COPY evm-test-helpers evm-test-helpers
 COPY contracts contracts
 # TODO remove @types import
