@@ -1,5 +1,4 @@
 import "@nomiclabs/hardhat-waffle";
-import "@nomiclabs/hardhat-truffle5";
 import "hardhat-contract-sizer";
 import "hardhat-abi-exporter";
 import "hardhat-gas-reporter";
