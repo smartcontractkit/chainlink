@@ -27,10 +27,10 @@ type LogPatchRequest struct {
 func (cc *LogController) Get(c *gin.Context) {
 	var svcs, lvls []string
 	svcs = append(svcs, "Global")
-	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
+	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	logSvcs := logger.GetLogServices()
 	for _, svcName := range logSvcs {
@@ -85,7 +85,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 		}
 	}
 	svcs = append(svcs, "Global")
-	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
+	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
 		if err := cc.App.GetConfig().SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
@@ -95,7 +95,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 		cc.App.GetStore().SetLogging(*request.SqlEnabled)
 	}
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetStore().Config.LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	if len(request.ServiceLogLevel) > 0 {
 		for _, svcLogLvl := range request.ServiceLogLevel {
@@ -124,8 +124,8 @@ func (cc *LogController) Patch(c *gin.Context) {
 	}
 
 	// Set default logger with new configurations
-	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
-	cc.App.GetLogger().SetDB(cc.App.GetStore().DB)
+	logger.SetLogger(cc.App.GetConfig().CreateProductionLogger())
+	cc.App.GetLogger().SetDB(cc.App.GetDB())
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

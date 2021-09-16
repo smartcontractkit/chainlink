@@ -5,18 +5,15 @@ import (
 	"flag"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
 )
 
 func TestVRFKeyPresenter_RenderTable(t *testing.T) {
@@ -26,9 +23,6 @@ func TestVRFKeyPresenter_RenderTable(t *testing.T) {
 		compressed   = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
 		uncompressed = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f"
 		hash         = "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a"
-		createdAt    = time.Now()
-		updatedAt    = time.Now().Add(time.Second)
-		deletedAt    = time.Now().Add(2 * time.Second)
 		buffer       = bytes.NewBufferString("")
 		r            = cmd.RendererTable{Writer: buffer}
 	)
@@ -38,9 +32,6 @@ func TestVRFKeyPresenter_RenderTable(t *testing.T) {
 			Compressed:   compressed,
 			Uncompressed: uncompressed,
 			Hash:         hash,
-			CreatedAt:    createdAt,
-			UpdatedAt:    updatedAt,
-			DeletedAt:    &deletedAt,
 		},
 	}
 
@@ -51,9 +42,6 @@ func TestVRFKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, compressed)
 	assert.Contains(t, output, uncompressed)
 	assert.Contains(t, output, hash)
-	assert.Contains(t, output, createdAt.String())
-	assert.Contains(t, output, updatedAt.String())
-	assert.Contains(t, output, deletedAt.String())
 
 	// Render many resources
 	buffer.Reset()
@@ -64,16 +52,10 @@ func TestVRFKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, compressed)
 	assert.Contains(t, output, uncompressed)
 	assert.Contains(t, output, hash)
-	assert.Contains(t, output, createdAt.String())
-	assert.Contains(t, output, updatedAt.String())
-	assert.Contains(t, output, deletedAt.String())
 }
 
 func AssertKeysEqual(t *testing.T, k1, k2 cmd.VRFKeyPresenter) {
 	AssertKeysEqualNoTimestamps(t, k1, k2)
-	assert.Equal(t, k1.UpdatedAt, k2.UpdatedAt)
-	assert.Equal(t, k1.CreatedAt, k2.CreatedAt)
-	assert.Equal(t, k1.DeletedAt, k2.DeletedAt)
 }
 
 func AssertKeysEqualNoTimestamps(t *testing.T, k1, k2 cmd.VRFKeyPresenter) {
@@ -100,9 +82,6 @@ func TestClientVRF_CRUD(t *testing.T) {
 	require.NoError(t, client.CreateVRFKey(cltest.EmptyCLIContext()))
 	require.Equal(t, 2, len(r.Renders))
 	k1 := *r.Renders[1].(*cmd.VRFKeyPresenter)
-	assert.Nil(t, k1.DeletedAt)
-	assert.NotEqual(t, k1.CreatedAt, time.Time{})
-	assert.NotEqual(t, k1.UpdatedAt, time.Time{})
 
 	// List the key and ensure it matches
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
@@ -119,55 +98,23 @@ func TestClientVRF_CRUD(t *testing.T) {
 	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 5, len(r.Renders))
 	keys = *r.Renders[4].(*cmd.VRFKeyPresenters)
-	AssertKeysEqual(t, k1, keys[0])
-	AssertKeysEqual(t, k2, keys[1])
-
-	// Archive a key
-	// Invalid ID should fail
-	set := flag.NewFlagSet("test", 0)
-	randomkey := vrfkey.CreateKey()
-	set.Parse([]string{randomkey.PublicKey.String()})
-	set.Bool("yes", true, "")
-	c := cli.NewContext(nil, set, nil)
-	err := client.DeleteVRFKey(c)
-	require.Error(t, err)
-
-	// Archive a valid key should succeed
-	set = flag.NewFlagSet("test", 0)
-	set.Parse([]string{k1.Compressed})
-	set.Bool("yes", true, "")
-	c = cli.NewContext(nil, set, nil)
-	err = client.DeleteVRFKey(c)
-	require.NoError(t, err)
-	// Should return the archived key
-	require.Equal(t, 6, len(r.Renders))
-	archivedKey := *r.Renders[5].(*cmd.VRFKeyPresenter)
-	AssertKeysEqual(t, k1, archivedKey)
-	// Should not appear in the list of keys
-	require.NoError(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 7, len(r.Renders))
-	keys = *r.Renders[6].(*cmd.VRFKeyPresenters)
-	require.Equal(t, 1, len(keys))
-	AssertKeysEqual(t, k2, keys[0])
-	// Should still be in the DB as archived
-	allKeys, err := app.KeyStore.VRF().ListKeysIncludingArchived()
-	require.NoError(t, err)
-	assert.Equal(t, 2, len(allKeys))
+	require.Contains(t, []string{keys[0].ID, keys[1].ID}, k1.ID)
+	require.Contains(t, []string{keys[0].ID, keys[1].ID}, k2.ID)
 
 	// Now do a hard delete and ensure its completely removes the key
-	set = flag.NewFlagSet("test", 0)
+	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{k2.Compressed})
 	set.Bool("hard", true, "")
 	set.Bool("yes", true, "")
-	c = cli.NewContext(nil, set, nil)
-	err = client.DeleteVRFKey(c)
+	c := cli.NewContext(nil, set, nil)
+	err := client.DeleteVRFKey(c)
 	require.NoError(t, err)
 	// Should return the deleted key
-	require.Equal(t, 8, len(r.Renders))
-	deletedKey := *r.Renders[7].(*cmd.VRFKeyPresenter)
+	require.Equal(t, 6, len(r.Renders))
+	deletedKey := *r.Renders[5].(*cmd.VRFKeyPresenter)
 	AssertKeysEqual(t, k2, deletedKey)
 	// Should NOT be in the DB as archived
-	allKeys, err = app.KeyStore.VRF().ListKeysIncludingArchived()
+	allKeys, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	assert.Equal(t, 1, len(allKeys))
 }

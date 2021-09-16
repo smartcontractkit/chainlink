@@ -7,6 +7,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,7 @@ func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewGormDB(t)
+	sqlDB := postgres.UnwrapGormDB(db).DB
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, db)
 	eiBar := cltest.MustInsertExternalInitiator(t, db)
@@ -39,7 +41,7 @@ func Test_Authorizer(t *testing.T) {
 	))
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, nil)
+		a := webhook.NewAuthorizer(sqlDB, nil, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -53,7 +55,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, &models.User{}, nil)
+		a := webhook.NewAuthorizer(sqlDB, &models.User{}, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -67,7 +69,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(db, nil, &eiFoo)
+		a := webhook.NewAuthorizer(sqlDB, nil, &eiFoo)
 
 		can, err := a.CanRun(context.Background(), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

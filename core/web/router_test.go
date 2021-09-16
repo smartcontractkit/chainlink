@@ -16,8 +16,7 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -31,8 +30,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -47,8 +45,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -80,8 +77,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -113,8 +109,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -142,8 +137,7 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)
@@ -162,8 +156,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	router := web.Router(app)

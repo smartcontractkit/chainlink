@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,6 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 	"go.uber.org/multierr"
+)
+
+var (
+	vrfCoordinatorV2ABI = eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
 )
 
 type VRFTaskV2 struct {
@@ -63,18 +70,18 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid keyHash")}
 	}
-	requestPreSeed, ok := logValues["preSeedAndRequestId"].(*big.Int)
+	requestPreSeed, ok := logValues["preSeed"].(*big.Int)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeedAndRequestId")}
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeed")}
+	}
+	requestId, ok := logValues["requestId"].(*big.Int)
+	if !ok {
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestId")}
 	}
 	subID, ok := logValues["subId"].(uint64)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid subId")}
 	}
-	//minReqConf, ok := logValues["minimumRequestConfirmations"].(uint16)
-	//if !ok {
-	//	return Result{Error: errors.Wrapf(ErrBadInput, "invalid minimumRequestConfirmations")}
-	//}
 	callbackGasLimit, ok := logValues["callbackGasLimit"].(uint32)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid callbackGasLimit")}
@@ -108,16 +115,22 @@ func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		Sender:           sender,
 	}
 	finalSeed := proof.FinalSeedV2(preSeedData)
-	p, err := t.keyStore.GenerateProof(pk, finalSeed)
+	id := hexutil.Encode(pk[:])
+	p, err := t.keyStore.GenerateProof(id, finalSeed)
 	if err != nil {
 		return Result{Error: err}
 	}
-	onChainProof, err := proof.GenerateProofResponseFromProofV2(p, preSeedData)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2(p, preSeedData)
+	if err != nil {
+		return Result{Error: err}
+	}
+	b, err := vrfCoordinatorV2ABI.Pack("fulfillRandomWords", onChainProof, rc)
 	if err != nil {
 		return Result{Error: err}
 	}
 	results := make(map[string]interface{})
-	results["proof"] = hexutil.Encode(onChainProof[:])
-	results["requestID"] = hexutil.Encode([]byte(requestPreSeed.String()))
+	results["output"] = hexutil.Encode(b)
+	// RequestID needs to be a [32]byte for EthTxMeta.
+	results["requestID"] = hexutil.Encode(requestId.Bytes())
 	return Result{Value: results}
 }

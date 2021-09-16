@@ -20,15 +20,14 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 2, from) // tx2
@@ -66,8 +65,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -79,13 +77,12 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+
+	db := app.GetDB()
 	client := app.NewHTTPClient()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
@@ -113,13 +110,12 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t)
-	t.Cleanup(cleanup)
-
+	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
-	db := app.GetStore().DB
+
+	db := app.GetDB()
 	client := app.NewHTTPClient()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]

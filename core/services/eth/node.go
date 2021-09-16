@@ -12,8 +12,36 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+type Node interface {
+	Dial(ctx context.Context) error
+	Close()
+	Verify(ctx context.Context, expectedChainID *big.Int) (err error)
+
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
+
+	String() string
+}
 
 type rawclient struct {
 	rpc  *rpc.Client
@@ -21,18 +49,20 @@ type rawclient struct {
 	uri  url.URL
 }
 
-// node represents one ethereum node.
+// Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
 	ws     rawclient
 	http   *rawclient
 	log    *logger.Logger
+	name   string
 	dialed bool
 }
 
-func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
-	n = new(node)
-	n.log = logger.Default.With(
+func NewNode(lggr *logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
+	n := new(node)
+	n.name = name
+	n.log = lggr.With(
 		"nodeName", name,
 		"nodeTier", "primary",
 	)
@@ -40,7 +70,7 @@ func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
-	return
+	return n
 }
 
 func (n *node) Dial(ctx context.Context) error {
@@ -130,14 +160,6 @@ func (n node) TransactionReceipt(ctx context.Context, txHash common.Hash) (recei
 		err = n.wrapWS(err)
 	}
 
-	return
-}
-
-// NOTE: ChainID may need a bit of rethinking if we implement multiple clients since in theory they could have different ChainIDs
-func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	n.log.Debugw("eth.Client#ChainID(...)", "mode", "websocket")
-	chainID, err = n.ws.geth.ChainID(ctx)
-	err = n.wrapWS(err)
 	return
 }
 
@@ -356,4 +378,40 @@ func switching(n node) string {
 		return "http"
 	}
 	return "websocket"
+}
+
+func (n node) String() string {
+	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri.String())
+	if n.http != nil {
+		s = s + fmt.Sprintf(":%s", n.http.uri.String())
+	}
+	return s
+}
+
+// Verify checks that all connections to eth nodes match the given chain ID
+func (n node) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
+	var chainID *big.Int
+	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
+		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+	} else if chainID.Cmp(expectedChainID) != 0 {
+		return errors.Errorf(
+			"websocket rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+			chainID.String(),
+			expectedChainID.String(),
+			n.name,
+		)
+	}
+	if n.http != nil {
+		if chainID, err = n.http.geth.ChainID(ctx); err != nil {
+			return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)
+		} else if chainID.Cmp(expectedChainID) != 0 {
+			return errors.Errorf(
+				"http rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+				chainID.String(),
+				expectedChainID.String(),
+				n.name,
+			)
+		}
+	}
+	return nil
 }

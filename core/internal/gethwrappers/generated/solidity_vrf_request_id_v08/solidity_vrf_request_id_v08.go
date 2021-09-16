@@ -4,6 +4,7 @@
 package solidity_vrf_request_id_v08
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 )
 
 var (
+	_ = errors.New
 	_ = big.NewInt
 	_ = strings.NewReader
 	_ = ethereum.NotFound
@@ -25,17 +27,25 @@ var (
 	_ = event.NewSubscription
 )
 
-const VRFRequestIDBaseTestHelperABI = "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"_vRFInputSeed\",\"type\":\"uint256\"}],\"name\":\"makeRequestId_\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"_userSeed\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_requester\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_nonce\",\"type\":\"uint256\"}],\"name\":\"makeVRFInputSeed_\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]"
+var VRFRequestIDBaseTestHelperMetaData = &bind.MetaData{
+	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"_vRFInputSeed\",\"type\":\"uint256\"}],\"name\":\"makeRequestId_\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"_userSeed\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"_requester\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"_nonce\",\"type\":\"uint256\"}],\"name\":\"makeVRFInputSeed_\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610170806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806337ab429a1461003b578063bda087ae146100af575b600080fd5b61009d61004936600461010b565b604080516020808201969096528082019490945273ffffffffffffffffffffffffffffffffffffffff9290921660608401526080808401919091528151808403909101815260a09092019052805191012090565b60405190815260200160405180910390f35b61009d6100bd3660046100e9565b604080516020808201949094528082019290925280518083038201815260609092019052805191012090565b600080604083850312156100fc57600080fd5b50508035926020909101359150565b6000806000806080858703121561012157600080fd5b8435935060208501359250604085013573ffffffffffffffffffffffffffffffffffffffff8116811461015357600080fd5b939692955092936060013592505056fea164736f6c6343000806000a",
+}
 
-var VRFRequestIDBaseTestHelperBin = "0x608060405234801561001057600080fd5b50610170806100206000396000f3fe608060405234801561001057600080fd5b50600436106100365760003560e01c806337ab429a1461003b578063bda087ae146100af575b600080fd5b61009d61004936600461010b565b604080516020808201969096528082019490945273ffffffffffffffffffffffffffffffffffffffff9290921660608401526080808401919091528151808403909101815260a09092019052805191012090565b60405190815260200160405180910390f35b61009d6100bd3660046100e9565b604080516020808201949094528082019290925280518083038201815260609092019052805191012090565b600080604083850312156100fc57600080fd5b50508035926020909101359150565b6000806000806080858703121561012157600080fd5b8435935060208501359250604085013573ffffffffffffffffffffffffffffffffffffffff8116811461015357600080fd5b939692955092936060013592505056fea164736f6c6343000806000a"
+var VRFRequestIDBaseTestHelperABI = VRFRequestIDBaseTestHelperMetaData.ABI
+
+var VRFRequestIDBaseTestHelperBin = VRFRequestIDBaseTestHelperMetaData.Bin
 
 func DeployVRFRequestIDBaseTestHelper(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *VRFRequestIDBaseTestHelper, error) {
-	parsed, err := abi.JSON(strings.NewReader(VRFRequestIDBaseTestHelperABI))
+	parsed, err := VRFRequestIDBaseTestHelperMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
+	if parsed == nil {
+		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
+	}
 
-	address, tx, contract, err := bind.DeployContract(auth, parsed, common.FromHex(VRFRequestIDBaseTestHelperBin), backend)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(VRFRequestIDBaseTestHelperBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}

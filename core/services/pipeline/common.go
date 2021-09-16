@@ -3,7 +3,9 @@ package pipeline
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
+	"math/big"
 	"net/url"
 	"reflect"
 	"sort"
@@ -14,14 +16,17 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
+//go:generate mockery --name Task --output ./mocks/ --case=underscore
 
 type (
 	Task interface {
@@ -47,9 +52,6 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EvmGasLimitDefault() uint64
-		EvmMaxQueuedTransactions() uint64
-		MinRequiredOutgoingConfirmations() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -169,17 +171,30 @@ type JSONSerializable struct {
 	Null bool
 }
 
+// UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
+
 	return json.Unmarshal(bs, &js.Val)
 }
 
+// MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
-		return json.Marshal(string(x))
+		// Don't need to HEX encode if it is a valid JSON string
+		if json.Valid(x) {
+			return json.Marshal(string(x))
+		}
+
+		// Don't need to HEX encode if it is already HEX encoded value
+		if utils.IsHexBytes(x) {
+			return json.Marshal(string(x))
+		}
+
+		return json.Marshal(hex.EncodeToString(x))
 	default:
 		return json.Marshal(js.Val)
 	}
@@ -355,4 +370,15 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 		return nil, ErrTooManyErrors
 	}
 	return vals, nil
+}
+
+func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
+	if str == "" {
+		return chainSet.Default()
+	}
+	id, ok := new(big.Int).SetString(str, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid EVM chain ID: %s", str)
+	}
+	return chainSet.Get(id)
 }

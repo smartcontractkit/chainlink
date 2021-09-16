@@ -3,12 +3,15 @@ package web
 import (
 	"context"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,29 +29,34 @@ type ETHKeysController struct {
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Index(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
-	keys, err := ethKeyStore.AllKeys()
+	var keys []ethkey.KeyV2
+	var err error
+	if ekc.App.GetConfig().Dev() {
+		keys, err = ethKeyStore.GetAll()
+	} else {
+		keys, err = ethKeyStore.SendingKeys()
+	}
 	if err != nil {
 		err = errors.Errorf("error getting unlocked keys: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-
+	states, err := ethKeyStore.GetStatesForKeys(keys)
+	if err != nil {
+		err = errors.Errorf("error getting key states: %v", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 	var resources []presenters.ETHKeyResource
-	for _, key := range keys {
-		if !ekc.App.GetStore().Config.Dev() && key.IsFunding {
-			continue
-		}
-
-		k, err := ethKeyStore.KeyByAddress(key.Address.Address())
+	for _, state := range states {
+		key, err := ethKeyStore.Get(state.Address.Hex())
 		if err != nil {
-			err = errors.Errorf("error getting key: %v", err)
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-
-		r, err := presenters.NewETHKeyResource(k,
-			ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-			ekc.setLinkBalance(key.Address.Address()),
+		r, err := presenters.NewETHKeyResource(key, state,
+			ekc.setEthBalance(c.Request.Context(), state),
+			ekc.setLinkBalance(state),
 		)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -65,15 +73,33 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 // Example:
 //  "<application>/keys/eth"
 func (ekc *ETHKeysController) Create(c *gin.Context) {
-	key, err := ekc.App.GetKeyStore().Eth().CreateNewKey()
-	if err != nil {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+
+	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	r, err := presenters.NewETHKeyResource(key,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+	key, err := ethKeyStore.Create(chain.ID())
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	state, err := ethKeyStore.GetState(key.ID())
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -88,8 +114,10 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/eth/:keyID"
 // "DELETE <application>/keys/eth/:keyID?hard=true"
 func (ekc *ETHKeysController) Delete(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	var hardDelete bool
 	var err error
+
 	if c.Query("hard") != "" {
 		hardDelete, err = strconv.ParseBool(c.Query("hard"))
 		if err != nil {
@@ -98,21 +126,31 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		}
 	}
 
-	if !common.IsHexAddress(c.Param("keyID")) {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("invalid address"))
+	if !hardDelete {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("hard delete only"))
 		return
 	}
-	address := common.HexToAddress(c.Param("keyID"))
 
-	key, err := ekc.App.GetKeyStore().Eth().RemoveKey(address, hardDelete)
+	if !common.IsHexAddress(c.Param("keyID")) {
+		jsonAPIError(c, http.StatusBadRequest, errors.New("hard delete only"))
+		return
+	}
+	keyID := c.Param("keyID")
+	state, err := ethKeyStore.GetState(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	r, err := presenters.NewETHKeyResource(key,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+	key, err := ethKeyStore.Delete(keyID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -124,6 +162,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 
 // Import imports a key
 func (ekc *ETHKeysController) Import(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
@@ -132,16 +171,33 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
+	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	switch err {
+	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	case nil:
+		break
+	default:
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 
-	key, err := ekc.App.GetKeyStore().Eth().ImportKey(bytes, oldPassword)
+	key, err := ethKeyStore.Import(bytes, oldPassword, chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	r, err := presenters.NewETHKeyResource(key,
-		ekc.setEthBalance(c.Request.Context(), key.Address.Address()),
-		ekc.setLinkBalance(key.Address.Address()),
+	state, err := ethKeyStore.GetState(key.ID())
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -154,11 +210,10 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 func (ekc *ETHKeysController) Export(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
-	addressStr := c.Param("address")
-	address := common.HexToAddress(addressStr)
+	address := c.Param("address")
 	newPassword := c.Query("newpassword")
 
-	bytes, err := ekc.App.GetKeyStore().Eth().ExportKey(address, newPassword)
+	bytes, err := ekc.App.GetKeyStore().Eth().Export(address, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -169,11 +224,18 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 // setEthBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the ETH balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr common.Address) presenters.NewETHKeyOption {
-	ethClient := ekc.App.GetEthClient()
-	bal, err := ethClient.BalanceAt(ctx, accountAddr, nil)
-
+func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
+	var bal *big.Int
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	if err == nil {
+		ethClient := chain.Client()
+		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
+	}
 	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
+
 		if err != nil {
 			return errors.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		}
@@ -187,12 +249,19 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, accountAddr com
 // setLinkBalance is a custom functional option for NewEthKeyResource which
 // queries the EthClient for the LINK balance at the address and sets it on the
 // resource.
-func (ekc *ETHKeysController) setLinkBalance(accountAddr common.Address) presenters.NewETHKeyOption {
-	ethClient := ekc.App.GetEthClient()
-	addr := common.HexToAddress(ekc.App.GetEVMConfig().LinkContractAddress())
-	bal, err := ethClient.GetLINKBalance(addr, accountAddr)
+func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewETHKeyOption {
+	var bal *assets.Link
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	if err == nil {
+		ethClient := chain.Client()
+		addr := common.HexToAddress(chain.Config().LinkContractAddress())
+		bal, err = ethClient.GetLINKBalance(addr, state.Address.Address())
+	}
 
 	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
 		if err != nil {
 			return errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		}

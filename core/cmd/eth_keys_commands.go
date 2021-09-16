@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -19,39 +21,32 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
-	nextNonce := fmt.Sprintf("%d", p.NextNonce)
-	var deletedAt string
-	if p.DeletedAt != nil {
-		deletedAt = p.DeletedAt.String()
-	}
-
 	return []string{
 		p.Address,
+		p.EVMChainID.String(),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
-		nextNonce,
 		fmt.Sprintf("%v", p.IsFunding),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		deletedAt,
 	}
 }
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Next nonce", "Is funding", "Created", "Updated", "Deleted"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
 	renderList(headers, rows, rt.Writer)
-	return nil
 
+	return utils.JustError(rt.Write([]byte("\n")))
 }
 
 type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Next nonce", "Is funding", "Created", "Updated", "Deleted"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -81,7 +76,11 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Post("/v2/keys/eth", nil)
+	query := url.Values{}
+	if c.IsSet("evmChainID") {
+		query.Set("evmChainID", c.String("evmChainID"))
+	}
+	resp, err := cli.HTTP.Post("/v2/keys/eth?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -150,8 +149,14 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/eth/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	query := url.Values{}
+	query.Set("oldpassword", strings.TrimSpace(string(oldPassword)))
+
+	if c.IsSet("evmChainID") {
+		query.Set("evmChainID", c.String("evmChainID"))
+	}
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/import?"+query.Encode(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -187,8 +192,10 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 
 	address := c.Args().Get(0)
 
-	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?newpassword="+normalizedPassword, nil)
+	query := url.Values{}
+	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

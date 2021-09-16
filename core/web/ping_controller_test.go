@@ -16,12 +16,7 @@ import (
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -36,12 +31,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	eia := &auth.Token{
@@ -79,12 +69,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := http.Client{}

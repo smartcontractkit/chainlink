@@ -4,13 +4,11 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -22,39 +20,27 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	config          Config
-	logger          *logger.Logger
-	db              *gorm.DB
-	txm             transmitter
-	jrm             job.ORM
-	pr              pipeline.Runner
-	ethClient       eth.Client
-	headBroadcaster httypes.HeadBroadcaster
-	logBroadcaster  log.Broadcaster
+	logger   *logger.Logger
+	db       *gorm.DB
+	jrm      job.ORM
+	pr       pipeline.Runner
+	chainSet evm.ChainSet
 }
 
 // NewDelegate is the constructor of Delegate
 func NewDelegate(
 	db *gorm.DB,
-	txm transmitter,
 	jrm job.ORM,
 	pr pipeline.Runner,
-	ethClient eth.Client,
-	headBroadcaster httypes.HeadBroadcaster,
-	logBroadcaster log.Broadcaster,
 	logger *logger.Logger,
-	config Config,
+	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
-		config:          config,
-		db:              db,
-		txm:             txm,
-		jrm:             jrm,
-		pr:              pr,
-		ethClient:       ethClient,
-		headBroadcaster: headBroadcaster,
-		logBroadcaster:  logBroadcaster,
-		logger:          logger,
+		logger:   logger,
+		db:       db,
+		jrm:      jrm,
+		pr:       pr,
+		chainSet: chainSet,
 	}
 }
 
@@ -75,18 +61,22 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
+	chain, err := d.chainSet.Get(spec.KeeperSpec.EVMChainID.ToInt())
+	if err != nil {
+		return nil, err
+	}
 
 	contractAddress := spec.KeeperSpec.ContractAddress
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress.Address(),
-		d.ethClient,
+		chain.Client(),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, d.config.KeeperDefaultTransactionQueueDepth())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
 
-	orm := NewORM(d.db, d.txm, d.config, strategy)
+	orm := NewORM(d.db, chain.TxManager(), chain.Config(), strategy)
 
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,
@@ -98,19 +88,20 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		contract,
 		orm,
 		d.jrm,
-		d.logBroadcaster,
-		d.config.KeeperRegistrySyncInterval(),
-		d.config.KeeperMinimumRequiredConfirmations(),
+		chain.LogBroadcaster(),
+		chain.Config().KeeperRegistrySyncInterval(),
+		chain.Config().KeeperMinimumRequiredConfirmations(),
 		svcLogger.Named("RegistrySynchronizer"),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
 		orm,
 		d.pr,
-		d.ethClient,
-		d.headBroadcaster,
+		chain.Client(),
+		chain.HeadBroadcaster(),
+		chain.TxManager().GetGasEstimator(),
 		svcLogger.Named("UpkeepExecuter"),
-		d.config,
+		chain.Config(),
 	)
 
 	return []job.Service{

@@ -4,9 +4,20 @@ import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/jobs/:jobId/runs'
 const SHOW_ENDPOINT = `${ENDPOINT}/:runId`
+const ALL_RUNS_ENDPOINT = '/v2/pipeline/runs'
 
 export class Runs {
   constructor(private api: jsonapi.Api) {}
+
+  @boundMethod
+  public getAllJobRuns({
+    page,
+    size,
+  }: jsonapi.PaginatedRequestParams): Promise<
+    jsonapi.PaginatedApiResponse<models.JobRunV2[]>
+  > {
+    return this.allRuns({ page, size })
+  }
 
   @boundMethod
   public getJobRuns({
@@ -40,4 +51,8 @@ export class Runs {
       runId: string
     }
   >(SHOW_ENDPOINT)
+
+  private allRuns = this.api.fetchResource<{}, models.JobRunV2[]>(
+    ALL_RUNS_ENDPOINT,
+  )
 }

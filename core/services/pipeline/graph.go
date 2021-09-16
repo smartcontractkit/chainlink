@@ -107,6 +107,7 @@ func (p *Pipeline) UnmarshalText(bs []byte) (err error) {
 	*p = *parsed
 	return nil
 }
+
 func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	var minTimeout time.Duration = 1<<63 - 1
 	var aTimeoutSet bool

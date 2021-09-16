@@ -35,7 +35,7 @@ describe("Flags", () => {
     consumer = await consumerFactory.deploy(flags.address);
   });
 
-  it("has a limited public interface", async () => {
+  it("has a limited public interface [ @skip-coverage ]", async () => {
     publicAbi(flags, [
       "getFlag",
       "getFlags",

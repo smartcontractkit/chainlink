@@ -32,7 +32,7 @@ func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offse
 // Create builds and saves a new external initiator
 func (eic *ExternalInitiatorsController) Create(c *gin.Context) {
 	eir := &models.ExternalInitiatorRequest{}
-	if !eic.App.GetStore().Config.Dev() && !eic.App.GetStore().Config.FeatureExternalInitiators() {
+	if !eic.App.GetConfig().Dev() && !eic.App.GetConfig().FeatureExternalInitiators() {
 		err := errors.New("The External Initiator feature is disabled by configuration")
 		jsonAPIError(c, http.StatusMethodNotAllowed, err)
 		return

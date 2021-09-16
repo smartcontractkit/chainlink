@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,11 +25,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
-)
-
-const (
-	// AutoMigrate is a flag that automatically migrates the DB when passed to initializeORM
-	AutoMigrate = "auto_migrate"
 )
 
 // Store contains fields for the database, Config
@@ -46,12 +41,6 @@ type Store struct {
 // func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStore(config, advisoryLock, shutdownSignal)
-}
-
-// NewInsecureStore creates a new store with the given config using an insecure keystore.
-// NOTE: Should only be used for testing!
-func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLocker, shutdownSignal)
 }
 
 func newStore(
@@ -188,7 +177,9 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 	if cfg.MigrateDatabase() {
 		dbOrm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
 
-		err = dbOrm.RawDBWithAdvisoryLock(migrations.Migrate)
+		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
+			return migrate.Migrate(postgres.UnwrapGormDB(db).DB)
+		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -47,7 +46,7 @@ func (nc *NodesController) Index(c *gin.Context, size, page, offset int) {
 }
 
 func (nc *NodesController) Create(c *gin.Context) {
-	var request evm.NewNode
+	var request types.NewNode
 
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

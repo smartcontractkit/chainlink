@@ -63,8 +63,9 @@ type EthTx struct {
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta    datatypes.JSON
-	Subject uuid.NullUUID
+	Meta       datatypes.JSON
+	Subject    uuid.NullUUID
+	EVMChainID utils.Big `gorm:"column:evm_chain_id"`
 }
 
 func (e EthTx) GetError() error {
