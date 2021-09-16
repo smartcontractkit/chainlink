@@ -45,7 +45,6 @@
     "hardhat-gas-reporter": "^1.0.4",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.7.17",
-    "truffle": "^5",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2",
     "hardhat-deploy": "^0.7.0-beta.44"
