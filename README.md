@@ -103,7 +103,6 @@ projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/contracts](./contracts) - smart contracts
-- [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [tools](./tools) - Chainlink tools
 

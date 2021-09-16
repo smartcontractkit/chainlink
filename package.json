@@ -2,7 +2,6 @@
   "private": true,
   "license": "MIT",
   "workspaces": [
-    "evm-test-helpers",
     "contracts",
     "operator_ui",
     "tools",
@@ -15,7 +14,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
-    "lint:evm": "eslint --ext js,jsx,ts,tsx contracts/ evm-test-helpers/",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx contracts/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
