@@ -12,7 +12,6 @@ COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY contracts/package.json ./contracts/
-COPY tools/bin/restore-solc-cache ./tools/bin/restore-solc-cache
 RUN make yarndep
 
 COPY contracts ./contracts
