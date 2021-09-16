@@ -13,7 +13,7 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 ### Removed
 
-- `belt/` and `evm-test-helpers/` removed fromt he codebase.
+- `belt/` and `evm-test-helpers/` removed from the codebase.
 
 ## [v1.0.0]
 

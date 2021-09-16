@@ -5,7 +5,7 @@
 Usage: {fastgen_dir}/fastgen.py [<pkg_name> ...]
 
 DO NOT check in the outputs from this script! Instead, run `go generate` in the
-parent directory. We are using hardhat and ethers for compilation of solidity contracts, and
+parent directory. We are using solc-select for compilation of solidity contracts, and
 using the abi files it outputs as a single source of truth.
 
 However, this is much faster and more reliable, for actual development of
