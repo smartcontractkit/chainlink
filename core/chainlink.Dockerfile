@@ -12,8 +12,6 @@ COPY patches patches
 COPY solc_bin solc_bin
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
-COPY belt/package.json ./belt/
-COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY contracts/package.json ./contracts/
 COPY tools/bin/restore-solc-cache ./tools/bin/restore-solc-cache
@@ -23,8 +21,6 @@ COPY contracts ./contracts
 COPY evm-test-helpers ./evm-test-helpers
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY operator_ui ./operator_ui
-COPY belt ./belt
-COPY belt/bin ./belt/bin
 
 # Build operator-ui and the smart contracts
 RUN make contracts-operator-ui-build
