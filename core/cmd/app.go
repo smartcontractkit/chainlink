@@ -247,7 +247,7 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "evmChainID",
-									Usage: "Chain ID for which to rebroadcast transactions. If left blank, default chain will be used.",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
 								},
 							},
 						},
@@ -281,7 +281,7 @@ func NewApp(client *Client) *cli.App {
 								},
 								cli.StringFlag{
 									Name:  "evmChainID",
-									Usage: "Chain ID for which to rebroadcast transactions. If left blank, default chain will be used.",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
 								},
 							},
 							Action: client.ImportETHKey,
@@ -766,7 +766,7 @@ func NewApp(client *Client) *cli.App {
 							Usage: "Websocket URL",
 						},
 						cli.StringFlag{
-							Name:  "ws-url",
+							Name:  "http-url",
 							Usage: "HTTP URL",
 						},
 						cli.Int64Flag{
