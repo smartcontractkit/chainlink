@@ -10,12 +10,10 @@ ARG COMMIT_SHA
 COPY yarn.lock package.json .yarnrc ./
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
-COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY contracts/package.json ./contracts/
 RUN make yarndep
 
 COPY contracts ./contracts
-COPY evm-test-helpers ./evm-test-helpers
 COPY tsconfig.cjs.json tsconfig.es6.json ./
 COPY operator_ui ./operator_ui
 
