@@ -274,6 +274,7 @@ func TestFileSessionRequestBuilder(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			sr, err := builder.Build(test.file)
+			assert.NoError(t, err)
 			assert.Equal(t, test.wantEmail, sr.Email)
 			if test.wantError {
 				assert.Error(t, err)
