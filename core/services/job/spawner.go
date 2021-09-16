@@ -28,6 +28,9 @@ type (
 		CreateJob(ctx context.Context, spec Job, name null.String) (Job, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		ActiveJobs() map[int32]Job
+
+		// NOTE: Only used in testing to start a job previously manually injected into DB
+		StartService(spec Job) error
 	}
 
 	spawner struct {
@@ -103,7 +106,7 @@ func (js *spawner) startAllServices() {
 	}
 
 	for _, spec := range specs {
-		if err = js.startService(spec); err != nil {
+		if err = js.StartService(spec); err != nil {
 			logger.Errorf("Couldn't start service %v: %v", spec.Name, err)
 		}
 	}
@@ -134,7 +137,7 @@ func (js *spawner) stopService(jobID int32) {
 	delete(js.activeJobs, jobID)
 }
 
-func (js *spawner) startService(spec Job) error {
+func (js *spawner) StartService(spec Job) error {
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -204,7 +207,7 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (J
 		return jb, err
 	}
 
-	if err = js.startService(jb); err != nil {
+	if err = js.StartService(jb); err != nil {
 		return jb, err
 	}
 
