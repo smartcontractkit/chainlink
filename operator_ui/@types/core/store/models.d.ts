@@ -236,6 +236,12 @@ declare module 'core/store/models' {
     chainID: string
     config: Record<string, JSONPrimitive>
   }
+  export interface CreateNodeRequest {
+    name: string
+    evmChainID: string
+    httpURL: string
+    wsURL: string
+  }
 
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null

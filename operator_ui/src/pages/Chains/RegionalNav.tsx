@@ -229,6 +229,11 @@ const RegionalNavComponent = ({
                 >
                   Delete
                 </Button>
+                <Link href={`/chains/${chainId}/nodes/new`}>
+                  <Button className={classes.regionalNavButton}>
+                    Add Node
+                  </Button>
+                </Link>
               </Grid>
             </Grid>
           </Grid>
