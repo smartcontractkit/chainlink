@@ -134,6 +134,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	// create the key on a specific chainID
 	id := big.NewInt(0)
 	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
+	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
 	// _, err = app.GetChainSet().Add(id, evmtypes.ChainCfg{})
 	// require.NoError(t, err)
 
@@ -149,6 +150,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.Equal(t, 3, len(keys))
 
 	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
+	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
 	// states, err := app.KeyStore.Eth().GetStatesForChain(id)
 	// require.Len(t, states, 1)
 }

@@ -194,6 +194,7 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 			return dbchain, err
 		}
 		// TODO: recreate ethClient etc if node set changed
+		// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
 	}
 
 	return dbchain, nil
