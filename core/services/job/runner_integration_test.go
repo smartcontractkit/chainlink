@@ -587,34 +587,6 @@ ds1 -> ds1_parse;
 		// require.Len(t, se, 0)
 	})
 
-	t.Run("deleting jobs", func(t *testing.T) {
-		var httpURL string
-		{
-			resp := `{"USD": 42.42}`
-			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
-			httpURL = mockHTTP.URL
-		}
-
-		// Need a job in order to create a run
-		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
-		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
-		require.NoError(t, err)
-		assert.Len(t, results.Values, 1)
-		assert.Nil(t, results.Errors[0])
-		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
-
-		// Delete the job
-		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
-		require.NoError(t, err)
-
-		// Create another run
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
-		require.Error(t, err)
-	})
-
 	t.Run("timeouts", func(t *testing.T) {
 		// There are 4 timeouts:
 		// - ObservationTimeout = how long the whole OCR time needs to run, or it fails (default 10 seconds)
@@ -655,6 +627,34 @@ ds1 -> ds1_parse;
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
+	})
+
+	t.Run("deleting jobs", func(t *testing.T) {
+		var httpURL string
+		{
+			resp := `{"USD": 42.42}`
+			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
+			httpURL = mockHTTP.URL
+		}
+
+		// Need a job in order to create a run
+		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
+		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		require.NoError(t, err)
+
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		require.NoError(t, err)
+		assert.Len(t, results.Values, 1)
+		assert.Nil(t, results.Errors[0])
+		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
+
+		// Delete the job
+		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
+		require.NoError(t, err)
+
+		// Create another run, it should fail
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		require.Error(t, err)
 	})
 }
 
