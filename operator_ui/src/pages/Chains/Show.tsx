@@ -6,6 +6,7 @@ import RegionalNav from './RegionalNav'
 import { ChainSpecV2 } from '../ChainsIndex/ChainsIndex'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
+import NewChainNode from './NewChainNode'
 
 interface RouteParams {
   chainId: string
@@ -42,6 +43,9 @@ export const ChainsShow = () => {
     <>
       <RegionalNav chainId={chainId} chain={chain} />
       <Switch>
+        <Route path={`${path}/nodes/new`}>
+          {chain && <NewChainNode chain={chain} />}
+        </Route>
         <Route path={`${path}/config-overrides`}>
           {chain && <ChainConfig chain={chain} />}
         </Route>

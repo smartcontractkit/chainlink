@@ -18,7 +18,19 @@ export class Nodes {
     return this.destroy(undefined, { nodeId: id })
   }
 
+  @boundMethod
+  public createNode(
+    request: models.CreateNodeRequest,
+  ): Promise<jsonapi.ApiResponse<models.Node>> {
+    return this.create(request)
+  }
+
   private index = this.api.fetchResource<{}, models.Node[]>(ENDPOINT)
+
+  private create = this.api.createResource<
+    models.CreateNodeRequest,
+    models.Node
+  >(ENDPOINT)
 
   private destroy = this.api.deleteResource<
     undefined,

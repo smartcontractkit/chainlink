@@ -1,6 +1,7 @@
 import React from 'react'
 import * as models from 'core/store/models'
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
+import Button from 'components/Button'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
@@ -24,6 +25,9 @@ const styles = (theme: Theme) =>
     },
     mainRow: {
       marginBottom: theme.spacing.unit * 2,
+    },
+    actions: {
+      textAlign: 'right',
     },
     regionalNavButton: {
       marginLeft: theme.spacing.unit,
@@ -94,6 +98,13 @@ const RegionalNavComponent = ({ classes, chainId, chain }: Props) => {
                     Chain {chain.id || chainId}
                   </Typography>
                 )}
+              </Grid>
+              <Grid item xs={6} className={classes.actions}>
+                <Link href={`/chains/${chainId}/nodes/new`}>
+                  <Button className={classes.regionalNavButton}>
+                    Add Node
+                  </Button>
+                </Link>
               </Grid>
             </Grid>
           </Grid>
