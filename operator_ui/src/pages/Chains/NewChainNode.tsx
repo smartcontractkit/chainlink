@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
-import { ApiResponse, BadRequestError } from 'utils/json-api-client'
-import Button from 'components/Button'
+import React from 'react'
+import { ApiResponse } from 'utils/json-api-client'
+import Button from '@material-ui/core/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
 import { CreateNodeRequest, Node } from 'core/store/models'
@@ -8,23 +8,11 @@ import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
 import Content from 'components/Content'
-import {
-  TextField,
-  Grid,
-  Card,
-  CardContent,
-  CardHeader,
-  CircularProgress,
-} from '@material-ui/core'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
+import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
 import { ChainSpecV2 } from './RegionalNav'
-
-const styles = () =>
-  createStyles({
-    loader: {
-      position: 'absolute',
-    },
-  })
+import { Field, Form, Formik } from 'formik'
+import { TextField } from 'formik-material-ui'
+import * as Yup from 'yup'
 
 const SuccessNotification = ({ id }: { id: string }) => (
   <>
@@ -50,23 +38,10 @@ function apiCall({
   return api.v2.nodes.createNode(definition)
 }
 
-const NewChainNode = ({
-  classes,
-  chain,
-}: {
-  classes: WithStyles<typeof styles>['classes']
-  chain: ChainSpecV2
-}) => {
+const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
   const dispatch = useDispatch()
-  const [name, setName] = useState<string>('')
-  const [nameErrorMsg, setNameErrorMsg] = useState<string>('')
-  const [httpURL, setHttpURL] = useState<string>('')
-  const [httpURLErrorMsg, setHttpURLErrorMsg] = useState<string>('')
-  const [wsURL, setWsURL] = useState<string>('')
-  const [wsURLErrorMsg, setWsURLErrorMsg] = useState<string>('')
-  const [loading, setLoading] = useState<boolean>(false)
 
-  function validate({
+  async function handleSubmit({
     name,
     httpURL,
     wsURL,
@@ -75,73 +50,41 @@ const NewChainNode = ({
     httpURL: string
     wsURL: string
   }) {
-    let valid = true
-    if (!name) {
-      setNameErrorMsg('Invalid name')
-      valid = false
-    }
-    try {
-      const url = new URL(httpURL)
-      if (!(url.protocol === 'http:' || url.protocol === 'https:')) {
-        setHttpURLErrorMsg('Invalid HTTP URL')
-        valid = false
-      }
-    } catch (_) {
-      setHttpURLErrorMsg('Invalid HTTP URL')
-      valid = false
-    }
-    try {
-      const url = new URL(wsURL)
-      if (!(url.protocol === 'ws:' || url.protocol === 'wss:')) {
-        setWsURLErrorMsg('Invalid Websocket URL')
-        valid = false
-      }
-    } catch (_) {
-      setWsURLErrorMsg('Invalid Websocket URL')
-      valid = false
-    }
-    return valid
-  }
-
-  function handleNameChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setName(event.target.value)
-    setNameErrorMsg('')
-  }
-  function handlehttpURLChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setHttpURL(event.target.value)
-    setHttpURLErrorMsg('')
-  }
-  function handlewsURLChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setWsURL(event.target.value)
-    setWsURLErrorMsg('')
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const isValid = validate({ name, httpURL, wsURL })
-
-    if (isValid) {
-      setLoading(true)
-      apiCall({
-        name,
-        wsURL,
-        httpURL,
-        evmChainID: chain.id,
+    apiCall({
+      name,
+      wsURL,
+      httpURL,
+      evmChainID: chain.id,
+    })
+      .then(({ data }) => {
+        dispatch(notifySuccess(SuccessNotification, data))
       })
-        .then(({ data }) => {
-          dispatch(notifySuccess(SuccessNotification, data))
-        })
-        .catch((error) => {
-          dispatch(notifyError(ErrorMessage, error))
-          if (error instanceof BadRequestError) {
-            setNameErrorMsg('Invalid Name')
-          }
-        })
-        .finally(() => {
-          setLoading(false)
-        })
-    }
+      .catch((error) => {
+        dispatch(notifyError(ErrorMessage, error))
+      })
   }
+
+  const initialValues = {
+    name: '',
+    wsURL: '',
+    httpURL: '',
+  }
+
+  const ValidationSchema = Yup.object().shape({
+    name: Yup.string().required('Required'),
+    httpURL: Yup.string()
+      .required('Required')
+      .test('validScheme', 'Invalid HTTP URL', function (value = '') {
+        const url = new URL(value)
+        return url.protocol === 'http:' || url.protocol === 'https:'
+      }),
+    wsURL: Yup.string()
+      .required('Required')
+      .test('validScheme', 'Invalid Websocket URL', function (value = '') {
+        const url = new URL(value)
+        return url.protocol === 'ws:' || url.protocol === 'wss:'
+      }),
+  })
 
   return (
     <Content>
@@ -150,61 +93,66 @@ const NewChainNode = ({
           <Card>
             <CardHeader title="New Node" />
             <CardContent>
-              <form noValidate onSubmit={handleSubmit}>
-                <Grid container>
-                  <Grid item xs={12}>
-                    <TextField
-                      error={Boolean(nameErrorMsg)}
-                      helperText={Boolean(nameErrorMsg) && nameErrorMsg}
-                      label="Name"
-                      name="Name"
-                      placeholder="Name"
-                      value={name}
-                      onChange={handleNameChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      error={Boolean(httpURLErrorMsg)}
-                      helperText={Boolean(httpURLErrorMsg) && httpURLErrorMsg}
-                      label="HTTP URL"
-                      name="httpURL"
-                      placeholder="httpURL"
-                      value={httpURL}
-                      onChange={handlehttpURLChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      error={Boolean(wsURLErrorMsg)}
-                      helperText={Boolean(wsURLErrorMsg) && wsURLErrorMsg}
-                      label="Websocket URL"
-                      name="wsURL"
-                      placeholder="wsURL"
-                      value={wsURL}
-                      onChange={handlewsURLChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Button
-                      data-testid="new-node-config-submit"
-                      variant="primary"
-                      type="submit"
-                      size="large"
-                      disabled={loading || Boolean(nameErrorMsg)}
-                    >
-                      Create Node
-                      {loading && (
-                        <CircularProgress
-                          className={classes.loader}
-                          size={30}
-                          color="primary"
+              <Formik
+                initialValues={initialValues}
+                validationSchema={ValidationSchema}
+                onSubmit={async (values) => {
+                  handleSubmit(values)
+                }}
+              >
+                {({ isSubmitting, submitForm }) => (
+                  <Form>
+                    <Grid container spacing={16}>
+                      <Grid item xs={12} md={4}>
+                        <Field
+                          component={TextField}
+                          id="name"
+                          name="name"
+                          label="Name"
+                          required
+                          fullWidth
                         />
-                      )}
-                    </Button>
-                  </Grid>
-                </Grid>
-              </form>
+                      </Grid>
+
+                      <Grid item xs={false} md={8}></Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Field
+                          component={TextField}
+                          id="httpURL"
+                          name="httpURL"
+                          label="HTTP URL"
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+
+                      <Grid item xs={false} md={8}></Grid>
+
+                      <Grid item xs={12} md={4}>
+                        <Field
+                          component={TextField}
+                          id="wsURL"
+                          name="wsURL"
+                          label="Websocket URL"
+                          required
+                          fullWidth
+                        />
+                      </Grid>
+                      <Grid item xs={12}>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          disabled={isSubmitting}
+                          onClick={submitForm}
+                        >
+                          Submit
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Form>
+                )}
+              </Formik>
             </CardContent>
           </Card>
         </Grid>
@@ -213,4 +161,4 @@ const NewChainNode = ({
   )
 }
 
-export default withStyles(styles)(NewChainNode)
+export default NewChainNode
