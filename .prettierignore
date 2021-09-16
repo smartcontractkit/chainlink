@@ -11,6 +11,14 @@ gethload.js
 craco.config.js
 .yarn
 
+contracts/coverage
+contracts/abi
+contracts/artifacts
+contracts/cache
+contracts/node_modules
+contracts/solc
+contracts/LinkToken.json
+
 # Ignore TS definition and map files
 **/**.d.ts
 **/**.d.ts.map
