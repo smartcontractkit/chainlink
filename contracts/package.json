@@ -17,7 +17,13 @@
     "setup": "yarn compile",
     "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "yarn publish --tag beta",
-    "publish-prod": "yarn publish"
+    "publish-prod": "yarn publish",
+    "keeper:deploy:kovan": "hardhat deploy --network kovan --gasprice 1000000000",
+    "keeper:verify:kovan": "hardhat etherscan-verify --network kovan --api-key $ETHERSCAN_API_KEY",
+    "keeper:deploy:mumbai": "hardhat deploy --network mumbai --gasprice 1000000000",
+    "keeper:verify:mumbai": "hardhat etherscan-verify --network mumbai --api-key $ETHERSCAN_API_KEY",
+    "keeper:deploy:bsctestnet": "hardhat deploy --network bsctestnet --gasprice 10000000000",
+    "keeper:verify:bsctestnet": "hardhat etherscan-verify --network bsctestnet --api-key $ETHERSCAN_API_KEY"
   },
   "files": [
     "src/",
@@ -25,7 +31,9 @@
   ],
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
+    "@nomiclabs/hardhat-truffle5": "^2.0.0",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
     "@openzeppelin/test-helpers": "^0.5.11",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
@@ -36,9 +44,15 @@
     "hardhat": "^2.4.1",
     "hardhat-abi-exporter": "^2.2.1",
     "hardhat-contract-sizer": "^2.0.3",
+    "hardhat-gas-reporter": "^1.0.4",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.7.17",
+    "truffle": "^5",
     "ts-node": "^10.0.0",
-    "typescript": "^4.3.2"
+    "typescript": "^4.3.2",
+    "hardhat-deploy": "^0.7.0-beta.44"
+  },
+  "dependencies": {
+    "@chainlink/contracts": "^0.2.1"
   }
 }
