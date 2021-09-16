@@ -18,8 +18,7 @@ import (
 )
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	token := auth.NewToken()
 	req := models.ExternalInitiatorRequest{
@@ -35,8 +34,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	token := auth.NewToken()
 	req := models.ExternalInitiatorRequest{
@@ -61,8 +59,7 @@ func TestORM_DeleteExternalInitiator(t *testing.T) {
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	bt := models.BridgeType{}
 	bt.Name = models.MustNewTaskType("solargridreporting")
@@ -94,8 +91,7 @@ func TestORM_FindBridge(t *testing.T) {
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	user1 := cltest.MustNewUser(t, "test1@email1.net", "password1")
 	user2 := cltest.MustNewUser(t, "test2@email2.net", "password2")
 	user2.CreatedAt = time.Now().Add(-24 * time.Hour)
@@ -127,8 +123,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			store := cltest.NewStore(t)
 
 			user := cltest.MustNewUser(t, "have@email", "password")
 			require.NoError(t, store.SaveUser(&user))
@@ -158,8 +153,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	_, err := store.FindUser()
 	require.NoError(t, err)
@@ -174,8 +168,7 @@ func TestORM_DeleteUser(t *testing.T) {
 func TestORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	session := models.NewSession()
 	require.NoError(t, store.DB.Save(&session).Error)
@@ -194,8 +187,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	initial := cltest.MustRandomUser()
 	require.NoError(t, store.SaveUser(&initial))
@@ -232,12 +224,11 @@ func TestORM_CreateSession(t *testing.T) {
 }
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 2, from) // tx2
@@ -279,8 +270,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 }
 
 func TestORM_UpdateBridgeType(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	firstBridge := &models.BridgeType{
 		Name: "UniqueName",

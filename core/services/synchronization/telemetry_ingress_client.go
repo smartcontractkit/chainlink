@@ -5,7 +5,8 @@ import (
 	"errors"
 	"net/url"
 	"sync"
-	"sync/atomic"
+
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -45,7 +46,7 @@ func (NoopTelemetryIngressClient) Unsafe_SetTelemClient(telemPb.TelemClient) boo
 type telemetryIngressClient struct {
 	utils.StartStopOnce
 	url             *url.URL
-	ks              keystore.CSAKeystoreInterface
+	ks              keystore.CSA
 	serverPubKeyHex string
 
 	telemClient telemPb.TelemClient
@@ -53,7 +54,7 @@ type telemetryIngressClient struct {
 
 	wgDone           sync.WaitGroup
 	chDone           chan struct{}
-	dropMessageCount uint32
+	dropMessageCount atomic.Uint32
 	chTelemetry      chan TelemPayload
 }
 
@@ -65,7 +66,7 @@ type TelemPayload struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSAKeystoreInterface, logging bool) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
@@ -162,7 +163,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 // 300
 // etc...
 func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
-	count := atomic.AddUint32(&tc.dropMessageCount, 1)
+	count := tc.dropMessageCount.Inc()
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		logger.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
@@ -171,7 +172,7 @@ func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPaylo
 // getCSAPrivateKey gets the client's CSA private key
 func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error) {
 	// Fetch the client's public key
-	keys, err := tc.ks.ListCSAKeys()
+	keys, err := tc.ks.GetAll()
 	if err != nil {
 		return privkey, err
 	}
@@ -179,12 +180,7 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 		return privkey, errors.New("CSA key does not exist")
 	}
 
-	privkey, err = tc.ks.Unsafe_GetUnlockedPrivateKey(keys[0].PublicKey)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	return privkey, nil
+	return keys[0].Raw(), nil
 }
 
 // Send sends telemetry to the ingress server using wsrpc if the client is ready.
@@ -193,7 +189,7 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 func (tc *telemetryIngressClient) Send(payload TelemPayload) {
 	select {
 	case tc.chTelemetry <- payload:
-		atomic.StoreUint32(&tc.dropMessageCount, 0)
+		tc.dropMessageCount.Store(0)
 	case <-payload.Ctx.Done():
 		return
 	default:

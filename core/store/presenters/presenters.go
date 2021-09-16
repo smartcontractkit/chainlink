@@ -34,12 +34,12 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
-	ChainID                                    *big.Int        `json:"ETH_CHAIN_ID"`
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
 	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
 	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
+	DefaultChainID                             string          `json:"ETH_CHAIN_ID"`
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
 	Dev                                        bool            `json:"CHAINLINK_DEV"`
@@ -57,12 +57,14 @@ type EnvPrinter struct {
 	JobPipelineReaperInterval                  time.Duration   `json:"JOB_PIPELINE_REAPER_INTERVAL"`
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
+	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperMinimumRequiredConfirmations         uint64          `json:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS"`
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
+	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
@@ -121,12 +123,12 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 			AllowOrigins:                          config.AllowOrigins(),
 			BlockBackfillDepth:                    config.BlockBackfillDepth(),
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
-			ChainID:                               config.ChainID(),
 			ClientNodeURL:                         config.ClientNodeURL(),
 			DatabaseBackupFrequency:               config.DatabaseBackupFrequency(),
 			DatabaseBackupMode:                    string(config.DatabaseBackupMode()),
 			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
 			DatabaseTimeout:                       config.DatabaseTimeout(),
+			DefaultChainID:                        config.DefaultChainID().String(),
 			DefaultHTTPLimit:                      config.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
 			Dev:                                   config.Dev(),
@@ -143,6 +145,7 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
 			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
 			KeeperDefaultTransactionQueueDepth:    config.KeeperDefaultTransactionQueueDepth(),
+			KeeperGasPriceBufferPercent:           config.KeeperGasPriceBufferPercent(),
 			LogLevel:                              config.LogLevel(),
 			LogSQLMigrations:                      config.LogSQLMigrations(),
 			LogSQLStatements:                      config.LogSQLStatements(),

@@ -29,19 +29,17 @@ func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxm
 	}
 }
 
-// WithTransaction wraps the given handler into transaction context
-func (korm ORM) WithTransaction(cb func(ctx context.Context) error) error {
-	return postgres.NewGormTransactionManager(korm.DB).Transact(cb)
-}
-
-func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error) {
+// Registries
+func (korm ORM) Registries(ctx context.Context) ([]Registry, error) {
+	var registries []Registry
 	err := korm.getDB(ctx).
 		Find(&registries).
 		Error
 	return registries, err
 }
 
-func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Registry, _ error) {
+func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (Registry, error) {
+	var registry Registry
 	err := korm.getDB(ctx).
 		First(&registry, "job_id = ?", jobID).
 		Error
@@ -86,7 +84,8 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 	ctx context.Context,
 	registryAddress ethkey.EIP55Address,
 	blockNumber, gracePeriod int64,
-) (upkeeps []UpkeepRegistration, _ error) {
+) ([]UpkeepRegistration, error) {
+	var upkeeps []UpkeepRegistration
 	err := korm.getDB(ctx).
 		Preload("Registry").
 		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
@@ -112,8 +111,9 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 
 // LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
-func (korm ORM) LowestUnsyncedID(ctx context.Context, regID int32) (nextID int64, err error) {
-	err = korm.getDB(ctx).
+func (korm ORM) LowestUnsyncedID(ctx context.Context, regID int32) (int64, error) {
+	var nextID int64
+	err := korm.getDB(ctx).
 		Model(&UpkeepRegistration{}).
 		Where("registry_id = ?", regID).
 		Select("coalesce(max(upkeep_id), -1) + 1").
@@ -134,20 +134,6 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 			upkeepID,
 			jobID,
 		).Error
-}
-
-func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) (bulletprooftxmanager.EthTx, error) {
-	from := upkeep.Registry.FromAddress.Address()
-	to := upkeep.Registry.ContractAddress.Address()
-	gasLimit := upkeep.ExecuteGas + korm.config.KeeperRegistryPerformGasOverhead()
-	return korm.txm.CreateEthTransaction(korm.getDB(ctx), bulletprooftxmanager.NewTx{
-		FromAddress:    from,
-		ToAddress:      to,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       korm.strategy,
-	})
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {

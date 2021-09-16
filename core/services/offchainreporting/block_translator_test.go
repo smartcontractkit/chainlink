@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,7 +17,7 @@ func Test_BlockTranslator(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {
-		chain := chains.ChainFromID(big.NewInt(1))
+		chain := evmtest.ChainEthMainnet()
 
 		bt := offchainreporting.NewBlockTranslator(chain, ethClient)
 
@@ -27,22 +28,22 @@ func Test_BlockTranslator(t *testing.T) {
 	})
 
 	t.Run("for optimism, returns an initial block number and nil", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(chains.OptimismMainnet, ethClient)
+		bt := offchainreporting.NewBlockTranslator(evmtest.ChainOptimismMainnet(), ethClient)
 		from, to := bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 
-		bt = offchainreporting.NewBlockTranslator(chains.OptimismKovan, ethClient)
+		bt = offchainreporting.NewBlockTranslator(evmtest.ChainOptimismKovan(), ethClient)
 		from, to = bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(chains.ArbitrumMainnet, ethClient)
+		bt := offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumMainnet(), ethClient)
 		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
 
-		bt = offchainreporting.NewBlockTranslator(chains.ArbitrumRinkeby, ethClient)
+		bt = offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(), ethClient)
 		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
 	})
 

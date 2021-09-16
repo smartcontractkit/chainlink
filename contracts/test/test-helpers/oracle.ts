@@ -4,8 +4,8 @@
  * This file provides convenience functions to interact with existing solidity contract abstraction libraries, such as
  * @truffle/contract and ethers.js specifically for our `Oracle.sol` solidity smart contract.
  */
+import { BigNumberish } from "@ethersproject/bignumber/lib/bignumber";
 import { ethers } from "ethers";
-import { BigNumberish } from "ethers/utils";
 import { makeDebug } from "./debug";
 import { addCBORMapDelimiters, stripHexPrefix, toHex } from "./helpers";
 const debug = makeDebug("oracle");

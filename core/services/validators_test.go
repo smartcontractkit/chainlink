@@ -15,8 +15,7 @@ import (
 func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	tests := []struct {
 		description string
@@ -67,7 +66,7 @@ func TestValidateBridgeType(t *testing.T) {
 			models.BridgeTypeRequest{
 				Name:                   "adapterwithdockerurl",
 				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
-				MinimumContractPayment: assets.NewLink(1),
+				MinimumContractPayment: assets.NewLinkFromJuels(1),
 			},
 			nil,
 		},
@@ -76,7 +75,7 @@ func TestValidateBridgeType(t *testing.T) {
 			models.BridgeTypeRequest{
 				Name:                   "adapterwithdockerurl",
 				URL:                    cltest.WebURL(t, "http://chainlink_cmc-adapter_1:8080"),
-				MinimumContractPayment: assets.NewLink(-1),
+				MinimumContractPayment: assets.NewLinkFromJuels(-1),
 			},
 			models.NewJSONAPIErrorsWith("MinimumContractPayment must be positive"),
 		},
@@ -108,8 +107,7 @@ func TestValidateBridgeType(t *testing.T) {
 func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	// Create a duplicate
 	bt := models.BridgeType{}
@@ -128,8 +126,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 
 	url := cltest.WebURL(t, "https://a.web.url")
 

@@ -3,7 +3,6 @@ package services_test
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -14,10 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	// "github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 
 	"github.com/pkg/errors"
 )
@@ -32,8 +30,8 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -63,7 +61,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -85,7 +83,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
 		defer bm.Close()
@@ -110,17 +108,24 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
-		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
 		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
-		defer bm.Close()
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
 		k1bal.SetString("19223372036854776000", 10)
 
 		head := cltest.Head(0)
+
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
+
+		require.NoError(t, bm.Start())
+		defer bm.Close()
+
+		ethClient.AssertExpectations(t)
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
@@ -152,6 +157,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal2))
+
+		ethClient.AssertExpectations(t)
 	})
 }
 
@@ -162,9 +169,12 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	ethClient := NewEthClientMock(t)
-	ethClient.AssertExpectations(t)
 
 	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.Default)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+		Once().
+		Return(big.NewInt(1), nil)
+	require.NoError(t, bm.Start())
 
 	head := cltest.Head(0)
 
@@ -177,9 +187,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// This second call is Maybe because the SleeperTask may not have started
 	// before we call `OnNewLongestChain` 10 times, in which case it's only
 	// executed once
-	var callCount int32
+	var callCount atomic.Int32
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
-		Run(func(mock.Arguments) { atomic.AddInt32(&callCount, 1) }).
+		Run(func(mock.Arguments) { callCount.Inc() }).
 		Maybe().
 		Return(big.NewInt(42), nil)
 
@@ -196,7 +206,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	bm.Close()
 
 	// Make sure the BalanceAt mock wasn't called more than once
-	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))
+	assert.LessOrEqual(t, callCount.Load(), int32(1))
+
+	ethClient.AssertExpectations(t)
 }
 
 func Test_ApproximateFloat64(t *testing.T) {

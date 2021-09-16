@@ -4,13 +4,16 @@ package proof
 // block in which a VRF request appeared
 
 import (
-	"bytes"
+	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -25,17 +28,6 @@ type ProofResponse struct {
 	BlockNum uint64 // Height of the block in which this request was made
 }
 
-type ProofResponseV2 struct {
-	P        vrfkey.Proof
-	PreSeed  Seed
-	BlockNum uint64
-	// V2 Only fields
-	SubId            uint64         // Subscription ID to be charged for fulfillment
-	CallbackGasLimit uint32         // Gas limit for consumer callback
-	NumWords         uint32         // Number of random words to expand to
-	Sender           common.Address // VRF consumer address
-}
-
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
 // extra 32 bytes are for blocknumber (as a uint256), which goes at the end. The
 // seed is rewritten with the preSeed. (See MarshalForVRFCoordinator and
@@ -43,17 +35,9 @@ type ProofResponseV2 struct {
 const OnChainResponseLength = ProofLength +
 	32 // blocknum
 
-const OnChainResponseLengthV2 = ProofLength +
-	32 + // blocknum
-	32 + // subID
-	32 + // gaslimit
-	32 + // numWords
-	32 // sender
-
 // MarshaledOnChainResponse is the flat bytes which are sent back to the
 // VRFCoordinator.
 type MarshaledOnChainResponse [OnChainResponseLength]byte
-type MarshaledOnChainResponseV2 [OnChainResponseLengthV2]byte
 
 // MarshalForVRFCoordinator constructs the flat bytes which are sent to the
 // VRFCoordinator.
@@ -75,29 +59,6 @@ func (p *ProofResponse) MarshalForVRFCoordinator() (
 	if rl != OnChainResponseLength {
 		return MarshaledOnChainResponse{}, errors.Errorf(
 			"wrong length for response to VRFCoordinator")
-	}
-	return response, nil
-}
-
-func (p *ProofResponseV2) MarshalForVRFCoordinator() (
-	response MarshaledOnChainResponseV2, err error) {
-	solidityProof, err := SolidityPrecalculations(&p.P)
-	if err != nil {
-		return MarshaledOnChainResponseV2{}, errors.Wrap(err,
-			"while marshaling proof for VRFCoordinatorV2")
-	}
-	solidityProof.P.Seed = common.BytesToHash(p.PreSeed[:]).Big()
-	mProof := solidityProof.MarshalForSolidityVerifier()
-	wireBlockNum := utils.EVMWordUint64(p.BlockNum)
-	subId := utils.EVMWordUint64(p.SubId)
-	callbackLimit := utils.EVMWordUint32(p.CallbackGasLimit)
-	numWords := utils.EVMWordUint32(p.NumWords)
-	sender := utils.EVMWordAddress(p.Sender)
-
-	rl := copy(response[:], bytes.Join([][]byte{mProof[:], wireBlockNum, subId, callbackLimit, numWords, sender}, []byte{}))
-	if rl != OnChainResponseLengthV2 {
-		return MarshaledOnChainResponseV2{}, errors.Errorf(
-			"wrong length for response to VRFCoordinatorV2")
 	}
 	return response, nil
 }
@@ -141,56 +102,55 @@ func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (Marshale
 	return rv, nil
 }
 
-func GenerateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (MarshaledOnChainResponseV2, error) {
-	p := ProofResponseV2{
-		P:                proof,
-		PreSeed:          s.PreSeed,
-		BlockNum:         s.BlockNum,
-		SubId:            s.SubId,            // Subscription ID to be charged for fulfillment
-		CallbackGasLimit: s.CallbackGasLimit, // Gas limit for consumer callback
-		NumWords:         s.NumWords,         // Number of random words to expand to
-		Sender:           s.Sender,           // VRF consumer address
-	}
-	rv, err := p.MarshalForVRFCoordinator()
+func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
+	var proof vrf_coordinator_v2.VRFProof
+	var rc vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
+	solidityProof, err := SolidityPrecalculations(&p)
 	if err != nil {
-		return MarshaledOnChainResponseV2{}, err
+		return proof, rc, errors.Wrap(err,
+			"while marshaling proof for VRFCoordinatorV2")
 	}
-	return rv, nil
+	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
+	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
+	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
+	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
+	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
+	return vrf_coordinator_v2.VRFProof{
+			Pk:            [2]*big.Int{x, y},
+			Gamma:         [2]*big.Int{gx, gy},
+			C:             solidityProof.P.C,
+			S:             solidityProof.P.S,
+			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+			UWitness:      solidityProof.UWitness,
+			CGammaWitness: [2]*big.Int{cgx, cgy},
+			SHashWitness:  [2]*big.Int{shx, shy},
+			ZInv:          solidityProof.ZInv,
+		}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
+			BlockNum:         s.BlockNum,
+			SubId:            s.SubId,
+			CallbackGasLimit: s.CallbackGasLimit,
+			NumWords:         s.NumWords,
+			Sender:           s.Sender,
+		}, nil
 }
 
-func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedData) (
+func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
 	seed := FinalSeed(s)
-	proof, err := keystore.GenerateProof(key, seed)
+	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
 	return GenerateProofResponseFromProof(proof, s)
 }
 
-func generateProofResponseFromProofV2(proof vrfkey.Proof, s PreSeedDataV2) (MarshaledOnChainResponseV2, error) {
-	p := ProofResponseV2{P: proof,
-		PreSeed:          s.PreSeed,
-		BlockNum:         s.BlockNum,
-		SubId:            s.SubId,
-		CallbackGasLimit: s.CallbackGasLimit,
-		NumWords:         s.NumWords,
-		Sender:           s.Sender,
-	}
-	rv, err := p.MarshalForVRFCoordinator()
-	if err != nil {
-		return MarshaledOnChainResponseV2{}, err
-	}
-	return rv, nil
-}
-
-func GenerateProofResponseV2(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedDataV2) (
-	MarshaledOnChainResponseV2, error) {
+func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
+	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
-	proof, err := keystore.GenerateProof(key, seed)
+	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
-		return MarshaledOnChainResponseV2{}, err
+		return vrf_coordinator_v2.VRFProof{}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{}, err
 	}
-	return generateProofResponseFromProofV2(proof, s)
+	return GenerateProofResponseFromProofV2(proof, s)
 }

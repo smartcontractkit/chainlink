@@ -13,13 +13,12 @@ import (
 
 func ExampleRun() {
 	t := &testing.T{}
-	tc := cltest.NewTestEVMConfig(t)
-	tc.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	tc := cltest.NewTestGeneralConfig(t)
+	tc.Overrides.Dev = null.BoolFrom(false)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
 		AppFactory:             cmd.ChainlinkAppFactory{},
-		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
 		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),

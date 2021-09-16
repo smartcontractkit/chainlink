@@ -33,6 +33,8 @@ import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
   ['/runs', 'Runs'],
+  ['/chains', 'Chains'],
+  ['/nodes', 'Nodes'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/keys', 'Keys'],
@@ -155,7 +157,7 @@ const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
               href={navItemPath}
               className={classNames(
                 classes.horizontalNavLink,
-                pathname.includes(navItemPath) && classes.activeNavLink,
+                pathname.startsWith(navItemPath) && classes.activeNavLink,
               )}
             >
               {text}

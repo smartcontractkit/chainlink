@@ -11,6 +11,7 @@ var RegistryABI = eth.MustGetABI(keeper_registry_wrapper.KeeperRegistryABI)
 
 type Config interface {
 	KeeperDefaultTransactionQueueDepth() uint32
+	KeeperGasPriceBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64

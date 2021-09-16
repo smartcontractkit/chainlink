@@ -2,12 +2,14 @@ package bulletprooftxmanager
 
 import (
 	"fmt"
-	"sync/atomic"
+	"math/big"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 	"gorm.io/gorm"
 )
 
@@ -17,27 +19,29 @@ import (
 type ReaperConfig interface {
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
-	EvmFinalityDepth() uint
+	EvmFinalityDepth() uint32
 }
 
 // Reaper handles periodic database cleanup for BPTXM
 type Reaper struct {
 	db             *gorm.DB
 	config         ReaperConfig
+	chainID        utils.Big
 	log            *logger.Logger
-	latestBlockNum int64
+	latestBlockNum *atomic.Int64
 	trigger        chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(db *gorm.DB, config ReaperConfig) *Reaper {
+func NewReaper(lggr *logger.Logger, db *gorm.DB, config ReaperConfig, chainID big.Int) *Reaper {
 	return &Reaper{
 		db,
 		config,
-		logger.Default.With("id", "bptxm_reaper"),
-		-1,
+		*utils.NewBig(&chainID),
+		lggr.With("id", "bptxm_reaper"),
+		atomic.NewInt64(-1),
 		make(chan struct{}, 1),
 		make(chan struct{}),
 		make(chan struct{}),
@@ -74,7 +78,7 @@ func (r *Reaper) runLoop() {
 }
 
 func (r *Reaper) work() {
-	latestBlockNum := atomic.LoadInt64(&r.latestBlockNum)
+	latestBlockNum := r.latestBlockNum.Load()
 	if latestBlockNum < 0 {
 		return
 	}
@@ -89,7 +93,7 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 	if latestBlockNum < 0 {
 		panic(fmt.Sprintf("latestBlockNum must be 0 or greater, got: %d", latestBlockNum))
 	}
-	was := atomic.SwapInt64(&r.latestBlockNum, latestBlockNum)
+	was := r.latestBlockNum.Swap(latestBlockNum)
 	if was < 0 {
 		// Run reaper once on startup
 		r.trigger <- struct{}{}
@@ -125,7 +129,8 @@ USING old_enough_receipts, eth_tx_attempts
 WHERE eth_tx_attempts.eth_tx_id = eth_txes.id
 AND eth_tx_attempts.hash = old_enough_receipts.tx_hash
 AND eth_txes.created_at < ?
-AND eth_txes.state = 'confirmed'`, minBlockNumberToKeep, limit, timeThreshold)
+AND eth_txes.state = 'confirmed'
+AND evm_chain_id = ?`, minBlockNumberToKeep, limit, timeThreshold, r.chainID)
 		if res.Error != nil {
 			return count, res.Error
 		}
@@ -139,7 +144,8 @@ AND eth_txes.state = 'confirmed'`, minBlockNumberToKeep, limit, timeThreshold)
 		res := r.db.Exec(`
 DELETE FROM eth_txes
 WHERE created_at < ?
-AND state = 'fatal_error'`, timeThreshold)
+AND state = 'fatal_error'
+AND evm_chain_id = ?`, timeThreshold, r.chainID)
 		if res.Error != nil {
 			return count, res.Error
 		}

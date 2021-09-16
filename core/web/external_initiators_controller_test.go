@@ -19,12 +19,12 @@ import (
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
-	db := app.GetStore().DB
+	db := app.GetDB()
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",
@@ -81,8 +81,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -107,8 +106,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -133,8 +131,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -149,8 +146,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	exi := models.ExternalInitiator{
@@ -169,8 +165,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

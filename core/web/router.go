@@ -61,8 +61,7 @@ const (
 // Router listens and responds to requests to the node for valid paths.
 func Router(app chainlink.Application) *gin.Engine {
 	engine := gin.New()
-	store := app.GetStore()
-	config := store.Config
+	config := app.GetConfig()
 	secret, err := config.SessionSecret()
 	if err != nil {
 		logger.Panic(err)
@@ -155,7 +154,7 @@ func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
-	if app.GetStore().Config.Dev() {
+	if app.GetConfig().Dev() {
 		// No authentication because `go tool pprof` doesn't support it
 		pprofGroup := r.Group("/debug/pprof")
 		pprofGroup.GET("/", pprofHandler(pprof.Index))
@@ -181,7 +180,7 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 }
 
 func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	config := app.GetStore().Config
+	config := app.GetConfig()
 	unauth := r.Group("/", rateLimiter(
 		config.UnAuthenticatedRateLimitPeriod().Duration(),
 		config.UnAuthenticatedRateLimit(),
@@ -311,6 +310,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		chc := ChainsController{app}
 		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
 		authv2.POST("/chains/evm", chc.Create)
+		authv2.GET("/chains/evm/:ID", chc.Show)
+		authv2.PATCH("/chains/evm/:ID", chc.Update)
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
 
 		nc := NodesController{app}

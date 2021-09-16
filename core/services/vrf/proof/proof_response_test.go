@@ -1,14 +1,12 @@
 package proof_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,17 +19,15 @@ import (
 )
 
 func TestMarshaledProof(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	store := cltest.NewStore(t)
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	key, err := keyStore.VRF().CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(cltest.Password)
-	fmt.Println("key.PublicKey", key.PublicKey)
-	require.NoError(t, err)
+	key := cltest.DefaultVRFKey
+	keyStore.VRF().Add(key)
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
 	s := proof2.TestXXXSeedData(t, preSeed, blockHash, blockNum)
-	proofResponse, err := proof2.GenerateProofResponse(keyStore.VRF(), key.PublicKey, s)
+	proofResponse, err := proof2.GenerateProofResponse(keyStore.VRF(), key.ID(), s)
 	require.NoError(t, err)
 	goProof, err := proof2.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)
@@ -46,7 +42,7 @@ func TestMarshaledProof(t *testing.T) {
 	require.NoError(t, err)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
-	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	if err != nil {
 		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))

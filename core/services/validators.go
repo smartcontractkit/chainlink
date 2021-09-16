@@ -40,7 +40,7 @@ func ValidateBridgeType(bt *models.BridgeTypeRequest, store *store.Store) error 
 		fe.Add("URL must be present")
 	}
 	if bt.MinimumContractPayment != nil &&
-		bt.MinimumContractPayment.Cmp(assets.NewLink(0)) < 0 {
+		bt.MinimumContractPayment.Cmp(assets.NewLinkFromJuels(0)) < 0 {
 		fe.Add("MinimumContractPayment must be positive")
 	}
 	return fe.CoerceEmptyToNil()

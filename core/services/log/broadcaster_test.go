@@ -3,11 +3,11 @@ package log_test
 import (
 	"context"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/atomic"
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -39,22 +39,22 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	helper.start()
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
 	helper.lb.DependentReady()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
 	helper.mockEth.assertExpectations(t)
@@ -84,13 +84,12 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
-	var backfillCount int64
-	var backfillCountPtr = &backfillCount
+	var backfillCount atomic.Int64
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		atomic.StoreInt64(backfillCountPtr, 1)
+		backfillCount.Store(1)
 		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
 
@@ -104,27 +103,27 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 	helper.start()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	helper.unsubscribeAll()
 
 	// now the backfill must use the blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		require.Equal(t, blockHeight-int64(blockBackfillDepth), fromBlock)
-		atomic.StoreInt64(backfillCountPtr, 2)
+		backfillCount.Store(2)
 	}
 
 	listenerLast := helper.newLogListenerWithJob("last")
 	helper.register(listenerLast, newMockContract(), 1)
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.stop()
 	helper.mockEth.assertExpectations(t)
@@ -153,8 +152,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 	maxNumConfirmations := int64(10)
 
-	var backfillCount int64
-	var backfillCountPtr = &backfillCount
+	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
 	helper.register(listener, newMockContract(), uint64(maxNumConfirmations))
@@ -167,28 +165,26 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := atomic.LoadInt64(backfillCountPtr)
+		times := backfillCount.Inc() - 1
 		if times == 0 {
 			require.Equal(t, lastStoredBlockHeight-maxNumConfirmations-int64(blockBackfillDepth), fromBlock)
 		} else if times == 1 {
 			require.Equal(t, replayFrom, fromBlock)
 		}
-
-		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
 	helper.start()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.lb.ReplayFromBlock(replayFrom)
 
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) >= 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	helper.mockEth.assertExpectations(t)
 }
 
@@ -214,11 +210,10 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	backfillDepth := 15
 
-	helper.config.GeneralConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
-	helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+	helper.globalConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
+	helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
-	var backfillCount int64
-	var backfillCountPtr = &backfillCount
+	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
 	helper.register(listener, newMockContract(), uint64(10))
@@ -228,18 +223,18 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 
 	// the backfill does not use the height from DB because BlockBackfillSkip is true
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		atomic.StoreInt64(backfillCountPtr, 1)
+		backfillCount.Store(1)
 		require.Equal(t, blockHeight-int64(backfillDepth), fromBlock)
 	}
 
 	helper.start()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	helper.mockEth.assertExpectations(t)
 }
 
@@ -267,15 +262,14 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	helper.mockEth = mockEth
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(batchSize)
+	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(batchSize)
 
-	var backfillCount int64
-	var backfillCountPtr = &backfillCount
+	var backfillCount atomic.Int64
 
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := atomic.LoadInt64(backfillCountPtr)
+		times := backfillCount.Inc() - 1
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
@@ -286,7 +280,6 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 			require.Equal(t, int64(120), fromBlock)
 			require.Equal(t, int64(120), toBlock)
 		}
-		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
@@ -295,18 +288,18 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	defer helper.stop()
 
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == expectedBatches }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return backfillCount.Load() == expectedBatches }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
 	helper.mockEth.assertExpectations(t)
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	t.Parallel()
-
+	g := gomega.NewGomegaWithT(t)
 	const (
 		lastStoredBlockHeight int64 = 10
 
@@ -341,27 +334,23 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
+	helper.globalConfig.Overrides.GlobalEvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
 
-	var backfillCount int64
-	var backfillCountPtr = &backfillCount
+	var backfillCount atomic.Int64
 
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
-		times := atomic.LoadInt64(backfillCountPtr)
+		times := backfillCount.Inc() - 1
 		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
-		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
 	helper.register(listener, newMockContract(), 1)
 	helper.start()
 	defer helper.stop()
-
-	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == expectedBatches }, 5*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int64 { return backfillCount.Load() }, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(int64(expectedBatches)))
 
 	helper.unsubscribeAll()
-
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	g.Eventually(func() int32 { return helper.mockEth.unsubscribeCallCount() }, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.BeNumerically(">=", int32(1)))
 
 	helper.mockEth.assertExpectations(t)
 }
@@ -524,7 +513,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(1)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(1)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -605,7 +594,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(4)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(4)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -686,7 +675,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(3)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(3)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -776,7 +765,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -891,7 +880,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(2)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -971,6 +960,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
 	chStarted := make(chan struct{})
+	ethClient.On("ChainID", mock.Anything).Return(&cltest.FixtureChainID)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			chchRawLogs <- args.Get(2).(chan<- types.Log)
@@ -987,7 +977,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		Times(3)
 
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: blockHeight}, nil)
+		Return(&eth.Head{Number: blockHeight}, nil)
 
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1179,7 +1169,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
 			// something other than default
-			helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+			helper.globalConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
 
 			helper.start()
 			defer helper.stop()
@@ -1202,7 +1192,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
 				Blocks:        blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
 					logger.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						logger.Warnf("  ** not exists")
@@ -1227,7 +1217,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			<-headsDone
 			cleanup()
 
-			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: test.blockHeight2}, nil).Once()
+			helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: test.blockHeight2}, nil).Once()
 
 			combinedLogs := append(pickLogs(logsA, test.backfillableLogs), pickLogs(logsB, test.backfillableLogs)...)
 			call := helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(combinedLogs, nil).Once()
@@ -1254,7 +1244,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock:    test.blockHeight2,
 				BackfillDepth: backfillDepth,
 				Blocks:        blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						select {
 						case chRawLogs2 <- logsA[uint(head.Number)]:
@@ -1315,7 +1305,8 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, nil, logger.Default, nil)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.Default, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 
@@ -1376,7 +1367,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	chRawLogs <- blocks.LogOnBlockNum(0, contract.Address())
 	chRawLogs <- blocks.LogOnBlockNum(1, contract.Address())
 
-	require.Eventually(t, func() bool { return len(logListener.received.uniqueLogs) >= 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(logListener.received.uniqueLogs) >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	requireBroadcastCount(t, helper.db, 2)
 
 	helper.mockEth.ethClient.AssertExpectations(t)
@@ -1445,7 +1436,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	go func() {
 		for _, event := range events {
 			switch x := event.(type) {
-			case *models.Head:
+			case *eth.Head:
 				(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(context.Background(), *x)
 			case types.Log:
 				chRawLogs <- x
@@ -1472,7 +1463,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
-	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil).Times(2)
+	helper.mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&eth.Head{Number: blockHeight}, nil).Times(2)
 	helper.mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(2)
 
 	helper.start()
@@ -1489,7 +1480,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 	}
 	helper.registerWithTopics(listener1, contract, topics1, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
 
 	<-helper.chchRawLogs
@@ -1498,7 +1489,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 	}
 	helper.registerWithTopics(listener2, contract, topics2, 1)
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 2 }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
 
 	helper.unsubscribeAll()

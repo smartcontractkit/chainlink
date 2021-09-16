@@ -187,6 +187,10 @@ contract VRF {
 
     // True iff p is on secp256k1
     function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
+        // Section 2.3.6. in https://www.secg.org/sec1-v2.pdf
+        // requires each ordinate to be in [0, ..., FIELD_SIZE-1]
+        require(p[0] < FIELD_SIZE, "invalid x-ordinate");
+        require(p[1] < FIELD_SIZE, "invalid y-ordinate");
         return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
     }
 
@@ -222,7 +226,7 @@ contract VRF {
 
     // Domain-separation tag for initial hash in hashToCurve. Corresponds to
     // vrf.go/hashToCurveHashPrefix
-    uint256 constant HASH_TO_CURVE_HASH_PREFIX = 1;
+    uint256 internal constant HASH_TO_CURVE_HASH_PREFIX = 1;
 
     // Cryptographic hash function onto the curve.
     //
@@ -255,12 +259,12 @@ contract VRF {
      * @param multiplicand: secp256k1 point
      * @param scalar: non-zero GF(GROUP_ORDER) scalar
      * @param product: secp256k1 expected to be multiplier * multiplicand
-     * @return verifies true iff product==scalar*ecmulVerify*multiplicand, with cryptographically high probability
+     * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
      */
     function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
         uint256[2] memory product) internal pure returns(bool verifies)
     {
-        require(scalar != 0); // Rules out an ecrecover failure case
+        require(scalar != 0, "zero scalar"); // Rules out an ecrecover failure case
         uint256 x = multiplicand[0]; // x ordinate of multiplicand
         uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
         // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
@@ -425,16 +429,16 @@ contract VRF {
     internal pure returns (uint256[2] memory) {
         unchecked {
             // Note we are relying on the wrap around here
-            require(cp1Witness[0] - sp2Witness[0] % FIELD_SIZE != 0, "points in sum must be distinct");
-            require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
-            require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
+            require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0, "points in sum must be distinct");
+            require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
+            require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
             return affineECAdd(cp1Witness, sp2Witness, zInv);
         }
     }
 
     // Domain-separation tag for the hash taken in scalarFromCurvePoints.
     // Corresponds to scalarFromCurveHashPrefix in vrf.go
-    uint256 constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
+    uint256 internal constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
 
     // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
     // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
@@ -497,56 +501,43 @@ contract VRF {
 
     // Domain-separation tag for the hash used as the final VRF output.
     // Corresponds to vrfRandomOutputHashPrefix in vrf.go
-    uint256 constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
+    uint256 internal constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
 
-    // Length of proof marshaled to bytes array. Shows layout of proof
-    uint public constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
-    64 + // Gamma
-    32 + // C
-    32 + // S
-    32 + // Seed
-    0 + // Dummy entry: The following elements are included for gas efficiency:
-    32 + // uWitness (gets padded to 256 bits, even though it's only 160)
-    64 + // cGammaWitness
-    64 + // sHashWitness
-    32; // zInv  (Leave Output out, because that can be efficiently calculated)
+    struct Proof {
+        uint256[2] pk;
+        uint256[2] gamma;
+        uint256 c;
+        uint256 s;
+        uint256 seed;
+        address uWitness;
+        uint256[2] cGammaWitness;
+        uint256[2] sHashWitness;
+        uint256 zInv;
+    }
 
     /* ***************************************************************************
      * @notice Returns proof's output, if proof is valid. Otherwise reverts
 
-     * @param proof A binary-encoded proof, as output by vrf.Proof.MarshalForSolidityVerifier
+     * @param proof vrf proof components
+     * @param seed  seed used to generate the vrf output
      *
      * Throws if proof is invalid, otherwise:
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
-     * @dev See the calculation of PROOF_LENGTH for the binary layout of proof.
      */
-    function randomValueFromVRFProof(bytes memory proof)
+    function randomValueFromVRFProof(Proof memory proof, uint256 seed)
     internal view returns (uint256 output) {
-        require(proof.length == PROOF_LENGTH, "wrong proof length");
-
-        uint256[2] memory pk; // parse proof contents into these variables
-        uint256[2] memory gamma;
-        // c, s and seed combined (prevents "stack too deep" compilation error)
-        uint256[3] memory cSSeed;
-        address uWitness;
-        uint256[2] memory cGammaWitness;
-        uint256[2] memory sHashWitness;
-        uint256 zInv;
-        (pk, gamma, cSSeed, uWitness, cGammaWitness, sHashWitness, zInv) = abi.decode(
-            proof, (uint256[2], uint256[2], uint256[3], address, uint256[2],
-            uint256[2], uint256));
         verifyVRFProof(
-            pk,
-            gamma,
-            cSSeed[0], // c
-            cSSeed[1], // s
-            cSSeed[2], // seed
-            uWitness,
-            cGammaWitness,
-            sHashWitness,
-            zInv
+            proof.pk,
+            proof.gamma,
+            proof.c,
+            proof.s,
+            seed,
+            proof.uWitness,
+            proof.cGammaWitness,
+            proof.sHashWitness,
+            proof.zInv
         );
-        output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, gamma)));
+        output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, proof.gamma)));
     }
 }

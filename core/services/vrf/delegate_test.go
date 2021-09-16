@@ -8,39 +8,37 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/theodesp/go-heaps/pairing"
-
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
-
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	eth_mocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/theodesp/go-heaps/pairing"
+	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -51,17 +49,23 @@ type vrfUniverse struct {
 	prm       pipeline.ORM
 	lb        *log_mocks.Broadcaster
 	ec        *eth_mocks.Client
-	ks        *keystore.Master
-	vrfkey    secp256k1.PublicKey
+	ks        keystore.Master
+	vrfkey    vrfkey.KeyV2
 	submitter common.Address
 	txm       *bptxmmocks.TxManager
 	hb        httypes.HeadBroadcaster
+	cc        evm.ChainSet
+	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
+	lb.Test(t)
+	lb.On("AddDependents", 1).Maybe()
 	ec := new(eth_mocks.Client)
+	ec.Test(t)
+	ec.On("ChainID").Return(big.NewInt(0))
 	hb := headtracker.NewHeadBroadcaster(logger.Default)
 
 	// Don't mock db interactions
@@ -70,19 +74,17 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUn
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
 	prm := pipeline.NewORM(db)
-	jrm := job.NewORM(db, cfg, prm, eb, &postgres.NullAdvisoryLocker{})
-	ks := keystore.New(db, utils.FastScryptParams)
 	txm := new(bptxmmocks.TxManager)
-	t.Cleanup(func() { txm.AssertExpectations(t) })
-	pr := pipeline.NewRunner(prm, cfg, ec, ks.Eth(), ks.VRF(), txm)
-	require.NoError(t, ks.Eth().Unlock("blah"))
-	_, err = ks.Eth().CreateNewKey()
+	ks := keystore.New(db, utils.FastScryptParams)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	jrm := job.NewORM(db, cc, prm, eb, ks)
+	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
+	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
+	_, err = ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
 	submitter, err := ks.Eth().GetRoundRobinAddress()
 	require.NoError(t, err)
-	_, err = ks.VRF().Unlock("blah")
-	require.NoError(t, err)
-	vrfkey, err := ks.VRF().CreateKey()
+	vrfkey, err := ks.VRF().Create()
 	require.NoError(t, err)
 
 	return vrfUniverse{
@@ -96,6 +98,8 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestEVMConfig) vrfUn
 		submitter: submitter,
 		txm:       txm,
 		hb:        hb,
+		cc:        cc,
+		cid:       *ec.ChainID(),
 	}
 }
 
@@ -138,20 +142,16 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewGormDB(t)
-	c := configtest.NewTestEVMConfig(t, configtest.NewTestGeneralConfig(t))
+	c := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, c)
 
 	vd := NewDelegate(
 		db,
-		vuni.txm,
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.lb,
-		vuni.hb,
-		vuni.ec,
-		c)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.String()})
+		vuni.cc)
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	jb, err = vuni.jrm.CreateJob(context.Background(), &jb, jb.Pipeline)
@@ -170,6 +170,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	t.Cleanup(func() {
 		listener.chStop <- struct{}{}
 		waitForChannel(t, listener.waitOnStop, time.Second, "did not clean up properly")
+		vuni.txm.AssertExpectations(t)
 	})
 	return vuni, listener, jb
 }
@@ -178,10 +179,10 @@ func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	counts := getStartingResponseCounts(db, logger.Default)
 	assert.Equal(t, 0, len(counts))
-
 	ks := keystore.New(db, utils.FastScryptParams)
-	require.NoError(t, ks.Eth().Unlock("blah"))
-	k, err := ks.Eth().CreateNewKey()
+	err := ks.Unlock("p4SsW0rD1!@#_")
+	require.NoError(t, err)
+	k, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
 	b := time.Now()
 	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
@@ -319,7 +320,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.respCount[reqIDBytes] = 2
 
 	// Send in the same request again
-	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
+	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.PublicKey.String())
 	require.NoError(t, err)
 	added := make(chan struct{})
 	listener.reqAdded = func() {
@@ -343,7 +344,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
 		BlockNumber: 10,
 		TxHash:      txHash,
-	}, nil))
+	}, vuni.cid, nil))
 
 	// Wait until the log is present
 	waitForChannel(t, added, time.Second, "request not added to the queue")
@@ -357,7 +358,8 @@ func TestDelegate_ValidLog(t *testing.T) {
 	txHash := utils.NewHash()
 	reqID1 := utils.NewHash()
 	reqID2 := utils.NewHash()
-	pk, err := secp256k1.NewPublicKeyFromHex(vuni.vrfkey.String())
+	keyID := vuni.vrfkey.PublicKey.String()
+	pk, err := secp256k1.NewPublicKeyFromHex(keyID)
 	require.NoError(t, err)
 	added := make(chan struct{})
 	listener.reqAdded = func() {
@@ -435,11 +437,11 @@ func TestDelegate_ValidLog(t *testing.T) {
 			}),
 		).Once().Return(bulletprooftxmanager.EthTx{}, nil)
 
-		listener.HandleLog(log.NewLogBroadcast(tc.log, nil))
+		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
-		listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+		listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
@@ -451,7 +453,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 
-		p, err := vuni.ks.VRF().GenerateProof(pk, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
+		p, err := vuni.ks.VRF().GenerateProof(keyID, utils.MustHash(string(bytes.Join([][]byte{preSeed, bh.Bytes()}, []byte{}))).Big())
 		require.NoError(t, err)
 		vuni.lb.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		vuni.lb.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
@@ -468,7 +470,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 			),
 			BlockNumber: 10,
 			TxHash:      txHash,
-		}, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
+		}, vuni.cid, &solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{RequestId: tc.reqID}))
 		waitForChannel(t, consumed, 2*time.Second, "fulfillment log not marked consumed")
 		// Should record that we've responded to this request
 		assert.Equal(t, uint64(1), listener.respCount[tc.reqID])
@@ -508,10 +510,10 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		BlockHash:   common.Hash{},
 		Index:       0,
 		Removed:     false,
-	}, nil))
+	}, vuni.cid, nil))
 	waitForChannel(t, added, time.Second, "request not queued")
 	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
@@ -555,7 +557,7 @@ func TestFulfilledCheck(t *testing.T) {
 		types.Log{
 			// Data has all the NON-indexed parameters
 			Data: bytes.Join([][]byte{
-				vuni.vrfkey.MustHash().Bytes(),           // key hash
+				vuni.vrfkey.PublicKey.MustHash().Bytes(), // key hash
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee
@@ -566,11 +568,11 @@ func TestFulfilledCheck(t *testing.T) {
 			//TxHash:      utils.NewHash().Bytes(),
 			BlockNumber: 10,
 			//BlockHash:   utils.NewHash().Bytes(),
-		}, nil))
+		}, vuni.cid, nil))
 
 	// Should queue the request, even though its already fulfilled
 	waitForChannel(t, added, time.Second, "request not queued")
-	listener.OnNewLongestChain(context.Background(), models.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run

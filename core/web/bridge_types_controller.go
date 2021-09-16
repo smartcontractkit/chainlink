@@ -31,7 +31,7 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 	}
 	bta, bt, err := models.NewBridgeType(btr)
 	if err != nil {
-		jsonAPIError(c, StatusCodeForError(err), err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 	if e := services.ValidateBridgeType(btr, btc.App.GetStore()); e != nil {
@@ -165,7 +165,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
-		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to delete bridge: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %+v", err))
 		return
 	}
 

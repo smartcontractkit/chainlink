@@ -143,12 +143,16 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "setgasprice",
-					Usage:  "Set the minimum gas price to use for outgoing transactions",
-					Action: client.SetMinimumGasPrice,
+					Usage:  "Set the default gas price to use for outgoing transactions",
+					Action: client.SetEvmGasPriceDefault,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "gwei",
 							Usage: "Specify amount in gwei",
+						},
+						cli.StringFlag{
+							Name:  "evmChainID",
+							Usage: "(optional) specify the chain ID for which to make the update",
 						},
 					},
 				},
@@ -240,6 +244,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
+								},
+							},
 						},
 						{
 							Name:   "list",
@@ -268,6 +278,10 @@ func NewApp(client *Client) *cli.App {
 								cli.StringFlag{
 									Name:  "oldpassword, p",
 									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
 								},
 							},
 							Action: client.ImportETHKey,
@@ -479,19 +493,6 @@ func NewApp(client *Client) *cli.App {
 							Name: "list", Usage: "List the VRF keys",
 							Action: client.ListVRFKeys,
 						},
-						{
-							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
-							Usage: format(`
-                               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
-
-                               Creates a key with weak key-derivation-function parameters, so that it can be
-                               decrypted quickly during tests. As a result, it would be cheap to brute-force
-                               the encryption password for the key, if the ciphertext fell into the wrong
-                               hands!`),
-							Flags:  append(flags("password, p"), flags("file, f")...),
-							Action: client.CreateAndExportWeakVRFKey,
-							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
-						},
 					},
 				},
 			},
@@ -507,12 +508,6 @@ func NewApp(client *Client) *cli.App {
 					Usage:       "Erase the *local node's* user and corresponding session to force recreation on next node launch.",
 					Description: "Does not work remotely over API.",
 					Action:      client.DeleteUser,
-				},
-				{
-					Name:    "import",
-					Aliases: []string{"i"},
-					Usage:   "Import a key file to use with the node",
-					Action:  client.ImportKey,
 				},
 				{
 					Name:   "setnextnonce",
@@ -578,6 +573,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "address, a",
 							Usage: "The address (in hex format) for the key which we want to rebroadcast transactions",
 						},
+						cli.StringFlag{
+							Name:  "evmChainID",
+							Usage: "Chain ID for which to rebroadcast transactions. If left blank, ETH_CHAIN_ID will be used.",
+						},
 						cli.Uint64Flag{
 							Name:  "gasLimit",
 							Usage: "OPTIONAL: gas limit to use for each transaction ",
@@ -621,10 +620,34 @@ func NewApp(client *Client) *cli.App {
 							Flags:  []cli.Flag{},
 						},
 						{
+							Name:   "status",
+							Usage:  "Display the current database migration status.",
+							Action: client.StatusDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
 							Name:   "migrate",
 							Usage:  "Migrate the database to the latest version.",
 							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "rollback",
+							Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
+							Action: client.RollbackDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "create-migration",
+							Usage:  "Create a new migration.",
+							Hidden: !client.Config.Dev(),
+							Action: client.CreateMigration,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "type",
+									Usage: "set to `go` to generate a .go migration (instead of .sql)",
+								},
+							},
 						},
 					},
 				},
@@ -693,6 +716,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
 							Action: client.CreateChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
 						{
 							Name:   "delete",
@@ -703,6 +732,17 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  "List all chains",
 							Action: client.IndexChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure an EVM chain",
+							Action: client.ConfigureChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
 					},
 				},
@@ -716,6 +756,24 @@ func NewApp(client *Client) *cli.App {
 					Name:   "create",
 					Usage:  "Create a new node",
 					Action: client.CreateNode,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "name",
+							Usage: "node name",
+						},
+						cli.StringFlag{
+							Name:  "ws-url",
+							Usage: "Websocket URL",
+						},
+						cli.StringFlag{
+							Name:  "http-url",
+							Usage: "HTTP URL",
+						},
+						cli.Int64Flag{
+							Name:  "chain-id",
+							Usage: "chain ID",
+						},
+					},
 				},
 				{
 					Name:   "delete",
@@ -739,6 +797,3 @@ var whitespace = regexp.MustCompile(`\s+`)
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
-
-// flags is an abbreviated way to express a CLI flag
-func flags(s string) []cli.Flag { return []cli.Flag{cli.StringFlag{Name: s}} }

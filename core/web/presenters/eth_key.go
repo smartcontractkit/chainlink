@@ -5,20 +5,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // ETHKeyResource represents a ETH key JSONAPI resource. It holds the hex
 // representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
+	EVMChainID  utils.Big    `json:"evmChainID"`
 	Address     string       `json:"address"`
 	EthBalance  *assets.Eth  `json:"ethBalance"`
 	LinkBalance *assets.Link `json:"linkBalance"`
-	NextNonce   int64        `json:"nextNonce"`
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
-	DeletedAt   *time.Time   `json:"deletedAt"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -36,20 +36,16 @@ type NewETHKeyOption func(*ETHKeyResource) error
 // NewETHKeyResource constructs a new ETHKeyResource from a Key.
 //
 // Use the functional options to inject the ETH and LINK balances
-func NewETHKeyResource(k ethkey.Key, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
+func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOption) (*ETHKeyResource, error) {
 	r := &ETHKeyResource{
 		JAID:        NewJAID(k.Address.Hex()),
+		EVMChainID:  state.EVMChainID,
 		Address:     k.Address.Hex(),
 		EthBalance:  nil,
 		LinkBalance: nil,
-		NextNonce:   k.NextNonce,
-		IsFunding:   k.IsFunding,
-		CreatedAt:   k.CreatedAt,
-		UpdatedAt:   k.UpdatedAt,
-	}
-
-	if k.DeletedAt.Valid {
-		r.DeletedAt = &k.DeletedAt.Time
+		IsFunding:   state.IsFunding,
+		CreatedAt:   state.CreatedAt,
+		UpdatedAt:   state.UpdatedAt,
 	}
 
 	for _, opt := range opts {

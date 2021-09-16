@@ -531,6 +531,20 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 	return ctx, cancel
 }
 
+// ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
+// receives or is closed.
+func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	go func() {
+		select {
+		case <-chStop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
 // CombinedContext creates a context that finishes when any of the provided
 // signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
 // a `time.Duration` (which is transformed into a `context.WithTimeout`).

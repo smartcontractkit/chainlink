@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -29,7 +29,7 @@ func (tc) BlockBackfillDepth() uint64 {
 func (tc) BlockBackfillSkip() bool {
 	return true
 }
-func (tc) EvmFinalityDepth() uint {
+func (tc) EvmFinalityDepth() uint32 {
 	return 1
 }
 func (tc) EvmLogBackfillBatchSize() uint32 {
@@ -60,20 +60,23 @@ func (s sub) Err() <-chan error {
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	gm := gomega.NewGomegaWithT(t)
+
+	ethClient := new(ethmocks.Client)
+	ethClient.Test(t)
+	ethClient.On("ChainID").Return(big.NewInt(0)).Maybe()
 	logsChCh := make(chan chan<- types.Log)
-	ec := new(ethmocks.Client)
-	ec.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			logsChCh <- args.Get(2).(chan<- types.Log)
 		}).
 		Return(sub{}, nil)
-	ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: 1}, nil)
-	ec.On("FilterLogs", mock.Anything, mock.Anything).
+	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&eth.Head{Number: 1}, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
-	dborm := NewORM(db)
-	lb := NewBroadcaster(dborm, ec, tc{}, logger.Default, nil)
+	dborm := NewORM(db, *ethClient.ChainID())
+	lb := NewBroadcaster(dborm, ethClient, tc{}, logger.Default, nil)
 	lb.Start()
 	defer lb.Close()
 
@@ -157,7 +160,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	lb.OnNewLongestChain(context.Background(), models.Head{
+	lb.OnNewLongestChain(context.Background(), eth.Head{
 		Number: 2,
 	})
 

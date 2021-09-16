@@ -81,10 +81,14 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 		if err != nil {
 			return jb, errors.Wrap(err, "while validating drumbeat schedule")
 		}
+
+		if !spec.IdleTimerDisabled {
+			return jb, errors.Errorf("When the drumbeat ticker is enabled, the idle timer must be disabled. Please set IdleTimerDisabled to true")
+		}
 	}
 
 	if !validatePollTimer(jb.FluxMonitorSpec.PollTimerDisabled, minTimeout, jb.FluxMonitorSpec.PollTimerPeriod) {
-		return jb, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, jb.FluxMonitorSpec.PollTimerPeriod)
+		return jb, errors.Errorf("PollTimerPeriod (%v) must be equal or greater than the smallest value of MaxTaskDuration param, DEFAULT_HTTP_TIMEOUT config var, or MinTimeout of all tasks (%v)", jb.FluxMonitorSpec.PollTimerPeriod, minTimeout)
 	}
 
 	return jb, nil
