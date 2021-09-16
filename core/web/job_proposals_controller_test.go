@@ -403,14 +403,12 @@ type TestJobProposalsController struct {
 }
 
 func setupJobProposalsTest(t *testing.T) *TestJobProposalsController {
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
-	app.Start()
-
+	app := cltest.NewApplication(t)
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	// Defer the FK requirement of a feeds manager.
-	require.NoError(t, app.Store.DB.Exec(
+	require.NoError(t, app.GetDB().Exec(
 		`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
 	).Error)
 

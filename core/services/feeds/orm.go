@@ -6,8 +6,9 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -158,12 +159,12 @@ func (o *orm) CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 	now := time.Now()
 
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING id;
 	`
 
-	row := o.db.WithContext(ctx).Raw(stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, now, now).Row()
+	row := o.db.WithContext(ctx).Raw(stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, now, now, now).Row()
 	if row.Err() != nil {
 		return id, row.Err()
 	}
@@ -184,20 +185,21 @@ func (o *orm) UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, er
 	now := time.Now()
 
 	stmt := `
-INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT (remote_uuid)
 DO
 	UPDATE SET
 		spec = excluded.spec,
 		status = excluded.status,
 		multiaddrs = excluded.multiaddrs,
+		proposed_at = excluded.proposed_at,
 		updated_at = excluded.updated_at
 RETURNING id;
 `
 
 	row := o.db.WithContext(ctx).Raw(stmt,
-		jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, now, now,
+		jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, now, now, now,
 	).Row()
 	if row.Err() != nil {
 		return id, row.Err()
@@ -211,7 +213,7 @@ RETURNING id;
 func (o *orm) ListJobProposals(ctx context.Context) ([]JobProposal, error) {
 	jps := []JobProposal{}
 	stmt := `
-SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, multiaddrs, created_at, updated_at
+SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 FROM job_proposals;
 	`
 
@@ -226,7 +228,7 @@ FROM job_proposals;
 // GetJobProposal gets a job proposal by id
 func (o *orm) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	stmt := `
-SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, created_at, updated_at
+SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 FROM job_proposals
 WHERE id = ?;
 	`
@@ -237,7 +239,7 @@ WHERE id = ?;
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid
 func (o *orm) GetJobProposalByRemoteUUID(ctx context.Context, id uuid.UUID) (*JobProposal, error) {
 	stmt := `
-		SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, created_at, updated_at
+		SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 		FROM job_proposals
 		WHERE remote_uuid = ?;
 	`

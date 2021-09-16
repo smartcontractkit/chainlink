@@ -33,7 +33,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type broadcasterHelper struct {
@@ -67,7 +66,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	return helper
 }
 
-func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *models.Head) *broadcasterHelper {
+func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *eth.Head) *broadcasterHelper {
 	db := pgtest.NewGormDB(t)
 
 	globalConfig := cltest.NewTestGeneralConfig(t)
@@ -356,7 +355,7 @@ func newMockEthClient(t *testing.T, chchRawLogs chan chan<- types.Log, blockHeig
 		Times(expectedCalls.SubscribeFilterLogs)
 
 	mockEth.ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: blockHeight}, nil).
+		Return(&eth.Head{Number: blockHeight}, nil).
 		Times(expectedCalls.HeaderByNumber)
 
 	if expectedCalls.FilterLogs > 0 {

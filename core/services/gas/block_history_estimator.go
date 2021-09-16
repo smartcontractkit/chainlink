@@ -8,16 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -93,7 +92,7 @@ func NewBlockHistoryEstimator(lggr *logger.Logger, ethClient eth.Client, config 
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	b.mb.Deliver(head)
 }
 
@@ -162,16 +161,16 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("BlockHistoryEstimator: no head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(models.Head)
+			h, is := head.(eth.Head)
 			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))
+				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
 			}
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head eth.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 
@@ -184,7 +183,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 }
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
-func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
+func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
 
 	if len(b.rollingBlockHistory) == 0 {
@@ -220,7 +219,7 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileGasPrice.Int64()))
 }
 
-func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head models.Head) error {
+func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head eth.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
 	// fetch block 7.
@@ -347,7 +346,13 @@ func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, er
 	for _, block := range b.rollingBlockHistory {
 		for _, tx := range block.Transactions {
 			if isUsableTx(tx, minGasPriceWei, &b.chainID) {
-				gasPrices = append(gasPrices, tx.GasPrice)
+				gasPrice := b.EffectiveGasPrice(block, tx)
+				if gasPrice != nil {
+					gasPrices = append(gasPrices, gasPrice)
+				} else {
+					b.logger.Warnw("BlockHistoryEstimator: unable to get gas price for tx", "tx", tx, "block", block)
+					continue
+				}
 			}
 		}
 	}
@@ -391,11 +396,38 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	if tx.GasLimit == 0 {
 		return false
 	}
-	// NOTE: This really shouldn't be possible, but at least one node op has
-	// reported it happening on mainnet so we need to handle this case
-	if tx.GasPrice == nil {
-		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
-		return false
-	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)
+}
+
+func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *big.Int {
+	switch tx.Type {
+	case 0x0, 0x1:
+		return tx.GasPrice
+	case 0x2:
+		if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
+			b.logger.Warnw("BlockHistoryEstimator: got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
+			return tx.GasPrice
+		}
+		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+
+		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
+		priorityFeePerGas := tx.MaxPriorityFeePerGas
+		maxFeeMinusBaseFee := big.NewInt(0).Sub(tx.MaxFeePerGas, block.BaseFeePerGas)
+		if maxFeeMinusBaseFee.Cmp(priorityFeePerGas) < 0 {
+			priorityFeePerGas = maxFeeMinusBaseFee
+		}
+
+		gasPrice := big.NewInt(0).Add(priorityFeePerGas, block.BaseFeePerGas)
+		return gasPrice
+	default:
+		b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: unknown transaction type %v, falling back to gasPrice", tx.Type), "block", block, "tx", tx)
+		return tx.GasPrice
+	}
 }

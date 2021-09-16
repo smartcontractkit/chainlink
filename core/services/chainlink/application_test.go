@@ -7,19 +7,16 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/stretchr/testify/require"
 
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplication(t, ethClient)
 	completed := abool.New()
 	app.Exiter = func(code int) {
 		completed.Set()

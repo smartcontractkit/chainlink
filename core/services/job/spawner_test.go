@@ -5,11 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgtype"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -51,8 +48,7 @@ func clearDB(t *testing.T, db *gorm.DB) {
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
-	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
-	defer cleanupDB()
+	config, oldORM := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
 	db := oldORM.DB
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
@@ -60,8 +56,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Close()
+	require.NoError(t, eventBroadcaster.Start())
+	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -72,7 +68,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
+			head := args.Get(1).(**eth.Head)
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
@@ -83,7 +79,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
 		defer orm.Close()
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -152,7 +148,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -181,7 +177,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -218,7 +214,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
-		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		orm := job.NewORM(db, cc, pipeline.NewORM(db), eventBroadcaster, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -235,18 +231,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		eventuallyStart.AwaitOrFail(t)
 
-		advisoryLockClassID := job.GetORMAdvisoryLockClassID(orm)
-
-		lock := struct{ Count int }{}
 		// Wait for the claim lock to be taken
-		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) AS count FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
-			return lock.Count
-		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
-
-		// Make sure that the job is claimed
-		claimed := job.GetORMClaimedJobs(orm)
-		assert.Len(t, claimed, 1)
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			jobs := spawner.ActiveJobs()
+			_, exists := jobs[jobSpecIDA]
+			return exists
+		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(true))
 
 		eventuallyClose := cltest.NewAwaiter()
 		serviceA1.On("Close").Return(nil).Once()
@@ -257,14 +247,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
-		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
-			return lock.Count
-		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
-
-		// Make sure that the job is no longer claimed
-		claimed = job.GetORMClaimedJobs(orm)
-		require.Len(t, claimed, 0)
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			jobs := spawner.ActiveJobs()
+			_, exists := jobs[jobSpecIDA]
+			return exists
+		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(false))
 
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 	})

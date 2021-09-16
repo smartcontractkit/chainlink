@@ -1,4 +1,4 @@
-package models_test
+package vrf_test
 
 import (
 	"math/big"
@@ -7,21 +7,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	secretKey = cltest.DefaultVRFKey
 	keyHash   = secretKey.PublicKey.MustHash()
 	jobID     = common.BytesToHash([]byte("1234567890abcdef1234567890abcdef"))
 	seed      = big.NewInt(1)
 	sender    = common.HexToAddress("0xecfcab0a285d3380e488a39b4bb21e777f8a4eac")
 	fee       = assets.NewLinkFromJuels(100)
 	requestID = common.HexToHash("0xcafe")
-	raw       = models.RawRandomnessRequestLog{
+	raw       = vrf.RawRandomnessRequestLog{
 		KeyHash:   keyHash,
 		Seed:      seed,
 		JobID:     jobID,
@@ -42,11 +40,11 @@ var (
 )
 
 func TestVRFParseRandomnessRequestLog(t *testing.T) {
-	r := models.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
+	r := vrf.RawRandomnessRequestLogToRandomnessRequestLog(&raw)
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := models.ParseRandomnessRequestLog(types.Log{
+	nR, err := vrf.ParseRandomnessRequestLog(types.Log{
 		Data:   rawLog,
 		Topics: []common.Hash{{}, jobID},
 	})
