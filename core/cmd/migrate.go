@@ -137,7 +137,26 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2 / DR
 		case adapters.TaskTypeEthTx:
-			// Do nothing. This is implicit in FMV2 / DR
+			if tpe == job.DirectRequest {
+				attrs := map[string]string{
+					"type": "ethabiencode",
+					"abi":  "uint256 value",
+					//"data": <{ "value": $(multiply) }>,
+				}
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_data_%d", i), attrs)
+				dg.AddNode(n)
+				if last != nil {
+					dg.SetEdge(dg.NewEdge(last, n))
+				}
+				last = n
+			}
+
+			attrs := map[string]string{
+				"type": pipeline.TaskTypeETHTx.String(),
+				"to":   js.Initiators[0].Address.String(),
+				"data": fmt.Sprintf("$(%v)", last.DOTID()),
+			}
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_tx_%d", i), attrs)
 			foundEthTx = true
 		default:
 			// assume it's a bridge task
