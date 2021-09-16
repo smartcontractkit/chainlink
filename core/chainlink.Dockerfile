@@ -8,7 +8,6 @@ ARG COMMIT_SHA
 
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./
-COPY solc_bin solc_bin
 COPY .yarn .yarn
 COPY operator_ui/package.json ./operator_ui/
 COPY evm-test-helpers/package.json ./evm-test-helpers/
