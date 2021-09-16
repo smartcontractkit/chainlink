@@ -446,10 +446,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	ctx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
+	queryCtx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
 	defer cancel()
 
-	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(ctx, func(ctx context.Context) error {
+	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(queryCtx, func(ctx context.Context) error {
 		tx := postgres.TxFromContext(ctx, r.orm.DB())
 
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
