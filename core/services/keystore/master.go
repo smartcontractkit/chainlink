@@ -289,7 +289,7 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	}
-	return "", fmt.Errorf("Unknown key type: %T", unknownKey)
+	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }
 
 type Key interface {

@@ -244,6 +244,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
+								},
+							},
 						},
 						{
 							Name:   "list",
@@ -272,6 +278,10 @@ func NewApp(client *Client) *cli.App {
 								cli.StringFlag{
 									Name:  "oldpassword, p",
 									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "evmChainID",
+									Usage: "Chain ID for the key. If left blank, default chain will be used.",
 								},
 							},
 							Action: client.ImportETHKey,
@@ -706,6 +716,12 @@ func NewApp(client *Client) *cli.App {
 							Name:   "create",
 							Usage:  "Create a new EVM chain",
 							Action: client.CreateChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
 						{
 							Name:   "delete",
@@ -716,6 +732,17 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  "List all chains",
 							Action: client.IndexChains,
+						},
+						{
+							Name:   "configure",
+							Usage:  "Configure an EVM chain",
+							Action: client.ConfigureChain,
+							Flags: []cli.Flag{
+								cli.Int64Flag{
+									Name:  "id",
+									Usage: "chain ID",
+								},
+							},
 						},
 					},
 				},
@@ -729,6 +756,24 @@ func NewApp(client *Client) *cli.App {
 					Name:   "create",
 					Usage:  "Create a new node",
 					Action: client.CreateNode,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "name",
+							Usage: "node name",
+						},
+						cli.StringFlag{
+							Name:  "ws-url",
+							Usage: "Websocket URL",
+						},
+						cli.StringFlag{
+							Name:  "http-url",
+							Usage: "HTTP URL",
+						},
+						cli.Int64Flag{
+							Name:  "chain-id",
+							Usage: "chain ID",
+						},
+					},
 				},
 				{
 					Name:   "delete",
@@ -752,6 +797,3 @@ var whitespace = regexp.MustCompile(`\s+`)
 func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
-
-// flags is an abbreviated way to express a CLI flag
-func flags(s string) []cli.Flag { return []cli.Flag{cli.StringFlag{Name: s}} }

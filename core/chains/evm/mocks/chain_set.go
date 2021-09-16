@@ -16,6 +16,27 @@ type ChainSet struct {
 	mock.Mock
 }
 
+// Add provides a mock function with given fields: id, config
+func (_m *ChainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error) {
+	ret := _m.Called(id, config)
+
+	var r0 types.Chain
+	if rf, ok := ret.Get(0).(func(*big.Int, types.ChainCfg) types.Chain); ok {
+		r0 = rf(id, config)
+	} else {
+		r0 = ret.Get(0).(types.Chain)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*big.Int, types.ChainCfg) error); ok {
+		r1 = rf(id, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ChainCount provides a mock function with given fields:
 func (_m *ChainSet) ChainCount() int {
 	ret := _m.Called()
@@ -58,6 +79,27 @@ func (_m *ChainSet) Close() error {
 	}
 
 	return r0
+}
+
+// Configure provides a mock function with given fields: id, enabled, config
+func (_m *ChainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	ret := _m.Called(id, enabled, config)
+
+	var r0 types.Chain
+	if rf, ok := ret.Get(0).(func(*big.Int, bool, types.ChainCfg) types.Chain); ok {
+		r0 = rf(id, enabled, config)
+	} else {
+		r0 = ret.Get(0).(types.Chain)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*big.Int, bool, types.ChainCfg) error); ok {
+		r1 = rf(id, enabled, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Default provides a mock function with given fields:
@@ -143,6 +185,20 @@ func (_m *ChainSet) Ready() error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Remove provides a mock function with given fields: id
+func (_m *ChainSet) Remove(id *big.Int) error {
+	ret := _m.Called(id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
+		r0 = rf(id)
 	} else {
 		r0 = ret.Error(0)
 	}
