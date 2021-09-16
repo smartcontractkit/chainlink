@@ -197,9 +197,6 @@ submit_tx  [type=ethtx to="%s"
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
 	if params.V2 {
-		//encode_tx    [type=ethabiencode
-		//abi="fulfillRandomWords(bytes proof, bytes requestCommitment)"
-		//data=<{"proof": $(vrf.proof), "requestCommitment": $(vrf.requestCommitment)}>]
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
               abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
@@ -212,7 +209,7 @@ vrf          [type=vrfv2
               topics="$(jobRun.logTopics)"]
 estimate_gas [type=estimategaslimit
               to="%s"
-              multiplier="1"
+              multiplier="1.1"
               data="$(vrf.output)"]
 submit_tx  [type=ethtx to="%s"
             data="$(vrf.output)"

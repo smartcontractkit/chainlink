@@ -31,5 +31,7 @@ CMD [ \
 "--ws", \
 "--ws.addr=0.0.0.0", \
 "--ws.port=8546", \
-"--ws.api","eth,web3,net,admin,debug,txpool" \
+"--ws.api","eth,web3,net,admin,debug,txpool", \
+"--txpool.accountslots=1024", \
+"--txpool.accountqueue=1024" \
 ]
