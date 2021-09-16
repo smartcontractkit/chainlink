@@ -178,15 +178,6 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
-func MustBigIntFromString(t *testing.T, s string) *big.Int {
-	t.Helper()
-	x, ok := big.NewInt(0).SetString(s, 10)
-	if !ok {
-		t.Fatalf("could not create *big.Int from string '%v'", s)
-	}
-	return x
-}
-
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
 	Eb  postgres.EventBroadcaster
