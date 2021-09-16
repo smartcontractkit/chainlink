@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	gumocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -59,7 +58,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		estimator := newBlockHistoryEstimator(ethClient, config)
 		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -93,7 +92,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == int(historySize)
@@ -129,7 +128,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
-		h := &models.Head{Hash: utils.NewHash(), Number: 42}
+		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something went wrong"))
 
@@ -667,7 +666,68 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 }
 
-func TestBlockHistoryEstimator_Block(t *testing.T) {
+func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	config := new(gumocks.Config)
+
+	ibhe := newBlockHistoryEstimator(ethClient, config)
+	bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+
+	block := gas.Block{
+		Number:     0,
+		Hash:       utils.NewHash(),
+		ParentHash: common.Hash{},
+	}
+
+	eipblock := block
+	eipblock.BaseFeePerGas = big.NewInt(100)
+
+	t.Run("legacy transaction type should use GasPrice", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x0, GasPrice: big.NewInt(42), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "42", res.String())
+		tx = gas.Transaction{Type: 0x0, GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Nil(t, res)
+		tx = gas.Transaction{Type: 0x1, GasPrice: big.NewInt(42), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "42", res.String())
+	})
+	t.Run("tx type 2 should calculate gas price", func(t *testing.T) {
+		// 0x2 transaction (should calculate to 250)
+		tx := gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "250", res.String())
+		// 0x2 transaction (should calculate to 300)
+		tx = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "300", res.String())
+		// 0x2 transaction (should calculate to 300, ignoring gas price)
+		tx = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "300", res.String())
+		// 0x2 transaction (should fall back to gas price since MaxFeePerGas is missing)
+		tx = gas.Transaction{Type: 0x2, GasPrice: big.NewInt(32), MaxPriorityFeePerGas: big.NewInt(200), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveGasPrice(eipblock, tx)
+		assert.Equal(t, "32", res.String())
+	})
+	t.Run("tx type 2 has block missing base fee (should never happen but must handle gracefully)", func(t *testing.T) {
+		// 0x2 transaction (should calculate to 250)
+		tx := gas.Transaction{Type: 0x2, GasPrice: big.NewInt(55555), MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveGasPrice(block, tx)
+		assert.Equal(t, "55555", res.String())
+	})
+	t.Run("unknown type uses gas price", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x3, GasPrice: big.NewInt(55555), MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveGasPrice(block, tx)
+		assert.Equal(t, "55555", res.String())
+	})
+
+	ethClient.AssertExpectations(t)
+	config.AssertExpectations(t)
+}
+
+func TestBlockHistoryEstimator_Block_Unmarshal(t *testing.T) {
 	blockJSON := `
 {
     "author": "0x1438087186fdbfd4c256fa2df446921e30e54df8",
@@ -766,7 +826,7 @@ func TestBlockHistoryEstimator_Block(t *testing.T) {
 	assert.Equal(t, uint64(2000000), block.Transactions[2].GasLimit)
 }
 
-func TestBlockHistoryEstimator_EIP1559Block(t *testing.T) {
+func TestBlockHistoryEstimator_EIP1559Block_Unmarshal(t *testing.T) {
 	blockJSON := `
 {
     "baseFeePerGas": "0xa1894585c",
@@ -872,6 +932,7 @@ func TestBlockHistoryEstimator_EIP1559Block(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, int64(13000040), block.Number)
+	assert.Equal(t, "43362048092", block.BaseFeePerGas.String())
 	assert.Equal(t, common.HexToHash("0x11ac873a6cd8b8b7b57ec1efe3984b706362aa5e8f5749a5ec9b1f64bb4615f0"), block.Hash)
 	assert.Equal(t, common.HexToHash("0x1ae6168805dfd2e48311181774019c17fb09b24ab75dcad6566d18d38d5c4071"), block.ParentHash)
 

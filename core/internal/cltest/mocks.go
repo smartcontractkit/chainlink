@@ -62,8 +62,8 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan gethTypes.Log:
 		close(mes.channel.(chan gethTypes.Log))
-	case chan *models.Head:
-		close(mes.channel.(chan *models.Head))
+	case chan *eth.Head:
+		close(mes.channel.(chan *eth.Head))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
@@ -225,7 +225,7 @@ func NewHTTPMockServer(
 	wantMethod string,
 	response string,
 	callback ...func(http.Header, string),
-) (*httptest.Server, func()) {
+) *httptest.Server {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
@@ -241,10 +241,11 @@ func NewHTTPMockServer(
 	})
 
 	server := httptest.NewServer(handler)
-	return server, func() {
+	t.Cleanup(func() {
 		server.Close()
 		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
-	}
+	})
+	return server
 }
 
 // NewHTTPMockServerWithRequest creates http test server that makes the request
@@ -254,7 +255,7 @@ func NewHTTPMockServerWithRequest(
 	status int,
 	response string,
 	callback func(r *http.Request),
-) (*httptest.Server, func()) {
+) *httptest.Server {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callback(r)
@@ -265,10 +266,11 @@ func NewHTTPMockServerWithRequest(
 	})
 
 	server := httptest.NewServer(handler)
-	return server, func() {
+	t.Cleanup(func() {
 		server.Close()
 		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
-	}
+	})
+	return server
 }
 
 func NewHTTPMockServerWithAlterableResponse(
@@ -341,7 +343,7 @@ type MockHeadTrackable struct {
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, models.Head) {
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, eth.Head) {
 	m.onNewHeadCount.Inc()
 }
 

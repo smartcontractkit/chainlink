@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -86,7 +85,7 @@ type (
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan int64
-		highestSavedHead      *models.Head
+		highestSavedHead      *eth.Head
 		lastSeenHeadNumber    atomic.Int64
 		logger                *logger.Logger
 	}
@@ -125,7 +124,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger.Logger, highestSavedHead *models.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger.Logger, highestSavedHead *eth.Head) *broadcaster {
 	chStop := make(chan struct{})
 
 	return &broadcaster{
@@ -218,7 +217,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		b.logger.Debugw("LogBroadcaster: TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
@@ -375,16 +374,16 @@ func (b *broadcaster) onNewLog(log types.Log) {
 }
 
 func (b *broadcaster) onNewHeads() {
-	var latestHead *models.Head
+	var latestHead *eth.Head
 	for {
 		// We only care about the most recent head
 		item := b.newHeads.RetrieveLatestAndClear()
 		if item == nil {
 			break
 		}
-		head, ok := item.(models.Head)
+		head, ok := item.(eth.Head)
 		if !ok {
-			b.logger.Errorf("expected `models.Head`, got %T", item)
+			b.logger.Errorf("expected `eth.Head`, got %T", item)
 			continue
 		}
 		latestHead = &head
@@ -564,9 +563,9 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                                {}
-func (n *NullBroadcaster) Start() error                                   { return nil }
-func (n *NullBroadcaster) Close() error                                   { return nil }
-func (n *NullBroadcaster) Healthy() error                                 { return nil }
-func (n *NullBroadcaster) Ready() error                                   { return nil }
-func (n *NullBroadcaster) OnNewLongestChain(context.Context, models.Head) {}
+func (n *NullBroadcaster) DependentReady()                             {}
+func (n *NullBroadcaster) Start() error                                { return nil }
+func (n *NullBroadcaster) Close() error                                { return nil }
+func (n *NullBroadcaster) Healthy() error                              { return nil }
+func (n *NullBroadcaster) Ready() error                                { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, eth.Head) {}

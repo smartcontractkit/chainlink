@@ -13,8 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -71,7 +71,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		}).
 		Return(sub{}, nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).
-		Return(&models.Head{Number: 1}, nil)
+		Return(&eth.Head{Number: 1}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
@@ -160,7 +160,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	lb.OnNewLongestChain(context.Background(), models.Head{
+	lb.OnNewLongestChain(context.Background(), eth.Head{
 		Number: 2,
 	})
 

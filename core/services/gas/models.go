@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 var (
@@ -40,7 +39,7 @@ func NewEstimator(lggr *logger.Logger, ethClient eth.Client, config Config) Esti
 // Estimator provides an interface for estimating gas price and limit
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
-	OnNewLongestChain(context.Context, models.Head)
+	OnNewLongestChain(context.Context, eth.Head)
 	Start() error
 	Close() error
 	EstimateGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)
@@ -105,17 +104,19 @@ func HexToInt64(input interface{}) int64 {
 // Block represents an ethereum block
 // This type is only used for the block history estimator, and can be expensive to unmarshal. Don't add unnecessary fields here.
 type Block struct {
-	Number       int64
-	Hash         common.Hash
-	ParentHash   common.Hash
-	Transactions []Transaction
+	Number        int64
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *big.Int
+	Transactions  []Transaction
 }
 
 type blockInternal struct {
-	Number       string
-	Hash         common.Hash
-	ParentHash   common.Hash
-	Transactions []Transaction
+	Number        string
+	Hash          common.Hash
+	ParentHash    common.Hash
+	BaseFeePerGas *hexutil.Big
+	Transactions  []Transaction
 }
 
 // MarshalJSON implements json marshalling for Block
@@ -124,6 +125,7 @@ func (b Block) MarshalJSON() ([]byte, error) {
 		Int64ToHex(b.Number),
 		b.Hash,
 		b.ParentHash,
+		(*hexutil.Big)(b.BaseFeePerGas),
 		b.Transactions,
 	})
 }
@@ -142,6 +144,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 		n.Int64(),
 		bi.Hash,
 		bi.ParentHash,
+		(*big.Int)(bi.BaseFeePerGas),
 		bi.Transactions,
 	}
 	return nil

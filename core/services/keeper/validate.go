@@ -23,6 +23,7 @@ check_upkeep_tx          [type=ethcall
                           extractRevertReason=true
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
                           abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]

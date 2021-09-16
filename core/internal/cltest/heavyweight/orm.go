@@ -29,7 +29,7 @@ import (
 // FullTestORM creates an ORM which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
-func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *orm.ORM, func()) {
+func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *orm.ORM) {
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}
@@ -41,6 +41,10 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*c
 	require.NoError(t, err)
 	orm, err := orm.NewORM(migrationTestDBURL, gcfg.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, gcfg.GlobalLockRetryInterval().Duration(), gcfg.ORMMaxOpenConns(), gcfg.ORMMaxIdleConns())
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, orm.Close())
+		os.RemoveAll(gcfg.RootDir())
+	})
 	orm.SetLogging(gcfg.LogSQLMigrations())
 	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
@@ -59,10 +63,7 @@ func FullTestORM(t *testing.T, name string, migrate bool, loadFixtures bool) (*c
 	}
 	orm.SetLogging(gcfg.LogSQLStatements())
 
-	return gcfg, orm, func() {
-		assert.NoError(t, orm.Close())
-		os.RemoveAll(gcfg.RootDir())
-	}
+	return gcfg, orm
 }
 
 func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {
