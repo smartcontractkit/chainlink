@@ -15,9 +15,6 @@ craco.config.js
 **/**.d.ts
 **/**.d.ts.map
 
-# solc_bin
-solc_bin
-
 docs/
 venv/
 
