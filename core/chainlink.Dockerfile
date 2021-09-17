@@ -14,7 +14,7 @@ COPY contracts/package.json ./contracts/
 RUN make yarndep
 
 COPY contracts ./contracts
-COPY tsconfig.cjs.json tsconfig.es6.json ./
+COPY tsconfig.cjs.json ./
 COPY operator_ui ./operator_ui
 
 # Build operator-ui and the smart contracts
