@@ -15,6 +15,7 @@ type P2P interface {
 	Delete(id string) (p2pkey.KeyV2, error)
 	Import(keyJSON []byte, password string) (p2pkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
+	EnsureKey() (p2pkey.KeyV2, bool, error)
 
 	GetV1KeysAsV2() ([]p2pkey.KeyV2, error)
 }
@@ -118,6 +119,22 @@ func (ks p2p) Export(id string, password string) ([]byte, error) {
 		return nil, err
 	}
 	return key.ToEncryptedJSON(password, ks.scryptParams)
+}
+
+func (ks p2p) EnsureKey() (p2pkey.KeyV2, bool, error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	if ks.isLocked() {
+		return p2pkey.KeyV2{}, false, ErrLocked
+	}
+	if len(ks.keyRing.P2P) > 0 {
+		return p2pkey.KeyV2{}, true, nil
+	}
+	key, err := p2pkey.NewV2()
+	if err != nil {
+		return p2pkey.KeyV2{}, false, err
+	}
+	return key, false, ks.safeAddKey(key)
 }
 
 func (ks p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {

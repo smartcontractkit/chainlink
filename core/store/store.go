@@ -91,9 +91,9 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 		version, err = verORM.FindLatestNodeVersion()
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+				logger.Default.Debugf("Failed to find any node version in the DB: %v", err)
 			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %v", err)
 			} else {
 				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
 			}

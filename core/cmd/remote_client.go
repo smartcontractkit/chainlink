@@ -365,9 +365,6 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	// Sets logSql to true || false based on the --enabled flag
 	logSql := c.Bool("enable")
 
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {
