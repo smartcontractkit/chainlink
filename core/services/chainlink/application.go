@@ -212,13 +212,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				pipelineORM,
 				chainSet),
+			job.Webhook: webhook.NewDelegate(
+				pipelineRunner,
+				externalInitiatorManager),
+			job.Cron: cron.NewDelegate(
+				pipelineRunner),
 		}
+		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
 	if cfg.EthereumDisabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else if cfg.Dev() || cfg.FeatureFluxMonitorV2() {
+	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			keyStore.Eth(),
 			jobORM,
@@ -230,7 +236,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
@@ -244,17 +249,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
-	}
-
-	var webhookJobRunner webhook.JobRunner
-	if cfg.Dev() || cfg.FeatureWebhookV2() {
-		delegate := webhook.NewDelegate(pipelineRunner, externalInitiatorManager)
-		delegates[job.Webhook] = delegate
-		webhookJobRunner = delegate.WebhookJobRunner()
-	}
-
-	if cfg.Dev() || cfg.FeatureCronV2() {
-		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)

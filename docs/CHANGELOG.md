@@ -38,6 +38,11 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 `ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
 
+
+#### Removed env vars
+
+`FEATURE_CRON_V2`, `FEATURE_FLUX_MONITOR_V2`, `FEATURE_WEBHOOK_V2` - all V2 job types are now enabled by default.
+
 #### Multichain support added
 
 Chainlink now supports connecting to multiple different EVM chains simultaneously.
