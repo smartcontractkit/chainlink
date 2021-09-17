@@ -56,10 +56,7 @@ func (t *ETHTxTask) Type() TaskType {
 func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
-		return Result{Error: err}
-	}
-	if err != nil {
-		return Result{Error: errors.Wrap(err, "chain collection default")}
+		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}
 	}
 	cfg := chain.Config()
 	txManager := chain.TxManager()

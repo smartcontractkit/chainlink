@@ -80,13 +80,10 @@ type ConfigSchema struct {
 	ExplorerSecret                             string                        `env:"EXPLORER_SECRET"`
 	ExplorerURL                                *url.URL                      `env:"EXPLORER_URL"`
 	FMDefaultTransactionQueueDepth             uint32                        `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
-	FeatureCronV2                              bool                          `env:"FEATURE_CRON_V2" default:"true"`
 	FeatureExternalInitiators                  bool                          `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	FeatureFluxMonitorV2                       bool                          `env:"FEATURE_FLUX_MONITOR_V2" default:"true"`
 	FeatureOffchainReporting                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FeatureUICSAKeys                           bool                          `env:"FEATURE_UI_CSA_KEYS" default:"false"`
 	FeatureUIFeedsManager                      bool                          `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"`
-	FeatureWebhookV2                           bool                          `env:"FEATURE_WEBHOOK_V2" default:"false"`
 	FlagsContractAddress                       string                        `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasEstimatorMode                           string                        `env:"GAS_ESTIMATOR_MODE"`
 	GlobalLockRetryInterval                    models.Duration               `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`

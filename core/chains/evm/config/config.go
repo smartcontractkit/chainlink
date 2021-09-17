@@ -68,6 +68,7 @@ type ChainScopedConfig interface {
 	config.GeneralConfig
 	ChainScopedOnlyConfig
 	Validate() error
+	Configure(config evmtypes.ChainCfg) error
 }
 
 var _ ChainScopedConfig = &chainScopedConfig{}
@@ -102,6 +103,11 @@ func (c *chainScopedConfig) Validate() (err error) {
 		c.GeneralConfig.Validate(),
 		c.validate(),
 	)
+}
+
+func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) (err error) {
+	c.persistedCfg = config
+	return nil
 }
 
 func (c *chainScopedConfig) validate() (err error) {

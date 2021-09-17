@@ -44,12 +44,7 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/p2p/:keyID"
 // "DELETE <application>/keys/p2p/:keyID?hard=true"
 func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
-	var err error
 	keyID := c.Param("keyID")
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
 	key, err := p2pkc.App.GetKeyStore().P2P().Get(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
