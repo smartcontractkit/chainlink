@@ -29,7 +29,8 @@ type (
 		DeleteJob(ctx context.Context, jobID int32) error
 		ActiveJobs() map[int32]Job
 
-		// NOTE: Only used in testing to start a job previously manually injected into DB
+		// NOTE: Prefer to use CreateJob, this is only publicly exposed for use in tests
+		// to start a job that was previously manually inserted into DB
 		StartService(spec Job) error
 	}
 

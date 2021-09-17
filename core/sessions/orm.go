@@ -77,22 +77,11 @@ func (o *orm) DeleteUser() error {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	return postgres.SqlxTransaction(ctx, o.db, func(tx *sqlx.Tx) error {
-		// sql := "DELETE FROM users ORDER BY created_at DESC LIMIT 1"
-		sql := "DELETE FROM users"
-		_, err := tx.Exec(sql)
-
-		if err != nil {
+		if _, err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}
-		// rowsAffected, err := result.RowsAffected()
-		// if err != nil {
-		// 	return err
-		// }
-		// if rowsAffected == 0 {
-		// 	return sql.ErrNoRows
-		// }
 
-		_, err = tx.Exec("DELETE FROM sessions")
+		_, err := tx.Exec("DELETE FROM sessions")
 		return err
 	})
 }
@@ -182,7 +171,7 @@ func (o *orm) Sessions(offset, limit int) (sessions []Session, err error) {
 	return
 }
 
-// TEMP: Appease AuthStorer
+// NOTE: this is duplicated from the bridges ORM to appease the AuthStorer interface
 func (o *orm) FindExternalInitiator(
 	eia *auth.Token,
 ) (*bridges.ExternalInitiator, error) {
