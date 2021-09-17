@@ -90,8 +90,7 @@ func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
 
 // --- External Initiator
 
-// ExternalInitiators returns many ExternalInitiators sorted by Name from the store adhering
-// to the passed parameters.
+// ExternalInitiators returns a list of external initiators sorted by name
 func (o *orm) ExternalInitiators(offset int, limit int) (exis []ExternalInitiator, count int, err error) {
 	if err = o.db.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
 		return

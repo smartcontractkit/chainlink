@@ -53,8 +53,8 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
 	assert.Len(t, txs[0].EthTxAttempts, 2, "all eth tx attempts are preloaded")
 	assert.Len(t, txs[1].EthTxAttempts, 1)
-	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
-	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
+	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
+	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts should be sorted by created_at")
 
 	txs, count, err = orm.EthTransactionsWithAttempts(0, 1)
 	require.NoError(t, err)
