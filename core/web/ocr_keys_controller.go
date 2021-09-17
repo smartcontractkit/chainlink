@@ -44,12 +44,7 @@ func (ocrkc *OCRKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/ocr/:keyID"
 // "DELETE <application>/keys/ocr/:keyID?hard=true"
 func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
-	var err error
 	id := c.Param("keyID")
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
 	key, err := ocrkc.App.GetKeyStore().OCR().Get(id)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
