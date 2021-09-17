@@ -130,9 +130,6 @@ func (ks eth) EnsureKeys(chainID *big.Int) (
 	}
 	// check & setup funding key
 	fundingKeys := ks.fundingKeys()
-	if err != nil {
-		return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
-	}
 	if len(fundingKeys) > 0 {
 		fundingKey = fundingKeys[0]
 		fundDidExist = true
