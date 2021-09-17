@@ -76,7 +76,8 @@ interface Props extends WithStyles<typeof styles> {
 
 const RegionalNavComponent = ({ classes, chainId, chain }: Props) => {
   const navOverridesActive = location.pathname.endsWith('/config-overrides')
-  const navNodesActive = !navOverridesActive
+  const editActive = location.pathname.endsWith('/edit')
+  const navNodesActive = !navOverridesActive && !editActive
   return (
     <>
       <Card className={classes.container}>
