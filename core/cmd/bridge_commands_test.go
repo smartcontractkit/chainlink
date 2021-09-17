@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -65,20 +65,20 @@ func TestClient_IndexBridges(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	bt1 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
+	bt1 := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.GetStore().CreateBridgeType(bt1)
+	err := app.BridgeORM().CreateBridgeType(bt1)
 	require.NoError(t, err)
 
-	bt2 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges2"),
+	bt2 := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges2"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err = app.GetStore().CreateBridgeType(bt2)
+	err = app.BridgeORM().CreateBridgeType(bt2)
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
@@ -101,12 +101,12 @@ func TestClient_ShowBridge(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
+	bt := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	require.NoError(t, app.GetStore().CreateBridgeType(bt))
+	require.NoError(t, app.BridgeORM().CreateBridgeType(bt))
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
@@ -160,12 +160,12 @@ func TestClient_RemoveBridge(t *testing.T) {
 	app := startNewApplication(t)
 	client, r := app.NewClientAndRenderer()
 
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
+	bt := &bridges.BridgeType{
+		Name:          bridges.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	err := app.GetStore().CreateBridgeType(bt)
+	err := app.BridgeORM().CreateBridgeType(bt)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)

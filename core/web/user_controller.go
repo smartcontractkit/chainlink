@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	clsession "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -34,7 +35,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.GetStore().FindUser()
+	user, err := c.App.SessionORM().FindUser()
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -53,13 +54,13 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 
 // NewAPIToken generates a new API token for a user overwriting any pre-existing one set.
 func (c *UserController) NewAPIToken(ctx *gin.Context) {
-	var request models.ChangeAuthTokenRequest
+	var request clsession.ChangeAuthTokenRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	user, err := c.App.GetStore().FindUser()
+	user, err := c.App.SessionORM().FindUser()
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -68,12 +69,8 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
-	newToken, err := user.GenerateAuthToken()
-	if err != nil {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-	if err := c.App.GetStore().SaveUser(&user); err != nil {
+	newToken := auth.NewToken()
+	if err := c.App.SessionORM().SetAuthToken(&user, newToken); err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -83,13 +80,13 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 
 // DeleteAPIToken deletes and disables a user's API token.
 func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
-	var request models.ChangeAuthTokenRequest
+	var request clsession.ChangeAuthTokenRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	user, err := c.App.GetStore().FindUser()
+	user, err := c.App.SessionORM().FindUser()
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
@@ -98,11 +95,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
 	}
-	if user.DeleteAuthToken(); false {
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-	if err := c.App.GetStore().SaveUser(&user); err != nil {
+	if err := c.App.SessionORM().DeleteAuthToken(&user); err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -120,21 +113,16 @@ func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 	return sessionID, nil
 }
 
-func (c *UserController) saveNewPassword(user *models.User, newPassword string) error {
-	hashedPassword, err := utils.HashPassword(newPassword)
-	if err != nil {
-		return err
-	}
-	user.HashedPassword = hashedPassword
-	return c.App.GetStore().SaveUser(user)
+func (c *UserController) saveNewPassword(user *clsession.User, newPassword string) error {
+	return c.App.SessionORM().SetPassword(user, newPassword)
 }
 
-func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User, newPassword string) error {
+func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.User, newPassword string) error {
 	sessionID, err := c.getCurrentSessionID(ctx)
 	if err != nil {
 		return err
 	}
-	if err := c.App.GetStore().ClearNonCurrentSessions(sessionID); err != nil {
+	if err := c.App.SessionORM().ClearNonCurrentSessions(sessionID); err != nil {
 		return fmt.Errorf("failed to clear non current user sessions: %+v", err)
 	}
 	if err := c.saveNewPassword(user, newPassword); err != nil {

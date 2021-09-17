@@ -104,7 +104,9 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
-	cltest.MustInsertKeeperJob(t, app.GetDB(), nodeAddressEIP55, regAddrEIP55)
+	job := cltest.MustInsertKeeperJob(t, app.GetDB(), nodeAddressEIP55, regAddrEIP55)
+	err = app.JobSpawner().StartService(job)
+	require.NoError(t, err)
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {

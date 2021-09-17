@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func init() {
@@ -63,6 +64,9 @@ func NewGormDB(t *testing.T) *gorm.DB {
 	}), &gorm.Config{Logger: newLogger})
 
 	require.NoError(t, err)
+
+	// Incantation to fix https://github.com/go-gorm/gorm/issues/4586
+	gormDB = gormDB.Omit(clause.Associations).Session(&gorm.Session{})
 
 	return gormDB
 }

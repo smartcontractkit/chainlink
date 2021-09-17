@@ -2,10 +2,12 @@ package cmd_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -29,7 +31,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
+			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(cfg{}, store)
 			cookie, err := tca.Authenticate(sr)
@@ -60,7 +62,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			sr := models.SessionRequest{Email: test.email, Password: test.pwd}
+			sr := sessions.SessionRequest{Email: test.email, Password: test.pwd}
 			store := &cmd.MemoryCookieStore{}
 			tca := cmd.NewSessionCookieAuthenticator(app.GetConfig(), store)
 			cookie, err := tca.Authenticate(sr)
@@ -135,23 +137,24 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store := cltest.NewStore(t)
+			db := pgtest.NewSqlxDB(t)
+			orm := sessions.NewORM(db, time.Minute)
 
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Remove fixture user
-			err := store.DeleteUser()
+			err := orm.DeleteUser()
 			require.NoError(t, err)
 
-			user, err := tai.Initialize(store)
+			user, err := tai.Initialize(orm)
 			if test.isError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, len(test.enteredStrings), mock.Count)
 
-				persistedUser, err := store.FindUser()
+				persistedUser, err := orm.FindUser()
 				assert.NoError(t, err)
 
 				assert.Equal(t, user.Email, persistedUser.Email)
@@ -164,15 +167,16 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store := cltest.NewStore(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := sessions.NewORM(db, time.Minute)
 
 	initialUser := cltest.MustRandomUser()
-	require.NoError(t, store.SaveUser(&initialUser))
+	require.NoError(t, orm.CreateUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{}
 	tai := cmd.NewPromptingAPIInitializer(mock)
 
-	user, err := tai.Initialize(store)
+	user, err := tai.Initialize(orm)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, mock.Count)
 
@@ -192,18 +196,19 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store := cltest.NewStore(t)
+			db := pgtest.NewSqlxDB(t)
+			orm := sessions.NewORM(db, time.Minute)
 			// Clear out fixture user
-			store.DeleteUser()
+			orm.DeleteUser()
 
 			tfi := cmd.NewFileAPIInitializer(test.file)
-			user, err := tfi.Initialize(store)
+			user, err := tfi.Initialize(orm)
 			if test.wantError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, cltest.APIEmail, user.Email)
-				persistedUser, err := store.FindUser()
+				persistedUser, err := orm.FindUser()
 				assert.NoError(t, err)
 				assert.Equal(t, persistedUser.Email, user.Email)
 			}
@@ -214,7 +219,8 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
-	store := cltest.NewStore(t)
+	db := pgtest.NewSqlxDB(t)
+	orm := sessions.NewORM(db, time.Minute)
 
 	tests := []struct {
 		name      string
@@ -228,7 +234,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			tfi := cmd.NewFileAPIInitializer(test.file)
-			user, err := tfi.Initialize(store)
+			user, err := tfi.Initialize(orm)
 			assert.NoError(t, err)
 			assert.Equal(t, cltest.APIEmail, user.Email)
 		})
