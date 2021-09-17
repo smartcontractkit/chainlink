@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -160,6 +161,7 @@ type GeneralConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
+	SetKeyStore(keystore.Master)
 	SetLogLevel(ctx context.Context, value string) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
@@ -188,6 +190,7 @@ type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	ORM              *ORM
+	ks               keystore.Master
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
@@ -284,6 +287,11 @@ func (c *generalConfig) Validate() error {
 func (c *generalConfig) SetDB(db *gorm.DB) {
 	orm := NewORM(db)
 	c.ORM = orm
+}
+
+// SetKeyStore provides reference to the keystore for runtime configuration values
+func (c *generalConfig) SetKeyStore(ks keystore.Master) {
+	c.ks = ks
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -906,18 +914,17 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		c.p2ppeerIDmtx.Lock()
 		defer c.p2ppeerIDmtx.Unlock()
 		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
-			var keys []p2pkey.EncryptedP2PKey
-			if c.ORM == nil {
-				logger.Warnw("db was not set on config, falling back to env")
+			if c.ks == nil {
+				logger.Warnw("keystore was not set on config, falling back to env")
 				return
 			}
-			err2 := c.ORM.db.Order("created_at asc, id asc").Find(&keys).Error
-			if err2 != nil {
-				logger.Warnw("Failed to load keys, falling back to env", "err", err2)
+			keys, err := c.ks.P2P().GetAll()
+			if err != nil {
+				logger.Warnw("Failed to load keys, falling back to env", "err", err.Error())
 				return
 			}
 			if len(keys) > 0 {
-				peerID := keys[0].PeerID
+				peerID := keys[0].PeerID()
 				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
 				c.viper.Set(EnvVarName("P2PPeerID"), peerID)
 				if len(keys) > 1 {
