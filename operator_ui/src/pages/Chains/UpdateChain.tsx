@@ -11,14 +11,13 @@ import Content from 'components/Content'
 import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
 import { ChainSpecV2 } from './RegionalNav'
 import { Field, Form, Formik } from 'formik'
-import { TextField } from 'formik-material-ui'
+import { TextField, CheckboxWithLabel } from 'formik-material-ui'
 import * as Yup from 'yup'
-import { values } from 'lodash'
 
 const SuccessNotification = ({ id }: { id: string }) => (
   <>
-    Successfully created node{' '}
-    <BaseLink id="created-node" href={`/nodes`}>
+    Successfully updated chain{' '}
+    <BaseLink id="updated-chain" href={`/chains`}>
       {id}
     </BaseLink>
   </>
@@ -27,21 +26,30 @@ const SuccessNotification = ({ id }: { id: string }) => (
 function apiCall({
   chain,
   config,
+  enabled,
 }: {
   chain: ChainSpecV2
   config: Record<string, JSONPrimitive>
+  enabled: boolean
 }): Promise<ApiResponse<Chain>> {
-  const definition: UpdateChainRequest = { config }
+  const definition: UpdateChainRequest = { config, enabled }
   return api.v2.chains.updateChain(chain.id, definition)
 }
 
 const UpdateChain = ({ chain }: { chain: ChainSpecV2 }) => {
   const dispatch = useDispatch()
 
-  async function handleSubmit({ config }: { config: string }) {
+  async function handleSubmit({
+    config,
+    enabled,
+  }: {
+    config: string
+    enabled: boolean
+  }) {
     apiCall({
       chain,
       config: JSON.parse(config),
+      enabled,
     })
       .then(({ data }) => {
         dispatch(notifySuccess(SuccessNotification, data))
@@ -59,6 +67,7 @@ const UpdateChain = ({ chain }: { chain: ChainSpecV2 }) => {
 
   const initialValues = {
     config: JSON.stringify(configOverrides, null, 2),
+    enabled: chain.attributes.enabled,
   }
 
   const ValidationSchema = Yup.object().shape({
@@ -79,9 +88,20 @@ const UpdateChain = ({ chain }: { chain: ChainSpecV2 }) => {
                   handleSubmit(values)
                 }}
               >
-                {({ isSubmitting, submitForm }) => (
+                {({ isSubmitting, submitForm, values }) => (
                   <Form>
                     <Grid container spacing={16}>
+                      <Grid item xs={12} md={4}>
+                        <Field
+                          type="checkbox"
+                          component={CheckboxWithLabel}
+                          name="enabled"
+                          id="enabled"
+                          checked={values.enabled}
+                          Label={{ label: 'Enabled' }}
+                        />
+                      </Grid>
+                      <Grid item xs={false} md={8}></Grid>
                       <Grid item xs={12} md={4}>
                         <Field
                           component={TextField}

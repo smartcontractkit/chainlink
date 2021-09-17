@@ -24,7 +24,6 @@ export class Chains {
     id: string,
     req: models.UpdateChainRequest,
   ): Promise<jsonapi.ApiResponse<models.Chain>> {
-    console.log(id, req)
     return this.update(req, { id })
   }
 
