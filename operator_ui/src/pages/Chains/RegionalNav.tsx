@@ -175,7 +175,7 @@ const RegionalNavComponent = ({
                     variant="h5"
                     color="secondary"
                   >
-                    - All associated RPC Nodes must be deleted separately
+                    - All associated RPC Nodes will be permanently deleted
                   </Typography>
                   <Typography
                     className={classes.infoText}
