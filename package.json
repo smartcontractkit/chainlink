@@ -5,7 +5,6 @@
     "contracts",
     "operator_ui",
     "tools",
-    "tools/echo-server",
     "tools/external-adapter"
   ],
   "engines": {

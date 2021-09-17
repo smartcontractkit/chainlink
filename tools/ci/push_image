@@ -16,7 +16,6 @@ set -ex
 #
 # Argument <image> is likely one of the following:
 # test-external-adapter
-# test-echo-server
 #
 
 if [ -z "$DOCKERHUB_PASS" ]
