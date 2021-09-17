@@ -28,15 +28,15 @@ type csa struct {
 	*keyManager
 }
 
-var _ CSA = csa{}
+var _ CSA = &csa{}
 
-func newCSAKeyStore(km *keyManager) csa {
-	return csa{
+func newCSAKeyStore(km *keyManager) *csa {
+	return &csa{
 		km,
 	}
 }
 
-func (ks csa) Get(id string) (csakey.KeyV2, error) {
+func (ks *csa) Get(id string) (csakey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -45,7 +45,7 @@ func (ks csa) Get(id string) (csakey.KeyV2, error) {
 	return ks.getByID(id)
 }
 
-func (ks csa) GetAll() (keys []csakey.KeyV2, _ error) {
+func (ks *csa) GetAll() (keys []csakey.KeyV2, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -57,7 +57,7 @@ func (ks csa) GetAll() (keys []csakey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks csa) Create() (csakey.KeyV2, error) {
+func (ks *csa) Create() (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -76,7 +76,7 @@ func (ks csa) Create() (csakey.KeyV2, error) {
 	return key, ks.safeAddKey(key)
 }
 
-func (ks csa) Add(key csakey.KeyV2) error {
+func (ks *csa) Add(key csakey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -88,7 +88,7 @@ func (ks csa) Add(key csakey.KeyV2) error {
 	return ks.safeAddKey(key)
 }
 
-func (ks csa) Delete(id string) (csakey.KeyV2, error) {
+func (ks *csa) Delete(id string) (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -102,7 +102,7 @@ func (ks csa) Delete(id string) (csakey.KeyV2, error) {
 	return key, err
 }
 
-func (ks csa) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
+func (ks *csa) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -118,7 +118,7 @@ func (ks csa) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
 	return key, ks.keyManager.safeAddKey(key)
 }
 
-func (ks csa) Export(id string, password string) ([]byte, error) {
+func (ks *csa) Export(id string, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -131,7 +131,7 @@ func (ks csa) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
+func (ks *csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1CSAKeys()
 	if err != nil {
 		return keys, err
@@ -146,7 +146,7 @@ func (ks csa) GetV1KeysAsV2() (keys []csakey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks csa) getByID(id string) (csakey.KeyV2, error) {
+func (ks *csa) getByID(id string) (csakey.KeyV2, error) {
 	key, found := ks.keyRing.CSA[id]
 	if !found {
 		return csakey.KeyV2{}, fmt.Errorf("unable to find CSA key with id %s", id)
