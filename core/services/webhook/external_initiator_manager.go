@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"go.uber.org/multierr"
 
@@ -24,7 +25,7 @@ import (
 type ExternalInitiatorManager interface {
 	Notify(webhookSpecID int32) error
 	DeleteJob(webhookSpecID int32) error
-	FindExternalInitiatorByName(name string) (models.ExternalInitiator, error)
+	FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error)
 }
 
 //go:generate mockery --name HTTPClient --output ./mocks/ --case=underscore
@@ -121,8 +122,8 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 	return nil
 }
 
-func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (models.ExternalInitiator, error) {
-	var exi models.ExternalInitiator
+func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
+	var exi bridges.ExternalInitiator
 	return exi, m.db.First(&exi, "lower(name) = lower(?)", name).Error
 }
 
@@ -133,7 +134,7 @@ type JobSpecNotice struct {
 	Params models.JSON `json:"params,omitempty"`
 }
 
-func newNotifyHTTPRequest(buf []byte, ei models.ExternalInitiator) (*http.Request, error) {
+func newNotifyHTTPRequest(buf []byte, ei bridges.ExternalInitiator) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodPost, ei.URL.String(), bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, err
@@ -142,7 +143,7 @@ func newNotifyHTTPRequest(buf []byte, ei models.ExternalInitiator) (*http.Reques
 	return req, nil
 }
 
-func newDeleteJobFromExternalInitiatorHTTPRequest(ei models.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
+func newDeleteJobFromExternalInitiatorHTTPRequest(ei bridges.ExternalInitiator, jobID uuid.UUID) (*http.Request, error) {
 	url := fmt.Sprintf("%s/%s", ei.URL.String(), jobID)
 
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
@@ -153,7 +154,7 @@ func newDeleteJobFromExternalInitiatorHTTPRequest(ei models.ExternalInitiator, j
 	return req, nil
 }
 
-func setHeaders(req *http.Request, ei models.ExternalInitiator) {
+func setHeaders(req *http.Request, ei bridges.ExternalInitiator) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(static.ExternalInitiatorAccessKeyHeader, ei.OutgoingToken)
 	req.Header.Set(static.ExternalInitiatorSecretHeader, ei.OutgoingSecret)
@@ -165,6 +166,6 @@ var _ ExternalInitiatorManager = (*NullExternalInitiatorManager)(nil)
 
 func (NullExternalInitiatorManager) Notify(int32) error    { return nil }
 func (NullExternalInitiatorManager) DeleteJob(int32) error { return nil }
-func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (models.ExternalInitiator, error) {
-	return models.ExternalInitiator{}, nil
+func (NullExternalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
+	return bridges.ExternalInitiator{}, nil
 }

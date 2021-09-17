@@ -446,18 +446,17 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 	etx.State = EthTxInProgress
 	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		err := tx.Create(attempt).Error
-
-		switch e := err.(type) {
-		case *pq.Error:
-			if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
-				return errEthTxRemoved
-			}
-		case *pgconn.PgError:
-			if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
-				return errEthTxRemoved
-			}
-		}
 		if err != nil {
+			switch e := err.(type) {
+			case *pq.Error:
+				if e.Constraint == "eth_tx_attempts_eth_tx_id_fkey" {
+					return errEthTxRemoved
+				}
+			case *pgconn.PgError:
+				if e.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+					return errEthTxRemoved
+				}
+			}
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
 		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")

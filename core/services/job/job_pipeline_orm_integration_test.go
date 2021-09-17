@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -42,10 +42,11 @@ func TestPipelineORM_Integration(t *testing.T) {
         answer2 [type=bridge name=election_winner index=1];
     `
 
-	config, oldORM := heavyweight.FullTestORM(t, "pipeline_orm", true, true)
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	config.SetDB(db)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
-	db := oldORM.DB
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
@@ -98,7 +99,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, db)
-		orm, _ := cltest.NewPipelineORM(t, config, db)
+
+		orm := pipeline.NewORM(db)
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
@@ -118,11 +120,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates runs", func(t *testing.T) {
 		clearJobsDb(t, db)
-		orm, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
+		orm := pipeline.NewORM(db)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil)
 		defer runner.Close()
-		jobORM := job.NewORM(db, cc, orm, eventBroadcaster, keyStore)
+		jobORM := job.NewORM(db, cc, orm, keyStore)
 		defer jobORM.Close()
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)

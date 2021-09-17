@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -24,13 +24,13 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
 
 	session := sessions.Default(c)
-	var sr models.SessionRequest
+	var sr clsessions.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
 		return
 	}
 
-	sid, err := sc.App.GetStore().CreateSession(sr)
+	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -54,7 +54,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

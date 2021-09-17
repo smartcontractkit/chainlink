@@ -21,7 +21,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	store := cltest.NewStoreWithConfig(t, cfg)
-	logger := store.Config.CreateProductionLogger()
+	logger := cfg.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
