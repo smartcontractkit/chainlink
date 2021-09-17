@@ -26,15 +26,15 @@ type vrf struct {
 	*keyManager
 }
 
-var _ VRF = vrf{}
+var _ VRF = &vrf{}
 
-func newVRFKeyStore(km *keyManager) vrf {
-	return vrf{
+func newVRFKeyStore(km *keyManager) *vrf {
+	return &vrf{
 		km,
 	}
 }
 
-func (ks vrf) Get(id string) (vrfkey.KeyV2, error) {
+func (ks *vrf) Get(id string) (vrfkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -43,7 +43,7 @@ func (ks vrf) Get(id string) (vrfkey.KeyV2, error) {
 	return ks.getByID(id)
 }
 
-func (ks vrf) GetAll() (keys []vrfkey.KeyV2, _ error) {
+func (ks *vrf) GetAll() (keys []vrfkey.KeyV2, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -55,7 +55,7 @@ func (ks vrf) GetAll() (keys []vrfkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks vrf) Create() (vrfkey.KeyV2, error) {
+func (ks *vrf) Create() (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -68,7 +68,7 @@ func (ks vrf) Create() (vrfkey.KeyV2, error) {
 	return key, ks.safeAddKey(key)
 }
 
-func (ks vrf) Add(key vrfkey.KeyV2) error {
+func (ks *vrf) Add(key vrfkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -80,7 +80,7 @@ func (ks vrf) Add(key vrfkey.KeyV2) error {
 	return ks.safeAddKey(key)
 }
 
-func (ks vrf) Delete(id string) (vrfkey.KeyV2, error) {
+func (ks *vrf) Delete(id string) (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -94,7 +94,7 @@ func (ks vrf) Delete(id string) (vrfkey.KeyV2, error) {
 	return key, err
 }
 
-func (ks vrf) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
+func (ks *vrf) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -110,7 +110,7 @@ func (ks vrf) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
 	return key, ks.keyManager.safeAddKey(key)
 }
 
-func (ks vrf) Export(id string, password string) ([]byte, error) {
+func (ks *vrf) Export(id string, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -123,7 +123,7 @@ func (ks vrf) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks vrf) GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error) {
+func (ks *vrf) GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -136,7 +136,7 @@ func (ks vrf) GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error) {
 	return key.GenerateProof(seed)
 }
 
-func (ks vrf) GetV1KeysAsV2(password string) (keys []vrfkey.KeyV2, _ error) {
+func (ks *vrf) GetV1KeysAsV2(password string) (keys []vrfkey.KeyV2, _ error) {
 	if len(password) == 0 {
 		return keys, nil
 	}
@@ -154,7 +154,7 @@ func (ks vrf) GetV1KeysAsV2(password string) (keys []vrfkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks vrf) getByID(id string) (vrfkey.KeyV2, error) {
+func (ks *vrf) getByID(id string) (vrfkey.KeyV2, error) {
 	key, found := ks.keyRing.VRF[id]
 	if !found {
 		return vrfkey.KeyV2{}, fmt.Errorf("unable to find VRF key with id %s", id)

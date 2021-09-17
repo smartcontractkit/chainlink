@@ -27,15 +27,15 @@ type p2p struct {
 	*keyManager
 }
 
-var _ P2P = p2p{}
+var _ P2P = &p2p{}
 
-func newP2PKeyStore(km *keyManager) p2p {
-	return p2p{
+func newP2PKeyStore(km *keyManager) *p2p {
+	return &p2p{
 		km,
 	}
 }
 
-func (ks p2p) Get(id string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Get(id string) (p2pkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -44,7 +44,7 @@ func (ks p2p) Get(id string) (p2pkey.KeyV2, error) {
 	return ks.getByID(id)
 }
 
-func (ks p2p) GetAll() (keys []p2pkey.KeyV2, _ error) {
+func (ks *p2p) GetAll() (keys []p2pkey.KeyV2, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -56,7 +56,7 @@ func (ks p2p) GetAll() (keys []p2pkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks p2p) Create() (p2pkey.KeyV2, error) {
+func (ks *p2p) Create() (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -69,7 +69,7 @@ func (ks p2p) Create() (p2pkey.KeyV2, error) {
 	return key, ks.safeAddKey(key)
 }
 
-func (ks p2p) Add(key p2pkey.KeyV2) error {
+func (ks *p2p) Add(key p2pkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -81,7 +81,7 @@ func (ks p2p) Add(key p2pkey.KeyV2) error {
 	return ks.safeAddKey(key)
 }
 
-func (ks p2p) Delete(id string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Delete(id string) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -95,7 +95,7 @@ func (ks p2p) Delete(id string) (p2pkey.KeyV2, error) {
 	return key, err
 }
 
-func (ks p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
+func (ks *p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -111,7 +111,7 @@ func (ks p2p) Import(keyJSON []byte, password string) (p2pkey.KeyV2, error) {
 	return key, ks.keyManager.safeAddKey(key)
 }
 
-func (ks p2p) Export(id string, password string) ([]byte, error) {
+func (ks *p2p) Export(id string, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -124,7 +124,7 @@ func (ks p2p) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks p2p) EnsureKey() (p2pkey.KeyV2, bool, error) {
+func (ks *p2p) EnsureKey() (p2pkey.KeyV2, bool, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -140,7 +140,7 @@ func (ks p2p) EnsureKey() (p2pkey.KeyV2, bool, error) {
 	return key, false, ks.safeAddKey(key)
 }
 
-func (ks p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
+func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1P2PKeys()
 	if err != nil {
 		return keys, err
@@ -155,7 +155,7 @@ func (ks p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks p2p) ConfiguredOrFirstKey(peerID p2pkey.PeerID) (p2pkey.KeyV2, error) {
+func (ks *p2p) ConfiguredOrFirstKey(peerID p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -174,7 +174,7 @@ func (ks p2p) ConfiguredOrFirstKey(peerID p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	return p2pkey.KeyV2{}, errors.New("multiple p2p keys found but peer ID was not set - you must specify P2P_PEER_ID if you have more than one key")
 }
 
-func (ks p2p) getByID(id string) (p2pkey.KeyV2, error) {
+func (ks *p2p) getByID(id string) (p2pkey.KeyV2, error) {
 	key, found := ks.keyRing.P2P[id]
 	if !found {
 		return p2pkey.KeyV2{}, fmt.Errorf("unable to find P2P key with id %s", id)
