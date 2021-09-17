@@ -18,9 +18,7 @@ before(async () => {
   linkTokenFactory = await ethers.getContractFactory("src/v0.4/LinkToken.sol:LinkToken");
   mockV3AggregatorFactory = await ethers.getContractFactory("src/v0.6/tests/MockV3Aggregator.sol:MockV3Aggregator");
   keeperRegistryFactory = await ethers.getContractFactory("src/v0.7/KeeperRegistry.sol:KeeperRegistry");
-  upkeepRegistrationRequestsFactory = await ethers.getContractFactory(
-    "src/v0.7/UpkeepRegistrationRequests.sol:UpkeepRegistrationRequests",
-  );
+  upkeepRegistrationRequestsFactory = await ethers.getContractFactory("src/v0.7/UpkeepRegistrationRequests.sol:UpkeepRegistrationRequests");
   upkeepMockFactory = await ethers.getContractFactory("src/v0.7/tests/UpkeepMock.sol:UpkeepMock");
 });
 
@@ -79,20 +77,18 @@ describe("UpkeepRegistrationRequests", () => {
     linkToken = await linkTokenFactory.connect(owner).deploy();
     gasPriceFeed = await mockV3AggregatorFactory.connect(owner).deploy(0, gasWei);
     linkEthFeed = await mockV3AggregatorFactory.connect(owner).deploy(9, linkEth);
-    registry = await keeperRegistryFactory
-      .connect(owner)
-      .deploy(
-        linkToken.address,
-        linkEthFeed.address,
-        gasPriceFeed.address,
-        paymentPremiumPPB,
-        blockCountPerTurn,
-        maxCheckGas,
-        stalenessSeconds,
-        gasCeilingMultiplier,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-      );
+    registry = await keeperRegistryFactory.connect(owner).deploy(
+      linkToken.address,
+      linkEthFeed.address,
+      gasPriceFeed.address,
+      paymentPremiumPPB,
+      blockCountPerTurn,
+      maxCheckGas,
+      stalenessSeconds,
+      gasCeilingMultiplier,
+      fallbackGasPrice,
+      fallbackLinkPrice,
+    );
 
     mock = await upkeepMockFactory.deploy();
 
