@@ -40,6 +40,8 @@ func NewEstimator(ethClient eth.Client, config Config) Estimator {
 		return NewFixedPriceEstimator(config)
 	case "Optimism":
 		return NewOptimismEstimator(config, ethClient)
+	case "Optimism2":
+		return NewOptimism2Estimator(config, ethClient)
 	default:
 		logger.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(config)
