@@ -6,6 +6,9 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"math/big"
+	"os"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -13,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
-	"math/big"
-	"os"
 )
 
 func panicErr(err error) {
@@ -67,26 +68,26 @@ func main() {
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
 		//coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
 		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
-		coordinatorDeployCmd.Parse(os.Args[2:])
-		coordinatorAddress,_, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
-				owner,
-				ec,
-				common.HexToAddress(*coordinatorDeployLinkAddress),
-				common.Address{}, // TODO test this
-				common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
+		panicErr(coordinatorDeployCmd.Parse(os.Args[2:]))
+		coordinatorAddress, _, _, err := vrf_coordinator_v2.DeployVRFCoordinatorV2(
+			owner,
+			ec,
+			common.HexToAddress(*coordinatorDeployLinkAddress),
+			common.Address{}, // TODO test this
+			common.HexToAddress(*coordinatorDeployLinkEthFeedAddress))
 		panicErr(err)
 		fmt.Println("Coordinator", coordinatorAddress.String())
 	case "coordinator-set-config":
 		coordinatorSetConfigCmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := coordinatorSetConfigCmd.String("address", "", "coordinator address")
 		// TODO: add config parameters as cli args here
-		coordinatorSetConfigCmd.Parse(os.Args[2:])
+		panicErr(coordinatorSetConfigCmd.Parse(os.Args[2:]))
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), ec)
 		panicErr(err)
 		_, err = coordinator.SetConfig(owner,
-			uint16(1),    // minRequestConfirmations
-			uint32(1000), // 0.0001 link flat fee
-			uint32(1000000), // max gas limit
+			uint16(1),                              // minRequestConfirmations
+			uint32(1000),                           // 0.0001 link flat fee
+			uint32(1000000),                        // max gas limit
 			uint32(60*60*24),                       // stalenessSeconds
 			uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 			big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
@@ -98,7 +99,7 @@ func main() {
 		registerKeyAddress := coordinatorRegisterKey.String("address", "", "coordinator address")
 		registerKeyUncompressedPubKey := coordinatorRegisterKey.String("pubkey", "", "uncompressed pubkey")
 		registerKeyOracleAddress := coordinatorRegisterKey.String("oracle-address", "", "oracle address")
-		coordinatorRegisterKey.Parse(os.Args[2:])
+		panicErr(coordinatorRegisterKey.Parse(os.Args[2:]))
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*registerKeyAddress), ec)
 		panicErr(err)
 		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
@@ -113,7 +114,7 @@ func main() {
 		coordinatorSub := flag.NewFlagSet("coordinator-subscription", flag.ExitOnError)
 		address := coordinatorSub.String("address", "", "coordinator address")
 		subID := coordinatorSub.Int64("sub", 0, "subID")
-		coordinatorSub.Parse(os.Args[2:])
+		panicErr(coordinatorSub.Parse(os.Args[2:]))
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*address), ec)
 		panicErr(err)
 		s, err := coordinator.GetSubscription(nil, uint64(*subID))
@@ -125,7 +126,7 @@ func main() {
 		keyHash := consumerDeployCmd.String("key-hash", "", "key hash")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		// TODO: add other params
-		consumerDeployCmd.Parse(os.Args[2:])
+		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
 		keyHashBytes := common.HexToHash(*keyHash)
 		consumerAddress, _, _, err := vrf_single_consumer_example.DeployVRFSingleConsumerExample(
 			owner,
@@ -133,15 +134,15 @@ func main() {
 			common.HexToAddress(*consumerCoordinator),
 			common.HexToAddress(*consumerLinkAddress),
 			uint32(300000), // gas callback
-			uint16(5), // confs
-			uint32(1), // words
+			uint16(5),      // confs
+			uint32(1),      // words
 			keyHashBytes)
 		panicErr(err)
 		fmt.Println("Consumer address", consumerAddress)
 	case "consumer-subscribe":
 		consumerSubscribeCmd := flag.NewFlagSet("consumer-subscribe", flag.ExitOnError)
-		consumerSubscribeAddress  := consumerSubscribeCmd.String("address", "", "consumer address")
-		consumerSubscribeCmd.Parse(os.Args[2:])
+		consumerSubscribeAddress := consumerSubscribeCmd.String("address", "", "consumer address")
+		panicErr(consumerSubscribeCmd.Parse(os.Args[2:]))
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerSubscribeAddress), ec)
 		panicErr(err)
 		_, err = consumer.Subscribe(owner)
@@ -149,8 +150,8 @@ func main() {
 	case "consumer-topup":
 		consumerTopupCmd := flag.NewFlagSet("consumer-topup", flag.ExitOnError)
 		consumerTopupAmount := consumerTopupCmd.String("amount", "", "amount")
-		consumerTopupAddress  := consumerTopupCmd.String("address", "", "consumer address")
-		consumerTopupCmd.Parse(os.Args[2:])
+		consumerTopupAddress := consumerTopupCmd.String("address", "", "consumer address")
+		panicErr(consumerTopupCmd.Parse(os.Args[2:]))
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerTopupAddress), ec)
 		panicErr(err)
 		amount, s := big.NewInt(0).SetString(*consumerTopupAmount, 10)
@@ -161,8 +162,8 @@ func main() {
 		panicErr(err)
 	case "consumer-request":
 		consumerRequestCmd := flag.NewFlagSet("consumer-request", flag.ExitOnError)
-		consumerRequestAddress  := consumerRequestCmd.String("address", "", "consumer address")
-		consumerRequestCmd.Parse(os.Args[2:])
+		consumerRequestAddress := consumerRequestCmd.String("address", "", "consumer address")
+		panicErr(consumerRequestCmd.Parse(os.Args[2:]))
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerRequestAddress), ec)
 		panicErr(err)
 		tx, err := consumer.RequestRandomWords(owner)
@@ -171,7 +172,7 @@ func main() {
 	case "consumer-print":
 		consumerPrint := flag.NewFlagSet("consumer-print", flag.ExitOnError)
 		address := consumerPrint.String("address", "", "consumer address")
-		consumerPrint.Parse(os.Args[2:])
+		panicErr(consumerPrint.Parse(os.Args[2:]))
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*address), ec)
 		panicErr(err)
 		rc, err := consumer.SRequestConfig(nil)
