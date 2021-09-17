@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,7 +73,7 @@ func TestUserController_NewAPIToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
 	require.NoError(t, err)
@@ -111,7 +111,7 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: cltest.Password,
 	})
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	req, err := json.Marshal(models.ChangeAuthTokenRequest{
+	req, err := json.Marshal(sessions.ChangeAuthTokenRequest{
 		Password: "wrong-password",
 	})
 	require.NoError(t, err)

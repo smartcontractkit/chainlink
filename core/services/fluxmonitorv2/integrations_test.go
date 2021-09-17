@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -443,7 +444,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		func(r *http.Request) {
 			b, err1 := ioutil.ReadAll(r.Body)
 			require.NoError(t, err1)
-			var m models.BridgeMetaDataJSON
+			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 				key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
@@ -453,7 +454,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	)
 	t.Cleanup(mockServer.Close)
 	u, _ := url.Parse(mockServer.URL)
-	app.Store.CreateBridgeType(&models.BridgeType{
+	app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 		Name: "bridge",
 		URL:  models.WebURL(*u),
 	})
@@ -753,7 +754,7 @@ ds1 -> ds1_parse
 
 	// node doesn't submit initial response, because flag is up
 	// Wait here so the next lower flags doesn't trigger immediately
-	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.Store, 0)
+	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
@@ -862,7 +863,7 @@ ds1 -> ds1_parse
 	jobID, err := strconv.ParseInt(j.ID, 10, 32)
 	require.NoError(t, err)
 
-	jse := cltest.WaitForSpecErrorV2(t, app.Store, int32(jobID), 1)
+	jse := cltest.WaitForSpecErrorV2(t, app.GetDB(), int32(jobID), 1)
 	assert.Contains(t, jse[0].Description, "Answer is outside acceptable range")
 }
 

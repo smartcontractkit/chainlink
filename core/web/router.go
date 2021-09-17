@@ -151,7 +151,7 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	group := r.Group("/debug", RequireAuth(app.GetStore(), AuthenticateBySession))
+	group := r.Group("/debug", RequireAuth(app.SessionORM(), AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetConfig().Dev() {
@@ -187,7 +187,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
-	auth := r.Group("/", RequireAuth(app.GetStore(), AuthenticateBySession))
+	auth := r.Group("/", RequireAuth(app.SessionORM(), AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -204,7 +204,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
-	authv2 := r.Group("/v2", RequireAuth(app.GetStore(), AuthenticateByToken, AuthenticateBySession))
+	authv2 := r.Group("/v2", RequireAuth(app.SessionORM(), AuthenticateByToken, AuthenticateBySession))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
@@ -322,7 +322,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	userOrEI := r.Group("/v2", RequireAuth(app.GetStore(),
+	userOrEI := r.Group("/v2", RequireAuth(app.SessionORM(),
 		AuthenticateExternalInitiator,
 		AuthenticateByToken,
 		AuthenticateBySession,

@@ -5,10 +5,11 @@ package mocks
 import (
 	context "context"
 
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 	gorm "gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	log "github.com/smartcontractkit/chainlink/core/services/log"
+
 	mock "github.com/stretchr/testify/mock"
 )
 

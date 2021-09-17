@@ -5,7 +5,8 @@ import (
 	"database/sql"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 type AuthorizerConfig interface {
@@ -22,7 +23,7 @@ var (
 	_ Authorizer = &neverAuthorizer{}
 )
 
-func NewAuthorizer(db *sql.DB, user *models.User, ei *models.ExternalInitiator) Authorizer {
+func NewAuthorizer(db *sql.DB, user *sessions.User, ei *bridges.ExternalInitiator) Authorizer {
 	if user != nil {
 		return &alwaysAuthorizer{}
 	} else if ei != nil {
@@ -33,10 +34,10 @@ func NewAuthorizer(db *sql.DB, user *models.User, ei *models.ExternalInitiator) 
 
 type eiAuthorizer struct {
 	db *sql.DB
-	ei models.ExternalInitiator
+	ei bridges.ExternalInitiator
 }
 
-func NewEIAuthorizer(db *sql.DB, ei models.ExternalInitiator) *eiAuthorizer {
+func NewEIAuthorizer(db *sql.DB, ei bridges.ExternalInitiator) *eiAuthorizer {
 	return &eiAuthorizer{db, ei}
 }
 
