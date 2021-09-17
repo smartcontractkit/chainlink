@@ -16,3 +16,4 @@ solidity_vrf_verifier_wrapper: ../../../contracts/solc/v0.6/VRFTestHelper.abi ..
 vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin 997f6d8d9ab8dc389d75d0945d6d2f897fd341d5ab187858622802607b6b9a1c
 vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin 2dfa44bc69c5d0d9e08948905499b1830a9b61e13fd82f49d19531be4a214b6a
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin b9fde692c1ebd6d029a21d79da528aa39f92f67ad51aa5c18f4c0605469f287b
+vrf_single_consumer_example: ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin b2ed5ca2aa6dd9ae1a06e7ff7a269e7c9ce027483705ecbd476d4df546787a0c
