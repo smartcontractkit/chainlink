@@ -82,13 +82,10 @@ type GeneralOnlyConfig interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
-	FeatureCronV2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	FeatureExternalInitiators() bool
-	FeatureFluxMonitorV2() bool
 	FeatureOffchainReporting() bool
-	FeatureWebhookV2() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	GlobalLockRetryInterval() models.Duration
@@ -241,8 +238,6 @@ type generalConfig struct {
 	p2ppeerIDmtx     sync.Mutex
 }
 
-const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
-
 // NewGeneralConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
 func NewGeneralConfig() GeneralConfig {
@@ -390,11 +385,6 @@ func (c *generalConfig) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
-// FeatureCronV2 enables the Cron v2 feature.
-func (c *generalConfig) FeatureCronV2() bool {
-	return c.getWithFallback("FeatureCronV2", ParseBool).(bool)
-}
-
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUICSAKeys() bool {
 	return c.getWithFallback("FeatureUICSAKeys", ParseBool).(bool)
@@ -510,19 +500,9 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
-// FeatureFluxMonitorV2 enables the Flux Monitor v2 job type.
-func (c *generalConfig) FeatureFluxMonitorV2() bool {
-	return c.getWithFallback("FeatureFluxMonitorV2", ParseBool).(bool)
-}
-
-// FeatureOffchainReporting enables the Flux Monitor job type.
+// FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
-	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
-}
-
-// FeatureWebhookV2 enables the Webhook v2 job type
-func (c *generalConfig) FeatureWebhookV2() bool {
-	return c.getWithFallback("FeatureWebhookV2", ParseBool).(bool)
+	return c.getWithFallback("FeatureOffchainReporting", ParseBool).(bool)
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor

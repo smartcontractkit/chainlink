@@ -1,7 +1,9 @@
 package evm
 
 import (
+	"math"
 	"math/big"
+	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -18,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true ?")
@@ -28,7 +31,10 @@ var _ ChainSet = &chainSet{}
 type ChainSet interface {
 	service.Service
 	Get(id *big.Int) (Chain, error)
+	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
+	Remove(id *big.Int) error
 	Default() (Chain, error)
+	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
 	Chains() []Chain
 	ChainCount() int
 	ORM() types.ORM
@@ -37,15 +43,18 @@ type ChainSet interface {
 type chainSet struct {
 	defaultID *big.Int
 	chains    map[string]*chain
+	chainsMu  sync.RWMutex
 	logger    *logger.Logger
 	orm       types.ORM
+	opts      ChainSetOpts
 }
 
 func (cll *chainSet) Start() (err error) {
-	for _, c := range cll.Chains() {
+	chains := cll.Chains()
+	for _, c := range chains {
 		err = multierr.Combine(err, c.Start())
 	}
-	cll.logger.Infof("EVM: Started %d chains, default chain ID is %d", len(cll.chains), cll.defaultID)
+	cll.logger.Infof("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String())
 	return
 }
 func (cll *chainSet) Close() (err error) {
@@ -73,15 +82,20 @@ func (cll *chainSet) Get(id *big.Int) (Chain, error) {
 		cll.logger.Debugf("Chain ID not specified, using default: %s", cll.defaultID.String())
 		return cll.Default()
 	}
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
 	c, exists := cll.chains[id.String()]
 	if exists {
 		return c, nil
 	}
-	return nil, errors.Errorf("chain not found with id %d", id)
+	return nil, errors.Errorf("chain not found with id %v", id.String())
 }
 
 func (cll *chainSet) Default() (Chain, error) {
-	if len(cll.chains) == 0 {
+	cll.chainsMu.RLock()
+	len := len(cll.chains)
+	cll.chainsMu.RUnlock()
+	if len == 0 {
 		return nil, ErrNoChains
 	}
 	if cll.defaultID == nil {
@@ -91,7 +105,104 @@ func (cll *chainSet) Default() (Chain, error) {
 	return cll.Get(cll.defaultID)
 }
 
+// Requires a lock on chainsMu
+func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
+	// preload nodes
+	// TODO: replace with math.MaxInt once we make go 1.17 mandatory
+	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt16)
+	if err != nil {
+		return err
+	}
+	dbchain.Nodes = nodes
+
+	cid := dbchain.ID.String()
+	chain, err := newChain(*dbchain, cll.opts)
+	if errors.Cause(err) == ErrNoPrimaryNode || len(dbchain.Nodes) == 0 {
+		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if err = chain.Start(); err != nil {
+		return err
+	}
+	cll.chains[cid] = chain
+	return nil
+}
+
+func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error) {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
+	cid := id.String()
+	if _, exists := cll.chains[cid]; exists {
+		return types.Chain{}, errors.Errorf("chain already exists with id %s", id.String())
+	}
+
+	bid := utils.NewBig(id)
+	dbchain, err := cll.orm.CreateChain(*bid, config)
+	if err != nil {
+		return types.Chain{}, err
+	}
+	return dbchain, cll.initializeChain(&dbchain)
+}
+
+func (cll *chainSet) Remove(id *big.Int) error {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
+	if err := cll.orm.DeleteChain(*utils.NewBig(id)); err != nil {
+		return err
+	}
+
+	cid := id.String()
+	chain, exists := cll.chains[cid]
+	if !exists {
+		// If a chain was removed from the DB that wasn't loaded into the memory set we're done.
+		return nil
+	}
+	delete(cll.chains, cid)
+	return chain.Close()
+}
+
+func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error) {
+	cll.chainsMu.Lock()
+	defer cll.chainsMu.Unlock()
+
+	// Update configuration stored in the database
+	bid := utils.NewBig(id)
+	dbchain, err := cll.orm.UpdateChain(*bid, enabled, config)
+	if err != nil {
+		return types.Chain{}, err
+	}
+
+	cid := id.String()
+
+	chain, exists := cll.chains[cid]
+
+	switch {
+	case exists && !enabled:
+		// Chain was toggled to disabled
+		delete(cll.chains, cid)
+		return types.Chain{}, chain.Close()
+	case !exists && enabled:
+		// Chain was toggled to enabled
+		return dbchain, cll.initializeChain(&dbchain)
+	case exists:
+		// Exists in memory, no toggling: Update in-memory chain
+		if err = chain.Config().Configure(config); err != nil {
+			return dbchain, err
+		}
+		// TODO: recreate ethClient etc if node set changed
+		// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
+	}
+
+	return dbchain, nil
+}
+
 func (cll *chainSet) Chains() (c []Chain) {
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
 	for _, chain := range cll.chains {
 		c = append(c, chain)
 	}
@@ -99,6 +210,8 @@ func (cll *chainSet) Chains() (c []Chain) {
 }
 
 func (cll *chainSet) ChainCount() int {
+	cll.chainsMu.RLock()
+	defer cll.chainsMu.RUnlock()
 	return len(cll.chains)
 }
 
@@ -143,7 +256,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	}
 	opts.Logger.Infof("Creating ChainSet with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	var err error
-	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), opts.Logger, opts.ORM}
+	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), sync.RWMutex{}, opts.Logger, opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
 		opts.Logger.Infof("EVM: Loading chain %s", cid)

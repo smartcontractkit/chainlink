@@ -310,6 +310,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		chc := ChainsController{app}
 		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
 		authv2.POST("/chains/evm", chc.Create)
+		authv2.GET("/chains/evm/:ID", chc.Show)
+		authv2.PATCH("/chains/evm/:ID", chc.Update)
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
 
 		nc := NodesController{app}

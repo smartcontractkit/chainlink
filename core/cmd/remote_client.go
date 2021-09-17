@@ -324,7 +324,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 }
 
 func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
+	return url.QueryEscape(strings.TrimSpace(password))
 }
 
 // SetLogLevel sets the log level on the node
@@ -363,9 +363,6 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	// Sets logSql to true || false based on the --enabled flag
 	logSql := c.Bool("enable")
 
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {
