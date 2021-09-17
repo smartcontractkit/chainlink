@@ -16,8 +16,8 @@
  * limitations under the License.
  */
 
-// NOTICE: pragma different from original (updated from `^0.6.11` -> `^0.8.6`)
-pragma solidity ^0.8.6;
+// NOTICE: pragma change from original (^0.6.11)
+pragma solidity ^0.8.0;
 
 import "./IBridge.sol";
 import "./IMessageProvider.sol";
@@ -54,6 +54,17 @@ interface IInbox is IMessageProvider {
         uint256 maxGas,
         uint256 gasPriceBid,
         address destAddr,
+        bytes calldata data
+    ) external payable returns (uint256);
+
+    function createRetryableTicketNoRefundAliasRewrite(
+        address destAddr,
+        uint256 arbTxCallValue,
+        uint256 maxSubmissionCost,
+        address submissionRefundAddress,
+        address valueRefundAddress,
+        uint256 maxGas,
+        uint256 gasPriceBid,
         bytes calldata data
     ) external payable returns (uint256);
 
