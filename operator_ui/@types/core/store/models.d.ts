@@ -236,6 +236,10 @@ declare module 'core/store/models' {
     chainID: string
     config: Record<string, JSONPrimitive>
   }
+
+  export interface UpdateChainRequest {
+    config: Record<string, JSONPrimitive>
+  }
   export interface CreateNodeRequest {
     name: string
     evmChainID: string
