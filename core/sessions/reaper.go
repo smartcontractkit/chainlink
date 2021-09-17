@@ -1,16 +1,16 @@
-package services
+package sessions
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type sessionReaper struct {
-	db     *gorm.DB
+	db     *sql.DB
 	config SessionReaperConfig
 }
 
@@ -20,7 +20,7 @@ type SessionReaperConfig interface {
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
-func NewSessionReaper(db *gorm.DB, config SessionReaperConfig) utils.SleeperTask {
+func NewSessionReaper(db *sql.DB, config SessionReaperConfig) utils.SleeperTask {
 	return utils.NewSleeperTask(&sessionReaper{
 		db,
 		config,
@@ -38,5 +38,6 @@ func (sr *sessionReaper) Work() {
 
 // DeleteStaleSessions deletes all sessions before the passed time.
 func (sr *sessionReaper) deleteStaleSessions(before time.Time) error {
-	return sr.db.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
+	_, err := sr.db.Exec("DELETE FROM sessions WHERE last_used < $1", before)
+	return err
 }

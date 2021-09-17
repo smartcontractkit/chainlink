@@ -163,7 +163,9 @@ func TestJSON_Add(t *testing.T) {
 
 			json, err := json.Add(test.key, test.value)
 			assert.Equal(t, test.errored, (err != nil))
-			assert.Equal(t, test.want, json.String())
+			if err == nil {
+				assert.Equal(t, test.want, json.String())
+			}
 		})
 	}
 }

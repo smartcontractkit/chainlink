@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -82,13 +83,10 @@ type GeneralOnlyConfig interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
-	FeatureCronV2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	FeatureExternalInitiators() bool
-	FeatureFluxMonitorV2() bool
 	FeatureOffchainReporting() bool
-	FeatureWebhookV2() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	GlobalLockRetryInterval() models.Duration
@@ -159,6 +157,7 @@ type GeneralOnlyConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
+	SetKeyStore(keystore.Master)
 	SetLogLevel(ctx context.Context, value string) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
@@ -234,6 +233,7 @@ type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	ORM              *ORM
+	ks               keystore.Master
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
@@ -329,6 +329,11 @@ func (c *generalConfig) SetDB(db *gorm.DB) {
 	c.ORM = orm
 }
 
+// SetKeyStore provides reference to the keystore for runtime configuration values
+func (c *generalConfig) SetKeyStore(ks keystore.Master) {
+	c.ks = ks
+}
+
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
 	c.dialect = d
 }
@@ -386,11 +391,6 @@ func (c *generalConfig) BridgeResponseURL() *url.URL {
 // ClientNodeURL is the URL of the Ethereum node this Chainlink node should connect to.
 func (c *generalConfig) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
-}
-
-// FeatureCronV2 enables the Cron v2 feature.
-func (c *generalConfig) FeatureCronV2() bool {
-	return c.getWithFallback("FeatureCronV2", ParseBool).(bool)
 }
 
 // FeatureUICSAKeys enables the CSA Keys UI Feature.
@@ -508,19 +508,9 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
 }
 
-// FeatureFluxMonitorV2 enables the Flux Monitor v2 job type.
-func (c *generalConfig) FeatureFluxMonitorV2() bool {
-	return c.getWithFallback("FeatureFluxMonitorV2", ParseBool).(bool)
-}
-
-// FeatureOffchainReporting enables the Flux Monitor job type.
+// FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
-	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
-}
-
-// FeatureWebhookV2 enables the Webhook v2 job type
-func (c *generalConfig) FeatureWebhookV2() bool {
-	return c.getWithFallback("FeatureWebhookV2", ParseBool).(bool)
+	return c.getWithFallback("FeatureOffchainReporting", ParseBool).(bool)
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
@@ -962,18 +952,17 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		c.p2ppeerIDmtx.Lock()
 		defer c.p2ppeerIDmtx.Unlock()
 		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
-			var keys []p2pkey.EncryptedP2PKey
-			if c.ORM == nil {
-				err = errors.New("db was not set on config")
+			if c.ks == nil {
+				err = errors.New("keystore was not set on config")
 				return
 			}
-			err2 := c.ORM.db.Order("created_at asc, id asc").Find(&keys).Error
+			keys, err2 := c.ks.P2P().GetAll()
 			if err2 != nil {
-				logger.Warnw("Failed to load keys, falling back to env", "err", err2)
+				logger.Warnw("Failed to load keys, falling back to env", "err", err2.Error())
 				return
 			}
 			if len(keys) > 0 {
-				peerID := keys[0].PeerID
+				peerID := keys[0].PeerID()
 				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
 				c.viper.Set(EnvVarName("P2PPeerID"), peerID)
 				if len(keys) > 1 {
