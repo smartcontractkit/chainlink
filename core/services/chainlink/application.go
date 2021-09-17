@@ -146,12 +146,12 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 	sqlxDB := postgres.UnwrapGormDB(store.DB)
 	gormTxm := postgres.NewGormTransactionManager(store.DB)
 
-	setupConfig(cfg, store.DB)
-
-	healthChecker := health.NewChecker()
-
 	scryptParams := utils.GetScryptParams(cfg)
 	keyStore := keystore.New(store.DB, scryptParams)
+
+	setupConfig(cfg, store.DB, keyStore)
+
+	healthChecker := health.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
@@ -424,8 +424,9 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
 }
 
-func setupConfig(cfg config.GeneralConfig, db *gorm.DB) {
+func setupConfig(cfg config.GeneralConfig, db *gorm.DB, ks keystore.Master) {
 	cfg.SetDB(db)
+	cfg.SetKeyStore(ks)
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also

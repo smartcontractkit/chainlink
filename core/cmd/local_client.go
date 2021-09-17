@@ -251,14 +251,14 @@ func ensureKeys(ctx context.Context, cfg config.GeneralConfig, ethClient eth.Cli
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 	if !didExist {
-		logger.Infow("Created OCR key with ID %s", ocrKey.ID())
+		logger.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
 	p2pKey, didExist, err := ks.P2P().EnsureKey()
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 	if !didExist {
-		logger.Infow("Created P2P key with ID %s", p2pKey.ID())
+		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
 	return nil
