@@ -3,7 +3,6 @@ package orm
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -17,15 +16,15 @@ import (
 	"go.uber.org/multierr"
 )
 
+var (
+	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
+	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
+)
+
 // NewLockingStrategy returns the locking strategy for a particular dialect
 // to ensure exlusive access to the orm.
 func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
-	switch ct.name {
-	case dialects.Postgres, dialects.PostgresWithoutLock, dialects.TransactionWrappedPostgres:
-		return NewPostgresLockingStrategy(ct)
-	}
-
-	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", ct.dialect, ct.uri)
+	return NewPostgresLockingStrategy(ct)
 }
 
 // LockingStrategy employs the locking and unlocking of an underlying
@@ -149,6 +148,13 @@ func logRetry(count int) {
 	} else if count%1000 == 0 || count&(count-1) == 0 {
 		logger.Infow("Still waiting for lock...", "failCount", count)
 	}
+}
+
+func displayTimeout(timeout models.Duration) string {
+	if timeout.IsInstant() {
+		return "indefinite"
+	}
+	return timeout.String()
 }
 
 // Unlock unlocks the locked postgres advisory lock.

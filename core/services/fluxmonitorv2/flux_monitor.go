@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -700,7 +700,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	if err != nil {
 		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
 	} else {
-		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		metaDataForBridge, err = bridges.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 		if err != nil {
 			newRoundLogger.Warnw("Error marshalling roundState for request meta", "err", err)
 		}
@@ -904,7 +904,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	if err != nil {
 		l.Warnw("Couldn't read latest round data for request meta", "err", err)
 	} else {
-		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		metaDataForBridge, err = bridges.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 		if err != nil {
 			l.Warnw("Error marshalling roundState for request meta", "err", err)
 		}

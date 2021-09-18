@@ -12,6 +12,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
@@ -63,9 +64,12 @@ type EthTx struct {
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
-	Meta       datatypes.JSON
+	Meta       *datatypes.JSON
 	Subject    uuid.NullUUID
 	EVMChainID utils.Big `gorm:"column:evm_chain_id"`
+
+	PipelineTaskRunID uuid.NullUUID
+	MinConfirmations  cnull.Uint32
 }
 
 func (e EthTx) GetError() error {

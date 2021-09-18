@@ -187,6 +187,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		var err error
 		etx1, err = cltest.FindEthTxWithAttempts(db, etx1.ID)
+		assert.NoError(t, err)
 		require.Len(t, etx1.EthTxAttempts, 1)
 		attempt1_1 = etx1.EthTxAttempts[0]
 		require.NoError(t, err)
