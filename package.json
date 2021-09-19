@@ -5,8 +5,6 @@
     "contracts",
     "operator_ui",
     "tools",
-    "tools/cypress-job-server",
-    "tools/echo-server",
     "tools/external-adapter"
   ],
   "engines": {
