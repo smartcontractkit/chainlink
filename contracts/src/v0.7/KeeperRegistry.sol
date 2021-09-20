@@ -181,7 +181,9 @@ contract KeeperRegistry is
     uint16 gasCeilingMultiplier,
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice
-  ) {
+  )
+    ConfirmedOwner(msg.sender)
+  {
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
     FAST_GAS_FEED = AggregatorV3Interface(fastGasFeed);
@@ -329,7 +331,7 @@ contract KeeperRegistry is
   {
     uint64 maxValid = s_upkeep[id].maxValidBlocknumber;
     bool notCanceled = maxValid == UINT64_MAX;
-    bool isOwner = msg.sender == owner;
+    bool isOwner = msg.sender == owner();
     require(notCanceled || (isOwner && maxValid > block.number), "too late to cancel upkeep");
     require(isOwner || msg.sender == s_upkeep[id].admin, "only owner or admin");
 
@@ -999,7 +1001,7 @@ contract KeeperRegistry is
    * @dev Reverts if called by anyone other than the contract owner or registrar.
    */
   modifier onlyOwnerOrRegistrar() {
-    require(msg.sender == owner || msg.sender == s_registrar, "Only callable by owner or registrar");
+    require(msg.sender == owner() || msg.sender == s_registrar, "Only callable by owner or registrar");
     _;
   }
 

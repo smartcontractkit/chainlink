@@ -76,7 +76,9 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     constructor(
         address LINKAddress,
         uint256 minimumLINKJuels
-    ) {
+    )
+        ConfirmedOwner(msg.sender)
+    {
         LINK = LinkTokenInterface(LINKAddress);
         s_minLINKJuels = minimumLINKJuels;
     }
@@ -184,7 +186,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
       external
     {
         PendingRequest memory request = s_pendingRequests[hash];
-        require(msg.sender == request.admin || msg.sender == owner, "only admin / owner can cancel");
+        require(msg.sender == request.admin || msg.sender == owner(), "only admin / owner can cancel");
         require(request.admin != address(0), "request not found");
         delete s_pendingRequests[hash];
         require(LINK.transfer(msg.sender, request.balance), "LINK token transfer failed");
