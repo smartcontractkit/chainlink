@@ -32,7 +32,7 @@ type NetworkingConfig interface {
 	P2PListenIP() net.IP
 	P2PListenPort() uint16
 	P2PNetworkingStack() ocrnetworking.NetworkingStack
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() (string, error)
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
@@ -96,7 +96,18 @@ func (p *SingletonPeerWrapper) Start() error {
 		var key p2pkey.KeyV2
 		var matched bool
 		checkedKeys := []string{}
-		configuredPeerID, err := p.config.P2PPeerID()
+		peerIDStr, err := p.config.P2PPeerID()
+		configuredPeerID := p2pkey.PeerID(peerIDStr)
+
+		if peerIDStr == "" {
+			if len(p2pkeys) == 1 {
+				logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+				configuredPeerID = p2pkeys[0].PeerID()
+			} else {
+				return errors.Errorf("multiple p2p keys found but peer ID was not set. You must specify P2P_PEER_ID if you have more than one key")
+			}
+		}
+
 		if err != nil {
 			return errors.Wrap(err, "failed to start peer wrapper")
 		}
@@ -111,9 +122,6 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 		keys := strings.Join(checkedKeys, ", ")
 		if !matched {
-			if configuredPeerID == "" {
-				return errors.Errorf("multiple p2p keys found but peer ID was not set. You must specify P2P_PEER_ID if you have more than one key. Keys available: %s", keys)
-			}
 			return errors.Errorf("multiple p2p keys found but none matched the given P2P_PEER_ID of '%s'. Keys available: %s", configuredPeerID, keys)
 		}
 

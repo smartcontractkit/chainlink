@@ -349,7 +349,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			nil,
 			nil,
@@ -371,7 +371,7 @@ ds1 -> ds1_parse;
 		isBootstrapPeer    = true
 `
 		peerID := key.PeerID()
-		config.Overrides.P2PPeerID = &peerID
+		config.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		os, err = offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
@@ -388,7 +388,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -419,7 +419,7 @@ ds1 -> ds1_parse;
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
 		peerID := key.PeerID()
 		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
-		config.Overrides.P2PPeerID = &peerID
+		config.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
@@ -443,7 +443,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -474,13 +474,13 @@ ds1 -> ds1_parse;
 		peerID := key.PeerID()
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
+		config.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -505,13 +505,13 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
+		config.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -537,14 +537,14 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
+		config.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,

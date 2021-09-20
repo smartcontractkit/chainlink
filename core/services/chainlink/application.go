@@ -255,7 +255,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			pipelineRunner,
 			concretePW,
 			monitoringEndpointGen,

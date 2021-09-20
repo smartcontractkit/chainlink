@@ -9,12 +9,10 @@ import (
 	"testing"
 	"time"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -86,7 +84,7 @@ type GeneralConfigOverrides struct {
 	OCRTransmitterAddress                     *ethkey.EIP55Address
 	P2PBootstrapPeers                         []string
 	P2PListenPort                             null.Int
-	P2PPeerID                                 *p2pkey.PeerID
+	P2PPeerID                                 null.String
 	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
@@ -191,16 +189,14 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 	return 12345
 }
 
-func (c *TestGeneralConfig) P2PPeerID() (p2pkey.PeerID, error) {
+func (c *TestGeneralConfig) P2PPeerID() (string, error) {
 	if c.Overrides.P2PPeerIDError != nil {
 		return "", c.Overrides.P2PPeerIDError
 	}
-	if c.Overrides.P2PPeerID != nil {
-		return *c.Overrides.P2PPeerID, nil
+	if c.Overrides.P2PPeerID.Valid {
+		return c.Overrides.P2PPeerID.String, nil
 	}
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
-	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID), nil
+	return DefaultPeerID, nil
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {

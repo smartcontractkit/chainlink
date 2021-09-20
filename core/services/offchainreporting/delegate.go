@@ -46,7 +46,7 @@ type Config interface {
 	OCRTraceLogging() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PBootstrapPeers() ([]string, error)
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() (string, error)
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
 	FlagsContractAddress() string
 }
@@ -54,7 +54,7 @@ type Config interface {
 type Delegate struct {
 	db                    *gorm.DB
 	jobORM                job.ORM
-	keyStore              keystore.OCR
+	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -68,7 +68,7 @@ const ConfigOverriderPollInterval = 30 * time.Second
 func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
-	keyStore keystore.OCR,
+	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -142,9 +142,21 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PPeerID != nil {
 		peerID = *concreteSpec.P2PPeerID
 	} else {
-		peerID, err = chain.Config().P2PPeerID()
+		peerIDStr, err := chain.Config().P2PPeerID()
 		if err != nil {
 			return nil, err
+		}
+		p2pkeys, err := d.keyStore.P2P().GetAll()
+		if err != nil {
+			return nil, errors.Wrap(err, "while getting all p2p keys")
+		}
+		if peerIDStr == "" {
+			if len(p2pkeys) == 1 {
+				logger.Warn("No P2P_PEER_ID set, defaulting to first key in database")
+				peerID = p2pkeys[0].PeerID()
+			} else {
+				return nil, errors.Errorf("multiple p2p keys found but peer ID was not set. You must specify P2P_PEER_ID if you have more than one key.")
+			}
 		}
 	}
 	peerWrapper := d.peerWrapper
@@ -208,7 +220,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				return nil, err
 			}
 		}
-		ocrkey, err := d.keyStore.Get(kb)
+		ocrkey, err := d.keyStore.OCR().Get(kb)
 		if err != nil {
 			return nil, err
 		}

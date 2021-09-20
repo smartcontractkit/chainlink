@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
@@ -37,7 +38,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		peerID := k.PeerID()
-		cfg.Overrides.P2PPeerID = &peerID
+		cfg.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 
 		require.NoError(t, err)
 
@@ -62,7 +63,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db)
 
-		cfg.Overrides.P2PPeerID = &cltest.DefaultP2PPeerID
+		cfg.Overrides.P2PPeerID = null.NewString(cltest.DefaultPeerID, true)
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
@@ -77,7 +78,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		peerID := k2.PeerID()
-		cfg.Overrides.P2PPeerID = &peerID
+		cfg.Overrides.P2PPeerID = null.NewString(peerID.String(), true)
 
 		require.NoError(t, err)
 
@@ -90,7 +91,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db)
 
-		cfg.Overrides.P2PPeerID = &cltest.DefaultP2PPeerID
+		cfg.Overrides.P2PPeerID = null.NewString(cltest.DefaultPeerID, true)
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 

@@ -138,7 +138,7 @@ type GeneralOnlyConfig interface {
 	P2PListenPortRaw() string
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() (string, error)
 	P2PPeerIDRaw() string
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
@@ -157,7 +157,6 @@ type GeneralOnlyConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
-	SetKeyStore(keystore.Master)
 	SetLogLevel(ctx context.Context, value string) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
@@ -327,11 +326,6 @@ func (c *generalConfig) Validate() error {
 func (c *generalConfig) SetDB(db *gorm.DB) {
 	orm := NewORM(db)
 	c.ORM = orm
-}
-
-// SetKeyStore provides reference to the keystore for runtime configuration values
-func (c *generalConfig) SetKeyStore(ks keystore.Master) {
-	c.ks = ks
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -946,37 +940,7 @@ func (c *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
-	var err error
-	func() {
-		c.p2ppeerIDmtx.Lock()
-		defer c.p2ppeerIDmtx.Unlock()
-		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
-			if c.ks == nil {
-				err = errors.New("keystore was not set on config")
-				return
-			}
-			keys, err2 := c.ks.P2P().GetAll()
-			if err2 != nil {
-				logger.Warnw("Failed to load keys, falling back to env", "err", err2.Error())
-				return
-			}
-			if len(keys) > 0 {
-				peerID := keys[0].PeerID()
-				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				c.viper.Set(EnvVarName("P2PPeerID"), peerID)
-				if len(keys) > 1 {
-					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
-				}
-			} else {
-				err = errors.New("the configuration variable P2P_PEER_ID was not specified and found no P2P keys in the database. Please set P2P_PEER_ID explicitly or add at least one key")
-			}
-		}
-	}()
-	if err != nil {
-		return "", err
-	}
-
+func (c *generalConfig) P2PPeerID() (string, error) {
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
 		var pid p2pkey.PeerID
@@ -984,9 +948,8 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
 		}
-		return pid, nil
 	}
-	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID env var is not set")
+	return pidStr, nil
 }
 
 // P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
