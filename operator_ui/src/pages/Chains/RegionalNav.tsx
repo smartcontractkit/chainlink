@@ -73,8 +73,8 @@ const styles = (theme: Theme) =>
       lineHeight: '1rem',
     },
     dialogPaper: {
-      minHeight: '240px',
-      maxHeight: '240px',
+      minHeight: '260px',
+      maxHeight: '260px',
       minWidth: '670px',
       maxWidth: '670px',
       overflow: 'hidden',
@@ -176,6 +176,13 @@ const RegionalNavComponent = ({
                     variant="h5"
                     color="secondary"
                   >
+                    - Disabling the chain may be a safer option
+                  </Typography>
+                  <Typography
+                    className={classes.infoText}
+                    variant="h5"
+                    color="secondary"
+                  >
                     - All associated RPC Nodes will be permanently deleted
                   </Typography>
                   <Typography
@@ -232,19 +239,19 @@ const RegionalNavComponent = ({
                     Add Node
                   </Button>
                 </Link>
-                <Button
-                  className={classes.regionalNavButton}
-                  onClick={() => setModalOpen(true)}
-                  variant="danger"
-                >
-                  Delete Chain
-                </Button>
                 <Link href={`/chains/${chainId}/edit`}>
                   <Button
                     className={classes.regionalNavButton}
                     variant="secondary"
                   >
                     Update Chain
+                  </Button>
+                  <Button
+                    className={classes.regionalNavButton}
+                    onClick={() => setModalOpen(true)}
+                    variant="danger"
+                  >
+                    Delete Chain
                   </Button>
                 </Link>
               </Grid>
