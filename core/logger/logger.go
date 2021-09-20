@@ -17,16 +17,10 @@ import (
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 type Logger interface {
-	// Write logs a message at the Info level and returns the length
-	// of the given bytes.
-	Write(p []byte) (n int, err error) // io.Writer
-
 	// Named creates a new named logger with the given name
 	Named(name string) Logger
 	// With creates a new logger with the given arguments
 	With(args ...interface{}) Logger
-	// WithError creates a new logger with the given error
-	WithError(err error) Logger
 	// WithCallerSkip creates a new logger with the number of callers skipped by
 	// caller annotation increased by add.
 	WithCallerSkip(add int) Logger
@@ -127,10 +121,6 @@ func (l *zapLogger) Named(name string) Logger {
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name).With("id", name)
 	newLogger.fields = copyFields(l.fields, "id", name)
 	return &newLogger
-}
-
-func (l *zapLogger) WithError(err error) Logger {
-	return l.With("error", err)
 }
 
 func (l *zapLogger) WithCallerSkip(skip int) Logger {
