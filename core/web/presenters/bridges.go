@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 )
 
 // BridgeResource represents a Bridge JSONAPI resource.
@@ -26,7 +26,7 @@ func (r BridgeResource) GetName() string {
 }
 
 // NewBridgeResource constructs a new BridgeResource
-func NewBridgeResource(b models.BridgeType) *BridgeResource {
+func NewBridgeResource(b bridges.BridgeType) *BridgeResource {
 	return &BridgeResource{
 		// Uses the name as the id...Should change this to the id
 		JAID:                   NewJAID(b.Name.String()),

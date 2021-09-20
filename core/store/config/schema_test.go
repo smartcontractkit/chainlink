@@ -74,13 +74,10 @@ func TestConfigSchema(t *testing.T) {
 		"ExplorerSecret":                             "EXPLORER_SECRET",
 		"ExplorerURL":                                "EXPLORER_URL",
 		"FMDefaultTransactionQueueDepth":             "FM_DEFAULT_TRANSACTION_QUEUE_DEPTH",
-		"FeatureCronV2":                              "FEATURE_CRON_V2",
 		"FeatureExternalInitiators":                  "FEATURE_EXTERNAL_INITIATORS",
-		"FeatureFluxMonitorV2":                       "FEATURE_FLUX_MONITOR_V2",
 		"FeatureOffchainReporting":                   "FEATURE_OFFCHAIN_REPORTING",
 		"FeatureUICSAKeys":                           "FEATURE_UI_CSA_KEYS",
 		"FeatureUIFeedsManager":                      "FEATURE_UI_FEEDS_MANAGER",
-		"FeatureWebhookV2":                           "FEATURE_WEBHOOK_V2",
 		"FlagsContractAddress":                       "FLAGS_CONTRACT_ADDRESS",
 		"GasEstimatorMode":                           "GAS_ESTIMATOR_MODE",
 		"GasUpdaterBatchSize":                        "GAS_UPDATER_BATCH_SIZE",
@@ -186,15 +183,19 @@ func TestConfigSchema(t *testing.T) {
 		// ╰───╯
 
 		msg := utils.BoxOutput(`New configuration variable detected: '%s'. Please take the following steps:
-0. Make sure that the method in config.go has a comment explaining in detail
+0. Are you SURE that this config variable ought to apply to ALL chains? If this
+   needs to be a chain-specific variable, you should follow the pattern of making
+   it a Global and using the chain-specific overridable version in the chain
+   scoped config instead.
+1. Make sure that the method in config.go has a comment explaining in detail
    what the new config var does
-1. Update the Changelog
-2. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
+2. Update the Changelog
+3. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
    think this variable needs to be shown in the UI
-3. Make a PR into the documentation page if node operators might need to use
+4. Make a PR into the documentation page if node operators might need to use
    this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%%20Operators/configuration-variables.md).
    Don't forget to update TOC.
-4. Add your new config variable to this test`, field.Name)
+5. Add your new config variable to this test`, field.Name)
 		assert.True(t, found, msg)
 		env := field.Tag.Get("env")
 		assert.Equal(t, item, env)

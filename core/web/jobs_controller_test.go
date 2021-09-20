@@ -401,9 +401,10 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
 	app := cltest.NewApplicationWithKey(t)
+
+	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
+	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
-	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, app.GetDB().Create(bridge).Error)

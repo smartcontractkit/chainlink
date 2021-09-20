@@ -208,16 +208,6 @@ func (r *runner) ExecuteRun(
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
-	if run.FailEarly {
-		// return before FinalResult() panics
-		return run, taskRunResults, nil
-	}
-
-	finalResult := taskRunResults.FinalResult()
-	if finalResult.HasErrors() {
-		PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
-	}
-
 	return run, taskRunResults, nil
 }
 
@@ -354,6 +344,7 @@ func (r *runner) run(
 
 		if run.HasErrors() {
 			run.State = RunStatusErrored
+			PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Inc()
 		} else {
 			run.State = RunStatusCompleted
 		}
@@ -455,10 +446,10 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	ctx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
+	queryCtx, cancel := postgres.DefaultQueryCtxWithParent(ctx)
 	defer cancel()
 
-	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(ctx, func(ctx context.Context) error {
+	err = postgres.NewGormTransactionManager(r.orm.DB()).TransactWithContext(queryCtx, func(ctx context.Context) error {
 		tx := postgres.TxFromContext(ctx, r.orm.DB())
 
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run

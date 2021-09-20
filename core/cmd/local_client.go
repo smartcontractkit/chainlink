@@ -31,11 +31,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -67,7 +67,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
 
-	store := app.GetStore()
+	sessionORM := app.SessionORM()
 	keyStore := app.GetKeyStore()
 	err = cli.KeyStoreAuthenticator.authenticate(c, keyStore)
 	if err != nil {
@@ -94,11 +94,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		logger.Warn(e)
 	}
 
-	var user models.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(store); err != nil && err != ErrNoCredentialFile {
+	var user sessions.User
+	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
 		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(store); err != nil {
+	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
 		if err == ErrorNoAPICredentialsAvailable {
 			return cli.errorOut(err)
 		}
@@ -115,8 +115,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	for _, ch := range app.GetChainSet().Chains() {
-		skey, sexisted, fkey, fexisted, err := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
-		if err != nil {
+		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
+		if err2 != nil {
 			return cli.errorOut(err)
 		}
 		if !fexisted {
@@ -125,6 +125,21 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		if !sexisted {
 			logger.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
 		}
+	}
+
+	ocrKey, didExist, err := app.GetKeyStore().OCR().EnsureKey()
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
+	}
+	if !didExist {
+		logger.Infof("Created OCR key with ID %s", ocrKey.ID())
+	}
+	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
+	}
+	if !didExist {
+		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -587,13 +602,13 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, serr)
 		}
 	}()
-	store := app.GetStore()
-	user, err := store.FindUser()
+	orm := app.SessionORM()
+	user, err := orm.FindUser()
 	if err == nil {
 		logger.Info("No such API user ", user.Email)
 		return err
 	}
-	err = store.DeleteUser()
+	err = orm.DeleteUser()
 	if err == nil {
 		logger.Info("Deleted API user ", user.Email)
 	}

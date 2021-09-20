@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -406,7 +407,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	metaDataForBridge, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
+	metaDataForBridge, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)

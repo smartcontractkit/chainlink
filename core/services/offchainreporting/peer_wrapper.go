@@ -89,6 +89,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		if len(p2pkeys) == 0 {
+			logger.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 			return nil
 		}
 
@@ -117,7 +118,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		p.PeerID = key.PeerID()
-		if err != nil {
+		if p.PeerID == "" {
 			return errors.Wrap(err, "could not get peer ID")
 		}
 		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)

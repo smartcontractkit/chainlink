@@ -198,7 +198,7 @@ type FakeTicker struct {
 
 func NewFakeTicker() *FakeTicker {
 	return &FakeTicker{
-		ticks: make(chan time.Time, 0),
+		ticks: make(chan time.Time),
 	}
 }
 

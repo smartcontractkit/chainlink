@@ -7,8 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
@@ -30,20 +29,20 @@ func authSuccess(web.AuthStorer, *gin.Context) error {
 }
 
 type userFindFailer struct {
-	*store.Store
+	sessions.ORM
 	err error
 }
 
-func (u userFindFailer) FindUser() (models.User, error) {
-	return models.User{}, u.err
+func (u userFindFailer) FindUser() (sessions.User, error) {
+	return sessions.User{}, u.err
 }
 
 type userFindSuccesser struct {
-	*store.Store
-	user models.User
+	sessions.ORM
+	user sessions.User
 }
 
-func (u userFindSuccesser) FindUser() (models.User, error) {
+func (u userFindSuccesser) FindUser() (sessions.User, error) {
 	return u.user, nil
 }
 

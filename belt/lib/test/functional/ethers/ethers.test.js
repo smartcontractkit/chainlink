@@ -1,0 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const tslib_1 = require("tslib");
+const path_1 = require("path");
+const shelljs_1 = require("shelljs");
+const compile_1 = tslib_1.__importDefault(require("../../../src/commands/compile"));
+const TEST_PATH = 'test/functional/ethers/';
+const TEST_FS_PATH = path_1.join(TEST_PATH, 'testfs');
+const FIXTURES_PATH = path_1.join(TEST_PATH, 'fixtures');
+describe('compileAll', () => {
+    beforeEach(() => {
+        shelljs_1.rm('-r', TEST_FS_PATH);
+    });
+    it('should produce a ethers contract abstraction via a json artifact produced by sol-compiler', async () => {
+        await compile_1.default.run([
+            `--config=${path_1.join(FIXTURES_PATH, 'test.config.json')}`,
+            'ethers',
+        ]);
+        expect([...shelljs_1.ls('-R', TEST_FS_PATH)]).toMatchSnapshot();
+    });
+});
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiZXRoZXJzLnRlc3QuanMiLCJzb3VyY2VSb290IjoiIiwic291cmNlcyI6WyIuLi8uLi8uLi8uLi90ZXN0L2Z1bmN0aW9uYWwvZXRoZXJzL2V0aGVycy50ZXN0LnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7OztBQUFBLCtCQUEyQjtBQUMzQixxQ0FBZ0M7QUFDaEMsb0ZBQW1EO0FBRW5ELE1BQU0sU0FBUyxHQUFHLHlCQUF5QixDQUFBO0FBQzNDLE1BQU0sWUFBWSxHQUFHLFdBQUksQ0FBQyxTQUFTLEVBQUUsUUFBUSxDQUFDLENBQUE7QUFDOUMsTUFBTSxhQUFhLEdBQUcsV0FBSSxDQUFDLFNBQVMsRUFBRSxVQUFVLENBQUMsQ0FBQTtBQUVqRCxRQUFRLENBQUMsWUFBWSxFQUFFLEdBQUcsRUFBRTtJQUMxQixVQUFVLENBQUMsR0FBRyxFQUFFO1FBQ2QsWUFBRSxDQUFDLElBQUksRUFBRSxZQUFZLENBQUMsQ0FBQTtJQUN4QixDQUFDLENBQUMsQ0FBQTtJQUVGLEVBQUUsQ0FBQywyRkFBMkYsRUFBRSxLQUFLLElBQUksRUFBRTtRQUN6RyxNQUFNLGlCQUFPLENBQUMsR0FBRyxDQUFDO1lBQ2hCLFlBQVksV0FBSSxDQUFDLGFBQWEsRUFBRSxrQkFBa0IsQ0FBQyxFQUFFO1lBQ3JELFFBQVE7U0FDVCxDQUFDLENBQUE7UUFFRixNQUFNLENBQUMsQ0FBQyxHQUFHLFlBQUUsQ0FBQyxJQUFJLEVBQUUsWUFBWSxDQUFDLENBQUMsQ0FBQyxDQUFDLGVBQWUsRUFBRSxDQUFBO0lBQ3ZELENBQUMsQ0FBQyxDQUFBO0FBQ0osQ0FBQyxDQUFDLENBQUEiLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBqb2luIH0gZnJvbSAncGF0aCdcbmltcG9ydCB7IGxzLCBybSB9IGZyb20gJ3NoZWxsanMnXG5pbXBvcnQgY29tcGlsZSBmcm9tICcuLi8uLi8uLi9zcmMvY29tbWFuZHMvY29tcGlsZSdcblxuY29uc3QgVEVTVF9QQVRIID0gJ3Rlc3QvZnVuY3Rpb25hbC9ldGhlcnMvJ1xuY29uc3QgVEVTVF9GU19QQVRIID0gam9pbihURVNUX1BBVEgsICd0ZXN0ZnMnKVxuY29uc3QgRklYVFVSRVNfUEFUSCA9IGpvaW4oVEVTVF9QQVRILCAnZml4dHVyZXMnKVxuXG5kZXNjcmliZSgnY29tcGlsZUFsbCcsICgpID0+IHtcbiAgYmVmb3JlRWFjaCgoKSA9PiB7XG4gICAgcm0oJy1yJywgVEVTVF9GU19QQVRIKVxuICB9KVxuXG4gIGl0KCdzaG91bGQgcHJvZHVjZSBhIGV0aGVycyBjb250cmFjdCBhYnN0cmFjdGlvbiB2aWEgYSBqc29uIGFydGlmYWN0IHByb2R1Y2VkIGJ5IHNvbC1jb21waWxlcicsIGFzeW5jICgpID0+IHtcbiAgICBhd2FpdCBjb21waWxlLnJ1bihbXG4gICAgICBgLS1jb25maWc9JHtqb2luKEZJWFRVUkVTX1BBVEgsICd0ZXN0LmNvbmZpZy5qc29uJyl9YCxcbiAgICAgICdldGhlcnMnLFxuICAgIF0pXG5cbiAgICBleHBlY3QoWy4uLmxzKCctUicsIFRFU1RfRlNfUEFUSCldKS50b01hdGNoU25hcHNob3QoKVxuICB9KVxufSlcbiJdfQ==

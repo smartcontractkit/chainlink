@@ -5,9 +5,10 @@ package mocks
 import (
 	common "github.com/ethereum/go-ethereum/common"
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	context "context"
+
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	gas "github.com/smartcontractkit/chainlink/core/services/gas"
 

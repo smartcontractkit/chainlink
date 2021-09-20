@@ -34,11 +34,11 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa csa
-	eth eth
-	ocr ocr
-	p2p p2p
-	vrf vrf
+	csa *csa
+	eth *eth
+	ocr *ocr
+	p2p *p2p
+	vrf *vrf
 }
 
 func New(db *gorm.DB, scryptParams utils.ScryptParams) Master {
@@ -289,7 +289,7 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 	case vrfkey.KeyV2:
 		return "VRF", nil
 	}
-	return "", fmt.Errorf("Unknown key type: %T", unknownKey)
+	return "", fmt.Errorf("unknown key type: %T", unknownKey)
 }
 
 type Key interface {

@@ -1,0 +1,305 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getLog = exports.getLogs = exports.sixMonthsFromNow = exports.findEventIn = exports.eventArgs = exports.increaseTime5Minutes = exports.mineBlock = exports.increaseTimeBy = exports.keccak = exports.stripHexPrefix = exports.addHexPrefix = exports.addCBORMapDelimiters = exports.decodeDietCBOR = exports.create = exports.pubkeyToAddress = exports.toUtf8Bytes = exports.bigNum = exports.toWei = exports.hexToBuf = exports.toHex = exports.parseBytes32String = exports.toBytes32String = exports.numToBytes32 = exports.evmWordToAddress = exports.bytesToString = exports.stringToBytes = void 0;
+const tslib_1 = require("tslib");
+/**
+ * @packageDocumentation
+ *
+ * This file provides common utility functions to perform ethereum related tasks, like
+ * data format manipulation of buffers and hex strings,
+ * finding, accessing logs and events,
+ * and increasing test evm time.
+ */
+const cbor_1 = tslib_1.__importDefault(require("cbor"));
+const chai_1 = require("chai");
+const ethers_1 = require("ethers");
+/**
+ * Convert string to hex bytes
+ * @param data string to onvert to hex bytes
+ */
+function stringToBytes(data) {
+    return ethers_1.ethers.utils.hexlify(ethers_1.ethers.utils.toUtf8Bytes(data));
+}
+exports.stringToBytes = stringToBytes;
+/**
+ * Convert hex bytes to utf8 string
+ * @param data bytes to convert to utf8 stirng
+ */
+function bytesToString(data) {
+    return ethers_1.ethers.utils.toUtf8String(data);
+}
+exports.bytesToString = bytesToString;
+/**
+ * Parse out an evm word (32 bytes) into an address (20 bytes) representation
+ *
+ * @param hex The evm word in hex string format to parse the address
+ * out of.
+ */
+function evmWordToAddress(hex) {
+    if (!hex) {
+        throw Error('Input not defined');
+    }
+    chai_1.assert.equal(hex.slice(0, 26), '0x000000000000000000000000');
+    return ethers_1.utils.getAddress(hex.slice(26));
+}
+exports.evmWordToAddress = evmWordToAddress;
+/**
+ * Convert a number value to bytes32 format
+ *
+ * @param num The number value to convert to bytes32 format
+ */
+function numToBytes32(num) {
+    const hexNum = ethers_1.utils.hexlify(num);
+    const strippedNum = stripHexPrefix(hexNum);
+    if (strippedNum.length > 32 * 2) {
+        throw Error('Cannot convert number to bytes32 format, value is greater than maximum bytes32 value');
+    }
+    return addHexPrefix(strippedNum.padStart(32 * 2, '0'));
+}
+exports.numToBytes32 = numToBytes32;
+/**
+ * Convert a UTF-8 string into a bytes32 hex string representation
+ *
+ * The inverse function of [[parseBytes32String]]
+ *
+ * @param args The UTF-8 string representation to convert to a bytes32 hex string representation
+ */
+function toBytes32String(...args) {
+    return ethers_1.utils.formatBytes32String(...args);
+}
+exports.toBytes32String = toBytes32String;
+/**
+ * Convert a bytes32 formatted hex string into its UTF-8 representation
+ *
+ * The inverse function of [[toBytes32String]].
+ *
+ * @param args The bytes32 hex string representation to convert to an UTF-8 representation
+ */
+function parseBytes32String(...args) {
+    return ethers_1.utils.parseBytes32String(...args);
+}
+exports.parseBytes32String = parseBytes32String;
+/**
+ * Converts any number, BigNumber, hex string or Arrayish to a hex string.
+ *
+ * @param args Value to convert to a hex string
+ */
+function toHex(...args) {
+    return ethers_1.utils.hexlify(...args);
+}
+exports.toHex = toHex;
+/**
+ * Create a buffer from a hex string
+ *
+ * @param hexstr The hex string to convert to a buffer
+ */
+function hexToBuf(hexstr) {
+    return Buffer.from(stripHexPrefix(hexstr), 'hex');
+}
+exports.hexToBuf = hexToBuf;
+/**
+ * Convert an Ether value to a wei amount
+ *
+ * @param args Ether value to convert to an Ether amount
+ */
+function toWei(...args) {
+    return ethers_1.utils.parseEther(...args);
+}
+exports.toWei = toWei;
+/**
+ * Convert a value to an ethers BigNum
+ *
+ * @param num Value to convert to a BigNum
+ */
+function bigNum(num) {
+    return ethers_1.utils.bigNumberify(num);
+}
+exports.bigNum = bigNum;
+/**
+ * Convert a UTF-8 string into a bytearray
+ *
+ * @param args The values needed to convert a string into a bytearray
+ */
+function toUtf8Bytes(...args) {
+    return ethers_1.utils.toUtf8Bytes(...args);
+}
+exports.toUtf8Bytes = toUtf8Bytes;
+/**
+ * Turn a [x,y] coordinate into an ethereum address
+ *
+ * @param pubkey The x,y coordinate to turn into an ethereum address
+ */
+function pubkeyToAddress(pubkey) {
+    // transform the value according to what ethers expects as a value
+    const concatResult = `0x04${pubkey
+        .map((coord) => coord.toHexString())
+        .join('')
+        .replace(/0x/gi, '')}`;
+    return ethers_1.utils.computeAddress(concatResult);
+}
+exports.pubkeyToAddress = pubkeyToAddress;
+/**
+ * A wrapper function to make generated contracts compatible with truffle test suites.
+ *
+ * Note that the returned contract is an instance of ethers.Contract, not a @truffle/contract, so there are slight
+ * api differences, though largely the same.
+ *
+ * @see https://docs.ethers.io/ethers.js/html/api-contract.html
+ * @param contractFactory The ethers based contract factory to interop with
+ * @param address The address to supply as the signer
+ */
+function create(contractFactory, address) {
+    const web3Instance = global.web3;
+    const provider = new ethers_1.ethers.providers.Web3Provider(web3Instance.currentProvider);
+    const signer = provider.getSigner(address);
+    const factory = new contractFactory(signer);
+    return factory;
+}
+exports.create = create;
+/**
+ * Decodes a CBOR hex string, and adds opening and closing brackets to the CBOR if they are not present.
+ *
+ * @param hexstr The hex string to decode
+ */
+function decodeDietCBOR(hexstr) {
+    const buf = hexToBuf(hexstr);
+    return cbor_1.default.decodeFirstSync(addCBORMapDelimiters(buf));
+}
+exports.decodeDietCBOR = decodeDietCBOR;
+/**
+ * Add a starting and closing map characters to a CBOR encoding if they are not already present.
+ */
+function addCBORMapDelimiters(buffer) {
+    if (buffer[0] >> 5 === 5) {
+        return buffer;
+    }
+    /**
+     * This is the opening character of a CBOR map.
+     * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+     */
+    const startIndefiniteLengthMap = Buffer.from([0xbf]);
+    /**
+     * This is the closing character in a CBOR map.
+     * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
+     */
+    const endIndefiniteLengthMap = Buffer.from([0xff]);
+    return Buffer.concat([startIndefiniteLengthMap, buffer, endIndefiniteLengthMap], buffer.length + 2);
+}
+exports.addCBORMapDelimiters = addCBORMapDelimiters;
+/**
+ * Add a hex prefix to a hex string
+ *
+ * @param hex The hex string to prepend the hex prefix to
+ */
+function addHexPrefix(hex) {
+    return hex.startsWith('0x') ? hex : `0x${hex}`;
+}
+exports.addHexPrefix = addHexPrefix;
+/**
+ * Strip the leading 0x hex prefix from a hex string
+ *
+ * @param hex The hex string to strip the leading hex prefix out of
+ */
+function stripHexPrefix(hex) {
+    if (!ethers_1.ethers.utils.isHexString(hex)) {
+        throw Error(`Expected valid hex string, got: "${hex}"`);
+    }
+    return hex.replace('0x', '');
+}
+exports.stripHexPrefix = stripHexPrefix;
+/**
+ * Compute the keccak256 cryptographic hash of a value, returned as a hex string.
+ * (Note: often Ethereum documentation refers to this, incorrectly, as SHA3)
+ *
+ * @param args The data to compute the keccak256 hash of
+ */
+function keccak(...args) {
+    return ethers_1.utils.keccak256(...args);
+}
+exports.keccak = keccak;
+/**
+ * Increase the current time within the evm to "n" seconds past the current time
+ *
+ * @param seconds The number of seconds to increase to the current time by
+ * @param provider The ethers provider to send the time increase request to
+ */
+async function increaseTimeBy(seconds, provider) {
+    await provider.send('evm_increaseTime', [seconds]);
+}
+exports.increaseTimeBy = increaseTimeBy;
+/**
+ * Instruct the provider to mine an additional block
+ *
+ * @param provider The ethers provider to instruct to mine an additional block
+ */
+async function mineBlock(provider) {
+    await provider.send('evm_mine', []);
+}
+exports.mineBlock = mineBlock;
+/**
+ * Increase the current time within the evm to 5 minutes past the current time
+ *
+ * @param provider The ethers provider to send the time increase request to
+ */
+async function increaseTime5Minutes(provider) {
+    await increaseTimeBy(5 * 600, provider);
+}
+exports.increaseTime5Minutes = increaseTime5Minutes;
+/**
+ * Typecast an ethers event to its proper type, until
+ * https://github.com/ethers-io/ethers.js/pull/698 is addressed
+ *
+ * @param event The event to typecast
+ */
+function eventArgs(event) {
+    return event === null || event === void 0 ? void 0 : event.args;
+}
+exports.eventArgs = eventArgs;
+/**
+ * Find an event within a transaction receipt by its event description
+ *
+ * @param receipt The events array to search through
+ * @param eventDescription The event description to pass to check its name by
+ */
+function findEventIn(receipt, eventDescription) {
+    var _a;
+    // the first topic of a log is always the keccak-256 hash of the event signature
+    const event = (_a = receipt.events) === null || _a === void 0 ? void 0 : _a.find((e) => e.topics[0] === eventDescription.topic);
+    return event;
+}
+exports.findEventIn = findEventIn;
+/**
+ * Calculate six months from the current date in seconds
+ */
+function sixMonthsFromNow() {
+    return ethers_1.utils.bigNumberify(Math.round(Date.now() / 1000.0) + 6 * 30 * 24 * 60 * 60);
+}
+exports.sixMonthsFromNow = sixMonthsFromNow;
+/**
+ * Extract array of logs from a transaction
+ *
+ * @param tx The transaction to wait for, then extract logs from
+ */
+async function getLogs(tx) {
+    const receipt = await tx.wait();
+    if (!receipt.logs) {
+        throw Error('unable to extract logs from transaction receipt');
+    }
+    return receipt.logs;
+}
+exports.getLogs = getLogs;
+/**
+ * Retrieve single log from transaction
+ *
+ * @param tx The transaction to wait for, then extract logs from
+ * @param index The index of the log to retrieve
+ */
+async function getLog(tx, index) {
+    const logs = await getLogs(tx);
+    if (!logs[index]) {
+        throw Error('unable to extract log from transaction receipt');
+    }
+    return logs[index];
+}
+exports.getLog = getLog;
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiaGVscGVycy5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9oZWxwZXJzLnRzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7Ozs7QUFBQTs7Ozs7OztHQU9HO0FBQ0gsd0RBQXVCO0FBQ3ZCLCtCQUE2QjtBQUM3QixtQ0FBc0M7QUFJdEM7OztHQUdHO0FBQ0gsU0FBZ0IsYUFBYSxDQUFDLElBQVk7SUFDeEMsT0FBTyxlQUFNLENBQUMsS0FBSyxDQUFDLE9BQU8sQ0FBQyxlQUFNLENBQUMsS0FBSyxDQUFDLFdBQVcsQ0FBQyxJQUFJLENBQUMsQ0FBQyxDQUFBO0FBQzdELENBQUM7QUFGRCxzQ0FFQztBQUVEOzs7R0FHRztBQUNILFNBQWdCLGFBQWEsQ0FBQyxJQUFZO0lBQ3hDLE9BQU8sZUFBTSxDQUFDLEtBQUssQ0FBQyxZQUFZLENBQUMsSUFBSSxDQUFDLENBQUE7QUFDeEMsQ0FBQztBQUZELHNDQUVDO0FBRUQ7Ozs7O0dBS0c7QUFDSCxTQUFnQixnQkFBZ0IsQ0FBQyxHQUFZO0lBQzNDLElBQUksQ0FBQyxHQUFHLEVBQUU7UUFDUixNQUFNLEtBQUssQ0FBQyxtQkFBbUIsQ0FBQyxDQUFBO0tBQ2pDO0lBRUQsYUFBTSxDQUFDLEtBQUssQ0FBQyxHQUFHLENBQUMsS0FBSyxDQUFDLENBQUMsRUFBRSxFQUFFLENBQUMsRUFBRSw0QkFBNEIsQ0FBQyxDQUFBO0lBQzVELE9BQU8sY0FBSyxDQUFDLFVBQVUsQ0FBQyxHQUFHLENBQUMsS0FBSyxDQUFDLEVBQUUsQ0FBQyxDQUFDLENBQUE7QUFDeEMsQ0FBQztBQVBELDRDQU9DO0FBRUQ7Ozs7R0FJRztBQUNILFNBQWdCLFlBQVksQ0FBQyxHQUF3QztJQUNuRSxNQUFNLE1BQU0sR0FBRyxjQUFLLENBQUMsT0FBTyxDQUFDLEdBQUcsQ0FBQyxDQUFBO0lBQ2pDLE1BQU0sV0FBVyxHQUFHLGNBQWMsQ0FBQyxNQUFNLENBQUMsQ0FBQTtJQUMxQyxJQUFJLFdBQVcsQ0FBQyxNQUFNLEdBQUcsRUFB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LEdBQUcsQ0FBQyxHQUFHLEVBQUUsR0FBRyxFQUFFLEdBQUcsRUFBRSxHQUFHLEVBQUUsQ0FDeEQsQ0FBQTtBQUNILENBQUM7QUFKRCw0Q0FJQztBQUVEOzs7O0dBSUc7QUFDSSxLQUFLLFVBQVUsT0FBTyxDQUMzQixFQUE4QjtJQUU5QixNQUFNLE9BQU8sR0FBRyxNQUFNLEVBQUUsQ0FBQyxJQUFJLEVBQUUsQ0FBQTtJQUMvQixJQUFJLENBQUMsT0FBTyxDQUFDLElBQUksRUFBRTtRQUNqQixNQUFNLEtBQUssQ0FBQyxpREFBaUQsQ0FBQyxDQUFBO0tBQy9EO0lBQ0QsT0FBTyxPQUFPLENBQUMsSUFBSSxDQUFBO0FBQ3JCLENBQUM7QUFSRCwwQkFRQztBQUVEOzs7OztHQUtHO0FBQ0ksS0FBSyxVQUFVLE1BQU0sQ0FDMUIsRUFBOEIsRUFDOUIsS0FBYTtJQUViLE1BQU0sSUFBSSxHQUFHLE1BQU0sT0FBTyxDQUFDLEVBQUUsQ0FBQyxDQUFBO0lBQzlCLElBQUksQ0FBQyxJQUFJLENBQUMsS0FBSyxDQUFDLEVBQUU7UUFDaEIsTUFBTSxLQUFLLENBQUMsZ0RBQWdELENBQUMsQ0FBQTtLQUM5RDtJQUNELE9BQU8sSUFBSSxDQUFDLEtBQUssQ0FBQyxDQUFBO0FBQ3BCLENBQUM7QUFURCx3QkFTQyIsInNvdXJjZXNDb250ZW50IjpbIi8qKlxuICogQHBhY2thZ2VEb2N1bWVudGF0aW9uXG4gKlxuICogVGhpcyBmaWxlIHByb3ZpZGVzIGNvbW1vbiB1dGlsaXR5IGZ1bmN0aW9ucyB0byBwZXJmb3JtIGV0aGVyZXVtIHJlbGF0ZWQgdGFza3MsIGxpa2VcbiAqIGRhdGEgZm9ybWF0IG1hbmlwdWxhdGlvbiBvZiBidWZmZXJzIGFuZCBoZXggc3RyaW5ncyxcbiAqIGZpbmRpbmcsIGFjY2Vzc2luZyBsb2dzIGFuZCBldmVudHMsXG4gKiBhbmQgaW5jcmVhc2luZyB0ZXN0IGV2bSB0aW1lLlxuICovXG5pbXBvcnQgY2JvciBmcm9tICdjYm9yJ1xuaW1wb3J0IHsgYXNzZXJ0IH0gZnJvbSAnY2hhaSdcbmltcG9ydCB7IGV0aGVycywgdXRpbHMgfSBmcm9tICdldGhlcnMnXG5pbXBvcnQgeyBDb250cmFjdFJlY2VpcHQgfSBmcm9tICdldGhlcnMvY29udHJhY3QnXG5pbXBvcnQgeyBFdmVudERlc2NyaXB0aW9uIH0gZnJvbSAnZXRoZXJzL3V0aWxzJ1xuXG4vKipcbiAqIENvbnZlcnQgc3RyaW5nIHRvIGhleCBieXRlc1xuICogQHBhcmFtIGRhdGEgc3RyaW5nIHRvIG9udmVydCB0byBoZXggYnl0ZXNcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIHN0cmluZ1RvQnl0ZXMoZGF0YTogc3RyaW5nKTogc3RyaW5nIHtcbiAgcmV0dXJuIGV0aGVycy51dGlscy5oZXhsaWZ5KGV0aGVycy51dGlscy50b1V0ZjhCeXRlcyhkYXRhKSlcbn1cblxuLyoqXG4gKiBDb252ZXJ0IGhleCBieXRlcyB0byB1dGY4IHN0cmluZ1xuICogQHBhcmFtIGRhdGEgYnl0ZXMgdG8gY29udmVydCB0byB1dGY4IHN0aXJuZ1xuICovXG5leHBvcnQgZnVuY3Rpb24gYnl0ZXNUb1N0cmluZyhkYXRhOiBzdHJpbmcpOiBzdHJpbmcge1xuICByZXR1cm4gZXRoZXJzLnV0aWxzLnRvVXRmOFN0cmluZyhkYXRhKVxufVxuXG4vKipcbiAqIFBhcnNlIG91dCBhbiBldm0gd29yZCAoMzIgYnl0ZXMpIGludG8gYW4gYWRkcmVzcyAoMjAgYnl0ZXMpIHJlcHJlc2VudGF0aW9uXG4gKlxuICogQHBhcmFtIGhleCBUaGUgZXZtIHdvcmQgaW4gaGV4IHN0cmluZyBmb3JtYXQgdG8gcGFyc2UgdGhlIGFkZHJlc3NcbiAqIG91dCBvZi5cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGV2bVdvcmRUb0FkZHJlc3MoaGV4Pzogc3RyaW5nKTogc3RyaW5nIHtcbiAgaWYgKCFoZXgpIHtcbiAgICB0aHJvdyBFcnJvcignSW5wdXQgbm90IGRlZmluZWQnKVxuICB9XG5cbiAgYXNzZXJ0LmVxdWFsKGhleC5zbGljZSgwLCAyNiksICcweDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCcpXG4gIHJldHVybiB1dGlscy5nZXRBZGRyZXNzKGhleC5zbGljZSgyNikpXG59XG5cbi8qKlxuICogQ29udmVydCBhIG51bWJlciB2YWx1ZSB0byBieXRlczMyIGZvcm1hdFxuICpcbiAqIEBwYXJhbSBudW0gVGhlIG51bWJlciB2YWx1ZSB0byBjb252ZXJ0IHRvIGJ5dGVzMzIgZm9ybWF0XG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBudW1Ub0J5dGVzMzIobnVtOiBQYXJhbWV0ZXJzPHR5cGVvZiB1dGlscy5oZXhsaWZ5PlswXSk6IHN0cmluZyB7XG4gIGNvbnN0IGhleE51bSA9IHV0aWxzLmhleGxpZnkobnVtKVxuICBjb25zdCBzdHJpcHBlZE51bSA9IHN0cmlwSGV4UHJlZml4KGhleE51bSlcbiAgaWYgKHN0cmlwcGVkTnVtLmxlbmd0aCA+IDMyICogMikge1xuICAgIHRocm93IEVycm9yKFxuICAgICAgJ0Nhbm5vdCBjb252ZXJ0IG51bWJlciB0byBieXRlczMyIGZvcm1hdCwgdmFsdWUgaXMgZ3JlYXRlciB0aGFuIG1heGltdW0gYnl0ZXMzMiB2YWx1ZScsXG4gICAgKVxuICB9XG4gIHJldHVybiBhZGRIZXhQcmVmaXgoc3RyaXBwZWROdW0ucGFkU3RhcnQoMzIgKiAyLCAnMCcpKVxufVxuXG4vKipcbiAqIENvbnZlcnQgYSBVVEYtOCBzdHJpbmcgaW50byBhIGJ5dGVzMzIgaGV4IHN0cmluZyByZXByZXNlbnRhdGlvblxuICpcbiAqIFRoZSBpbnZlcnNlIGZ1bmN0aW9uIG9mIFtbcGFyc2VCeXRlczMyU3RyaW5nXV1cbiAqXG4gKiBAcGFyYW0gYXJncyBUaGUgVVRGLTggc3RyaW5nIHJlcHJlc2VudGF0aW9uIHRvIGNvbnZlcnQgdG8gYSBieXRlczMyIGhleCBzdHJpbmcgcmVwcmVzZW50YXRpb25cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIHRvQnl0ZXMzMlN0cmluZyhcbiAgLi4uYXJnczogUGFyYW1ldGVyczx0eXBlb2YgdXRpbHMuZm9ybWF0Qnl0ZXMzMlN0cmluZz5cbik6IFJldHVyblR5cGU8dHlwZW9mIHV0aWxzLmZvcm1hdEJ5dGVzMzJTdHJpbmc+IHtcbiAgcmV0dXJuIHV0aWxzLmZvcm1hdEJ5dGVzMzJTdHJpbmcoLi4uYXJncylcbn1cblxuLyoqXG4gKiBDb252ZXJ0IGEgYnl0ZXMzMiBmb3JtYXR0ZWQgaGV4IHN0cmluZyBpbnRvIGl0cyBVVEYtOCByZXByZXNlbnRhdGlvblxuICpcbiAqIFRoZSBpbnZlcnNlIGZ1bmN0aW9uIG9mIFtbdG9CeXRlczMyU3RyaW5nXV0uXG4gKlxuICogQHBhcmFtIGFyZ3MgVGhlIGJ5dGVzMzIgaGV4IHN0cmluZyByZXByZXNlbnRhdGlvbiB0byBjb252ZXJ0IHRvIGFuIFVURi04IHJlcHJlc2VudGF0aW9uXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBwYXJzZUJ5dGVzMzJTdHJpbmcoXG4gIC4uLmFyZ3M6IFBhcmFtZXRlcnM8dHlwZW9mIHV0aWxzLnBhcnNlQnl0ZXMzMlN0cmluZz5cbik6IFJldHVyblR5cGU8dHlwZW9mIHV0aWxzLnBhcnNlQnl0ZXMzMlN0cmluZz4ge1xuICByZXR1cm4gdXRpbHMucGFyc2VCeXRlczMyU3RyaW5nKC4uLmFyZ3MpXG59XG5cbi8qKlxuICogQ29udmVydHMgYW55IG51bWJlciwgQmlnTnVtYmVyLCBoZXggc3RyaW5nIG9yIEFycmF5aXNoIHRvIGEgaGV4IHN0cmluZy5cbiAqXG4gKiBAcGFyYW0gYXJncyBWYWx1ZSB0byBjb252ZXJ0IHRvIGEgaGV4IHN0cmluZ1xuICovXG5leHBvcnQgZnVuY3Rpb24gdG9IZXgoXG4gIC4uLmFyZ3M6IFBhcmFtZXRlcnM8dHlwZW9mIHV0aWxzLmhleGxpZnk+XG4pOiBSZXR1cm5UeXBlPHR5cGVvZiB1dGlscy5oZXhsaWZ5PiB7XG4gIHJldHVybiB1dGlscy5oZXhsaWZ5KC4uLmFyZ3MpXG59XG5cbi8qKlxuICogQ3JlYXRlIGEgYnVmZmVyIGZyb20gYSBoZXggc3RyaW5nXG4gKlxuICogQHBhcmFtIGhleHN0ciBUaGUgaGV4IHN0cmluZyB0byBjb252ZXJ0IHRvIGEgYnVmZmVyXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBoZXhUb0J1ZihoZXhzdHI6IHN0cmluZyk6IEJ1ZmZlciB7XG4gIHJldHVybiBCdWZmZXIuZnJvbShzdHJpcEhleFByZWZpeChoZXhzdHIpLCAnaGV4Jylcbn1cblxuLyoqXG4gKiBDb252ZXJ0IGFuIEV0aGVyIHZhbHVlIHRvIGEgd2VpIGFtb3VudFxuICpcbiAqIEBwYXJhbSBhcmdzIEV0aGVyIHZhbHVlIHRvIGNvbnZlcnQgdG8gYW4gRXRoZXIgYW1vdW50XG4gKi9cbmV4cG9ydCBmdW5jdGlvbiB0b1dlaShcbiAgLi4uYXJnczogUGFyYW1ldGVyczx0eXBlb2YgdXRpbHMucGFyc2VFdGhlcj5cbik6IFJldHVyblR5cGU8dHlwZW9mIHV0aWxzLnBhcnNlRXRoZXI+IHtcbiAgcmV0dXJuIHV0aWxzLnBhcnNlRXRoZXIoLi4uYXJncylcbn1cblxuLyoqXG4gKiBDb252ZXJ0IGEgdmFsdWUgdG8gYW4gZXRoZXJzIEJpZ051bVxuICpcbiAqIEBwYXJhbSBudW0gVmFsdWUgdG8gY29udmVydCB0byBhIEJpZ051bVxuICovXG5leHBvcnQgZnVuY3Rpb24gYmlnTnVtKG51bTogdXRpbHMuQmlnTnVtYmVyaXNoKTogdXRpbHMuQmlnTnVtYmVyIHtcbiAgcmV0dXJuIHV0aWxzLmJpZ051bWJlcmlmeShudW0pXG59XG5cbi8qKlxuICogQ29udmVydCBhIFVURi04IHN0cmluZyBpbnRvIGEgYnl0ZWFycmF5XG4gKlxuICogQHBhcmFtIGFyZ3MgVGhlIHZhbHVlcyBuZWVkZWQgdG8gY29udmVydCBhIHN0cmluZyBpbnRvIGEgYnl0ZWFycmF5XG4gKi9cbmV4cG9ydCBmdW5jdGlvbiB0b1V0ZjhCeXRlcyhcbiAgLi4uYXJnczogUGFyYW1ldGVyczx0eXBlb2YgdXRpbHMudG9VdGY4Qnl0ZXM+XG4pOiBSZXR1cm5UeXBlPHR5cGVvZiB1dGlscy50b1V0ZjhCeXRlcz4ge1xuICByZXR1cm4gdXRpbHMudG9VdGY4Qnl0ZXMoLi4uYXJncylcbn1cblxuLyoqXG4gKiBUdXJuIGEgW3gseV0gY29vcmRpbmF0ZSBpbnRvIGFuIGV0aGVyZXVtIGFkZHJlc3NcbiAqXG4gKiBAcGFyYW0gcHVia2V5IFRoZSB4LHkgY29vcmRpbmF0ZSB0byB0dXJuIGludG8gYW4gZXRoZXJldW0gYWRkcmVzc1xuICovXG5leHBvcnQgZnVuY3Rpb24gcHVia2V5VG9BZGRyZXNzKHB1YmtleTogdXRpbHMuQmlnTnVtYmVyW10pIHtcbiAgLy8gdHJhbnNmb3JtIHRoZSB2YWx1ZSBhY2NvcmRpbmcgdG8gd2hhdCBldGhlcnMgZXhwZWN0cyBhcyBhIHZhbHVlXG4gIGNvbnN0IGNvbmNhdFJlc3VsdCA9IGAweDA0JHtwdWJrZXlcbiAgICAubWFwKChjb29yZCkgPT4gY29vcmQudG9IZXhTdHJpbmcoKSlcbiAgICAuam9pbignJylcbiAgICAucmVwbGFjZSgvMHgvZ2ksICcnKX1gXG5cbiAgcmV0dXJuIHV0aWxzLmNvbXB1dGVBZGRyZXNzKGNvbmNhdFJlc3VsdClcbn1cblxuLyoqXG4gKiBBIHdyYXBwZXIgZnVuY3Rpb24gdG8gbWFrZSBnZW5lcmF0ZWQgY29udHJhY3RzIGNvbXBhdGlibGUgd2l0aCB0cnVmZmxlIHRlc3Qgc3VpdGVzLlxuICpcbiAqIE5vdGUgdGhhdCB0aGUgcmV0dXJuZWQgY29udHJhY3QgaXMgYW4gaW5zdGFuY2Ugb2YgZXRoZXJzLkNvbnRyYWN0LCBub3QgYSBAdHJ1ZmZsZS9jb250cmFjdCwgc28gdGhlcmUgYXJlIHNsaWdodFxuICogYXBpIGRpZmZlcmVuY2VzLCB0aG91Z2ggbGFyZ2VseSB0aGUgc2FtZS5cbiAqXG4gKiBAc2VlIGh0dHBzOi8vZG9jcy5ldGhlcnMuaW8vZXRoZXJzLmpzL2h0bWwvYXBpLWNvbnRyYWN0Lmh0bWxcbiAqIEBwYXJhbSBjb250cmFjdEZhY3RvcnkgVGhlIGV0aGVycyBiYXNlZCBjb250cmFjdCBmYWN0b3J5IHRvIGludGVyb3Agd2l0aFxuICogQHBhcmFtIGFkZHJlc3MgVGhlIGFkZHJlc3MgdG8gc3VwcGx5IGFzIHRoZSBzaWduZXJcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGNyZWF0ZTxUIGV4dGVuZHMgbmV3ICguLi5hcmdzOiBhbnlbXSkgPT4gYW55PihcbiAgY29udHJhY3RGYWN0b3J5OiBULFxuICBhZGRyZXNzOiBzdHJpbmcsXG4pOiBJbnN0YW5jZVR5cGU8VD4ge1xuICBjb25zdCB3ZWIzSW5zdGFuY2UgPSAoZ2xvYmFsIGFzIGFueSkud2ViM1xuICBjb25zdCBwcm92aWRlciA9IG5ldyBldGhlcnMucHJvdmlkZXJzLldlYjNQcm92aWRlcihcbiAgICB3ZWIzSW5zdGFuY2UuY3VycmVudFByb3ZpZGVyLFxuICApXG4gIGNvbnN0IHNpZ25lciA9IHByb3ZpZGVyLmdldFNpZ25lcihhZGRyZXNzKVxuICBjb25zdCBmYWN0b3J5ID0gbmV3IGNvbnRyYWN0RmFjdG9yeShzaWduZXIpXG5cbiAgcmV0dXJuIGZhY3Rvcnlcbn1cblxuLyoqXG4gKiBEZWNvZGVzIGEgQ0JPUiBoZXggc3RyaW5nLCBhbmQgYWRkcyBvcGVuaW5nIGFuZCBjbG9zaW5nIGJyYWNrZXRzIHRvIHRoZSBDQk9SIGlmIHRoZXkgYXJlIG5vdCBwcmVzZW50LlxuICpcbiAqIEBwYXJhbSBoZXhzdHIgVGhlIGhleCBzdHJpbmcgdG8gZGVjb2RlXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBkZWNvZGVEaWV0Q0JPUihoZXhzdHI6IHN0cmluZykge1xuICBjb25zdCBidWYgPSBoZXhUb0J1ZihoZXhzdHIpXG5cbiAgcmV0dXJuIGNib3IuZGVjb2RlRmlyc3RTeW5jKGFkZENCT1JNYXBEZWxpbWl0ZXJzKGJ1ZikpXG59XG5cbi8qKlxuICogQWRkIGEgc3RhcnRpbmcgYW5kIGNsb3NpbmcgbWFwIGNoYXJhY3RlcnMgdG8gYSBDQk9SIGVuY29kaW5nIGlmIHRoZXkgYXJlIG5vdCBhbHJlYWR5IHByZXNlbnQuXG4gKi9cbmV4cG9ydCBmdW5jdGlvbiBhZGRDQk9STWFwRGVsaW1pdGVycyhidWZmZXI6IEJ1ZmZlcik6IEJ1ZmZlciB7XG4gIGlmIChidWZmZXJbMF0gPj4gNSA9PT0gNSkge1xuICAgIHJldHVybiBidWZmZXJcbiAgfVxuXG4gIC8qKlxuICAgKiBUaGlzIGlzIHRoZSBvcGVuaW5nIGNoYXJhY3RlciBvZiBhIENCT1IgbWFwLlxuICAgKiBAc2VlIGh0dHBzOi8vZW4ud2lraXBlZGlhLm9yZy93aWtpL0NCT1IjQ0JPUl9kYXRhX2l0ZW1faGVhZGVyXG4gICAqL1xuICBjb25zdCBzdGFydEluZGVmaW5pdGVMZW5ndGhNYXAgPSBCdWZmZXIuZnJvbShbMHhiZl0pXG4gIC8qKlxuICAgKiBUaGlzIGlzIHRoZSBjbG9zaW5nIGNoYXJhY3RlciBpbiBhIENCT1IgbWFwLlxuICAgKiBAc2VlIGh0dHBzOi8vZW4ud2lraXBlZGlhLm9yZy93aWtpL0NCT1IjQ0JPUl9kYXRhX2l0ZW1faGVhZGVyXG4gICAqL1xuICBjb25zdCBlbmRJbmRlZmluaXRlTGVuZ3RoTWFwID0gQnVmZmVyLmZyb20oWzB4ZmZdKVxuICByZXR1cm4gQnVmZmVyLmNvbmNhdChcbiAgICBbc3RhcnRJbmRlZmluaXRlTGVuZ3RoTWFwLCBidWZmZXIsIGVuZEluZGVmaW5pdGVMZW5ndGhNYXBdLFxuICAgIGJ1ZmZlci5sZW5ndGggKyAyLFxuICApXG59XG5cbi8qKlxuICogQWRkIGEgaGV4IHByZWZpeCB0byBhIGhleCBzdHJpbmdcbiAqXG4gKiBAcGFyYW0gaGV4IFRoZSBoZXggc3RyaW5nIHRvIHByZXBlbmQgdGhlIGhleCBwcmVmaXggdG9cbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGFkZEhleFByZWZpeChoZXg6IHN0cmluZyk6IHN0cmluZyB7XG4gIHJldHVybiBoZXguc3RhcnRzV2l0aCgnMHgnKSA/IGhleCA6IGAweCR7aGV4fWBcbn1cblxuLyoqXG4gKiBTdHJpcCB0aGUgbGVhZGluZyAweCBoZXggcHJlZml4IGZyb20gYSBoZXggc3RyaW5nXG4gKlxuICogQHBhcmFtIGhleCBUaGUgaGV4IHN0cmluZyB0byBzdHJpcCB0aGUgbGVhZGluZyBoZXggcHJlZml4IG91dCBvZlxuICovXG5leHBvcnQgZnVuY3Rpb24gc3RyaXBIZXhQcmVmaXgoaGV4OiBzdHJpbmcpOiBzdHJpbmcge1xuICBpZiAoIWV0aGVycy51dGlscy5pc0hleFN0cmluZyhoZXgpKSB7XG4gICAgdGhyb3cgRXJyb3IoYEV4cGVjdGVkIHZhbGlkIGhleCBzdHJpbmcsIGdvdDogXCIke2hleH1cImApXG4gIH1cblxuICByZXR1cm4gaGV4LnJlcGxhY2UoJzB4JywgJycpXG59XG5cbi8qKlxuICogQ29tcHV0ZSB0aGUga2VjY2FrMjU2IGNyeXB0b2dyYXBoaWMgaGFzaCBvZiBhIHZhbHVlLCByZXR1cm5lZCBhcyBhIGhleCBzdHJpbmcuXG4gKiAoTm90ZTogb2Z0ZW4gRXRoZXJldW0gZG9jdW1lbnRhdGlvbiByZWZlcnMgdG8gdGhpcywgaW5jb3JyZWN0bHksIGFzIFNIQTMpXG4gKlxuICogQHBhcmFtIGFyZ3MgVGhlIGRhdGEgdG8gY29tcHV0ZSB0aGUga2VjY2FrMjU2IGhhc2ggb2ZcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIGtlY2NhayhcbiAgLi4uYXJnczogUGFyYW1ldGVyczx0eXBlb2YgdXRpbHMua2VjY2FrMjU2PlxuKTogUmV0dXJuVHlwZTx0eXBlb2YgdXRpbHMua2VjY2FrMjU2PiB7XG4gIHJldHVybiB1dGlscy5rZWNjYWsyNTYoLi4uYXJncylcbn1cblxuLyoqXG4gKiBJbmNyZWFzZSB0aGUgY3VycmVudCB0aW1lIHdpdGhpbiB0aGUgZXZtIHRvIFwiblwiIHNlY29uZHMgcGFzdCB0aGUgY3VycmVudCB0aW1lXG4gKlxuICogQHBhcmFtIHNlY29uZHMgVGhlIG51bWJlciBvZiBzZWNvbmRzIHRvIGluY3JlYXNlIHRvIHRoZSBjdXJyZW50IHRpbWUgYnlcbiAqIEBwYXJhbSBwcm92aWRlciBUaGUgZXRoZXJzIHByb3ZpZGVyIHRvIHNlbmQgdGhlIHRpbWUgaW5jcmVhc2UgcmVxdWVzdCB0b1xuICovXG5leHBvcnQgYXN5bmMgZnVuY3Rpb24gaW5jcmVhc2VUaW1lQnkoXG4gIHNlY29uZHM6IG51bWJlcixcbiAgcHJvdmlkZXI6IGV0aGVycy5wcm92aWRlcnMuSnNvblJwY1Byb3ZpZGVyLFxuKSB7XG4gIGF3YWl0IHByb3ZpZGVyLnNlbmQoJ2V2bV9pbmNyZWFzZVRpbWUnLCBbc2Vjb25kc10pXG59XG5cbi8qKlxuICogSW5zdHJ1Y3QgdGhlIHByb3ZpZGVyIHRvIG1pbmUgYW4gYWRkaXRpb25hbCBibG9ja1xuICpcbiAqIEBwYXJhbSBwcm92aWRlciBUaGUgZXRoZXJzIHByb3ZpZGVyIHRvIGluc3RydWN0IHRvIG1pbmUgYW4gYWRkaXRpb25hbCBibG9ja1xuICovXG5leHBvcnQgYXN5bmMgZnVuY3Rpb24gbWluZUJsb2NrKHByb3ZpZGVyOiBldGhlcnMucHJvdmlkZXJzLkpzb25ScGNQcm92aWRlcikge1xuICBhd2FpdCBwcm92aWRlci5zZW5kKCdldm1fbWluZScsIFtdKVxufVxuXG4vKipcbiAqIEluY3JlYXNlIHRoZSBjdXJyZW50IHRpbWUgd2l0aGluIHRoZSBldm0gdG8gNSBtaW51dGVzIHBhc3QgdGhlIGN1cnJlbnQgdGltZVxuICpcbiAqIEBwYXJhbSBwcm92aWRlciBUaGUgZXRoZXJzIHByb3ZpZGVyIHRvIHNlbmQgdGhlIHRpbWUgaW5jcmVhc2UgcmVxdWVzdCB0b1xuICovXG5leHBvcnQgYXN5bmMgZnVuY3Rpb24gaW5jcmVhc2VUaW1lNU1pbnV0ZXMoXG4gIHByb3ZpZGVyOiBldGhlcnMucHJvdmlkZXJzLkpzb25ScGNQcm92aWRlcixcbik6IFByb21pc2U8dm9pZD4ge1xuICBhd2FpdCBpbmNyZWFzZVRpbWVCeSg1ICogNjAwLCBwcm92aWRlcilcbn1cblxuaW50ZXJmYWNlIEV2ZW50QXJnc0FycmF5IGV4dGVuZHMgQXJyYXk8YW55PiB7XG4gIFtrZXk6IHN0cmluZ106IGFueVxufVxuLyoqXG4gKiBUeXBlY2FzdCBhbiBldGhlcnMgZXZlbnQgdG8gaXRzIHByb3BlciB0eXBlLCB1bnRpbFxuICogaHR0cHM6Ly9naXRodWIuY29tL2V0aGVycy1pby9ldGhlcnMuanMvcHVsbC82OTggaXMgYWRkcmVzc2VkXG4gKlxuICogQHBhcmFtIGV2ZW50IFRoZSBldmVudCB0byB0eXBlY2FzdFxuICovXG5leHBvcnQgZnVuY3Rpb24gZXZlbnRBcmdzKGV2ZW50PzogZXRoZXJzLkV2ZW50KSB7XG4gIHJldHVybiAoZXZlbnQ/LmFyZ3MgYXMgYW55KSBhcyBFdmVudEFyZ3NBcnJheVxufVxuXG4vKipcbiAqIEZpbmQgYW4gZXZlbnQgd2l0aGluIGEgdHJhbnNhY3Rpb24gcmVjZWlwdCBieSBpdHMgZXZlbnQgZGVzY3JpcHRpb25cbiAqXG4gKiBAcGFyYW0gcmVjZWlwdCBUaGUgZXZlbnRzIGFycmF5IHRvIHNlYXJjaCB0aHJvdWdoXG4gKiBAcGFyYW0gZXZlbnREZXNjcmlwdGlvbiBUaGUgZXZlbnQgZGVzY3JpcHRpb24gdG8gcGFzcyB0byBjaGVjayBpdHMgbmFtZSBieVxuICovXG5leHBvcnQgZnVuY3Rpb24gZmluZEV2ZW50SW4oXG4gIHJlY2VpcHQ6IENvbnRyYWN0UmVjZWlwdCxcbiAgZXZlbnREZXNjcmlwdGlvbjogRXZlbnREZXNjcmlwdGlvbixcbik6IGV0aGVycy5FdmVudCB8IHVuZGVmaW5lZCB7XG4gIC8vIHRoZSBmaXJzdCB0b3BpYyBvZiBhIGxvZyBpcyBhbHdheXMgdGhlIGtlY2Nhay0yNTYgaGFzaCBvZiB0aGUgZXZlbnQgc2lnbmF0dXJlXG4gIGNvbnN0IGV2ZW50ID0gcmVjZWlwdC5ldmVudHM/LmZpbmQoXG4gICAgKGUpID0+IGUudG9waWNzWzBdID09PSBldmVudERlc2NyaXB0aW9uLnRvcGljLFxuICApXG5cbiAgcmV0dXJuIGV2ZW50XG59XG5cbi8qKlxuICogQ2FsY3VsYXRlIHNpeCBtb250aHMgZnJvbSB0aGUgY3VycmVudCBkYXRlIGluIHNlY29uZHNcbiAqL1xuZXhwb3J0IGZ1bmN0aW9uIHNpeE1vbnRoc0Zyb21Ob3coKTogdXRpbHMuQmlnTnVtYmVyIHtcbiAgcmV0dXJuIHV0aWxzLmJpZ051bWJlcmlmeShcbiAgICBNYXRoLnJvdW5kKERhdGUubm93KCkgLyAxMDAwLjApICsgNiAqIDMwICogMjQgKiA2MCAqIDYwLFxuICApXG59XG5cbi8qKlxuICogRXh0cmFjdCBhcnJheSBvZiBsb2dzIGZyb20gYSB0cmFuc2FjdGlvblxuICpcbiAqIEBwYXJhbSB0eCBUaGUgdHJhbnNhY3Rpb24gdG8gd2FpdCBmb3IsIHRoZW4gZXh0cmFjdCBsb2dzIGZyb21cbiAqL1xuZXhwb3J0IGFzeW5jIGZ1bmN0aW9uIGdldExvZ3MoXG4gIHR4OiBldGhlcnMuQ29udHJhY3RUcmFuc2FjdGlvbixcbik6IFByb21pc2U8ZXRoZXJzLnByb3ZpZGVycy5Mb2dbXT4ge1xuICBjb25zdCByZWNlaXB0ID0gYXdhaXQgdHgud2FpdCgpXG4gIGlmICghcmVjZWlwdC5sb2dzKSB7XG4gICAgdGhyb3cgRXJyb3IoJ3VuYWJsZSB0byBleHRyYWN0IGxvZ3MgZnJvbSB0cmFuc2FjdGlvbiByZWNlaXB0JylcbiAgfVxuICByZXR1cm4gcmVjZWlwdC5sb2dzXG59XG5cbi8qKlxuICogUmV0cmlldmUgc2luZ2xlIGxvZyBmcm9tIHRyYW5zYWN0aW9uXG4gKlxuICogQHBhcmFtIHR4IFRoZSB0cmFuc2FjdGlvbiB0byB3YWl0IGZvciwgdGhlbiBleHRyYWN0IGxvZ3MgZnJvbVxuICogQHBhcmFtIGluZGV4IFRoZSBpbmRleCBvZiB0aGUgbG9nIHRvIHJldHJpZXZlXG4gKi9cbmV4cG9ydCBhc3luYyBmdW5jdGlvbiBnZXRMb2coXG4gIHR4OiBldGhlcnMuQ29udHJhY3RUcmFuc2FjdGlvbixcbiAgaW5kZXg6IG51bWJlcixcbik6IFByb21pc2U8ZXRoZXJzLnByb3ZpZGVycy5Mb2c+IHtcbiAgY29uc3QgbG9ncyA9IGF3YWl0IGdldExvZ3ModHgpXG4gIGlmICghbG9nc1tpbmRleF0pIHtcbiAgICB0aHJvdyBFcnJvcigndW5hYmxlIHRvIGV4dHJhY3QgbG9nIGZyb20gdHJhbnNhY3Rpb24gcmVjZWlwdCcpXG4gIH1cbiAgcmV0dXJuIGxvZ3NbaW5kZXhdXG59XG4iXX0=

@@ -6,28 +6,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestStore_SquashMigrationUpgrade(t *testing.T) {
-	_, orm := heavyweight.FullTestORM(t, "migrationssquash", false, false)
-	db := orm.DB
-
-	// Latest migrations should work fine.
-	static.Version = "0.9.11"
-	err := migrate.Migrate(postgres.UnwrapGormDB(db).DB)
-	require.NoError(t, err)
-	err = store.CheckSquashUpgrade(db)
-	require.NoError(t, err)
-	static.Version = "unset"
-}
 
 func TestStore_UpsertLatestNodeVersion(t *testing.T) {
 	t.Parallel()
