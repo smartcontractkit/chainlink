@@ -3330,6 +3330,13 @@
     "@types/connect" "*"
     "@types/node" "*"
 
+"@types/cbor@5.0.1":
+  version "5.0.1"
+  resolved "https://registry.npmjs.org/@types/cbor/-/cbor-5.0.1.tgz#e147bbe09ada4db7000ec6c23eafb5f67f5422a5"
+  integrity sha512-zVqJy2KzusZPLOgyGJDnOIbu3DxIGGqxYbEwtEEe4Z+la8jwIhOyb+GMrlHafs5tvKruwf8f8qOYP6zTvse/pw==
+  dependencies:
+    "@types/node" "*"
+
 "@types/chai@*", "@types/chai@^4.2.18":
   version "4.2.18"
   resolved "https://registry.npmjs.org/@types/chai/-/chai-4.2.18.tgz#0c8e298dbff8205e2266606c1ea5fbdba29b46e4"
@@ -3576,6 +3583,13 @@
     "@types/d3-transition" "*"
     "@types/d3-zoom" "*"
 
+"@types/debug@^4.1.7":
+  version "4.1.7"
+  resolved "https://registry.npmjs.org/@types/debug/-/debug-4.1.7.tgz#7cc0ea761509124709b8b2d1090d8f6c17aadb82"
+  integrity sha512-9AonUzyTjXXhEOa0DnqpzZi6VHlqKMswga9EXjpXnnqxwLtdvPPtlO8evrI5D9S6asFRCQ6v+wpiUKbw+vKqyg==
+  dependencies:
+    "@types/ms" "*"
+
 "@types/enzyme@^3.10.8":
   version "3.10.8"
   resolved "https://registry.npmjs.org/@types/enzyme/-/enzyme-3.10.8.tgz#ad7ac9d3af3de6fd0673773123fafbc63db50d42"
@@ -3803,6 +3817,11 @@
   version "8.2.2"
   resolved "https://registry.npmjs.org/@types/mocha/-/mocha-8.2.2.tgz#91daa226eb8c2ff261e6a8cbf8c7304641e095e0"
   integrity sha512-Lwh0lzzqT5Pqh6z61P3c3P5nm6fzQK/MMHl9UKeneAeInVflBSz1O2EkX6gM6xfJd7FBXBY5purtLx7fUiZ7Hw==
+
+"@types/ms@*":
+  version "0.7.31"
+  resolved "https://registry.npmjs.org/@types/ms/-/ms-0.7.31.tgz#31b7ca6407128a3d2bbc27fe2d21b345397f6197"
+  integrity sha512-iiUgKzV9AuaEkZqkOLDIvlQiL6ltuZd9tGcW3gwpnX8JbuiuhFlEGmmFXEXkN50Cvq7Os88IY2v0dkDqXYWVgA==
 
 "@types/node-fetch@^2.5.5":
   version "2.5.10"
@@ -7238,6 +7257,13 @@ debug@^3.1.0, debug@^3.1.1, debug@^3.2.6:
   integrity sha512-CFjzYYAi4ThfiQvizrFQevTTXHtnCqWfe7x1AhgEscTz6ZbLbfoLRLPugTQyBth6f8ZERVUSyWHFD/7Wu4t1XQ==
   dependencies:
     ms "^2.1.1"
+
+debug@^4.3.2:
+  version "4.3.2"
+  resolved "https://registry.npmjs.org/debug/-/debug-4.3.2.tgz#f0a49c18ac8779e31d4a0c6029dfb76873c7428b"
+  integrity sha512-mOp8wKcvj7XxC78zLgw/ZA+6TSgkoE2C/ienthhRD298T7UNwAg9diBpLRxC0mOezLl4B0xV7M0cCO6P/O0Xhw==
+  dependencies:
+    ms "2.1.2"
 
 decamelize@^1.2.0:
   version "1.2.0"
