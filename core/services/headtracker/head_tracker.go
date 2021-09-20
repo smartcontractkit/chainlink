@@ -279,7 +279,7 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, dep
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -292,7 +292,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight i
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
 	defer func() {
-		if ctx.Err() != nil {
+		if ctxParent.Err() != nil {
 			return
 		}
 		ht.logger().Debugw("HeadTracker: finished backfill",
@@ -306,10 +306,13 @@ func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight i
 			"err", err)
 	}()
 
+	ctx, cancel := utils.CombinedContext(ht.chStop, ctxParent)
+	defer cancel()
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		var existingHead *eth.Head
 		existingHead, err = ht.headSaver.HeadByHash(ctx, head.ParentHash)
+
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
