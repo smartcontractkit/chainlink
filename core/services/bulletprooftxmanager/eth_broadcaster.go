@@ -516,7 +516,9 @@ func saveAttempt(db *gorm.DB, etx *EthTx, attempt EthTxAttempt, NewAttemptState 
 }
 
 func (eb *EthBroadcaster) tryAgainBumpingGas(sendError *eth.SendError, etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time) error {
-	// TODO: handle eip1559 attempts
+	if attempt.TxType == 0x2 {
+		return errors.New("bumping gas on initial send is not supported for EIP-1559 transactions")
+	}
 	bumpedGasPrice, bumpedGasLimit, err := eb.estimator.BumpLegacyGas(attempt.GasPrice.ToInt(), etx.GasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")

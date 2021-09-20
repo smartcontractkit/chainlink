@@ -1138,6 +1138,37 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 	})
+
+	fmt.Println("BALLS")
+	require.NoError(t, db.Exec(`DELETE FROM eth_txes`).Error)
+	cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+
+	t.Run("eth node returns underpriced transaction for EIP-1559 tx, should return error", func(t *testing.T) {
+		// Experimentally this error is not actually possible; eth nodes will accept literally any price for EIP-1559 transactions
+		underpricedError := "transaction underpriced"
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
+
+		etx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          bulletprooftxmanager.EthTxUnstarted,
+		}
+		require.NoError(t, db.Save(&etx).Error)
+
+		// First was underpriced
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(underpricedError)).Once()
+
+		err := eb.ProcessUnstartedEthTxs(keyState)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bumping gas on initial send is not supported for EIP-1559 transactions")
+
+		ethClient.AssertExpectations(t)
+	})
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
