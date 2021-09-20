@@ -30,6 +30,7 @@ type ETHTxTask struct {
 	TxMeta           string `json:"txMeta"`
 	MinConfirmations string `json:"minConfirmations"`
 	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
+	Simulate         string `json:"simulate" mapstructure:"simulate"`
 
 	db       *gorm.DB
 	keyStore ETHKeyStore
@@ -72,6 +73,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		gasLimit              Uint64Param
 		txMetaMap             MapParam
 		maybeMinConfirmations MaybeUint64Param
+		simulate              BoolParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&fromAddrs, From(VarExpr(t.From, vars), JSONWithVarExprs(t.From, vars, false), NonemptyString(t.From), nil)), "from"),
@@ -80,6 +82,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		errors.Wrap(ResolveParam(&gasLimit, From(VarExpr(t.GasLimit, vars), NonemptyString(t.GasLimit), cfg.EvmGasLimitDefault())), "gasLimit"),
 		errors.Wrap(ResolveParam(&txMetaMap, From(VarExpr(t.TxMeta, vars), JSONWithVarExprs(t.TxMeta, vars, false), MapParam{})), "txMeta"),
 		errors.Wrap(ResolveParam(&maybeMinConfirmations, From(t.MinConfirmations)), "minConfirmations"),
+		errors.Wrap(ResolveParam(&simulate, From(VarExpr(t.Simulate, vars), NonemptyString(t.Simulate), false)), "simulate"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -128,7 +131,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	}
 
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
-	strategy := bulletprooftxmanager.SendEveryStrategy{}
+	strategy := bulletprooftxmanager.NewSendEveryStrategy(bool(simulate))
 
 	newTx := bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddr,

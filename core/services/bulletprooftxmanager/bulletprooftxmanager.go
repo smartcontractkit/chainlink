@@ -8,15 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -29,6 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -162,7 +163,11 @@ func (b *BulletproofTxManager) Start() (merr error) {
 			return errors.Wrap(err, "BulletproofTxManager: failed to load key states")
 		}
 
-		b.logger.Debugw("BulletproofTxManager: booting", "keyStates", keyStates)
+		if len(keyStates) > 0 {
+			b.logger.Debugw(fmt.Sprintf("BulletproofTxManager: booting with %d keys", len(keyStates)), "keys", keyStates)
+		} else {
+			b.logger.Warnf("BulletproofTxManager: chain %s does not have any eth keys", b.chainID.String())
+		}
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
@@ -312,12 +317,12 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 			return err
 		}
 		res := tx.Raw(`
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?
+?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?,?
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID).Scan(&etx)
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate()).Scan(&etx)
 		err = res.Error
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
@@ -423,6 +428,30 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 		return nil
 	}
 	return eth.NewSendError(err)
+}
+
+// gimulateTransaction pretends to "send" the transaction using eth_call
+// returns error on revert
+func simulateTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx) (hexutil.Bytes, error) {
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
+
+	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
+	callArg := map[string]interface{}{
+		"from": e.FromAddress,
+		"to":   &e.ToAddress,
+		"gas":  hexutil.Uint64(a.ChainSpecificGasLimit),
+		// NOTE: Deliberately do not include gas prices. We never want to fatally error a transaction just because the wallet has insufficient eth.
+		// Relevant info regarding EIP1559 transactions: https://github.com/ethereum/go-ethereum/pull/23027
+		"gasPrice":             nil,
+		"maxFeePerGas":         nil,
+		"maxPriorityFeePerGas": nil,
+		"value":                (*hexutil.Big)(e.Value.ToInt()),
+		"data":                 hexutil.Bytes(e.EncodedPayload),
+	}
+	var b hexutil.Bytes
+	baseErr := ethClient.CallContext(ctx, &b, "eth_call", callArg, eth.ToBlockNumArg(nil)) // always run simulation on "latest" block
+	return b, errors.Wrap(baseErr, "transaction simulation using eth_call failed")
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address

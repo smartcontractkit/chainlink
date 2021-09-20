@@ -58,7 +58,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 	if err != nil {
 		return nil, err
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(jb.ExternalJobID, chain.Config().FMDefaultTransactionQueueDepth(), chain.Config().FMSimulateTransactions())
 
 	fm, err := NewFromJobSpec(
 		jb,
