@@ -50,7 +50,7 @@ type DelegateConfig interface {
 	OCRTraceLogging() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PBootstrapPeers() ([]string, error)
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() p2pkey.PeerID
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
 	FlagsContractAddress() string
 }
@@ -60,7 +60,7 @@ type Delegate struct {
 	txm                   txManager
 	jobORM                job.ORM
 	config                DelegateConfig
-	keyStore              keystore.OCR
+	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
 	ethClient             eth.Client
 	logBroadcaster        log.Broadcaster
@@ -79,7 +79,7 @@ func NewDelegate(
 	txm txManager,
 	jobORM job.ORM,
 	config DelegateConfig,
-	keyStore keystore.OCR,
+	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
@@ -157,11 +157,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PPeerID != nil {
 		peerID = *concreteSpec.P2PPeerID
 	} else {
-		peerID, err = d.config.P2PPeerID()
-		if err != nil {
-			return nil, err
+		k, err2 := d.keyStore.P2P().ConfiguredOrFirstKey(d.config.P2PPeerID())
+		if err2 != nil {
+			return nil, err2
 		}
+		peerID = k.PeerID()
 	}
+
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
@@ -223,7 +225,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				return nil, err
 			}
 		}
-		ocrkey, err := d.keyStore.Get(kb)
+		ocrkey, err := d.keyStore.OCR().Get(kb)
 		if err != nil {
 			return nil, err
 		}

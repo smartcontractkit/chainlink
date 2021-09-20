@@ -315,7 +315,7 @@ func NewApplication(logger *loggerPkg.Logger, cfg config.EVMConfig, ethClient et
 			txManager,
 			jobORM,
 			cfg,
-			keyStore.OCR(),
+			keyStore,
 			pipelineRunner,
 			ethClient,
 			logBroadcaster,
@@ -426,7 +426,6 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 
 func setupConfig(cfg config.GeneralConfig, db *gorm.DB, ks keystore.Master) {
 	cfg.SetDB(db)
-	cfg.SetKeyStore(ks)
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
