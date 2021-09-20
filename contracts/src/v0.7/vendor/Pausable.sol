@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // github.com/OpenZeppelin/openzeppelin-contracts@fa64a1ced0b70ab89073d5d0b6e01b0778f7e7d6
 
-pragma solidity >=0.6.0 <0.8.0;
+pragma solidity ^0.7.0;
 
 import "./Context.sol";
 

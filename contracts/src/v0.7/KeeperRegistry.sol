@@ -4,23 +4,23 @@ pragma solidity 0.7.6;
 
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/KeeperCompatibleInterface.sol";
+import "./interfaces/KeeperRegistryInterface.sol";
 import "./vendor/SafeMathChainlink.sol";
-import "./vendor/Owned.sol";
 import "./vendor/Address.sol";
 import "./vendor/Pausable.sol";
 import "./vendor/ReentrancyGuard.sol";
 import "./vendor/SignedSafeMath.sol";
-import "./SafeMath96.sol";
+import "./vendor/SafeMath96.sol";
 import "./KeeperBase.sol";
-import "./KeeperCompatibleInterface.sol";
-import "./KeeperRegistryInterface.sol";
+import "./ConfirmedOwner.sol";
 
 /**
   * @notice Registry for adding work for Chainlink Keepers to perform on client
   * contracts. Clients must support the Upkeep interface.
   */
 contract KeeperRegistry is
-  Owned,
+  ConfirmedOwner,
   KeeperBase,
   ReentrancyGuard,
   Pausable,

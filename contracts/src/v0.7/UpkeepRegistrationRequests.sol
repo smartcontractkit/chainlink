@@ -3,9 +3,9 @@
 pragma solidity 0.7.6;
 
 import "./interfaces/LinkTokenInterface.sol";
-import "./vendor/Owned.sol";
-import "./KeeperRegistryInterface.sol";
-import "./SafeMath96.sol";
+import "./interfaces/KeeperRegistryInterface.sol";
+import "./vendor/SafeMath96.sol";
+import "./ConfirmedOwner.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -17,7 +17,7 @@ import "./SafeMath96.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract UpkeepRegistrationRequests is Owned {
+contract UpkeepRegistrationRequests is ConfirmedOwner {
     using SafeMath96 for uint96;
 
     bytes4 private constant REGISTER_REQUEST_SELECTOR = this.register.selector;
