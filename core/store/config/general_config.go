@@ -142,7 +142,7 @@ type GeneralConfig interface {
 	P2PListenPortRaw() string
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() p2pkey.PeerID
 	P2PPeerIDRaw() string
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
@@ -161,7 +161,6 @@ type GeneralConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
-	SetKeyStore(keystore.Master)
 	SetLogLevel(ctx context.Context, value string) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
@@ -259,9 +258,6 @@ func (c *generalConfig) Validate() error {
 		logger.Warn("MINIMUM_CONTRACT_PAYMENT is now deprecated and will be removed from a future release, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
-	if _, err := c.P2PPeerID(); errors.Cause(err) == ErrInvalid {
-		return err
-	}
 	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
 		return err
 	}
@@ -287,11 +283,6 @@ func (c *generalConfig) Validate() error {
 func (c *generalConfig) SetDB(db *gorm.DB) {
 	orm := NewORM(db)
 	c.ORM = orm
-}
-
-// SetKeyStore provides reference to the keystore for runtime configuration values
-func (c *generalConfig) SetKeyStore(ks keystore.Master) {
-	c.ks = ks
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -909,41 +900,16 @@ func (c *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
-	func() {
-		c.p2ppeerIDmtx.Lock()
-		defer c.p2ppeerIDmtx.Unlock()
-		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
-			if c.ks == nil {
-				logger.Warnw("keystore was not set on config, falling back to env")
-				return
-			}
-			keys, err := c.ks.P2P().GetAll()
-			if err != nil {
-				logger.Warnw("Failed to load keys, falling back to env", "err", err.Error())
-				return
-			}
-			if len(keys) > 0 {
-				peerID := keys[0].PeerID()
-				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				c.viper.Set(EnvVarName("P2PPeerID"), peerID)
-				if len(keys) > 1 {
-					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
-				}
-			}
-		}
-	}()
-
+func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
+	var pid p2pkey.PeerID
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		var pid p2pkey.PeerID
 		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
+			logger.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
 		}
-		return pid, nil
 	}
-	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
+	return pid
 }
 
 // P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing

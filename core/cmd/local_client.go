@@ -103,6 +103,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
+	err = ensureKeys(context.TODO(), store.Config, app.GetEthClient(), keyStore)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to ensure keys"))
+	}
+
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
 		logger.Warn(e)
 	}
@@ -126,11 +131,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	err = logConfigVariables(cli.Config)
 	if err != nil {
 		return err
-	}
-
-	err = ensureKeys(context.TODO(), store.Config, app.GetEthClient(), keyStore)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure keys"))
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
