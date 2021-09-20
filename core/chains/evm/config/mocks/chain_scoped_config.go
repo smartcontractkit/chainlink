@@ -27,6 +27,8 @@ import (
 
 	networking "github.com/smartcontractkit/libocr/networking"
 
+	offchainreportingtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-gonic/contrib/sessions"
@@ -35,7 +37,7 @@ import (
 
 	time "time"
 
-	types "github.com/smartcontractkit/libocr/offchainreporting/types"
+	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	url "net/url"
 )
@@ -282,6 +284,20 @@ func (_m *ChainScopedConfig) ClobberNodesFromEnv() bool {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// Configure provides a mock function with given fields: _a0
+func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(types.ChainCfg) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
 	}
 
 	return r0
@@ -2782,15 +2798,15 @@ func (_m *ChainScopedConfig) P2PV2AnnounceAddressesRaw() []string {
 }
 
 // P2PV2Bootstrappers provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PV2Bootstrappers() []types.BootstrapperLocator {
+func (_m *ChainScopedConfig) P2PV2Bootstrappers() []offchainreportingtypes.BootstrapperLocator {
 	ret := _m.Called()
 
-	var r0 []types.BootstrapperLocator
-	if rf, ok := ret.Get(0).(func() []types.BootstrapperLocator); ok {
+	var r0 []offchainreportingtypes.BootstrapperLocator
+	if rf, ok := ret.Get(0).(func() []offchainreportingtypes.BootstrapperLocator); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.BootstrapperLocator)
+			r0 = ret.Get(0).([]offchainreportingtypes.BootstrapperLocator)
 		}
 	}
 

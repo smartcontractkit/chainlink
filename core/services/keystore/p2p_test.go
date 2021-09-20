@@ -78,4 +78,17 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 	})
+
+	t.Run("ensures key", func(t *testing.T) {
+		defer reset()
+		_, didExist, err := ks.EnsureKey()
+		require.NoError(t, err)
+		require.False(t, didExist)
+		_, didExist, err = ks.EnsureKey()
+		require.NoError(t, err)
+		require.True(t, didExist)
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(keys))
+	})
 }

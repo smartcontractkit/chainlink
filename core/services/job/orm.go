@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -15,7 +16,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/jackc/pgconn"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
@@ -36,8 +36,6 @@ var (
 )
 
 type ORM interface {
-	ListenForNewJobs() (postgres.Subscription, error)
-	ListenForDeletedJobs() (postgres.Subscription, error)
 	CreateJob(ctx context.Context, jobSpec *Job, pipeline pipeline.Pipeline) (Job, error)
 	JobsV2(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
@@ -46,18 +44,16 @@ type ORM interface {
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
 	DismissError(ctx context.Context, errorID int32) error
-	CheckForDeletedJobs(ctx context.Context, currentJobIDs []int32) (deletedJobIDs []int32, err error)
 	Close() error
 	PipelineRuns(offset, size int) ([]pipeline.Run, int, error)
 	PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error)
 }
 
 type orm struct {
-	db               *gorm.DB
-	chainSet         evm.ChainSet
-	keyStore         keystore.Master
-	pipelineORM      pipeline.ORM
-	eventBroadcaster postgres.EventBroadcaster
+	db          *gorm.DB
+	chainSet    evm.ChainSet
+	keyStore    keystore.Master
+	pipelineORM pipeline.ORM
 }
 
 var _ ORM = (*orm)(nil)
@@ -66,15 +62,13 @@ func NewORM(
 	db *gorm.DB,
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
-	eventBroadcaster postgres.EventBroadcaster,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 ) *orm {
 	return &orm{
-		db:               db,
-		chainSet:         chainSet,
-		keyStore:         keyStore,
-		pipelineORM:      pipelineORM,
-		eventBroadcaster: eventBroadcaster,
+		db:          db,
+		chainSet:    chainSet,
+		keyStore:    keyStore,
+		pipelineORM: pipelineORM,
 	}
 }
 
@@ -95,14 +89,6 @@ func (o *orm) Close() error {
 	return nil
 }
 
-func (o *orm) ListenForNewJobs() (postgres.Subscription, error) {
-	return o.eventBroadcaster.Subscribe(postgres.ChannelJobCreated, "")
-}
-
-func (o *orm) ListenForDeletedJobs() (postgres.Subscription, error) {
-	return o.eventBroadcaster.Subscribe(postgres.ChannelJobDeleted, "")
-}
-
 // CreateJob creates the job and it's associated spec record.
 //
 // NOTE: This is not wrapped in a db transaction so if you call this, you should
@@ -115,7 +101,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		if task.Type() == pipeline.TaskTypeBridge {
 			// Bridge must exist
 			name := task.(*pipeline.BridgeTask).Name
-			bt := models.BridgeType{}
+			bt := bridges.BridgeType{}
 			if err := o.db.First(&bt, "name = ?", name).Error; err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return jb, errors.Wrap(pipeline.ErrNoSuchBridge, name)
@@ -266,33 +252,6 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	}
 
 	return nil
-}
-
-func (o *orm) CheckForDeletedJobs(ctx context.Context, currentJobIDs []int32) (deletedJobIDs []int32, err error) {
-	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(currentJobIDs)).Rows()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not query for jobs")
-	}
-
-	foundJobs := make(map[int32]struct{})
-	for rows.Next() {
-		var id int32
-		if err := rows.Scan(&id); err != nil {
-			return nil, errors.Wrap(err, "could not scan row")
-		}
-		foundJobs[id] = struct{}{}
-	}
-	if err := rows.Close(); err != nil {
-		return nil, errors.Wrap(err, "could not close rows")
-	}
-
-	for _, currentID := range currentJobIDs {
-		if _, ok := foundJobs[currentID]; !ok {
-			deletedJobIDs = append(deletedJobIDs, currentID)
-		}
-	}
-
-	return deletedJobIDs, nil
 }
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {

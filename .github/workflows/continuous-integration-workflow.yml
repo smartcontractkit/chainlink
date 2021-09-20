@@ -109,6 +109,5 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
-      - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test

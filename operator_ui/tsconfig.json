@@ -1,5 +1,5 @@
 {
-  "extends": "../tsconfig.es6.json",
+  "extends": "../tsconfig.cjs.json",
   "compilerOptions": {
     "module": "esnext",
     "baseUrl": ".",

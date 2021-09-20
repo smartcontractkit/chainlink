@@ -127,15 +127,36 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
-	assert.NoError(t, client.CreateETHKey(nilContext))
+	// create a key on the default chain
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, ethkey.State{}, 2)
+	// create the key on a specific chainID
+	id := big.NewInt(0)
+	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
+	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
+	// _, err = app.GetChainSet().Add(id, evmtypes.ChainCfg{})
+	// require.NoError(t, err)
+
+	set = flag.NewFlagSet("test", 0)
+	set.String("evmChainID", "", "")
+	c = cli.NewContext(nil, set, nil)
+	set.Parse([]string{"-evmChainID", id.String()})
+	assert.NoError(t, client.CreateETHKey(c))
+
+	cltest.AssertCount(t, db, ethkey.State{}, 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(keys))
+	require.Equal(t, 3, len(keys))
+
+	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
+	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
+	// states, err := app.KeyStore.Eth().GetStatesForChain(id)
+	// require.Len(t, states, 1)
 }
 
-func TestClient_DeleteEthKey(t *testing.T) {
+func TestClient_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
 	ethClient, assertMocksCalled := newEthMock(t)

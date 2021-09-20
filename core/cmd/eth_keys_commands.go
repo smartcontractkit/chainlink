@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -21,6 +23,7 @@ type EthKeyPresenter struct {
 func (p *EthKeyPresenter) ToRow() []string {
 	return []string{
 		p.Address,
+		p.EVMChainID.String(),
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
 		fmt.Sprintf("%v", p.IsFunding),
@@ -31,7 +34,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
 	renderList(headers, rows, rt.Writer)
@@ -43,7 +46,7 @@ type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -72,9 +75,12 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
-// FIXME: Add support for specifying evmChainID - https://app.clubhouse.io/chainlinklabs/story/16148/fix-up-cli-to-allow-specifying-evmchainid-when-creating-importing-eth-keys
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
-	resp, err := cli.HTTP.Post("/v2/keys/eth", nil)
+	query := url.Values{}
+	if c.IsSet("evmChainID") {
+		query.Set("evmChainID", c.String("evmChainID"))
+	}
+	resp, err := cli.HTTP.Post("/v2/keys/eth?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -123,7 +129,6 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 
 // ImportETHKey imports an Ethereum key,
 // file path must be passed
-// FIXME: Add support for specifying evmChainID - https://app.clubhouse.io/chainlinklabs/story/16148/fix-up-cli-to-allow-specifying-evmchainid-when-creating-importing-eth-keys
 func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -144,8 +149,14 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	normalizedPassword := normalizePassword(string(oldPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/eth/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	query := url.Values{}
+	query.Set("oldpassword", strings.TrimSpace(string(oldPassword)))
+
+	if c.IsSet("evmChainID") {
+		query.Set("evmChainID", c.String("evmChainID"))
+	}
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/import?"+query.Encode(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -181,8 +192,10 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 
 	address := c.Args().Get(0)
 
-	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?newpassword="+normalizedPassword, nil)
+	query := url.Values{}
+	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}

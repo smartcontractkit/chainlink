@@ -31,7 +31,6 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -283,12 +282,12 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupStoreWithKey(t *testing.T) (*store.Store, common.Address) {
-	store := cltest.NewStore(t)
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+func setupStoreWithKey(t *testing.T) (*gorm.DB, common.Address) {
+	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	return store, nodeAddr
+	return db, nodeAddr
 }
 
 func TestFluxMonitor_PollIfEligible(t *testing.T) {
@@ -342,7 +341,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		},
 	}
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 
 	const reportableRoundID = 2
 	var (
@@ -356,7 +355,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			fm, tm := setup(t, store.DB)
+			fm, tm := setup(t, db)
 
 			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 			tm.logBroadcaster.On("IsConnected").Return(tc.connected).Once()
@@ -496,14 +495,14 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 // If the roundState method is unable to communicate with the contract (possibly due to
 // incorrect address) then the pollIfEligible method should create a JobErr record
 func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
 		roundState = flux_aggregator_wrapper.OracleRoundState{}
 	)
 
-	fm, tm := setup(t, store.DB)
+	fm, tm := setup(t, db)
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 	tm.logBroadcaster.On("IsConnected").Return(true).Once()
@@ -528,11 +527,11 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 }
 
 func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fm, tm := setup(t,
-		store.DB,
+		db,
 		disableIdleTimer(true),
 		disablePollTicker(true),
 	)
@@ -730,7 +729,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 		{"idleDuration > 0", false, 2 * time.Second, true},
 	}
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	for _, tc := range testCases {
@@ -739,10 +738,10 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
-			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
+			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
 
 			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
@@ -813,11 +812,11 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewGomegaWithT(t)
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fm, tm := setup(t,
-		store.DB,
+		db,
 		disablePollTicker(true),
 		disableIdleTimer(true),
 		setHibernationTickerPeriod(time.Second),
@@ -897,7 +896,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	const (
@@ -912,7 +911,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	flags.On("IsLowered", mock.Anything).Return(true, nil).Once()
 
 	fm, tm := setup(t,
-		store.DB,
+		db,
 		setIdleTimerPeriod(time.Second),
 		disablePollTicker(true),
 		setHibernationTickerPeriod(4*time.Second),
@@ -1021,11 +1020,11 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewGomegaWithT(t)
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fm, tm := setup(t,
-		store.DB,
+		db,
 		disablePollTicker(true),
 		setIdleTimerPeriod(2*time.Second),
 	)
@@ -1127,14 +1126,14 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewGomegaWithT(t)
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
-		orm     = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
+		orm     = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
 	)
 
-	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
 	tm.keyStore.
 		On("SendingKeys").
@@ -1176,7 +1175,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	tests := []struct {
@@ -1195,10 +1194,10 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
-			fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
 			tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
@@ -1242,7 +1241,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	almostExpired := time.Now().
@@ -1265,11 +1264,11 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			var (
-				orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
 			)
 
 			fm, tm := setup(t,
-				store.DB,
+				db,
 				disablePollTicker(true),
 				withORM(orm),
 			)
@@ -1325,14 +1324,14 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
 	g := gomega.NewGomegaWithT(t)
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
-		orm = fluxmonitorv2.NewORM(store.DB, nil, bulletprooftxmanager.SendEveryStrategy{})
+		orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
 	)
 
-	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil).Once()
 
@@ -1483,11 +1482,11 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 
 func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	t.Run("when NewRound log arrives, then poll ticker fires", func(t *testing.T) {
-		store, nodeAddr := setupStoreWithKey(t)
+		db, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		fm, tm := setup(t,
-			store.DB,
+			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
 		)
@@ -1597,10 +1596,10 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 
 	t.Run("when poll ticker fires, then NewRound log arrives", func(t *testing.T) {
-		store, nodeAddr := setupStoreWithKey(t)
+		db, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 		fm, tm := setup(t,
-			store.DB,
+			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
 		)
@@ -1689,10 +1688,10 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 	})
 
 	t.Run("when poll ticker fires, then an older NewRound log arrives, but does submit on a log arrival after a reorg", func(t *testing.T) {
-		store, nodeAddr := setupStoreWithKey(t)
+		db, nodeAddr := setupStoreWithKey(t)
 		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 		fm, tm := setup(t,
-			store.DB,
+			db,
 			disableIdleTimer(true),
 			disablePollTicker(true),
 		)
@@ -1844,13 +1843,13 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 	t.Parallel()
 
-	store, nodeAddr := setupStoreWithKey(t)
+	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	// a setup with a random delay being zero
-	_, _ = setup(t, store.DB, enableDrumbeatTicker("@every 10s", 0))
+	_, _ = setup(t, db, enableDrumbeatTicker("@every 10s", 0))
 
-	fm, tm := setup(t, store.DB, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
+	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), enableDrumbeatTicker("@every 3s", 2*time.Second))
 
 	tm.keyStore.On("SendingKeys").Return([]ethkey.KeyV2{{Address: ethkey.EIP55AddressFromAddress(nodeAddr)}}, nil)
 

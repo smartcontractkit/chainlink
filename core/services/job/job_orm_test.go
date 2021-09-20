@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -29,18 +28,19 @@ import (
 
 func TestORM(t *testing.T) {
 	t.Parallel()
-	config, oldORM := heavyweight.FullTestORM(t, "services_job_orm", true, true)
-	db := oldORM.DB
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	config.SetDB(db)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
+	pipelineORM := pipeline.NewORM(db)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
 	defer orm.Close()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -84,7 +84,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer d.Close()
 
-	orm2 := job.NewORM(db2, cc, pipeline.NewORM(db2), eventBroadcaster, keyStore)
+	orm2 := job.NewORM(db2, cc, pipeline.NewORM(db2), keyStore)
 	defer orm2.Close()
 
 	t.Run("it deletes jobs from the DB", func(t *testing.T) {
@@ -168,48 +168,6 @@ func TestORM(t *testing.T) {
 	})
 }
 
-func TestORM_CheckForDeletedJobs(t *testing.T) {
-	t.Parallel()
-
-	config := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
-
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, db.Create(bridge2).Error)
-
-	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
-
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
-	defer orm.Close()
-
-	activeJobIDs := make([]int32, 3)
-	for i := range activeJobIDs {
-		dbSpec := makeOCRJobSpec(t, address)
-		_, err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
-		require.NoError(t, err)
-		activeJobIDs[i] = dbSpec.ID
-	}
-
-	deletedID := activeJobIDs[0]
-	require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, deletedID).Error)
-
-	deletedJobIDs, err := orm.CheckForDeletedJobs(context.Background(), activeJobIDs)
-	require.NoError(t, err)
-
-	require.Len(t, deletedJobIDs, 1)
-	require.Equal(t, deletedID, deletedJobIDs[0])
-
-}
-
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	config := cltest.NewTestGeneralConfig(t)
@@ -218,9 +176,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	pipelineORM, eventBroadcaster := cltest.NewPipelineORM(t, config, db)
+	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, eventBroadcaster, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
 	defer orm.Close()
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {

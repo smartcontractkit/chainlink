@@ -28,6 +28,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
@@ -45,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -158,8 +158,8 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			io.WriteString(w, `{}`)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		app.Store.CreateBridgeType(&models.BridgeType{
-			Name: models.TaskType("substrate-adapter1"),
+		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.TaskType("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
 		defer bridgeServer.Close()
@@ -219,7 +219,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, &postgres.NullEventBroadcaster{}, app.KeyStore)
+		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -249,8 +249,9 @@ func TestIntegration_AuthToken(t *testing.T) {
 	// set up user
 	mockUser := cltest.MustRandomUser()
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
-	require.NoError(t, mockUser.SetAuthToken(&apiToken))
-	require.NoError(t, app.Store.SaveUser(&mockUser))
+	orm := app.SessionORM()
+	require.NoError(t, orm.CreateUser(&mockUser))
+	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)
@@ -620,7 +621,7 @@ isBootstrapPeer    = true
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			b, err := ioutil.ReadAll(req.Body)
 			require.NoError(t, err)
-			var m models.BridgeMetaDataJSON
+			var m bridges.BridgeMetaDataJSON
 			require.NoError(t, json.Unmarshal(b, &m))
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 				metaLock.Lock()
@@ -632,8 +633,8 @@ isBootstrapPeer    = true
 		}))
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
-		apps[i].Store.CreateBridgeType(&models.BridgeType{
-			Name: models.TaskType(fmt.Sprintf("bridge%d", i)),
+		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
 			URL:  models.WebURL(*u),
 		})
 
