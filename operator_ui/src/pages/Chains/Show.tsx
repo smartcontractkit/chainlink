@@ -7,6 +7,7 @@ import { ChainSpecV2 } from '../ChainsIndex/ChainsIndex'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
 import NewChainNode from './NewChainNode'
+import UpdateChain from './UpdateChain'
 
 interface RouteParams {
   chainId: string
@@ -45,6 +46,9 @@ export const ChainsShow = () => {
       <Switch>
         <Route path={`${path}/nodes/new`}>
           {chain && <NewChainNode chain={chain} />}
+        </Route>
+        <Route path={`${path}/edit`}>
+          {chain && <UpdateChain chain={chain} />}
         </Route>
         <Route path={`${path}/config-overrides`}>
           {chain && <ChainConfig chain={chain} />}
