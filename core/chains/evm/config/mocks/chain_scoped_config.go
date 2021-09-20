@@ -533,8 +533,8 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
-// EIP1559DynamicFees provides a mock function with given fields:
-func (_m *ChainScopedConfig) EIP1559DynamicFees() bool {
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmEIP1559DynamicFees() bool {
 	ret := _m.Called()
 
 	var r0 bool

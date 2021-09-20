@@ -166,7 +166,7 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimi
 }
 
 func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
-	if !b.config.EIP1559DynamicFees() {
+	if !b.config.EvmEIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
 	var tipCap *big.Int
@@ -226,7 +226,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
 func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
-	enableEIP1559 := b.config.EIP1559DynamicFees()
+	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
 

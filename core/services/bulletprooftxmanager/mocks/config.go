@@ -73,8 +73,8 @@ func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	return r0
 }
 
-// EIP1559DynamicFees provides a mock function with given fields:
-func (_m *Config) EIP1559DynamicFees() bool {
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *Config) EvmEIP1559DynamicFees() bool {
 	ret := _m.Called()
 
 	var r0 bool

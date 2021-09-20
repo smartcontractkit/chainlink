@@ -29,7 +29,7 @@ type ChainScopedOnlyConfig interface {
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
 	ChainID() *big.Int
-	EIP1559DynamicFees() bool
+	EvmEIP1559DynamicFees() bool
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -853,13 +853,17 @@ func (c *chainScopedConfig) BalanceMonitorEnabled() bool {
 	return c.defaultSet.balanceMonitorEnabled
 }
 
-// EIP1559DynamicFees will send transactions with the 0x2 dynamic fee EIP-2718
+// EvmEIP1559DynamicFees will send transactions with the 0x2 dynamic fee EIP-2718
 // type and gas fields when enabled
-func (c *chainScopedConfig) EIP1559DynamicFees() bool {
+func (c *chainScopedConfig) EvmEIP1559DynamicFees() bool {
 	val, ok := c.GeneralConfig.GlobalEvmEIP1559DynamicFees()
 	if ok {
-		c.logEnvOverrideOnce("EIP1559DynamicFees", val)
+		c.logEnvOverrideOnce("EvmEIP1559DynamicFees", val)
 		return val
+	}
+	if c.persistedCfg.EvmEIP1559DynamicFees.Valid {
+		c.logPersistedOverrideOnce("EvmEIP1559DynamicFees", c.persistedCfg.EvmEIP1559DynamicFees.Bool)
+		return c.persistedCfg.EvmEIP1559DynamicFees.Bool
 	}
 	return c.defaultSet.eip1559DynamicFees
 }
@@ -879,6 +883,10 @@ func (c *chainScopedConfig) EvmGasTipCapDefault() *big.Int {
 		c.logEnvOverrideOnce("EvmGasTipCapDefault", val)
 		return val
 	}
+	if c.persistedCfg.EvmGasTipCapDefault != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapDefault", c.persistedCfg.EvmGasTipCapDefault)
+		return c.persistedCfg.EvmGasTipCapDefault.ToInt()
+	}
 	return &c.defaultSet.gasTipCapDefault
 }
 
@@ -889,6 +897,10 @@ func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 	if ok {
 		c.logEnvOverrideOnce("EvmGasTipCapMinimum", val)
 		return val
+	}
+	if c.persistedCfg.EvmGasTipCapMinimum != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapMinimum", c.persistedCfg.EvmGasTipCapMinimum)
+		return c.persistedCfg.EvmGasTipCapMinimum.ToInt()
 	}
 	return &c.defaultSet.gasTipCapMinimum
 }

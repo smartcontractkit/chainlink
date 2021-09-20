@@ -28,14 +28,14 @@ import (
 func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
-	config.On("EIP1559DynamicFees").Maybe().Return(true)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
 	return config
 }
 
 func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
-	config.On("EIP1559DynamicFees").Maybe().Return(false)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
 	return config
 }
 
@@ -66,7 +66,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
 	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
 	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
-	config.On("EIP1559DynamicFees").Maybe().Return(true)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
 
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)

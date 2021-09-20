@@ -251,7 +251,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		}
 		n++
 		var a EthTxAttempt
-		if eb.config.EIP1559DynamicFees() {
+		if eb.config.EvmEIP1559DynamicFees() {
 			fee, gasLimit, err := eb.estimator.GetDynamicFee(etx.GasLimit)
 			if err != nil {
 				return errors.Wrap(err, "failed to get dynamic gas fee")

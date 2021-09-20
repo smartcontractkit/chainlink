@@ -78,7 +78,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
-	EIP1559DynamicFees() bool
+	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16
 	EvmGasBumpWei() *big.Int
