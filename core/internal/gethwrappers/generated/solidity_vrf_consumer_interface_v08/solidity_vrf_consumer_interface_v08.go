@@ -28,8 +28,8 @@ var (
 )
 
 var VRFConsumerMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"randomnessOutput\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"randomness\",\"type\":\"uint256\"}],\"name\":\"rawFulfillRandomness\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"requestId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"}],\"name\":\"testRequestRandomness\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60c060405234801561001057600080fd5b506040516104e33803806104e383398101604081905261002f91610069565b6001600160601b0319606092831b811660a052911b1660805261009c565b80516001600160a01b038116811461006457600080fd5b919050565b6000806040838503121561007c57600080fd5b6100858361004d565b91506100936020840161004d565b90509250929050565b60805160601c60a05160601c6104166100cd6000396000818160c701526101980152600061015c01526104166000f3fe608060405234801561001057600080fd5b506004361061004b5760003560e01c80626d6cae146100505780632f47fd861461006b578063866ee7481461007457806394985ddd14610087575b600080fd5b61005960025481565b60405190815260200160405180910390f35b61005960015481565b610059610082366004610310565b61009c565b61009a610095366004610310565b6100af565b005b60006100a88383610158565b9392505050565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610152576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f4f6e6c7920565246436f6f7264696e61746f722063616e2066756c66696c6c00604482015260640160405180910390fd5b60015550565b60007f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16634000aea07f0000000000000000000000000000000000000000000000000000000000000000848660006040516020016101d5929190918252602082015260400190565b6040516020818303038152906040526040518463ffffffff1660e01b815260040161020293929190610332565b602060405180830381600087803b15801561021c57600080fd5b505af1158015610230573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061025491906102ee565b5060008381526020818152604080832054815180840188905280830185905230606082015260808082018390528351808303909101815260a0909101909252815191830191909120868452929091526102ae9060016103ca565b6000858152602081815260409182902092909255805180830187905280820184905281518082038301815260609091019091528051910120949350505050565b60006020828403121561030057600080fd5b815180151581146100a857600080fd5b6000806040838503121561032357600080fd5b50508035926020909101359150565b73ffffffffffffffffffffffffffffffffffffffff8416815260006020848184015260606040840152835180606085015260005b8181101561038257858101830151858201608001528201610366565b81811115610394576000608083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160800195945050505050565b60008219821115610404577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b50019056fea164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"randomness\",\"type\":\"uint256\"}],\"name\":\"rawFulfillRandomness\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_randomnessOutput\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_requestId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"fee\",\"type\":\"uint256\"}],\"name\":\"testRequestRandomness\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60c060405234801561001057600080fd5b506040516104ef3803806104ef83398101604081905261002f91610069565b6001600160601b0319606092831b811660a052911b1660805261009c565b80516001600160a01b038116811461006457600080fd5b919050565b6000806040838503121561007c57600080fd5b6100858361004d565b91506100936020840161004d565b90509250929050565b60805160601c60a05160601c6104226100cd6000396000818160c801526101a40152600061016801526104226000f3fe608060405234801561001057600080fd5b506004361061004c5760003560e01c80635eb7978314610051578063866ee7481461006c57806394985ddd1461007f578063e89e106a14610094575b600080fd5b61005a60015481565b60405190815260200160405180910390f35b61005a61007a36600461031c565b61009d565b61009261008d36600461031c565b6100b0565b005b61005a60025481565b60006100a98383610164565b9392505050565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610153576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f4f6e6c7920565246436f6f7264696e61746f722063616e2066756c66696c6c00604482015260640160405180910390fd5b6101608282600155600255565b5050565b60007f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16634000aea07f0000000000000000000000000000000000000000000000000000000000000000848660006040516020016101e1929190918252602082015260400190565b6040516020818303038152906040526040518463ffffffff1660e01b815260040161020e9392919061033e565b602060405180830381600087803b15801561022857600080fd5b505af115801561023c573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061026091906102fa565b5060008381526020818152604080832054815180840188905280830185905230606082015260808082018390528351808303909101815260a0909101909252815191830191909120868452929091526102ba9060016103d6565b6000858152602081815260409182902092909255805180830187905280820184905281518082038301815260609091019091528051910120949350505050565b60006020828403121561030c57600080fd5b815180151581146100a957600080fd5b6000806040838503121561032f57600080fd5b50508035926020909101359150565b73ffffffffffffffffffffffffffffffffffffffff8416815260006020848184015260606040840152835180606085015260005b8181101561038e57858101830151858201608001528201610372565b818111156103a0576000608083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160800195945050505050565b60008219821115610410577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b50019056fea164736f6c6343000806000a",
 }
 
 var VRFConsumerABI = VRFConsumerMetaData.ABI
@@ -168,9 +168,9 @@ func (_VRFConsumer *VRFConsumerTransactorRaw) Transact(opts *bind.TransactOpts, 
 	return _VRFConsumer.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*big.Int, error) {
+func (_VRFConsumer *VRFConsumerCaller) SRandomnessOutput(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _VRFConsumer.contract.Call(opts, &out, "randomnessOutput")
+	err := _VRFConsumer.contract.Call(opts, &out, "s_randomnessOutput")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -182,17 +182,17 @@ func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*b
 
 }
 
-func (_VRFConsumer *VRFConsumerSession) RandomnessOutput() (*big.Int, error) {
-	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
+func (_VRFConsumer *VRFConsumerSession) SRandomnessOutput() (*big.Int, error) {
+	return _VRFConsumer.Contract.SRandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
-func (_VRFConsumer *VRFConsumerCallerSession) RandomnessOutput() (*big.Int, error) {
-	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
+func (_VRFConsumer *VRFConsumerCallerSession) SRandomnessOutput() (*big.Int, error) {
+	return _VRFConsumer.Contract.SRandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
-func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte, error) {
+func (_VRFConsumer *VRFConsumerCaller) SRequestId(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
-	err := _VRFConsumer.contract.Call(opts, &out, "requestId")
+	err := _VRFConsumer.contract.Call(opts, &out, "s_requestId")
 
 	if err != nil {
 		return *new([32]byte), err
@@ -204,12 +204,12 @@ func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte,
 
 }
 
-func (_VRFConsumer *VRFConsumerSession) RequestId() ([32]byte, error) {
-	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
+func (_VRFConsumer *VRFConsumerSession) SRequestId() ([32]byte, error) {
+	return _VRFConsumer.Contract.SRequestId(&_VRFConsumer.CallOpts)
 }
 
-func (_VRFConsumer *VRFConsumerCallerSession) RequestId() ([32]byte, error) {
-	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
+func (_VRFConsumer *VRFConsumerCallerSession) SRequestId() ([32]byte, error) {
+	return _VRFConsumer.Contract.SRequestId(&_VRFConsumer.CallOpts)
 }
 
 func (_VRFConsumer *VRFConsumerTransactor) RawFulfillRandomness(opts *bind.TransactOpts, requestId [32]byte, randomness *big.Int) (*types.Transaction, error) {
@@ -241,9 +241,9 @@ func (_VRFConsumer *VRFConsumer) Address() common.Address {
 }
 
 type VRFConsumerInterface interface {
-	RandomnessOutput(opts *bind.CallOpts) (*big.Int, error)
+	SRandomnessOutput(opts *bind.CallOpts) (*big.Int, error)
 
-	RequestId(opts *bind.CallOpts) ([32]byte, error)
+	SRequestId(opts *bind.CallOpts) ([32]byte, error)
 
 	RawFulfillRandomness(opts *bind.TransactOpts, requestId [32]byte, randomness *big.Int) (*types.Transaction, error)
 

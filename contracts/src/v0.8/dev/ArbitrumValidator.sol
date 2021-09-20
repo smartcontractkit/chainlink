@@ -100,7 +100,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param gasPriceBid maximum L2 gas price to pay
    * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
-   * @param paymentStrategy strategy describing how the contract pays for xDomain calls
+   * @param strategy strategy describing how the contract pays for xDomain calls
    */
   constructor(
     address crossDomainMessengerAddr,
@@ -110,7 +110,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxGas,
     uint256 gasPriceBid,
     address gasPriceL1FeedAddr,
-    PaymentStrategy paymentStrategy
+    PaymentStrategy strategy
   ) {
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
     require(l2CrossDomainForwarderAddr != address(0), "Invalid L2 xDomain Forwarder address");
@@ -121,7 +121,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // Additional L2 payment configuration
     _setConfigAC(configACAddr);
     _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
-    _setPaymentStrategy(paymentStrategy);
+    _setPaymentStrategy(strategy);
   }
 
   /**
@@ -289,15 +289,15 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   /**
    * @notice sets the payment strategy
    * @dev access control provided by `configAC`
-   * @param paymentStrategy strategy describing how the contract pays for xDomain calls
+   * @param strategy strategy describing how the contract pays for xDomain calls
    */
   function setPaymentStrategy(
-    PaymentStrategy paymentStrategy
+    PaymentStrategy strategy
   )
     external
     onlyOwnerOrConfigAccess()
   {
-    _setPaymentStrategy(paymentStrategy);
+    _setPaymentStrategy(strategy);
   }
 
   /**
@@ -356,12 +356,12 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @notice internal method that stores the payment strategy
   function _setPaymentStrategy(
-    PaymentStrategy paymentStrategy
+    PaymentStrategy strategy
   )
     internal
   {
-    s_paymentStrategy = paymentStrategy;
-    emit PaymentStrategySet(paymentStrategy);
+    s_paymentStrategy = strategy;
+    emit PaymentStrategySet(strategy);
   }
 
   /// @notice internal method that stores the gas configuration

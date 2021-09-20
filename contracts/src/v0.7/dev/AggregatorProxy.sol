@@ -103,11 +103,11 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   {
     if (roundId > MAX_ID) return 0;
 
-    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
-    AggregatorProxyInterface aggregator = s_phaseAggregators[phaseId];
-    if (address(aggregator) == address(0)) return 0;
+    (uint16 phase, uint64 aggregatorRoundId) = parseIds(roundId);
+    AggregatorProxyInterface phaseAggregator = s_phaseAggregators[phase];
+    if (address(phaseAggregator) == address(0)) return 0;
 
-    return aggregator.getAnswer(aggregatorRoundId);
+    return phaseAggregator.getAnswer(aggregatorRoundId);
   }
 
   /**
@@ -132,11 +132,11 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   {
     if (roundId > MAX_ID) return 0;
 
-    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
-    AggregatorProxyInterface aggregator = s_phaseAggregators[phaseId];
-    if (address(aggregator) == address(0)) return 0;
+    (uint16 phase, uint64 aggregatorRoundId) = parseIds(roundId);
+    AggregatorProxyInterface phaseAggregator = s_phaseAggregators[phase];
+    if (address(phaseAggregator) == address(0)) return 0;
 
-    return aggregator.getTimestamp(aggregatorRoundId);
+    return phaseAggregator.getTimestamp(aggregatorRoundId);
   }
 
   /**
@@ -202,7 +202,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       uint80 answeredInRound
     )
   {
-    (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
+    (uint16 phase, uint64 aggregatorRoundId) = parseIds(roundId);
 
     (
       id,
@@ -210,9 +210,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       startedAt,
       updatedAt,
       answeredInRound
-    ) = s_phaseAggregators[phaseId].getRoundData(aggregatorRoundId);
+    ) = s_phaseAggregators[phase].getRoundData(aggregatorRoundId);
 
-    return addPhaseIds(id, answer, startedAt, updatedAt, answeredInRound, phaseId);
+    return addPhaseIds(id, answer, startedAt, updatedAt, answeredInRound, phase);
   }
 
   /**
@@ -410,10 +410,10 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   /**
    * @notice return a phase aggregator using the phaseId
    *
-   * @param phaseId uint16
+   * @param phase uint16
    */
   function phaseAggregators(
-    uint16 phaseId
+    uint16 phase
   )
     external
     view
@@ -422,7 +422,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       address
     )
   {
-    return address(s_phaseAggregators[phaseId]);
+    return address(s_phaseAggregators[phase]);
   }
 
   /**
@@ -497,10 +497,10 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       uint64
     )
   {
-    uint16 phaseId = uint16(roundId >> PHASE_OFFSET);
+    uint16 phase = uint16(roundId >> PHASE_OFFSET);
     uint64 aggregatorRoundId = uint64(roundId);
 
-    return (phaseId, aggregatorRoundId);
+    return (phase, aggregatorRoundId);
   }
 
   function addPhaseIds(
@@ -509,7 +509,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       uint256 startedAt,
       uint256 updatedAt,
       uint80 answeredInRound,
-      uint16 phaseId
+      uint16 phase
   )
     internal
     pure
@@ -522,11 +522,11 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     )
   {
     return (
-      addPhase(phaseId, uint64(roundId)),
+      addPhase(phase, uint64(roundId)),
       answer,
       startedAt,
       updatedAt,
-      addPhase(phaseId, uint64(answeredInRound))
+      addPhase(phase, uint64(answeredInRound))
     );
   }
 

@@ -32,22 +32,22 @@ interface ENSInterface {
   function setSubnodeOwner(
     bytes32 node,
     bytes32 label,
-    address owner
+    address newOwner
   ) external;
 
   function setResolver(
     bytes32 node,
-    address resolver
+    address newResolver
   ) external;
 
   function setOwner(
     bytes32 node,
-    address owner
+    address newOwner
   ) external;
 
   function setTTL(
     bytes32 node,
-    uint64 ttl
+    uint64 newTtl
   ) external;
 
   function owner(

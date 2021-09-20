@@ -44,7 +44,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     }
 
     function fulfillRandomWords(
-        uint256 requestId,
+        uint256, // requestId
         uint256[] memory randomWords
     )
         internal

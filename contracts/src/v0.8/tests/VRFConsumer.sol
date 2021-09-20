@@ -6,8 +6,8 @@ import "../VRFConsumerBase.sol";
 
 contract VRFConsumer is VRFConsumerBase {
 
-  uint256 public randomnessOutput;
-  bytes32 public requestId;
+  uint256 public s_randomnessOutput;
+  bytes32 public s_requestId;
 
   constructor(address vrfCoordinator, address link)
     // solhint-disable-next-line no-empty-blocks
@@ -16,8 +16,8 @@ contract VRFConsumer is VRFConsumerBase {
   function fulfillRandomness(bytes32 requestId, uint256 randomness)
     internal override
   {
-    randomnessOutput = randomness;
-    requestId = requestId;
+    s_randomnessOutput = randomness;
+    s_requestId = requestId;
   }
 
   function testRequestRandomness(bytes32 keyHash, uint256 fee)

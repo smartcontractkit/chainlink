@@ -6,7 +6,7 @@ import "./AggregatorV2V3Interface.sol";
 interface AggregatorProxyInterface is AggregatorV2V3Interface {
   
 	function phaseAggregators(
-    uint16 phaseId
+    uint16 phase
   )
     external
     view

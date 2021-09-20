@@ -19,9 +19,7 @@ contract Consumer is ChainlinkClient {
     address _link,
     address _oracle,
     bytes32 _specId
-  )
-    public
-  {
+  ) {
     setChainlinkToken(_link);
     setChainlinkOracle(_oracle);
     specId = _specId;
