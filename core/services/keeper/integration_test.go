@@ -151,7 +151,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload3))
 
 	// remove this node from keeper list
-	_, err = registryContract.SetKeepers(steve, []common.Address{nelly.From}, []common.Address{nelly.From})
+	_, err = registryContract.SetKeepers(steve, []common.Address{nelly.From, nelly.From}, []common.Address{nelly.From, nelly.From})
 	require.NoError(t, err)
 
 	var registry keeper.Registry
