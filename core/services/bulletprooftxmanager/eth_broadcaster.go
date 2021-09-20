@@ -140,11 +140,7 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 	ok := eb.IfStarted(func() {
 		triggerCh, exists := eb.triggers[addr]
 		if !exists {
-			var registeredAddrs []gethCommon.Address
-			for addr := range eb.triggers {
-				registeredAddrs = append(registeredAddrs, addr)
-			}
-			eb.logger.Errorw(fmt.Sprintf("EthBroadcaster: attempted trigger for address %s which is not registered", addr.Hex()), "registeredAddrs", registeredAddrs)
+			// ignoring trigger for address which is not registered with this EthBroadcaster
 			return
 		}
 		select {
