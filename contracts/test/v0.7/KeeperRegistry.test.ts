@@ -482,16 +482,16 @@ describe("KeeperRegistry", () => {
 
         const performData = "0xc0ffeec0ffee";
         const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: extraGas });
-        await expect(tx).to.emit(
-          registry,
-          "UpkeepPerformed",
-        ); /*.withArgs(
-            id,
-            true,
-            await keeper1.getAddress(),
-            any,
-            performData,
-        )*/
+        const receipt = await tx.wait();
+        const eventLog = receipt?.events;
+
+        assert.equal(eventLog?.length, 2);
+        assert.equal(eventLog?.[1].event, "UpkeepPerformed");
+        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber());
+        assert.equal(eventLog?.[1].args?.[1], true);
+        assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress());
+        assert.isNotEmpty(eventLog?.[1].args?.[3]);
+        assert.equal(eventLog?.[1].args?.[4], performData);
       });
 
       it("updates payment balances", async () => {
@@ -678,15 +678,16 @@ describe("KeeperRegistry", () => {
         const gas = executeGas.add(PERFORM_GAS_OVERHEAD);
         const performData = "0xc0ffeec0ffee";
         const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: gas });
-        await expect(tx).to.emit(
-          registry,
-          "UpkeepPerformed",
-        ); /*.withArgs(
-          id,
-          true,
-          await keeper1.getAddress(),
-          performData,
-        )*/
+        const receipt = await tx.wait();
+        const eventLog = receipt?.events;
+
+        assert.equal(eventLog?.length, 2);
+        assert.equal(eventLog?.[1].event, "UpkeepPerformed");
+        assert.equal(eventLog?.[1].args?.[0].toNumber(), id.toNumber());
+        assert.equal(eventLog?.[1].args?.[1], true);
+        assert.equal(eventLog?.[1].args?.[2], await keeper1.getAddress());
+        assert.isNotEmpty(eventLog?.[1].args?.[3]);
+        assert.equal(eventLog?.[1].args?.[4], performData);
       });
     });
   });
