@@ -3,7 +3,7 @@ import { ApiResponse } from 'utils/json-api-client'
 import Button from '@material-ui/core/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
-import { CreateNodeRequest, Node } from 'core/store/models'
+import { Chain, UpdateChainRequest } from 'core/store/models'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
@@ -11,50 +11,45 @@ import Content from 'components/Content'
 import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
 import { ChainSpecV2 } from './RegionalNav'
 import { Field, Form, Formik } from 'formik'
-import { TextField } from 'formik-material-ui'
+import { TextField, CheckboxWithLabel } from 'formik-material-ui'
 import * as Yup from 'yup'
 
 const SuccessNotification = ({ id }: { id: string }) => (
   <>
-    Successfully created node{' '}
-    <BaseLink id="created-node" href={`/nodes`}>
+    Successfully updated chain{' '}
+    <BaseLink id="updated-chain" href={`/chains`}>
       {id}
     </BaseLink>
   </>
 )
 
 function apiCall({
-  name,
-  wsURL,
-  httpURL,
-  evmChainID,
+  chain,
+  config,
+  enabled,
 }: {
-  name: string
-  httpURL: string
-  wsURL: string
-  evmChainID: string
-}): Promise<ApiResponse<Node>> {
-  const definition: CreateNodeRequest = { name, wsURL, httpURL, evmChainID }
-  return api.v2.nodes.createNode(definition)
+  chain: ChainSpecV2
+  config: Record<string, JSONPrimitive>
+  enabled: boolean
+}): Promise<ApiResponse<Chain>> {
+  const definition: UpdateChainRequest = { config, enabled }
+  return api.v2.chains.updateChain(chain.id, definition)
 }
 
-const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
+const UpdateChain = ({ chain }: { chain: ChainSpecV2 }) => {
   const dispatch = useDispatch()
 
   async function handleSubmit({
-    name,
-    httpURL,
-    wsURL,
+    config,
+    enabled,
   }: {
-    name: string
-    httpURL: string
-    wsURL: string
+    config: string
+    enabled: boolean
   }) {
     apiCall({
-      name,
-      wsURL,
-      httpURL,
-      evmChainID: chain.id,
+      chain,
+      config: JSON.parse(config),
+      enabled,
     })
       .then(({ data }) => {
         dispatch(notifySuccess(SuccessNotification, data))
@@ -64,34 +59,19 @@ const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
       })
   }
 
+  const configOverrides = Object.fromEntries(
+    Object.entries(chain.attributes.config).filter(
+      ([_key, value]) => value !== null,
+    ),
+  )
+
   const initialValues = {
-    name: '',
-    wsURL: '',
-    httpURL: '',
+    config: JSON.stringify(configOverrides, null, 2),
+    enabled: chain.attributes.enabled,
   }
 
   const ValidationSchema = Yup.object().shape({
-    name: Yup.string().required('Required'),
-    httpURL: Yup.string()
-      .required('Required')
-      .test('validScheme', 'Invalid HTTP URL', function (value = '') {
-        try {
-          const url = new URL(value)
-          return url.protocol === 'http:' || url.protocol === 'https:'
-        } catch (_) {
-          return false
-        }
-      }),
-    wsURL: Yup.string()
-      .required('Required')
-      .test('validScheme', 'Invalid Websocket URL', function (value = '') {
-        try {
-          const url = new URL(value)
-          return url.protocol === 'ws:' || url.protocol === 'wss:'
-        } catch (_) {
-          return false
-        }
-      }),
+    config: Yup.string().required('Required'),
   })
 
   return (
@@ -99,7 +79,7 @@ const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
       <Grid container spacing={40}>
         <Grid item xs={12}>
           <Card>
-            <CardHeader title="New Node" />
+            <CardHeader title={`Edit Chain ${chain.id}`} />
             <CardContent>
               <Formik
                 initialValues={initialValues}
@@ -108,45 +88,36 @@ const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
                   handleSubmit(values)
                 }}
               >
-                {({ isSubmitting, submitForm }) => (
+                {({ isSubmitting, submitForm, values }) => (
                   <Form>
                     <Grid container spacing={16}>
                       <Grid item xs={12} md={4}>
                         <Field
-                          component={TextField}
-                          id="name"
-                          name="name"
-                          label="Name"
-                          required
-                          fullWidth
+                          type="checkbox"
+                          component={CheckboxWithLabel}
+                          name="enabled"
+                          id="enabled"
+                          checked={values.enabled}
+                          Label={{ label: 'Enabled' }}
                         />
                       </Grid>
-
                       <Grid item xs={false} md={8}></Grid>
-
                       <Grid item xs={12} md={4}>
                         <Field
                           component={TextField}
-                          id="httpURL"
-                          name="httpURL"
-                          label="HTTP URL"
-                          required
+                          autoComplete="off"
+                          label="Config Overrides"
+                          rows={10}
+                          rowsMax={25}
+                          multiline
+                          margin="normal"
+                          name="config"
+                          id="config"
+                          variant="outlined"
                           fullWidth
                         />
                       </Grid>
 
-                      <Grid item xs={false} md={8}></Grid>
-
-                      <Grid item xs={12} md={4}>
-                        <Field
-                          component={TextField}
-                          id="wsURL"
-                          name="wsURL"
-                          label="Websocket URL"
-                          required
-                          fullWidth
-                        />
-                      </Grid>
                       <Grid item xs={12}>
                         <Button
                           variant="contained"
@@ -169,4 +140,4 @@ const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
   )
 }
 
-export default NewChainNode
+export default UpdateChain

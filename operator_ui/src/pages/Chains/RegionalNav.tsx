@@ -76,7 +76,8 @@ interface Props extends WithStyles<typeof styles> {
 
 const RegionalNavComponent = ({ classes, chainId, chain }: Props) => {
   const navOverridesActive = location.pathname.endsWith('/config-overrides')
-  const navNodesActive = !navOverridesActive
+  const editActive = location.pathname.endsWith('/edit')
+  const navNodesActive = !navOverridesActive && !editActive
   return (
     <>
       <Card className={classes.container}>
@@ -101,8 +102,19 @@ const RegionalNavComponent = ({ classes, chainId, chain }: Props) => {
               </Grid>
               <Grid item xs={6} className={classes.actions}>
                 <Link href={`/chains/${chainId}/nodes/new`}>
-                  <Button className={classes.regionalNavButton}>
+                  <Button
+                    className={classes.regionalNavButton}
+                    variant="secondary"
+                  >
                     Add Node
+                  </Button>
+                </Link>
+                <Link href={`/chains/${chainId}/edit`}>
+                  <Button
+                    className={classes.regionalNavButton}
+                    variant="secondary"
+                  >
+                    Update Chain
                   </Button>
                 </Link>
               </Grid>
