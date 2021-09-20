@@ -25,6 +25,7 @@ func NewChainResource(chain types.Chain) ChainResource {
 	return ChainResource{
 		JAID:      NewJAIDInt64(chain.ID.ToInt().Int64()),
 		Config:    chain.Cfg,
+		Enabled:   chain.Enabled,
 		CreatedAt: chain.CreatedAt,
 		UpdatedAt: chain.UpdatedAt,
 	}
