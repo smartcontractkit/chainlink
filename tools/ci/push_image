@@ -15,9 +15,7 @@ set -ex
 # to work with.
 #
 # Argument <image> is likely one of the following:
-# test-cypress-job-server
 # test-external-adapter
-# test-echo-server
 #
 
 if [ -z "$DOCKERHUB_PASS" ]
