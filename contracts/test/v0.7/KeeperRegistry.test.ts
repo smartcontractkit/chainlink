@@ -482,7 +482,10 @@ describe("KeeperRegistry", () => {
 
         const performData = "0xc0ffeec0ffee";
         const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: extraGas });
-        await expect(tx).to.emit(registry, "UpkeepPerformed"); /*.withArgs(
+        await expect(tx).to.emit(
+          registry,
+          "UpkeepPerformed",
+        ); /*.withArgs(
             id,
             true,
             await keeper1.getAddress(),
@@ -675,7 +678,10 @@ describe("KeeperRegistry", () => {
         const gas = executeGas.add(PERFORM_GAS_OVERHEAD);
         const performData = "0xc0ffeec0ffee";
         const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: gas });
-        await expect(tx).to.emit(registry, "UpkeepPerformed"); /*.withArgs(
+        await expect(tx).to.emit(
+          registry,
+          "UpkeepPerformed",
+        ); /*.withArgs(
           id,
           true,
           await keeper1.getAddress(),
