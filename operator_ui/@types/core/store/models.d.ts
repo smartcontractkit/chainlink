@@ -236,6 +236,11 @@ declare module 'core/store/models' {
     chainID: string
     config: Record<string, JSONPrimitive>
   }
+
+  export interface UpdateChainRequest {
+    config: Record<string, JSONPrimitive>
+    enabled: boolean
+  }
   export interface CreateNodeRequest {
     name: string
     evmChainID: string
@@ -397,6 +402,7 @@ declare module 'core/store/models' {
 
   export type Chain = {
     config: Record<string, JSONPrimitive>,
+    enabled: boolean,
     createdAt: time.Time,
     updatedAt: time.Time
   }

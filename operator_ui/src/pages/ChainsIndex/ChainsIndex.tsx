@@ -159,6 +159,12 @@ export const ChainsIndex = ({
 
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
+                          Enabled
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell>
+                        <Typography variant="body1" color="textSecondary">
                           Config overrides
                         </Typography>
                       </TableCell>
