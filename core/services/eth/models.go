@@ -173,7 +173,7 @@ func (h *Head) UnmarshalJSON(bs []byte) error {
 	h.Number = (*big.Int)(jsonHead.Number).Int64()
 	h.ParentHash = jsonHead.ParentHash
 	h.Timestamp = time.Unix(int64(jsonHead.Timestamp), 0).UTC()
-	h.BaseFeePerGas = (*utils.Big)((*big.Int)(jsonHead.BaseFeePerGas))
+	h.BaseFeePerGas = (*utils.Big)(jsonHead.BaseFeePerGas)
 	if jsonHead.L1BlockNumber != nil {
 		h.L1BlockNumber = null.Int64From((*big.Int)(jsonHead.L1BlockNumber).Int64())
 	}
