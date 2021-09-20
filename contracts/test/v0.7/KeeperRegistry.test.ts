@@ -12,8 +12,8 @@ async function getUpkeepID(tx: any) {
 
 // -----------------------------------------------------------------------------------------------
 // DEV: these *should* match the perform/check gas overhead values in the contract and on the node
-//const PERFORM_GAS_OVERHEAD = BigNumber.from(90000)
-//const CHECK_GAS_OVERHEAD = BigNumber.from(170000)
+const PERFORM_GAS_OVERHEAD = BigNumber.from(90000);
+const CHECK_GAS_OVERHEAD = BigNumber.from(170000);
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
@@ -45,7 +45,7 @@ describe("KeeperRegistry", () => {
   const blockCountPerTurn = BigNumber.from(3);
   const emptyBytes = "0x00";
   const zeroAddress = ethers.constants.AddressZero;
-  //const extraGas = BigNumber.from('250000')
+  const extraGas = BigNumber.from("250000");
   const registryGasOverhead = BigNumber.from("80000");
   const stalenessSeconds = BigNumber.from(43820);
   const gasCeilingMultiplier = BigNumber.from(1);
@@ -419,12 +419,12 @@ describe("KeeperRegistry", () => {
           assert.isTrue(response.maxLinkPayment.eq(linkForGas(executeGas.toNumber()).mul(newGasMultiplier)));
         });
 
-        /*it('has a large enough gas overhead to cover upkeeps that use all their gas', async () => {
-          await mock.setCheckGasToBurn(maxCheckGas)
-          await mock.setPerformGasToBurn(executeGas)
-          const gas = maxCheckGas.add(executeGas).add(PERFORM_GAS_OVERHEAD).add(CHECK_GAS_OVERHEAD)
-          await registry.connect(zeroAddress).callStatic.checkUpkeep(id, await keeper1.getAddress(), { gas: gas })
-        })*/
+        it("has a large enough gas overhead to cover upkeeps that use all their gas", async () => {
+          await mock.setCheckGasToBurn(maxCheckGas);
+          await mock.setPerformGasToBurn(executeGas);
+          const gas = maxCheckGas.add(executeGas).add(PERFORM_GAS_OVERHEAD).add(CHECK_GAS_OVERHEAD);
+          await registry.connect(zeroAddress).callStatic.checkUpkeep(id, await keeper1.getAddress(), { gasLimit: gas });
+        });
       });
     });
   });
@@ -471,21 +471,28 @@ describe("KeeperRegistry", () => {
         assert.isTrue(response);
       });
 
-      /*it('reverts if not enough gas supplied', async () => {
-        await mock.setCanPerform(true)
+      it("reverts if not enough gas supplied", async () => {
+        await mock.setCanPerform(true);
 
-        await evmRevert(
-          registry.connect(keeper1).performUpkeep(id, "0x", { gas: BigNumber.from('120000') })
-        )
-      })
+        await evmRevert(registry.connect(keeper1).performUpkeep(id, "0x", { gas: BigNumber.from("120000") }));
+      });
 
-      it('executes the data passed to the registry', async () => {
-        await mock.setCanPerform(true)
+      it("executes the data passed to the registry", async () => {
+        await mock.setCanPerform(true);
 
-        const performData = "0xc0ffeec0ffee"
-        const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gas: extraGas })
-        await expect(tx).to.emit(registry, "UpkeepPerformed").withArgs(true, keeper1, performData)
-      })*/
+        const performData = "0xc0ffeec0ffee";
+        const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: extraGas });
+        await expect(tx).to.emit(
+          registry,
+          "UpkeepPerformed",
+        ); /*.withArgs(
+            id,
+            true,
+            await keeper1.getAddress(),
+            any,
+            performData,
+        )*/
+      });
 
       it("updates payment balances", async () => {
         const keeperBefore = await registry.getKeeperInfo(await keeper1.getAddress());
@@ -522,60 +529,64 @@ describe("KeeperRegistry", () => {
         assert.isTrue(linkForGas(6000).gt(difference)); // instead test a range
       });
 
-      /*it('only pays at a rate up to the gas ceiling', async () => {
-        const multiplier = BigNumber.from(10)
-        const gasPrice = BigNumber.from('1000000000') // 10M x the gas feed's rate
-        await registry.connect(owner).setConfig(
-          paymentPremiumPPB,
-          blockCountPerTurn,
-          maxCheckGas,
-          stalenessSeconds,
-          multiplier,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-        )
+      it("only pays at a rate up to the gas ceiling", async () => {
+        const multiplier = BigNumber.from(10);
+        const gasPrice = BigNumber.from("1000000000"); // 10M x the gas feed's rate
+        await registry
+          .connect(owner)
+          .setConfig(
+            paymentPremiumPPB,
+            blockCountPerTurn,
+            maxCheckGas,
+            stalenessSeconds,
+            multiplier,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+          );
 
-        const before = (await registry.getKeeperInfo(keeper1)).balance
-        const tx = await registry.connect(keeper1).performUpkeep(id, "0x", { gasPrice })
-        const receipt = await tx.wait()
-        const after = (await registry.getKeeperInfo(keeper1)).balance
+        const before = (await registry.getKeeperInfo(await keeper1.getAddress())).balance;
+        const tx = await registry.connect(keeper1).performUpkeep(id, "0x", { gasPrice });
+        const receipt = await tx.wait();
+        const after = (await registry.getKeeperInfo(await keeper1.getAddress())).balance;
 
-        const max = linkForGas(executeGas.toNumber()).mul(multiplier)
-        const totalTx = linkForGas(receipt.gasUsed).mul(multiplier)
-        const difference = after.sub(before)
-        assert.isTrue(max.gt(totalTx))
-        assert.isTrue(totalTx.gt(difference))
-        assert.isTrue(linkForGas(5700).mul(multiplier).lt(difference))
-        assert.isTrue(linkForGas(6000).mul(multiplier).gt(difference))
-      })
+        const max = linkForGas(executeGas.toNumber()).mul(multiplier);
+        const totalTx = linkForGas(receipt.gasUsed).mul(multiplier);
+        const difference = after.sub(before);
+        assert.isTrue(max.gt(totalTx));
+        assert.isTrue(totalTx.gt(difference));
+        assert.isTrue(linkForGas(5700).mul(multiplier).lt(difference));
+        assert.isTrue(linkForGas(6000).mul(multiplier).gt(difference));
+      });
 
-      it('only pays as much as the node spent', async () => {
-        const multiplier = BigNumber.from(10)
-        const gasPrice = BigNumber.from(200) // 2X the gas feed's rate
-        const effectiveMultiplier = BigNumber.from(2)
-        await registry.connect(owner).setConfig(
-          paymentPremiumPPB,
-          blockCountPerTurn,
-          maxCheckGas,
-          stalenessSeconds,
-          multiplier,
-          fallbackGasPrice,
-          fallbackLinkPrice,
-        )
+      it("only pays as much as the node spent", async () => {
+        const multiplier = BigNumber.from(10);
+        const gasPrice = BigNumber.from(200); // 2X the gas feed's rate
+        const effectiveMultiplier = BigNumber.from(2);
+        await registry
+          .connect(owner)
+          .setConfig(
+            paymentPremiumPPB,
+            blockCountPerTurn,
+            maxCheckGas,
+            stalenessSeconds,
+            multiplier,
+            fallbackGasPrice,
+            fallbackLinkPrice,
+          );
 
-        const before = (await registry.getKeeperInfo(keeper1)).balance
-        const tx = await registry.connect(keeper1).performUpkeep(id, "0x", { gasPrice })
-        const receipt = await tx.wait()
-        const after = (await registry.getKeeperInfo(keeper1)).balance
+        const before = (await registry.getKeeperInfo(await keeper1.getAddress())).balance;
+        const tx = await registry.connect(keeper1).performUpkeep(id, "0x", { gasPrice });
+        const receipt = await tx.wait();
+        const after = (await registry.getKeeperInfo(await keeper1.getAddress())).balance;
 
-        const max = linkForGas(executeGas).mul(effectiveMultiplier)
-        const totalTx = linkForGas(receipt.gasUsed).mul(effectiveMultiplier)
-        const difference = after.sub(before)
-        assert.isTrue(max.gt(totalTx))
-        assert.isTrue(totalTx.gt(difference))
-        assert.isTrue(linkForGas(5700).mul(effectiveMultiplier).lt(difference))
-        assert.isTrue(linkForGas(6000).mul(effectiveMultiplier).gt(difference))
-      })*/
+        const max = linkForGas(executeGas.toNumber()).mul(effectiveMultiplier);
+        const totalTx = linkForGas(receipt.gasUsed).mul(effectiveMultiplier);
+        const difference = after.sub(before);
+        assert.isTrue(max.gt(totalTx));
+        assert.isTrue(totalTx.gt(difference));
+        assert.isTrue(linkForGas(5700).mul(effectiveMultiplier).lt(difference));
+        assert.isTrue(linkForGas(6000).mul(effectiveMultiplier).gt(difference));
+      });
 
       it("pays the caller even if the target function fails", async () => {
         const tx = await registry
@@ -661,14 +672,22 @@ describe("KeeperRegistry", () => {
         await registry.connect(keeper1).performUpkeep(id, "0x");
       });
 
-      /*it('has a large enough gas overhead to cover upkeeps that use all their gas', async () => {
-        await mock.setPerformGasToBurn(executeGas)
-        await mock.setCanPerform(true)
-        const gas = executeGas.add(PERFORM_GAS_OVERHEAD)
-        const performData = "0xc0ffeec0ffee"
-        const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gas: gas })
-        await expect(tx).to.emit(registry, "UpkeepPerformed").withArgs(true, keeper1, performData)
-      })*/
+      it("has a large enough gas overhead to cover upkeeps that use all their gas", async () => {
+        await mock.setPerformGasToBurn(executeGas);
+        await mock.setCanPerform(true);
+        const gas = executeGas.add(PERFORM_GAS_OVERHEAD);
+        const performData = "0xc0ffeec0ffee";
+        const tx = await registry.connect(keeper1).performUpkeep(id, performData, { gasLimit: gas });
+        await expect(tx).to.emit(
+          registry,
+          "UpkeepPerformed",
+        ); /*.withArgs(
+          id,
+          true,
+          await keeper1.getAddress(),
+          performData,
+        )*/
+      });
     });
   });
 
@@ -810,21 +829,18 @@ describe("KeeperRegistry", () => {
         assert.deepEqual([id], canceled);
       });
 
-      /*it('immediately prevents upkeep', async () => {
-        await linkToken.connect(owner).approve(registry.address, toWei('100'))
-        await registry.connect(owner).addFunds(id, toWei('100'))
-        await registry.connect(admin).cancelUpkeep(id)
-        await registry.connect(keeper2).performUpkeep(id, "0x") // still works
+      it("immediately prevents upkeep", async () => {
+        await linkToken.connect(owner).approve(registry.address, toWei("100"));
+        await registry.connect(owner).addFunds(id, toWei("100"));
+        await registry.connect(admin).cancelUpkeep(id);
+        await registry.connect(keeper2).performUpkeep(id, "0x"); // still works
 
         for (let i = 0; i < delay; i++) {
-          await time.advanceBlock()
+          await ethers.provider.send("evm_mine", []);
         }
 
-        await evmRevert(
-          registry.connect(keeper2).performUpkeep(id, "0x"),
-          'invalid upkeep id'
-        )
-      })*/
+        await evmRevert(registry.connect(keeper2).performUpkeep(id, "0x"), "invalid upkeep id");
+      });
 
       it("reverts if called again by the admin", async () => {
         await registry.connect(admin).cancelUpkeep(id);
@@ -841,18 +857,15 @@ describe("KeeperRegistry", () => {
         assert.deepEqual([id], canceled);
       });
 
-      /*it('reverts if called by the owner after the timeout', async () => {
-        await registry.connect(admin).cancelUpkeep(id)
+      it("reverts if called by the owner after the timeout", async () => {
+        await registry.connect(admin).cancelUpkeep(id);
 
         for (let i = 0; i < delay; i++) {
-          await time.advanceBlock()
+          await ethers.provider.send("evm_mine", []);
         }
 
-        await evmRevert(
-          registry.connect(owner).cancelUpkeep(id),
-          'too late to cancel upkeep'
-        )
-      })*/
+        await evmRevert(registry.connect(owner).cancelUpkeep(id), "too late to cancel upkeep");
+      });
     });
   });
 
@@ -909,379 +922,334 @@ describe("KeeperRegistry", () => {
     });
   });
 
-  /*describe('#transferPayeeship', () => {
+  describe("#transferPayeeship", () => {
     it("reverts when called by anyone but the current payee", async () => {
       await evmRevert(
-        registry.connect(payee2).transferPayeeship(keeper1, payee2),
-        "only callable by payee"
-      )
-    })
+        registry.connect(payee2).transferPayeeship(await keeper1.getAddress(), await payee2.getAddress()),
+        "only callable by payee",
+      );
+    });
 
     it("reverts when transferring to self", async () => {
       await evmRevert(
-        registry.connect(payee1).transferPayeeship(keeper1, payee1),
-        "cannot transfer to self"
-      )
-    })
+        registry.connect(payee1).transferPayeeship(await keeper1.getAddress(), await payee1.getAddress()),
+        "cannot transfer to self",
+      );
+    });
 
     it("does not change the payee", async () => {
-      await registry.connect(payee1).transferPayeeship(keeper1, payee2)
+      await registry.connect(payee1).transferPayeeship(await keeper1.getAddress(), await payee2.getAddress());
 
-      const info = await registry.getKeeperInfo(keeper1)
-      assert.equal(payee1, info.payee)
-    })
+      const info = await registry.getKeeperInfo(await keeper1.getAddress());
+      assert.equal(await payee1.getAddress(), info.payee);
+    });
 
     it("emits an event announcing the new payee", async () => {
-      const tx = await registry.connect(payee1).transferPayeeship(keeper1, payee2)
-      await expect(tx).to.emit(registry, "PayeeshipTransferRequested").withArgs(keeper1, payee1, payee2)
-    })
+      const tx = await registry
+        .connect(payee1)
+        .transferPayeeship(await keeper1.getAddress(), await payee2.getAddress());
+      await expect(tx)
+        .to.emit(registry, "PayeeshipTransferRequested")
+        .withArgs(await keeper1.getAddress(), await payee1.getAddress(), await payee2.getAddress());
+    });
 
     it("does not emit an event when called with the same proposal", async () => {
-      await registry.connect(payee1).transferPayeeship(keeper1, payee2)
+      await registry.connect(payee1).transferPayeeship(await keeper1.getAddress(), await payee2.getAddress());
 
-      const tx = await registry.connect(payee1).transferPayeeship(keeper1, payee2)
+      const tx = await registry
+        .connect(payee1)
+        .transferPayeeship(await keeper1.getAddress(), await payee2.getAddress());
+      const receipt = await tx.wait();
+      assert.equal(0, receipt.logs.length);
+    });
+  });
 
-      assert.equal(0, receipt.logs.length)
-    })
-  })
-
-  describe('#acceptPayeeship', () => {
+  describe("#acceptPayeeship", () => {
     beforeEach(async () => {
-      await registry.connect(payee1).transferPayeeship(keeper1, payee2)
-    })
+      await registry.connect(payee1).transferPayeeship(await keeper1.getAddress(), await payee2.getAddress());
+    });
 
     it("reverts when called by anyone but the proposed payee", async () => {
       await evmRevert(
-        registry.connect(payee1).acceptPayeeship(keeper1),
-        "only callable by proposed payee"
-      )
-    })
+        registry.connect(payee1).acceptPayeeship(await keeper1.getAddress()),
+        "only callable by proposed payee",
+      );
+    });
 
     it("emits an event announcing the new payee", async () => {
-      const tx = await registry.connect(payee2).acceptPayeeship(keeper1)
-      await expect(tx).to.emit(registry, "PayeeshipTransferred").withArgs(keeper1, payee1, payee2)
-    })
+      const tx = await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress());
+      await expect(tx)
+        .to.emit(registry, "PayeeshipTransferred")
+        .withArgs(await keeper1.getAddress(), await payee1.getAddress(), await payee2.getAddress());
+    });
 
     it("does change the payee", async () => {
-      await registry.connect(payee2).acceptPayeeship(keeper1)
+      await registry.connect(payee2).acceptPayeeship(await keeper1.getAddress());
 
-      const info = await registry.getKeeperInfo(keeper1)
-      assert.equal(payee2, info.payee)
-    })
-  })
+      const info = await registry.getKeeperInfo(await keeper1.getAddress());
+      assert.equal(await payee2.getAddress(), info.payee);
+    });
+  });
 
-  describe('#setConfig', () => {
-    const payment = BigNumber.from(1)
-    const checks = BigNumber.from(2)
-    const staleness = BigNumber.from(3)
-    const ceiling = BigNumber.from(10)
-    const maxGas = BigNumber.from(4)
-    const fbGasEth = BigNumber.from(5)
-    const fbLinkEth = BigNumber.from(6)
+  describe("#setConfig", () => {
+    const payment = BigNumber.from(1);
+    const checks = BigNumber.from(2);
+    const staleness = BigNumber.from(3);
+    const ceiling = BigNumber.from(10);
+    const maxGas = BigNumber.from(4);
+    const fbGasEth = BigNumber.from(5);
+    const fbLinkEth = BigNumber.from(6);
 
     it("reverts when called by anyone but the proposed owner", async () => {
       await evmRevert(
-        registry.connect(payee1).setConfig(
-          payment,
-          checks,
-          maxGas,
-          staleness,
-          gasCeilingMultiplier,
-          fbGasEth,
-          fbLinkEth,
-        ),
-        "Only callable by owner"
-      )
-    })
+        registry
+          .connect(payee1)
+          .setConfig(payment, checks, maxGas, staleness, gasCeilingMultiplier, fbGasEth, fbLinkEth),
+        "Only callable by owner",
+      );
+    });
 
     it("updates the config", async () => {
-      const old = await registry.getConfig()
-      assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB))
-      assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn))
-      assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds))
-      assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier))
+      const old = await registry.getConfig();
+      assert.isTrue(paymentPremiumPPB.eq(old.paymentPremiumPPB));
+      assert.isTrue(blockCountPerTurn.eq(old.blockCountPerTurn));
+      assert.isTrue(stalenessSeconds.eq(old.stalenessSeconds));
+      assert.isTrue(gasCeilingMultiplier.eq(old.gasCeilingMultiplier));
 
-      await registry.connect(owner).setConfig(
-        payment,
-        checks,
-        maxGas,
-        staleness,
-        ceiling,
-        fbGasEth,
-        fbLinkEth,
-      )
+      await registry.connect(owner).setConfig(payment, checks, maxGas, staleness, ceiling, fbGasEth, fbLinkEth);
 
-      const updated = await registry.getConfig()
-      assert.isTrue(updated.paymentPremiumPPB.eq(payment))
-      assert.isTrue(updated.blockCountPerTurn.eq(checks))
-      assert.isTrue(updated.stalenessSeconds.eq(staleness))
-      assert.isTrue(updated.gasCeilingMultiplier.eq(ceiling))
-      assert.isTrue(updated.checkGasLimit.eq(maxGas))
-      assert.isTrue(updated.fallbackGasPrice.eq(fbGasEth))
-      assert.isTrue(updated.fallbackLinkPrice.eq(fbLinkEth))
-    })
+      const updated = await registry.getConfig();
+      assert.equal(updated.paymentPremiumPPB, payment);
+      assert.equal(updated.blockCountPerTurn, checks);
+      assert.equal(updated.stalenessSeconds, staleness);
+      assert.equal(updated.gasCeilingMultiplier, ceiling);
+      assert.equal(updated.checkGasLimit, maxGas);
+      assert.equal(updated.fallbackGasPrice.toNumber(), fbGasEth.toNumber());
+      assert.equal(updated.fallbackLinkPrice.toNumber(), fbLinkEth.toNumber());
+    });
 
     it("emits an event", async () => {
-      const tx = await registry.connect(owner).setConfig(
-        payment,
-        checks,
-        maxGas,
-        staleness,
-        ceiling,
-        fbGasEth,
-        fbLinkEth,
-      )
-      await expect(tx).to.emit(registry, "ConfigSet").withArgs(
-        payment,
-        checks,
-        maxGas,
-        staleness,
-        ceiling,
-        fbGasEth,
-        fbLinkEth,
-      )
-    })
-  })
+      const tx = await registry
+        .connect(owner)
+        .setConfig(payment, checks, maxGas, staleness, ceiling, fbGasEth, fbLinkEth);
+      await expect(tx)
+        .to.emit(registry, "ConfigSet")
+        .withArgs(payment, checks, maxGas, staleness, ceiling, fbGasEth, fbLinkEth);
+    });
+  });
 
-  describe('#onTokenTransfer', () => {
-    const amount = toWei('1')
+  describe("#onTokenTransfer", () => {
+    const amount = toWei("1");
 
     it("reverts if not called by the LINK token", async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-          ["uint256"],
-          [id.toNumber().toString()],
-      );
+      const data = ethers.utils.defaultAbiCoder.encode(["uint256"], [id.toNumber().toString()]);
 
       await evmRevert(
-        registry.connect(keeper1).onTokenTransfer(keeper1, amount, data),
-        "only callable through LINK"
-      )
-    })
+        registry.connect(keeper1).onTokenTransfer(await keeper1.getAddress(), amount, data),
+        "only callable through LINK",
+      );
+    });
 
     it("reverts if not called with more or less than 32 bytes", async () => {
-      const longData = ethers.utils.defaultAbiCoder.encode(
-          ["uint256", "uint256"],
-          ["33", "34"],
-      );
-      const shortData = "0x12345678"
+      const longData = ethers.utils.defaultAbiCoder.encode(["uint256", "uint256"], ["33", "34"]);
+      const shortData = "0x12345678";
 
-      await evmRevert(
-        linkToken.connect(owner).transferAndCall(registry.address, amount, longData)
-      )
-      await evmRevert(
-        linkToken.connect(owner).transferAndCall(registry.address, amount, shortData)
-      )
-    })
+      await evmRevert(linkToken.connect(owner).transferAndCall(registry.address, amount, longData));
+      await evmRevert(linkToken.connect(owner).transferAndCall(registry.address, amount, shortData));
+    });
 
-    it('reverts if the upkeep is canceled', async () => {
-      await registry.connect(admin).cancelUpkeep(id)
-      await evmRevert(
-        registry.connect(keeper1).addFunds(id, amount),
-        "upkeep must be active",
-      )
-    })
+    it("reverts if the upkeep is canceled", async () => {
+      await registry.connect(admin).cancelUpkeep(id);
+      await evmRevert(registry.connect(keeper1).addFunds(id, amount), "upkeep must be active");
+    });
 
-    it('updates the funds of the job id passed', async () => {
-      const data = ethers.utils.defaultAbiCoder.encode(
-          ["uint256"],
-          [id.toNumber().toString()],
-      );
+    it("updates the funds of the job id passed", async () => {
+      const data = ethers.utils.defaultAbiCoder.encode(["uint256"], [id.toNumber().toString()]);
 
-      const before = (await registry.getUpkeep(id)).balance
-      await linkToken.connect(owner).transferAndCall(registry.address, amount, data)
-      const after = (await registry.getUpkeep(id)).balance
+      const before = (await registry.getUpkeep(id)).balance;
+      await linkToken.connect(owner).transferAndCall(registry.address, amount, data);
+      const after = (await registry.getUpkeep(id)).balance;
 
-      assert.isTrue(before.add(amount).eq(after))
-    })
-  })
+      assert.isTrue(before.add(amount).eq(after));
+    });
+  });
 
-  describe('#recoverFunds', () => {
-    const sent = toWei('7')
+  describe("#recoverFunds", () => {
+    const sent = toWei("7");
 
     beforeEach(async () => {
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
+      await linkToken.connect(keeper1).approve(registry.address, toWei("100"));
 
       // add funds to upkeep 1 and perform and withdraw some payment
-      let tx = await registry.connect(owner).registerUpkeep(
-        mock.address,
-        executeGas,
-        admin,
-        emptyBytes,
-      )
-      const receipt = await tx.wait()
-      const id1 = receipt.logs[0].args.id
-      await registry.connect(keeper1).addFunds(id1, toWei('5'))
-      await registry.connect(keeper1).performUpkeep(id1, "0x")
-      await registry.connect(keeper2).performUpkeep(id1, "0x")
-      await registry.connect(keeper3).performUpkeep(id1, "0x")
-      await registry.connect(payee1).withdrawPayment(keeper1, nonkeeper)
+      let tx = await registry
+        .connect(owner)
+        .registerUpkeep(mock.address, executeGas, await admin.getAddress(), emptyBytes);
+      const id1 = await getUpkeepID(tx);
+      await registry.connect(keeper1).addFunds(id1, toWei("5"));
+      await registry.connect(keeper1).performUpkeep(id1, "0x");
+      await registry.connect(keeper2).performUpkeep(id1, "0x");
+      await registry.connect(keeper3).performUpkeep(id1, "0x");
+      await registry.connect(payee1).withdrawPayment(await keeper1.getAddress(), await nonkeeper.getAddress());
 
       // transfer funds directly to the registry
-      await linkToken.connect(keeper1).transfer(registry.address, sent)
+      await linkToken.connect(keeper1).transfer(registry.address, sent);
 
       // add funds to upkeep 2 and perform and withdraw some payment
-      const tx2 = await registry.connect(owner).registerUpkeep(
-        mock.address,
-        executeGas,
-        admin,
-        emptyBytes,
-      )
-      const id2 = tx2.receipt.logs[0].args.id
-      await registry.connect(keeper1).addFunds(id2, toWei('5'))
-      await registry.connect(keeper1).performUpkeep(id2, "0x")
-      await registry.connect(keeper2).performUpkeep(id2, "0x")
-      await registry.connect(keeper3).performUpkeep(id2, "0x")
-      await registry.connect(payee2).withdrawPayment(keeper2, nonkeeper)
+      const tx2 = await registry
+        .connect(owner)
+        .registerUpkeep(mock.address, executeGas, await admin.getAddress(), emptyBytes);
+      const id2 = await getUpkeepID(tx2);
+      await registry.connect(keeper1).addFunds(id2, toWei("5"));
+      await registry.connect(keeper1).performUpkeep(id2, "0x");
+      await registry.connect(keeper2).performUpkeep(id2, "0x");
+      await registry.connect(keeper3).performUpkeep(id2, "0x");
+      await registry.connect(payee2).withdrawPayment(await keeper2.getAddress(), await nonkeeper.getAddress());
 
       // transfer funds using onTokenTransfer
-      const data = ethers.utils.defaultAbiCoder.encode(
-          ["uint256"],
-          [id2.toNumber().toString()],
-      );
-      await linkToken.connect(owner).transferAndCall(registry.address, toWei('1'), data)
+      const data = ethers.utils.defaultAbiCoder.encode(["uint256"], [id2.toNumber().toString()]);
+      await linkToken.connect(owner).transferAndCall(registry.address, toWei("1"), data);
 
       // remove a keeper
-      await registry.connect(owner).setKeepers([keeper1, keeper2], [payee1, payee2])
+      await registry
+        .connect(owner)
+        .setKeepers(
+          [await keeper1.getAddress(), await keeper2.getAddress()],
+          [await payee1.getAddress(), await payee2.getAddress()],
+        );
 
       // withdraw some funds
-      await registry.connect(owner).cancelUpkeep(id1)
-      await registry.connect(admin).withdrawFunds(id1, admin)
-    })
+      await registry.connect(owner).cancelUpkeep(id1);
+      await registry.connect(admin).withdrawFunds(id1, await admin.getAddress());
+    });
 
-    it('reverts if not called by owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).recoverFunds(),
-        "Only callable by owner"
-      )
-    })
+    it("reverts if not called by owner", async () => {
+      await evmRevert(registry.connect(keeper1).recoverFunds(), "Only callable by owner");
+    });
 
-    it('allows any funds that have been accidentally transfered to be moved', async () => {
-      const balanceBefore = await linkToken.balanceOf(registry.address)
+    it("allows any funds that have been accidentally transfered to be moved", async () => {
+      const balanceBefore = await linkToken.balanceOf(registry.address);
 
-      await linkToken.balanceOf(registry.address)
+      await linkToken.balanceOf(registry.address);
 
-      await registry.connect(owner).recoverFunds()
-      const balanceAfter = await linkToken.balanceOf(registry.address)
-      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)))
-    })
-  })
+      await registry.connect(owner).recoverFunds();
+      const balanceAfter = await linkToken.balanceOf(registry.address);
+      assert.isTrue(balanceBefore.eq(balanceAfter.add(sent)));
+    });
+  });
 
-  describe('#pause', () => {
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).pause(),
-        "Only callable by owner"
-      )
-    })
+  describe("#pause", () => {
+    it("reverts if called by a non-owner", async () => {
+      await evmRevert(registry.connect(keeper1).pause(), "Only callable by owner");
+    });
 
-    it('marks the contract as paused', async () => {
-      assert.isFalse(await registry.paused())
+    it("marks the contract as paused", async () => {
+      assert.isFalse(await registry.paused());
 
-      await registry.connect(owner).pause()
+      await registry.connect(owner).pause();
 
-      assert.isTrue(await registry.paused())
-    })
-  })
+      assert.isTrue(await registry.paused());
+    });
+  });
 
-  describe('#unpause', () => {
+  describe("#unpause", () => {
     beforeEach(async () => {
-      await registry.connect(owner).pause()
-    })
+      await registry.connect(owner).pause();
+    });
 
-    it('reverts if called by a non-owner', async () => {
-      await evmRevert(
-        registry.connect(keeper1).unpause(),
-        "Only callable by owner"
-      )
-    })
+    it("reverts if called by a non-owner", async () => {
+      await evmRevert(registry.connect(keeper1).unpause(), "Only callable by owner");
+    });
 
-    it('marks the contract as not paused', async () => {
-      assert.isTrue(await registry.paused())
+    it("marks the contract as not paused", async () => {
+      assert.isTrue(await registry.paused());
 
-      await registry.connect(owner).unpause()
+      await registry.connect(owner).unpause();
 
-      assert.isFalse(await registry.paused())
-    })
-  })
+      assert.isFalse(await registry.paused());
+    });
+  });
 
-  describe('#checkUpkeep / #performUpkeep', () => {
-    const performData = "0xc0ffeec0ffee"
-    const multiplier = BigNumber.from(10)
-    const callGasPrice = 1
+  describe("#checkUpkeep / #performUpkeep", () => {
+    const performData = "0xc0ffeec0ffee";
+    const multiplier = BigNumber.from(10);
+    const callGasPrice = 1;
 
-    it('uses the same minimum balance calculation', async () => {
-      await registry.connect(owner).setConfig(
-        paymentPremiumPPB,
-        blockCountPerTurn,
-        maxCheckGas,
-        stalenessSeconds,
-        multiplier,
-        fallbackGasPrice,
-        fallbackLinkPrice,
-      )
-      await linkToken.connect(owner).approve(registry.address, toWei('100'))
+    it("uses the same minimum balance calculation", async () => {
+      await registry
+        .connect(owner)
+        .setConfig(
+          paymentPremiumPPB,
+          blockCountPerTurn,
+          maxCheckGas,
+          stalenessSeconds,
+          multiplier,
+          fallbackGasPrice,
+          fallbackLinkPrice,
+        );
+      await linkToken.connect(owner).approve(registry.address, toWei("100"));
 
       // max payment is .75 eth for this config - this spread will yield some eligible and some ineligible
-      const balances = ['0', '0.01', '0.1', '0.4', '0.7', '0.8', '1', '2', '10']
-      let revertCount = 0
+      const balances = ["0", "0.01", "0.1", "0.4", "0.7", "0.8", "1", "2", "10"];
+      let revertCount = 0;
 
       for (let idx = 0; idx < balances.length; idx++) {
         const balance = balances[idx];
-        const tx = await registry.connect(owner).registerUpkeep(
-          mock.address,
-          executeGas,
-          admin,
-          emptyBytes,
-        )
-        const receipt = await tx.wait()
-        const upkeepID = receipt.logs[0].args.id
-        await mock.setCanCheck(true)
-        await mock.setCanPerform(true)
-        await registry.connect(owner).addFunds(upkeepID, toWei(balance))
+        const tx = await registry
+          .connect(owner)
+          .registerUpkeep(mock.address, executeGas, await admin.getAddress(), emptyBytes);
+        const upkeepID = await getUpkeepID(tx);
+        await mock.setCanCheck(true);
+        await mock.setCanPerform(true);
+        await registry.connect(owner).addFunds(upkeepID, toWei(balance));
 
         try {
           // try checkUpkeep
-          await registry.connect(zeroAddress).callStatic.checkUpkeep(upkeepID, keeper1, { gasPrice: callGasPrice})
+          await registry
+            .connect(zeroAddress)
+            .callStatic.checkUpkeep(upkeepID, await keeper1.getAddress(), { gasPrice: callGasPrice });
         } catch (err) {
-        // if checkUpkeep reverts, we expect performUpkeep to revert as well
+          // if checkUpkeep reverts, we expect performUpkeep to revert as well
           revertCount++;
           await evmRevert(
-            registry.connect(keeper1).performUpkeep(upkeepID, performData, { gas: extraGas }),
-            'insufficient funds'
-          )
-          continue
+            registry.connect(keeper1).performUpkeep(upkeepID, performData, { gasLimit: extraGas }),
+            "insufficient funds",
+          );
+          continue;
         }
         // if checkUpkeep succeeds, we expect performUpkeep to succeed as well
         try {
-          await registry.connect(keeper1).performUpkeep(upkeepID, performData, { gas: extraGas })
+          await registry.connect(keeper1).performUpkeep(upkeepID, performData, { gasLimit: extraGas });
         } catch (err) {
-          assert(false, `expected performUpkeep to have succeeded with balance ${balance} ETH, but it did not. err: ${err}`)
+          assert(
+            false,
+            `expected performUpkeep to have succeeded with balance ${balance} ETH, but it did not. err: ${err}`,
+          );
         }
       }
 
       // make sure _both_ scenarios are covered - future-proofs the test against contract / config changes
       assert.isTrue(
         revertCount > 0 && revertCount < balances.length,
-        `expected 0 < revertCount < ${balances.length}, but revertCount was ${revertCount}`
-      )
-    })
-  })
+        `expected 0 < revertCount < ${balances.length}, but revertCount was ${revertCount}`,
+      );
+    });
+  });
 
-  describe('#getMinBalanceForUpkeep / #checkUpkeep', () => {
-    it('calculates the minimum balance appropriately', async () => {
-      const oneWei = BigNumber.from('1')
-      await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
-      await mock.setCanCheck(true)
-      await mock.setCanPerform(true)
-      const minBalance = await registry.getMinBalanceForUpkeep(id)
-      const tooLow = minBalance.sub(oneWei)
-      await registry.connect(keeper1).addFunds(id, tooLow)
+  describe("#getMinBalanceForUpkeep / #checkUpkeep", () => {
+    it("calculates the minimum balance appropriately", async () => {
+      const oneWei = BigNumber.from("1");
+      await linkToken.connect(keeper1).approve(registry.address, toWei("100"));
+      await mock.setCanCheck(true);
+      await mock.setCanPerform(true);
+      const minBalance = await registry.getMinBalanceForUpkeep(id);
+      const tooLow = minBalance.sub(oneWei);
+      await registry.connect(keeper1).addFunds(id, tooLow);
       await evmRevert(
-        registry.connect(zeroAddress).callStatic.checkUpkeep(id, keeper1),
-        'insufficient funds'
-      )
-      await registry.connect(keeper1).addFunds(id, oneWei)
-      await registry.connect(zeroAddress).callStatic.checkUpkeep(id, keeper1)
-    })
-  }) */
+        registry.connect(zeroAddress).callStatic.checkUpkeep(id, await keeper1.getAddress()),
+        "insufficient funds",
+      );
+      await registry.connect(keeper1).addFunds(id, oneWei);
+      await registry.connect(zeroAddress).callStatic.checkUpkeep(id, await keeper1.getAddress());
+    });
+  });
 });
