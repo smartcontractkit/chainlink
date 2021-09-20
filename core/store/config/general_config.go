@@ -969,7 +969,7 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
 				}
 			} else {
-				err = errors.New("The configuration variable P2P_PEER_ID was not specified and found no P2P keys in the database. Please set P2P_PEER_ID explicitly or add at least one key.")
+				err = errors.New("the configuration variable P2P_PEER_ID was not specified and found no P2P keys in the database. Please set P2P_PEER_ID explicitly or add at least one key")
 			}
 		}
 	}()
