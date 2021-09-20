@@ -132,14 +132,14 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
 	}
 	if !didExist {
-		logger.Infow("Created OCR key with ID %s", ocrKey.ID())
+		logger.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
 	}
 	if !didExist {
-		logger.Infow("Created P2P key with ID %s", p2pKey.ID())
+		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))

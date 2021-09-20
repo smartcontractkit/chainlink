@@ -34,11 +34,11 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa csa
-	eth eth
-	ocr ocr
-	p2p p2p
-	vrf vrf
+	csa *csa
+	eth *eth
+	ocr *ocr
+	p2p *p2p
+	vrf *vrf
 }
 
 func New(db *gorm.DB, scryptParams utils.ScryptParams) Master {

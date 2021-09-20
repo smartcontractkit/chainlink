@@ -45,8 +45,6 @@ function save_test_logs() {
   $ts_test logs --no-color explorer &>./logs/explorer.log
   $ts_test logs --no-color explorer-db &>./logs/explorer-db.log
   $ts_test logs --no-color external-adapter &>./logs/external-adapter.log
-  $test logs --no-color cypress-job-server &>./logs/cypress-job-server.log
-  $test logs --no-color echo-server &>./logs/echo-server.log
 }
 
 function usage() {
