@@ -18,11 +18,13 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -30,6 +32,7 @@ import (
 	loggerPkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -47,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -76,6 +80,9 @@ type Application interface {
 	JobORM() job.ORM
 	EVMORM() evmtypes.ORM
 	PipelineORM() pipeline.ORM
+	BridgeORM() bridges.ORM
+	SessionORM() sessions.ORM
+	BPTXMORM() bulletprooftxmanager.ORM
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
@@ -102,9 +109,12 @@ type ChainlinkApplication struct {
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
+	bridgeORM                bridges.ORM
+	sessionORM               sessions.ORM
+	bptxmORM                 bulletprooftxmanager.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	Store                    *strpkg.Store
+	store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -126,6 +136,7 @@ type ApplicationOpts struct {
 	ShutdownSignal           gracefulpanic.Signal
 	Store                    *strpkg.Store
 	GormDB                   *gorm.DB
+	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
 	Logger                   *loggerPkg.Logger
@@ -183,8 +194,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(db)
+		bridgeORM      = bridges.NewORM(opts.SqlxDB)
+		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, eventBroadcaster, keyStore)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore)
+		bptxmORM       = bulletprooftxmanager.NewORM(opts.SqlxDB)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -212,13 +226,19 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				pipelineORM,
 				chainSet),
+			job.Webhook: webhook.NewDelegate(
+				pipelineRunner,
+				externalInitiatorManager),
+			job.Cron: cron.NewDelegate(
+				pipelineRunner),
 		}
+		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
 	if cfg.EthereumDisabled() {
 		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else if cfg.Dev() || cfg.FeatureFluxMonitorV2() {
+	} else {
 		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
 			keyStore.Eth(),
 			jobORM,
@@ -230,7 +250,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
@@ -244,17 +263,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
-	}
-
-	var webhookJobRunner webhook.JobRunner
-	if cfg.Dev() || cfg.FeatureWebhookV2() {
-		delegate := webhook.NewDelegate(pipelineRunner, externalInitiatorManager)
-		delegates[job.Webhook] = delegate
-		webhookJobRunner = delegate.WebhookJobRunner()
-	}
-
-	if cfg.Dev() || cfg.FeatureCronV2() {
-		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
@@ -277,17 +285,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	app := &ChainlinkApplication{
 		ChainSet:                 chainSet,
-		Store:                    store,
+		store:                    store,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
+		bridgeORM:                bridgeORM,
+		sessionORM:               sessionORM,
+		bptxmORM:                 bptxmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            services.NewSessionReaper(db, cfg),
+		SessionReaper:            sessions.NewSessionReaper(opts.SqlxDB.DB, cfg),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
@@ -354,7 +365,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	if err := app.Store.Start(); err != nil {
+	if err := app.store.Start(); err != nil {
 		return err
 	}
 
@@ -428,7 +439,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Stopping SessionReaper...")
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
 			app.logger.Debug("Closing Store...")
-			merr = multierr.Append(merr, app.Store.Close())
+			merr = multierr.Append(merr, app.store.Close())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
 			if app.FeedsService != nil {
@@ -475,12 +486,24 @@ func (app *ChainlinkApplication) JobORM() job.ORM {
 	return app.jobORM
 }
 
+func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
+	return app.bridgeORM
+}
+
+func (app *ChainlinkApplication) SessionORM() sessions.ORM {
+	return app.sessionORM
+}
+
 func (app *ChainlinkApplication) EVMORM() evmtypes.ORM {
 	return app.ChainSet.ORM()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
+}
+
+func (app *ChainlinkApplication) BPTXMORM() bulletprooftxmanager.ORM {
+	return app.bptxmORM
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
@@ -510,7 +533,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	jobID int32,
 	meta map[string]interface{},
 ) (int64, error) {
-	if !app.Store.Config.Dev() {
+	if !app.GetConfig().Dev() {
 		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use")
 	}
 	jb, err := app.jobORM.FindJob(ctx, jobID)
@@ -605,7 +628,7 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 }
 
 func (app *ChainlinkApplication) GetStore() *strpkg.Store {
-	return app.Store
+	return app.store
 }
 
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
@@ -613,5 +636,5 @@ func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.Store.DB
+	return app.store.DB
 }

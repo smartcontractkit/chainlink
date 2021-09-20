@@ -1,4 +1,4 @@
-package models
+package bridges
 
 import (
 	"crypto/subtle"
@@ -6,30 +6,33 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
 )
 
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
 type ExternalInitiatorRequest struct {
-	Name string  `json:"name"`
-	URL  *WebURL `json:"url,omitempty"`
+	Name string         `json:"name"`
+	URL  *models.WebURL `json:"url,omitempty"`
 }
 
 // ExternalInitiator represents a user that can initiate runs remotely
 type ExternalInitiator struct {
-	ID             int64   `gorm:"primary_key"`
-	Name           string  `gorm:"not null;unique"`
-	URL            *WebURL `gorm:"url,omitempty"`
-	AccessKey      string  `gorm:"not null"`
-	Salt           string  `gorm:"not null"`
-	HashedSecret   string  `gorm:"not null"`
-	OutgoingSecret string  `gorm:"not null"`
-	OutgoingToken  string  `gorm:"not null"`
+	ID             int64          `gorm:"primary_key"`
+	Name           string         `gorm:"not null;unique"`
+	URL            *models.WebURL `gorm:"url,omitempty"`
+	AccessKey      string         `gorm:"not null"`
+	Salt           string         `gorm:"not null"`
+	HashedSecret   string         `gorm:"not null"`
+	OutgoingSecret string         `gorm:"not null"`
+	OutgoingToken  string         `gorm:"not null"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	DeletedAt null.Time // TODO: deprecated?
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an

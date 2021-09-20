@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/require"
@@ -39,14 +39,14 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 		Secret:    "opensesame",
 	}
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
-	eir := &models.ExternalInitiatorRequest{
+	eir := &bridges.ExternalInitiatorRequest{
 		Name: "bitcoin",
 		URL:  &eir_url,
 	}
 
-	ei, err := models.NewExternalInitiator(eia, eir)
+	ei, err := bridges.NewExternalInitiator(eia, eir)
 	require.NoError(t, err)
-	err = app.GetStore().CreateExternalInitiator(ei)
+	err = app.BridgeORM().CreateExternalInitiator(ei)
 	require.NoError(t, err)
 
 	url := app.Config.ClientNodeURL() + "/v2/ping"

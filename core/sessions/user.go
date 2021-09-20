@@ -1,4 +1,4 @@
-package models
+package sessions
 
 import (
 	"crypto/subtle"
@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
 )
 
 // User holds the credentials for API user.
@@ -17,10 +18,12 @@ type User struct {
 	Email             string `gorm:"primary_key"`
 	HashedPassword    string
 	CreatedAt         time.Time `gorm:"index"`
-	TokenKey          string
-	TokenSalt         string
-	TokenHashedSecret string
+	TokenKey          null.String
+	TokenSalt         null.String
+	TokenHashedSecret null.String
 	UpdatedAt         time.Time
+
+	TokenSecret null.String // TODO: looks unused?
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -91,13 +94,6 @@ func (u *User) GenerateAuthToken() (*auth.Token, error) {
 	return token, u.SetAuthToken(token)
 }
 
-// DeleteAuthToken clears and disables the users Authentication Token.
-func (u *User) DeleteAuthToken() {
-	u.TokenKey = ""
-	u.TokenSalt = ""
-	u.TokenHashedSecret = ""
-}
-
 // SetAuthToken updates the user to use the given Authentication Token.
 func (u *User) SetAuthToken(token *auth.Token) error {
 	salt := utils.NewSecret(utils.DefaultSecretSize)
@@ -105,18 +101,18 @@ func (u *User) SetAuthToken(token *auth.Token) error {
 	if err != nil {
 		return errors.Wrap(err, "user")
 	}
-	u.TokenSalt = salt
-	u.TokenKey = token.AccessKey
-	u.TokenHashedSecret = hashedSecret
+	u.TokenSalt = null.StringFrom(salt)
+	u.TokenKey = null.StringFrom(token.AccessKey)
+	u.TokenHashedSecret = null.StringFrom(hashedSecret)
 	return nil
 }
 
 // AuthenticateUserByToken returns true on successful authentication of the
 // user against the given Authentication Token.
 func AuthenticateUserByToken(token *auth.Token, user *User) (bool, error) {
-	hashedSecret, err := auth.HashedSecret(token, user.TokenSalt)
+	hashedSecret, err := auth.HashedSecret(token, user.TokenSalt.ValueOrZero())
 	if err != nil {
 		return false, err
 	}
-	return subtle.ConstantTimeCompare([]byte(hashedSecret), []byte(user.TokenHashedSecret)) == 1, nil
+	return subtle.ConstantTimeCompare([]byte(hashedSecret), []byte(user.TokenHashedSecret.ValueOrZero())) == 1, nil
 }

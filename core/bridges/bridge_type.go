@@ -1,4 +1,4 @@
-package models
+package bridges
 
 import (
 	"crypto/subtle"
@@ -11,15 +11,16 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // BridgeTypeRequest is the incoming record used to create a BridgeType
 type BridgeTypeRequest struct {
-	Name                   TaskType     `json:"name"`
-	URL                    WebURL       `json:"url"`
-	Confirmations          uint32       `json:"confirmations"`
-	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
+	Name                   TaskType      `json:"name"`
+	URL                    models.WebURL `json:"url"`
+	Confirmations          uint32        `json:"confirmations"`
+	MinimumContractPayment *assets.Link  `json:"minimumContractPayment"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -42,7 +43,7 @@ func (bt *BridgeTypeRequest) SetID(value string) error {
 // BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
 type BridgeTypeAuthentication struct {
 	Name                   TaskType
-	URL                    WebURL
+	URL                    models.WebURL
 	Confirmations          uint32
 	IncomingToken          string
 	OutgoingToken          string
@@ -53,7 +54,7 @@ type BridgeTypeAuthentication struct {
 // the name of the adapter and its URL.
 type BridgeType struct {
 	Name                   TaskType `gorm:"primary_key"`
-	URL                    WebURL
+	URL                    models.WebURL
 	Confirmations          uint32
 	IncomingTokenHash      string
 	Salt                   string

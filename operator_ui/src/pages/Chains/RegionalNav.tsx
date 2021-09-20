@@ -134,7 +134,8 @@ const RegionalNavComponent = ({
   const [deleted, setDeleted] = useState(false)
   const location = useLocation()
   const navOverridesActive = location.pathname.endsWith('/config-overrides')
-  const navNodesActive = !navOverridesActive
+  const editActive = location.pathname.endsWith('/edit')
+  const navNodesActive = !navOverridesActive && !editActive
 
   const handleDelete = (id: string) => {
     deleteChain(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
@@ -238,6 +239,14 @@ const RegionalNavComponent = ({
                 >
                   Delete Chain
                 </Button>
+                <Link href={`/chains/${chainId}/edit`}>
+                  <Button
+                    className={classes.regionalNavButton}
+                    variant="secondary"
+                  >
+                    Update Chain
+                  </Button>
+                </Link>
               </Grid>
             </Grid>
           </Grid>
