@@ -419,7 +419,7 @@ describe("KeeperRegistry", () => {
           assert.isTrue(response.maxLinkPayment.eq(linkForGas(executeGas.toNumber()).mul(newGasMultiplier)));
         });
 
-        it("has a large enough gas overhead to cover upkeeps that use all their gas", async () => {
+        it("has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]", async () => {
           await mock.setCheckGasToBurn(maxCheckGas);
           await mock.setPerformGasToBurn(executeGas);
           const gas = maxCheckGas.add(executeGas).add(PERFORM_GAS_OVERHEAD).add(CHECK_GAS_OVERHEAD);
@@ -514,7 +514,7 @@ describe("KeeperRegistry", () => {
         assert.isTrue(registryLinkBefore.eq(registryLinkAfter));
       });
 
-      it("only pays for gas used", async () => {
+      it("only pays for gas used [ @skip-coverage ]", async () => {
         const before = (await registry.getKeeperInfo(await keeper1.getAddress())).balance;
         const tx = await registry.connect(keeper1).performUpkeep(id, "0x");
         const receipt = await tx.wait();
@@ -529,7 +529,7 @@ describe("KeeperRegistry", () => {
         assert.isTrue(linkForGas(6000).gt(difference)); // instead test a range
       });
 
-      it("only pays at a rate up to the gas ceiling", async () => {
+      it("only pays at a rate up to the gas ceiling [ @skip-coverage ]", async () => {
         const multiplier = BigNumber.from(10);
         const gasPrice = BigNumber.from("1000000000"); // 10M x the gas feed's rate
         await registry
@@ -558,7 +558,7 @@ describe("KeeperRegistry", () => {
         assert.isTrue(linkForGas(6000).mul(multiplier).gt(difference));
       });
 
-      it("only pays as much as the node spent", async () => {
+      it("only pays as much as the node spent [ @skip-coverage ]", async () => {
         const multiplier = BigNumber.from(10);
         const gasPrice = BigNumber.from(200); // 2X the gas feed's rate
         const effectiveMultiplier = BigNumber.from(2);
@@ -616,7 +616,7 @@ describe("KeeperRegistry", () => {
         await evmRevert(registry.connect(keeper1).performUpkeep(id, "0x"), "invalid upkeep id");
       });
 
-      it("uses the fallback gas price if the feed price is stale", async () => {
+      it("uses the fallback gas price if the feed price is stale [ @skip-coverage ]", async () => {
         const normalAmount = await getPerformPaymentAmount();
         const roundId = 99;
         const answer = 100;
@@ -627,7 +627,7 @@ describe("KeeperRegistry", () => {
         assert.isTrue(normalAmount.lt(amountWithStaleFeed));
       });
 
-      it("uses the fallback gas price if the feed price is non-sensical", async () => {
+      it("uses the fallback gas price if the feed price is non-sensical [ @skip-coverage ]", async () => {
         const normalAmount = await getPerformPaymentAmount();
         const roundId = 99;
         const updatedAt = Math.floor(Date.now() / 1000);
@@ -672,7 +672,7 @@ describe("KeeperRegistry", () => {
         await registry.connect(keeper1).performUpkeep(id, "0x");
       });
 
-      it("has a large enough gas overhead to cover upkeeps that use all their gas", async () => {
+      it("has a large enough gas overhead to cover upkeeps that use all their gas [ @skip-coverage ]", async () => {
         await mock.setPerformGasToBurn(executeGas);
         await mock.setCanPerform(true);
         const gas = executeGas.add(PERFORM_GAS_OVERHEAD);
@@ -1174,7 +1174,7 @@ describe("KeeperRegistry", () => {
     const multiplier = BigNumber.from(10);
     const callGasPrice = 1;
 
-    it("uses the same minimum balance calculation", async () => {
+    it("uses the same minimum balance calculation [ @skip-coverage ]", async () => {
       await registry
         .connect(owner)
         .setConfig(
