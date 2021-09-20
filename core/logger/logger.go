@@ -21,9 +21,6 @@ type Logger interface {
 	Named(name string) Logger
 	// With creates a new logger with the given arguments
 	With(args ...interface{}) Logger
-	// WithCallerSkip creates a new logger with the number of callers skipped by
-	// caller annotation increased by add.
-	WithCallerSkip(add int) Logger
 	// WithDB creates a new logger with the given db.
 	WithDB(db *gorm.DB) Logger
 
@@ -67,6 +64,10 @@ type Logger interface {
 	PanicIf(err error)
 
 	Sync() error
+
+	// withCallerSkip creates a new logger with the number of callers skipped by
+	// caller annotation increased by add. For wrappers to use internally.
+	withCallerSkip(add int) Logger
 }
 
 var _ Logger = &zapLogger{}
@@ -123,7 +124,7 @@ func (l *zapLogger) Named(name string) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) WithCallerSkip(skip int) Logger {
+func (l *zapLogger) withCallerSkip(skip int) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
 	return &newLogger
