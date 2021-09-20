@@ -788,7 +788,7 @@ func (c *generalConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
 		}
 		return ta, nil
 	}
-	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
+	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS env var is not set")
 }
 
 func (c *generalConfig) OCRKeyBundleID() (string, error) {
@@ -968,6 +968,8 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 				if len(keys) > 1 {
 					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
 				}
+			} else {
+				err = errors.New("the configuration variable P2P_PEER_ID was not specified and found no P2P keys in the database. Please set P2P_PEER_ID explicitly or add at least one key")
 			}
 		}
 	}()
@@ -984,7 +986,7 @@ func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		}
 		return pid, nil
 	}
-	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
+	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID env var is not set")
 }
 
 // P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
@@ -998,7 +1000,7 @@ func (c *generalConfig) P2PBootstrapPeers() ([]string, error) {
 		if bps != nil {
 			return bps, nil
 		}
-		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
+		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS env var is not set")
 	}
 	return []string{}, nil
 }
