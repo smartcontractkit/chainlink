@@ -6,8 +6,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func NewProductionClient() *cmd.Client {
 
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
-	sr := models.SessionRequest{}
+	sr := sessions.SessionRequest{}
 	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error

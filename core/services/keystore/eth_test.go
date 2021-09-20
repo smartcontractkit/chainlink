@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 )
 
 func Test_EthKeyStore(t *testing.T) {
@@ -21,7 +23,8 @@ func Test_EthKeyStore(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
 	keyStore := keystore.ExposedNewMaster(db)
-	keyStore.Unlock(cltest.Password)
+	err := keyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
 	ethKeyStore := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
@@ -100,8 +103,7 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 
-	keyStore := keystore.ExposedNewMaster(db)
-	keyStore.Unlock(cltest.Password)
+	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
@@ -191,7 +193,8 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 func Test_EthKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	keyStore := keystore.ExposedNewMaster(db)
-	keyStore.Unlock(cltest.Password)
+	err := keyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
 	ks := keyStore.Eth()
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
@@ -257,4 +260,55 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 	})
+}
+
+func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
+	chDone := make(chan struct{})
+	defer func() { close(chDone) }()
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	ks := keyStore.Eth()
+	chSub, unsubscribe := ks.SubscribeToKeyChanges()
+	defer unsubscribe()
+
+	count := atomic.NewInt32(0)
+
+	assertCount := func(expected int32) {
+		require.Eventually(
+			t,
+			func() bool { return count.Load() == expected },
+			10*time.Second,
+			100*time.Millisecond,
+			fmt.Sprintf("insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load()),
+		)
+	}
+
+	go func() {
+		for {
+			select {
+			case _, ok := <-chSub:
+				if !ok {
+					return
+				}
+				count.Add(1)
+			case <-chDone:
+				return
+			}
+		}
+	}()
+
+	_, _, _, _, err := ks.EnsureKeys(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(1)
+	_, err = ks.Create(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(2)
+	newKey, err := ethkey.NewV2()
+	require.NoError(t, err)
+	err = ks.Add(newKey, &cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(3)
+	_, err = ks.Delete(newKey.ID())
+	require.NoError(t, err)
+	assertCount(4)
 }

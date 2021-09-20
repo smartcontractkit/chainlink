@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -224,7 +225,7 @@ func (OffchainReportingOracleSpec) TableName() string {
 
 type ExternalInitiatorWebhookSpec struct {
 	ExternalInitiatorID int64
-	ExternalInitiator   models.ExternalInitiator `gorm:"foreignkey:ExternalInitiatorID;->"`
+	ExternalInitiator   bridges.ExternalInitiator `gorm:"foreignkey:ExternalInitiatorID;->"`
 	WebhookSpecID       int32
 	WebhookSpec         WebhookSpec `gorm:"foreignkey:WebhookSpecID;->"`
 	Spec                models.JSON

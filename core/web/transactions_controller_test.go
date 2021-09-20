@@ -23,8 +23,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	store := app.GetStore()
-	db := store.DB
+	db := app.GetDB()
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -39,9 +38,9 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, store.DB.Create(&attempt).Error)
+	require.NoError(t, db.Create(&attempt).Error)
 
-	_, count, err := store.EthTransactionsWithAttempts(0, 100)
+	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 

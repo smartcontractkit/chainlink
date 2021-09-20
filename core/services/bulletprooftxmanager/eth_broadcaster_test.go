@@ -122,6 +122,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		tr := int32(99)
 		b, err := json.Marshal(bulletprooftxmanager.EthTxMeta{JobID: tr})
 		require.NoError(t, err)
+		meta := datatypes.JSON(b)
 		earlierEthTx := bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
@@ -130,7 +131,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 			GasLimit:       gasLimit,
 			CreatedAt:      time.Unix(0, 1),
 			State:          bulletprooftxmanager.EthTxUnstarted,
-			Meta:           datatypes.JSON(b),
+			Meta:           &meta,
 		}
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			if tx.Nonce() != uint64(0) {
@@ -188,7 +189,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.NotNil(t, earlierTransaction.BroadcastAt)
 		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
 		var m bulletprooftxmanager.EthTxMeta
-		err = json.Unmarshal(earlierEthTx.Meta, &m)
+		err = json.Unmarshal(*earlierEthTx.Meta, &m)
 		require.NoError(t, err)
 		assert.Equal(t, tr, m.JobID)
 

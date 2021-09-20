@@ -5,6 +5,9 @@ package mocks
 import (
 	big "math/big"
 
+	bridges "github.com/smartcontractkit/chainlink/core/bridges"
+	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+
 	config "github.com/smartcontractkit/chainlink/core/store/config"
 
 	context "context"
@@ -32,6 +35,8 @@ import (
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+
+	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
 	store "github.com/smartcontractkit/chainlink/core/store"
 
@@ -68,6 +73,38 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.Stri
 	}
 
 	return r0, r1
+}
+
+// BPTXMORM provides a mock function with given fields:
+func (_m *Application) BPTXMORM() bulletprooftxmanager.ORM {
+	ret := _m.Called()
+
+	var r0 bulletprooftxmanager.ORM
+	if rf, ok := ret.Get(0).(func() bulletprooftxmanager.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(bulletprooftxmanager.ORM)
+		}
+	}
+
+	return r0
+}
+
+// BridgeORM provides a mock function with given fields:
+func (_m *Application) BridgeORM() bridges.ORM {
+	ret := _m.Called()
+
+	var r0 bridges.ORM
+	if rf, ok := ret.Get(0).(func() bridges.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(bridges.ORM)
+		}
+	}
+
+	return r0
 }
 
 // DeleteJob provides a mock function with given fields: ctx, jobID
@@ -390,6 +427,22 @@ func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, r
 	}
 
 	return r0, r1
+}
+
+// SessionORM provides a mock function with given fields:
+func (_m *Application) SessionORM() sessions.ORM {
+	ret := _m.Called()
+
+	var r0 sessions.ORM
+	if rf, ok := ret.Get(0).(func() sessions.ORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.ORM)
+		}
+	}
+
+	return r0
 }
 
 // SetServiceLogger provides a mock function with given fields: ctx, service, level

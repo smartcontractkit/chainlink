@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
@@ -55,7 +55,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(sqlDB, &models.User{}, nil)
+		a := webhook.NewAuthorizer(sqlDB, &sessions.User{}, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)

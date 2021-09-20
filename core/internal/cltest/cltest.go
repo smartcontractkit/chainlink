@@ -36,6 +36,7 @@ import (
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -59,6 +60,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
@@ -178,41 +180,21 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
-func MustBigIntFromString(t *testing.T, s string) *big.Int {
-	t.Helper()
-	x, ok := big.NewInt(0).SetString(s, 10)
-	if !ok {
-		t.Fatalf("could not create *big.Int from string '%v'", s)
-	}
-	return x
-}
-
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
-	Eb  postgres.EventBroadcaster
 	Jrm job.ORM
 	Pr  pipeline.Runner
 }
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
-	prm, eb := NewPipelineORM(t, cfg, db)
-	jrm := job.NewORM(db, cc, prm, eb, keyStore)
+	prm := pipeline.NewORM(db)
+	jrm := job.NewORM(db, cc, prm, keyStore)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
-		eb,
 		jrm,
 		pr,
 	}
-}
-
-func NewPipelineORM(t testing.TB, cfg config.GeneralConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster) {
-	t.Helper()
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
-	err := eventBroadcaster.Start()
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
-	return pipeline.NewORM(db), eventBroadcaster
 }
 
 func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
@@ -422,6 +404,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ShutdownSignal:           shutdownSignal,
 		Store:                    store,
 		GormDB:                   db,
+		SqlxDB:                   sqlxDB,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		Logger:                   lggr,
@@ -561,7 +544,7 @@ func (ta *TestApplication) Stop() error {
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.Store)
+	cleanUpStore(ta.t, ta.GetStore())
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -573,7 +556,7 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
+	require.NoError(ta.t, ta.GetDB().Save(&session).Error)
 	return session.ID
 }
 
@@ -622,7 +605,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, models.SessionRequest{}),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
@@ -649,7 +632,7 @@ func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...in
 	t.Cleanup(func() {
 		cleanUpStore(t, s)
 	})
-	s.Config.SetDB(s.DB)
+	c.SetDB(s.DB)
 	return s
 }
 
@@ -934,13 +917,13 @@ const (
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
+func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
 	g := gomega.NewGomegaWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
-		err := store.DB.
+		err := db.
 			Where("job_id = ?", jobID).
 			Find(&jse).Error
 		assert.NoError(t, err)
@@ -982,13 +965,13 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 }
 
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
-func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
-		err := store.DB.
+		err := db.
 			Where("pipeline_spec_id = ?", pipelineSpecID).
 			Find(&prs).Error
 		assert.NoError(t, err)
@@ -998,14 +981,14 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
+		err = db.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1197,21 +1180,19 @@ func MustParseDuration(t testing.TB, durationStr string) time.Duration {
 	return duration
 }
 
-func NewSession(optionalSessionID ...string) models.Session {
-	session := models.NewSession()
+func NewSession(optionalSessionID ...string) clsessions.Session {
+	session := clsessions.NewSession()
 	if len(optionalSessionID) > 0 {
 		session.ID = optionalSessionID[0]
 	}
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, db *gorm.DB) []bridges.ExternalInitiator {
 	t.Helper()
 
-	var all []models.ExternalInitiator
-	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Find(&all).Error
-	})
+	var all []bridges.ExternalInitiator
+	err := db.Find(&all).Error
 	require.NoError(t, err)
 	return all
 }
