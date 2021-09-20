@@ -14,8 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -32,8 +35,9 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	debug := config.LogLevel{Level: zapcore.DebugLevel}
 	cfg.Overrides.LogLevel = &debug
-	store := cltest.NewStoreWithConfig(t, cfg)
-	keyStore := cltest.NewKeyStore(t, store.DB)
+	db := pgtest.NewGormDB(t)
+	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+	keyStore := cltest.NewKeyStore(t, db)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -42,7 +46,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
 	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
+	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 	app.On("Start").Return(nil)
@@ -50,7 +54,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
-		Config:                 store.Config,
+		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 runner,
@@ -107,16 +111,18 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store := cltest.NewStore(t)
-			keyStore := cltest.NewKeyStore(t, store.DB)
+			cfg := cltest.NewTestGeneralConfig(t)
+			db := pgtest.NewGormDB(t)
+			keyStore := cltest.NewKeyStore(t, db)
+			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
 			// Clear out fixture
-			err := store.DeleteUser()
+			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
+			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, store.Config))).Maybe()
+			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
@@ -128,7 +134,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 			apiPrompt := &cltest.MockAPIInitializer{}
 			client := cmd.Client{
-				Config:                 store.Config,
+				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
@@ -152,15 +158,17 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
-	store := cltest.NewStore(t)
-	keyStore := cltest.NewKeyStore(t, store.DB)
+	cfg := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+	keyStore := cltest.NewKeyStore(t, db)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
+	app.On("SessionORM").Return(sessionORM)
 	app.On("GetKeyStore").Return(keyStore)
-	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, store.Config))).Maybe()
+	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
 
@@ -172,14 +180,14 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 
 	apiPrompt := &cltest.MockAPIInitializer{}
 	client := cmd.Client{
-		Config:                 store.Config,
+		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: apiPrompt,
 		Runner:                 cltest.EmptyRunner{},
 	}
 
 	var keyState = ethkey.State{}
-	err = store.DB.Where("is_funding = TRUE").Find(&keyState).Error
+	err = db.Where("is_funding = TRUE").Find(&keyState).Error
 	require.NoError(t, err)
 	assert.Empty(t, keyState.ID, "expected no funding key")
 
@@ -189,7 +197,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 
 	assert.NoError(t, client.RunNode(ctx))
 
-	assert.NoError(t, store.DB.Where("is_funding = TRUE").First(&keyState).Error)
+	assert.NoError(t, db.Where("is_funding = TRUE").First(&keyState).Error)
 	assert.NotEmpty(t, keyState.ID, "expected a new funding key")
 }
 
@@ -209,12 +217,13 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
-
-			store := cltest.NewStoreWithConfig(t, cfg)
+			db := pgtest.NewGormDB(t)
+			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
 			// Clear out fixture
-			store.DeleteUser()
-			keyStore := cltest.NewKeyStore(t, store.DB)
-			_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
+			err := sessionORM.DeleteUser()
+			require.NoError(t, err)
+			keyStore := cltest.NewKeyStore(t, db)
+			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := cltest.NewEthClientMock(t)
@@ -222,7 +231,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 
 			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
+			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 			app.On("Start").Maybe().Return(nil)
@@ -429,7 +438,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Check that the Dialect was set back when the command was run.
 			assert.Equal(t, dialects.PostgresWithoutLock, config.GetDatabaseDialectConfiguredOrDefault())
 
-			cltest.AssertEthTxAttemptCountStays(t, store, 1)
+			cltest.AssertEthTxAttemptCountStays(t, store.DB, 1)
 			app.AssertExpectations(t)
 			ethClient.AssertExpectations(t)
 		})

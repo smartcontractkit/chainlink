@@ -15,6 +15,7 @@ type OCR interface {
 	Delete(id string) (ocrkey.KeyV2, error)
 	Import(keyJSON []byte, password string) (ocrkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
+	EnsureKey() (ocrkey.KeyV2, bool, error)
 
 	GetV1KeysAsV2() ([]ocrkey.KeyV2, error)
 }
@@ -23,15 +24,15 @@ type ocr struct {
 	*keyManager
 }
 
-var _ OCR = ocr{}
+var _ OCR = &ocr{}
 
-func newOCRKeyStore(km *keyManager) ocr {
-	return ocr{
+func newOCRKeyStore(km *keyManager) *ocr {
+	return &ocr{
 		km,
 	}
 }
 
-func (ks ocr) Get(id string) (ocrkey.KeyV2, error) {
+func (ks *ocr) Get(id string) (ocrkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -40,7 +41,7 @@ func (ks ocr) Get(id string) (ocrkey.KeyV2, error) {
 	return ks.getByID(id)
 }
 
-func (ks ocr) GetAll() (keys []ocrkey.KeyV2, _ error) {
+func (ks *ocr) GetAll() (keys []ocrkey.KeyV2, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -52,7 +53,7 @@ func (ks ocr) GetAll() (keys []ocrkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks ocr) Create() (ocrkey.KeyV2, error) {
+func (ks *ocr) Create() (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -65,7 +66,7 @@ func (ks ocr) Create() (ocrkey.KeyV2, error) {
 	return key, ks.safeAddKey(key)
 }
 
-func (ks ocr) Add(key ocrkey.KeyV2) error {
+func (ks *ocr) Add(key ocrkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -77,7 +78,7 @@ func (ks ocr) Add(key ocrkey.KeyV2) error {
 	return ks.safeAddKey(key)
 }
 
-func (ks ocr) Delete(id string) (ocrkey.KeyV2, error) {
+func (ks *ocr) Delete(id string) (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -91,7 +92,7 @@ func (ks ocr) Delete(id string) (ocrkey.KeyV2, error) {
 	return key, err
 }
 
-func (ks ocr) Import(keyJSON []byte, password string) (ocrkey.KeyV2, error) {
+func (ks *ocr) Import(keyJSON []byte, password string) (ocrkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -107,7 +108,7 @@ func (ks ocr) Import(keyJSON []byte, password string) (ocrkey.KeyV2, error) {
 	return key, ks.keyManager.safeAddKey(key)
 }
 
-func (ks ocr) Export(id string, password string) ([]byte, error) {
+func (ks *ocr) Export(id string, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -120,7 +121,23 @@ func (ks ocr) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
+func (ks *ocr) EnsureKey() (ocrkey.KeyV2, bool, error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	if ks.isLocked() {
+		return ocrkey.KeyV2{}, false, ErrLocked
+	}
+	if len(ks.keyRing.OCR) > 0 {
+		return ocrkey.KeyV2{}, true, nil
+	}
+	key, err := ocrkey.NewV2()
+	if err != nil {
+		return ocrkey.KeyV2{}, false, err
+	}
+	return key, false, ks.safeAddKey(key)
+}
+
+func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1OCRKeys()
 	if err != nil {
 		return keys, err
@@ -135,7 +152,7 @@ func (ks ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks ocr) getByID(id string) (ocrkey.KeyV2, error) {
+func (ks *ocr) getByID(id string) (ocrkey.KeyV2, error) {
 	key, found := ks.keyRing.OCR[id]
 	if !found {
 		return ocrkey.KeyV2{}, fmt.Errorf("unable to find OCR key with id %s", id)

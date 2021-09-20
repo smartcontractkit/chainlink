@@ -10,6 +10,7 @@ import (
 
 type ChainResource struct {
 	JAID
+	Enabled   bool           `json:"enabled"`
 	Config    types.ChainCfg `json:"config"`
 	CreatedAt time.Time      `json:"createdAt"`
 	UpdatedAt time.Time      `json:"updatedAt"`

@@ -6,11 +6,12 @@ import (
 	big "math/big"
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
+
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
