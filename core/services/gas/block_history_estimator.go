@@ -548,11 +548,7 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *bi
 	switch tx.Type {
 	case 0x2:
 		return tx.MaxPriorityFeePerGas
-	default:
-		if !(tx.Type == 0x0 || tx.Type == 0x1) {
-			b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
-			return nil
-		}
+	case 0x0, 0x1:
 		if tx.GasPrice == nil {
 			return nil
 		}
@@ -565,5 +561,8 @@ func (b *BlockHistoryEstimator) EffectiveTipCap(block Block, tx Transaction) *bi
 			return nil
 		}
 		return effectiveTipCap
+	default:
+		b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: ignoring unknown transaction type %v", tx.Type), "block", block, "tx", tx)
+		return nil
 	}
 }
