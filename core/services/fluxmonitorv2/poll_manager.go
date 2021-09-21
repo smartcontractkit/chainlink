@@ -58,11 +58,11 @@ type PollManager struct {
 	drumbeat         utils.CronTicker
 	chPoll           chan PollRequest
 
-	logger *logger.Logger
+	logger logger.Logger
 }
 
 // NewPollManager initializes a new PollManager
-func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) (*PollManager, error) {
+func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, error) {
 	minBackoffDuration := cfg.MinRetryBackoffDuration
 	if cfg.IdleTimerPeriod < minBackoffDuration {
 		minBackoffDuration = cfg.IdleTimerPeriod

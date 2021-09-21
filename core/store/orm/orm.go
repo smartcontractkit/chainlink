@@ -78,7 +78,7 @@ func (orm *ORM) MustEnsureAdvisoryLock() error {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	orm.DB.Logger = NewOrmLogWrapper(logger.Default, enabled, time.Second)
+	orm.DB.Logger = logger.NewGormWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
@@ -160,7 +160,7 @@ func (ct *Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = uri.String()
 	}
 
-	newLogger := NewOrmLogWrapper(logger.Default, false, time.Second)
+	newLogger := logger.NewGormWrapper(logger.Default, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)

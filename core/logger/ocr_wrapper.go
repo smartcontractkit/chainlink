@@ -1,23 +1,20 @@
-package offchainreporting
+package logger
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"go.uber.org/zap"
 )
 
-var _ ocrtypes.Logger = &ocrLogger{}
+var _ ocrtypes.Logger = &ocrWrapper{}
 
-type ocrLogger struct {
-	internal  *logger.Logger
+type ocrWrapper struct {
+	internal  Logger
 	trace     bool
 	saveError func(string)
 }
 
-func NewLogger(l *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
-	internal := logger.CreateLogger(l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar())
-	return &ocrLogger{
-		internal:  internal,
+func NewOCRWrapper(l Logger, trace bool, saveError func(string)) ocrtypes.Logger {
+	return &ocrWrapper{
+		internal:  l.withCallerSkip(1),
 		trace:     trace,
 		saveError: saveError,
 	}
@@ -25,28 +22,28 @@ func NewLogger(l *logger.Logger, trace bool, saveError func(string)) ocrtypes.Lo
 
 // TODO(sam): Zap does not support trace level logging yet, so this hack is
 // necessary to silence excessive logging
-func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
+func (ol *ocrWrapper) Trace(msg string, fields ocrtypes.LogFields) {
 	if ol.trace {
 		ol.internal.Debugw(msg, toKeysAndValues(fields)...)
 	}
 }
 
-func (ol *ocrLogger) Debug(msg string, fields ocrtypes.LogFields) {
+func (ol *ocrWrapper) Debug(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Debugw(msg, toKeysAndValues(fields)...)
 }
 
-func (ol *ocrLogger) Info(msg string, fields ocrtypes.LogFields) {
+func (ol *ocrWrapper) Info(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Infow(msg, toKeysAndValues(fields)...)
 }
 
-func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
+func (ol *ocrWrapper) Warn(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Warnw(msg, toKeysAndValues(fields)...)
 }
 
 // Note that the structured fields may contain dynamic data (timestamps etc.)
 // So when saving the error, we only save the top level string, details
 // are included in the log.
-func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
+func (ol *ocrWrapper) Error(msg string, fields ocrtypes.LogFields) {
 	ol.saveError(msg)
 	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
 }

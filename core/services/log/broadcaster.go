@@ -87,7 +87,7 @@ type (
 		replayChannel         chan int64
 		highestSavedHead      *eth.Head
 		lastSeenHeadNumber    atomic.Int64
-		logger                *logger.Logger
+		logger                logger.Logger
 	}
 
 	Config interface {
@@ -124,7 +124,7 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger *logger.Logger, highestSavedHead *eth.Head) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger logger.Logger, highestSavedHead *eth.Head) *broadcaster {
 	chStop := make(chan struct{})
 
 	return &broadcaster{

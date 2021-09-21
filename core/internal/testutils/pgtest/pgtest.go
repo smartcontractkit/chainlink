@@ -13,7 +13,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,7 +56,7 @@ func init() {
 func NewGormDB(t *testing.T) *gorm.DB {
 	sqlDB := NewSqlDB(t)
 	logAllQueries := os.Getenv("LOG_SQL") == "true"
-	newLogger := orm.NewOrmLogWrapper(logger.Default, logAllQueries, 0)
+	newLogger := logger.NewGormWrapper(logger.Default, logAllQueries, 0)
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{
 		Conn: sqlDB,
 		DSN:  uuid.NewV4().String(),

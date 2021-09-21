@@ -34,7 +34,7 @@ type (
 
 	balanceMonitor struct {
 		utils.StartStopOnce
-		logger         *logger.Logger
+		logger         logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
 		chainID        string
@@ -48,7 +48,7 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger *logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
