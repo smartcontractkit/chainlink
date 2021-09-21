@@ -20,6 +20,11 @@ export class Chains {
   }
 
   @boundMethod
+  public destroyChain(id: string): Promise<jsonapi.ApiResponse<null>> {
+    return this.destroy(undefined, { id })
+  }
+
+  @boundMethod
   public updateChain(
     id: string,
     req: models.UpdateChainRequest,
@@ -33,6 +38,14 @@ export class Chains {
     models.CreateChainRequest,
     models.Chain
   >(ENDPOINT)
+
+  private destroy = this.api.deleteResource<
+    undefined,
+    null,
+    {
+      id: string
+    }
+  >(UPDATE_ENDPOINT)
 
   private update = this.api.updateResource<
     models.UpdateChainRequest,
