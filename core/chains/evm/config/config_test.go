@@ -100,8 +100,8 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		expectedMinimumContractPayment int64
 	}{
 		{"default", 0, 500000, 100000000000000},
-		{"mainnet", 1, 500000, 1000000000000000000},
-		{"kovan", 42, 500000, 1000000000000000000},
+		{"mainnet", 1, 500000, 100000000000000000},
+		{"kovan", 42, 500000, 100000000000000000},
 
 		{"optimism", 10, 500000, 100000000000000},
 		{"optimism", 69, 500000, 100000000000000},
