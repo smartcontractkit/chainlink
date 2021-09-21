@@ -22,9 +22,6 @@ contracts/src/v0.4
 contracts/src/v0.5
 contracts/src/v0.6
 
-# Prettier error: "Number of points in Secp256k1" was not printed. Please report this error!
-**/VRF.sol
-
 # Ignore TS definition and map files
 **/**.d.ts
 **/**.d.ts.map
