@@ -41,7 +41,7 @@ type UpkeepExecuter struct {
 	mailbox         *utils.Mailbox
 	orm             ORM
 	pr              pipeline.Runner
-	logger          *logger.Logger
+	logger          logger.Logger
 	wgDone          sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -54,7 +54,7 @@ func NewUpkeepExecuter(
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	gasEstimator gas.Estimator,
-	logger *logger.Logger,
+	logger logger.Logger,
 	config Config,
 ) *UpkeepExecuter {
 	return &UpkeepExecuter{
@@ -143,7 +143,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		ex.config.KeeperMaximumGracePeriod(),
 	)
 	if err != nil {
-		ex.logger.WithError(err).Error("unable to load active registrations")
+		ex.logger.With("error", err).Error("unable to load active registrations")
 		return
 	}
 
@@ -191,8 +191,8 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	})
 
 	run := pipeline.NewRun(*ex.job.PipelineSpec, vars)
-	if _, err := ex.pr.Run(ctxService, &run, *ex.logger, true, nil); err != nil {
-		ex.logger.WithError(err).Errorw("failed executing run")
+	if _, err := ex.pr.Run(ctxService, &run, ex.logger, true, nil); err != nil {
+		ex.logger.With("error", err).Errorw("failed executing run")
 		return
 	}
 
@@ -200,7 +200,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
 		if err != nil {
-			ex.logger.WithError(err).Errorw("failed to set last run height for upkeep")
+			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}
 	}
 }

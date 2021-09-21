@@ -16,7 +16,63 @@ import (
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
-type Logger struct {
+type Logger interface {
+	// Named creates a new named logger with the given name
+	Named(name string) Logger
+	// With creates a new logger with the given arguments
+	With(args ...interface{}) Logger
+	// WithDB creates a new logger with the given db.
+	WithDB(db *gorm.DB) Logger
+
+	// GetORM returns the underlying ORM, if one is set.
+	GetORM() ORM
+
+	// InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
+	InitServiceLevelLogger(serviceName string, logLevel string) (Logger, error)
+	// ServiceLogLevel is the log level set for a specified package
+	ServiceLogLevel(serviceName string) (string, error)
+	// GetServiceLogLevels retrieves all service log levels from the db
+	GetServiceLogLevels() (map[string]string, error)
+
+	Info(args ...interface{})
+	Infof(format string, values ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+
+	Debug(args ...interface{})
+	Debugf(format string, values ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+
+	Warn(args ...interface{})
+	Warnf(format string, values ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	// WarnIf logs the error if present.
+	WarnIf(err error)
+
+	Error(args ...interface{})
+	Errorf(format string, values ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	// ErrorIf logs the error if present.
+	ErrorIf(err error, optionalMsg ...string)
+	// ErrorIfCalling calls fn and logs any returned error along with func name.
+	ErrorIfCalling(fn func() error, optionalMsg ...string)
+
+	Fatal(values ...interface{})
+	Fatalf(format string, values ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+
+	Panic(args ...interface{})
+	PanicIf(err error)
+
+	Sync() error
+
+	// withCallerSkip creates a new logger with the number of callers skipped by
+	// caller annotation increased by add. For wrappers to use internally.
+	withCallerSkip(add int) Logger
+}
+
+var _ Logger = &zapLogger{}
+
+type zapLogger struct {
 	*zap.SugaredLogger
 	Orm         ORM
 	lvl         zapcore.Level
@@ -41,15 +97,12 @@ func GetLogServices() []string {
 	}
 }
 
-// Write logs a message at the Info level and returns the length
-// of the given bytes.
-func (l *Logger) Write(b []byte) (int, error) {
+func (l *zapLogger) Write(b []byte) (int, error) {
 	l.Info(string(b))
 	return len(b), nil
 }
 
-// With creates a new logger with the given arguments
-func (l *Logger) With(args ...interface{}) *Logger {
+func (l *zapLogger) With(args ...interface{}) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
 	newLogger.fields = copyFields(l.fields, args...)
@@ -64,28 +117,26 @@ func copyFields(fields []interface{}, add ...interface{}) []interface{} {
 	return f
 }
 
-// Named creates a new named logger with the given name
-func (l *Logger) Named(name string) *Logger {
+func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name).With("id", name)
 	newLogger.fields = copyFields(l.fields, "id", name)
 	return &newLogger
 }
 
-// WithError adds the given error to the log
-func (l *Logger) WithError(err error) *Logger {
-	return l.With("error", err)
+func (l *zapLogger) withCallerSkip(skip int) Logger {
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
+	return &newLogger
 }
 
-// WarnIf logs the error if present.
-func (l *Logger) WarnIf(err error) {
+func (l *zapLogger) WarnIf(err error) {
 	if err != nil {
 		l.Warn(err)
 	}
 }
 
-// ErrorIf logs the error if present.
-func (l *Logger) ErrorIf(err error, optionalMsg ...string) {
+func (l *zapLogger) ErrorIf(err error, optionalMsg ...string) {
 	if err != nil {
 		if len(optionalMsg) > 0 {
 			l.Error(errors.Wrap(err, optionalMsg[0]))
@@ -95,31 +146,36 @@ func (l *Logger) ErrorIf(err error, optionalMsg ...string) {
 	}
 }
 
-// ErrorIfCalling calls the given function and logs the error of it if there is.
-func (l *Logger) ErrorIfCalling(f func() error, optionalMsg ...string) {
-	err := f()
+func (l *zapLogger) ErrorIfCalling(fn func() error, optionalMsg ...string) {
+	err := fn()
 	if err != nil {
-		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+		e := errors.Wrap(err, fnName)
 		if len(optionalMsg) > 0 {
-			Default.Error(errors.Wrap(e, optionalMsg[0]))
+			l.Error(errors.Wrap(e, optionalMsg[0]))
 		} else {
-			Default.Error(e)
+			l.Error(e)
 		}
 	}
 }
 
-func (l *Logger) PanicIf(err error) {
+func (l *zapLogger) PanicIf(err error) {
 	if err != nil {
 		l.Panic(err)
 	}
 }
 
-func (l *Logger) SetDB(db *gorm.DB) {
-	l.Orm = NewORM(db)
+func (l *zapLogger) WithDB(db *gorm.DB) Logger {
+	newLogger := *l
+	newLogger.Orm = NewORM(db)
+	return &newLogger
 }
 
-// GetServiceLogLevels retrieves all service log levels from the db
-func (l *Logger) GetServiceLogLevels() (map[string]string, error) {
+func (l *zapLogger) GetORM() ORM {
+	return l.Orm
+}
+
+func (l *zapLogger) GetServiceLogLevels() (map[string]string, error) {
 	serviceLogLevels := make(map[string]string)
 
 	for _, svcName := range GetLogServices() {
@@ -131,13 +187,6 @@ func (l *Logger) GetServiceLogLevels() (map[string]string, error) {
 	}
 
 	return serviceLogLevels, nil
-}
-
-// CreateLogger creates a new Logger with the given SugaredLogger
-func CreateLogger(zl *zap.SugaredLogger) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-	}
 }
 
 // initLogConfig builds a zap.Config for a logger
@@ -158,14 +207,14 @@ func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool)
 // CreateProductionLogger returns a log config for the passed directory
 // with the given LogLevel and customizes stdout for pretty printing.
 func CreateProductionLogger(
-	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *Logger {
+	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) Logger {
 	config := initLogConfig(dir, jsonConsole, lvl, toDisk)
 
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &Logger{
+	return &zapLogger{
 		SugaredLogger: zl.Sugar(),
 		lvl:           lvl,
 		dir:           dir,
@@ -174,8 +223,7 @@ func CreateProductionLogger(
 	}
 }
 
-// InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
-func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*Logger, error) {
+func (l *zapLogger) InitServiceLevelLogger(serviceName string, logLevel string) (Logger, error) {
 	var ll zapcore.Level
 	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
 		return nil, err
@@ -194,8 +242,7 @@ func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*L
 	return &newLogger, nil
 }
 
-// ServiceLogLevel is the log level set for a specified package
-func (l *Logger) ServiceLogLevel(serviceName string) (string, error) {
+func (l *zapLogger) ServiceLogLevel(serviceName string) (string, error) {
 	if l.Orm != nil {
 		level, err := l.Orm.GetServiceLogLevel(serviceName)
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {

@@ -47,14 +47,14 @@ type HeadListener struct {
 	receivesHeads    atomic.Bool
 	sleeper          utils.Sleeper
 
-	log      *logger.Logger
+	log      logger.Logger
 	muLogger sync.RWMutex
 
 	chStop chan struct{}
 	wgDone *sync.WaitGroup
 }
 
-func NewHeadListener(l *logger.Logger,
+func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	chStop chan struct{},
@@ -82,13 +82,13 @@ func NewHeadListener(l *logger.Logger,
 }
 
 // SetLogger sets and reconfigures the log for the head tracker service
-func (hl *HeadListener) SetLogger(logger *logger.Logger) {
+func (hl *HeadListener) SetLogger(logger logger.Logger) {
 	hl.muLogger.Lock()
 	defer hl.muLogger.Unlock()
 	hl.log = logger
 }
 
-func (hl *HeadListener) logger() *logger.Logger {
+func (hl *HeadListener) logger() logger.Logger {
 	hl.muLogger.RLock()
 	defer hl.muLogger.RUnlock()
 	return hl.log

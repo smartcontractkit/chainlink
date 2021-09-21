@@ -12,7 +12,7 @@ import (
 var (
 	// Default logger for use throughout the project.
 	// All the package-level functions are calling Default.
-	Default *Logger
+	Default Logger
 )
 
 func init() {
@@ -29,7 +29,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(CreateLogger(zl.Sugar()))
+	SetLogger(&zapLogger{SugaredLogger: zl.Sugar()})
 }
 
 // SetLogger sets the internal logger to the given input.
@@ -38,10 +38,10 @@ func init() {
 // Instead, you should fork the logger.Default instance to create a new logger
 // for your module.
 // Eg: logger.Default.Named("<my-package-name>")
-func SetLogger(newLogger *Logger) {
+func SetLogger(newLogger Logger) {
 	if Default != nil {
-		defer func() {
-			if err := Default.Sync(); err != nil {
+		defer func(l Logger) {
+			if err := l.Sync(); err != nil {
 				if errors.Unwrap(err).Error() != os.ErrInvalid.Error() &&
 					errors.Unwrap(err).Error() != "inappropriate ioctl for device" &&
 					errors.Unwrap(err).Error() != "bad file descriptor" {
@@ -49,7 +49,7 @@ func SetLogger(newLogger *Logger) {
 					log.Fatalf("failed to sync logger %+v", err)
 				}
 			}
-		}()
+		}(Default)
 	}
 	Default = newLogger
 }
@@ -83,12 +83,12 @@ func NewErrorw(msg string, keysAndValues ...interface{}) error {
 
 // Infof formats and then logs the message.
 func Infof(format string, values ...interface{}) {
-	Default.Info(fmt.Sprintf(format, values...))
+	Default.Infof(format, values...)
 }
 
 // Debugf formats and then logs the message.
 func Debugf(format string, values ...interface{}) {
-	Default.Debug(fmt.Sprintf(format, values...))
+	Default.Debugf(format, values...)
 }
 
 // Tracef is a shim stand-in for when we have real trace-level logging support
@@ -98,7 +98,7 @@ func Tracef(format string, values ...interface{}) {
 
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
-	Default.Warn(fmt.Sprintf(format, values...))
+	Default.Warnf(format, values...)
 }
 
 // Panicf formats and then logs the message before panicking.

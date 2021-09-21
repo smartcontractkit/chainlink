@@ -45,7 +45,7 @@ var expectedPipeline pipeline.Pipeline
 func init() {
 	pp, err := pipeline.Parse(expectedObservationSourceRaw)
 	if err != nil {
-		logger.Default.WithError(err).Fatal("failed to parse default observation source")
+		logger.Default.With("error", err).Fatal("failed to parse default observation source")
 	}
 	expectedPipeline = *pp
 }
