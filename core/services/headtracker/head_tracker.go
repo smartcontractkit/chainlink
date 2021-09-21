@@ -36,7 +36,7 @@ const HeadsBufferSize = 10
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	log             *logger.Logger
+	log             logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
 	chainID         big.Int
@@ -56,7 +56,7 @@ type HeadTracker struct {
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
 func NewHeadTracker(
-	l *logger.Logger,
+	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	orm *ORM,
@@ -82,14 +82,14 @@ func NewHeadTracker(
 }
 
 // SetLogger sets and reconfigures the log for the head tracker service
-func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
+func (ht *HeadTracker) SetLogger(logger logger.Logger) {
 	ht.muLogger.Lock()
 	defer ht.muLogger.Unlock()
 	ht.log = logger
 	ht.headListener.SetLogger(logger)
 }
 
-func (ht *HeadTracker) logger() *logger.Logger {
+func (ht *HeadTracker) logger() logger.Logger {
 	ht.muLogger.RLock()
 	defer ht.muLogger.RUnlock()
 	return ht.log
@@ -420,4 +420,4 @@ func (*NullTracker) Stop() error    { return nil }
 func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 
-func (*NullTracker) SetLogger(*logger.Logger) {}
+func (*NullTracker) SetLogger(logger.Logger) {}

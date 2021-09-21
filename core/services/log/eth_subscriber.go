@@ -19,12 +19,12 @@ type (
 	ethSubscriber struct {
 		ethClient eth.Client
 		config    Config
-		logger    *logger.Logger
+		logger    logger.Logger
 		chStop    chan struct{}
 	}
 )
 
-func newEthSubscriber(ethClient eth.Client, config Config, logger *logger.Logger, chStop chan struct{}) *ethSubscriber {
+func newEthSubscriber(ethClient eth.Client, config Config, logger logger.Logger, chStop chan struct{}) *ethSubscriber {
 	return &ethSubscriber{
 		ethClient: ethClient,
 		config:    config,
