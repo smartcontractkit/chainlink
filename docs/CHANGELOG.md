@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 Add support for OKEx/ExChain.
 
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined.
+
+Add CRUD functionality for EVM Chains and Nodes through Operator UI
+
+### Changed
+
+Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
 
 ### Removed
 

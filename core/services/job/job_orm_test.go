@@ -268,3 +268,56 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }
+
+func Test_FindJob(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	pipelineORM := pipeline.NewORM(db)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
+	defer orm.Close()
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, db.Create(bridge2).Error)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
+
+	t.Run("by id", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		jb, err = orm.FindJob(ctx, ocrJob.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, ocrJob.ID, jb.ID)
+		assert.Equal(t, ocrJob.Name, jb.Name)
+	})
+
+	t.Run("by external job id", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		jb, err := orm.FindJobByExternalJobID(ctx, externalJobID)
+		require.NoError(t, err)
+
+		assert.Equal(t, ocrJob.ID, jb.ID)
+		assert.Equal(t, ocrJob.Name, jb.Name)
+	})
+}

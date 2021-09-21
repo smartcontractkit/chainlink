@@ -135,6 +135,7 @@ func (js *spawner) stopService(jobID int32) {
 			logger.Infow("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", reflect.TypeOf(service))
 		}
 	}
+
 	delete(js.activeJobs, jobID)
 }
 
@@ -240,9 +241,17 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 
 	aj.delegate.BeforeJobDeleted(aj.spec)
 
-	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
+	combctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
-	err := js.orm.DeleteJob(ctx, jobID)
+
+	// Inject the wrapping transaction into the combined context if it exists.
+	// This allows rollbacks from other services.
+	tx := postgres.GetTxFromContext(ctx)
+	if tx != nil {
+		combctx = postgres.InjectTxIntoContext(combctx, tx)
+	}
+
+	err := js.orm.DeleteJob(combctx, jobID)
 	if err != nil {
 		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err

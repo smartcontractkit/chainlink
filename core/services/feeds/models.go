@@ -47,9 +47,10 @@ func (FeedsManager) TableName() string {
 type JobProposalStatus string
 
 const (
-	JobProposalStatusPending  JobProposalStatus = "pending"
-	JobProposalStatusApproved JobProposalStatus = "approved"
-	JobProposalStatusRejected JobProposalStatus = "rejected"
+	JobProposalStatusPending   JobProposalStatus = "pending"
+	JobProposalStatusApproved  JobProposalStatus = "approved"
+	JobProposalStatusRejected  JobProposalStatus = "rejected"
+	JobProposalStatusCancelled JobProposalStatus = "cancelled"
 )
 
 type JobProposal struct {
