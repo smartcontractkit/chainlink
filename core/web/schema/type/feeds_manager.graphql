@@ -1,0 +1,11 @@
+type FeedsManager {
+	id: ID!
+	name: String!
+	uri: String!
+	publicKey: String!
+	jobTypes: [String!]!
+	isBootstrapPeer: Boolean!
+	bootstrapPeerMultiaddr: String
+	isConnectionActive: Boolean!
+	createdAt: Time!
+}
