@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -33,8 +34,9 @@ func init() {
 
 // Ensure we migrated from v1 migrations to goose_migrations
 func ensureMigrated(db *sql.DB) {
-	var count int
-	err := db.QueryRow(`SELECT count(*) FROM migrations`).Scan(&count)
+	sqlxDB := postgres.WrapDbWithSqlx(db)
+	var names []string
+	err := sqlxDB.Select(&names, `SELECT id FROM migrations`)
 	if err != nil {
 		// already migrated
 		return
@@ -46,16 +48,28 @@ func ensureMigrated(db *sql.DB) {
 	}
 
 	// insert records for existing migrations
-	sql := `INSERT INTO %s (version_id, is_applied) VALUES %s;`
-	valueStrings := []string{}
-	for i := 1; i <= count; i++ {
-		valueStrings = append(valueStrings, fmt.Sprintf("(%v, true)", strconv.FormatInt(int64(i), 10)))
-	}
-	sql = fmt.Sprintf(sql, goose.TableName(), strings.Join(valueStrings, ","))
-
+	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
 	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
-		if _, err = db.Exec(sql); err != nil {
-			return err
+		for _, name := range names {
+			var id int64
+			// the first migration doesn't follow the naming convention
+			if name == "1611847145" {
+				id = 1
+			} else {
+				idx := strings.Index(name, "_")
+				if idx < 0 {
+					return errors.New("no separator found")
+				}
+
+				id, err = strconv.ParseInt(name[:idx], 10, 64)
+				if err == nil && id <= 0 {
+					return errors.New("migration IDs must be greater than zero")
+				}
+			}
+
+			if _, err = db.Exec(sql, id); err != nil {
+				return err
+			}
 		}
 
 		_, err = db.Exec("DROP TABLE migrations;")
