@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-
-pragma solidity 0.7.6;
+pragma solidity ^0.7.0;
 
 import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
