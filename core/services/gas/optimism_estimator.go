@@ -33,7 +33,7 @@ type optimismEstimator struct {
 	config     Config
 	client     optimismRPCClient
 	pollPeriod time.Duration
-	logger     *logger.Logger
+	logger     logger.Logger
 
 	gasPriceMu sync.RWMutex
 	l1GasPrice *big.Int
@@ -46,7 +46,7 @@ type optimismEstimator struct {
 }
 
 // NewOptimismEstimator returns a new optimism estimator
-func NewOptimismEstimator(lggr *logger.Logger, config Config, client optimismRPCClient) Estimator {
+func NewOptimismEstimator(lggr logger.Logger, config Config, client optimismRPCClient) Estimator {
 	return &optimismEstimator{
 		utils.StartStopOnce{},
 		config,

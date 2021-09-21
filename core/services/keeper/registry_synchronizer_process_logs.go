@@ -34,7 +34,7 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	rs.logger.Debugw("processing SyncRegistry log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
-		rs.logger.WithError(err).Warn("unable to check if log was consumed")
+		rs.logger.With("error", err).Warn("unable to check if log was consumed")
 		return
 	}
 	if was {
@@ -42,13 +42,13 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(done func()) {
 	}
 	_, err = rs.syncRegistry()
 	if err != nil {
-		rs.logger.WithError(err).Error("unable to sync registry")
+		rs.logger.With("error", err).Error("unable to sync registry")
 		return
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	if err := rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast); err != nil {
-		rs.logger.WithError(err).Errorf("unable to mark SyncRegistryLog log as consumed, log: %v", broadcast.String())
+		rs.logger.With("error", err).Errorf("unable to mark SyncRegistryLog log as consumed, log: %v", broadcast.String())
 	}
 }
 
@@ -73,7 +73,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	rs.logger.Debugw("processing UpkeepCanceled log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
-		rs.logger.WithError(err).Error("unable to check if log was consumed")
+		rs.logger.With("error", err).Error("unable to check if log was consumed")
 		return
 	}
 	if was {
@@ -88,7 +88,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	defer cancel()
 	affected, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, []int64{broadcastedLog.Id.Int64()})
 	if err != nil {
-		rs.logger.WithError(err).Error("unable to batch delete upkeeps")
+		rs.logger.With("error", err).Error("unable to batch delete upkeeps")
 		return
 	}
 	rs.logger.Debugw(fmt.Sprintf("deleted %v upkeep registrations", affected), "txHash", txHash)
@@ -96,7 +96,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 	ctx, cancel = postgres.DefaultQueryCtx()
 	defer cancel()
 	if err := rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast); err != nil {
-		rs.logger.WithError(err).Errorf("unable to mark KeeperRegistryUpkeepCanceled log as consumed,  log: %v", broadcast.String())
+		rs.logger.With("error", err).Errorf("unable to mark KeeperRegistryUpkeepCanceled log as consumed,  log: %v", broadcast.String())
 	}
 }
 
@@ -106,7 +106,7 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 	defer cancel()
 	registry, err := rs.orm.RegistryForJob(ctx, rs.job.ID)
 	if err != nil {
-		rs.logger.WithError(err).Error("unable to find registry for job")
+		rs.logger.With("error", err).Error("unable to find registry for job")
 		return
 	}
 	for {
@@ -128,7 +128,7 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	rs.logger.Debugw("processing UpkeepRegistered log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
-		rs.logger.WithError(err).Error("unable to check if log was consumed")
+		rs.logger.With("error", err).Error("unable to check if log was consumed")
 		return
 	}
 	if was {
@@ -141,13 +141,13 @@ func (rs *RegistrySynchronizer) HandleUpkeepRegistered(broadcast log.Broadcast, 
 	}
 	err = rs.syncUpkeep(registry, broadcastedLog.Id.Int64())
 	if err != nil {
-		rs.logger.WithError(err).Error("failed to sync upkeep, log: %v", broadcast.String())
+		rs.logger.With("error", err).Error("failed to sync upkeep, log: %v", broadcast.String())
 		return
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	if err := rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast); err != nil {
-		rs.logger.WithError(err).Errorf("unable to mark KeeperRegistryUpkeepRegistered log as consumed, log: %v", broadcast.String())
+		rs.logger.With("error", err).Errorf("unable to mark KeeperRegistryUpkeepRegistered log as consumed, log: %v", broadcast.String())
 	}
 }
 
@@ -172,7 +172,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
-		rs.logger.WithError(err).Warn("unable to check if log was consumed")
+		rs.logger.With("error", err).Warn("unable to check if log was consumed")
 		return
 	}
 	if was {
@@ -190,7 +190,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	// set last run to 0 so that keeper can resume checkUpkeep()
 	err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
 	if err != nil {
-		rs.logger.WithError(err).Error("failed to set last run to 0")
+		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return
 	}
 
@@ -198,6 +198,6 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	defer cancel()
 
 	if err := rs.logBroadcaster.MarkConsumed(rs.orm.DB.WithContext(ctx), broadcast); err != nil {
-		rs.logger.WithError(err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")
+		rs.logger.With("error", err).With("log", broadcast.String()).Error("unable to mark KeeperRegistryUpkeepPerformed log as consumed")
 	}
 }

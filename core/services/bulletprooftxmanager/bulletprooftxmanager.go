@@ -93,7 +93,7 @@ type TxManager interface {
 type BulletproofTxManager struct {
 	utils.StartStopOnce
 
-	logger           *logger.Logger
+	logger           logger.Logger
 	db               *gorm.DB
 	ethClient        eth.Client
 	config           Config
@@ -117,7 +117,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, valu
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -448,7 +448,7 @@ func signedTxHash(signedTx *gethTypes.Transaction, chainID *big.Int) (hash commo
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger *logger.Logger) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger logger.Logger) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)

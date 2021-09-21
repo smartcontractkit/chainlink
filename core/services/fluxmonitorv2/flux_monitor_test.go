@@ -59,7 +59,7 @@ var (
 	threshold         = float64(0.5)
 	absoluteThreshold = float64(0.01)
 	idleTimerPeriod   = time.Minute
-	defaultLogger     = *logger.Default
+	defaultLogger     = logger.Default
 	pipelineSpec      = pipeline.Spec{
 		ID: 1,
 		DotDagSource: `
