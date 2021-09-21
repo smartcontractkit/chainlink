@@ -52,6 +52,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 		steve.From:  {Balance: oneEth},
 		carrol.From: {Balance: oneEth},
 		nelly.From:  {Balance: oneEth},
+		nick.From:   {Balance: oneEth},
 		nodeAddress: {Balance: oneEth},
 	}
 
