@@ -374,10 +374,17 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
 	logger.Infof("Resetting database: %#v", parsed.String())
+	logger.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
+	logger.Debugf("Migrating database: %#v", parsed.String())
 	if err := migrateDB(cfg); err != nil {
+		return cli.errorOut(err)
+	}
+	logger.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
+	var baseVersionID int64 = 54
+	if err := downAndUpDB(cfg, baseVersionID); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -562,6 +569,26 @@ func migrateDB(config config.GeneralConfig) error {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements())
+	return orm.Close()
+}
+
+func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
+	dbURL := cfg.DatabaseURL()
+	orm, err := orm.NewORM(dbURL.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+	orm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
+
+	db := postgres.UnwrapGormDB(orm.DB).DB
+
+	if err = migrate.Rollback(db, null.IntFrom(baseVersionID)); err != nil {
+		return fmt.Errorf("test rollback failed: %v", err)
+	}
+	if err = migrate.Migrate(db); err != nil {
+		return fmt.Errorf("second migrateDB failed: %v", err)
+	}
+	orm.SetLogging(cfg.LogSQLStatements())
 	return orm.Close()
 }
 
