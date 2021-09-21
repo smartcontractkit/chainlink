@@ -223,7 +223,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
