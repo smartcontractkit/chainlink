@@ -6,11 +6,10 @@ import "./ChainlinkRequestInterface.sol";
 
 interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
 
-  function requestOracleData(
+  function operatorRequest(
     address sender,
     uint256 payment,
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
     uint256 dataVersion,
