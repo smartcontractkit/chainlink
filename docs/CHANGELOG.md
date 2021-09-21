@@ -11,6 +11,8 @@ Add support for OKEx/ExChain.
 
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined.
 
+Add CRUD functionality for EVM Chains and Nodes through Operator UI
+
 ### Removed
 
 - `belt/` and `evm-test-helpers/` removed from the codebase.
