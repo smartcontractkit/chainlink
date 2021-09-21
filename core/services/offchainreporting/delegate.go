@@ -130,7 +130,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		chain.Client(),
 		chain.LogBroadcaster(),
 		jobSpec.ID,
-		*logger.Default,
+		logger.Default,
 		d.db,
 		ocrdb,
 		chain,
@@ -171,7 +171,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := NewLogger(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
@@ -266,7 +266,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Database: ocrdb,
 			Datasource: &dataSource{
 				pipelineRunner: d.pipelineRunner,
-				ocrLogger:      *loggerWith,
+				ocrLogger:      loggerWith,
 				jobSpec:        jobSpec,
 				spec:           *jobSpec.PipelineSpec,
 				runResults:     runResults,
@@ -295,14 +295,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),
-			*loggerWith,
+			loggerWith,
 		)}, services...)
 	}
 
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger *logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
+func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
 	flagsContractAddress := chain.Config().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())

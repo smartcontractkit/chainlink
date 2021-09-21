@@ -57,7 +57,7 @@ type GeneralOnlyConfig interface {
 	CertFile() string
 	ClientNodeURL() string
 	ClobberNodesFromEnv() bool
-	CreateProductionLogger() *logger.Logger
+	CreateProductionLogger() logger.Logger
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -1175,7 +1175,7 @@ func (c *generalConfig) CertFile() string {
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c *generalConfig) CreateProductionLogger() *logger.Logger {
+func (c *generalConfig) CreateProductionLogger() logger.Logger {
 	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 

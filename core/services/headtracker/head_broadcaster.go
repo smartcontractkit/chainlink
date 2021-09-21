@@ -29,7 +29,7 @@ func (set callbackSet) clone() callbackSet {
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(logger *logger.Logger) httypes.HeadBroadcaster {
+func NewHeadBroadcaster(logger logger.Logger) httypes.HeadBroadcaster {
 	return &headBroadcaster{
 		logger:        logger,
 		callbacks:     make(callbackSet),
@@ -44,7 +44,7 @@ func NewHeadBroadcaster(logger *logger.Logger) httypes.HeadBroadcaster {
 // headBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 type headBroadcaster struct {
-	logger    *logger.Logger
+	logger    logger.Logger
 	callbacks callbackSet
 	mailbox   *utils.Mailbox
 	mutex     *sync.Mutex

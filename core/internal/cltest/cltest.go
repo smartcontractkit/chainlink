@@ -216,7 +216,7 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evm
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger   *logger.Logger
+	Logger   logger.Logger
 	Server   *httptest.Server
 	wsServer *httptest.Server
 	Started  bool
@@ -337,7 +337,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
-	var lggr *logger.Logger = cfg.CreateProductionLogger()
 	shutdownSignal := &testShutdownSignal{t}
 	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
 	require.NoError(t, err)
@@ -348,6 +347,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
+	var lggr logger.Logger
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -361,7 +361,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
 		case postgres.EventBroadcaster:
 			eventBroadcaster = dep
-		case *logger.Logger:
+		case logger.Logger:
 			lggr = dep
 		default:
 			switch flag {
@@ -371,7 +371,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 		}
 	}
-	lggr.SetDB(db)
+	if lggr == nil {
+		lggr = cfg.CreateProductionLogger()
+	}
+	lggr = lggr.WithDB(db)
 	cfg.SetDB(db)
 	if chainORM == nil {
 		chainORM = evm.NewORM(sqlxDB)
@@ -397,7 +400,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		logger.Fatal(err)
 	}
 
-	ta := &TestApplication{t: t}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
@@ -412,16 +414,19 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
-	ta.ChainlinkApplication = app
-	server := newServer(ta)
+	ta := &TestApplication{
+		t:                    t,
+		ChainlinkApplication: app,
+		Logger:               lggr,
+	}
+	ta.Server = newServer(ta)
 
-	cfg.Overrides.ClientNodeURL = null.StringFrom(server.URL)
+	cfg.Overrides.ClientNodeURL = null.StringFrom(ta.Server.URL)
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
 
-	ta.Server = server
 	return ta
 }
 

@@ -29,7 +29,7 @@ type RegistrySynchronizer struct {
 	mailRoom         MailRoom
 	minConfirmations uint64
 	orm              ORM
-	logger           *logger.Logger
+	logger           logger.Logger
 	wgDone           sync.WaitGroup
 	utils.StartStopOnce
 }
@@ -51,7 +51,7 @@ func NewRegistrySynchronizer(
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
 	minConfirmations uint64,
-	logger *logger.Logger,
+	logger logger.Logger,
 ) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
