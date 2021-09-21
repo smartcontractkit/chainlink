@@ -21,15 +21,15 @@ func (rs *RegistrySynchronizer) fullSync() {
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
-		rs.logger.WithError(err).Error("failed to sync registry during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to sync registry during fullSyncing registry")
 		return
 	}
 	if err := rs.addNewUpkeeps(registry); err != nil {
-		rs.logger.WithError(err).Error("failed to add new upkeeps during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to add new upkeeps during fullSyncing registry")
 		return
 	}
 	if err := rs.deleteCanceledUpkeeps(); err != nil {
-		rs.logger.WithError(err).Error("failed to delete canceled upkeeps during fullSyncing registry")
+		rs.logger.With("error", err).Error("failed to delete canceled upkeeps during fullSyncing registry")
 		return
 	}
 }
@@ -95,7 +95,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeep
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
-		rs.logger.WithError(err).With(
+		rs.logger.With("error", err).With(
 			"upkeepID", upkeepID,
 			"registryContract", registry.ContractAddress.Hex(),
 		).Error("unable to sync upkeep on registry")

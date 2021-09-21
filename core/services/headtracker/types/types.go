@@ -12,7 +12,7 @@ type Tracker interface {
 	HighestSeenHeadFromDB() (*eth.Head, error)
 	Start() error
 	Stop() error
-	SetLogger(logger *logger.Logger)
+	SetLogger(logger logger.Logger)
 	Ready() error
 	Healthy() error
 }

@@ -85,7 +85,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	l := logger.CreateLogger(logger.Default.SugaredLogger).With(
+	l := logger.Default.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
@@ -96,7 +96,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
-				l:                  *l,
+				l:                  l,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
 				headBroadcaster:    chain.HeadBroadcaster(),
@@ -122,7 +122,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.Service{&listenerV1{
 				cfg:             chain.Config(),
-				l:               *l,
+				l:               l,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
 				db:              d.db,
@@ -150,7 +150,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint64 {
+func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64 {
 	respCounts := make(map[[32]byte]uint64)
 	var counts []struct {
 		RequestID string
@@ -183,7 +183,7 @@ func getStartingResponseCounts(db *gorm.DB, l *logger.Logger) map[[32]byte]uint6
 	return respCounts
 }
 
-func GetStartingResponseCountsV2(db *gorm.DB, l *logger.Logger) map[string]uint64 {
+func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64 {
 	respCounts := make(map[string]uint64)
 	var counts []struct {
 		RequestID string
