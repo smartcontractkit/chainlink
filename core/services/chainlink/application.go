@@ -280,7 +280,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		logger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
+		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
 	}
 
 	app := &ChainlinkApplication{
@@ -522,6 +522,16 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name n
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
+	// Do not allow the job to be deleted if it is managed by the Feeds Manager
+	isManaged, err := app.FeedsService.IsJobManaged(ctx, int64(jobID))
+	if err != nil {
+		return err
+	}
+
+	if isManaged {
+		return errors.New("job must be deleted in the feeds manager")
+	}
+
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
