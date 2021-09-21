@@ -15,7 +15,6 @@ CREATE TABLE eth_key_states(
 );
 
 ALTER TABLE eth_txes DROP CONSTRAINT eth_txes_from_address_fkey;
-ALTER TABLE eth_txes ADD CONSTRAINT eth_txes_from_address_fkey FOREIGN KEY (from_address) REFERENCES eth_key_states(address);
 ALTER TABLE vrf_specs DROP CONSTRAINT vrf_specs_public_key_fkey;
 ALTER TABLE offchainreporting_oracle_specs DROP CONSTRAINT offchainreporting_oracle_specs_transmitter_address_fkey;
 ALTER TABLE offchainreporting_oracle_specs DROP CONSTRAINT offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey;
