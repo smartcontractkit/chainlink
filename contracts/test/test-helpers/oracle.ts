@@ -322,16 +322,8 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
   }
 
   const ORACLE_REQUEST_TYPES = ["address", "bytes32", "uint256", "address", "bytes4", "uint256", "uint256", "bytes"];
-  const [
-    requester,
-    requestId,
-    payment,
-    callbackAddress,
-    callbackFunc,
-    expiration,
-    version,
-    data,
-  ] = ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data);
+  const [requester, requestId, payment, callbackAddress, callbackFunc, expiration, version, data] =
+    ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data);
 
   return {
     specId: log.topics[1],

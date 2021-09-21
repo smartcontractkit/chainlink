@@ -33,6 +33,7 @@ The solidity smart contracts themselves can be imported via the `src` directory 
 
 ```solidity
 import "@chainlink/contracts/src/v0.8/KeeperCompatibleInterface.sol";
+
 ```
 
 ## Local Development

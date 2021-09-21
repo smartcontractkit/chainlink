@@ -95,16 +95,13 @@ pragma solidity ^0.8.0;
  */
 abstract contract VRFConsumerBaseV2 {
   error OnlyCoordinatorCanFulfill(address have, address want);
-  address immutable private vrfCoordinator;
+  address private immutable vrfCoordinator;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
    */
-  constructor(
-    address _vrfCoordinator
-  )
-  {
-      vrfCoordinator = _vrfCoordinator;
+  constructor(address _vrfCoordinator) {
+    vrfCoordinator = _vrfCoordinator;
   }
 
   /**
@@ -121,11 +118,9 @@ abstract contract VRFConsumerBaseV2 {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomWords the VRF output expanded to the requested number of words
    */
-  function fulfillRandomWords(
-    uint256 requestId,
-    uint256[] memory randomWords
-  )
-    internal virtual;
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
+    internal
+    virtual;
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
@@ -133,9 +128,7 @@ abstract contract VRFConsumerBaseV2 {
   function rawFulfillRandomWords(
     uint256 requestId,
     uint256[] memory randomWords
-  )
-    external
-  {
+  ) external {
     if (msg.sender != vrfCoordinator) {
       revert OnlyCoordinatorCanFulfill(msg.sender, vrfCoordinator);
     }

@@ -5,8 +5,11 @@ import "./ConfirmedOwner.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 
-contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
-
+contract ValidatorProxy is
+  AggregatorValidatorInterface,
+  TypeAndVersionInterface,
+  ConfirmedOwner
+{
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
     address target;
@@ -28,16 +31,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
   // Proposed validator address
   AggregatorValidatorInterface private s_proposedValidator;
 
-  event AggregatorProposed(
-    address indexed aggregator
-  );
-  event AggregatorUpgraded(
-    address indexed previous,
-    address indexed current
-  );
-  event ValidatorProposed(
-    AggregatorValidatorInterface indexed validator
-  );
+  event AggregatorProposed(address indexed aggregator);
+  event AggregatorUpgraded(address indexed previous, address indexed current);
+  event ValidatorProposed(AggregatorValidatorInterface indexed validator);
   event ValidatorUpgraded(
     AggregatorValidatorInterface indexed previous,
     AggregatorValidatorInterface indexed current
@@ -56,10 +52,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @param aggregator address
    * @param validator address
    */
-  constructor(
-    address aggregator,
-    AggregatorValidatorInterface validator
-  )
+  constructor(address aggregator, AggregatorValidatorInterface validator)
     ConfirmedOwner(msg.sender)
   {
     s_currentAggregator = AggregatorConfiguration({
@@ -98,13 +91,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     int256 previousAnswer,
     uint256 currentRoundId,
     int256 currentAnswer
-  )
-    external
-    override
-    returns (
-      bool
-    )
-  {
+  ) external override returns (bool) {
     address currentAggregator = s_currentAggregator.target;
     if (msg.sender != currentAggregator) {
       address proposedAggregator = s_proposedAggregator;
@@ -156,13 +143,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @dev A zero address can be used to unset the proposed aggregator. Only owner can call.
    * @param proposed address
    */
-  function proposeNewAggregator(
-    address proposed
-  )
-    external
-    onlyOwner()
-  {
-    require(s_proposedAggregator != proposed && s_currentAggregator.target != proposed, "Invalid proposal");
+  function proposeNewAggregator(address proposed) external onlyOwner {
+    require(
+      s_proposedAggregator != proposed &&
+        s_currentAggregator.target != proposed,
+      "Invalid proposal"
+    );
     s_proposedAggregator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentAggregator.hasNewProposal = (proposed != address(0));
@@ -173,10 +159,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @notice Upgrade the aggregator by setting the current aggregator as the proposed aggregator.
    * @dev Must have a proposed aggregator. Only owner can call.
    */
-  function upgradeAggregator()
-    external
-    onlyOwner()
-  {
+  function upgradeAggregator() external onlyOwner {
     // Get configuration in memory
     AggregatorConfiguration memory current = s_currentAggregator;
     address previous = current.target;
@@ -202,7 +185,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
   function getAggregators()
     external
     view
-    returns(
+    returns (
       address current,
       bool hasProposal,
       address proposed
@@ -220,13 +203,14 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @dev A zero address can be used to unset the proposed validator. Only owner can call.
    * @param proposed address
    */
-  function proposeNewValidator(
-    AggregatorValidatorInterface proposed
-  )
+  function proposeNewValidator(AggregatorValidatorInterface proposed)
     external
-    onlyOwner()
+    onlyOwner
   {
-    require(s_proposedValidator != proposed && s_currentValidator.target != proposed, "Invalid proposal");
+    require(
+      s_proposedValidator != proposed && s_currentValidator.target != proposed,
+      "Invalid proposal"
+    );
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentValidator.hasNewProposal = (address(proposed) != address(0));
@@ -237,10 +221,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
    * @notice Upgrade the validator by setting the current validator as the proposed validator.
    * @dev Must have a proposed validator. Only owner can call.
    */
-  function upgradeValidator()
-    external
-    onlyOwner()
-  {
+  function upgradeValidator() external onlyOwner {
     // Get configuration in memory
     ValidatorConfiguration memory current = s_currentValidator;
     AggregatorValidatorInterface previous = current.target;
@@ -266,7 +247,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
   function getValidators()
     external
     view
-    returns(
+    returns (
       AggregatorValidatorInterface current,
       bool hasProposal,
       AggregatorValidatorInterface proposed
@@ -286,11 +267,8 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     pure
     virtual
     override
-    returns (
-      string memory
-    )
+    returns (string memory)
   {
     return "ValidatorProxy 1.0.0";
   }
-
 }

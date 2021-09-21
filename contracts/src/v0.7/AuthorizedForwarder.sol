@@ -6,10 +6,7 @@ import "./ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedReceiver.sol";
 import "./vendor/Address.sol";
 
-contract AuthorizedForwarder is
-  ConfirmedOwnerWithProposal,
-  AuthorizedReceiver
-{
+contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
 
   address public immutable getChainlinkToken;
@@ -25,9 +22,7 @@ contract AuthorizedForwarder is
     address owner,
     address recipient,
     bytes memory message
-  )
-    ConfirmedOwnerWithProposal(owner, recipient)
-  {
+  ) ConfirmedOwnerWithProposal(owner, recipient) {
     getChainlinkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
@@ -40,12 +35,9 @@ contract AuthorizedForwarder is
    * @param to address
    * @param data to forward
    */
-  function forward(
-    address to,
-    bytes calldata data
-  )
+  function forward(address to, bytes calldata data)
     external
-    validateAuthorizedSender()
+    validateAuthorizedSender
   {
     require(to != getChainlinkToken, "Cannot #forward to Link token");
     _forward(to, data);
@@ -57,13 +49,7 @@ contract AuthorizedForwarder is
    * @param to address
    * @param data to forward
    */
-  function ownerForward(
-    address to,
-    bytes calldata data
-  )
-    external
-    onlyOwner()
-  {
+  function ownerForward(address to, bytes calldata data) external onlyOwner {
     _forward(to, data);
   }
 
@@ -72,10 +58,7 @@ contract AuthorizedForwarder is
    * @param to address proposed recipeint of ownership
    * @param message instructions for recipient upon accepting ownership
    */
-  function transferOwnershipWithMessage(
-    address to,
-    bytes memory message
-  )
+  function transferOwnershipWithMessage(address to, bytes memory message)
     public
   {
     transferOwnership(to);
@@ -86,27 +69,16 @@ contract AuthorizedForwarder is
    * @notice concrete implementation of AuthorizedReceiver
    * @return bool of whether sender is authorized
    */
-  function _canSetAuthorizedSenders()
-    internal
-    view
-    override
-    returns (bool)
-  {
+  function _canSetAuthorizedSenders() internal view override returns (bool) {
     return owner() == msg.sender;
   }
 
   /**
    * @notice common forwarding functionality and validation
    */
-  function _forward(
-    address to,
-    bytes calldata data
-  )
-    private
-  {
+  function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
-    (bool status,) = to.call(data);
+    (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
   }
-
 }
