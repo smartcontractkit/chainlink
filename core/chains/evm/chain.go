@@ -74,9 +74,11 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
 	db := opts.GormDB
-	serviceLogLevels, err := l.GetServiceLogLevels()
-	if err != nil {
-		return nil, err
+	headTrackerLL := opts.Config.LogLevel().String()
+	if db != nil {
+		if ll, ok := logger.NewORM(db).GetServiceLogLevel(logger.HeadTracker); ok {
+			headTrackerLL = ll
+		}
 	}
 	var client eth.Client
 	if cfg.EthereumDisabled() {
@@ -96,7 +98,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		headTracker = &headtracker.NullTracker{}
 	} else if opts.GenHeadTracker == nil {
-		headTrackerLogger, err2 := l.InitServiceLevelLogger(logger.HeadTracker, serviceLogLevels[logger.HeadTracker])
+		headTrackerLogger, err2 := l.NewServiceLevelLogger(logger.HeadTracker, headTrackerLL)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}

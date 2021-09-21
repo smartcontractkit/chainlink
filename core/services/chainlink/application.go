@@ -62,7 +62,6 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() loggerPkg.Logger
-	SetLogger(func(old loggerPkg.Logger) loggerPkg.Logger)
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetDB() *gorm.DB
@@ -321,7 +320,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 // SetServiceLogger sets the Logger for a given service and stores the setting in the db
 func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
-	newL, err := app.logger.InitServiceLevelLogger(serviceName, level)
+	newL, err := app.logger.NewServiceLevelLogger(serviceName, level)
 	if err != nil {
 		return err
 	}
@@ -339,7 +338,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return app.logger.GetORM().SetServiceLogLevel(ctx, serviceName, level)
+	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level)
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -470,10 +469,6 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 
 func (app *ChainlinkApplication) GetLogger() loggerPkg.Logger {
 	return app.logger
-}
-
-func (app *ChainlinkApplication) SetLogger(fn func(old loggerPkg.Logger) loggerPkg.Logger) {
-	app.logger = fn(app.logger)
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
