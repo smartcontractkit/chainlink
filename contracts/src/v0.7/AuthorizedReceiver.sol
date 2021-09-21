@@ -3,28 +3,20 @@ pragma solidity ^0.7.0;
 
 import "./interfaces/AuthorizedReceiverInterface.sol";
 
-abstract contract AuthorizedReceiver is
-  AuthorizedReceiverInterface
-{
-
+abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   mapping(address => bool) private s_authorizedSenders;
   address[] private s_authorizedSenderList;
 
-  event AuthorizedSendersChanged(
-    address[] senders,
-    address changedBy
-  );
+  event AuthorizedSendersChanged(address[] senders, address changedBy);
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
    * @param senders The addresses of the authorized Chainlink node
    */
-  function setAuthorizedSenders(
-    address[] calldata senders
-  )
+  function setAuthorizedSenders(address[] calldata senders)
     external
     override
-    validateAuthorizedSenderSetter()
+    validateAuthorizedSenderSetter
   {
     require(senders.length > 0, "Must have at least 1 authorized sender");
     // Set previous authorized senders to false
@@ -49,9 +41,7 @@ abstract contract AuthorizedReceiver is
     external
     view
     override
-    returns (
-      address[] memory
-    )
+    returns (address[] memory)
   {
     return s_authorizedSenderList;
   }
@@ -61,9 +51,7 @@ abstract contract AuthorizedReceiver is
    * @param sender The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function isAuthorizedSender(
-    address sender
-  )
+  function isAuthorizedSender(address sender)
     public
     view
     override
@@ -76,26 +64,19 @@ abstract contract AuthorizedReceiver is
    * @notice customizable guard of who can update the authorized sender list
    * @return bool whether sender can update authorized sender list
    */
-  function _canSetAuthorizedSenders()
-    internal
-    virtual
-    returns (bool);
+  function _canSetAuthorizedSenders() internal virtual returns (bool);
 
   /**
    * @notice validates the sender is an authorized sender
    */
-  function _validateIsAuthorizedSender()
-    internal
-    view
-  {
+  function _validateIsAuthorizedSender() internal view {
     require(isAuthorizedSender(msg.sender), "Not authorized sender");
   }
 
   /**
    * @notice prevents non-authorized addresses from calling this method
    */
-  modifier validateAuthorizedSender()
-  {
+  modifier validateAuthorizedSender() {
     _validateIsAuthorizedSender();
     _;
   }
@@ -103,10 +84,8 @@ abstract contract AuthorizedReceiver is
   /**
    * @notice prevents non-authorized addresses from calling this method
    */
-  modifier validateAuthorizedSenderSetter()
-  {
+  modifier validateAuthorizedSenderSetter() {
     require(_canSetAuthorizedSenders(), "Cannot set authorized senders");
     _;
   }
-
 }

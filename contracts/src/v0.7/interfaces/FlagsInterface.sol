@@ -2,37 +2,15 @@
 pragma solidity ^0.7.0;
 
 interface FlagsInterface {
-  function getFlag(
-    address
-  )
-    external
-    view
-    returns (
-      bool
-    );
+  function getFlag(address) external view returns (bool);
 
-  function getFlags(
-    address[] calldata
-  )
-    external
-    view
-    returns (
-      bool[] memory
-    );
+  function getFlags(address[] calldata) external view returns (bool[] memory);
 
-  function raiseFlag(
-    address
-  ) external;
+  function raiseFlag(address) external;
 
-  function raiseFlags(
-    address[] calldata
-  ) external;
+  function raiseFlags(address[] calldata) external;
 
-  function lowerFlags(
-    address[] calldata
-  ) external;
+  function lowerFlags(address[] calldata) external;
 
-  function setRaisingAccessController(
-    address
-  ) external;
+  function setRaisingAccessController(address) external;
 }

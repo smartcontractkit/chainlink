@@ -47,11 +47,7 @@ export function getOcrJobStatus({
   return RunStatus.COMPLETED
 }
 
-export function getTaskList({
-  value,
-}: {
-  value: string
-}): {
+export function getTaskList({ value }: { value: string }): {
   list: false | TaskSpec[] | Stratify[]
   error: string
 } {
