@@ -60,9 +60,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint256 indexed upkeepId
   );
 
-  event RegistrationRejected(
-    bytes32 indexed hash
-  );
+  event RegistrationRejected(bytes32 indexed hash);
 
   event ConfigChanged(
     bool enabled,
@@ -72,10 +70,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint256 minLINKJuels
   );
 
-  constructor(
-    address LINKAddress,
-    uint256 minimumLINKJuels
-  )
+  constructor(address LINKAddress, uint256 minimumLINKJuels)
     ConfirmedOwner(msg.sender)
   {
     LINK = LinkTokenInterface(LINKAddress);
@@ -104,12 +99,11 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     bytes calldata checkData,
     uint96 amount,
     uint8 source
-  )
-    external
-    onlyLINK()
-  {
+  ) external onlyLINK {
     require(adminAddress != address(0), "invalid admin address");
-    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+    bytes32 hash = keccak256(
+      abi.encode(upkeepContract, gasLimit, adminAddress, checkData)
+    );
 
     emit RegistrationRequested(
       hash,
@@ -139,8 +133,8 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     } else {
       uint96 newBalance = s_pendingRequests[hash].balance.add(amount);
       s_pendingRequests[hash] = PendingRequest({
-        admin : adminAddress,
-        balance : newBalance
+        admin: adminAddress,
+        balance: newBalance
       });
     }
   }
@@ -155,13 +149,12 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     address adminAddress,
     bytes calldata checkData,
     bytes32 hash
-  )
-    external
-    onlyOwner()
-  {
+  ) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
     require(request.admin != address(0), "request not found");
-    bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
+    bytes32 expectedHash = keccak256(
+      abi.encode(upkeepContract, gasLimit, adminAddress, checkData)
+    );
     require(hash == expectedHash, "hash and payload do not match");
     delete s_pendingRequests[hash];
     _approve(
@@ -179,16 +172,18 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
    * @notice cancel will remove a registration request and return the refunds to the msg.sender
    * @param hash the request hash
    */
-  function cancel(
-    bytes32 hash
-  )
-    external
-  {
+  function cancel(bytes32 hash) external {
     PendingRequest memory request = s_pendingRequests[hash];
-    require(msg.sender == request.admin || msg.sender == owner(), "only admin / owner can cancel");
+    require(
+      msg.sender == request.admin || msg.sender == owner(),
+      "only admin / owner can cancel"
+    );
     require(request.admin != address(0), "request not found");
     delete s_pendingRequests[hash];
-    require(LINK.transfer(msg.sender, request.balance), "LINK token transfer failed");
+    require(
+      LINK.transfer(msg.sender, request.balance),
+      "LINK token transfer failed"
+    );
     emit RegistrationRejected(hash);
   }
 
@@ -205,16 +200,13 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint16 allowedPerWindow,
     address keeperRegistry,
     uint256 minLINKJuels
-  )
-    external
-    onlyOwner()
-  {
+  ) external onlyOwner {
     s_config = AutoApprovedConfig({
-      enabled : enabled,
-      allowedPerWindow : allowedPerWindow,
-      windowSizeInBlocks : windowSizeInBlocks,
-      windowStart : 0,
-      approvedInCurrentWindow : 0
+      enabled: enabled,
+      allowedPerWindow: allowedPerWindow,
+      windowSizeInBlocks: windowSizeInBlocks,
+      windowStart: 0,
+      approvedInCurrentWindow: 0
     });
     s_minLINKJuels = minLINKJuels;
     s_keeperRegistry = KeeperRegistryBaseInterface(keeperRegistry);
@@ -234,15 +226,15 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   function getRegistrationConfig()
     external
     view
-  returns (
-    bool enabled,
-    uint32 windowSizeInBlocks,
-    uint16 allowedPerWindow,
-    address keeperRegistry,
-    uint256 minLINKJuels,
-    uint64 windowStart,
-    uint16 approvedInCurrentWindow
-  )
+    returns (
+      bool enabled,
+      uint32 windowSizeInBlocks,
+      uint16 allowedPerWindow,
+      address keeperRegistry,
+      uint256 minLINKJuels,
+      uint64 windowStart,
+      uint16 approvedInCurrentWindow
+    )
   {
     AutoApprovedConfig memory config = s_config;
     return (
@@ -259,7 +251,11 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @notice gets the admin address and the current balance of a registration request
    */
-  function getPendingRequest(bytes32 hash) external view returns (address, uint96) {
+  function getPendingRequest(bytes32 hash)
+    external
+    view
+    returns (address, uint96)
+  {
     PendingRequest memory request = s_pendingRequests[hash];
     return (request.admin, request.balance);
   }
@@ -275,12 +271,12 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     bytes calldata data
   )
     external
-    onlyLINK()
+    onlyLINK
     permittedFunctionsForLINK(data)
     isActualAmount(amount, data)
   {
     require(amount >= s_minLINKJuels, "Insufficient payment");
-    (bool success,) = address(this).delegatecall(data);
+    (bool success, ) = address(this).delegatecall(data);
     // calls register
     require(success, "Unable to create request");
   }
@@ -290,11 +286,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @dev reset auto approve window if passed end of current window
    */
-  function _resetWindowIfRequired(
-    AutoApprovedConfig memory config
-  )
-    private
-  {
+  function _resetWindowIfRequired(AutoApprovedConfig memory config) private {
     uint64 blocksPassed = uint64(block.number - config.windowStart);
     if (blocksPassed >= config.windowSizeInBlocks) {
       config.windowStart = uint64(block.number);
@@ -314,9 +306,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     bytes calldata checkData,
     uint96 amount,
     bytes32 hash
-  )
-    private
-  {
+  ) private {
     KeeperRegistryBaseInterface keeperRegistry = s_keeperRegistry;
 
     // register upkeep
@@ -340,9 +330,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @dev determine approval limits and check if in range
    */
-  function _underApprovalLimit(
-    AutoApprovedConfig memory config
-  )
+  function _underApprovalLimit(AutoApprovedConfig memory config)
     private
     returns (bool)
   {
@@ -356,11 +344,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @dev record new latest approved count
    */
-  function _incrementApprovedCount(
-    AutoApprovedConfig memory config
-  )
-    private
-  {
+  function _incrementApprovedCount(AutoApprovedConfig memory config) private {
     config.approvedInCurrentWindow++;
     s_config = config;
   }
@@ -379,12 +363,10 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
    * @dev Reverts if the given data does not begin with the `register` function selector
    * @param _data The data payload of the request
    */
-  modifier permittedFunctionsForLINK(
-    bytes memory _data
-  ) {
+  modifier permittedFunctionsForLINK(bytes memory _data) {
     bytes4 funcSelector;
     assembly {
-    // solhint-disable-next-line avoid-low-level-calls
+      // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
     require(
@@ -395,16 +377,13 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   }
 
   /**
-  * @dev Reverts if the actual amount passed does not match the expected amount
-  * @param expected amount that should match the actual amount
-  * @param data bytes
-  */
-  modifier isActualAmount(
-    uint256 expected,
-    bytes memory data
-  ) {
+   * @dev Reverts if the actual amount passed does not match the expected amount
+   * @param expected amount that should match the actual amount
+   * @param data bytes
+   */
+  modifier isActualAmount(uint256 expected, bytes memory data) {
     uint256 actual;
-    assembly{
+    assembly {
       actual := mload(add(data, 228))
     }
     require(expected == actual, "Amount mismatch");
