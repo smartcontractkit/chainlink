@@ -40,6 +40,7 @@ type ORM interface {
 	JobsV2(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
 	FindJob(ctx context.Context, id int32) (Job, error)
+	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
@@ -212,7 +213,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 
 // DeleteJob removes a job
 func (o *orm) DeleteJob(ctx context.Context, id int32) error {
-	err := o.db.Exec(`
+	tx := postgres.TxFromContext(ctx, o.db)
+
+	err := tx.Exec(`
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = ? RETURNING
 				pipeline_spec_id,
@@ -364,6 +367,27 @@ func (o *orm) FindJob(ctx context.Context, id int32) (jb Job, err error) {
 	err = PreloadAllJobTypes(tx).
 		Preload("JobSpecErrors").
 		First(&jb, "jobs.id = ?", id).
+		Error
+	if err != nil {
+		return jb, err
+	}
+
+	if jb.OffchainreportingOracleSpec != nil {
+		var ch evm.Chain
+		ch, err = o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+		if err != nil {
+			return jb, err
+		}
+		jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jb.OffchainreportingOracleSpec)
+	}
+	return jb, err
+}
+
+func (o *orm) FindJobByExternalJobID(ctx context.Context, externalJobID uuid.UUID) (jb Job, err error) {
+	tx := postgres.TxFromContext(ctx, o.db)
+	err = PreloadAllJobTypes(tx).
+		Preload("JobSpecErrors").
+		First(&jb, "jobs.external_job_id = ?", externalJobID).
 		Error
 	if err != nil {
 		return jb, err
