@@ -462,7 +462,8 @@ func Test_ORM_CancelJobProposal(t *testing.T) {
 		FeedsManagerID: fmID,
 	}
 
-	// Defer the FK requirement of a job proposal.
+	// Defer the FK requirement of a job proposal so we don't have to setup a
+	// real job.
 	require.NoError(t, orm.db.Exec(
 		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
 	).Error)

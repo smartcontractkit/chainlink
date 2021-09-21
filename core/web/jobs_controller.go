@@ -144,20 +144,6 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	// Do not allow the job to be deleted if it is managed by the Feeds Manager
-	isManaged, err := jc.App.GetFeedsService().IsJobManaged(c.Request.Context(), int64(j.ID))
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-
-		return
-	}
-
-	if isManaged {
-		jsonAPIError(c, http.StatusBadRequest, errors.New("job must be deleted in the feeds manager"))
-
-		return
-	}
-
 	// Delete the job
 	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
 	if errors.Cause(err) == gorm.ErrRecordNotFound {

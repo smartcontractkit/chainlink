@@ -522,6 +522,16 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name n
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
+	// Do not allow the job to be deleted if it is managed by the Feeds Manager
+	isManaged, err := app.FeedsService.IsJobManaged(ctx, int64(jobID))
+	if err != nil {
+		return err
+	}
+
+	if isManaged {
+		return errors.New("job must be deleted in the feeds manager")
+	}
+
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
