@@ -47,6 +47,17 @@ func ensureMigrated(db *sql.DB) {
 		panic(err)
 	}
 
+	// Look for the squashed migration. If not present, the db needs to be migrated on an earlier release first
+	found := false
+	for _, name := range names {
+		if name == "1611847145" {
+			found = true
+		}
+	}
+	if !found {
+		panic("Database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version")
+	}
+
 	// insert records for existing migrations
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
 	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
@@ -58,7 +69,8 @@ func ensureMigrated(db *sql.DB) {
 			} else {
 				idx := strings.Index(name, "_")
 				if idx < 0 {
-					return errors.New("no separator found")
+					// old migration we don't care about
+					continue
 				}
 
 				id, err = strconv.ParseInt(name[:idx], 10, 64)
