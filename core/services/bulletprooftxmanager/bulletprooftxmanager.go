@@ -385,6 +385,7 @@ func NewAttempt(cfg Config, ethClient eth.Client, ks KeyStore, chainID big.Int, 
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = *utils.NewBig(gasPrice)
 	attempt.Hash = hash
+	attempt.ChainSpecificGasLimit = gasLimit
 
 	return attempt, nil
 }
