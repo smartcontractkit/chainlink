@@ -36,13 +36,13 @@ type EthResender struct {
 	chainID   big.Int
 	interval  time.Duration
 	config    Config
-	logger    *logger.Logger
+	logger    logger.Logger
 
 	chStop chan struct{}
 	chDone chan struct{}
 }
 
-func NewEthResender(lggr *logger.Logger, db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
+func NewEthResender(lggr logger.Logger, db *gorm.DB, ethClient eth.Client, pollInterval time.Duration, config Config) *EthResender {
 	if config.EthTxResendAfterThreshold() == 0 {
 		panic("EthResender requires a non-zero threshold")
 	}
@@ -177,7 +177,7 @@ func (er *EthResender) updateBroadcastAts(now time.Time, etxIDs []int64) error {
 	return er.db.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ANY(?) AND broadcast_at < ?`, now, pq.Array(etxIDs), now).Error
 }
 
-func logResendResult(lggr *logger.Logger, reqs []rpc.BatchElem) {
+func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 	var nNew int
 	var nFatal int
 	for _, req := range reqs {

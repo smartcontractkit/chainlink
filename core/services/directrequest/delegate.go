@@ -25,7 +25,7 @@ import (
 
 type (
 	Delegate struct {
-		logger         *logger.Logger
+		logger         logger.Logger
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		db             *gorm.DB
@@ -42,7 +42,7 @@ type (
 var _ job.Delegate = (*Delegate)(nil)
 
 func NewDelegate(
-	logger *logger.Logger,
+	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
 	db *gorm.DB,
@@ -124,7 +124,7 @@ var (
 )
 
 type listener struct {
-	logger                   *logger.Logger
+	logger                   logger.Logger
 	config                   Config
 	logBroadcaster           log.Broadcaster
 	oracle                   operator_wrapper.OperatorInterface
@@ -359,7 +359,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
+	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx *gorm.DB) error {
 		l.markLogConsumed(tx, lb)
 		return nil
 	})

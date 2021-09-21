@@ -54,12 +54,12 @@ type rawclient struct {
 type node struct {
 	ws     rawclient
 	http   *rawclient
-	log    *logger.Logger
+	log    logger.Logger
 	name   string
 	dialed bool
 }
 
-func NewNode(lggr *logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
+func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
 	n := new(node)
 	n.name = name
 	n.log = lggr.With(

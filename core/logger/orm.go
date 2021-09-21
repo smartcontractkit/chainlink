@@ -3,13 +3,12 @@ package logger
 import (
 	"context"
 
-	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
 )
 
 type ORM interface {
 	GetServiceLogLevel(serviceName string) (string, error)
-	SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error
+	SetServiceLogLevel(ctx context.Context, serviceName string, level string) error
 }
 
 type orm struct {
@@ -30,7 +29,7 @@ func (orm *orm) GetServiceLogLevel(serviceName string) (string, error) {
 	return config.LogLevel, nil
 }
 
-func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
+func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level string) error {
 	return orm.DB.WithContext(ctx).Exec(`
         INSERT INTO log_configs (
             service_name, log_level
@@ -38,5 +37,5 @@ func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, leve
             ?, ?
         ) ON CONFLICT (service_name) 
 		DO UPDATE SET log_level = EXCLUDED.log_level
-    `, serviceName, level.String()).Error
+    `, serviceName, level).Error
 }
