@@ -22,10 +22,8 @@ interface KeeperCompatibleInterface {
    */
   function checkUpkeep(bytes calldata checkData)
     external
-    returns (
-      bool upkeepNeeded,
-      bytes memory performData
-    );
+    returns (bool upkeepNeeded, bytes memory performData);
+
   /**
    * @notice method that is actually executed by the keepers, via the registry.
    * The data returned by the checkUpkeep simulation will be passed into
