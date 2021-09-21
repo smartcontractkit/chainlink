@@ -32,6 +32,7 @@ export interface Personas {
   Neil: Signer;
   Nelly: Signer;
   Norbert: Signer;
+  Nick: Signer;
 }
 
 export interface Users {
@@ -52,6 +53,7 @@ export async function getUsers() {
     Norbert: accounts[5],
     Carol: accounts[6],
     Eddy: accounts[7],
+    Nick: accounts[8],
   };
 
   const contracts: Contracts = {
