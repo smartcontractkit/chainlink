@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -18,6 +19,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -382,9 +384,16 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if err := migrateDB(cfg); err != nil {
 		return cli.errorOut(err)
 	}
+	schema, err := dumpSchema(cfg)
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	logger.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
 	var baseVersionID int64 = 54
 	if err := downAndUpDB(cfg, baseVersionID); err != nil {
+		return cli.errorOut(err)
+	}
+	if err := checkSchema(cfg, schema); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -590,6 +599,33 @@ func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
 	}
 	orm.SetLogging(cfg.LogSQLStatements())
 	return orm.Close()
+}
+
+func dumpSchema(cfg config.GeneralConfig) (string, error) {
+	dbURL := cfg.DatabaseURL()
+	args := []string{
+		dbURL.String(),
+		"--schema-only",
+	}
+	cmd := exec.Command(
+		"pg_dump", args...,
+	)
+
+	schema, err := cmd.Output()
+	return string(schema), err
+}
+
+func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
+	newSchema, err := dumpSchema(cfg)
+	if err != nil {
+		return err
+	}
+	df := diff.Diff(prevSchema, newSchema)
+	if len(df) > 0 {
+		fmt.Println(df)
+		return errors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
+	}
+	return nil
 }
 
 func insertFixtures(config config.GeneralConfig) (err error) {
