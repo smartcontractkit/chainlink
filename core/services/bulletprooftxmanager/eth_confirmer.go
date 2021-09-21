@@ -61,7 +61,7 @@ var (
 type EthConfirmer struct {
 	utils.StartStopOnce
 
-	logger         *logger.Logger
+	logger         logger.Logger
 	db             *gorm.DB
 	ethClient      eth.Client
 	chainID        big.Int
@@ -80,7 +80,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger *logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
@@ -702,7 +702,7 @@ func getInProgressEthTxAttempts(db *gorm.DB, address gethCommon.Address, chainID
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, l *logger.Logger, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, l logger.Logger, chainID big.Int) (etxs []EthTx, err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(db, address, chainID)

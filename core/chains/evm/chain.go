@@ -41,7 +41,7 @@ type Chain interface {
 	HeadBroadcaster() httypes.HeadBroadcaster
 	TxManager() bulletprooftxmanager.TxManager
 	HeadTracker() httypes.Tracker
-	Logger() *logger.Logger
+	Logger() logger.Logger
 }
 
 var _ Chain = &chain{}
@@ -52,7 +52,7 @@ type chain struct {
 	cfg             evmconfig.ChainScopedConfig
 	client          eth.Client
 	txm             bulletprooftxmanager.TxManager
-	logger          *logger.Logger
+	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.Tracker
 	logBroadcaster  log.Broadcaster
@@ -282,7 +282,7 @@ func (c *chain) LogBroadcaster() log.Broadcaster           { return c.logBroadca
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadcaster }
 func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
 func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
-func (c *chain) Logger() *logger.Logger                    { return c.logger }
+func (c *chain) Logger() logger.Logger                     { return c.logger }
 
 func (c *chain) IsL2() bool       { return types.IsL2(c.id) }
 func (c *chain) IsArbitrum() bool { return types.IsArbitrum(c.id) }
@@ -290,7 +290,7 @@ func (c *chain) IsOptimism() bool { return types.IsOptimism(c.id) }
 
 var ErrNoPrimaryNode = errors.New("no primary node found")
 
-func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, error) {
+func newEthClientFromChain(lggr logger.Logger, chain types.Chain) (eth.Client, error) {
 	nodes := chain.Nodes
 	chainID := big.Int(chain.ID)
 	var primaries []eth.Node
@@ -316,7 +316,7 @@ func newEthClientFromChain(lggr *logger.Logger, chain types.Chain) (eth.Client, 
 	return eth.NewClientWithNodes(lggr, primaries, sendonlys, &chainID)
 }
 
-func newPrimary(lggr *logger.Logger, n types.Node) (eth.Node, error) {
+func newPrimary(lggr logger.Logger, n types.Node) (eth.Node, error) {
 	if n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
@@ -339,7 +339,7 @@ func newPrimary(lggr *logger.Logger, n types.Node) (eth.Node, error) {
 	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
 }
 
-func newSendOnly(lggr *logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
+func newSendOnly(lggr logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
 	if !n.SendOnly {
 		return nil, errors.New("cannot cast non send-only node to send-only node")
 	}

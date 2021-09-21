@@ -27,7 +27,7 @@ type Reaper struct {
 	db             *gorm.DB
 	config         ReaperConfig
 	chainID        utils.Big
-	log            *logger.Logger
+	log            logger.Logger
 	latestBlockNum *atomic.Int64
 	trigger        chan struct{}
 	chStop         chan struct{}
@@ -35,7 +35,7 @@ type Reaper struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr *logger.Logger, db *gorm.DB, config ReaperConfig, chainID big.Int) *Reaper {
+func NewReaper(lggr logger.Logger, db *gorm.DB, config ReaperConfig, chainID big.Int) *Reaper {
 	return &Reaper{
 		db,
 		config,

@@ -41,7 +41,7 @@ type (
 	}
 
 	databaseBackup struct {
-		logger          *logger.Logger
+		logger          logger.Logger
 		databaseURL     url.URL
 		mode            config.DatabaseBackupMode
 		frequency       time.Duration
@@ -60,7 +60,7 @@ type (
 	}
 )
 
-func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, logger logger.Logger) DatabaseBackup {
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
 	if dbBackupUrl != nil {

@@ -89,8 +89,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	cfg.SetDB(db)
 	cfg.SetKeyStore(keyStore)
 	// Init service loggers
-	globalLogger := cfg.CreateProductionLogger()
-	globalLogger.SetDB(db)
+	globalLogger := cfg.CreateProductionLogger().WithDB(db)
 
 	if cfg.ClobberNodesFromEnv() {
 		if err = evm.ClobberNodesFromEnv(db, cfg); err != nil {
