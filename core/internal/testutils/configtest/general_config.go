@@ -63,6 +63,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
 	GlobalEvmGasTipCapDefault                 *big.Int
+	GlobalEvmGasTipCapMinimum                 *big.Int
 	GlobalEvmHeadTrackerHistoryDepth          null.Int
 	GlobalEvmHeadTrackerMaxBufferSize         null.Int
 	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
@@ -598,6 +599,13 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
 		return c.Overrides.GlobalEvmGasTipCapDefault, true
 	}
 	return c.GeneralConfig.GlobalEvmGasTipCapDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasTipCapMinimum != nil {
+		return c.Overrides.GlobalEvmGasTipCapMinimum, true
+	}
+	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
 func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {

@@ -399,11 +399,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 
 	if sendError.IsInsufficientEth() {
-		eb.logger.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x at gas price %s Wei was rejected due to insufficient eth. "+
+		eb.logger.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x with type 0x%d was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
-			attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
-		), "ethTxID", etx.ID, "err", sendError)
+			attempt.Hash, attempt.TxType, sendError.Error(), etx.FromAddress,
+		), "ethTxID", etx.ID, "err", sendError, "gasPrice", attempt.GasPrice,
+			"gasTipCap", attempt.GasTipCap, "gasFeeCap", attempt.GasFeeCap)
 		// NOTE: This bails out of the entire cycle and essentially "blocks" on
 		// any transaction that gets insufficient_eth. This is OK if a
 		// transaction with a large VALUE blocks because this always comes last

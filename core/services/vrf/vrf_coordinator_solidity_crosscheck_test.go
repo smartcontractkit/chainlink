@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface_v08"
@@ -100,11 +101,11 @@ func newVRFCoordinatorUniverse(t *testing.T, key ethkey.KeyV2) coordinatorUniver
 		nallory = oracleTransactor
 	)
 	genesisData := core.GenesisAlloc{
-		sergey.From:  {Balance: oneEth},
-		neil.From:    {Balance: oneEth},
-		ned.From:     {Balance: oneEth},
-		carol.From:   {Balance: oneEth},
-		nallory.From: {Balance: oneEth},
+		sergey.From:  {Balance: assets.Ether(1000)},
+		neil.From:    {Balance: assets.Ether(1000)},
+		ned.From:     {Balance: assets.Ether(1000)},
+		carol.From:   {Balance: assets.Ether(1000)},
+		nallory.From: {Balance: assets.Ether(1000)},
 	}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	consumerABI, err := abi.JSON(strings.NewReader(

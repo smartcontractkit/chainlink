@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
@@ -116,10 +117,10 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	f.ned = newIdentity(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
-		f.sergey.From:  {Balance: oneEth},
-		f.neil.From:    {Balance: oneEth},
-		f.ned.From:     {Balance: oneEth},
-		f.nallory.From: {Balance: oneEth},
+		f.sergey.From:  {Balance: assets.Ether(1000)},
+		f.neil.From:    {Balance: assets.Ether(1000)},
+		f.ned.From:     {Balance: assets.Ether(1000)},
+		f.nallory.From: {Balance: assets.Ether(1000)},
 	}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = cltest.NewSimulatedBackend(t, genesisData, gasLimit)
