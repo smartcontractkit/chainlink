@@ -45,12 +45,14 @@ func TestKeeperEthIntegration(t *testing.T) {
 	sergey := cltest.NewSimulatedBackendIdentity(t) // owns all the link
 	steve := cltest.NewSimulatedBackendIdentity(t)  // registry owner
 	carrol := cltest.NewSimulatedBackendIdentity(t) // client
-	nelly := cltest.NewSimulatedBackendIdentity(t)  // other keeper operator
+	nelly := cltest.NewSimulatedBackendIdentity(t)  // other keeper operator 1
+	nick := cltest.NewSimulatedBackendIdentity(t)   // other keeper operator 2
 	genesisData := core.GenesisAlloc{
 		sergey.From: {Balance: oneEth},
 		steve.From:  {Balance: oneEth},
 		carrol.From: {Balance: oneEth},
 		nelly.From:  {Balance: oneEth},
+		nick.From:   {Balance: oneEth},
 		nodeAddress: {Balance: oneEth},
 	}
 
@@ -151,7 +153,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload3))
 
 	// remove this node from keeper list
-	_, err = registryContract.SetKeepers(steve, []common.Address{nelly.From}, []common.Address{nelly.From})
+	_, err = registryContract.SetKeepers(steve, []common.Address{nick.From, nelly.From}, []common.Address{nick.From, nelly.From})
 	require.NoError(t, err)
 
 	var registry keeper.Registry

@@ -30,6 +30,7 @@ type Service interface {
 
 	ApproveJobProposal(ctx context.Context, id int64) error
 	CountManagers() (int64, error)
+	CancelJobProposal(ctx context.Context, id int64) error
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
@@ -41,6 +42,7 @@ type Service interface {
 	SyncNodeInfo(id int64) error
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
 	UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error
+	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
 
 	Unsafe_SetConnectionsManager(ConnectionsManager)
 }
@@ -49,6 +51,7 @@ type service struct {
 	utils.StartStopOnce
 
 	orm         ORM
+	jobORM      job.ORM
 	verORM      versioning.ORM
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
@@ -62,6 +65,7 @@ type service struct {
 // NewService constructs a new feeds service
 func NewService(
 	orm ORM,
+	jobORM job.ORM,
 	verORM versioning.ORM,
 	txm postgres.TransactionManager,
 	jobSpawner job.Spawner,
@@ -72,6 +76,7 @@ func NewService(
 ) *service {
 	svc := &service{
 		orm:         orm,
+		jobORM:      jobORM,
 		verORM:      verORM,
 		txm:         txm,
 		jobSpawner:  jobSpawner,
@@ -411,6 +416,59 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 	}
 
 	return nil
+}
+
+func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
+	return s.orm.IsJobManaged(ctx, jobID)
+}
+
+func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
+	jp, err := s.orm.GetJobProposal(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "job proposal does not exist")
+	}
+
+	if jp.Status != JobProposalStatusApproved {
+		return errors.New("must be a approved job proposal")
+	}
+
+	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
+	if err != nil {
+		return errors.Wrap(err, "fms rpc client")
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+		if err = s.orm.CancelJobProposal(ctx, id); err != nil {
+			return err
+		}
+
+		// Delete the job
+		var j job.Job
+		j, err = s.jobORM.FindJobByExternalJobID(ctx, jp.ExternalJobID.UUID)
+		if err != nil {
+			return errors.Wrap(err, "job does not exist")
+		}
+
+		if err = s.jobSpawner.DeleteJob(ctx, j.ID); err != nil {
+			return err
+		}
+
+		// Send to FMS Client
+		if _, err = fmsClient.CancelledJob(ctx, &pb.CancelledJobRequest{
+			Uuid: jp.RemoteUUID.String(),
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (s *service) Start() error {

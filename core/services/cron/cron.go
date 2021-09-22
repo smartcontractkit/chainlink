@@ -14,7 +14,7 @@ import (
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
 	cronRunner     *cron.Cron
-	logger         *logger.Logger
+	logger         logger.Logger
 	jobSpec        job.Job
 	pipelineRunner pipeline.Runner
 	chStop         chan struct{}
@@ -77,7 +77,7 @@ func (cr *Cron) runPipeline() {
 
 	run := pipeline.NewRun(*cr.jobSpec.PipelineSpec, vars)
 
-	_, err := cr.pipelineRunner.Run(ctx, &run, *cr.logger, false, nil)
+	_, err := cr.pipelineRunner.Run(ctx, &run, cr.logger, false, nil)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobSpec.ID)
 	}

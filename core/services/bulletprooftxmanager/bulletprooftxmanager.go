@@ -93,7 +93,7 @@ type TxManager interface {
 type BulletproofTxManager struct {
 	utils.StartStopOnce
 
-	logger           *logger.Logger
+	logger           logger.Logger
 	db               *gorm.DB
 	ethClient        eth.Client
 	config           Config
@@ -117,7 +117,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, valu
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr *logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -296,6 +296,9 @@ func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (e
 				return nil
 			}
 		}
+		if err = b.checkStateExists(tx, newTx.FromAddress); err != nil {
+			return err
+		}
 		res := tx.Raw(`
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (
@@ -318,6 +321,20 @@ RETURNING "eth_txes".*
 		return nil
 	})
 	return
+}
+
+func (b *BulletproofTxManager) checkStateExists(tx *gorm.DB, addr common.Address) error {
+	var state ethkey.State
+	err := tx.First(&state, "address = ?", addr).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return errors.Errorf("no eth key exists with address %s", addr.Hex())
+	} else if err != nil {
+		return errors.Wrap(err, "failed to query state")
+	}
+	if state.EVMChainID.Cmp(utils.NewBig(&b.chainID)) != 0 {
+		return errors.Errorf("cannot send transaction on chain ID %s; eth key with address %s is pegged to chain ID %s", b.chainID.String(), addr.Hex(), state.EVMChainID.String())
+	}
+	return nil
 }
 
 // GetGasEstimator returns the gas estimator, mostly useful for tests
@@ -368,6 +385,7 @@ func NewAttempt(cfg Config, ethClient eth.Client, ks KeyStore, chainID big.Int, 
 	attempt.EthTxID = etx.ID
 	attempt.GasPrice = *utils.NewBig(gasPrice)
 	attempt.Hash = hash
+	attempt.ChainSpecificGasLimit = gasLimit
 
 	return attempt, nil
 }
@@ -431,7 +449,7 @@ func signedTxHash(signedTx *gethTypes.Transaction, chainID *big.Int) (hash commo
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger *logger.Logger) *eth.SendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, e EthTx, logger logger.Logger) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
 		return eth.NewFatalSendError(err)
