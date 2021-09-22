@@ -10,6 +10,6 @@
     "avoid-throw": false,
     "var-name-mixedcase": false,
     "mark-callable-contracts": false,
-    "func-visibility": ["warn",{"ignoreConstructors":true}]
+    "func-visibility": ["warn", { "ignoreConstructors": true }]
   }
 }
