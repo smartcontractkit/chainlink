@@ -171,7 +171,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
 
-	gasPrice, err := ex.estimateGasPrice(upkeep)
+	gasPrice, fee, err := ex.estimateGasPrice(upkeep)
 	if err != nil {
 		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 		return
@@ -186,7 +186,9 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice": gasPrice,
+			"gasPrice":  gasPrice,
+			"gasTipCap": fee.TipCap,
+			"gasFeeCap": fee.FeeCap,
 		},
 	})
 
@@ -205,27 +207,28 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int, error) {
-	performTxData, err := RegistryABI.Pack(
+func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
+	var performTxData []byte
+	performTxData, err = RegistryABI.Pack(
 		"performUpkeep",
 		big.NewInt(upkeep.UpkeepID),
 		common.Hex2Bytes("1234"), // placeholder
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
+		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 	if ex.config.EvmEIP1559DynamicFees() {
-		// TODO: implemented in: https://github.com/smartcontractkit/chainlink/pull/5083
-		return nil, errors.New("Keeper is not compatible with EIP-1559 mode")
+		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
+	} else {
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
 	}
-	gasPrice, _, err := ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to estimate gas")
+		return nil, fee, errors.Wrap(err, "unable to estimate gas")
 	}
 	// add GasPriceBuffer to gasPrice
 	gasPrice = bigmath.Div(
 		bigmath.Mul(gasPrice, 100+ex.config.KeeperGasPriceBufferPercent()),
 		100,
 	)
-	return gasPrice, nil
+	return gasPrice, fee, nil
 }
