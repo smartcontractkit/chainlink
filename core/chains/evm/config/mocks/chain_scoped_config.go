@@ -17,8 +17,6 @@ import (
 
 	gorm "gorm.io/gorm"
 
-	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
-
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
@@ -2691,7 +2689,7 @@ func (_m *ChainScopedConfig) P2PNetworkingStackRaw() string {
 }
 
 // P2PPeerID provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
+func (_m *ChainScopedConfig) P2PPeerID() p2pkey.PeerID {
 	ret := _m.Called()
 
 	var r0 p2pkey.PeerID
@@ -2701,14 +2699,7 @@ func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		r0 = ret.Get(0).(p2pkey.PeerID)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // P2PPeerIDRaw provides a mock function with given fields:
@@ -2990,11 +2981,6 @@ func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	}
 
 	return r0
-}
-
-// SetKeyStore provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetKeyStore(_a0 keystore.Master) {
-	_m.Called(_a0)
 }
 
 // SetLogLevel provides a mock function with given fields: ctx, value
