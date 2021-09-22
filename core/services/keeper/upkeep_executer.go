@@ -219,16 +219,20 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	}
 	if ex.config.EvmEIP1559DynamicFees() {
 		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
+		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasPriceBufferPercent())
 	} else {
 		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
+		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
 	}
 	if err != nil {
 		return nil, fee, errors.Wrap(err, "unable to estimate gas")
 	}
-	// add GasPriceBuffer to gasPrice
-	gasPrice = bigmath.Div(
-		bigmath.Mul(gasPrice, 100+ex.config.KeeperGasPriceBufferPercent()),
+	return gasPrice, fee, nil
+}
+
+func addBuffer(val *big.Int, prct uint32) *big.Int {
+	return bigmath.Div(
+		bigmath.Mul(val, 100+prct),
 		100,
 	)
-	return gasPrice, fee, nil
 }
