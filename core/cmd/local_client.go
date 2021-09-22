@@ -87,36 +87,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
-	err = keyStore.Migrate(vrfpwd)
+	chainSet := app.GetChainSet()
+	dflt, err := chainSet.Default()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
-	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
-		logger.Warn(e)
-	}
-
-	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
-		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
-		if err == ErrorNoAPICredentialsAvailable {
-			return cli.errorOut(err)
-		}
-		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
-	}
-
-	logger.Info("API exposed for user ", user.Email)
-	if e := app.Start(); e != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
-	}
-	defer loggedStop(app)
-	err = logConfigVariables(cli.Config)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	for _, ch := range app.GetChainSet().Chains() {
+	for _, ch := range chainSet.Chains() {
 		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err2 != nil {
 			return cli.errorOut(err)
@@ -142,6 +123,31 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	if !didExist {
 		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
+	}
+
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
+	}
+
+	var user sessions.User
+	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
+	}
+	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
+		if err == ErrorNoAPICredentialsAvailable {
+			return cli.errorOut(err)
+		}
+		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
+	}
+
+	logger.Info("API exposed for user ", user.Email)
+	if e := app.Start(); e != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
+	}
+	defer loggedStop(app)
+	err = logConfigVariables(cli.Config)
+	if err != nil {
+		return cli.errorOut(err)
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))

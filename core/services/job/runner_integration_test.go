@@ -349,7 +349,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			nil,
 			nil,
@@ -388,7 +388,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -443,7 +443,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -480,7 +480,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -511,7 +511,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -544,7 +544,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
