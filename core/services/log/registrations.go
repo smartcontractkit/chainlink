@@ -1,6 +1,7 @@
 package log
 
 import (
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -8,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
@@ -32,22 +33,23 @@ type (
 	registrations struct {
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
+		logger      logger.Logger
+		evmChainID  big.Int
 
-		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
+		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}
 
 	subscribers struct {
-		handlers map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
+		handlers   map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
+		evmChainID big.Int
 	}
 
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
-		JobID() models.JobID
-		JobIDV2() int32
-		IsV2Job() bool
+		JobID() int32
 	}
 
 	// Metadata structure maintained per listener
@@ -57,10 +59,12 @@ type (
 	}
 )
 
-func newRegistrations() *registrations {
+func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
+		evmChainID:  evmChainID,
+		logger:      logger,
 	}
 }
 
@@ -69,7 +73,7 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	r.decoders[addr] = reg.opts.ParseLog
 
 	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
-		r.subscribers[reg.opts.NumConfirmations] = newSubscribers()
+		r.subscribers[reg.opts.NumConfirmations] = newSubscribers(r.evmChainID)
 	}
 
 	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
@@ -129,7 +133,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 	return false
 }
 
-func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Head, broadcasts []LogBroadcast) {
+func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead eth.Head, broadcasts []LogBroadcast) {
 	broadcastsExisting := make(map[LogBroadcastAsKey]struct{})
 	for _, b := range broadcasts {
 
@@ -154,7 +158,7 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 			}
 
 			for _, log := range logsPerBlock.Logs {
-				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders)
+				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders, r.logger)
 			}
 		}
 	}
@@ -178,9 +182,10 @@ func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
 	return true
 }
 
-func newSubscribers() *subscribers {
+func newSubscribers(evmChainID big.Int) *subscribers {
 	return &subscribers{
-		handlers: make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		handlers:   make(map[common.Address]map[common.Hash]map[Listener]*listenerMetadata),
+		evmChainID: evmChainID,
 	}
 }
 
@@ -251,7 +256,11 @@ func (r *subscribers) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}, decoders map[common.Address]ParseLogFunc) {
+func (r *subscribers) sendLog(log types.Log, latestHead eth.Head,
+	broadcasts map[LogBroadcastAsKey]struct{},
+	decoders map[common.Address]ParseLogFunc,
+	logger logger.Logger) {
+
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.handlers[log.Address][log.Topics[0]] {
@@ -283,17 +292,19 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts 
 		}
 
 		logger.Debugw("LogBroadcaster: Sending out log",
-			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
+			"address", log.Address, "latestBlockNumber", latestBlockNumber)
 
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			listener.HandleLog(&broadcast{
-				latestBlockNumber: latestBlockNumber,
-				latestBlockHash:   latestHead.Hash,
-				rawLog:            logCopy,
-				decodedLog:        decodedLog,
-				jobID:             NewJobIdFromListener(listener),
+				latestBlockNumber,
+				latestHead.Hash,
+				decodedLog,
+				logCopy,
+				listener.JobID(),
+				r.evmChainID,
 			})
 		}()
 	}

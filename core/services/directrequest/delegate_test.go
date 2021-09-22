@@ -7,38 +7,37 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	ethClient := new(mocks.Client)
-	broadcaster := new(log_mocks.Broadcaster)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	runner := new(pipeline_mocks.Runner)
+	db := pgtest.NewGormDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
-	store, cleanupDB := cltest.NewStore(t)
-	defer cleanupDB()
-
-	config := testConfig{
-		minIncomingConfirmations: 1,
-	}
-	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, store.DB, config)
+	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, nil, db, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -64,27 +63,21 @@ type DirectRequestUniverse struct {
 	cleanup        func()
 }
 
-func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
-	gethClient := new(mocks.Client)
-	gethClient.Test(t)
+func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGeneralConfig, specF func(spec *job.Job)) *DirectRequestUniverse {
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := new(log_mocks.Broadcaster)
 	broadcaster.Test(t)
 	runner := new(pipeline_mocks.Runner)
-	runner.Test(t)
+	broadcaster.On("AddDependents", 1)
 
-	config := cltest.NewTestConfig(t)
-	store, cleanupDB := cltest.NewStoreWithConfig(t, config)
-	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, store.DB)
+	db := pgtest.NewGormDB(t)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	orm := pipeline.NewORM(db)
 
-	jobORM := job.NewORM(store.DB, store.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	keyStore := cltest.NewKeyStore(t, db)
+	jobORM := job.NewORM(db, cc, orm, keyStore)
 
-	cleanup := func() {
-		cleanupDB()
-		cleanupPipeline()
-		jobORM.Close()
-	}
-
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, store.DB, drConfig)
+	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, orm, db, cc)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()
@@ -105,7 +98,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig, specF
 		jobORM:         jobORM,
 		listener:       nil,
 		logBroadcaster: broadcaster,
-		cleanup:        cleanup,
+		cleanup:        func() { jobORM.Close() },
 	}
 
 	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {
@@ -116,10 +109,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig, specF
 }
 
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
-	drConfig := testConfig{
-		minIncomingConfirmations: 1,
-	}
-	return NewDirectRequestUniverseWithConfig(t, drConfig, nil)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+	return NewDirectRequestUniverseWithConfig(t, cfg, nil)
 }
 
 func (uni *DirectRequestUniverse) Cleanup() {
@@ -147,22 +139,23 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil).
-			Once()
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+			Return(false, nil).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once()
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
+		require.NotNil(t, uni.listener, "listener was nil; expected broadcaster.Register to have been called")
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)
@@ -203,13 +196,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				runBeganAwaiter.ItHappened()
+				fn := args.Get(4).(func(*gorm.DB) error)
+				fn(nil)
+			}).Once().Return(false, nil)
 
 		// but should after this one, as the head Number is larger
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
@@ -225,8 +218,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
-
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{{}, {}},
 		})
@@ -311,18 +307,16 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		timeout := 5 * time.Second
 		runBeganAwaiter := cltest.NewAwaiter()
 		runCancelledAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			db := args[0].(*gorm.DB)
+			ctx := args[0].(context.Context)
 			select {
 			case <-time.After(timeout):
 				t.Fatalf("Timed out waiting for Run to be canceled (%v)", timeout)
-			case <-db.Statement.Context.Done():
+			case <-ctx.Done():
 				runCancelledAwaiter.ItHappened()
 			}
-		}).Once().Return(int64(0), nil)
+		}).Once().Return(false, nil)
 		uni.listener.HandleLog(runLog)
 
 		runBeganAwaiter.AwaitOrFail(t, timeout)
@@ -339,11 +333,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log has sufficient funds", func(t *testing.T) {
-		drConfig := testConfig{
-			minIncomingConfirmations: 1,
-			minimumContractPayment:   assets.NewLink(100),
-		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig, nil)
+		cfg := configtest.NewTestGeneralConfig(t)
+		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
+		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -363,21 +356,20 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+			fn := args.Get(4).(func(*gorm.DB) error)
+			fn(nil)
+		}).Once().Return(false, nil)
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)
@@ -390,11 +382,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log has insufficient funds", func(t *testing.T) {
-		drConfig := testConfig{
-			minIncomingConfirmations: 1,
-			minimumContractPayment:   assets.NewLink(100),
-		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig, nil)
+		cfg := configtest.NewTestGeneralConfig(t)
+		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
+		uni := NewDirectRequestUniverseWithConfig(t, cfg, nil)
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
@@ -431,11 +422,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("requesters is specified and log is requested by a whitelisted address", func(t *testing.T) {
 		requester := cltest.NewAddress()
-		drConfig := testConfig{
-			minIncomingConfirmations: 1,
-			minimumContractPayment:   assets.NewLink(100),
-		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig, func(jb *job.Job) {
+		cfg := configtest.NewTestGeneralConfig(t)
+		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
+		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
 			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), requester}
 		})
 		defer uni.Cleanup()
@@ -462,21 +452,19 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-
-		uni.runner.On("ExecuteRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-		}).Once().Return(pipeline.Run{}, pipeline.TaskRunResults{}, nil)
-
-		uni.runner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-		}).Once().Return(int64(1), nil)
+			fn := args.Get(4).(func(*gorm.DB) error)
+			fn(nil)
+		}).Once().Return(false, nil)
 
 		err := uni.service.Start()
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobIDV2())
+		drJob, jErr := uni.jobORM.FindJob(context.Background(), uni.listener.JobID())
 		require.NoError(t, jErr)
-		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.Equal(t, drJob.ID, uni.listener.JobID())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
 		uni.listener.HandleLog(log)
@@ -490,11 +478,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 	t.Run("requesters is specified and log is requested by a non-whitelisted address", func(t *testing.T) {
 		requester := cltest.NewAddress()
-		drConfig := testConfig{
-			minIncomingConfirmations: 1,
-			minimumContractPayment:   assets.NewLink(100),
-		}
-		uni := NewDirectRequestUniverseWithConfig(t, drConfig, func(jb *job.Job) {
+		cfg := configtest.NewTestGeneralConfig(t)
+		cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
+		cfg.Overrides.GlobalMinimumContractPayment = assets.NewLinkFromJuels(100)
+		uni := NewDirectRequestUniverseWithConfig(t, cfg, func(jb *job.Job) {
 			jb.DirectRequestSpec.Requesters = []common.Address{cltest.NewAddress(), cltest.NewAddress()}
 		})
 		defer uni.Cleanup()
@@ -531,17 +518,4 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.AssertExpectations(t)
 		uni.runner.AssertExpectations(t)
 	})
-}
-
-type testConfig struct {
-	minIncomingConfirmations uint32
-	minimumContractPayment   *assets.Link
-}
-
-func (c testConfig) MinIncomingConfirmations() uint32 {
-	return c.minIncomingConfirmations
-}
-
-func (c testConfig) MinimumContractPayment() *assets.Link {
-	return c.minimumContractPayment
 }

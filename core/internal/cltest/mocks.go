@@ -5,22 +5,26 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"runtime/debug"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"go.uber.org/atomic"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -57,19 +61,12 @@ func (mes *MockSubscription) Unsubscribe() {
 		close(mes.channel.(chan struct{}))
 	case chan gethTypes.Log:
 		close(mes.channel.(chan gethTypes.Log))
-	case chan *models.Head:
-		close(mes.channel.(chan *models.Head))
+	case chan *eth.Head:
+		close(mes.channel.(chan *eth.Head))
 	default:
 		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
 	}
 	close(mes.Errors)
-}
-
-// InstantClock create InstantClock
-func (ta *TestApplication) InstantClock() InstantClock {
-	clock := InstantClock{}
-	ta.Scheduler.OneTime.Clock = clock
-	return clock
 }
 
 // InstantClock an InstantClock
@@ -145,7 +142,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(config config.GeneralConfig) (chainlink.Application, error) {
 	return f.App, nil
 }
 
@@ -153,7 +150,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(config config.GeneralConfig) (chainlink.Application, error) {
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -161,33 +158,10 @@ type noopStopApplication struct {
 	chainlink.Application
 }
 
+// FIXME: Why bother with this wrapper?
 func (a noopStopApplication) Stop() error {
 	return nil
 }
-
-// CallbackAuthenticator contains a call back authenticator method
-type CallbackAuthenticator struct {
-	Callback func(*keystore.Eth, string) (string, error)
-}
-
-// Authenticate authenticates store and pwd with the callback authenticator
-func (a CallbackAuthenticator) AuthenticateEthKey(ethKeyStore *keystore.Eth, pwd string) (string, error) {
-	return a.Callback(ethKeyStore, pwd)
-}
-
-func (a CallbackAuthenticator) AuthenticateVRFKey(vrfKeyStore *keystore.VRF, pwd string) error {
-	return nil
-}
-
-func (a CallbackAuthenticator) AuthenticateOCRKey(*keystore.OCR, *config.Config, string) error {
-	return nil
-}
-
-func (a CallbackAuthenticator) AuthenticateCSAKey(*keystore.CSA, string) error {
-	return nil
-}
-
-var _ cmd.KeyStoreAuthenticator = CallbackAuthenticator{}
 
 // BlockedRunner is a Runner that blocks until its channel is posted to
 type BlockedRunner struct {
@@ -250,7 +224,7 @@ func NewHTTPMockServer(
 	wantMethod string,
 	response string,
 	callback ...func(http.Header, string),
-) (*httptest.Server, func()) {
+) *httptest.Server {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
@@ -266,10 +240,11 @@ func NewHTTPMockServer(
 	})
 
 	server := httptest.NewServer(handler)
-	return server, func() {
+	t.Cleanup(func() {
 		server.Close()
 		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
-	}
+	})
+	return server
 }
 
 // NewHTTPMockServerWithRequest creates http test server that makes the request
@@ -279,7 +254,7 @@ func NewHTTPMockServerWithRequest(
 	status int,
 	response string,
 	callback func(r *http.Request),
-) (*httptest.Server, func()) {
+) *httptest.Server {
 	called := false
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callback(r)
@@ -290,10 +265,11 @@ func NewHTTPMockServerWithRequest(
 	})
 
 	server := httptest.NewServer(handler)
-	return server, func() {
+	t.Cleanup(func() {
 		server.Close()
 		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
-	}
+	})
+	return server
 }
 
 func NewHTTPMockServerWithAlterableResponse(
@@ -362,33 +338,17 @@ type MockCronEntry struct {
 
 // MockHeadTrackable allows you to mock HeadTrackable
 type MockHeadTrackable struct {
-	connectedCount    int32
-	ConnectedCallback func(bn *models.Head)
-	onNewHeadCount    int32
-}
-
-// Connect increases the connected count by one
-func (m *MockHeadTrackable) Connect(bn *models.Head) error {
-	atomic.AddInt32(&m.connectedCount, 1)
-	if m.ConnectedCallback != nil {
-		m.ConnectedCallback(bn)
-	}
-	return nil
-}
-
-// ConnectedCount returns the count of connections made, safely.
-func (m *MockHeadTrackable) ConnectedCount() int32 {
-	return atomic.LoadInt32(&m.connectedCount)
+	onNewHeadCount atomic.Int32
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, models.Head) {
-	atomic.AddInt32(&m.onNewHeadCount, 1)
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, eth.Head) {
+	m.onNewHeadCount.Inc()
 }
 
 // OnNewLongestChainCount returns the count of new heads, safely.
 func (m *MockHeadTrackable) OnNewLongestChainCount() int32 {
-	return atomic.LoadInt32(&m.onNewHeadCount)
+	return m.onNewHeadCount.Load()
 }
 
 // NeverSleeper is a struct that never sleeps
@@ -406,17 +366,17 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustRandomUser() models.User {
+func MustRandomUser() sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
-	r, err := models.NewUser(email, Password)
+	r, err := sessions.NewUser(email, Password)
 	if err != nil {
 		logger.Panic(err)
 	}
 	return r
 }
 
-func MustNewUser(t *testing.T, email, password string) models.User {
-	r, err := models.NewUser(email, password)
+func MustNewUser(t *testing.T, email, password string) sessions.User {
+	r, err := sessions.NewUser(email, password)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -427,17 +387,17 @@ type MockAPIInitializer struct {
 	Count int
 }
 
-func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error) {
-	if user, err := store.FindUser(); err == nil {
+func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
+	if user, err := orm.FindUser(); err == nil {
 		return user, err
 	}
 	m.Count++
 	user := MustRandomUser()
-	return user, store.SaveUser(&user)
+	return user, orm.CreateUser(&user)
 }
 
-func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, models.SessionRequest{})
+func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) cmd.HTTPClient {
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
 }
 
 type MockCookieAuthenticator struct {
@@ -449,7 +409,7 @@ func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
 	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
-func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
+func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Cookie, error) {
 	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
@@ -458,17 +418,17 @@ type MockSessionRequestBuilder struct {
 	Error error
 }
 
-func (m *MockSessionRequestBuilder) Build(string) (models.SessionRequest, error) {
+func (m *MockSessionRequestBuilder) Build(string) (sessions.SessionRequest, error) {
 	m.Count++
 	if m.Error != nil {
-		return models.SessionRequest{}, m.Error
+		return sessions.SessionRequest{}, m.Error
 	}
-	return models.SessionRequest{Email: APIEmail, Password: Password}, nil
+	return sessions.SessionRequest{Email: APIEmail, Password: Password}, nil
 }
 
-type mockSecretGenerator struct{}
+type MockSecretGenerator struct{}
 
-func (m mockSecretGenerator) Generate(config.Config) ([]byte, error) {
+func (m MockSecretGenerator) Generate(string) ([]byte, error) {
 	return []byte(SessionSecret), nil
 }
 
@@ -487,4 +447,32 @@ type MockPasswordPrompter struct {
 
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
+}
+
+var _ gracefulpanic.Signal = &testShutdownSignal{}
+
+type testShutdownSignal struct {
+	t testing.TB
+}
+
+func (tss *testShutdownSignal) Panic() {
+	tss.t.Errorf("panic: %s", debug.Stack())
+	panic("panic")
+}
+
+func (tss *testShutdownSignal) Wait() <-chan struct{} {
+	return make(chan struct{})
+}
+
+func NewChainSetMockWithOneChain(t testing.TB, ethClient eth.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
+	cc := new(evmmocks.ChainSet)
+	ch := new(evmmocks.Chain)
+	ch.On("Client").Return(ethClient)
+	ch.On("Config").Return(cfg)
+	ch.On("Logger").Return(logger.Default)
+	ch.On("ID").Return(cfg.ChainID())
+	cc.On("Default").Return(ch, nil)
+	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
+	cc.On("Chains").Return([]evm.Chain{ch})
+	return cc
 }

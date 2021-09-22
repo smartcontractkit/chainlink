@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,51 +13,12 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
-	uuid "github.com/satori/go.uuid"
-
-	"github.com/smartcontractkit/chainlink/core/services/gas"
-	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -70,8 +30,46 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
+	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/static"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -80,13 +78,14 @@ import (
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 )
 
 const (
-	// RootDir the root directory for cltest
-	RootDir = "/tmp/chainlink_test"
 	// APIKey of the fixture API user
 	APIKey = "2d25e62eaf9143e993acaf48691564b2"
 	// APISecret of the fixture API user.
@@ -98,20 +97,16 @@ const (
 	VRFPassword = "testingpassword"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKeyAddress is the ETH address of the fixture key
-	DefaultKeyAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
-	// AllowUnstarted enable an application that can be used in tests without being started
-	AllowUnstarted = "allow_unstarted"
-	// DefaultPeerID is the peer ID of the fixture p2p key
-	DefaultPeerID = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+	// DefaultPeerID is the peer ID of the default p2p key
+	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 	// A peer ID without an associated p2p key.
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
-	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
-	DefaultOCRKeyBundleID = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
+	DefaultOCRKeyBundleID = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
 )
 
 var (
@@ -120,9 +115,13 @@ var (
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	storeCounter                uint64
-	minimumContractPayment      = assets.NewLink(100)
+	FixtureChainID              = *big.NewInt(0)
 	source                      rand.Source
+
+	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultP2PKey = p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	DefaultVRFKey = vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 )
 
 func init() {
@@ -140,7 +139,7 @@ func init() {
 	// Also seed the local source
 	source = rand.NewSource(seed)
 
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
+	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
@@ -164,21 +163,6 @@ func logLevelFromEnv() zapcore.Level {
 	return lvl
 }
 
-// TestConfig struct with test store and wsServer
-type TestConfig struct {
-	t testing.TB
-	*config.Config
-}
-
-// NewConfig returns a new TestConfig
-func NewConfig(t testing.TB) (*TestConfig, func()) {
-	t.Helper()
-
-	config := NewTestConfig(t)
-	// FIXME: The returned function is totally pointless and ought to be removed from all tests
-	return config, func() {}
-}
-
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
@@ -196,116 +180,35 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	return b
 }
 
-func MustJobIDFromString(t *testing.T, s string) models.JobID {
-	t.Helper()
-	id, err := models.NewJobIDFromString(s)
-	require.NoError(t, err)
-	return id
-}
-
-func MustBigIntFromString(t *testing.T, s string) *big.Int {
-	t.Helper()
-	x, ok := big.NewInt(0).SetString(s, 10)
-	if !ok {
-		t.Fatalf("could not create *big.Int from string '%v'", s)
-	}
-	return x
-}
-
-// NewTestConfig returns a test configuration
-func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
-	t.Helper()
-
-	count := atomic.AddUint64(&storeCounter, 1)
-	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
-	rawConfig := config.NewConfig()
-
-	rawConfig.Dialect = dialects.TransactionWrappedPostgres
-	for _, opt := range options {
-		switch v := opt.(type) {
-		case dialects.DialectName:
-			rawConfig.Dialect = v
-		}
-	}
-
-	// Unique advisory lock is required otherwise all tests will block each other
-	rawConfig.AdvisoryLockID = NewRandomInt64()
-
-	rawConfig.Set("GAS_ESTIMATOR_MODE", "FixedPrice")
-	rawConfig.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
-	rawConfig.Set("ETH_FINALITY_DEPTH", 15)
-	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
-	rawConfig.Set("ETH_HEAD_TRACKER_SAMPLING_INTERVAL", "100ms")
-
-	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
-	rawConfig.Set("ENABLE_LEGACY_JOB_PIPELINE", false)
-	rawConfig.Set("ETH_CHAIN_ID", eth.NullClientChainID)
-	rawConfig.Set("CHAINLINK_DEV", true)
-	rawConfig.Set("ETH_GAS_BUMP_THRESHOLD", 3)
-	rawConfig.Set("MIGRATE_DATABASE", false)
-	rawConfig.Set("MINIMUM_SERVICE_DURATION", "24h")
-	rawConfig.Set("MIN_INCOMING_CONFIRMATIONS", 1)
-	rawConfig.Set("MIN_OUTGOING_CONFIRMATIONS", 6)
-	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT_LINK_JUELS", minimumContractPayment.Text(10))
-	rawConfig.Set("ROOT", rootdir)
-	rawConfig.Set("SESSION_TIMEOUT", "2m")
-	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
-	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
-	rawConfig.Set("P2P_LISTEN_PORT", "12345")
-	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
-	rawConfig.Set("DATABASE_TIMEOUT", "5s")
-	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
-	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
-	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
-	rawConfig.Set("ETH_TX_REAPER_THRESHOLD", 0)
-	rawConfig.SecretGenerator = mockSecretGenerator{}
-	config := TestConfig{t: t, Config: rawConfig}
-	return &config
-}
-
 type JobPipelineV2TestHelper struct {
 	Prm pipeline.ORM
-	Eb  postgres.EventBroadcaster
 	Jrm job.ORM
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, tc *TestConfig, db *gorm.DB, ethClient eth.Client, keyStore pipeline.ETHKeyStore, txManager pipeline.TxManager) JobPipelineV2TestHelper {
-	prm, eb, cleanup := NewPipelineORM(t, tc, db)
-	jrm := job.NewORM(db, tc.Config, prm, eb, &postgres.NullAdvisoryLocker{})
-	t.Cleanup(cleanup)
-	pr := pipeline.NewRunner(prm, tc.Config, ethClient, keyStore, nil, txManager)
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
+	prm := pipeline.NewORM(db)
+	jrm := job.NewORM(db, cc, prm, keyStore)
+	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
-		eb,
 		jrm,
 		pr,
 	}
 }
 
-func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
-	return pipeline.NewORM(db), eventBroadcaster, func() {
-		eventBroadcaster.Close()
-	}
+	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default)
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config *TestConfig, keys ...ethkey.Key) (*bulletprooftxmanager.EthBroadcaster, func()) {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	err := eventBroadcaster.Start()
-	require.NoError(t, err)
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, &postgres.NullAdvisoryLocker{}, eventBroadcaster, keys, gas.NewFixedPriceEstimator(config)), func() {
-		assert.NoError(t, eventBroadcaster.Close())
-	}
-}
-
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *TestConfig, ks bulletprooftxmanager.KeyStore, keys []ethkey.Key) *bulletprooftxmanager.EthConfirmer {
-	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, &postgres.NullAdvisoryLocker{}, keys, gas.NewFixedPriceEstimator(config))
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
 }
 
@@ -313,19 +216,12 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config *Te
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Config           *TestConfig
-	Logger           *logger.Logger
-	Server           *httptest.Server
-	wsServer         *httptest.Server
-	connectedChannel chan struct{}
-	Started          bool
-	Backend          *backends.SimulatedBackend
-	Key              ethkey.Key
-	allowUnstarted   bool
-}
-
-func newWSServer() (*httptest.Server, string, func()) {
-	return NewWSServer("", nil)
+	Logger   logger.Logger
+	Server   *httptest.Server
+	wsServer *httptest.Server
+	Started  bool
+	Backend  *backends.SimulatedBackend
+	Key      ethkey.KeyV2
 }
 
 // NewWSServer returns a  new wsserver
@@ -364,137 +260,192 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 	}
 }
 
-// NewApplicationEthereumDisabled creates a new application with default config but ethereum disabled
+func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
+	overrides := configtest.GeneralConfigOverrides{
+		SecretGenerator: MockSecretGenerator{},
+		Dialect:         dialects.TransactionWrappedPostgres,
+		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
+	}
+	return configtest.NewTestGeneralConfigWithOverrides(t, overrides)
+}
+
+// NewApplicationEVMDisabled creates a new application with default config but ethereum disabled
 // Useful for testing controllers
-func NewApplicationEthereumDisabled(t *testing.T) (*TestApplication, func()) {
+func NewApplicationEVMDisabled(t *testing.T) *TestApplication {
 	t.Helper()
 
-	c, cfgCleanup := NewConfig(t)
-	c.Set("ETH_DISABLED", true)
+	c := NewTestGeneralConfig(t)
+	c.Overrides.EVMDisabled = null.BoolFrom(true)
 
-	app, cleanup := NewApplicationWithConfig(t, c)
-
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	return NewApplicationWithConfig(t, c)
 }
 
 // NewApplication creates a New TestApplication along with a NewConfig
 // It mocks the keystore with no keys or accounts by default
-func NewApplication(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	c, cfgCleanup := NewConfig(t)
+	c := NewTestGeneralConfig(t)
 
-	app, cleanup := NewApplicationWithConfig(t, c, flagsAndDeps...)
-
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	return NewApplicationWithConfig(t, c, flagsAndDeps...)
 }
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t testing.TB, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	config, cfgCleanup := NewConfig(t)
-	app, cleanup := NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
-	return app, func() {
-		cleanup()
-		cfgCleanup()
-	}
+	config := NewTestGeneralConfig(t)
+	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
-func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+func NewApplicationWithConfigAndKey(t testing.TB, c *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
+	require.NoError(t, app.KeyStore.Unlock(Password))
+	var chainID utils.Big = *utils.NewBig(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
 		switch v := dep.(type) {
-		case ethkey.Key:
-			MustAddKeyToKeystore(t, &v, app.KeyStore.Eth())
+		case ethkey.KeyV2:
 			app.Key = v
+		case evmtypes.Chain:
+			chainID = v.ID
 		}
 	}
-	if app.Key.Address.Address() == utils.ZeroAddress {
-		app.Key, _ = MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
+	if app.Key.Address.IsZero() {
+		app.Key, _ = MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+	} else {
+		MustAddKeyToKeystore(t, app.Key, chainID.ToInt(), app.KeyStore.Eth())
 	}
-	require.NoError(t, app.KeyStore.Eth().Unlock(Password))
-	_, err := app.KeyStore.VRF().Unlock(VRFPassword)
-	require.NoError(t, err)
 
-	return app, cleanup
+	return app
 }
 
 const (
 	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
 )
 
-// NewApplicationWithConfig creates a New TestApplication with specified test config
-func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
+// NewApplicationWithConfig creates a New TestApplication with specified test config.
+// This should only be used in full integration tests. For controller tests, see NewApplicationEVMDisabled
+func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	var externalInitiatorManager webhook.ExternalInitiatorManager = &webhook.NullExternalInitiatorManager{}
-	var useRealExternalInitiatorManager bool
 
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
+	shutdownSignal := &testShutdownSignal{t}
+	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
+	require.NoError(t, err)
+	db := store.DB
+	sqlxDB := postgres.UnwrapGormDB(db)
+
+	var externalInitiatorManager webhook.ExternalInitiatorManager
+	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
+	var useRealExternalInitiatorManager bool
+	var chainORM evmtypes.ORM
+	var lggr logger.Logger
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
-		case postgres.AdvisoryLocker:
-			advisoryLocker = dep
 		case webhook.ExternalInitiatorManager:
 			externalInitiatorManager = dep
+		case evmtypes.Chain:
+			if chainORM != nil {
+				panic("cannot set more than one chain")
+			}
+			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
+		case postgres.EventBroadcaster:
+			eventBroadcaster = dep
+		case logger.Logger:
+			lggr = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				useRealExternalInitiatorManager = true
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
 			}
 
 		}
 	}
+	if lggr == nil {
+		lggr = cfg.CreateProductionLogger()
+	}
+	cfg.SetDB(db)
+	if chainORM == nil {
+		chainORM = evm.NewORM(sqlxDB)
+	}
 
-	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
-		ta.connectedChannel <- struct{}{}
+	keyStore := keystore.New(db, utils.FastScryptParams)
+	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
+		ORM:              chainORM,
+		Config:           cfg,
+		Logger:           lggr,
+		GormDB:           db,
+		SQLxDB:           sqlxDB,
+		KeyStore:         keyStore.Eth(),
+		EventBroadcaster: eventBroadcaster,
+		GenEthClient: func(c evmtypes.Chain) eth.Client {
+			if (ethClient.ChainID()).Cmp(cfg.DefaultChainID()) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", ethClient.ChainID(), cfg.DefaultChainID())
+			}
+			return ethClient
+		},
+	})
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
+		Config:                   cfg,
+		EventBroadcaster:         eventBroadcaster,
+		ShutdownSignal:           shutdownSignal,
+		Store:                    store,
+		GormDB:                   db,
+		SqlxDB:                   sqlxDB,
+		KeyStore:                 keyStore,
+		ChainSet:                 chainSet,
+		Logger:                   lggr,
+		ExternalInitiatorManager: externalInitiatorManager,
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
-	ta.ChainlinkApplication = app
-	server := newServer(ta)
+	ta := &TestApplication{
+		t:                    t,
+		ChainlinkApplication: app,
+		Logger:               lggr,
+	}
+	ta.Server = newServer(ta)
 
-	tc.Config.Set("CLIENT_NODE_URL", server.URL)
-
-	app.Store.Config = tc.Config
+	cfg.Overrides.ClientNodeURL = null.StringFrom(ta.Server.URL)
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
 
+	return ta
+}
+
+func contains(flagsAndDeps []interface{}, value interface{}) bool {
 	for _, flag := range flagsAndDeps {
-		if flag == AllowUnstarted {
-			ta.allowUnstarted = true
+		if flag == value {
+			return true
 		}
 	}
+	return false
+}
 
-	ta.Config = tc
-	ta.Server = server
-	return ta, func() {
-		err := ta.StopIfStarted()
-		require.NoError(t, err)
-	}
+func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
+	c, s, f = NewEthMocks(t)
+	c.On("ChainID").Return(&FixtureChainID).Maybe()
+	return
 }
 
 func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
-	c := new(mocks.Client)
-	s := new(mocks.Subscription)
+	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
@@ -508,17 +459,40 @@ func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
+func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+	mockSub := new(mocks.Subscription)
+	mockSub.Test(t)
+	mockEth := new(mocks.Client)
+	mockEth.Test(t)
+	return mockEth, mockSub
+}
+
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+	mockEth, mockSub := NewEthClientAndSubMock(t)
+	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
+	return mockEth, mockSub
+}
+
+func NewEthClientMock(t mock.TestingT) *mocks.Client {
+	mockEth := new(mocks.Client)
+	mockEth.Test(t)
+	return mockEth
+}
+
+func NewEthClientMockWithDefaultChain(t testing.TB) *mocks.Client {
+	c := NewEthClientMock(t)
+	c.On("ChainID").Return(&FixtureChainID).Maybe()
+	return c
+}
+
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
-	c.On("ChainID", mock.Anything).Maybe().Return(NewTestConfig(t).ChainID(), nil)
-	c.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	c.On("SendTransaction", mock.Anything, mock.Anything).Maybe().Return(nil)
 	c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Maybe().Return(Head(0), nil)
-	c.On("ChainID", mock.Anything).Maybe().Return(big.NewInt(eth.NullClientChainID), nil)
+	c.On("ChainID").Maybe().Return(&FixtureChainID)
+	c.On("Close").Maybe().Return()
 
 	block := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(100),
@@ -541,39 +515,21 @@ func (ta *TestApplication) NewBox() packr.Box {
 	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
+// Start starts the chainlink app and registers Stop to clean up at end of test.
 func (ta *TestApplication) Start() error {
 	ta.t.Helper()
 	ta.Started = true
-	// TODO - RYAN - we should have a global keystore.Unlock() function
-	// https://app.clubhouse.io/chainlinklabs/story/7735/combine-keystores
-	err := ta.ChainlinkApplication.KeyStore.Eth().Unlock(Password)
+	err := ta.ChainlinkApplication.KeyStore.Unlock(Password)
 	if err != nil {
 		return err
 	}
 
 	err = ta.ChainlinkApplication.Start()
-	return err
-}
-
-func (ta *TestApplication) StartAndConnect() error {
-	ta.t.Helper()
-
-	err := ta.Start()
 	if err != nil {
 		return err
 	}
-
-	return ta.waitForConnection()
-}
-
-// waitForConnection wait for the StartAndConnect callback to be called
-func (ta *TestApplication) waitForConnection() error {
-	select {
-	case <-time.After(4 * time.Second):
-		return errors.New("TestApplication#StartAndConnect() timed out")
-	case <-ta.connectedChannel:
-		return nil
-	}
+	ta.t.Cleanup(func() { require.NoError(ta.t, ta.Stop()) })
+	return nil
 }
 
 // Stop will stop the test application and perform cleanup
@@ -581,20 +537,18 @@ func (ta *TestApplication) Stop() error {
 	ta.t.Helper()
 
 	if !ta.Started {
-		if ta.allowUnstarted {
-			return nil
-		}
 		ta.t.Fatal("TestApplication Stop() called on an unstarted application")
 	}
 
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
+	// FIXME: TestApplication probably needs to simply be removed
 	err := ta.ChainlinkApplication.StopIfStarted()
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.Store)
+	cleanUpStore(ta.t, ta.GetStore())
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -606,15 +560,15 @@ func (ta *TestApplication) Stop() error {
 
 func (ta *TestApplication) MustSeedNewSession() string {
 	session := NewSession()
-	require.NoError(ta.t, ta.Store.DB.Save(&session).Error)
+	require.NoError(ta.t, ta.GetDB().Save(&session).Error)
 	return session.ID
 }
 
-// ImportKey adds private key to the application disk keystore, not database.
-func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.KeyStore.Eth().ImportKey([]byte(content), Password)
+// ImportKey adds private key to the application keystore and database
+func (ta *TestApplication) Import(content string) {
+	require.NoError(ta.t, ta.KeyStore.Unlock(Password))
+	_, err := ta.KeyStore.Eth().Import([]byte(content), Password, &FixtureChainID)
 	require.NoError(ta.t, err)
-	require.NoError(ta.t, ta.KeyStore.Eth().Unlock(Password))
 }
 
 func (ta *TestApplication) NewHTTPClient() HTTPClientCleaner {
@@ -633,14 +587,9 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	sessionID := ta.MustSeedNewSession()
 	r := &RendererMock{}
 	client := &cmd.Client{
-		Renderer:   r,
-		Config:     ta.Config.Config,
-		AppFactory: seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator: CallbackAuthenticator{
-			Callback: func(*keystore.Eth, string) (string, error) {
-				return Password, nil
-			},
-		},
+		Renderer:                       r,
+		Config:                         ta.GetConfig(),
+		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
@@ -653,15 +602,14 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.Config.Config, &cmd.MemoryCookieStore{})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{})
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
-		Config:                         ta.Config.Config,
+		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		KeyStoreAuthenticator:          CallbackAuthenticator{func(*keystore.Eth, string) (string, error) { return Password, nil }},
 		FallbackAPIInitializer:         &MockAPIInitializer{},
 		Runner:                         EmptyRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, models.SessionRequest{}),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
 		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
@@ -670,25 +618,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
-func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes []byte) *models.JobRun {
-	job := NewJobWithWebInitiator()
-	err := ta.Store.CreateJob(&job)
-	require.NoError(ta.t, err)
-
-	jr := NewJobRun(job)
-	txHash := common.BytesToHash(txHashBytes)
-	jr.RunRequest.TxHash = &txHash
-	blockHash := common.BytesToHash(blockHashBytes)
-	jr.RunRequest.BlockHash = &blockHash
-
-	err = ta.Store.CreateJobRun(&jr)
-	require.NoError(ta.t, err)
-
-	return &jr
-}
-
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
@@ -698,31 +629,30 @@ func NewStoreWithConfig(t testing.TB, tcfg *TestConfig, flagsAndDeps ...interfac
 			advisoryLocker = dep
 		}
 	}
-	s, err := strpkg.NewInsecureStore(tcfg.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
+	s, err := strpkg.NewStore(c, advisoryLocker, gracefulpanic.NewSignal())
 	if err != nil {
 		require.NoError(t, err)
 	}
-	orm := config.NewORM(s.DB)
-	s.Config.SetRuntimeStore(orm)
-	return s, func() {
-		cleanUpStore(tcfg.t, s)
-	}
+	t.Cleanup(func() {
+		cleanUpStore(t, s)
+	})
+	c.SetDB(s.DB)
+	return s
 }
 
 // NewStore creates a new store
-func NewStore(t testing.TB, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+func NewStore(t *testing.T, flagsAndDeps ...interface{}) *strpkg.Store {
 	t.Helper()
 
-	c, cleanup := NewConfig(t)
-	store, storeCleanup := NewStoreWithConfig(t, c, flagsAndDeps...)
-	return store, func() {
-		storeCleanup()
-		cleanup()
-	}
+	c := NewTestGeneralConfig(t)
+	return NewStoreWithConfig(t, c, flagsAndDeps...)
 }
 
-func NewKeyStore(t testing.TB, db *gorm.DB) *keystore.Master {
-	return keystore.New(db, utils.FastScryptParams)
+// NewKeyStore returns a new, unlocked keystore
+func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
+	keystore := keystore.New(db, utils.FastScryptParams)
+	require.NoError(t, keystore.Unlock(Password))
+	return keystore
 }
 
 func cleanUpStore(t testing.TB, store *strpkg.Store) {
@@ -853,43 +783,10 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 }
 
 // ReadLogs returns the contents of the applications log file as a string
-func ReadLogs(config orm.ConfigReader) (string, error) {
-	logFile := fmt.Sprintf("%s/log.jsonl", config.RootDir())
+func ReadLogs(cfg config.GeneralConfig) (string, error) {
+	logFile := fmt.Sprintf("%s/log.jsonl", cfg.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
-}
-
-func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
-	t.Helper()
-
-	sa, err := s.FindServiceAgreement(id)
-	require.NoError(t, err)
-
-	return sa
-}
-
-// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
-func CreateJobSpecViaWeb(t testing.TB, app *TestApplication, job models.JobSpec) models.JobSpec {
-	t.Helper()
-
-	marshaled, err := json.Marshal(&job)
-	assert.NoError(t, err)
-	return CreateSpecViaWeb(t, app, string(marshaled))
-}
-
-// CreateJobSpecViaWeb creates a jobspec via web using /v2/specs
-func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpec {
-	t.Helper()
-
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs", bytes.NewBufferString(spec))
-	defer cleanup()
-	AssertServerResponse(t, resp, http.StatusOK)
-
-	var createdJob models.JobSpec
-	err := ParseJSONAPIResponse(t, resp, &createdJob)
-	require.NoError(t, err)
-	return createdJob
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
@@ -937,52 +834,6 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 	}, waitFor, 10*time.Millisecond)
 }
 
-// CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
-func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
-	t.Helper()
-
-	bodyBuffer := &bytes.Buffer{}
-	if len(body) > 0 {
-		bodyBuffer = bytes.NewBufferString(body[0])
-	}
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bodyBuffer)
-	defer cleanup()
-	AssertServerResponse(t, resp, http.StatusOK)
-	var jr models.JobRun
-	err := ParseJSONAPIResponse(t, resp, &jr)
-	require.NoError(t, err)
-
-	assert.Equal(t, j.ID, jr.JobSpecID)
-	return jr
-}
-
-func CreateJobRunViaExternalInitiator(
-	t testing.TB,
-	app *TestApplication,
-	j models.JobSpec,
-	eia auth.Token,
-	body string,
-) models.JobRun {
-	t.Helper()
-
-	headers := make(map[string]string)
-	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
-
-	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
-	bodyBuf := bytes.NewBufferString(body)
-	resp, cleanup := UnauthenticatedPost(t, url, bodyBuf, headers)
-	defer cleanup()
-	AssertServerResponse(t, resp, 200)
-	var jr models.JobRun
-	err := ParseJSONAPIResponse(t, resp, &jr)
-	require.NoError(t, err)
-
-	assert.Equal(t, j.ID, jr.JobSpecID)
-	return jr
-}
-
 func CreateJobRunViaExternalInitiatorV2(
 	t testing.TB,
 	app *TestApplication,
@@ -1007,67 +858,6 @@ func CreateJobRunViaExternalInitiatorV2(
 
 	// assert.Equal(t, j.ID, pr.JobSpecID)
 	return pr
-}
-
-// CreateHelloWorldJobViaWeb creates a HelloWorld JobSpec with the given MockServer Url
-func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
-	t.Helper()
-
-	buffer := []byte(`
-{
-  "initiators": [{ "type": "web" }],
-  "tasks": [
-    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
-		"get": "https://bitstamp.net/api/ticker/",
-        "headers": {
-          "Key1": ["value"],
-          "Key2": ["value", "value"]
-        }
-      }
-    },
-    { "type": "JsonParse", "params": { "path": ["last"] }},
-    { "type": "EthBytes32" },
-    {
-      "type": "EthTx", "params": {
-        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
-        "functionSelector": "0x609ff1bd"
-      }
-    }
-  ]
-}
-`)
-
-	var job models.JobSpec
-	err := json.Unmarshal(buffer, &job)
-	require.NoError(t, err)
-
-	data, err := models.Merge(job.Tasks[0].Params, JSONFromString(t, `{"get":"%v"}`, url))
-	require.NoError(t, err)
-	job.Tasks[0].Params = data
-	return CreateJobSpecViaWeb(t, app, job)
-}
-
-// UpdateJobRunViaWeb updates jobrun via web using /v2/runs/ID
-func UpdateJobRunViaWeb(
-	t testing.TB,
-	app *TestApplication,
-	jr models.JobRun,
-	bridgeResource *webpresenters.BridgeResource,
-	body string,
-) models.JobRun {
-	t.Helper()
-
-	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bridgeResource.IncomingToken}
-	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
-	defer cleanup()
-
-	AssertServerResponse(t, resp, http.StatusOK)
-	var respJobRun presenters.JobRun
-	assert.NoError(t, ParseJSONAPIResponse(t, resp, &respJobRun))
-	assert.Equal(t, jr.ID, respJobRun.ID)
-	jr = respJobRun.JobRun
-	return jr
 }
 
 // CreateBridgeTypeViaWeb creates a bridgetype via web using /v2/bridge_types
@@ -1123,201 +913,27 @@ const (
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
+
+	// DefaultWaitTimeout - to be used especially in parallel tests, as their
+	// individual execution can get paused for multiple seconds.
+	DefaultWaitTimeout = 30 * time.Second
 )
-
-// WaitForJobRunToComplete waits for a JobRun to reach Completed Status
-func WaitForJobRunToComplete(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusCompleted)
-}
-
-// WaitForJobRunToPendBridge waits for a JobRun to reach PendingBridge Status
-func WaitForJobRunToPendBridge(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingBridge)
-}
-
-// WaitForJobRunToPendIncomingConfirmations waits for a JobRun to reach PendingIncomingConfirmations Status
-func WaitForJobRunToPendIncomingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingIncomingConfirmations)
-}
-
-// WaitForJobRunToPendOutgoingConfirmations waits for a JobRun to reach PendingOutgoingConfirmations Status
-func WaitForJobRunToPendOutgoingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
-}
-
-func SendBlocksUntilComplete(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	blockCh chan<- *models.Head,
-	start int64,
-) models.JobRun {
-	t.Helper()
-
-	var err error
-	block := start
-	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		h := models.NewHead(big.NewInt(block), utils.NewHash(), utils.NewHash(), 0)
-		blockCh <- &h
-		block++
-		jr, err = store.Unscoped().FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		st := jr.GetStatus()
-		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
-	return jr
-}
-
-// WaitForJobRunStatus waits for a JobRun to reach given status
-func WaitForJobRunStatus(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	wantStatus models.RunStatus,
-
-) models.JobRun {
-	t.Helper()
-
-	var err error
-	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
-		jr, err = store.Unscoped().FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		st := jr.GetStatus()
-		if wantStatus != models.RunStatusErrored {
-			if st == models.RunStatusErrored {
-				t.Fatalf("waiting for job run status %s but got %s, error was: '%s'", wantStatus, models.RunStatusErrored, jr.Result.ErrorMessage.String)
-			}
-		}
-		return st
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(wantStatus))
-	return jr
-}
-
-// JobRunStays tests if a JobRun will consistently stay at the specified status
-func JobRunStays(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-	status models.RunStatus,
-	optionalDuration ...time.Duration,
-) models.JobRun {
-	t.Helper()
-
-	duration := time.Second
-	if len(optionalDuration) > 0 {
-		duration = optionalDuration[0]
-	}
-
-	var err error
-	gomega.NewGomegaWithT(t).Consistently(func() models.RunStatus {
-		jr, err = store.FindJobRun(jr.ID)
-		assert.NoError(t, err)
-		return jr.GetStatus()
-	}, duration, DBPollingInterval).Should(gomega.Equal(status))
-	return jr
-}
-
-// JobRunStaysPendingIncomingConfirmations tests if a JobRun will stay at the PendingIncomingConfirmations Status
-func JobRunStaysPendingIncomingConfirmations(
-	t testing.TB,
-	store *strpkg.Store,
-	jr models.JobRun,
-) models.JobRun {
-	t.Helper()
-
-	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
-}
-
-// Polls until the passed in jobID has count number
-// of job spec errors.
-func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.JobID, count int) []models.JobSpecError {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-	var jse []models.JobSpecError
-	g.Eventually(func() []models.JobSpecError {
-		err := store.DB.
-			Where("job_spec_id = ?", jobID.String()).
-			Find(&jse).Error
-		assert.NoError(t, err)
-		return jse
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
-	return jse
-}
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
+func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
 	g := gomega.NewGomegaWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
-		err := store.DB.
+		err := db.
 			Where("job_id = ?", jobID).
 			Find(&jse).Error
 		assert.NoError(t, err)
 		return jse
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
-}
-
-// WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
-func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jrs []models.JobRun
-	var err error
-	if want == 0 {
-		g.Consistently(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j.ID)
-			assert.NoError(t, err)
-			return jrs
-		}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	} else {
-		g.Eventually(func() []models.JobRun {
-			jrs, err = store.JobRunsFor(j.ID)
-			assert.NoError(t, err)
-			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	}
-	return jrs
-}
-
-func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
-	t.Helper()
-
-	var err error
-	prs := []pipeline.Run{}
-	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
-		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
-		assert.NoError(t, err)
-		return prs
-	}, timeout, poll).Should(gomega.HaveLen(want))
-
-	return prs
 }
 
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
@@ -1330,21 +946,20 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 		assert.NoError(t, err)
 		var completed []pipeline.Run
 
-		for i := range prs {
-			if prs[i].State == pipeline.RunStatusCompleted {
-				if !prs[i].Outputs.Null {
-					if !prs[i].Errors.HasError() {
-						// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-						// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
-						if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
-							completed = append(completed, prs[i])
-						}
-					}
-				}
+		for _, pr := range prs {
+			if pr.State != pipeline.RunStatusCompleted {
+				continue
+			}
+
+			// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+			// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+			if len(pr.PipelineTaskRuns) == expectedTaskRuns {
+				completed = append(completed, pr)
 			}
 		}
+
 		numPipelineRuns = len(completed)
-		if len(completed) >= expectedPipelineRuns {
+		if numPipelineRuns >= expectedPipelineRuns {
 			pr = completed
 			return true
 		}
@@ -1353,29 +968,14 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 	return pr
 }
 
-// AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
-func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jrs []models.JobRun
-	var err error
-	g.Consistently(func() []models.JobRun {
-		jrs, err = store.JobRunsFor(j.ID)
-		assert.NoError(t, err)
-		return jrs
-	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return jrs
-}
-
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
-func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
-		err := store.DB.
+		err := db.
 			Where("pipeline_spec_id = ?", pipelineSpecID).
 			Find(&prs).Error
 		assert.NoError(t, err)
@@ -1384,100 +984,19 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 	return prs
 }
 
-func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
-	t.Helper()
-	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
-	}
-}
-
-// WaitForRunsAtLeast waits for at least the passed number of runs to start.
-func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	if want == 0 {
-		t.Fatal("must want more than 0 runs when waiting")
-	} else {
-		g.Eventually(func() int {
-			jrs, err := store.JobRunsFor(j.ID)
-			require.NoError(t, err)
-			return len(jrs)
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">=", want))
-	}
-}
-
-func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx bulletprooftxmanager.EthTx) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var attempts []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() int {
-		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
-		assert.NoError(t, err)
-		return len(attempts)
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">", 0))
-	return attempts
-}
-
-func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var txas []bulletprooftxmanager.EthTxAttempt
-	var err error
-	g.Eventually(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
-		assert.NoError(t, err)
-		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txas
-}
-
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []bulletprooftxmanager.EthTxAttempt {
+func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
-		err = store.DB.Find(&txas).Error
+		err = db.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
-}
-
-// WaitForSyncEventCount checks if the sync event count eventually reaches
-// the amound specified in parameter want.
-func WaitForSyncEventCount(
-	t testing.TB,
-	orm *orm.ORM,
-	want int,
-) {
-	t.Helper()
-	gomega.NewGomegaWithT(t).Eventually(func() int {
-		count, err := orm.CountOf(&models.SyncEvent{})
-		assert.NoError(t, err)
-		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-}
-
-// AssertSyncEventCountStays ensures that the event sync count stays consistent
-// for a period of time
-func AssertSyncEventCountStays(
-	t testing.TB,
-	orm *orm.ORM,
-	want int,
-) {
-	t.Helper()
-	gomega.NewGomegaWithT(t).Consistently(func() int {
-		count, err := orm.CountOf(&models.SyncEvent{})
-		assert.NoError(t, err)
-		return count
-	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -1502,18 +1021,18 @@ func ParseNullableTime(t testing.TB, s string) null.Time {
 }
 
 // Head given the value convert it into an Head
-func Head(val interface{}) *models.Head {
-	var h models.Head
+func Head(val interface{}) *eth.Head {
+	var h eth.Head
 	time := uint64(0)
 	switch t := val.(type) {
 	case int:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case uint64:
-		h = models.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time)
+		h = eth.NewHead(big.NewInt(int64(t)), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case int64:
-		h = models.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time)
+		h = eth.NewHead(big.NewInt(t), utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	case *big.Int:
-		h = models.NewHead(t, utils.NewHash(), utils.NewHash(), time)
+		h = eth.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
 		logger.Panicf("Could not convert %v of type %T to Head", val, val)
 	}
@@ -1665,58 +1184,21 @@ func MustParseDuration(t testing.TB, durationStr string) time.Duration {
 	return duration
 }
 
-func NewSession(optionalSessionID ...string) models.Session {
-	session := models.NewSession()
+func NewSession(optionalSessionID ...string) clsessions.Session {
+	session := clsessions.NewSession()
 	if len(optionalSessionID) > 0 {
 		session.ID = optionalSessionID[0]
 	}
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, db *gorm.DB) []bridges.ExternalInitiator {
 	t.Helper()
 
-	var all []models.ExternalInitiator
-	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Find(&all).Error
-	})
+	var all []bridges.ExternalInitiator
+	err := db.Find(&all).Error
 	require.NoError(t, err)
 	return all
-}
-
-func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
-	t.Helper()
-
-	var all []models.JobSpec
-	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Find(&all).Error
-	})
-	require.NoError(t, err)
-	return all
-}
-
-func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models.RunStatus) []*models.JobRun {
-	t.Helper()
-
-	var runs []*models.JobRun
-	err := store.UnscopedJobRunsWithStatus(func(jr *models.JobRun) {
-		runs = append(runs, jr)
-	}, statuses...)
-	require.NoError(t, err)
-	return runs
-}
-
-func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
-
-	var txa bulletprooftxmanager.EthTxAttempt
-	var count int64
-	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&txa).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return txa
 }
 
 type Awaiter chan struct{}
@@ -1781,45 +1263,6 @@ func MustParseURL(input string) *url.URL {
 		logger.Panic(err)
 	}
 	return u
-}
-
-func MustResultString(t *testing.T, input models.RunResult) string {
-	result := input.Data.Get("result")
-	require.Equal(t, gjson.String, result.Type, fmt.Sprintf("result type %s is not string", result.Type))
-	return result.String()
-}
-
-// GenericEncode eth encodes values based on the provided types
-func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
-	if len(values) != len(types) {
-		return nil, errors.New("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func MustGenericEncode(types []string, values ...interface{}) []byte {
-	if len(values) != len(types) {
-		panic("must include same number of values as types")
-	}
-	var args abi.Arguments
-	for _, t := range types {
-		ty, _ := abi.NewType(t, "", nil)
-		args = append(args, abi.Argument{Type: ty})
-	}
-	out, err := args.PackValues(values)
-	if err != nil {
-		panic(err)
-	}
-	return out
 }
 
 func MakeRoundStateReturnData(
@@ -1919,9 +1362,10 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	sub := new(mocks.Subscription)
 	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+	ethClient.On("Close").Return().Maybe()
 
 	// Stop
 	sub.On("Unsubscribe").Return(nil)
@@ -2028,11 +1472,13 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 	return cleanup, chDone
 }
 
+// Blocks - a helper logic to construct a range of linked heads
+// and an ability to fork and create logs from them
 type Blocks struct {
 	t       *testing.T
 	Hashes  []common.Hash
 	mHashes map[int64]common.Hash
-	Heads   map[int64]*models.Head
+	Heads   map[int64]*eth.Head
 }
 
 func (b *Blocks) LogOnBlockNum(i uint64, addr common.Address) types.Log {
@@ -2059,28 +1505,49 @@ func (b *Blocks) HashesMap() map[int64]common.Hash {
 	return b.mHashes
 }
 
-func (b *Blocks) Head(number uint64) *models.Head {
+func (b *Blocks) Head(number uint64) *eth.Head {
 	return b.Heads[int64(number)]
 }
 
 func (b *Blocks) ForkAt(t *testing.T, blockNum int64, numHashes int) *Blocks {
-	blocks2 := NewBlocks(t, len(b.Heads)+numHashes)
-
-	if _, exists := blocks2.Heads[blockNum]; !exists {
-		logger.Fatalf("Not enough length for block num: %v", blockNum)
+	forked := NewBlocks(t, len(b.Heads)+numHashes)
+	if _, exists := forked.Heads[blockNum]; !exists {
+		t.Fatalf("Not enough length for block num: %v", blockNum)
 	}
-	blocks2.Heads[blockNum].Parent = b.Heads[blockNum].Parent
-	return blocks2
+
+	for i := int64(0); i < blockNum; i++ {
+		forked.Heads[i] = b.Heads[i]
+	}
+
+	forked.Heads[blockNum].ParentHash = b.Heads[blockNum].ParentHash
+	forked.Heads[blockNum].Parent = b.Heads[blockNum].Parent
+	return forked
+}
+
+func (b *Blocks) NewHead(number uint64) *eth.Head {
+	parentNumber := number - 1
+	parent, ok := b.Heads[int64(parentNumber)]
+	if !ok {
+		b.t.Fatalf("Can't find parent block at index: %v", parentNumber)
+	}
+	head := &eth.Head{
+		Number:     parent.Number + 1,
+		Hash:       utils.NewHash(),
+		ParentHash: parent.Hash,
+		Parent:     parent,
+		Timestamp:  time.Unix(parent.Number+1, 0),
+	}
+	return head
 }
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	hashes := make([]common.Hash, 0)
-	heads := make(map[int64]*models.Head)
+	heads := make(map[int64]*eth.Head)
 	for i := int64(0); i < int64(numHashes); i++ {
 		hash := utils.NewHash()
 		hashes = append(hashes, hash)
 
-		heads[i] = &models.Head{Hash: hash, Number: i}
+		heads[i] = &eth.Head{Hash: hash, Number: i, Timestamp: time.Unix(i, 0)}
 		if i > 0 {
 			parent := heads[i-1]
 			heads[i].Parent = parent
@@ -2101,10 +1568,33 @@ func NewBlocks(t *testing.T, numHashes int) *Blocks {
 	}
 }
 
-type HeadTrackableFunc func(context.Context, models.Head)
+// HeadBuffer - stores heads in sequence, with increasing timestamps
+type HeadBuffer struct {
+	t     *testing.T
+	Heads []*eth.Head
+}
 
-func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
+func NewHeadBuffer(t *testing.T) *HeadBuffer {
+	return &HeadBuffer{
+		t:     t,
+		Heads: make([]*eth.Head, 0),
+	}
+}
+
+func (hb *HeadBuffer) Append(head *eth.Head) {
+	cloned := &eth.Head{
+		Number:     head.Number,
+		Hash:       head.Hash,
+		ParentHash: head.ParentHash,
+		Parent:     head.Parent,
+		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
+	}
+	hb.Heads = append(hb.Heads, cloned)
+}
+
+type HeadTrackableFunc func(context.Context, eth.Head)
+
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	fn(ctx, head)
 }
 
@@ -2146,45 +1636,46 @@ func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	require.Equal(t, expected, count)
 }
 
-func WaitForCount(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
+func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
-		err = store.DB.Model(model).Count(&count).Error
+		err = db.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
+func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = store.DB.Model(model).Count(&count).Error
+		err = db.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}, check func() bool) {
+func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
-		err := store.DB.Find(model).Error
+		err := db.Find(model).Error
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func MustSendingKeys(t *testing.T, ethKeyStore *keystore.Eth) (keys []ethkey.Key) {
-	var err error
-	keys, err = ethKeyStore.SendingKeys()
+func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
+	keys, err := ethKeyStore.SendingKeys()
 	require.NoError(t, err)
-	return keys
+	states, err := ethKeyStore.GetStatesForKeys(keys)
+	require.NoError(t, err)
+	return states
 }
 
 func MustRandomP2PPeerID(t *testing.T) p2ppeer.ID {
@@ -2200,4 +1691,22 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	uri, err := url.Parse(s)
 	require.NoError(t, err)
 	return (*models.WebURL)(uri)
+}
+
+func AssertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
+	t.Helper()
+	for i, run := range runs {
+		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+	}
+}
+
+func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
+	cfg := NewTestGeneralConfig(t)
+	return evmtest.NewChainScopedConfig(t, cfg)
+}
+
+func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey.State {
+	states, err := kst.GetStatesForKeys([]ethkey.KeyV2{key})
+	require.NoError(t, err)
+	return states[0]
 }

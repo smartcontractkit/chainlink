@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,8 +14,7 @@ import (
 func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -44,8 +44,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -76,11 +75,9 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config, cfgCleanup := cltest.NewConfig(t)
-	config.Set("CHAINLINK_DEV", false)
-	t.Cleanup(cfgCleanup)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	t.Cleanup(cleanup)
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.Dev = null.BoolFrom(false)
+	app := cltest.NewApplicationWithConfig(t, config)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -102,8 +99,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 func TestGuiAssets_AssetsExact(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -120,8 +116,7 @@ func TestGuiAssets_AssetsExact(t *testing.T) {
 func TestGuiAssets_AssetsExactCompressed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t)
-	t.Cleanup(cleanup)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}

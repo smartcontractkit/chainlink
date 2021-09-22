@@ -46,7 +46,7 @@ func (d *Delegate) JobType() job.Type {
 }
 
 func (d *Delegate) AfterJobCreated(jb job.Job) {
-	err := d.externalInitiatorManager.NotifyV2(*jb.WebhookSpecID)
+	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {
 		logger.Errorw("Webhook delegate AfterJobCreated errored",
 			"error", err,
@@ -56,7 +56,7 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 }
 
 func (d *Delegate) BeforeJobDeleted(jb job.Job) {
-	err := d.externalInitiatorManager.DeleteJobV2(*jb.WebhookSpecID)
+	err := d.externalInitiatorManager.DeleteJob(*jb.WebhookSpecID)
 	if err != nil {
 		logger.Errorw("Webhook delegate BeforeJobDeleted errored",
 			"error", err,
@@ -67,6 +67,9 @@ func (d *Delegate) BeforeJobDeleted(jb job.Job) {
 
 func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.Service, error) {
 	// TODO: we need to fill these out manually, find a better fix
+	if spec.PipelineSpec == nil {
+		spec.PipelineSpec = &pipeline.Spec{}
+	}
 	spec.PipelineSpec.JobName = spec.Name.ValueOrZero()
 	spec.PipelineSpec.JobID = spec.ID
 
@@ -140,11 +143,9 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		return 0, ErrJobNotExists
 	}
 
-	logger := logger.CreateLogger(
-		logger.Default.With(
-			"jobID", spec.ID,
-			"uuid", spec.ExternalJobID,
-		),
+	logger := logger.Default.With(
+		"jobID", spec.ID,
+		"uuid", spec.ExternalJobID,
 	)
 
 	ctx, cancel := utils.CombinedContext(ctx, spec.chRemove)
@@ -164,7 +165,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	run := pipeline.NewRun(*spec.PipelineSpec, vars)
 
-	_, err := r.runner.Run(ctx, &run, *logger, true)
+	_, err := r.runner.Run(ctx, &run, logger, true, nil)
 	if err != nil {
 		logger.Errorw("Error running pipeline for webhook job", "error", err)
 		return 0, err

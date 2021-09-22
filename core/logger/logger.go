@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"runtime"
 
-	"gorm.io/gorm"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -16,41 +14,116 @@ import (
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
-type Logger struct {
+type Logger interface {
+	// Named creates a new named logger with the given name
+	Named(name string) Logger
+	// With creates a new logger with the given arguments
+	With(args ...interface{}) Logger
+
+	// NewServiceLevelLogger builds a service level logger with a given logging level & serviceName
+	NewServiceLevelLogger(serviceName string, logLevel string) (Logger, error)
+
+	Info(args ...interface{})
+	Infof(format string, values ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
+
+	Debug(args ...interface{})
+	Debugf(format string, values ...interface{})
+	Debugw(msg string, keysAndValues ...interface{})
+
+	Warn(args ...interface{})
+	Warnf(format string, values ...interface{})
+	Warnw(msg string, keysAndValues ...interface{})
+	// WarnIf logs the error if present.
+	WarnIf(err error)
+
+	Error(args ...interface{})
+	Errorf(format string, values ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	// ErrorIf logs the error if present.
+	ErrorIf(err error, optionalMsg ...string)
+	// ErrorIfCalling calls fn and logs any returned error along with func name.
+	ErrorIfCalling(fn func() error, optionalMsg ...string)
+
+	Fatal(values ...interface{})
+	Fatalf(format string, values ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+
+	Panic(args ...interface{})
+	PanicIf(err error)
+
+	Sync() error
+
+	// withCallerSkip creates a new logger with the number of callers skipped by
+	// caller annotation increased by add. For wrappers to use internally.
+	withCallerSkip(add int) Logger
+}
+
+var _ Logger = &zapLogger{}
+
+type zapLogger struct {
 	*zap.SugaredLogger
-	Orm         ORM
-	lvl         zapcore.Level
 	dir         string
 	jsonConsole bool
 	toDisk      bool
+	fields      []interface{}
 }
 
 // Constants for service names for package specific logging configuration
-var (
+const (
 	HeadTracker = "head_tracker"
 	FluxMonitor = "fluxmonitor"
+	Keeper      = "keeper"
 )
 
 func GetLogServices() []string {
-	return []string{HeadTracker, FluxMonitor}
+	return []string{
+		HeadTracker,
+		FluxMonitor,
+		Keeper,
+	}
 }
 
-// Write logs a message at the Info level and returns the length
-// of the given bytes.
-func (l *Logger) Write(b []byte) (int, error) {
+func (l *zapLogger) Write(b []byte) (int, error) {
 	l.Info(string(b))
 	return len(b), nil
 }
 
-// WarnIf logs the error if present.
-func (l *Logger) WarnIf(err error) {
+func (l *zapLogger) With(args ...interface{}) Logger {
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.With(args...)
+	newLogger.fields = copyFields(l.fields, args...)
+	return &newLogger
+}
+
+// copyFields returns a copy of fields with add appended.
+func copyFields(fields []interface{}, add ...interface{}) []interface{} {
+	f := make([]interface{}, 0, len(fields)+len(add))
+	f = append(f, fields...)
+	f = append(f, add...)
+	return f
+}
+
+func (l *zapLogger) Named(name string) Logger {
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.Named(name).With("id", name)
+	newLogger.fields = copyFields(l.fields, "id", name)
+	return &newLogger
+}
+
+func (l *zapLogger) withCallerSkip(skip int) Logger {
+	newLogger := *l
+	newLogger.SugaredLogger = l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
+	return &newLogger
+}
+
+func (l *zapLogger) WarnIf(err error) {
 	if err != nil {
 		l.Warn(err)
 	}
 }
 
-// ErrorIf logs the error if present.
-func (l *Logger) ErrorIf(err error, optionalMsg ...string) {
+func (l *zapLogger) ErrorIf(err error, optionalMsg ...string) {
 	if err != nil {
 		if len(optionalMsg) > 0 {
 			l.Error(errors.Wrap(err, optionalMsg[0]))
@@ -60,62 +133,22 @@ func (l *Logger) ErrorIf(err error, optionalMsg ...string) {
 	}
 }
 
-// ErrorIfCalling calls the given function and logs the error of it if there is.
-func (l *Logger) ErrorIfCalling(f func() error, optionalMsg ...string) {
-	err := f()
+func (l *zapLogger) ErrorIfCalling(fn func() error, optionalMsg ...string) {
+	err := fn()
 	if err != nil {
-		e := errors.Wrap(err, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
+		e := errors.Wrap(err, fnName)
 		if len(optionalMsg) > 0 {
-			Default.Error(errors.Wrap(e, optionalMsg[0]))
+			l.Error(errors.Wrap(e, optionalMsg[0]))
 		} else {
-			Default.Error(e)
+			l.Error(e)
 		}
 	}
 }
 
-func (l *Logger) PanicIf(err error) {
+func (l *zapLogger) PanicIf(err error) {
 	if err != nil {
 		l.Panic(err)
-	}
-}
-
-func (l *Logger) SetDB(db *gorm.DB) {
-	l.Orm = NewORM(db)
-}
-
-// GetServiceLogLevels retrieves all service log levels from the db
-func (l *Logger) GetServiceLogLevels() (map[string]string, error) {
-	serviceLogLevels := make(map[string]string)
-
-	headTracker, err := l.ServiceLogLevel(HeadTracker)
-	if err != nil {
-		Fatalf("error getting service log levels: %v", err)
-	}
-
-	serviceLogLevels[HeadTracker] = headTracker
-
-	fluxMonitor, err := l.ServiceLogLevel(FluxMonitor)
-	if err != nil {
-		Fatalf("error getting service log levels: %v", err)
-	}
-
-	serviceLogLevels[FluxMonitor] = fluxMonitor
-
-	return serviceLogLevels, nil
-}
-
-// CreateLogger dwisott
-func CreateLogger(zl *zap.SugaredLogger) *Logger {
-	return &Logger{SugaredLogger: zl}
-}
-
-func CreateLoggerWithConfig(zl *zap.SugaredLogger, lvl zapcore.Level, dir string, jsonConsole bool, toDisk bool) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-		lvl:           lvl,
-		dir:           dir,
-		jsonConsole:   jsonConsole,
-		toDisk:        toDisk,
 	}
 }
 
@@ -137,18 +170,22 @@ func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool)
 // CreateProductionLogger returns a log config for the passed directory
 // with the given LogLevel and customizes stdout for pretty printing.
 func CreateProductionLogger(
-	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *Logger {
+	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) Logger {
 	config := initLogConfig(dir, jsonConsole, lvl, toDisk)
 
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		log.Fatal(err)
 	}
-	return CreateLoggerWithConfig(zl.Sugar(), lvl, dir, jsonConsole, toDisk)
+	return &zapLogger{
+		SugaredLogger: zl.Sugar(),
+		dir:           dir,
+		jsonConsole:   jsonConsole,
+		toDisk:        toDisk,
+	}
 }
 
-// InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
-func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*Logger, error) {
+func (l *zapLogger) NewServiceLevelLogger(serviceName string, logLevel string) (Logger, error) {
 	var ll zapcore.Level
 	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
 		return nil, err
@@ -161,20 +198,10 @@ func (l *Logger) InitServiceLevelLogger(serviceName string, logLevel string) (*L
 		return nil, err
 	}
 
-	return CreateLoggerWithConfig(zl.Named(serviceName).Sugar(), ll, l.dir, l.jsonConsole, l.toDisk), nil
-}
-
-// ServiceLogLevel is the log level set for a specified package
-func (l *Logger) ServiceLogLevel(serviceName string) (string, error) {
-	if l.Orm != nil {
-		level, err := l.Orm.GetServiceLogLevel(serviceName)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			Warnf("Error while trying to fetch %s service log level: %v", serviceName, err)
-		} else if err == nil {
-			return level, nil
-		}
-	}
-	return l.lvl.String(), nil
+	newLogger := *l
+	newLogger.SugaredLogger = zl.Named(serviceName).Sugar().With(l.fields...)
+	newLogger.fields = copyFields(l.fields)
+	return &newLogger, nil
 }
 
 // NewProductionConfig returns a production logging config

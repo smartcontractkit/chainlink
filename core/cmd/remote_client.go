@@ -20,39 +20,16 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
-
-// CreateServiceAgreement creates a ServiceAgreement based on JSON input
-func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "while extracting json to buffer"))
-	}
-
-	resp, err := cli.HTTP.Post("/v2/service_agreements", buf)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "from initializing service-agreement-creation request"))
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var sa presenters.ServiceAgreement
-	err = cli.renderAPIResponse(resp, &sa)
-	return err
-}
 
 // CreateExternalInitiator adds an external initiator
 func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
@@ -60,7 +37,7 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("create expects 1 - 2 arguments: a name and a url (optional)"))
 	}
 
-	var request models.ExternalInitiatorRequest
+	var request bridges.ExternalInitiatorRequest
 	request.Name = c.Args().Get(0)
 
 	// process optional URL
@@ -113,6 +90,35 @@ func (cli *Client) DeleteExternalInitiator(c *clipkg.Context) (err error) {
 	return err
 }
 
+func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
+	uri, err := url.Parse(requestURI)
+	if err != nil {
+		return err
+	}
+	q := uri.Query()
+	if page > 0 {
+		q.Set("page", strconv.Itoa(page))
+	}
+	uri.RawQuery = q.Encode()
+
+	resp, err := cli.HTTP.Get(uri.String())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
+	if err != nil {
+		return err
+	}
+	err = cli.errorOut(cli.Render(model))
+	return err
+}
+
 // ReplayFromBlock replays chain data from the given block number until the most recent
 func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 
@@ -143,165 +149,6 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 	}
 
 	err = cli.printResponseBody(resp)
-	return err
-}
-
-// ShowJobRun returns the status of the given Jobrun.
-func (cli *Client) ShowJobRun(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the RunID to show"))
-	}
-	resp, err := cli.HTTP.Get("/v2/runs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return cli.errorOut(errors.Errorf("Unexpected status code: %v", resp.Status))
-	}
-
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var job presenters.JobRun
-	err = cli.renderAPIResponse(resp, &job)
-	return err
-}
-
-// IndexJobRuns returns the list of all job runs for a specific job
-// if no jobid is passed, defaults to returning all jobruns
-func (cli *Client) IndexJobRuns(c *clipkg.Context) error {
-	jobID := c.String("jobid")
-	if jobID != "" {
-		return cli.getPage("/v2/runs?jobSpecId="+jobID, c.Int("page"), &[]presenters.JobRun{})
-	}
-	return cli.getPage("/v2/runs", c.Int("page"), &[]presenters.JobRun{})
-}
-
-// ShowJobSpec returns the status of the given JobID.
-func (cli *Client) ShowJobSpec(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be shown"))
-	}
-	resp, err := cli.HTTP.Get("/v2/specs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var job presenters.JobSpec
-	err = cli.renderAPIResponse(resp, &job)
-	return err
-}
-
-// IndexJobSpecs returns all job specs.
-func (cli *Client) IndexJobSpecs(c *clipkg.Context) error {
-	return cli.getPage("/v2/specs", c.Int("page"), &[]models.JobSpec{})
-}
-
-// CreateJobSpec creates a JobSpec based on JSON input
-func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in JSON or filepath"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/specs", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var js presenters.JobSpec
-	err = cli.renderAPIResponse(resp, &js)
-	return err
-}
-
-// ArchiveJobSpec soft deletes a job and its associated runs.
-func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be archived"))
-	}
-	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
-// CreateJobRun creates job run based on SpecID and optional JSON
-func (cli *Client) CreateJobRun(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in SpecID [JSON blob | JSON filepath]"))
-	}
-
-	buf := bytes.NewBufferString("")
-	if c.NArg() > 1 {
-		var jbuf *bytes.Buffer
-		jbuf, err = getBufferFromJSON(c.Args().Get(1))
-		if err != nil {
-			return cli.errorOut(err)
-		}
-		buf = jbuf
-	}
-
-	resp, err := cli.HTTP.Post("/v2/specs/"+c.Args().First()+"/runs", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var run presenters.JobRun
-	err = cli.renderAPIResponse(resp, &run)
-	return err
-}
-
-func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
-	uri, err := url.Parse(requestURI)
-	if err != nil {
-		return err
-	}
-	q := uri.Query()
-	if page > 0 {
-		q.Set("page", strconv.Itoa(page))
-	}
-	uri.RawQuery = q.Encode()
-
-	resp, err := cli.HTTP.Get(uri.String())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	err = cli.deserializeAPIResponse(resp, model, &jsonapi.Links{})
-	if err != nil {
-		return err
-	}
-	err = cli.errorOut(cli.Render(model))
 	return err
 }
 
@@ -339,17 +186,18 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode == http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
 		fmt.Println("Password updated.")
-	} else if resp.StatusCode == http.StatusConflict {
+	case http.StatusConflict:
 		fmt.Println("Old password did not match.")
-	} else {
+	default:
 		return cli.printResponseBody(resp)
 	}
 	return nil
 }
 
-func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
+func (cli *Client) buildSessionRequest(flag string) (sessions.SessionRequest, error) {
 	if len(flag) > 0 {
 		return cli.FileSessionRequestBuilder.Build(flag)
 	}
@@ -375,7 +223,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("your credentials may be missing, invalid or you may need to login first using the CLI via 'chainlink admin login'")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -404,26 +252,38 @@ func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, heade
 	return cli.errorOut(cli.Render(dst, headers...))
 }
 
-// SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
-func (cli *Client) SetMinimumGasPrice(c *clipkg.Context) (err error) {
+// SetEvmGasPriceDefault specifies the minimum gas price to use for outgoing transactions
+func (cli *Client) SetEvmGasPriceDefault(c *clipkg.Context) (err error) {
+	var adjustedAmount *big.Int
 	if c.NArg() != 1 {
 		return cli.errorOut(errors.New("expecting an amount"))
 	}
-
 	value := c.Args().Get(0)
 	amount, ok := new(big.Float).SetString(value)
 	if !ok {
 		return cli.errorOut(fmt.Errorf("invalid ethereum amount %s", value))
 	}
-
 	if c.IsSet("gwei") {
 		amount.Mul(amount, big.NewFloat(1000000000))
 	}
+	var chainID *big.Int
+	if c.IsSet("evmChainID") {
+		var ok bool
+		chainID, ok = new(big.Int).SetString(c.String("evmChainID"), 10)
+		if !ok {
+			return cli.errorOut(fmt.Errorf("invalid evmChainID %s", value))
+		}
+	}
+	adjustedAmount, _ = amount.Int(nil)
 
-	adjustedAmount, _ := amount.Int(nil)
 	request := struct {
-		EthGasPriceDefault string `json:"ethGasPriceDefault"`
-	}{EthGasPriceDefault: adjustedAmount.String()}
+		EvmGasPriceDefault string     `json:"ethGasPriceDefault"`
+		EvmChainID         *utils.Big `json:"evmChainID"`
+	}{
+		EvmGasPriceDefault: adjustedAmount.String(),
+		EvmChainID:         utils.NewBig(chainID),
+	}
+
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)
@@ -465,26 +325,8 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	return err
 }
 
-// CancelJobRun cancels a running job,
-// Run ID must be passed
-func (cli *Client) CancelJobRun(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))
-	}
-
-	response, err := cli.HTTP.Put(fmt.Sprintf("/v2/runs/%s/cancellation", c.Args().First()), nil)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "HTTP.Put"))
-	}
-	_, err = cli.parseResponse(response)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "cli.parseResponse"))
-	}
-	return nil
-}
-
 func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
+	return url.QueryEscape(strings.TrimSpace(password))
 }
 
 // SetLogLevel sets the log level on the node
@@ -523,9 +365,6 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	// Sets logSql to true || false based on the --enabled flag
 	logSql := c.Bool("enable")
 
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {

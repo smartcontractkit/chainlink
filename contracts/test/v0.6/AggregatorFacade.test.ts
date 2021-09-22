@@ -51,7 +51,7 @@ describe("AggregatorFacade", () => {
     await oc1.fulfillOracleRequest(...convertFufillParams(request, response));
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(facade, [
       "aggregator",
       "decimals",

@@ -17,13 +17,14 @@ func TestConfigSchema(t *testing.T) {
 		"BalanceMonitorEnabled":                      "BALANCE_MONITOR_ENABLED",
 		"BlockBackfillDepth":                         "BLOCK_BACKFILL_DEPTH",
 		"BlockBackfillSkip":                          "BLOCK_BACKFILL_SKIP",
+		"BlockEmissionIdleWarningThreshold":          "BLOCK_EMISSION_IDLE_WARNING_THRESHOLD",
 		"BlockHistoryEstimatorBatchSize":             "BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE",
 		"BlockHistoryEstimatorBlockDelay":            "BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY",
 		"BlockHistoryEstimatorBlockHistorySize":      "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE",
 		"BlockHistoryEstimatorTransactionPercentile": "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                          "BRIDGE_RESPONSE_URL",
-		"ChainID":                                    "ETH_CHAIN_ID",
 		"ClientNodeURL":                              "CLIENT_NODE_URL",
+		"ClobberNodesFromEnv":                        "CLOBBER_NODES_FROM_ENV",
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",
 		"DatabaseBackupFrequency":                    "DATABASE_BACKUP_FREQUENCY",
 		"DatabaseBackupMode":                         "DATABASE_BACKUP_MODE",
@@ -33,33 +34,13 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseMaximumTxDuration":                  "DATABASE_MAXIMUM_TX_DURATION",
 		"DatabaseTimeout":                            "DATABASE_TIMEOUT",
 		"DatabaseURL":                                "DATABASE_URL",
+		"DefaultChainID":                             "ETH_CHAIN_ID",
 		"DefaultHTTPAllowUnrestrictedNetworkAccess":  "DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS",
 		"DefaultHTTPLimit":                           "DEFAULT_HTTP_LIMIT",
 		"DefaultHTTPTimeout":                         "DEFAULT_HTTP_TIMEOUT",
 		"DefaultMaxHTTPAttempts":                     "MAX_HTTP_ATTEMPTS",
 		"Dev":                                        "CHAINLINK_DEV",
-		"EnableExperimentalAdapters":                 "ENABLE_EXPERIMENTAL_ADAPTERS",
-		"EnableLegacyJobPipeline":                    "ENABLE_LEGACY_JOB_PIPELINE",
-		"EthBalanceMonitorBlockDelay":                "ETH_BALANCE_MONITOR_BLOCK_DELAY",
-		"EthFinalityDepth":                           "ETH_FINALITY_DEPTH",
-		"EthGasBumpPercent":                          "ETH_GAS_BUMP_PERCENT",
-		"EthGasBumpThreshold":                        "ETH_GAS_BUMP_THRESHOLD",
-		"EthGasBumpTxDepth":                          "ETH_GAS_BUMP_TX_DEPTH",
-		"EthGasBumpWei":                              "ETH_GAS_BUMP_WEI",
-		"EthGasLimitDefault":                         "ETH_GAS_LIMIT_DEFAULT",
-		"EthGasLimitMultiplier":                      "ETH_GAS_LIMIT_MULTIPLIER",
-		"EthGasLimitTransfer":                        "ETH_GAS_LIMIT_TRANSFER",
-		"EthGasPriceDefault":                         "ETH_GAS_PRICE_DEFAULT",
-		"EthHeadTrackerHistoryDepth":                 "ETH_HEAD_TRACKER_HISTORY_DEPTH",
-		"EthHeadTrackerMaxBufferSize":                "ETH_HEAD_TRACKER_MAX_BUFFER_SIZE",
-		"EthHeadTrackerSamplingInterval":             "ETH_HEAD_TRACKER_SAMPLING_INTERVAL",
-		"EthLogBackfillBatchSize":                    "ETH_LOG_BACKFILL_BATCH_SIZE",
-		"EthMaxGasPriceWei":                          "ETH_MAX_GAS_PRICE_WEI",
-		"EthMaxInFlightTransactions":                 "ETH_MAX_IN_FLIGHT_TRANSACTIONS",
-		"EthMaxQueuedTransactions":                   "ETH_MAX_QUEUED_TRANSACTIONS",
-		"EthMinGasPriceWei":                          "ETH_MIN_GAS_PRICE_WEI",
-		"EthNonceAutoSync":                           "ETH_NONCE_AUTO_SYNC",
-		"EthRPCDefaultBatchSize":                     "ETH_RPC_DEFAULT_BATCH_SIZE",
+		"EVMDisabled":                                "EVM_DISABLED",
 		"EthTxReaperInterval":                        "ETH_TX_REAPER_INTERVAL",
 		"EthTxReaperThreshold":                       "ETH_TX_REAPER_THRESHOLD",
 		"EthTxResendAfterThreshold":                  "ETH_TX_RESEND_AFTER_THRESHOLD",
@@ -68,16 +49,35 @@ func TestConfigSchema(t *testing.T) {
 		"EthereumSecondaryURL":                       "ETH_SECONDARY_URL",
 		"EthereumSecondaryURLs":                      "ETH_SECONDARY_URLS",
 		"EthereumURL":                                "ETH_URL",
+		"EvmBalanceMonitorBlockDelay":                "ETH_BALANCE_MONITOR_BLOCK_DELAY",
+		"EvmDefaultBatchSize":                        "ETH_DEFAULT_BATCH_SIZE",
+		"EvmFinalityDepth":                           "ETH_FINALITY_DEPTH",
+		"EvmGasBumpPercent":                          "ETH_GAS_BUMP_PERCENT",
+		"EvmGasBumpThreshold":                        "ETH_GAS_BUMP_THRESHOLD",
+		"EvmGasBumpTxDepth":                          "ETH_GAS_BUMP_TX_DEPTH",
+		"EvmGasBumpWei":                              "ETH_GAS_BUMP_WEI",
+		"EvmGasLimitDefault":                         "ETH_GAS_LIMIT_DEFAULT",
+		"EvmGasLimitMultiplier":                      "ETH_GAS_LIMIT_MULTIPLIER",
+		"EvmGasLimitTransfer":                        "ETH_GAS_LIMIT_TRANSFER",
+		"EvmGasPriceDefault":                         "ETH_GAS_PRICE_DEFAULT",
+		"EvmHeadTrackerHistoryDepth":                 "ETH_HEAD_TRACKER_HISTORY_DEPTH",
+		"EvmHeadTrackerMaxBufferSize":                "ETH_HEAD_TRACKER_MAX_BUFFER_SIZE",
+		"EvmHeadTrackerSamplingInterval":             "ETH_HEAD_TRACKER_SAMPLING_INTERVAL",
+		"EvmLogBackfillBatchSize":                    "ETH_LOG_BACKFILL_BATCH_SIZE",
+		"EvmMaxGasPriceWei":                          "ETH_MAX_GAS_PRICE_WEI",
+		"EvmMaxInFlightTransactions":                 "ETH_MAX_IN_FLIGHT_TRANSACTIONS",
+		"EvmMaxQueuedTransactions":                   "ETH_MAX_QUEUED_TRANSACTIONS",
+		"EvmMinGasPriceWei":                          "ETH_MIN_GAS_PRICE_WEI",
+		"EvmNonceAutoSync":                           "ETH_NONCE_AUTO_SYNC",
+		"EvmRPCDefaultBatchSize":                     "ETH_RPC_DEFAULT_BATCH_SIZE",
 		"ExplorerAccessKey":                          "EXPLORER_ACCESS_KEY",
 		"ExplorerSecret":                             "EXPLORER_SECRET",
 		"ExplorerURL":                                "EXPLORER_URL",
 		"FMDefaultTransactionQueueDepth":             "FM_DEFAULT_TRANSACTION_QUEUE_DEPTH",
-		"FeatureCronV2":                              "FEATURE_CRON_V2",
 		"FeatureExternalInitiators":                  "FEATURE_EXTERNAL_INITIATORS",
-		"FeatureFluxMonitor":                         "FEATURE_FLUX_MONITOR",
-		"FeatureFluxMonitorV2":                       "FEATURE_FLUX_MONITOR_V2",
 		"FeatureOffchainReporting":                   "FEATURE_OFFCHAIN_REPORTING",
-		"FeatureWebhookV2":                           "FEATURE_WEBHOOK_V2",
+		"FeatureUICSAKeys":                           "FEATURE_UI_CSA_KEYS",
+		"FeatureUIFeedsManager":                      "FEATURE_UI_FEEDS_MANAGER",
 		"FlagsContractAddress":                       "FLAGS_CONTRACT_ADDRESS",
 		"GasEstimatorMode":                           "GAS_ESTIMATOR_MODE",
 		"GasUpdaterBatchSize":                        "GAS_UPDATER_BATCH_SIZE",
@@ -95,6 +95,7 @@ func TestConfigSchema(t *testing.T) {
 		"JobPipelineReaperThreshold":                 "JOB_PIPELINE_REAPER_THRESHOLD",
 		"JobPipelineResultWriteQueueDepth":           "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",
 		"KeeperDefaultTransactionQueueDepth":         "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
+		"KeeperGasPriceBufferPercent":                "KEEPER_GAS_PRICE_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                   "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperMinimumRequiredConfirmations":         "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
 		"KeeperRegistryCheckGasOverhead":             "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
@@ -110,7 +111,6 @@ func TestConfigSchema(t *testing.T) {
 		"MinIncomingConfirmations":                   "MIN_INCOMING_CONFIRMATIONS",
 		"MinRequiredOutgoingConfirmations":           "MIN_OUTGOING_CONFIRMATIONS",
 		"MinimumContractPayment":                     "MINIMUM_CONTRACT_PAYMENT_LINK_JUELS",
-		"MinimumRequestExpiration":                   "MINIMUM_REQUEST_EXPIRATION",
 		"MinimumServiceDuration":                     "MINIMUM_SERVICE_DURATION",
 		"OCRBlockchainTimeout":                       "OCR_BLOCKCHAIN_TIMEOUT",
 		"OCRBootstrapCheckInterval":                  "OCR_BOOTSTRAP_CHECK_INTERVAL",
@@ -132,7 +132,6 @@ func TestConfigSchema(t *testing.T) {
 		"OCRTransmitterAddress":                      "OCR_TRANSMITTER_ADDRESS",
 		"ORMMaxIdleConns":                            "ORM_MAX_IDLE_CONNS",
 		"ORMMaxOpenConns":                            "ORM_MAX_OPEN_CONNS",
-		"OperatorContractAddress":                    "OPERATOR_CONTRACT_ADDRESS",
 		"OptimismGasFees":                            "OPTIMISM_GAS_FEES",
 		"P2PAnnounceIP":                              "P2P_ANNOUNCE_IP",
 		"P2PAnnouncePort":                            "P2P_ANNOUNCE_PORT",
@@ -156,6 +155,9 @@ func TestConfigSchema(t *testing.T) {
 		"SecureCookies":                              "SECURE_COOKIES",
 		"SessionTimeout":                             "SESSION_TIMEOUT",
 		"StatsPusherLogging":                         "STATS_PUSHER_LOGGING",
+		"TelemetryIngressLogging":                    "TELEMETRY_INGRESS_LOGGING",
+		"TelemetryIngressServerPubKey":               "TELEMETRY_INGRESS_SERVER_PUB_KEY",
+		"TelemetryIngressURL":                        "TELEMETRY_INGRESS_URL",
 		"TLSCertPath":                                "TLS_CERT_PATH",
 		"TLSHost":                                    "CHAINLINK_TLS_HOST",
 		"TLSKeyPath":                                 "TLS_KEY_PATH",
@@ -181,15 +183,19 @@ func TestConfigSchema(t *testing.T) {
 		// ╰───╯
 
 		msg := utils.BoxOutput(`New configuration variable detected: '%s'. Please take the following steps:
-0. Make sure that the method in config.go has a comment explaining in detail
+0. Are you SURE that this config variable ought to apply to ALL chains? If this
+   needs to be a chain-specific variable, you should follow the pattern of making
+   it a Global and using the chain-specific overridable version in the chain
+   scoped config instead.
+1. Make sure that the method in config.go has a comment explaining in detail
    what the new config var does
-1. Update the Changelog
-2. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
+2. Update the Changelog
+3. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
    think this variable needs to be shown in the UI
-3. Make a PR into the documentation page if node operators might need to use
-   this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%20Operators/configuration-variables.md).
+4. Make a PR into the documentation page if node operators might need to use
+   this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%%20Operators/configuration-variables.md).
    Don't forget to update TOC.
-4. Add your new config variable to this test`, field.Name)
+5. Add your new config variable to this test`, field.Name)
 		assert.True(t, found, msg)
 		env := field.Tag.Get("env")
 		assert.Equal(t, item, env)

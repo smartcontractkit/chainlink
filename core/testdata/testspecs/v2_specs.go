@@ -8,14 +8,6 @@ import (
 )
 
 var (
-	KeeperSpec = `
-type            = "keeper"
-schemaVersion   = 1
-name            = "example keeper spec"
-contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
-`
 	CronSpec = `
 type                = "cron"
 schemaVersion       = 1
@@ -88,6 +80,63 @@ answer1 [type=median index=0];
 `
 )
 
+type KeeperSpecParams struct {
+	ContractAddress string
+	FromAddress     string
+	EvmChainID      int
+}
+
+type KeeperSpec struct {
+	KeeperSpecParams
+	toml string
+}
+
+func (os KeeperSpec) Toml() string {
+	return os.toml
+}
+
+func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
+	template := `
+type            = "keeper"
+schemaVersion   = 2
+name            = "example keeper spec"
+contractAddress = "%s"
+fromAddress     = "%s"
+evmChainID      = %d
+externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
+
+
+observationSource = """
+encode_check_upkeep_tx   [type=ethabiencode
+                          abi="checkUpkeep(uint256 id, address from)"
+                          data="{\\"id\\":$(jobSpec.upkeepID),\\"from\\":$(jobSpec.fromAddress)}"]
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          data="$(encode_check_upkeep_tx)"]
+decode_check_upkeep_tx   [type=ethabidecode
+                          abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]
+encode_perform_upkeep_tx [type=ethabiencode
+                          abi="performUpkeep(uint256 id, bytes calldata performData)"
+                          data="{\\"id\\": $(jobSpec.upkeepID),\\"performData\\":$(decode_check_upkeep_tx.performData)}"]
+perform_upkeep_tx        [type=ethtx
+                          minConfirmations=0
+                          to="$(jobSpec.contractAddress)"
+                          data="$(encode_perform_upkeep_tx)"
+                          gasLimit="$(jobSpec.performUpkeepGasLimit)"
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID)}"]
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
+"""
+`
+	return KeeperSpec{
+		KeeperSpecParams: params,
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID),
+	}
+}
+
 type VRFSpecParams struct {
 	JobID              string
 	Name               string
@@ -95,6 +144,7 @@ type VRFSpecParams struct {
 	Confirmations      int
 	PublicKey          string
 	ObservationSource  string
+	V2                 bool
 }
 
 type VRFSpec struct {
@@ -132,20 +182,46 @@ decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
-vrf          [type=vrf 
-              publicKey="$(jobSpec.publicKey)" 
-              requestBlockHash="$(jobRun.logBlockHash)" 
+vrf          [type=vrf
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
               requestBlockNumber="$(jobRun.logBlockNumber)"
               topics="$(jobRun.logTopics)"]
 encode_tx    [type=ethabiencode
               abi="fulfillRandomnessRequest(bytes proof)"
-              data=<{"proof": $(vrf)}>]
-
-submit_tx  [type=ethtx to="%s" 
-			data="$(encode_tx)" 
+              data="{\\"proof\\": $(vrf)}"]
+submit_tx  [type=ethtx to="%s"
+            data="$(encode_tx)"
+            minConfirmations="0"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx
 `, coordinatorAddress)
+	if params.V2 {
+		//encode_tx    [type=ethabiencode
+		//abi="fulfillRandomWords(bytes proof, bytes requestCommitment)"
+		//data=<{"proof": $(vrf.proof), "requestCommitment": $(vrf.requestCommitment)}>]
+		observationSource = fmt.Sprintf(`
+decode_log   [type=ethabidecodelog
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              data="$(jobRun.logData)"
+              topics="$(jobRun.logTopics)"]
+vrf          [type=vrfv2
+              publicKey="$(jobSpec.publicKey)"
+              requestBlockHash="$(jobRun.logBlockHash)"
+              requestBlockNumber="$(jobRun.logBlockNumber)"
+              topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+              to="%s"
+              multiplier="1"
+              data="$(vrf.output)"]
+submit_tx  [type=ethtx to="%s"
+            data="$(vrf.output)"
+            gasLimit="$(estimate_gas)"
+            minConfirmations="0"
+            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
+decode_log->vrf->estimate_gas->submit_tx
+`, coordinatorAddress, coordinatorAddress)
+	}
 	if params.ObservationSource != "" {
 		publicKey = params.ObservationSource
 	}
@@ -155,7 +231,7 @@ type = "vrf"
 schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
-confirmations = %d 
+confirmations = %d
 publicKey = "%s"
 observationSource = """
 %s
@@ -204,13 +280,13 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 externalJobID     =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
 isBootstrapPeer    = false
-keyBundleID        = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+keyBundleID        = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "%s"
 observationTimeout = "10s"

@@ -17,6 +17,7 @@ type FeedsManagerResource struct {
 	JobTypes               []string         `json:"jobTypes"`
 	IsBootstrapPeer        bool             `json:"isBootstrapPeer"`
 	BootstrapPeerMultiaddr null.String      `json:"bootstrapPeerMultiaddr"`
+	IsConnectionActive     bool             `json:"isConnectionActive"`
 	CreatedAt              time.Time        `json:"createdAt"`
 }
 
@@ -35,6 +36,7 @@ func NewFeedsManagerResource(ms feeds.FeedsManager) *FeedsManagerResource {
 		JobTypes:               ms.JobTypes,
 		IsBootstrapPeer:        ms.IsOCRBootstrapPeer,
 		BootstrapPeerMultiaddr: ms.OCRBootstrapPeerMultiaddr,
+		IsConnectionActive:     ms.IsConnectionActive,
 		CreatedAt:              ms.CreatedAt,
 	}
 }

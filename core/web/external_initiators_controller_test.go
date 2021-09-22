@@ -2,13 +2,15 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -16,15 +18,57 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateExternalInitiator(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	orm := bridges.NewORM(db)
+
+	url := cltest.WebURL(t, "https://a.web.url")
+
+	//  Add duplicate
+	exi := bridges.ExternalInitiator{
+		Name: "duplicate",
+		URL:  &url,
+	}
+
+	assert.NoError(t, orm.CreateExternalInitiator(&exi))
+
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+	}{
+		{"basic", `{"name":"bitcoin","url":"https://test.url"}`, false},
+		{"basic w/ underscore", `{"name":"bit_coin","url":"https://test.url"}`, false},
+		{"basic w/ underscore in url", `{"name":"bitcoin","url":"https://chainlink_bit-coin_1.url"}`, false},
+		{"missing url", `{"name":"missing_url"}`, false},
+		{"duplicate name", `{"name":"duplicate","url":"https://test.url"}`, true},
+		{"invalid name characters", `{"name":"<invalid>","url":"https://test.url"}`, true},
+		{"missing name", `{"url":"https://test.url"}`, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var exr bridges.ExternalInitiatorRequest
+
+			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
+			result := web.ValidateExternalInitiator(&exr, orm)
+
+			cltest.AssertError(t, test.wantError, result)
+		})
+	}
+}
+
 func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
 
-	db := app.GetStore().DB
+	db := app.GetDB()
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",
@@ -81,12 +125,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -111,12 +150,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -141,12 +175,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -161,18 +190,13 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	exi := models.ExternalInitiator{
+	exi := bridges.ExternalInitiator{
 		Name: "abracadabra",
 	}
-	err := app.GetStore().CreateExternalInitiator(&exi)
+	err := app.BridgeORM().CreateExternalInitiator(&exi)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()
@@ -185,12 +209,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

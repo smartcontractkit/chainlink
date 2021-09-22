@@ -8,11 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -24,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"gorm.io/gorm"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -63,7 +59,7 @@ type (
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
 		blockTranslator  BlockTranslator
-		chain            *chains.Chain
+		chain            Chain
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -105,7 +101,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
-	chain *chains.Chain,
+	chain Chain,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -156,7 +152,7 @@ func (t *OCRContractTracker) Start() error {
 			NumConfirmations: 1,
 		})
 
-		var latestHead *models.Head
+		var latestHead *eth.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
 			t.setLatestBlockHeight(*latestHead)
@@ -180,15 +176,12 @@ func (t *OCRContractTracker) Close() error {
 	})
 }
 
-// Connect conforms to HeadTrackable
-func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
-
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h models.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h eth.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h models.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h eth.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
@@ -322,19 +315,9 @@ func IsLaterThan(incoming gethTypes.Log, existing gethTypes.Log) bool {
 		(incoming.BlockNumber == existing.BlockNumber && incoming.TxIndex == existing.TxIndex && incoming.Index > existing.Index)
 }
 
-// IsV2Job complies with LogListener interface
-func (t *OCRContractTracker) IsV2Job() bool {
-	return true
-}
-
-// JobIDV2 complies with LogListener interface
-func (t *OCRContractTracker) JobIDV2() int32 {
-	return t.jobID
-}
-
 // JobID complies with LogListener interface
-func (t *OCRContractTracker) JobID() models.JobID {
-	return models.NilJobID
+func (t *OCRContractTracker) JobID() int32 {
+	return t.jobID
 }
 
 // SubscribeToNewConfigs returns the tracker aliased as a ContractConfigSubscription

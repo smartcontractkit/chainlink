@@ -7,12 +7,11 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //
@@ -29,7 +28,6 @@ type BridgeTask struct {
 
 	db     *gorm.DB
 	config Config
-	id     uuid.UUID
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -91,7 +89,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 	if t.Async == "true" {
 		responseURL := t.config.BridgeResponseURL()
 		if *responseURL != *zeroURL {
-			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.id.String())
+			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
 		requestData["responseURL"] = responseURL.String()
 	}
@@ -146,7 +144,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) Result
 }
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
-	var bt models.BridgeType
+	var bt bridges.BridgeType
 	err := t.db.First(&bt, "name = ?", string(name)).Error
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)

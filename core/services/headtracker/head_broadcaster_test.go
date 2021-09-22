@@ -6,8 +6,9 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,18 +18,18 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	logger := store.Config.CreateProductionLogger()
+	cfg := cltest.NewTestGeneralConfig(t)
+	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
+	store := cltest.NewStoreWithConfig(t, cfg)
+	logger := cfg.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
-	ethClient := new(mocks.Client)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	chchHeaders := make(chan chan<- *models.Head, 1)
-	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+	chchHeaders := make(chan chan<- *eth.Head, 1)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			chchHeaders <- args.Get(1).(chan<- *models.Head)
+			chchHeaders <- args.Get(1).(chan<- *eth.Head)
 		}).
 		Return(sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
@@ -39,9 +40,9 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hr := headtracker.NewHeadBroadcaster()
-	orm := headtracker.NewORM(store.DB)
-	ht := headtracker.NewHeadTracker(logger, ethClient, store.Config, orm, hr, cltest.NeverSleeper{})
+	hr := headtracker.NewHeadBroadcaster(logger)
+	orm := headtracker.NewORM(store.DB, *ethClient.ChainID())
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())
@@ -49,10 +50,10 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	latest1, unsubscribe1 := hr.Subscribe(checker1)
 	// "latest head" is nil here because we didn't receive any yet
-	assert.Equal(t, (*models.Head)(nil), latest1)
+	assert.Equal(t, (*eth.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := models.Head{Number: 1}
+	h := eth.Head{Number: 1}
 	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
@@ -63,7 +64,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &models.Head{Number: 2}
+	headers <- &eth.Head{Number: 2}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())

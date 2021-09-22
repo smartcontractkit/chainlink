@@ -30,20 +30,34 @@ func (_m *ORM) ApproveJobProposal(ctx context.Context, id int64, externalJobID u
 	return r0
 }
 
-// CountJobProposals provides a mock function with given fields:
-func (_m *ORM) CountJobProposals() (int64, error) {
-	ret := _m.Called()
+// CancelJobProposal provides a mock function with given fields: ctx, id
+func (_m *ORM) CancelJobProposal(ctx context.Context, id int64) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// CountJobProposals provides a mock function with given fields: ctx
+func (_m *ORM) CountJobProposals(ctx context.Context) (int64, error) {
+	ret := _m.Called(ctx)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -51,20 +65,20 @@ func (_m *ORM) CountJobProposals() (int64, error) {
 	return r0, r1
 }
 
-// CountManagers provides a mock function with given fields:
-func (_m *ORM) CountManagers() (int64, error) {
-	ret := _m.Called()
+// CountManagers provides a mock function with given fields: ctx
+func (_m *ORM) CountManagers(ctx context.Context) (int64, error) {
+	ret := _m.Called(ctx)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func() int64); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -137,6 +151,29 @@ func (_m *ORM) GetJobProposal(ctx context.Context, id int64) (*feeds.JobProposal
 	return r0, r1
 }
 
+// GetJobProposalByRemoteUUID provides a mock function with given fields: ctx, _a1
+func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*feeds.JobProposal, error) {
+	ret := _m.Called(ctx, _a1)
+
+	var r0 *feeds.JobProposal
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *feeds.JobProposal); ok {
+		r0 = rf(ctx, _a1)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = rf(ctx, _a1)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetManager provides a mock function with given fields: ctx, id
 func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(ctx, id)
@@ -153,6 +190,27 @@ func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, e
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsJobManaged provides a mock function with given fields: ctx, jobID
+func (_m *ORM) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
+	ret := _m.Called(ctx, jobID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, int64) bool); ok {
+		r0 = rf(ctx, jobID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, jobID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -232,4 +290,39 @@ func (_m *ORM) UpdateJobProposalStatus(ctx context.Context, id int64, status fee
 	}
 
 	return r0
+}
+
+// UpdateManager provides a mock function with given fields: ctx, mgr
+func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
+	ret := _m.Called(ctx, mgr)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+		r0 = rf(ctx, mgr)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpsertJobProposal provides a mock function with given fields: ctx, jp
+func (_m *ORM) UpsertJobProposal(ctx context.Context, jp *feeds.JobProposal) (int64, error) {
+	ret := _m.Called(ctx, jp)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, *feeds.JobProposal) int64); ok {
+		r0 = rf(ctx, jp)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, *feeds.JobProposal) error); ok {
+		r1 = rf(ctx, jp)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }

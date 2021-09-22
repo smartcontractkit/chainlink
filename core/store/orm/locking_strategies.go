@@ -3,7 +3,6 @@ package orm
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/url"
 	"sync"
 	"time"
@@ -17,15 +16,15 @@ import (
 	"go.uber.org/multierr"
 )
 
+var (
+	// ErrNoAdvisoryLock is returned when an advisory lock can't be acquired.
+	ErrNoAdvisoryLock = errors.New("can't acquire advisory lock")
+)
+
 // NewLockingStrategy returns the locking strategy for a particular dialect
 // to ensure exlusive access to the orm.
 func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
-	switch ct.name {
-	case dialects.Postgres, dialects.PostgresWithoutLock, dialects.TransactionWrappedPostgres:
-		return NewPostgresLockingStrategy(ct)
-	}
-
-	return nil, fmt.Errorf("unable to create locking strategy for dialect %s and path %s", ct.dialect, ct.uri)
+	return NewPostgresLockingStrategy(ct)
 }
 
 // LockingStrategy employs the locking and unlocking of an underlying
@@ -87,7 +86,7 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.config.locking {
-		err := s.waitForLock(ctx)
+		err := s.waitForLock(ctx, timeout)
 		if err != nil {
 			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)
 		}
@@ -95,23 +94,15 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	return nil
 }
 
-func (s *PostgresLockingStrategy) waitForLock(ctx context.Context) error {
+func (s *PostgresLockingStrategy) waitForLock(ctx context.Context, timeout models.Duration) error {
 	ticker := time.NewTicker(s.config.lockRetryInterval)
 	defer ticker.Stop()
 	retryCount := 0
 	for {
-		rows, err := s.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID)
+
+		// the individual query also should stay reasonably within the timeout
+		gotLock, err := s.tryAdvisoryLock(timeout)
 		if err != nil {
-			return err
-		}
-		var gotLock bool
-		for rows.Next() {
-			err := rows.Scan(&gotLock)
-			if err != nil {
-				return multierr.Combine(err, rows.Close())
-			}
-		}
-		if err := rows.Close(); err != nil {
 			return err
 		}
 		if gotLock {
@@ -129,6 +120,20 @@ func (s *PostgresLockingStrategy) waitForLock(ctx context.Context) error {
 	}
 }
 
+func (s *PostgresLockingStrategy) tryAdvisoryLock(timeout models.Duration) (bool, error) {
+	ctx := context.Background()
+	if !timeout.IsInstant() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout.Duration())
+		defer cancel()
+	}
+	var gotLock bool
+	if err := s.conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID).Scan(&gotLock); err != nil {
+		return false, err
+	}
+	return gotLock, nil
+}
+
 // logRetry logs messages at
 // 1
 // 2
@@ -143,6 +148,13 @@ func logRetry(count int) {
 	} else if count%1000 == 0 || count&(count-1) == 0 {
 		logger.Infow("Still waiting for lock...", "failCount", count)
 	}
+}
+
+func displayTimeout(timeout models.Duration) string {
+	if timeout.IsInstant() {
+		return "indefinite"
+	}
+	return timeout.String()
 }
 
 // Unlock unlocks the locked postgres advisory lock.

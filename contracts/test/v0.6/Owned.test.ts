@@ -26,7 +26,7 @@ describe("Owned", () => {
     owned = await ownedFactory.connect(owner).deploy();
   });
 
-  it("has a limited public interface", async () => {
+  it("has a limited public interface [ @skip-coverage ]", async () => {
     publicAbi(owned, ["acceptOwnership", "owner", "transferOwnership"]);
   });
 

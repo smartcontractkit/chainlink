@@ -122,3 +122,17 @@ func (_m *Spawner) Start() error {
 
 	return r0
 }
+
+// StartService provides a mock function with given fields: spec
+func (_m *Spawner) StartService(spec job.Job) error {
+	ret := _m.Called(spec)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(job.Job) error); ok {
+		r0 = rf(spec)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}

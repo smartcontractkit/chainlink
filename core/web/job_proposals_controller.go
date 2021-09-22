@@ -3,10 +3,12 @@ package web
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -135,13 +137,57 @@ func (jpc *JobProposalsController) Reject(c *gin.Context) {
 	)
 }
 
+// Cancel cancels a job proposal and deletes its associated running job.
+// Example:
+// "POST <application>/job_proposals/<id>/cancel"
+func (jpc *JobProposalsController) Cancel(c *gin.Context) {
+	logger.Debug("Cancelling Job Proposal")
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 32)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	feedsSvc := jpc.App.GetFeedsService()
+
+	err = feedsSvc.CancelJobProposal(c.Request.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			jsonAPIError(c, http.StatusNotFound, errors.New("job proposal not found"))
+			return
+		}
+
+		fmt.Println(err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jp, err := feedsSvc.GetJobProposal(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			jsonAPIError(c, http.StatusNotFound, errors.New("job proposal not found"))
+			return
+		}
+
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c,
+		presenters.NewJobProposalResource(*jp),
+		"job_proposals",
+		http.StatusOK,
+	)
+}
+
 type UpdateSpecRequest struct {
 	Spec string `json:"spec"`
 }
 
 // UpdateSpec updates the spec of a job proposal
 // Example:
-// "POST <application>/job_proposals/<id>/reject"
+// "PATCH <application>/job_proposals/<id>/spec"
 func (jpc *JobProposalsController) UpdateSpec(c *gin.Context) {
 	request := UpdateSpecRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {

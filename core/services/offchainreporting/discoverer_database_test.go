@@ -4,25 +4,23 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_DiscovererDatabase(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewSqlDB(t)
 
-	db := store.DB
-	require.NoError(t, db.Exec(`SET CONSTRAINTS offchainreporting_discoverer_announcements_local_peer_id_fkey DEFERRED`).Error)
-
-	sqlDB := store.MustSQLDB()
+	_, err := db.Exec(`SET CONSTRAINTS offchainreporting_discoverer_announcements_local_peer_id_fkey DEFERRED`)
+	require.NoError(t, err)
 
 	localPeerID1 := cltest.MustRandomP2PPeerID(t)
 	localPeerID2 := cltest.MustRandomP2PPeerID(t)
 
-	dd1 := offchainreporting.NewDiscovererDatabase(sqlDB, localPeerID1)
-	dd2 := offchainreporting.NewDiscovererDatabase(sqlDB, localPeerID2)
+	dd1 := offchainreporting.NewDiscovererDatabase(db, localPeerID1)
+	dd2 := offchainreporting.NewDiscovererDatabase(db, localPeerID2)
 
 	t.Run("StoreAnnouncement writes a value", func(t *testing.T) {
 		ann := []byte{1, 2, 3}
@@ -72,7 +70,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 
 	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := offchainreporting.NewDiscovererDatabase(sqlDB, localPeerID1)
+		dd3 := offchainreporting.NewDiscovererDatabase(db, localPeerID1)
 
 		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
 		require.NoError(t, err)

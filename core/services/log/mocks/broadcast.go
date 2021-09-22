@@ -3,8 +3,10 @@
 package mocks
 
 import (
+	big "math/big"
+
 	common "github.com/ethereum/go-ethereum/common"
-	log "github.com/smartcontractkit/chainlink/core/services/log"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -31,15 +33,29 @@ func (_m *Broadcast) DecodedLog() interface{} {
 	return r0
 }
 
-// JobID provides a mock function with given fields:
-func (_m *Broadcast) JobID() log.JobIdSelect {
+// EVMChainID provides a mock function with given fields:
+func (_m *Broadcast) EVMChainID() big.Int {
 	ret := _m.Called()
 
-	var r0 log.JobIdSelect
-	if rf, ok := ret.Get(0).(func() log.JobIdSelect); ok {
+	var r0 big.Int
+	if rf, ok := ret.Get(0).(func() big.Int); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(log.JobIdSelect)
+		r0 = ret.Get(0).(big.Int)
+	}
+
+	return r0
+}
+
+// JobID provides a mock function with given fields:
+func (_m *Broadcast) JobID() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
 	}
 
 	return r0

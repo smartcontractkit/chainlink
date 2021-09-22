@@ -75,13 +75,13 @@ func (_m *Config) FeatureOffchainReporting() bool {
 	return r0
 }
 
-// OCRBlockchainTimeout provides a mock function with given fields: override
-func (_m *Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
-	ret := _m.Called(override)
+// OCRBlockchainTimeout provides a mock function with given fields:
+func (_m *Config) OCRBlockchainTimeout() time.Duration {
+	ret := _m.Called()
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func(time.Duration) time.Duration); ok {
-		r0 = rf(override)
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -89,13 +89,13 @@ func (_m *Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
 	return r0
 }
 
-// OCRContractConfirmations provides a mock function with given fields: override
-func (_m *Config) OCRContractConfirmations(override uint16) uint16 {
-	ret := _m.Called(override)
+// OCRContractConfirmations provides a mock function with given fields:
+func (_m *Config) OCRContractConfirmations() uint16 {
+	ret := _m.Called()
 
 	var r0 uint16
-	if rf, ok := ret.Get(0).(func(uint16) uint16); ok {
-		r0 = rf(override)
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
 	}
@@ -103,13 +103,13 @@ func (_m *Config) OCRContractConfirmations(override uint16) uint16 {
 	return r0
 }
 
-// OCRContractPollInterval provides a mock function with given fields: override
-func (_m *Config) OCRContractPollInterval(override time.Duration) time.Duration {
-	ret := _m.Called(override)
+// OCRContractPollInterval provides a mock function with given fields:
+func (_m *Config) OCRContractPollInterval() time.Duration {
+	ret := _m.Called()
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func(time.Duration) time.Duration); ok {
-		r0 = rf(override)
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -117,13 +117,13 @@ func (_m *Config) OCRContractPollInterval(override time.Duration) time.Duration 
 	return r0
 }
 
-// OCRContractSubscribeInterval provides a mock function with given fields: override
-func (_m *Config) OCRContractSubscribeInterval(override time.Duration) time.Duration {
-	ret := _m.Called(override)
+// OCRContractSubscribeInterval provides a mock function with given fields:
+func (_m *Config) OCRContractSubscribeInterval() time.Duration {
+	ret := _m.Called()
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func(time.Duration) time.Duration); ok {
-		r0 = rf(override)
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}
@@ -173,13 +173,13 @@ func (_m *Config) OCRObservationGracePeriod() time.Duration {
 	return r0
 }
 
-// OCRObservationTimeout provides a mock function with given fields: override
-func (_m *Config) OCRObservationTimeout(override time.Duration) time.Duration {
-	ret := _m.Called(override)
+// OCRObservationTimeout provides a mock function with given fields:
+func (_m *Config) OCRObservationTimeout() time.Duration {
+	ret := _m.Called()
 
 	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func(time.Duration) time.Duration); ok {
-		r0 = rf(override)
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
 	}

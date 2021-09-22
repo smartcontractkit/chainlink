@@ -37,7 +37,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	gormDB, sqlDB := setupDB(t)
 
 	configDigest := cltest.MakeConfigDigest(t)
-	key := cltest.MustInsertRandomKey(t, gormDB)
+	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
@@ -123,7 +124,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	key := cltest.MustInsertRandomKey(t, gormDB)
+	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
 	transmitterAddress := key.Address.Address()
 
@@ -193,8 +195,8 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 
 func Test_DB_PendingTransmissions(t *testing.T) {
 	gormDB, sqlDB := setupDB(t)
-
-	key := cltest.MustInsertRandomKey(t, gormDB)
+	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
 	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)

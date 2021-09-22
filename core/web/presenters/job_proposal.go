@@ -14,6 +14,8 @@ type JobProposalResource struct {
 	Status         feeds.JobProposalStatus `json:"status"`
 	ExternalJobID  *string                 `json:"external_job_id"`
 	FeedsManagerID string                  `json:"feeds_manager_id"`
+	Multiaddrs     []string                `json:"multiaddrs"`
+	ProposedAt     time.Time               `json:"proposedAt"`
 	CreatedAt      time.Time               `json:"createdAt"`
 }
 
@@ -22,13 +24,15 @@ func (r JobProposalResource) GetName() string {
 	return "job_proposals"
 }
 
-// JobProposalResource constructs a new JobProposalResource.
+// NewJobProposalResource constructs a new JobProposalResource.
 func NewJobProposalResource(jp feeds.JobProposal) *JobProposalResource {
 	res := &JobProposalResource{
 		JAID:           NewJAIDInt64(jp.ID),
 		Status:         jp.Status,
 		Spec:           jp.Spec,
 		FeedsManagerID: strconv.FormatInt(jp.FeedsManagerID, 10),
+		Multiaddrs:     jp.Multiaddrs,
+		ProposedAt:     jp.ProposedAt,
 		CreatedAt:      jp.CreatedAt,
 	}
 

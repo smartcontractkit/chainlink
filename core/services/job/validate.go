@@ -20,7 +20,7 @@ var (
 	}
 )
 
-// Common spec validation
+// ValidateSpec is the common spec validation
 func ValidateSpec(ts string) (Type, error) {
 	var jb Job
 	// Note we can't use:
@@ -45,13 +45,13 @@ func ValidateSpec(ts string) (Type, error) {
 	if _, ok := jobTypes[jb.Type]; !ok {
 		return "", ErrInvalidJobType
 	}
-	if jb.SchemaVersion != 1 {
+	if jb.Type.SchemaVersion() != jb.SchemaVersion {
 		return "", ErrInvalidSchemaVersion
 	}
 	if jb.Type.RequiresPipelineSpec() && (jb.Pipeline.Source == "") {
 		return "", ErrNoPipelineSpec
 	}
-	if jb.Pipeline.HasAsync() && !jb.Type.SupportsAsync() {
+	if jb.Pipeline.RequiresPreInsert() && !jb.Type.SupportsAsync() {
 		return "", errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
 	return jb.Type, nil

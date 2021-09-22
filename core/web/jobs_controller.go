@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // JobsController manages jobs
@@ -58,7 +58,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	}
 
 	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
 	}
@@ -88,14 +88,14 @@ func (jc *JobsController) Create(c *gin.Context) {
 
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
 	}
 
 	var jb job.Job
-	config := jc.App.GetStore().Config
+	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
@@ -103,7 +103,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetConfig(), request.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
@@ -137,20 +137,23 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
+	j := job.Job{}
+	err := j.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	err = jc.App.DeleteJobV2(c.Request.Context(), jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	// Delete the job
+	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+
 		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+
 		return
 	}
 

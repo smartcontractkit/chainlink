@@ -4,11 +4,16 @@ package proof
 // block in which a VRF request appeared
 
 import (
+	"math/big"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+
+	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -20,14 +25,15 @@ type ProofResponse struct {
 	// as in FinalSeed.
 	P        vrfkey.Proof
 	PreSeed  Seed   // Seed received during VRF request
-	BlockNum uint64 // Height of the block in which tihs request was made
+	BlockNum uint64 // Height of the block in which this request was made
 }
 
 // OnChainResponseLength is the length of the MarshaledOnChainResponse. The
 // extra 32 bytes are for blocknumber (as a uint256), which goes at the end. The
 // seed is rewritten with the preSeed. (See MarshalForVRFCoordinator and
 // ProofResponse#ActualProof.)
-const OnChainResponseLength = ProofLength + 32
+const OnChainResponseLength = ProofLength +
+	32 // blocknum
 
 // MarshaledOnChainResponse is the flat bytes which are sent back to the
 // VRFCoordinator.
@@ -96,12 +102,55 @@ func GenerateProofResponseFromProof(proof vrfkey.Proof, s PreSeedData) (Marshale
 	return rv, nil
 }
 
-func GenerateProofResponse(keystore *keystore.VRF, key secp256k1.PublicKey, s PreSeedData) (
+func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
+	var proof vrf_coordinator_v2.VRFProof
+	var rc vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment
+	solidityProof, err := SolidityPrecalculations(&p)
+	if err != nil {
+		return proof, rc, errors.Wrap(err,
+			"while marshaling proof for VRFCoordinatorV2")
+	}
+	solidityProof.P.Seed = common.BytesToHash(s.PreSeed[:]).Big()
+	x, y := secp256k1.Coordinates(solidityProof.P.PublicKey)
+	gx, gy := secp256k1.Coordinates(solidityProof.P.Gamma)
+	cgx, cgy := secp256k1.Coordinates(solidityProof.CGammaWitness)
+	shx, shy := secp256k1.Coordinates(solidityProof.SHashWitness)
+	return vrf_coordinator_v2.VRFProof{
+			Pk:            [2]*big.Int{x, y},
+			Gamma:         [2]*big.Int{gx, gy},
+			C:             solidityProof.P.C,
+			S:             solidityProof.P.S,
+			Seed:          common.BytesToHash(s.PreSeed[:]).Big(),
+			UWitness:      solidityProof.UWitness,
+			CGammaWitness: [2]*big.Int{cgx, cgy},
+			SHashWitness:  [2]*big.Int{shx, shy},
+			ZInv:          solidityProof.ZInv,
+		}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
+			BlockNum:         s.BlockNum,
+			SubId:            s.SubId,
+			CallbackGasLimit: s.CallbackGasLimit,
+			NumWords:         s.NumWords,
+			Sender:           s.Sender,
+		}, nil
+}
+
+func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 	MarshaledOnChainResponse, error) {
 	seed := FinalSeed(s)
-	proof, err := keystore.GenerateProof(key, seed)
+	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
 		return MarshaledOnChainResponse{}, err
 	}
 	return GenerateProofResponseFromProof(proof, s)
+}
+
+func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
+	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seed := utils.MustHash(string(seedHashMsg)).Big()
+	proof, err := keystore.GenerateProof(id, seed)
+	if err != nil {
+		return vrf_coordinator_v2.VRFProof{}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{}, err
+	}
+	return GenerateProofResponseFromProofV2(proof, s)
 }

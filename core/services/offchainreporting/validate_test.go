@@ -2,21 +2,24 @@ package offchainreporting
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
-		name       string
-		toml       string
-		setGlobals func(t *testing.T, c *config.Config)
-		assertion  func(t *testing.T, os job.Job, err error)
+		name         string
+		toml         string
+		setGlobalCfg func(t *testing.T, c *configtest.TestGeneralConfig)
+		assertion    func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "minimal non-bootstrap oracle spec",
@@ -310,20 +313,25 @@ answer1      [type=median index=0];
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
+				require.Contains(t, err.Error(), "data source timeout must be between 1s and 20s, but is currently 20m0s")
 			},
-			setGlobals: func(t *testing.T, c *config.Config) {
-				c.Set("OCR_OBSERVATION_TIMEOUT", "20m")
+			setGlobalCfg: func(t *testing.T, c *configtest.TestGeneralConfig) {
+				d := (20 * time.Minute)
+				c.Overrides.OCRObservationTimeout = &d
 			},
 		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := config.NewConfig()
-			if tc.setGlobals != nil {
-				tc.setGlobals(t, c)
+			c := configtest.NewTestGeneralConfig(t)
+			c.Overrides.Dev = null.BoolFrom(false)
+			c.Overrides.EthereumDisabled = null.BoolFrom(true)
+			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: c})
+			if tc.setGlobalCfg != nil {
+				tc.setGlobalCfg(t, c)
 			}
-			s, err := ValidatedOracleSpecToml(c, tc.toml)
+			s, err := ValidatedOracleSpecToml(cc, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

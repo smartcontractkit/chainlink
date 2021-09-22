@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -30,20 +30,6 @@ func (_m *HeadBroadcaster) Close() error {
 	return r0
 }
 
-// Connect provides a mock function with given fields: head
-func (_m *HeadBroadcaster) Connect(head *models.Head) error {
-	ret := _m.Called(head)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.Head) error); ok {
-		r0 = rf(head)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Healthy provides a mock function with given fields:
 func (_m *HeadBroadcaster) Healthy() error {
 	ret := _m.Called()
@@ -59,7 +45,7 @@ func (_m *HeadBroadcaster) Healthy() error {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (_m *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	_m.Called(ctx, head)
 }
 
@@ -92,15 +78,15 @@ func (_m *HeadBroadcaster) Start() error {
 }
 
 // Subscribe provides a mock function with given fields: callback
-func (_m *HeadBroadcaster) Subscribe(callback types.HeadTrackable) (*models.Head, func()) {
+func (_m *HeadBroadcaster) Subscribe(callback types.HeadTrackable) (*eth.Head, func()) {
 	ret := _m.Called(callback)
 
-	var r0 *models.Head
-	if rf, ok := ret.Get(0).(func(types.HeadTrackable) *models.Head); ok {
+	var r0 *eth.Head
+	if rf, ok := ret.Get(0).(func(types.HeadTrackable) *eth.Head); ok {
 		r0 = rf(callback)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.Head)
+			r0 = ret.Get(0).(*eth.Head)
 		}
 	}
 

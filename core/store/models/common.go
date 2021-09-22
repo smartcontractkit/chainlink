@@ -13,12 +13,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -32,118 +32,6 @@ func init() {
 	cronParserSpec := cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor
 	CronParser = cron.NewParser(cronParserSpec)
 }
-
-// RunStatus is a string that represents the run status
-type RunStatus string
-
-const (
-	// RunStatusUnstarted is the default state of any run status.
-	RunStatusUnstarted = RunStatus("unstarted")
-	// RunStatusInProgress is used for when a run is actively being executed.
-	RunStatusInProgress = RunStatus("in_progress")
-	// RunStatusPendingIncomingConfirmations is used for when a run is awaiting for incoming block confirmations
-	// e.g. waiting for the log event to be N blocks deep
-	RunStatusPendingIncomingConfirmations = RunStatus("pending_incoming_confirmations")
-	// RunStatusPendingConnection states that the run is waiting on a connection to the block chain.
-	RunStatusPendingConnection = RunStatus("pending_connection")
-	// RunStatusPendingBridge is used for when a run is waiting on the completion
-	// of another event.
-	RunStatusPendingBridge = RunStatus("pending_bridge")
-	// RunStatusPendingSleep is used for when a run is waiting on a sleep function to finish.
-	RunStatusPendingSleep = RunStatus("pending_sleep")
-	// RunStatusPendingOutgoingConfirmations is used for when a run is waiting for outgoing block confirmations
-	// e.g. we have sent a transaction using ethtx and are now waiting for it to be N blocks deep
-	RunStatusPendingOutgoingConfirmations = RunStatus("pending_outgoing_confirmations")
-	// RunStatusErrored is used for when a run has errored and will not complete.
-	RunStatusErrored = RunStatus("errored")
-	// RunStatusCompleted is used for when a run has successfully completed execution.
-	RunStatusCompleted = RunStatus("completed")
-	// RunStatusCancelled is used to indicate a run is no longer desired.
-	RunStatusCancelled = RunStatus("cancelled")
-)
-
-// Unstarted returns true if the status is the initial state.
-func (s RunStatus) Unstarted() bool {
-	return s == RunStatusUnstarted
-}
-
-// PendingBridge returns true if the status is pending_bridge.
-func (s RunStatus) PendingBridge() bool {
-	return s == RunStatusPendingBridge
-}
-
-// PendingIncomingConfirmations returns true if the status is pending_incoming_confirmations.
-func (s RunStatus) PendingIncomingConfirmations() bool {
-	return s == RunStatusPendingIncomingConfirmations
-}
-
-// PendingConnection returns true if the status is pending_connection.
-func (s RunStatus) PendingConnection() bool {
-	return s == RunStatusPendingConnection
-}
-
-// PendingSleep returns true if the status is pending_sleep.
-func (s RunStatus) PendingSleep() bool {
-	return s == RunStatusPendingSleep
-}
-
-// PendingOutgoingConfirmations returns true if the status is pending_incoming_confirmations.
-func (s RunStatus) PendingOutgoingConfirmations() bool {
-	return s == RunStatusPendingOutgoingConfirmations
-}
-
-// Completed returns true if the status is RunStatusCompleted.
-func (s RunStatus) Completed() bool {
-	return s == RunStatusCompleted
-}
-
-// Cancelled returns true if the status is RunStatusCancelled.
-func (s RunStatus) Cancelled() bool {
-	return s == RunStatusCancelled
-}
-
-// Errored returns true if the status is RunStatusErrored.
-func (s RunStatus) Errored() bool {
-	return s == RunStatusErrored
-}
-
-// Pending returns true if the status is pending external or confirmations.
-func (s RunStatus) Pending() bool {
-	return s.PendingBridge() || s.PendingIncomingConfirmations() || s.PendingOutgoingConfirmations() || s.PendingSleep() || s.PendingConnection()
-}
-
-// Finished returns true if the status is final and can't be changed.
-func (s RunStatus) Finished() bool {
-	return s.Completed() || s.Errored() || s.Cancelled()
-}
-
-// Runnable returns true if the status is ready to be run.
-func (s RunStatus) Runnable() bool {
-	return !s.Errored() && !s.Pending()
-}
-
-// Value returns this instance serialized for database storage.
-func (s RunStatus) Value() (driver.Value, error) {
-	return string(s), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (s *RunStatus) Scan(value interface{}) error {
-	switch v := value.(type) {
-	case []byte:
-		*s = RunStatus(string(v))
-	case string:
-		*s = RunStatus(v)
-	default:
-		return fmt.Errorf("unable to convert %#v of %T to RunStatus", value, value)
-	}
-	return nil
-}
-
-const (
-	ResultKey           = "result"
-	ResultCollectionKey = "__chainlink_result_collection__"
-)
 
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
@@ -323,22 +211,6 @@ func (j JSON) CBOR() ([]byte, error) {
 	}
 }
 
-// MarshalToMap converts a struct (typically) to a map[string] so it can be
-// manipulated without repeatedly serializing/deserializing
-func MarshalToMap(input interface{}) (map[string]interface{}, error) {
-	bytes, err := json.Marshal(input)
-	if err != nil {
-		return nil, err
-	}
-	var output map[string]interface{}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		// Technically this should be impossible
-		return nil, err
-	}
-	return output, nil
-}
-
 // WebURL contains the URL of the endpoint.
 type WebURL url.URL
 
@@ -394,95 +266,6 @@ func (w *WebURL) Scan(value interface{}) error {
 	return nil
 }
 
-// AnyTime holds a common field for time, and serializes it as
-// a json number.
-type AnyTime struct {
-	time.Time
-	Valid bool
-}
-
-// NewAnyTime creates a new Time.
-func NewAnyTime(t time.Time) AnyTime {
-	return AnyTime{Time: t, Valid: true}
-}
-
-// MarshalJSON implements json.Marshaler.
-// It will encode null if this time is null.
-func (t AnyTime) MarshalJSON() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.UTC().MarshalJSON()
-}
-
-// UnmarshalJSON parses the raw time stored in JSON-encoded
-// data and stores it to the Time field.
-func (t *AnyTime) UnmarshalJSON(b []byte) error {
-	var str string
-
-	var n json.Number
-	if err := json.Unmarshal(b, &n); err == nil {
-		str = n.String()
-	} else if err := json.Unmarshal(b, &str); err != nil {
-		return err
-	}
-
-	if len(str) == 0 {
-		t.Valid = false
-		return nil
-	}
-
-	newTime, err := dateparse.ParseAny(str)
-	t.Time = newTime.UTC()
-	t.Valid = true
-	return err
-}
-
-// MarshalText returns null if not set, or the time.
-func (t AnyTime) MarshalText() ([]byte, error) {
-	if !t.Valid {
-		return []byte("null"), nil
-	}
-	return t.Time.MarshalText()
-}
-
-// UnmarshalText parses null or a valid time.
-func (t *AnyTime) UnmarshalText(text []byte) error {
-	str := string(text)
-	if str == "" || str == "null" {
-		t.Valid = false
-		return nil
-	}
-	if err := t.Time.UnmarshalText(text); err != nil {
-		return err
-	}
-	t.Valid = true
-	return nil
-}
-
-// Value returns this instance serialized for database storage.
-func (t AnyTime) Value() (driver.Value, error) {
-	if !t.Valid {
-		return nil, nil
-	}
-	return t.Time, nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *AnyTime) Scan(value interface{}) error {
-	switch temp := value.(type) {
-	case time.Time:
-		t.Time = temp.UTC()
-		t.Valid = true
-		return nil
-	case nil:
-		t.Valid = false
-		return nil
-	default:
-		return fmt.Errorf("unable to convert %v of %T to Time", value, value)
-	}
-}
-
 // Cron holds the string that will represent the spec of the cron-job.
 type Cron string
 
@@ -492,7 +275,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 	var s string
 	err := json.Unmarshal(b, &s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	if s == "" {
 		return nil
@@ -504,7 +287,7 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 
 	_, err = CronParser.Parse(s)
 	if err != nil {
-		return fmt.Errorf("Cron: %v", err)
+		return fmt.Errorf("Cron: %w", err)
 	}
 	*c = Cron(s)
 	return nil
@@ -598,6 +381,10 @@ func (d Duration) Value() (driver.Value, error) {
 // Interval represents a time.Duration stored as a Postgres interval type
 type Interval time.Duration
 
+func (i Interval) Duration() time.Duration {
+	return time.Duration(i)
+}
+
 // MarshalText implements the text.Marshaler interface.
 func (i Interval) MarshalText() ([]byte, error) {
 	return []byte(time.Duration(i).String()), nil
@@ -634,18 +421,12 @@ func (i Interval) IsZero() bool {
 	return time.Duration(i) == time.Duration(0)
 }
 
-// WithdrawalRequest request to withdraw LINK.
-type WithdrawalRequest struct {
-	DestinationAddress common.Address `json:"address"`
-	ContractAddress    common.Address `json:"contractAddress"`
-	Amount             *assets.Link   `json:"amount"`
-}
-
 // SendEtherRequest represents a request to transfer ETH.
 type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
+	EVMChainID         *utils.Big     `json:"evmChainID"`
 }
 
 // AddressCollection is an array of common.Address

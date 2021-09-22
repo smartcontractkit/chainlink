@@ -8,16 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 const (
@@ -35,14 +34,14 @@ var (
 		Name: "gas_updater_all_gas_percetiles",
 		Help: "Gas price at given percentile",
 	},
-		[]string{"percentile"},
+		[]string{"percentile", "evmChainID"},
 	)
 
 	promBlockHistoryEstimatorSetGasPrice = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "gas_updater_set_gas_price",
 		Help: "Gas updater set gas price (in Wei)",
 	},
-		[]string{"percentile"},
+		[]string{"percentile", "evmChainID"},
 	)
 )
 
@@ -53,6 +52,7 @@ type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
 		ethClient           eth.Client
+		chainID             big.Int
 		config              Config
 		rollingBlockHistory []Block
 		mb                  *utils.Mailbox
@@ -63,18 +63,19 @@ type (
 		gasPrice   *big.Int
 		gasPriceMu sync.RWMutex
 
-		logger *logger.Logger
+		logger logger.Logger
 	}
 )
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		utils.StartStopOnce{},
 		ethClient,
+		chainID,
 		config,
 		make([]Block, 0),
 		utils.NewMailbox(1),
@@ -83,34 +84,32 @@ func NewBlockHistoryEstimator(ethClient eth.Client, config Config) Estimator {
 		cancel,
 		nil,
 		sync.RWMutex{},
-		logger.CreateLogger(logger.Default.With("id", "block_history_estimator")),
+		lggr.With("id", "block_history_estimator"),
 	}
 
 	return b
 }
 
-func (b *BlockHistoryEstimator) Connect(bn *models.Head) error {
-	return nil
-}
-
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head eth.Head) {
 	b.mb.Deliver(head)
 }
 
 func (b *BlockHistoryEstimator) Start() error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Debugw("BlockHistoryEstimator: starting")
-		if uint(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EthFinalityDepth() {
-			b.logger.Warnf("BlockHistoryEstimator: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EthFinalityDepth())
+		if uint32(b.config.BlockHistoryEstimatorBlockHistorySize()) > b.config.EvmFinalityDepth() {
+			b.logger.Warnf("BlockHistoryEstimator: GAS_UPDATER_BLOCK_HISTORY_SIZE=%v is greater than ETH_FINALITY_DEPTH=%v, blocks deeper than finality depth will be refetched on every block history estimator cycle, causing unnecessary load on the eth node. Consider decreasing GAS_UPDATER_BLOCK_HISTORY_SIZE or increasing ETH_FINALITY_DEPTH", b.config.BlockHistoryEstimatorBlockHistorySize(), b.config.EvmFinalityDepth())
 		}
 
 		ctx, cancel := context.WithTimeout(b.ctx, maxStartTime)
 		defer cancel()
 		latestHead, err := b.ethClient.HeadByNumber(ctx, nil)
 		if err != nil {
-			logger.Warnw("BlockHistoryEstimator: initial check for latest head failed", "err", err)
+			b.logger.Warnw("BlockHistoryEstimator: initial check for latest head failed", "err", err)
+		} else if latestHead == nil {
+			b.logger.Warnw("BlockHistoryEstimator: initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("BlockHistoryEstimator: got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
 			b.FetchBlocksAndRecalculate(ctx, *latestHead)
@@ -132,7 +131,7 @@ func (b *BlockHistoryEstimator) Close() error {
 
 func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EthGasLimitMultiplier())
+		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
 		b.gasPriceMu.RLock()
 		defer b.gasPriceMu.RUnlock()
 		gasPrice = b.gasPrice
@@ -159,19 +158,19 @@ func (b *BlockHistoryEstimator) runLoop() {
 		case <-b.mb.Notify():
 			head, exists := b.mb.Retrieve()
 			if !exists {
-				logger.Info("BlockHistoryEstimator: no head to retrieve. It might have been skipped")
+				b.logger.Info("BlockHistoryEstimator: no head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(models.Head)
+			h, is := head.(eth.Head)
 			if !is {
-				panic(fmt.Sprintf("invariant violation, expected %T but got %T", models.Head{}, head))
+				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
 			}
 			b.FetchBlocksAndRecalculate(b.ctx, h)
 		}
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head models.Head) {
+func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head eth.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 
@@ -184,7 +183,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 }
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
-func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
+func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
 
 	if len(b.rollingBlockHistory) == 0 {
@@ -195,9 +194,9 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 	percentileGasPrice, err := b.percentileGasPrice(percentile)
 	if err != nil {
 		if err == ErrNoSuitableTransactions {
-			logger.Debug("BlockHistoryEstimator: no suitable transactions, skipping")
+			b.logger.Debug("BlockHistoryEstimator: no suitable transactions, skipping")
 		} else {
-			logger.Warnw("BlockHistoryEstimator: cannot calculate percentile gas price", "err", err)
+			b.logger.Warnw("BlockHistoryEstimator: cannot calculate percentile gas price", "err", err)
 		}
 		return
 	}
@@ -212,15 +211,15 @@ func (b *BlockHistoryEstimator) Recalculate(head models.Head) {
 	b.logger.Debugw(fmt.Sprintf("BlockHistoryEstimator: setting new default gas price: %v Gwei", gasPriceGwei),
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
-		"maxGasPriceWei", b.config.EthMaxGasPriceWei(),
+		"maxGasPriceWei", b.config.EvmMaxGasPriceWei(),
 		"headNum", head.Number,
 		"blocks", numsInHistory,
 	)
 	b.setPercentileGasPrice(percentileGasPrice)
-	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile)).Set(float64(percentileGasPrice.Int64()))
+	promBlockHistoryEstimatorSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", percentile), b.chainID.String()).Set(float64(percentileGasPrice.Int64()))
 }
 
-func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head models.Head) error {
+func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head eth.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
 	// fetch block 7.
@@ -342,13 +341,18 @@ var (
 )
 
 func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, error) {
-	minGasPriceWei := b.config.EthMinGasPriceWei()
-	chainID := b.config.ChainID()
+	minGasPriceWei := b.config.EvmMinGasPriceWei()
 	gasPrices := make([]*big.Int, 0)
 	for _, block := range b.rollingBlockHistory {
 		for _, tx := range block.Transactions {
-			if isUsableTx(tx, minGasPriceWei, chainID) {
-				gasPrices = append(gasPrices, tx.GasPrice)
+			if isUsableTx(tx, minGasPriceWei, &b.chainID) {
+				gasPrice := b.EffectiveGasPrice(block, tx)
+				if gasPrice != nil {
+					gasPrices = append(gasPrices, gasPrice)
+				} else {
+					b.logger.Warnw("BlockHistoryEstimator: unable to get gas price for tx", "tx", tx, "block", block)
+					continue
+				}
 			}
 		}
 	}
@@ -359,14 +363,14 @@ func (b *BlockHistoryEstimator) percentileGasPrice(percentile int) (*big.Int, er
 	idx := ((len(gasPrices) - 1) * percentile) / 100
 	for i := 0; i <= 100; i += 5 {
 		jdx := ((len(gasPrices) - 1) * i) / 100
-		promBlockHistoryEstimatorAllPercentiles.WithLabelValues(fmt.Sprintf("%v%%", i)).Set(float64(gasPrices[jdx].Int64()))
+		promBlockHistoryEstimatorAllPercentiles.WithLabelValues(fmt.Sprintf("%v%%", i), b.chainID.String()).Set(float64(gasPrices[jdx].Int64()))
 	}
 	return gasPrices[idx], nil
 }
 
 func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *big.Int) {
-	max := b.config.EthMaxGasPriceWei()
-	min := b.config.EthMinGasPriceWei()
+	max := b.config.EvmMaxGasPriceWei()
+	min := b.config.EvmMinGasPriceWei()
 
 	b.gasPriceMu.Lock()
 	defer b.gasPriceMu.Unlock()
@@ -394,9 +398,42 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	}
 	// NOTE: This really shouldn't be possible, but at least one node op has
 	// reported it happening on mainnet so we need to handle this case
-	if tx.GasPrice == nil {
+	if tx.GasPrice == nil && tx.Type == 0x0 {
 		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)
+}
+
+func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *big.Int {
+	switch tx.Type {
+	case 0x0, 0x1:
+		return tx.GasPrice
+	case 0x2:
+		if block.BaseFeePerGas == nil || tx.MaxPriorityFeePerGas == nil || tx.MaxFeePerGas == nil {
+			b.logger.Warnw("BlockHistoryEstimator: got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
+			return tx.GasPrice
+		}
+		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
+			b.logger.Warnw("BlockHistoryEstimator: invariant violated: MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
+			return nil
+		}
+
+		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md
+		priorityFeePerGas := tx.MaxPriorityFeePerGas
+		maxFeeMinusBaseFee := big.NewInt(0).Sub(tx.MaxFeePerGas, block.BaseFeePerGas)
+		if maxFeeMinusBaseFee.Cmp(priorityFeePerGas) < 0 {
+			priorityFeePerGas = maxFeeMinusBaseFee
+		}
+
+		gasPrice := big.NewInt(0).Add(priorityFeePerGas, block.BaseFeePerGas)
+		return gasPrice
+	default:
+		b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: unknown transaction type %v, falling back to gasPrice", tx.Type), "block", block, "tx", tx)
+		return tx.GasPrice
+	}
 }
