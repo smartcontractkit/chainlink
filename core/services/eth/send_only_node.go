@@ -30,12 +30,12 @@ type sendOnlyNode struct {
 	uri    url.URL
 	rpc    *rpc.Client
 	geth   *ethclient.Client
-	log    *logger.Logger
+	log    logger.Logger
 	dialed bool
 	name   string
 }
 
-func NewSendOnlyNode(lggr *logger.Logger, httpuri url.URL, name string) SendOnlyNode {
+func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string) SendOnlyNode {
 	s := new(sendOnlyNode)
 	s.name = name
 	s.log = lggr.With(

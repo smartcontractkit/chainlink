@@ -273,10 +273,23 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 
 	count := atomic.NewInt32(0)
 
+	assertCount := func(expected int32) {
+		require.Eventually(
+			t,
+			func() bool { return count.Load() == expected },
+			10*time.Second,
+			100*time.Millisecond,
+			fmt.Sprintf("insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load()),
+		)
+	}
+
 	go func() {
 		for {
 			select {
-			case <-chSub:
+			case _, ok := <-chSub:
+				if !ok {
+					return
+				}
 				count.Add(1)
 			case <-chDone:
 				return
@@ -284,25 +297,18 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		_, _, _, _, err := ks.EnsureKeys(&cltest.FixtureChainID)
-		require.NoError(t, err)
-		_, err = ks.Create(&cltest.FixtureChainID)
-		require.NoError(t, err)
-		newKey, err := ethkey.NewV2()
-		require.NoError(t, err)
-		err = ks.Add(newKey, &cltest.FixtureChainID)
-		require.NoError(t, err)
-		_, err = ks.Delete(newKey.ID())
-		require.NoError(t, err)
-		count.Add(1)
-	}()
-
-	require.Eventually(
-		t,
-		func() bool { return count.Load() == 5 },
-		10*time.Second,
-		10*time.Millisecond,
-		"insufficient number of callbacks triggered",
-	)
+	_, _, _, _, err := ks.EnsureKeys(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(1)
+	_, err = ks.Create(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(2)
+	newKey, err := ethkey.NewV2()
+	require.NoError(t, err)
+	err = ks.Add(newKey, &cltest.FixtureChainID)
+	require.NoError(t, err)
+	assertCount(3)
+	_, err = ks.Delete(newKey.ID())
+	require.NoError(t, err)
+	assertCount(4)
 }

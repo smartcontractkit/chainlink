@@ -20,7 +20,7 @@ type transmitter interface {
 }
 
 type Delegate struct {
-	logger   *logger.Logger
+	logger   logger.Logger
 	db       *gorm.DB
 	jrm      job.ORM
 	pr       pipeline.Runner
@@ -32,7 +32,7 @@ func NewDelegate(
 	db *gorm.DB,
 	jrm job.ORM,
 	pr pipeline.Runner,
-	logger *logger.Logger,
+	logger logger.Logger,
 	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{

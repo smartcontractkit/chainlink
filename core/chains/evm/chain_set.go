@@ -44,7 +44,7 @@ type chainSet struct {
 	defaultID *big.Int
 	chains    map[string]*chain
 	chainsMu  sync.RWMutex
-	logger    *logger.Logger
+	logger    logger.Logger
 	orm       types.ORM
 	opts      ChainSetOpts
 }
@@ -221,7 +221,7 @@ func (cll *chainSet) ORM() types.ORM {
 
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
-	Logger           *logger.Logger
+	Logger           logger.Logger
 	GormDB           *gorm.DB
 	SQLxDB           *sqlx.DB
 	KeyStore         keystore.Eth

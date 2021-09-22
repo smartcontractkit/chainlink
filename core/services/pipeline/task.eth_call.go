@@ -87,7 +87,7 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
 	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
-		logger.Default.WithError(err).Errorw("failed to extract revert reason", "baseErr", baseErr)
+		logger.Default.With("error", err).Errorw("failed to extract revert reason", "baseErr", baseErr)
 		return baseErr
 	}
 

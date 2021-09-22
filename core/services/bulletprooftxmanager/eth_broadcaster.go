@@ -44,7 +44,7 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
-	logger    *logger.Logger
+	logger    logger.Logger
 	db        *gorm.DB
 	ethClient eth.Client
 	chainID   big.Int
@@ -72,7 +72,7 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	eventBroadcaster postgres.EventBroadcaster,
-	keyStates []ethkey.State, estimator gas.Estimator, logger *logger.Logger) *EthBroadcaster {
+	keyStates []ethkey.State, estimator gas.Estimator, logger logger.Logger) *EthBroadcaster {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
@@ -140,11 +140,7 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 	ok := eb.IfStarted(func() {
 		triggerCh, exists := eb.triggers[addr]
 		if !exists {
-			var registeredAddrs []gethCommon.Address
-			for addr := range eb.triggers {
-				registeredAddrs = append(registeredAddrs, addr)
-			}
-			eb.logger.Errorw(fmt.Sprintf("EthBroadcaster: attempted trigger for address %s which is not registered", addr.Hex()), "registeredAddrs", registeredAddrs)
+			// ignoring trigger for address which is not registered with this EthBroadcaster
 			return
 		}
 		select {
