@@ -374,7 +374,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if lggr == nil {
 		lggr = cfg.CreateProductionLogger()
 	}
-	lggr = lggr.WithDB(db)
 	cfg.SetDB(db)
 	if chainORM == nil {
 		chainORM = evm.NewORM(sqlxDB)
