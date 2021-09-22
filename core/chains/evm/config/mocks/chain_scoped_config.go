@@ -17,6 +17,8 @@ import (
 
 	gorm "gorm.io/gorm"
 
+	keystore "github.com/smartcontractkit/chainlink/core/services/keystore"
+
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 
 	mock "github.com/stretchr/testify/mock"
@@ -995,36 +997,8 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
-// FeatureCronV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureCronV2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFluxMonitorV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureFluxMonitorV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1067,20 +1041,6 @@ func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
 
 // FeatureUIFeedsManager provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureUIFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureWebhookV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureWebhookV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2055,6 +2015,20 @@ func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// KeeperGasPriceBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // KeeperMaximumGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
 	ret := _m.Called()
@@ -3016,6 +2990,11 @@ func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	}
 
 	return r0
+}
+
+// SetKeyStore provides a mock function with given fields: _a0
+func (_m *ChainScopedConfig) SetKeyStore(_a0 keystore.Master) {
+	_m.Called(_a0)
 }
 
 // SetLogLevel provides a mock function with given fields: ctx, value

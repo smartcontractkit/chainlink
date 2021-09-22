@@ -6,7 +6,7 @@
 
 - Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
 
-## 0.2.2 - Unreleased
+## 0.2.2 - 2021-09-21
 
 ### Added:
 
