@@ -2,7 +2,16 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
-import { ContractFactory, Contract, BigNumber, Signer } from 'ethers'
+import { BigNumber, Signer, BigNumberish } from 'ethers'
+import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
+import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
+import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../typechain/factories/UpkeepReverter__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
+import { LinkToken } from '../../typechain/LinkToken'
+import { UpkeepMock } from '../../typechain/UpkeepMock'
 import { toWei } from '../test-helpers/helpers'
 
 async function getUpkeepID(tx: any) {
@@ -17,32 +26,25 @@ const CHECK_GAS_OVERHEAD = BigNumber.from(170000)
 // -----------------------------------------------------------------------------------------------
 
 // Smart contract factories
-let linkTokenFactory: ContractFactory
-let mockV3AggregatorFactory: ContractFactory
-let keeperRegistryFactory: ContractFactory
-let upkeepMockFactory: ContractFactory
-let upkeepReverterFactory: ContractFactory
+let linkTokenFactory: LinkTokenFactory
+let mockV3AggregatorFactory: MockV3AggregatorFactory
+let keeperRegistryFactory: KeeperRegistryFactory
+let upkeepMockFactory: UpkeepMockFactory
+let upkeepReverterFactory: UpkeepReverterFactory
 
 let personas: Personas
 
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
-  )
-  mockV3AggregatorFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )
-  keeperRegistryFactory = await ethers.getContractFactory(
-    'src/v0.7/KeeperRegistry.sol:KeeperRegistry',
-  )
-  upkeepMockFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/UpkeepMock.sol:UpkeepMock',
-  )
-  upkeepReverterFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/UpkeepReverter.sol:UpkeepReverter',
-  )
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  // need full path because there are two contracts with name MockV3Aggregator
+  mockV3AggregatorFactory = ((await ethers.getContractFactory(
+    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+  )) as unknown) as MockV3AggregatorFactory
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
+  upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
+  upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
 })
 
 describe('KeeperRegistry', () => {
@@ -73,11 +75,11 @@ describe('KeeperRegistry', () => {
   let payee2: Signer
   let payee3: Signer
 
-  let linkToken: Contract
-  let linkEthFeed: Contract
-  let gasPriceFeed: Contract
-  let registry: Contract
-  let mock: Contract
+  let linkToken: LinkToken
+  let linkEthFeed: MockV3Aggregator
+  let gasPriceFeed: MockV3Aggregator
+  let registry: KeeperRegistry
+  let mock: UpkeepMock
 
   let id: BigNumber
   let keepers: string[]
@@ -150,7 +152,7 @@ describe('KeeperRegistry', () => {
     id = await getUpkeepID(tx)
   })
 
-  const linkForGas = (upkeepGasSpent: number) => {
+  const linkForGas = (upkeepGasSpent: BigNumberish) => {
     const gasSpent = registryGasOverhead.add(BigNumber.from(upkeepGasSpent))
     const base = gasWei.mul(gasSpent).mul(linkDivisibility).div(linkEth)
     const premium = base.mul(paymentPremiumPPB).div(paymentPremiumBase)
@@ -364,9 +366,9 @@ describe('KeeperRegistry', () => {
         .withArgs(id, executeGas, await admin.getAddress())
       const registration = await registry.getUpkeep(id)
       assert.equal(mock.address, registration.target)
-      assert.equal(0, registration.balance)
+      assert.equal(0, registration.balance.toNumber())
       assert.equal(emptyBytes, registration.checkData)
-      assert.equal(0xffffffffffffffff, registration.maxValidBlocknumber)
+      assert(registration.maxValidBlocknumber.eq('0xffffffffffffffff'))
     })
   })
 
@@ -636,7 +638,7 @@ describe('KeeperRegistry', () => {
         await evmRevert(
           registry
             .connect(keeper1)
-            .performUpkeep(id, '0x', { gas: BigNumber.from('120000') }),
+            .performUpkeep(id, '0x', { gasLimit: BigNumber.from('120000') }),
         )
       })
 
@@ -697,7 +699,7 @@ describe('KeeperRegistry', () => {
           .balance
 
         const max = linkForGas(executeGas.toNumber())
-        const totalTx = linkForGas(receipt.gasUsed)
+        const totalTx = linkForGas(receipt.gasUsed.toNumber())
         const difference = after.sub(before)
         assert.isTrue(max.gt(totalTx))
         assert.isTrue(totalTx.gt(difference))
@@ -730,7 +732,7 @@ describe('KeeperRegistry', () => {
         const after = (await registry.getKeeperInfo(await keeper1.getAddress()))
           .balance
 
-        const max = linkForGas(executeGas.toNumber()).mul(multiplier)
+        const max = linkForGas(executeGas).mul(multiplier)
         const totalTx = linkForGas(receipt.gasUsed).mul(multiplier)
         const difference = after.sub(before)
         assert.isTrue(max.gt(totalTx))
@@ -967,7 +969,7 @@ describe('KeeperRegistry', () => {
         assert.isTrue(registryBefore.sub(toWei('1')).eq(registryAfter))
 
         registration = await registry.getUpkeep(id)
-        assert.equal(0, registration.balance)
+        assert.equal(0, registration.balance.toNumber())
       })
     })
   })
@@ -1113,7 +1115,7 @@ describe('KeeperRegistry', () => {
 
         await registry.connect(owner).cancelUpkeep(id)
 
-        let canceled = await registry.callStatic.getCanceledUpkeepList()
+        const canceled = await registry.callStatic.getCanceledUpkeepList()
         assert.deepEqual([id], canceled)
       })
 
@@ -1363,11 +1365,11 @@ describe('KeeperRegistry', () => {
         )
 
       const updated = await registry.getConfig()
-      assert.equal(updated.paymentPremiumPPB, payment)
-      assert.equal(updated.blockCountPerTurn, checks)
-      assert.equal(updated.stalenessSeconds, staleness)
-      assert.equal(updated.gasCeilingMultiplier, ceiling)
-      assert.equal(updated.checkGasLimit, maxGas)
+      assert.equal(updated.paymentPremiumPPB, payment.toNumber())
+      assert.equal(updated.blockCountPerTurn, checks.toNumber())
+      assert.equal(updated.stalenessSeconds, staleness.toNumber())
+      assert.equal(updated.gasCeilingMultiplier, ceiling.toNumber())
+      assert.equal(updated.checkGasLimit, maxGas.toNumber())
       assert.equal(updated.fallbackGasPrice.toNumber(), fbGasEth.toNumber())
       assert.equal(updated.fallbackLinkPrice.toNumber(), fbLinkEth.toNumber())
     })
@@ -1465,7 +1467,7 @@ describe('KeeperRegistry', () => {
       await linkToken.connect(keeper1).approve(registry.address, toWei('100'))
 
       // add funds to upkeep 1 and perform and withdraw some payment
-      let tx = await registry
+      const tx = await registry
         .connect(owner)
         .registerUpkeep(
           mock.address,

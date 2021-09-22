@@ -26,7 +26,10 @@ before(async () => {
 
 describe('ValidatorProxy', () => {
   beforeEach(async () => {
-    const vpf = await ethers.getContractFactory('ValidatorProxy', owner)
+    const vpf = await ethers.getContractFactory(
+      'src/v0.8/ValidatorProxy.sol:ValidatorProxy',
+      owner,
+    )
     validatorProxy = await vpf.deploy(aggregatorAddress, validatorAddress)
     validatorProxy = await validatorProxy.deployed()
   })
@@ -279,7 +282,10 @@ describe('ValidatorProxy', () => {
       })
 
       it('reverts when there is no validator set', async () => {
-        const vpf = await ethers.getContractFactory('ValidatorProxy', owner)
+        const vpf = await ethers.getContractFactory(
+          'src/v0.8/ValidatorProxy.sol:ValidatorProxy',
+          owner,
+        )
         validatorProxy = await vpf.deploy(
           aggregatorAddress,
           constants.AddressZero,
@@ -296,12 +302,15 @@ describe('ValidatorProxy', () => {
         let mockValidator1: Contract
         beforeEach(async () => {
           const mvf = await ethers.getContractFactory(
-            'MockAggregatorValidator',
+            'src/v0.8/mocks/MockAggregatorValidator.sol:MockAggregatorValidator',
             owner,
           )
           mockValidator1 = await mvf.deploy(1)
           mockValidator1 = await mockValidator1.deployed()
-          const vpf = await ethers.getContractFactory('ValidatorProxy', owner)
+          const vpf = await ethers.getContractFactory(
+            'src/v0.8/ValidatorProxy.sol:ValidatorProxy',
+            owner,
+          )
           validatorProxy = await vpf.deploy(
             aggregatorAddress,
             mockValidator1.address,
@@ -332,7 +341,7 @@ describe('ValidatorProxy', () => {
 
           beforeEach(async () => {
             const mvf = await ethers.getContractFactory(
-              'MockAggregatorValidator',
+              'src/v0.8/mocks/MockAggregatorValidator.sol:MockAggregatorValidator',
               owner,
             )
             mockValidator2 = await mvf.deploy(2)
