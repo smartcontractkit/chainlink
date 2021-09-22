@@ -186,6 +186,42 @@ observationSource   = """
 """
 ```
 
+## [0.10.14] - 2021-09-06
+
+### Added
+
+- FMv2 spec now contains DrumbeatRandomDelay parameter that can be used to introduce variation between round of submits of different oracles, if drumbeat ticker is enabled.
+
+- OCR Hibernation
+
+#### Requesters/MinContractPaymentLinkJuels
+
+V2 direct request specs now support two additional keys:
+
+- "requesters" key which allows to whitelist requesters
+- "minContractPaymentLinkJuels" key which allows to specify a job-specific minimum contract payment.
+
+For example:
+
+```toml
+type                        = "directrequest"
+schemaVersion               = 1
+requesters                  = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"] # optional
+minContractPaymentLinkJuels = "100000000000000" # optional
+name                        = "example eth request event spec with requesters"
+contractAddress             = "..."
+externalJobID               = "..."
+observationSource           = """
+...
+"""
+```
+
+## [0.10.13] - 2021-08-25
+
+### Fixed
+
+- Resolved exiting Hibernation bug on FMv2
+
 ## [0.10.12] - 2021-08-16
 
 ### Fixed

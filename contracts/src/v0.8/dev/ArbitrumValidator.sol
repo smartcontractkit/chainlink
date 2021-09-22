@@ -7,7 +7,7 @@ import "../interfaces/AccessControllerInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../SimpleWriteAccessController.sol";
 
-/* ./dev dependencies - to be re/moved after audit */
+/* ./dev dependencies - to be moved from ./dev after audit */
 import "./interfaces/ForwarderInterface.sol";
 import "./interfaces/FlagsInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
