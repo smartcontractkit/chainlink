@@ -83,7 +83,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), cfg, shutdownSignal)
+	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), cfg)
 	if err != nil {
 		return nil, err
 	}

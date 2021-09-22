@@ -41,6 +41,7 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -334,10 +335,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	var ethClient eth.Client = &eth.NullClient{}
 
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
-	shutdownSignal := &testShutdownSignal{t}
+	shutdownSignal := gracefulpanic.NewSignal()
 
 	url := cfg.DatabaseURL()
-	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg, shutdownSignal)
+	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
 	require.NoError(t, err)
 
 	var externalInitiatorManager webhook.ExternalInitiatorManager

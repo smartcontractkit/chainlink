@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -40,7 +39,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
-	db, gormDB, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), gcfg, gracefulpanic.NewSignal())
+	db, gormDB, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), gcfg)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, db.Close())
