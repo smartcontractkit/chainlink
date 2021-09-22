@@ -302,13 +302,13 @@ func (_m *Eth) GetStatesForKeys(_a0 []ethkey.KeyV2) ([]ethkey.State, error) {
 	return r0, r1
 }
 
-// GetV1KeysAsV2 provides a mock function with given fields:
-func (_m *Eth) GetV1KeysAsV2() ([]ethkey.KeyV2, []ethkey.State, error) {
-	ret := _m.Called()
+// GetV1KeysAsV2 provides a mock function with given fields: chainID
+func (_m *Eth) GetV1KeysAsV2(chainID *big.Int) ([]ethkey.KeyV2, []ethkey.State, error) {
+	ret := _m.Called(chainID)
 
 	var r0 []ethkey.KeyV2
-	if rf, ok := ret.Get(0).(func() []ethkey.KeyV2); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(*big.Int) []ethkey.KeyV2); ok {
+		r0 = rf(chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]ethkey.KeyV2)
@@ -316,8 +316,8 @@ func (_m *Eth) GetV1KeysAsV2() ([]ethkey.KeyV2, []ethkey.State, error) {
 	}
 
 	var r1 []ethkey.State
-	if rf, ok := ret.Get(1).(func() []ethkey.State); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(*big.Int) []ethkey.State); ok {
+		r1 = rf(chainID)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]ethkey.State)
@@ -325,8 +325,8 @@ func (_m *Eth) GetV1KeysAsV2() ([]ethkey.KeyV2, []ethkey.State, error) {
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func() error); ok {
-		r2 = rf()
+	if rf, ok := ret.Get(2).(func(*big.Int) error); ok {
+		r2 = rf(chainID)
 	} else {
 		r2 = ret.Error(2)
 	}

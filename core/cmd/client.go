@@ -87,7 +87,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	sqlxDB := postgres.UnwrapGormDB(db)
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg))
 	cfg.SetDB(db)
-	cfg.SetKeyStore(keyStore)
 	// Init service loggers
 	globalLogger := cfg.CreateProductionLogger()
 
