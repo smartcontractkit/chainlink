@@ -21,6 +21,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
@@ -438,13 +439,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 	}
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -459,13 +454,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -482,13 +471,7 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -502,17 +485,10 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 // CreateMigration displays the database migration status
 func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -526,6 +502,20 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
+}
+
+func newConnection(cfg config.GeneralConfig) (*sqlx.DB, error) {
+	parsed := cfg.DatabaseURL()
+	if parsed.String() == "" {
+		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+	}
+	config := postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	}
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	return db, err
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {
@@ -555,8 +545,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func migrateDB(config config.GeneralConfig) error {
-	dbURL := config.DatabaseURL()
-	db, _, err := postgres.NewConnection(dbURL.String(), string(config.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -567,8 +556,7 @@ func migrateDB(config config.GeneralConfig) error {
 }
 
 func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
-	dbURL := cfg.DatabaseURL()
-	db, _, err := postgres.NewConnection(dbURL.String(), string(config.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := newConnection(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}

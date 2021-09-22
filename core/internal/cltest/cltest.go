@@ -338,7 +338,11 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	shutdownSignal := gracefulpanic.NewSignal()
 
 	url := cfg.DatabaseURL()
-	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), cfg)
+	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	})
 	require.NoError(t, err)
 
 	var externalInitiatorManager webhook.ExternalInitiatorManager

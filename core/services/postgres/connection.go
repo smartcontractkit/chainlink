@@ -8,7 +8,6 @@ import (
 	"github.com/scylladb/go-reflectx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 
 	"github.com/smartcontractkit/sqlx"
 	gormpostgres "gorm.io/driver/postgres"
@@ -22,7 +21,13 @@ import (
 	_ "github.com/jackc/pgx/v4"
 )
 
-func NewConnection(uri string, dialect string, cfg config.GeneralConfig) (db *sqlx.DB, gormDB *gorm.DB, err error) {
+type Config struct {
+	LogSQLStatements bool
+	MaxOpenConns     int
+	MaxIdleConns     int
+}
+
+func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, gormDB *gorm.DB, err error) {
 	originalURI := uri
 	if dialect == "txdb" {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
@@ -35,8 +40,7 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig) (db *sq
 		uri = uuid.NewV4().String()
 	}
 	// NOTE: SetConsumerName was already called in config.DatabaseURL(), we don't need to do it here
-
-	newLogger := logger.NewGormWrapper(logger.Default, cfg.LogSQLStatements(), time.Second)
+	newLogger := logger.NewGormWrapper(logger.Default, config.LogSQLStatements, time.Second)
 
 	// Initialize sql/sqlx
 	db, err = sqlx.Open(dialect, uri)
@@ -60,8 +64,8 @@ func NewConnection(uri string, dialect string, cfg config.GeneralConfig) (db *sq
 	if _, err = db.Exec(`SET TIME ZONE 'UTC'`); err != nil {
 		return nil, nil, err
 	}
-	db.SetMaxOpenConns(cfg.ORMMaxOpenConns())
-	db.SetMaxIdleConns(cfg.ORMMaxIdleConns())
+	db.SetMaxOpenConns(config.MaxOpenConns)
+	db.SetMaxIdleConns(config.MaxIdleConns)
 
 	return db, gormDB, nil
 }
