@@ -16,18 +16,35 @@ import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOV
  * @notice Allows to raise and lower Flags on the Optimism L2 network through L1 bridge
  *  - The internal AccessController controls the access of the validate method
  */
-contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
+contract OptimismValidator is
+  TypeAndVersionInterface,
+  AggregatorValidatorInterface,
+  SimpleWriteAccessController
+{
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address constant private FLAG_OPTIMISM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
+  address private constant FLAG_OPTIMISM_SEQ_OFFLINE =
+    address(
+      bytes20(
+        bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)
+      )
+    );
   // Encode underlying Flags call/s
-  bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  uint32 constant private CALL_GAS_LIMIT = 1_200_000;
-  int256 constant private ANSWER_SEQ_OFFLINE = 1;
+  bytes private constant CALL_RAISE_FLAG =
+    abi.encodeWithSelector(
+      FlagsInterface.raiseFlag.selector,
+      FLAG_OPTIMISM_SEQ_OFFLINE
+    );
+  bytes private constant CALL_LOWER_FLAG =
+    abi.encodeWithSelector(
+      FlagsInterface.lowerFlag.selector,
+      FLAG_OPTIMISM_SEQ_OFFLINE
+    );
+  uint32 private constant CALL_GAS_LIMIT = 1_200_000;
+  int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
-  address immutable public CROSS_DOMAIN_MESSENGER;
-  address immutable public L2_CROSS_DOMAIN_FORWARDER;
-  address immutable public L2_FLAGS;
+  address public immutable CROSS_DOMAIN_MESSENGER;
+  address public immutable L2_CROSS_DOMAIN_FORWARDER;
+  address public immutable L2_FLAGS;
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Optimism bridge L1) contract address
@@ -39,8 +56,14 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address l2CrossDomainForwarderAddr,
     address l2FlagsAddr
   ) {
-    require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
-    require(l2CrossDomainForwarderAddr != address(0), "Invalid L2 xDomain Forwarder address");
+    require(
+      crossDomainMessengerAddr != address(0),
+      "Invalid xDomain Messenger address"
+    );
+    require(
+      l2CrossDomainForwarderAddr != address(0),
+      "Invalid L2 xDomain Forwarder address"
+    );
     require(l2FlagsAddr != address(0), "Invalid L2 Flags address");
     CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
     L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
@@ -57,11 +80,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   function typeAndVersion()
     external
     pure
-    override
     virtual
-    returns (
-      string memory
-    )
+    override
+    returns (string memory)
   {
     return "OptimismValidator 0.1.0";
   }
@@ -75,16 +96,11 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256 /* previousRoundId */,
+    uint256, /* previousRoundId */
     int256 previousAnswer,
-    uint256 /* currentRoundId */,
+    uint256, /* currentRoundId */
     int256 currentAnswer
-  )
-    external
-    override
-    checkAccess()
-    returns (bool)
-  {
+  ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
     if (previousAnswer == currentAnswer) {
       return true; // noop
@@ -94,10 +110,16 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     bytes4 selector = ForwarderInterface.forward.selector;
     address target = L2_FLAGS;
     // Choose and encode the underlying Flags call
-    bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE ? CALL_RAISE_FLAG : CALL_LOWER_FLAG;
+    bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE
+      ? CALL_RAISE_FLAG
+      : CALL_LOWER_FLAG;
     bytes memory message = abi.encodeWithSelector(selector, target, data);
     // Make the xDomain call
-    iOVM_CrossDomainMessenger(CROSS_DOMAIN_MESSENGER).sendMessage(L2_CROSS_DOMAIN_FORWARDER, message, CALL_GAS_LIMIT);
+    iOVM_CrossDomainMessenger(CROSS_DOMAIN_MESSENGER).sendMessage(
+      L2_CROSS_DOMAIN_FORWARDER,
+      message,
+      CALL_GAS_LIMIT
+    );
     // return success
     return true;
   }
