@@ -34,9 +34,9 @@ func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.Nil(t, a.GasPrice)
 		assert.NotNil(t, a.GasTipCap)
-		assert.Equal(t, assets.GWei(100), a.GasTipCap)
+		assert.Equal(t, assets.GWei(100).String(), a.GasTipCap.String())
 		assert.NotNil(t, a.GasFeeCap)
-		assert.Equal(t, assets.GWei(200), a.GasFeeCap)
+		assert.Equal(t, assets.GWei(200).String(), a.GasFeeCap.String())
 	})
 }
 
@@ -57,7 +57,7 @@ func TestBulletproofTxManager_NewLegacyAttempt(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.NotNil(t, a.GasPrice)
-		assert.Equal(t, big.NewInt(25), a.GasPrice)
+		assert.Equal(t, big.NewInt(25).String(), a.GasPrice.String())
 		assert.Nil(t, a.GasTipCap)
 		assert.Nil(t, a.GasFeeCap)
 	})
