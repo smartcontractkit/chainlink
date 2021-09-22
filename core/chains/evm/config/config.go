@@ -469,7 +469,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBatchSize() (size uint32) {
 		valLegacy, set := lookupEnv("GAS_UPDATER_BATCH_SIZE", config.ParseUint32)
 		if set {
 			c.logEnvOverrideOnce("GAS_UPDATER_BATCH_SIZE", valLegacy)
-			logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead")
+			logger.Warn("GAS_UPDATER_BATCH_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE instead (or simply remove to use the default)")
 			size = valLegacy.(uint32)
 		} else {
 			size = c.defaultSet.blockHistoryEstimatorBatchSize
@@ -498,7 +498,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 	valLegacy, set := lookupEnv("GAS_UPDATER_BLOCK_DELAY", config.ParseUint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_DELAY", valLegacy)
-		logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead")
+		logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	if c.persistedCfg.BlockHistoryEstimatorBlockDelay.Valid {
@@ -519,7 +519,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 	valLegacy, set := lookupEnv("GAS_UPDATER_BLOCK_HISTORY_SIZE", config.ParseUint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_BLOCK_HISTORY_SIZE", valLegacy)
-		logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead")
+		logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	if c.persistedCfg.BlockHistoryEstimatorBlockHistorySize.Valid {
@@ -541,7 +541,7 @@ func (c *chainScopedConfig) BlockHistoryEstimatorTransactionPercentile() uint16 
 	valLegacy, set := lookupEnv("GAS_UPDATER_TRANSACTION_PERCENTILE", config.ParseUint16)
 	if set {
 		c.logEnvOverrideOnce("GAS_UPDATER_TRANSACTION_PERCENTILE", valLegacy)
-		logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATORBLOCK_HISTORY_ESTIMATOR_PERCENTILE instead")
+		logger.Warn("GAS_UPDATER_TRANSACTION_PERCENTILE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_PERCENTILE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
 	return c.defaultSet.blockHistoryEstimatorTransactionPercentile
@@ -558,10 +558,10 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 	if ok {
 		c.logEnvOverrideOnce("GAS_UPDATER_ENABLED", enabled)
 		if enabled.(bool) {
-			logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead")
+			logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to enable the block history estimator, please use GAS_ESTIMATOR_MODE=BlockHistory instead (or simply remove to use the default)")
 			return "BlockHistory"
 		}
-		logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead")
+		logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
 		return "FixedPrice"
 	}
 	if c.persistedCfg.GasEstimatorMode.Valid {
@@ -654,7 +654,7 @@ func (c *chainScopedConfig) MinimumContractPayment() *assets.Link {
 	valLegacy, set := lookupEnv("MINIMUM_CONTRACT_PAYMENT", config.ParseString)
 	if set {
 		c.logEnvOverrideOnce("MINIMUM_CONTRACT_PAYMENT", valLegacy)
-		logger.Warn("MINIMUM_CONTRACT_PAYMENT is deprecated, please use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead")
+		logger.Warn("MINIMUM_CONTRACT_PAYMENT is deprecated, please use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead (or simply remove to use the default)")
 		str := valLegacy.(string)
 		value, ok := new(assets.Link).SetString(str, 10)
 		if ok {
