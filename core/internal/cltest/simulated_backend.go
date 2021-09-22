@@ -390,9 +390,9 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	sender, err := types.Sender(types.NewEIP155Signer(c.chainId), tx)
+	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
 	if err != nil {
-		logger.Panic(fmt.Errorf("invalid transaction: %v", err))
+		logger.Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
 	}
 	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
 	if err != nil {
