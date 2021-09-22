@@ -396,6 +396,12 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	if tx.GasLimit == 0 {
 		return false
 	}
+	// NOTE: This really shouldn't be possible, but at least one node op has
+	// reported it happening on mainnet so we need to handle this case
+	if tx.GasPrice == nil && tx.Type == 0x0 {
+		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
+		return false
+	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)
 }
 
