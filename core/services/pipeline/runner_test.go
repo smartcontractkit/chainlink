@@ -34,7 +34,8 @@ func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pi
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(db)
-	r := pipeline.NewRunner(orm, cfg, cc, nil, nil)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
 	return r, orm
 }
 
