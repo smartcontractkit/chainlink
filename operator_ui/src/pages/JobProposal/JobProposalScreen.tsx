@@ -31,6 +31,7 @@ export const JobProposalScreen = () => {
   const [proposal, setProposal] = React.useState<Resource<JobProposal>>()
   const [confirmApprove, setConfirmApprove] = React.useState(false)
   const [confirmReject, setConfirmReject] = React.useState(false)
+  const [confirmCancel, setConfirmCancel] = React.useState(false)
   const [isEditing, setIsEditing] = React.useState(false)
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !proposal)
@@ -70,6 +71,19 @@ export const JobProposalScreen = () => {
       .finally(() => setConfirmApprove(false))
   }
 
+  const handleCancel = () => {
+    v2.jobProposals
+      .cancelJobProposal(id)
+      .then((res) => {
+        setProposal(res.data)
+        dispatch(notifySuccess(() => <>Job Proposal was cancelled</>, {}))
+      })
+      .catch((e) => {
+        dispatch(notifyError(ErrorMessage, e))
+      })
+      .finally(() => setConfirmCancel(false))
+  }
+
   const handleUpdateJobSpecSubmit = ({ spec }: FormValues) => {
     return v2.jobProposals
       .updateJobProposalSpec(id, { spec })
@@ -81,6 +95,44 @@ export const JobProposalScreen = () => {
       .catch((e) => {
         dispatch(notifyError(ErrorMessage, e))
       })
+  }
+
+  const renderActions = () => {
+    if (!proposal) {
+      return null
+    }
+
+    switch (proposal.attributes.status) {
+      case 'pending':
+        return (
+          <>
+            <Button
+              variant="text"
+              color="secondary"
+              onClick={() => setConfirmReject(true)}
+            >
+              Reject
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setConfirmApprove(true)}
+            >
+              Approve
+            </Button>
+          </>
+        )
+      case 'approved':
+        return (
+          <>
+            <Button variant="contained" onClick={() => setConfirmCancel(true)}>
+              Cancel
+            </Button>
+          </>
+        )
+      default:
+        return null
+    }
   }
 
   return (
@@ -95,26 +147,7 @@ export const JobProposalScreen = () => {
               <CardHeader
                 title={`Job proposal #${proposal?.id}`}
                 subheader={`Status: ${titleize(proposal.attributes.status)}`}
-                action={
-                  proposal.attributes.status === 'pending' && (
-                    <>
-                      <Button
-                        variant="text"
-                        color="secondary"
-                        onClick={() => setConfirmReject(true)}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => setConfirmApprove(true)}
-                      >
-                        Approve
-                      </Button>
-                    </>
-                  )
-                }
+                action={renderActions()}
               />
 
               <CardContent>
@@ -153,6 +186,15 @@ export const JobProposalScreen = () => {
         onConfirm={handleReject}
         cancelButtonText="Cancel"
         onCancel={() => setConfirmReject(false)}
+      />
+
+      <ConfirmationDialog
+        open={confirmCancel}
+        title="Cancel Job Proposal"
+        body="Cancelling this job proposal will delete the running job. Are you sure you want to cancel this job proposal?"
+        onConfirm={handleCancel}
+        cancelButtonText="Cancel"
+        onCancel={() => setConfirmCancel(false)}
       />
 
       {proposal && (
