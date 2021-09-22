@@ -6,7 +6,7 @@
 
 - Prettier Solidity formatting applied to v0.7 and above.
 
-## 0.2.2 - Unreleased
+## 0.2.2 - 2021-09-21
 
 ### Added:
 
