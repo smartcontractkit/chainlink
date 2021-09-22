@@ -87,12 +87,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
-	err = keyStore.Migrate(vrfpwd)
+	chainSet := app.GetChainSet()
+	dflt, err := chainSet.Default()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
-	for _, ch := range app.GetChainSet().Chains() {
+	for _, ch := range chainSet.Chains() {
 		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err2 != nil {
 			return cli.errorOut(err)
