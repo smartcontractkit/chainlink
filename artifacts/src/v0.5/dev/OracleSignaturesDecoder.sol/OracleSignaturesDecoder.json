@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "OracleSignaturesDecoder",
+  "sourceName": "src/v0.5/dev/OracleSignaturesDecoder.sol",
+  "abi": [],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3fe6080604052600080fdfea165627a7a72305820090fb4403890fbbf8d8fa5a7165d8c020249e1c72ce982a95b876f8af2765cf90029",
+  "deployedBytecode": "0x6080604052600080fdfea165627a7a72305820090fb4403890fbbf8d8fa5a7165d8c020249e1c72ce982a95b876f8af2765cf90029",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

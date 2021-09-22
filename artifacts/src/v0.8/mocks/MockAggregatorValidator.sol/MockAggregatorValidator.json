@@ -1,0 +1,93 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MockAggregatorValidator",
+  "sourceName": "src/v0.8/mocks/MockAggregatorValidator.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "uint8",
+          "name": "id_",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint8",
+          "name": "id",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "previousRoundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "int256",
+          "name": "previousAnswer",
+          "type": "int256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "currentRoundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "int256",
+          "name": "currentAnswer",
+          "type": "int256"
+        }
+      ],
+      "name": "ValidateCalled",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "previousRoundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "previousAnswer",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "currentRoundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "currentAnswer",
+          "type": "int256"
+        }
+      ],
+      "name": "validate",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a060405234801561001057600080fd5b506040516101b93803806101b983398101604081905261002f9161005c565b60f81b7fff0000000000000000000000000000000000000000000000000000000000000016608052610086565b60006020828403121561006e57600080fd5b815160ff8116811461007f57600080fd5b9392505050565b60805160f81c6101166100a36000396000605f01526101166000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063beed9b5114610030575b600080fd5b61004361003e3660046100d7565b610057565b604051901515815260200160405180910390f35b6040805160ff7f00000000000000000000000000000000000000000000000000000000000000001681526020810186905290810184905260608101839052608081018290526000907f9ef8f58acca419d2e95bed9bdae0cb763fe14db033353f206cded59ef3359d5d9060a00160405180910390a1506001949350505050565b600080600080608085870312156100ed57600080fd5b505082359460208401359450604084013593606001359250905056fea164736f6c6343000806000a",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b506004361061002b5760003560e01c8063beed9b5114610030575b600080fd5b61004361003e3660046100d7565b610057565b604051901515815260200160405180910390f35b6040805160ff7f00000000000000000000000000000000000000000000000000000000000000001681526020810186905290810184905260608101839052608081018290526000907f9ef8f58acca419d2e95bed9bdae0cb763fe14db033353f206cded59ef3359d5d9060a00160405180910390a1506001949350505050565b600080600080608085870312156100ed57600080fd5b505082359460208401359450604084013593606001359250905056fea164736f6c6343000806000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

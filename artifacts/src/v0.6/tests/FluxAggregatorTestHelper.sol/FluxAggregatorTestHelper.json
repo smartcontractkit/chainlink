@@ -1,0 +1,187 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "FluxAggregatorTestHelper",
+  "sourceName": "src/v0.6/tests/FluxAggregatorTestHelper.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_roundID",
+          "type": "uint256"
+        }
+      ],
+      "name": "readGetAnswer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint80",
+          "name": "_roundID",
+          "type": "uint80"
+        }
+      ],
+      "name": "readGetRoundData",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_roundID",
+          "type": "uint256"
+        }
+      ],
+      "name": "readGetTimestamp",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        }
+      ],
+      "name": "readLatestAnswer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        }
+      ],
+      "name": "readLatestRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        }
+      ],
+      "name": "readLatestRoundData",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        }
+      ],
+      "name": "readLatestTimestamp",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "_oracle",
+          "type": "address"
+        }
+      ],
+      "name": "readOracleRoundState",
+      "outputs": [
+        {
+          "internalType": "uint80",
+          "name": "roundId",
+          "type": "uint80"
+        },
+        {
+          "internalType": "int256",
+          "name": "answer",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "startedAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "updatedAt",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint80",
+          "name": "answeredInRound",
+          "type": "uint80"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_aggregator",
+          "type": "address"
+        }
+      ],
+      "name": "requestNewRound",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "requestedRoundId",
+      "outputs": [
+        {
+          "internalType": "uint80",
+          "name": "",
+          "type": "uint80"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5061079f806100206000396000f3fe608060405234801561001057600080fd5b50600436106100be5760003560e01c8063c52a1f5e11610076578063d2f79c471161005b578063d2f79c471461028f578063e1136281146102c2578063eea2913a146102e9576100be565b8063c52a1f5e146101dc578063c9592ab914610256576100be565b806395319deb116100a757806395319deb1461012b578063bf5fc18b14610170578063c0c9c7db146101a9576100be565b806320f2c97c146100c357806375952a9c146100f8575b600080fd5b6100f6600480360360208110156100d957600080fd5b503573ffffffffffffffffffffffffffffffffffffffff1661031c565b005b6100f66004803603602081101561010e57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610391565b6100f66004803603604081101561014157600080fd5b50803573ffffffffffffffffffffffffffffffffffffffff16906020013569ffffffffffffffffffff16610442565b6100f66004803603604081101561018657600080fd5b5073ffffffffffffffffffffffffffffffffffffffff81351690602001356104ea565b6100f6600480360360208110156101bf57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610565565b610217600480360360408110156101f257600080fd5b5073ffffffffffffffffffffffffffffffffffffffff813581169160200135166105d5565b6040805169ffffffffffffffffffff96871681526020810195909552848101939093526060840191909152909216608082015290519081900360a00190f35b6100f66004803603604081101561026c57600080fd5b5073ffffffffffffffffffffffffffffffffffffffff81351690602001356106a3565b6100f6600480360360208110156102a557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff166106f4565b6102ca61073a565b6040805169ffffffffffffffffffff9092168252519081900360200190f35b6100f6600480360360208110156102ff57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff1661074c565b8073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a06040518083038186803b15801561036257600080fd5b505afa158015610376573d6000803e3d6000fd5b505050506040513d60a081101561038c57600080fd5b505050565b8073ffffffffffffffffffffffffffffffffffffffff166398e5b12a6040518163ffffffff1660e01b8152600401602060405180830381600087803b1580156103d957600080fd5b505af11580156103ed573d6000803e3d6000fd5b505050506040513d602081101561040357600080fd5b5051600080547fffffffffffffffffffffffffffffffffffffffffffff000000000000000000001669ffffffffffffffffffff90921691909117905550565b604080517f9a6fc8f500000000000000000000000000000000000000000000000000000000815269ffffffffffffffffffff83166004820152905173ffffffffffffffffffffffffffffffffffffffff841691639a6fc8f59160248083019260a0929190829003018186803b1580156104ba57600080fd5b505afa1580156104ce573d6000803e3d6000fd5b505050506040513d60a08110156104e457600080fd5b50505050565b8173ffffffffffffffffffffffffffffffffffffffff1663b5ab58dc826040518263ffffffff1660e01b81526004018082815260200191505060206040518083038186803b15801561053b57600080fd5b505afa15801561054f573d6000803e3d6000fd5b505050506040513d60208110156104e457600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166350d25bcd6040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fd5b505afa1580156105bf573d6000803e3d6000fd5b505050506040513d602081101561038c57600080fd5b60008060008060008673ffffffffffffffffffffffffffffffffffffffff166388aa80e78760006040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018263ffffffff168152602001925050506101006040518083038186803b15801561066a57600080fd5b505afa15801561067e573d6000803e3d6000fd5b505050506040513d61010081101561069557600080fd5b509497939650919450925090565b8173ffffffffffffffffffffffffffffffffffffffff1663b633620c826040518263ffffffff1660e01b81526004018082815260200191505060206040518083038186803b15801561053b57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff16638205bf6a6040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fd5b60005469ffffffffffffffffffff1681565b8073ffffffffffffffffffffffffffffffffffffffff1663668a0f026040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fdfea164736f6c6343000606000a",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100be5760003560e01c8063c52a1f5e11610076578063d2f79c471161005b578063d2f79c471461028f578063e1136281146102c2578063eea2913a146102e9576100be565b8063c52a1f5e146101dc578063c9592ab914610256576100be565b806395319deb116100a757806395319deb1461012b578063bf5fc18b14610170578063c0c9c7db146101a9576100be565b806320f2c97c146100c357806375952a9c146100f8575b600080fd5b6100f6600480360360208110156100d957600080fd5b503573ffffffffffffffffffffffffffffffffffffffff1661031c565b005b6100f66004803603602081101561010e57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610391565b6100f66004803603604081101561014157600080fd5b50803573ffffffffffffffffffffffffffffffffffffffff16906020013569ffffffffffffffffffff16610442565b6100f66004803603604081101561018657600080fd5b5073ffffffffffffffffffffffffffffffffffffffff81351690602001356104ea565b6100f6600480360360208110156101bf57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff16610565565b610217600480360360408110156101f257600080fd5b5073ffffffffffffffffffffffffffffffffffffffff813581169160200135166105d5565b6040805169ffffffffffffffffffff96871681526020810195909552848101939093526060840191909152909216608082015290519081900360a00190f35b6100f66004803603604081101561026c57600080fd5b5073ffffffffffffffffffffffffffffffffffffffff81351690602001356106a3565b6100f6600480360360208110156102a557600080fd5b503573ffffffffffffffffffffffffffffffffffffffff166106f4565b6102ca61073a565b6040805169ffffffffffffffffffff9092168252519081900360200190f35b6100f6600480360360208110156102ff57600080fd5b503573ffffffffffffffffffffffffffffffffffffffff1661074c565b8073ffffffffffffffffffffffffffffffffffffffff1663feaf968c6040518163ffffffff1660e01b815260040160a06040518083038186803b15801561036257600080fd5b505afa158015610376573d6000803e3d6000fd5b505050506040513d60a081101561038c57600080fd5b505050565b8073ffffffffffffffffffffffffffffffffffffffff166398e5b12a6040518163ffffffff1660e01b8152600401602060405180830381600087803b1580156103d957600080fd5b505af11580156103ed573d6000803e3d6000fd5b505050506040513d602081101561040357600080fd5b5051600080547fffffffffffffffffffffffffffffffffffffffffffff000000000000000000001669ffffffffffffffffffff90921691909117905550565b604080517f9a6fc8f500000000000000000000000000000000000000000000000000000000815269ffffffffffffffffffff83166004820152905173ffffffffffffffffffffffffffffffffffffffff841691639a6fc8f59160248083019260a0929190829003018186803b1580156104ba57600080fd5b505afa1580156104ce573d6000803e3d6000fd5b505050506040513d60a08110156104e457600080fd5b50505050565b8173ffffffffffffffffffffffffffffffffffffffff1663b5ab58dc826040518263ffffffff1660e01b81526004018082815260200191505060206040518083038186803b15801561053b57600080fd5b505afa15801561054f573d6000803e3d6000fd5b505050506040513d60208110156104e457600080fd5b8073ffffffffffffffffffffffffffffffffffffffff166350d25bcd6040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fd5b505afa1580156105bf573d6000803e3d6000fd5b505050506040513d602081101561038c57600080fd5b60008060008060008673ffffffffffffffffffffffffffffffffffffffff166388aa80e78760006040518363ffffffff1660e01b8152600401808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018263ffffffff168152602001925050506101006040518083038186803b15801561066a57600080fd5b505afa15801561067e573d6000803e3d6000fd5b505050506040513d61010081101561069557600080fd5b509497939650919450925090565b8173ffffffffffffffffffffffffffffffffffffffff1663b633620c826040518263ffffffff1660e01b81526004018082815260200191505060206040518083038186803b15801561053b57600080fd5b8073ffffffffffffffffffffffffffffffffffffffff16638205bf6a6040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fd5b60005469ffffffffffffffffffff1681565b8073ffffffffffffffffffffffffffffffffffffffff1663668a0f026040518163ffffffff1660e01b815260040160206040518083038186803b1580156105ab57600080fdfea164736f6c6343000606000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

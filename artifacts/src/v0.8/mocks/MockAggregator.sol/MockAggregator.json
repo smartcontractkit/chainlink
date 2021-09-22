@@ -1,0 +1,50 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MockAggregator",
+  "sourceName": "src/v0.8/mocks/MockAggregator.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "latestAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "s_answer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "answer",
+          "type": "int256"
+        }
+      ],
+      "name": "setLatestAnswer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b5060998061001f6000396000f3fe6080604052348015600f57600080fd5b5060043610603c5760003560e01c806304ea97b0146041578063305da2db14605357806350d25bcd14606d575b600080fd5b6051604c3660046074565b600055565b005b605b60005481565b60405190815260200160405180910390f35b600054605b565b600060208284031215608557600080fd5b503591905056fea164736f6c6343000806000a",
+  "deployedBytecode": "0x6080604052348015600f57600080fd5b5060043610603c5760003560e01c806304ea97b0146041578063305da2db14605357806350d25bcd14606d575b600080fd5b6051604c3660046074565b600055565b005b605b60005481565b60405190815260200160405180910390f35b600054605b565b600060208284031215608557600080fd5b503591905056fea164736f6c6343000806000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

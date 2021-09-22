@@ -1,0 +1,128 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "AggregatorValidatorMock",
+  "sourceName": "src/v0.6/tests/AggregatorValidatorMock.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_previousRoundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "int256",
+          "name": "_previousAnswer",
+          "type": "int256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "_currentRoundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "int256",
+          "name": "_currentAnswer",
+          "type": "int256"
+        }
+      ],
+      "name": "Validated",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "currentAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "currentRoundId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "previousAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "previousRoundId",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_previousRoundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "_previousAnswer",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_currentRoundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "_currentAnswer",
+          "type": "int256"
+        }
+      ],
+      "name": "validate",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b50610154806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c80639cbe5efd116100505780639cbe5efd1461008e5780639e8fcbe914610096578063beed9b511461009e57610067565b8063308dd1911461006c5780637e1b4cb014610086575b600080fd5b6100746100e1565b60408051918252519081900360200190f35b6100746100e7565b6100746100ed565b6100746100f3565b6100cd600480360360808110156100b457600080fd5b50803590602081013590604081013590606001356100f9565b604080519115158252519081900360200190f35b60015481565b60035481565b60025481565b60005481565b600081847f67153bf264f6b67e597cb9f55ec356e629048d2d8cfebb8da80fe1a3f7849aed8786604051808381526020018281526020019250505060405180910390a350600194935050505056fea164736f6c6343000606000a",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b50600436106100675760003560e01c80639cbe5efd116100505780639cbe5efd1461008e5780639e8fcbe914610096578063beed9b511461009e57610067565b8063308dd1911461006c5780637e1b4cb014610086575b600080fd5b6100746100e1565b60408051918252519081900360200190f35b6100746100e7565b6100746100ed565b6100746100f3565b6100cd600480360360808110156100b457600080fd5b50803590602081013590604081013590606001356100f9565b604080519115158252519081900360200190f35b60015481565b60035481565b60025481565b60005481565b600081847f67153bf264f6b67e597cb9f55ec356e629048d2d8cfebb8da80fe1a3f7849aed8786604051808381526020018281526020019250505060405180910390a350600194935050505056fea164736f6c6343000606000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

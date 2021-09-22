@@ -1,0 +1,15 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "GasGuzzler",
+  "sourceName": "src/v0.6/tests/GasGuzzler.sol",
+  "abi": [
+    {
+      "stateMutability": "payable",
+      "type": "fallback"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b50601680601d6000396000f3fe60806040525b600556fea164736f6c6343000606000a",
+  "deployedBytecode": "0x60806040525b600556fea164736f6c6343000606000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,271 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Denominations",
+  "sourceName": "src/v0.8/Denominations.sol",
+  "abi": [
+    {
+      "inputs": [],
+      "name": "ARS",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "AUD",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BRL",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "BTC",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CAD",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CHF",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "CNY",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ETH",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "EUR",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "GBP",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "INR",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "JPY",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "KRW",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NGN",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "NZD",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PHP",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "RUB",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SGD",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "USD",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "ZAR",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x61028561003a600b82828239805160001a60731461002d57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600436106101765760003560e01c806356ef4514116100d7578063a4a235951161008b578063e774928e11610070578063e774928e1461025e578063f37fcc4214610267578063fd760c491461027057600080fd5b8063a4a235951461024d578063ca9d1a721461025557600080fd5b80638322fff2116100bc5780638322fff214610220578063976d5e771461023b5780639db2a4721461024457600080fd5b806356ef45141461020e5780636b09583c1461021757600080fd5b80632792949d1161012e5780632e79477f116101135780632e79477f146101f3578063465bd0a3146101fc57806353f7c3671461020557600080fd5b80632792949d146101cf578063294a2bf2146101ea57600080fd5b80630c0128341161015f5780630c012834146101b657806319342a64146101be5780631bf6c21b146101c657600080fd5b806301b8b3391461017b57806303d698f2146101ad575b600080fd5b61018461033a81565b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200160405180910390f35b61018461023681565b610184602081565b610184607c81565b61018461034881565b61018473bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb81565b6101846103d281565b6101846102be81565b61018461018881565b61018461026081565b61018461019a81565b6101846103da81565b61018473eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee81565b61018461028381565b6101846102c681565b610184609c81565b61018461022a81565b61018461016481565b6101846102f481565b61018460248156fea164736f6c6343000806000a",
+  "deployedBytecode": "0x73000000000000000000000000000000000000000030146080604052600436106101765760003560e01c806356ef4514116100d7578063a4a235951161008b578063e774928e11610070578063e774928e1461025e578063f37fcc4214610267578063fd760c491461027057600080fd5b8063a4a235951461024d578063ca9d1a721461025557600080fd5b80638322fff2116100bc5780638322fff214610220578063976d5e771461023b5780639db2a4721461024457600080fd5b806356ef45141461020e5780636b09583c1461021757600080fd5b80632792949d1161012e5780632e79477f116101135780632e79477f146101f3578063465bd0a3146101fc57806353f7c3671461020557600080fd5b80632792949d146101cf578063294a2bf2146101ea57600080fd5b80630c0128341161015f5780630c012834146101b657806319342a64146101be5780631bf6c21b146101c657600080fd5b806301b8b3391461017b57806303d698f2146101ad575b600080fd5b61018461033a81565b60405173ffffffffffffffffffffffffffffffffffffffff909116815260200160405180910390f35b61018461023681565b610184602081565b610184607c81565b61018461034881565b61018473bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb81565b6101846103d281565b6101846102be81565b61018461018881565b61018461026081565b61018461019a81565b6101846103da81565b61018473eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee81565b61018461028381565b6101846102c681565b610184609c81565b61018461022a81565b61018461016481565b6101846102f481565b61018460248156fea164736f6c6343000806000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

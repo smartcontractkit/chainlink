@@ -1,0 +1,190 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MockV2Aggregator",
+  "sourceName": "src/v0.7/tests/MockV2Aggregator.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "_initialAnswer",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "int256",
+          "name": "current",
+          "type": "int256"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "updatedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "AnswerUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "roundId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "startedBy",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "startedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewRound",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "getAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "getTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestAnswer",
+      "outputs": [
+        {
+          "internalType": "int256",
+          "name": "",
+          "type": "int256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestRound",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "latestTimestamp",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "int256",
+          "name": "_answer",
+          "type": "int256"
+        }
+      ],
+      "name": "updateAnswer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_roundId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "int256",
+          "name": "_answer",
+          "type": "int256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_startedAt",
+          "type": "uint256"
+        }
+      ],
+      "name": "updateRoundData",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x608060405234801561001057600080fd5b506040516102723803806102728339818101604052602081101561003357600080fd5b505161003e81610044565b50610079565b600081815542600181815560028054909101808255835260036020908152604080852095909555905483526004905291902055565b6101ea806100886000396000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c80639ab29f451161005b5780639ab29f45146100ac578063a87a20ce146100dd578063b5ab58dc146100fa578063b633620c146101175761007d565b806350d25bcd14610082578063668a0f021461009c5780638205bf6a146100a4575b600080fd5b61008a610134565b60408051918252519081900360200190f35b61008a61013a565b61008a610140565b6100db600480360360808110156100c257600080fd5b5080359060208101359060408101359060600135610146565b005b6100db600480360360208110156100f357600080fd5b5035610184565b61008a6004803603602081101561011057600080fd5b50356101b9565b61008a6004803603602081101561012d57600080fd5b50356101cb565b60005481565b60025481565b60015481565b600284815560008481556001849055948552600360209081526040808720959095558154865260048152848620939093555484526005909152912055565b600081815542600181815560028054909101808255835260036020908152604080852095909555905483526004905291902055565b60036020526000908152604090205481565b6004602052600090815260409020548156fea164736f6c6343000706000a",
+  "deployedBytecode": "0x608060405234801561001057600080fd5b506004361061007d5760003560e01c80639ab29f451161005b5780639ab29f45146100ac578063a87a20ce146100dd578063b5ab58dc146100fa578063b633620c146101175761007d565b806350d25bcd14610082578063668a0f021461009c5780638205bf6a146100a4575b600080fd5b61008a610134565b60408051918252519081900360200190f35b61008a61013a565b61008a610140565b6100db600480360360808110156100c257600080fd5b5080359060208101359060408101359060600135610146565b005b6100db600480360360208110156100f357600080fd5b5035610184565b61008a6004803603602081101561011057600080fd5b50356101b9565b61008a6004803603602081101561012d57600080fd5b50356101cb565b60005481565b60025481565b60015481565b600284815560008481556001849055948552600360209081526040808720959095558154865260048152848620939093555484526005909152912055565b600081815542600181815560028054909101808255835260036020908152604080852095909555905483526004905291902055565b60036020526000908152604090205481565b6004602052600090815260409020548156fea164736f6c6343000706000a",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

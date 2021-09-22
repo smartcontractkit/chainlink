@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ServiceAgreementDecoder",
+  "sourceName": "src/v0.5/dev/ServiceAgreementDecoder.sol",
+  "abi": [],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3fe6080604052600080fdfea165627a7a72305820f18895d1e61be25a37fe86c2708604bee1019251dcebfe3bdf5cb1c3a3dc94ad0029",
+  "deployedBytecode": "0x6080604052600080fdfea165627a7a72305820f18895d1e61be25a37fe86c2708604bee1019251dcebfe3bdf5cb1c3a3dc94ad0029",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

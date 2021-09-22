@@ -1,0 +1,47 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "MaliciousChainlinkClient",
+  "sourceName": "src/v0.5/tests/MaliciousChainlinkClient.sol",
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "id",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ChainlinkRequested",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "id",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ChainlinkFulfilled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "id",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ChainlinkCancelled",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x608060405260016004556001600655348015601957600080fd5b5060358060276000396000f3fe6080604052600080fdfea165627a7a72305820daf375e10137569984f14586faf2e5e07c7ca2dda15251abf86f587aa372d3e30029",
+  "deployedBytecode": "0x6080604052600080fdfea165627a7a72305820daf375e10137569984f14586faf2e5e07c7ca2dda15251abf86f587aa372d3e30029",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
