@@ -13,7 +13,7 @@ let acFactory: ContractFactory
 before(async () => {
   personas = (await getUsers()).personas
   validatorFactory = await ethers.getContractFactory(
-    'DeviationFlaggingValidator',
+    'src/v0.6/DeviationFlaggingValidator.sol:DeviationFlaggingValidator',
     personas.Carol,
   )
   flagsFactory = await ethers.getContractFactory(

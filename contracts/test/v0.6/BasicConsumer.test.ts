@@ -31,7 +31,7 @@ before(async () => {
     roles.oracleNode,
   )
   linkTokenFactory = await ethers.getContractFactory(
-    'LinkToken',
+    'src/v0.4/LinkToken.sol:LinkToken',
     roles.defaultAccount,
   )
 })
