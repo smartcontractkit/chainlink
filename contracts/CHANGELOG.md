@@ -1,5 +1,11 @@
 # @chainlink/contracts CHANGELOG.md
 
+## 0.2.3 - Unreleased
+
+### Changed:
+
+- Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
+
 ## 0.2.2 - Unreleased
 
 ### Added:
