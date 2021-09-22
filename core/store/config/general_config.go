@@ -100,6 +100,7 @@ type GeneralOnlyConfig interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
+	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
@@ -627,10 +628,16 @@ func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
 }
 
-// KeeperGasPriceBufferPercent controls the queue size for DropOldestStrategy in Keeper
-// Set to 0 to use SendEvery strategy instead
+// KeeperGasPriceBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in legacy mode.
 func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperGasPriceBufferPercent"))
+}
+
+// KeeperGasTipCapBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
+	return c.viper.GetUint32(EnvVarName("KeeperGasTipCapBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full

@@ -219,7 +219,7 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice 
 	}
 	if ex.config.EvmEIP1559DynamicFees() {
 		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
-		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasPriceBufferPercent())
+		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
 	} else {
 		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
 		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
