@@ -9,6 +9,7 @@
     "compiler-version": ["off", "^0.4.24"],
     "avoid-throw": false,
     "var-name-mixedcase": false,
-    "mark-callable-contracts": false
+    "mark-callable-contracts": false,
+    "func-visibility": ["warn",{"ignoreConstructors":true}]
   }
 }
