@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"runtime"
 
-	"gorm.io/gorm"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -21,18 +19,9 @@ type Logger interface {
 	Named(name string) Logger
 	// With creates a new logger with the given arguments
 	With(args ...interface{}) Logger
-	// WithDB creates a new logger with the given db.
-	WithDB(db *gorm.DB) Logger
 
-	// GetORM returns the underlying ORM, if one is set.
-	GetORM() ORM
-
-	// InitServiceLevelLogger builds a service level logger with a given logging level & serviceName
-	InitServiceLevelLogger(serviceName string, logLevel string) (Logger, error)
-	// ServiceLogLevel is the log level set for a specified package
-	ServiceLogLevel(serviceName string) (string, error)
-	// GetServiceLogLevels retrieves all service log levels from the db
-	GetServiceLogLevels() (map[string]string, error)
+	// NewServiceLevelLogger builds a service level logger with a given logging level & serviceName
+	NewServiceLevelLogger(serviceName string, logLevel string) (Logger, error)
 
 	Info(args ...interface{})
 	Infof(format string, values ...interface{})
@@ -74,8 +63,6 @@ var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	Orm         ORM
-	lvl         zapcore.Level
 	dir         string
 	jsonConsole bool
 	toDisk      bool
@@ -165,30 +152,6 @@ func (l *zapLogger) PanicIf(err error) {
 	}
 }
 
-func (l *zapLogger) WithDB(db *gorm.DB) Logger {
-	newLogger := *l
-	newLogger.Orm = NewORM(db)
-	return &newLogger
-}
-
-func (l *zapLogger) GetORM() ORM {
-	return l.Orm
-}
-
-func (l *zapLogger) GetServiceLogLevels() (map[string]string, error) {
-	serviceLogLevels := make(map[string]string)
-
-	for _, svcName := range GetLogServices() {
-		svc, err := l.ServiceLogLevel(svcName)
-		if err != nil {
-			Fatalf("error getting service log levels: %v", err)
-		}
-		serviceLogLevels[svcName] = svc
-	}
-
-	return serviceLogLevels, nil
-}
-
 // initLogConfig builds a zap.Config for a logger
 func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) zap.Config {
 	config := zap.NewProductionConfig()
@@ -216,14 +179,13 @@ func CreateProductionLogger(
 	}
 	return &zapLogger{
 		SugaredLogger: zl.Sugar(),
-		lvl:           lvl,
 		dir:           dir,
 		jsonConsole:   jsonConsole,
 		toDisk:        toDisk,
 	}
 }
 
-func (l *zapLogger) InitServiceLevelLogger(serviceName string, logLevel string) (Logger, error) {
+func (l *zapLogger) NewServiceLevelLogger(serviceName string, logLevel string) (Logger, error) {
 	var ll zapcore.Level
 	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
 		return nil, err
@@ -240,18 +202,6 @@ func (l *zapLogger) InitServiceLevelLogger(serviceName string, logLevel string) 
 	newLogger.SugaredLogger = zl.Named(serviceName).Sugar().With(l.fields...)
 	newLogger.fields = copyFields(l.fields)
 	return &newLogger, nil
-}
-
-func (l *zapLogger) ServiceLogLevel(serviceName string) (string, error) {
-	if l.Orm != nil {
-		level, err := l.Orm.GetServiceLogLevel(serviceName)
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			Warnf("Error while trying to fetch %s service log level: %v", serviceName, err)
-		} else if err == nil {
-			return level, nil
-		}
-	}
-	return l.lvl.String(), nil
 }
 
 // NewProductionConfig returns a production logging config

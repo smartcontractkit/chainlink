@@ -3,11 +3,12 @@ package logger
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
 type ORM interface {
-	GetServiceLogLevel(serviceName string) (string, error)
+	GetServiceLogLevel(serviceName string) (level string, ok bool)
 	SetServiceLogLevel(ctx context.Context, serviceName string, level string) error
 }
 
@@ -21,12 +22,15 @@ func NewORM(db *gorm.DB) *orm {
 }
 
 // GetServiceLogLevel returns the log level for a configured service
-func (orm *orm) GetServiceLogLevel(serviceName string) (string, error) {
+func (orm *orm) GetServiceLogLevel(serviceName string) (string, bool) {
 	config := LogConfig{}
 	if err := orm.DB.First(&config, "service_name = ?", serviceName).Error; err != nil {
-		return "", err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			Warnf("Error while trying to fetch %s service log level: %v", serviceName, err)
+		}
+		return "", false
 	}
-	return config.LogLevel, nil
+	return config.LogLevel, true
 }
 
 func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level string) error {
