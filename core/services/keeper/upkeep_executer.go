@@ -215,7 +215,8 @@ func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int,
 		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
 	if ex.config.EvmEIP1559DynamicFees() {
-		panic("not implemented") // TODO: implement
+		// TODO: implemented in: https://github.com/smartcontractkit/chainlink/pull/5083
+		return nil, errors.New("Keeper is not compatible with EIP-1559 mode")
 	}
 	gasPrice, _, err := ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
 	if err != nil {
