@@ -443,11 +443,6 @@ func (_m *Application) SessionORM() sessions.ORM {
 	return r0
 }
 
-// SetLogger provides a mock function with given fields: _a0
-func (_m *Application) SetLogger(_a0 func(logger.Logger) logger.Logger) {
-	_m.Called(_a0)
-}
-
 // SetServiceLogger provides a mock function with given fields: ctx, service, level
 func (_m *Application) SetServiceLogger(ctx context.Context, service string, level string) error {
 	ret := _m.Called(ctx, service, level)

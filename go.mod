@@ -6,7 +6,6 @@ require (
 	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/btcsuite/btcd v0.22.0-beta
-	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
 	github.com/ethereum/go-ethereum v1.10.8
@@ -17,16 +16,17 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/jackc/pgconn v1.10.0
-	github.com/jackc/pgtype v1.8.1 // indirect
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/jpillora/backoff v1.0.0
+	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.2
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.7

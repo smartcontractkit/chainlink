@@ -33,12 +33,9 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	logSvcs := logger.GetLogServices()
+	logORM := logger.NewORM(cc.App.GetDB())
 	for _, svcName := range logSvcs {
-		lvl, err := cc.App.GetLogger().ServiceLogLevel(svcName)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting service log level for %s service: %v", svcName, err))
-			return
-		}
+		lvl, _ := logORM.GetServiceLogLevel(svcName)
 
 		svcs = append(svcs, svcName)
 		lvls = append(lvls, lvl)
@@ -98,6 +95,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	if len(request.ServiceLogLevel) > 0 {
+		logORM := logger.NewORM(cc.App.GetDB())
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]
@@ -107,11 +105,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 				return
 			}
 
-			ll, err := cc.App.GetLogger().ServiceLogLevel(svcName)
-			if err != nil {
-				jsonAPIError(c, http.StatusInternalServerError, err)
-				return
-			}
+			ll, _ := logORM.GetServiceLogLevel(svcName)
 
 			svcs = append(svcs, svcName)
 			lvls = append(lvls, ll)
@@ -120,9 +114,6 @@ func (cc *LogController) Patch(c *gin.Context) {
 
 	// Set default logger with new configurations
 	logger.SetLogger(cc.App.GetConfig().CreateProductionLogger())
-	cc.App.SetLogger(func(old logger.Logger) logger.Logger {
-		return old.WithDB(cc.App.GetDB())
-	})
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{
