@@ -7,7 +7,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 
@@ -23,7 +22,7 @@ import (
 	_ "github.com/jackc/pgx/v4"
 )
 
-func NewConnection(uri string, dialect string, cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (db *sqlx.DB, gormDB *gorm.DB, err error) {
+func NewConnection(uri string, dialect string, cfg config.GeneralConfig) (db *sqlx.DB, gormDB *gorm.DB, err error) {
 	originalURI := uri
 	if dialect == "txdb" {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
