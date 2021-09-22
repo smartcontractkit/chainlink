@@ -720,12 +720,12 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	// Call the v2 pipeline to execute a new job run
 	run, results, err := fm.runner.ExecuteRun(context.Background(), fm.spec, vars, fm.logger)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
+		newRoundLogger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
 	result, err := results.FinalResult().SingularResult()
 	if err != nil || result.Error != nil {
-		logger.Errorw("can't fetch answer", "err", err, "result", result)
+		newRoundLogger.Errorw("can't fetch answer", "err", err, "result", result)
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
 		fm.jobORM.RecordError(ctx, fm.spec.JobID, "Error polling")
@@ -733,7 +733,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 	answer, err := utils.ToDecimal(result.Value)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
+		newRoundLogger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
 
