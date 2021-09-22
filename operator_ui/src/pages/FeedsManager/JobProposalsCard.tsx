@@ -48,7 +48,7 @@ const JobProposalRow = withStyles(tableStyles)(
 
         <TableCell>{proposal.attributes.external_job_id || 'N/A'}</TableCell>
         <TableCell>
-          <TimeAgo tooltip>{proposal.attributes.createdAt}</TimeAgo>
+          <TimeAgo tooltip>{proposal.attributes.proposedAt}</TimeAgo>
         </TableCell>
       </TableRow>
     )
