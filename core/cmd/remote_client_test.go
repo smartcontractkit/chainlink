@@ -73,8 +73,6 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	l := config.CreateProductionLogger().With("testname", t.Name())
 	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	app.Logger = l
-	app.Logger.SetDB(app.GetDB())
 
 	require.NoError(t, app.Start())
 
@@ -584,7 +582,7 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	err := client.SetLogPkg(c)
 	require.NoError(t, err)
 
-	level, err := app.Logger.ServiceLogLevel(logPkg)
-	require.NoError(t, err)
+	level, ok := logger.NewORM(app.GetDB()).GetServiceLogLevel(logPkg)
+	require.True(t, ok)
 	assert.Equal(t, logLevel, level)
 }

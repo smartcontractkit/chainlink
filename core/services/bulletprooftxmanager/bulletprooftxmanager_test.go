@@ -267,6 +267,32 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 		assert.Equal(t, tx1.ID, tx2.ID)
 	})
+
+	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
+		config.On("EvmMaxQueuedTransactions").Return(uint64(3)).Twice()
+		rndAddr := cltest.NewAddress()
+		_, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    rndAddr,
+			ToAddress:      cltest.NewAddress(),
+			EncodedPayload: []byte{1, 2, 3},
+			GasLimit:       21000,
+			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", rndAddr.Hex()))
+
+		_, otherAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), *utils.NewBigI(1337), 0)
+
+		_, err = bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+			FromAddress:    otherAddress,
+			ToAddress:      cltest.NewAddress(),
+			EncodedPayload: []byte{1, 2, 3},
+			GasLimit:       21000,
+			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), fmt.Sprintf("cannot send transaction on chain ID 0; eth key with address %s is pegged to chain ID 1337", otherAddress.Hex()))
+	})
 }
 
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {

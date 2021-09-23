@@ -538,7 +538,7 @@ func (r *runner) ResumeRun(taskID uuid.UUID, result interface{}) error {
 	if start {
 		// start the runner again
 		go func() {
-			if _, err := r.Run(context.Background(), &run, *logger.Default, false, nil); err != nil {
+			if _, err := r.Run(context.Background(), &run, logger.Default, false, nil); err != nil {
 				logger.Errorw("Resume", "err", err)
 			}
 		}()
@@ -598,7 +598,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 
 	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
 		go func() {
-			if _, err := r.Run(context.TODO(), &run, *logger.Default, false, nil); err != nil {
+			if _, err := r.Run(context.TODO(), &run, logger.Default, false, nil); err != nil {
 				logger.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()

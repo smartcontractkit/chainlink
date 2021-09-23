@@ -14,12 +14,10 @@ interface Props extends WithStyles<typeof tableStyles> {
 }
 
 export const ChainRow = withStyles(tableStyles)(({ chain, classes }: Props) => {
-  const createdAt = chain.attributes.createdAt
+  const { enabled, config, createdAt } = chain.attributes
 
   const configOverrides = Object.fromEntries(
-    Object.entries(chain.attributes.config).filter(
-      ([_key, value]) => value !== null,
-    ),
+    Object.entries(config).filter(([_key, value]) => value !== null),
   )
 
   return (
@@ -29,6 +27,8 @@ export const ChainRow = withStyles(tableStyles)(({ chain, classes }: Props) => {
           {chain.id}
         </Link>
       </TableCell>
+
+      <TableCell>{enabled.toString()}</TableCell>
 
       <TableCell>
         <pre>{JSON.stringify(configOverrides, null, 2)}</pre>

@@ -3,13 +3,13 @@ package logger
 import (
 	"context"
 
-	"go.uber.org/zap/zapcore"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
 type ORM interface {
-	GetServiceLogLevel(serviceName string) (string, error)
-	SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error
+	GetServiceLogLevel(serviceName string) (level string, ok bool)
+	SetServiceLogLevel(ctx context.Context, serviceName string, level string) error
 }
 
 type orm struct {
@@ -22,15 +22,18 @@ func NewORM(db *gorm.DB) *orm {
 }
 
 // GetServiceLogLevel returns the log level for a configured service
-func (orm *orm) GetServiceLogLevel(serviceName string) (string, error) {
+func (orm *orm) GetServiceLogLevel(serviceName string) (string, bool) {
 	config := LogConfig{}
 	if err := orm.DB.First(&config, "service_name = ?", serviceName).Error; err != nil {
-		return "", err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			Warnf("Error while trying to fetch %s service log level: %v", serviceName, err)
+		}
+		return "", false
 	}
-	return config.LogLevel, nil
+	return config.LogLevel, true
 }
 
-func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
+func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, level string) error {
 	return orm.DB.WithContext(ctx).Exec(`
         INSERT INTO log_configs (
             service_name, log_level
@@ -38,5 +41,5 @@ func (orm *orm) SetServiceLogLevel(ctx context.Context, serviceName string, leve
             ?, ?
         ) ON CONFLICT (service_name) 
 		DO UPDATE SET log_level = EXCLUDED.log_level
-    `, serviceName, level.String()).Error
+    `, serviceName, level).Error
 }
