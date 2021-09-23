@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"net/url"
 	"os"
 	"path"
@@ -32,9 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/health"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -103,6 +100,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
+	skey, sexisted, fkey, fexisted, err := keyStore.Eth().EnsureKeys()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if !fexisted {
+		logger.Infow("New funding address created", "address", fkey.Address.Hex())
+	}
+	if !sexisted {
+		logger.Infow("New sending address created", "address", skey.Address.Hex())
+	}
+
 	ocrKey, didExist, err := keyStore.OCR().EnsureKey()
 	if err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
@@ -141,11 +149,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	err = logConfigVariables(cli.Config)
 	if err != nil {
 		return err
-	}
-
-	err = ensureKeys(context.TODO(), store.Config, app.GetEthClient(), keyStore)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to ensure Eth keys"))
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -230,37 +233,6 @@ func logConfigVariables(cfg config.GeneralConfig) error {
 	}
 
 	logger.Debug("Environment variables\n", wlc)
-	return nil
-}
-
-func ensureKeys(ctx context.Context, cfg config.GeneralConfig, ethClient eth.Client, ks keystore.Master) error {
-	if cfg.EthereumDisabled() {
-		return nil
-	}
-	balance := big.NewInt(0)
-	sendingKey, sendDidExist, fundingKey, fundDidExist, err := ks.Eth().EnsureKeys()
-	if err != nil {
-		return errors.Wrap(err, "while ensuring eth key")
-	}
-	if !sendDidExist {
-		logger.Infow("New sending address created", "address", sendingKey.Address.Hex(), "balance", 0)
-	}
-	if fundDidExist {
-		// TODO How to make sure the EthClient is connected?
-		balance, err = ethClient.BalanceAt(ctx, fundingKey.Address.Address(), nil)
-		if err != nil {
-			return errors.Wrapf(err, "while fetching eth balance for key %s", fundingKey.ID())
-		}
-	} else {
-		logger.Infow("New funding address created", "address", fundingKey.Address.Hex(), "balance", 0)
-	}
-	if cfg.Dev() {
-		if balance.Cmp(big.NewInt(0)) == 0 {
-			logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address.Hex(), "balance", balance)
-		} else {
-			logger.Infow("Funding address ready", "address", fundingKey.Address.Hex(), "current-balance", balance)
-		}
-	}
 	return nil
 }
 
