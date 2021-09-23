@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
@@ -74,7 +75,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = new(htmocks.HeadBroadcaster)
 	uni.ec = cltest.NewEthClientMock(t)
 
-	s := cltest.NewStore(t)
+	db := pgtest.NewGormDB(t)
 	uni.tracker = offchainreporting.NewOCRContractTracker(
 		contract,
 		filterer,
@@ -83,7 +84,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		uni.lb,
 		42,
 		logger.Default,
-		s.DB,
+		db,
 		uni.db,
 		chain,
 		uni.hb,
