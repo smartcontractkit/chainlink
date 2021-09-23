@@ -13,28 +13,20 @@ contract UpkeepMock is KeeperCompatible {
 
   event UpkeepPerformedWith(bytes upkeepData);
 
-  function setCanCheck(bool value)
-    public
-  {
+  function setCanCheck(bool value) public {
     canCheck = value;
   }
 
-  function setCanPerform(bool value)
-    public
-  {
+  function setCanPerform(bool value) public {
     canPerform = value;
   }
 
-  function setCheckGasToBurn(uint256 value)
-    public
-  {
+  function setCheckGasToBurn(uint256 value) public {
     require(value > gasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
     checkGasToBurn = value - gasBuffer;
   }
 
-  function setPerformGasToBurn(uint256 value)
-    public
-  {
+  function setPerformGasToBurn(uint256 value) public {
     require(value > gasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
     performGasToBurn = value - gasBuffer;
   }
@@ -42,11 +34,8 @@ contract UpkeepMock is KeeperCompatible {
   function checkUpkeep(bytes calldata data)
     external
     override
-    cannotExecute()
-    returns (
-      bool callable,
-      bytes calldata executedata
-    )
+    cannotExecute
+    returns (bool callable, bytes calldata executedata)
   {
     uint256 startGas = gasleft();
     bool couldCheck = canCheck;
@@ -58,12 +47,7 @@ contract UpkeepMock is KeeperCompatible {
     return (couldCheck, data);
   }
 
-  function performUpkeep(
-    bytes calldata data
-  )
-    external
-    override
-  {
+  function performUpkeep(bytes calldata data) external override {
     uint256 startGas = gasleft();
 
     require(canPerform, "Cannot perform");
@@ -72,6 +56,6 @@ contract UpkeepMock is KeeperCompatible {
 
     emit UpkeepPerformedWith(data);
 
-    while(startGas - gasleft() < performGasToBurn) {} // burn gas
+    while (startGas - gasleft() < performGasToBurn) {} // burn gas
   }
 }

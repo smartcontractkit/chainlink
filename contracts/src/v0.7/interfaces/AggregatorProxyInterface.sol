@@ -4,33 +4,13 @@ pragma solidity ^0.7.0;
 import "./AggregatorV2V3Interface.sol";
 
 interface AggregatorProxyInterface is AggregatorV2V3Interface {
-  
-	function phaseAggregators(
-    uint16 phaseId
-  )
-    external
-    view
-    returns (
-      address
-    );
+  function phaseAggregators(uint16 phaseId) external view returns (address);
 
-	function phaseId()
-    external
-    view
-    returns (
-      uint16
-    );
+  function phaseId() external view returns (uint16);
 
-	function proposedAggregator()
-    external
-    view
-    returns (
-      address
-    );
+  function proposedAggregator() external view returns (address);
 
-	function proposedGetRoundData(
-    uint80 roundId
-  )
+  function proposedGetRoundData(uint80 roundId)
     external
     view
     returns (
@@ -41,7 +21,7 @@ interface AggregatorProxyInterface is AggregatorV2V3Interface {
       uint80 answeredInRound
     );
 
-	function proposedLatestRoundData()
+  function proposedLatestRoundData()
     external
     view
     returns (
@@ -52,10 +32,5 @@ interface AggregatorProxyInterface is AggregatorV2V3Interface {
       uint80 answeredInRound
     );
 
-	function aggregator()
-    external
-    view
-    returns (
-      address
-    );
+  function aggregator() external view returns (address);
 }
