@@ -208,11 +208,6 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		PipelineSpec:  &pipeline.Spec{},
 		ExternalJobID: uuid.NewV4(),
 	}
-	// keyStore := cltest.NewKeyStore(t, db)
-	// <<<<<<< HEAD
-	//     pipelineHelper := cltest.NewJobPipelineV2(t, cltest.NewTestEVMConfig(t), db, nil, keyStore, nil)
-	//     _, err := pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
-	// =======
 	_, err := helper.pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
 	require.NoError(t, err)
 

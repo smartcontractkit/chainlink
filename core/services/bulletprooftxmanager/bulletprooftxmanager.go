@@ -106,8 +106,9 @@ type BulletproofTxManager struct {
 	trigger        chan common.Address
 	resumeCallback func(id uuid.UUID, value interface{}) error
 
-	chStop chan struct{}
-	wg     sync.WaitGroup
+	chStop   chan struct{}
+	chSubbed chan struct{}
+	wg       sync.WaitGroup
 
 	reaper      *Reaper
 	ethResender *EthResender
@@ -131,6 +132,7 @@ func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, k
 		chHeads:          make(chan eth.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
+		chSubbed:         make(chan struct{}),
 	}
 	if config.EthTxResendAfterThreshold() > 0 {
 		b.ethResender = NewEthResender(lggr, db, ethClient, defaultResenderPollInterval, config)
@@ -170,6 +172,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		b.wg.Add(1)
 		go b.runLoop(eb, ec)
+		<-b.chSubbed
 
 		if b.reaper != nil {
 			b.reaper.Start()
@@ -206,6 +209,8 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 	defer b.wg.Done()
 	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges()
 	defer unsub()
+
+	close(b.chSubbed)
 
 	for {
 		select {
