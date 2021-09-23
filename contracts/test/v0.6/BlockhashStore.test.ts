@@ -165,7 +165,7 @@ const binanceBlocks: TestBlocks[] = [
 before(async () => {
   personas = (await getUsers()).personas
   blockhashStoreTestHelperFactory = await ethers.getContractFactory(
-    'BlockhashStoreTestHelper',
+    'src/v0.6/tests/BlockhashStoreTestHelper.sol:BlockhashStoreTestHelper',
     personas.Default,
   )
 })

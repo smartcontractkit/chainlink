@@ -365,16 +365,19 @@ describe('UpkeepRegistrationRequests', () => {
         )
 
       //register with auto approve OFF
-      let abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
-        upkeepName,
-        emptyBytes,
-        mock.address,
-        executeGas,
-        await admin.getAddress(),
-        emptyBytes,
-        amount,
-        source,
-      ])
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+        ],
+      )
 
       const tx = await linkToken.transferAndCall(
         registrar.address,
@@ -514,16 +517,19 @@ describe('UpkeepRegistrationRequests', () => {
         )
 
       //register with auto approve OFF
-      let abiEncodedBytes = registrar.interface.encodeFunctionData('register', [
-        upkeepName,
-        emptyBytes,
-        mock.address,
-        executeGas,
-        await admin.getAddress(),
-        emptyBytes,
-        amount,
-        source,
-      ])
+      const abiEncodedBytes = registrar.interface.encodeFunctionData(
+        'register',
+        [
+          upkeepName,
+          emptyBytes,
+          mock.address,
+          executeGas,
+          await admin.getAddress(),
+          emptyBytes,
+          amount,
+          source,
+        ],
+      )
       const tx = await linkToken.transferAndCall(
         registrar.address,
         amount,

@@ -21,7 +21,7 @@ before(async () => {
   newOwner = personas.Ned
 
   confirmedOwnerTestHelperFactory = await ethers.getContractFactory(
-    'ConfirmedOwnerTestHelper',
+    'src/v0.7/tests/ConfirmedOwnerTestHelper.sol:ConfirmedOwnerTestHelper',
     owner,
   )
   confirmedOwnerFactory = await ethers.getContractFactory(
