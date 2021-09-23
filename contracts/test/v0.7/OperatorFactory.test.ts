@@ -78,7 +78,7 @@ describe("OperatorFactory", () => {
 
       receipt = await tx.wait();
       emittedOperator = evmWordToAddress(receipt.logs?.[0].topics?.[1]);
-      emittedForwarder = evmWordToAddress(receipt.logs?.[1].topics?.[1]);
+      emittedForwarder = evmWordToAddress(receipt.logs?.[3].topics?.[1]);
     });
 
     it("emits an event recording that the operator was deployed", async () => {
@@ -89,12 +89,28 @@ describe("OperatorFactory", () => {
       assert.equal(receipt?.events?.[0]?.args?.[2], await roles.oracleNode.getAddress());
     });
 
-    it("emits an event recording that the forwarder was deployed", async () => {
+    it("proposes the transfer of the forwarder to the operator", async () => {
       assert.equal(await roles.oracleNode.getAddress(), receipt.events?.[0].args?.[1]);
-      assert.equal(receipt?.events?.[1]?.event, "AuthorizedForwarderCreated");
-      assert.equal(receipt?.events?.[1]?.args?.[0], emittedForwarder);
-      assert.equal(receipt?.events?.[1]?.args?.[1], emittedOperator);
-      assert.equal(receipt?.events?.[1]?.args?.[2], await roles.oracleNode.getAddress());
+      assert.equal(
+        receipt?.events?.[1]?.topics?.[0],
+        "0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278", //OwnershipTransferRequested(address,address)
+      );
+      assert.equal(evmWordToAddress(receipt?.events?.[1]?.topics?.[1]), operatorGenerator.address);
+      assert.equal(evmWordToAddress(receipt?.events?.[1]?.topics?.[2]), emittedOperator);
+
+      assert.equal(
+        receipt?.events?.[2]?.topics?.[0],
+        "0x4e1e878dc28d5f040db5969163ff1acd75c44c3f655da2dde9c70bbd8e56dc7e", //OwnershipTransferRequestedWithMessage(address,address,bytes)
+      );
+      assert.equal(evmWordToAddress(receipt?.events?.[2]?.topics?.[1]), operatorGenerator.address);
+      assert.equal(evmWordToAddress(receipt?.events?.[2]?.topics?.[2]), emittedOperator);
+    });
+
+    it("emits an event recording that the forwarder was deployed", async () => {
+      assert.equal(receipt?.events?.[3]?.event, "AuthorizedForwarderCreated");
+      assert.equal(receipt?.events?.[3]?.args?.[0], emittedForwarder);
+      assert.equal(receipt?.events?.[3]?.args?.[1], operatorGenerator.address);
+      assert.equal(receipt?.events?.[3]?.args?.[2], await roles.oracleNode.getAddress());
     });
 
     it("sets the correct owner on the operator", async () => {
@@ -103,9 +119,8 @@ describe("OperatorFactory", () => {
     });
 
     it("sets the operator as the owner of the forwarder", async () => {
-      forwarder = await forwarderFactory.connect(roles.defaultAccount).attach(receipt?.events?.[1]?.args?.[0]);
-      const operatorAddress = receipt?.events?.[0]?.args?.[0];
-      assert.equal(operatorAddress, await forwarder.owner());
+      forwarder = await forwarderFactory.connect(roles.defaultAccount).attach(emittedForwarder);
+      assert.equal(operatorGenerator.address, await forwarder.owner());
     });
 
     it("records that it deployed that address", async () => {
