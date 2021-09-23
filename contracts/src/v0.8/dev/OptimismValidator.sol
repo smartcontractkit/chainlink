@@ -18,7 +18,7 @@ import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOV
  */
 contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address private constant FLAG_OPTIMISM_SEQ_OFFLINE =
+  address public constant FLAG_OPTIMISM_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
   // Encode underlying Flags call/s
   bytes private constant CALL_RAISE_FLAG =
