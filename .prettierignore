@@ -18,6 +18,9 @@ contracts/cache
 contracts/node_modules
 contracts/solc
 contracts/LinkToken.json
+contracts/src/v0.4
+contracts/src/v0.5
+contracts/src/v0.6
 
 # Ignore TS definition and map files
 **/**.d.ts

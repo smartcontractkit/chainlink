@@ -1,5 +1,11 @@
-# folders
-artifacts/
-abi/
-cache/**
-node_modules/
+coverage
+abi
+artifacts
+cache
+node_modules
+solc
+LinkToken.json
+node_modules
+src/v0.4
+src/v0.5
+src/v0.6
