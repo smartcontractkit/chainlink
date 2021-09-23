@@ -156,7 +156,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _ := heavyweight.FullTestORM(t, "vrf_v2_integration", true, true)
+	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
@@ -333,7 +333,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _ := heavyweight.FullTestORM(t, "vrf_v2_integration_malicious", true, true)
+	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)

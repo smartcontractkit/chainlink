@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 var (
@@ -164,9 +163,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			require.NoError(t, err)
 
 			var exi bridges.ExternalInitiator
-			err = app.GetStore().RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-				return db.Where("name = ?", test.args[0]).Find(&exi).Error
-			})
+			err = app.GetDB().Where("name = ?", test.args[0]).Find(&exi).Error
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {

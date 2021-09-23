@@ -3,11 +3,13 @@ package cmd
 import (
 	"bytes"
 	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -20,11 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -75,23 +80,69 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	advisoryLocker := postgres.NewAdvisoryLock(cfg.DatabaseURL())
 	shutdownSignal := gracefulpanic.NewSignal()
-	// TODO: Remove store entirely
-	// https://app.clubhouse.io/chainlinklabs/story/12980/remove-store-object-entirely
-	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
+	uri := cfg.DatabaseURL()
+	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
+	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	})
 	if err != nil {
 		return nil, err
 	}
-	db := store.DB
-	sqlxDB := postgres.UnwrapGormDB(db)
-	keyStore := keystore.New(db, utils.GetScryptParams(cfg))
-	cfg.SetDB(db)
+	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg))
+	cfg.SetDB(gormDB)
+
+	// Set up the versioning ORM
+	verORM := versioning.NewORM(db)
+
+	// Set up periodic backup
+	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
+		var version *versioning.NodeVersion
+		var versionString string
+
+		version, err = verORM.FindLatestNodeVersion()
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+			} else {
+				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
+			}
+		}
+
+		if version != nil {
+			versionString = version.Version
+		}
+
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
+		databaseBackup.RunBackupGracefully(versionString)
+	}
+
+	// Migrate the database
+	if cfg.MigrateDatabase() {
+		if err = migrate.Migrate(db.DB); err != nil {
+			return nil, errors.Wrap(err, "initializeORM#Migrate")
+		}
+	}
+
+	// Determine node version
+	nodeVersion := static.Version
+	if nodeVersion == "unset" {
+		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
+	}
+	version := versioning.NewNodeVersion(nodeVersion)
+	if err = verORM.UpsertNodeVersion(version); err != nil {
+		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
+	}
+
 	// Init service loggers
 	globalLogger := cfg.CreateProductionLogger()
 
 	if cfg.ClobberNodesFromEnv() {
-		if err = evm.ClobberNodesFromEnv(db, cfg); err != nil {
+		if err = evm.ClobberNodesFromEnv(gormDB, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -100,9 +151,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           globalLogger,
-		GormDB:           db,
-		SQLxDB:           sqlxDB,
-		ORM:              evm.NewORM(sqlxDB),
+		GormDB:           gormDB,
+		SQLxDB:           db,
+		ORM:              evm.NewORM(db),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
@@ -110,13 +161,12 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		logger.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           shutdownSignal,
-		Store:                    store,
-		GormDB:                   db,
-		SqlxDB:                   sqlxDB,
+		GormDB:                   gormDB,
+		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		EventBroadcaster:         eventBroadcaster,
