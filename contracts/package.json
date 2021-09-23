@@ -9,7 +9,7 @@
     "test": "hardhat test",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
-    "prettier": "prettier --config .prettierrc --write \"**/*.{js,json,md,sol,ts}\"",
+    "prettier": "prettier --config .prettierrc --write \"**/*.sol\"",
     "compile:native": "./scripts/native_solc_compile_all",
     "compile": "hardhat compile",
     "coverage": "hardhat coverage",

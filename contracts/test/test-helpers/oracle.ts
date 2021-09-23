@@ -4,16 +4,16 @@
  * This file provides convenience functions to interact with existing solidity contract abstraction libraries, such as
  * @truffle/contract and ethers.js specifically for our `Oracle.sol` solidity smart contract.
  */
-import { BigNumberish } from "@ethersproject/bignumber/lib/bignumber";
-import { ethers } from "ethers";
-import { makeDebug } from "./debug";
-import { addCBORMapDelimiters, stripHexPrefix, toHex } from "./helpers";
-const debug = makeDebug("oracle");
+import { BigNumberish } from '@ethersproject/bignumber/lib/bignumber'
+import { ethers } from 'ethers'
+import { makeDebug } from './debug'
+import { addCBORMapDelimiters, stripHexPrefix, toHex } from './helpers'
+const debug = makeDebug('oracle')
 
 /**
  * Transaction options such as gasLimit, gasPrice, data, ...
  */
-type TxOptions = Omit<ethers.providers.TransactionRequest, "to" | "from">;
+type TxOptions = Omit<ethers.providers.TransactionRequest, 'to' | 'from'>
 
 /**
  * A run request is an event emitted by `Oracle.sol` which triggers a job run
@@ -26,55 +26,55 @@ export interface RunRequest {
    *
    * @solformat bytes32
    */
-  specId: string;
+  specId: string
   /**
    * The requester of the run
    *
    * @solformat address
    */
-  requester: string;
+  requester: string
   /**
    * The ID of the request, check Oracle.sol#oracleRequest to see how its computed
    *
    * @solformat bytes32
    */
-  requestId: string;
+  requestId: string
   /**
    * The amount of LINK used for payment
    *
    * @solformat uint256
    */
-  payment: string;
+  payment: string
   /**
    * The address of the contract instance to callback with the fulfillment result
    *
    * @solformat address
    */
-  callbackAddr: string;
+  callbackAddr: string
   /**
    * The function selector of the method that the oracle should call after fulfillment
    *
    * @solformat bytes4
    */
-  callbackFunc: string;
+  callbackFunc: string
   /**
    * The expiration that the node should respond by before the requester can cancel
    *
    * @solformat uint256
    */
-  expiration: string;
+  expiration: string
   /**
    * The specified data version
    *
    * @solformat uint256
    */
-  dataVersion: number;
+  dataVersion: number
   /**
    * The CBOR encoded payload of the request
    *
    * @solformat bytes
    */
-  data: Buffer;
+  data: Buffer
 
   /**
    * The hash of the signature of the OracleRequest event.
@@ -96,7 +96,7 @@ export interface RunRequest {
    *
    * @solformat bytes32
    */
-  topic: string;
+  topic: string
 }
 
 /**
@@ -122,15 +122,15 @@ export function convertFufillParams(
   response: string,
   txOpts: TxOptions = {},
 ): [string, string, string, string, string, string, TxOptions] {
-  const d = debug.extend("fulfillOracleRequestParams");
-  d("Response param: %s", response);
+  const d = debug.extend('fulfillOracleRequestParams')
+  d('Response param: %s', response)
 
-  const bytes32Len = 32 * 2 + 2;
+  const bytes32Len = 32 * 2 + 2
   const convertedResponse =
     response.length < bytes32Len
       ? ethers.utils.formatBytes32String(response)
-      : response;
-  d("Converted Response param: %s", convertedResponse);
+      : response
+  d('Converted Response param: %s', convertedResponse)
 
   return [
     runRequest.requestId,
@@ -140,7 +140,7 @@ export function convertFufillParams(
     runRequest.expiration,
     convertedResponse,
     txOpts,
-  ];
+  ]
 }
 
 /**
@@ -167,14 +167,14 @@ export function convertFulfill2Params(
   responseValues: string[],
   txOpts: TxOptions = {},
 ): [string, string, string, string, string, string, TxOptions] {
-  const d = debug.extend("fulfillOracleRequestParams");
-  d("Response param: %s", responseValues);
-  const types = [...responseTypes];
-  const values = [...responseValues];
-  types.unshift("bytes32");
-  values.unshift(runRequest.requestId);
-  const convertedResponse = ethers.utils.defaultAbiCoder.encode(types, values);
-  d("Encoded Response param: %s", convertedResponse);
+  const d = debug.extend('fulfillOracleRequestParams')
+  d('Response param: %s', responseValues)
+  const types = [...responseTypes]
+  const values = [...responseValues]
+  types.unshift('bytes32')
+  values.unshift(runRequest.requestId)
+  const convertedResponse = ethers.utils.defaultAbiCoder.encode(types, values)
+  d('Encoded Response param: %s', convertedResponse)
   return [
     runRequest.requestId,
     runRequest.payment,
@@ -183,7 +183,7 @@ export function convertFulfill2Params(
     runRequest.expiration,
     convertedResponse,
     txOpts,
-  ];
+  ]
 }
 
 /**
@@ -211,7 +211,7 @@ export function convertCancelParams(
     runRequest.callbackFunc,
     runRequest.expiration,
     txOpts,
-  ];
+  ]
 }
 
 /**
@@ -241,7 +241,7 @@ export function convertCancelByRequesterParams(
     runRequest.callbackFunc,
     runRequest.expiration,
     txOpts,
-  ];
+  ]
 }
 
 /**
@@ -273,7 +273,7 @@ export function encodeOracleRequest(
   data: BigNumberish,
   dataVersion: BigNumberish = 1,
 ): string {
-  const oracleRequestSighash = "0x40429946";
+  const oracleRequestSighash = '0x40429946'
   return encodeRequest(
     oracleRequestSighash,
     specId,
@@ -282,7 +282,7 @@ export function encodeOracleRequest(
     nonce,
     data,
     dataVersion,
-  );
+  )
 }
 
 /**
@@ -313,18 +313,18 @@ export function encodeRequestOracleData(
   data: BigNumberish,
   dataVersion: BigNumberish = 2,
 ): string {
-  const sendOperatorRequestSigHash = "0x3c6d41b9";
+  const sendOperatorRequestSigHash = '0x3c6d41b9'
   const requestInputs = [
-    { name: "_sender", type: "address" },
-    { name: "_payment", type: "uint256" },
-    { name: "_specId", type: "bytes32" },
-    { name: "_callbackFunctionId", type: "bytes4" },
-    { name: "_nonce", type: "uint256" },
-    { name: "_dataVersion", type: "uint256" },
-    { name: "_data", type: "bytes" },
-  ];
+    { name: '_sender', type: 'address' },
+    { name: '_payment', type: 'uint256' },
+    { name: '_specId', type: 'bytes32' },
+    { name: '_callbackFunctionId', type: 'bytes4' },
+    { name: '_nonce', type: 'uint256' },
+    { name: '_dataVersion', type: 'uint256' },
+    { name: '_data', type: 'bytes' },
+  ]
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
-    requestInputs.map(i => i.type),
+    requestInputs.map((i) => i.type),
     [
       ethers.constants.AddressZero,
       0,
@@ -334,8 +334,8 @@ export function encodeRequestOracleData(
       dataVersion,
       data,
     ],
-  );
-  return `${sendOperatorRequestSigHash}${stripHexPrefix(encodedParams)}`;
+  )
+  return `${sendOperatorRequestSigHash}${stripHexPrefix(encodedParams)}`
 }
 
 function encodeRequest(
@@ -348,17 +348,17 @@ function encodeRequest(
   dataVersion: BigNumberish = 1,
 ): string {
   const oracleRequestInputs = [
-    { name: "_sender", type: "address" },
-    { name: "_payment", type: "uint256" },
-    { name: "_specId", type: "bytes32" },
-    { name: "_callbackAddress", type: "address" },
-    { name: "_callbackFunctionId", type: "bytes4" },
-    { name: "_nonce", type: "uint256" },
-    { name: "_dataVersion", type: "uint256" },
-    { name: "_data", type: "bytes" },
-  ];
+    { name: '_sender', type: 'address' },
+    { name: '_payment', type: 'uint256' },
+    { name: '_specId', type: 'bytes32' },
+    { name: '_callbackAddress', type: 'address' },
+    { name: '_callbackFunctionId', type: 'bytes4' },
+    { name: '_nonce', type: 'uint256' },
+    { name: '_dataVersion', type: 'uint256' },
+    { name: '_data', type: 'bytes' },
+  ]
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
-    oracleRequestInputs.map(i => i.type),
+    oracleRequestInputs.map((i) => i.type),
     [
       ethers.constants.AddressZero,
       0,
@@ -369,8 +369,8 @@ function encodeRequest(
       dataVersion,
       data,
     ],
-  );
-  return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`;
+  )
+  return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`
 }
 
 /**
@@ -394,19 +394,19 @@ function encodeRequest(
  */
 export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
   if (!log) {
-    throw Error("No logs found to decode");
+    throw Error('No logs found to decode')
   }
 
   const ORACLE_REQUEST_TYPES = [
-    "address",
-    "bytes32",
-    "uint256",
-    "address",
-    "bytes4",
-    "uint256",
-    "uint256",
-    "bytes",
-  ];
+    'address',
+    'bytes32',
+    'uint256',
+    'address',
+    'bytes4',
+    'uint256',
+    'uint256',
+    'bytes',
+  ]
   const [
     requester,
     requestId,
@@ -416,7 +416,7 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     expiration,
     version,
     data,
-  ] = ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data);
+  ] = ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data)
 
   return {
     specId: log.topics[1],
@@ -426,11 +426,11 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     callbackAddr: callbackAddress,
     callbackFunc: toHex(callbackFunc),
     expiration: toHex(expiration),
-    data: addCBORMapDelimiters(Buffer.from(stripHexPrefix(data), "hex")),
+    data: addCBORMapDelimiters(Buffer.from(stripHexPrefix(data), 'hex')),
     dataVersion: version.toNumber(),
 
     topic: log.topics[0],
-  };
+  }
 }
 
 /**
@@ -451,15 +451,15 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
 export function decodeCCRequest(
   log: ethers.providers.Log,
 ): ethers.utils.Result {
-  const d = debug.extend("decodeRunABI");
-  d("params %o", log);
+  const d = debug.extend('decodeRunABI')
+  d('params %o', log)
 
-  const REQUEST_TYPES = ["bytes32", "address", "bytes4", "bytes"];
+  const REQUEST_TYPES = ['bytes32', 'address', 'bytes4', 'bytes']
   const decodedValue = ethers.utils.defaultAbiCoder.decode(
     REQUEST_TYPES,
     log.data,
-  );
-  d("decoded value %o", decodedValue);
+  )
+  d('decoded value %o', decodedValue)
 
-  return decodedValue;
+  return decodedValue
 }
