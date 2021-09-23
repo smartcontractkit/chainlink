@@ -29,17 +29,9 @@ contract Consumer is ChainlinkClient {
     specId = _specId;
   }
 
-  function requestEthereumPrice(string memory _currency, uint256 _payment)
-    public
-  {
-    Chainlink.Request memory req = buildOperatorRequest(
-      specId,
-      this.fulfill.selector
-    );
-    req.add(
-      "get",
-      "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
-    );
+  function requestEthereumPrice(string memory _currency, uint256 _payment) public {
+    Chainlink.Request memory req = buildOperatorRequest(specId, this.fulfill.selector);
+    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
     req.addStringArray("path", path);
@@ -52,10 +44,7 @@ contract Consumer is ChainlinkClient {
     string memory _pathUSD,
     uint256 _payment
   ) public {
-    Chainlink.Request memory req = buildOperatorRequest(
-      specId,
-      this.fulfillParametersWithCustomURLs.selector
-    );
+    Chainlink.Request memory req = buildOperatorRequest(specId, this.fulfillParametersWithCustomURLs.selector);
     req.add("urlUSD", _urlUSD);
     req.add("pathUSD", _pathUSD);
     sendChainlinkRequest(req, _payment);
@@ -69,30 +58,19 @@ contract Consumer is ChainlinkClient {
     uint256 _expiration
   ) public {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(_oracle);
-    requested.cancelOracleRequest(
-      _requestId,
-      _payment,
-      _callbackFunctionId,
-      _expiration
-    );
+    requested.cancelOracleRequest(_requestId, _payment, _callbackFunctionId, _expiration);
   }
 
   function withdrawLink() public {
     LinkTokenInterface _link = LinkTokenInterface(chainlinkTokenAddress());
-    require(
-      _link.transfer(msg.sender, _link.balanceOf(address(this))),
-      "Unable to transfer"
-    );
+    require(_link.transfer(msg.sender, _link.balanceOf(address(this))), "Unable to transfer");
   }
 
   function addExternalRequest(address _oracle, bytes32 _requestId) external {
     addChainlinkExternalRequest(_oracle, _requestId);
   }
 
-  function fulfill(bytes32 _requestId, bytes32 _price)
-    public
-    recordChainlinkFulfillment(_requestId)
-  {
+  function fulfill(bytes32 _requestId, bytes32 _price) public recordChainlinkFulfillment(_requestId) {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
   }

@@ -22,18 +22,12 @@ contract UpkeepMock is KeeperCompatible {
   }
 
   function setCheckGasToBurn(uint256 value) public {
-    require(
-      value > gasBuffer || value == 0,
-      "checkGasToBurn must be 0 (disabled) or greater than buffer"
-    );
+    require(value > gasBuffer || value == 0, "checkGasToBurn must be 0 (disabled) or greater than buffer");
     checkGasToBurn = value - gasBuffer;
   }
 
   function setPerformGasToBurn(uint256 value) public {
-    require(
-      value > gasBuffer || value == 0,
-      "performGasToBurn must be 0 (disabled) or greater than buffer"
-    );
+    require(value > gasBuffer || value == 0, "performGasToBurn must be 0 (disabled) or greater than buffer");
     performGasToBurn = value - gasBuffer;
   }
 

@@ -63,13 +63,7 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
       uint80 answeredInRound
     )
   {
-    return (
-      _roundId,
-      getAnswer[_roundId],
-      getStartedAt[_roundId],
-      getTimestamp[_roundId],
-      _roundId
-    );
+    return (_roundId, getAnswer[_roundId], getStartedAt[_roundId], getTimestamp[_roundId], _roundId);
   }
 
   function latestRoundData()

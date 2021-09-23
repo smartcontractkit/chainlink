@@ -18,25 +18,16 @@ import "./ConfirmedOwner.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry is
-  ConfirmedOwner,
-  KeeperBase,
-  ReentrancyGuard,
-  Pausable,
-  KeeperRegistryExecutableInterface
-{
+contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable, KeeperRegistryExecutableInterface {
   using Address for address;
   using SafeMathChainlink for uint256;
   using SafeMath96 for uint96;
   using SignedSafeMath for int256;
 
   address private constant ZERO_ADDRESS = address(0);
-  address private constant IGNORE_ADDRESS =
-    0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
-  bytes4 private constant CHECK_SELECTOR =
-    KeeperCompatibleInterface.checkUpkeep.selector;
-  bytes4 private constant PERFORM_SELECTOR =
-    KeeperCompatibleInterface.performUpkeep.selector;
+  address private constant IGNORE_ADDRESS = 0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF;
+  bytes4 private constant CHECK_SELECTOR = KeeperCompatibleInterface.checkUpkeep.selector;
+  bytes4 private constant PERFORM_SELECTOR = KeeperCompatibleInterface.performUpkeep.selector;
   uint256 private constant CALL_GAS_MAX = 5_000_000;
   uint256 private constant CALL_GAS_MIN = 2_300;
   uint256 private constant CANCELATION_DELAY = 50;
@@ -118,22 +109,9 @@ contract KeeperRegistry is
     uint256 fallbackLinkPrice
   );
   event KeepersUpdated(address[] keepers, address[] payees);
-  event PaymentWithdrawn(
-    address indexed keeper,
-    uint256 indexed amount,
-    address indexed to,
-    address payee
-  );
-  event PayeeshipTransferRequested(
-    address indexed keeper,
-    address indexed from,
-    address indexed to
-  );
-  event PayeeshipTransferred(
-    address indexed keeper,
-    address indexed from,
-    address indexed to
-  );
+  event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
+  event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
+  event PayeeshipTransferred(address indexed keeper, address indexed from, address indexed to);
   event RegistrarChanged(address indexed from, address indexed to);
 
   /**
@@ -237,41 +215,23 @@ contract KeeperRegistry is
       uint256 linkEth
     )
   {
-    bytes memory callData = abi.encodeWithSelector(
-      CHECK_SELECTOR,
-      s_checkData[id]
-    );
-    (bool success, bytes memory result) = s_upkeep[id].target.call{
-      gas: s_config.checkGasLimit
-    }(callData);
+    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
+    (bool success, bytes memory result) = s_upkeep[id].target.call{gas: s_config.checkGasLimit}(callData);
 
     if (!success) {
       string memory upkeepRevertReason = getRevertMsg(result);
-      string memory reason = string(
-        abi.encodePacked("call to check target failed: ", upkeepRevertReason)
-      );
+      string memory reason = string(abi.encodePacked("call to check target failed: ", upkeepRevertReason));
       revert(reason);
     }
 
     (success, performData) = abi.decode(result, (bool, bytes));
     require(success, "upkeep not needed");
 
-    PerformParams memory params = generatePerformParams(
-      from,
-      id,
-      performData,
-      false
-    );
+    PerformParams memory params = generatePerformParams(from, id, performData, false);
     success = performUpkeepWithParams(params);
     require(success, "call to perform upkeep failed");
 
-    return (
-      performData,
-      params.maxLinkPayment,
-      params.gasLimit,
-      params.adjustedGasWei,
-      params.linkEth
-    );
+    return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
   }
 
   /**
@@ -280,15 +240,8 @@ contract KeeperRegistry is
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
    */
-  function performUpkeep(uint256 id, bytes calldata performData)
-    external
-    override
-    returns (bool success)
-  {
-    return
-      performUpkeepWithParams(
-        generatePerformParams(msg.sender, id, performData, true)
-      );
+  function performUpkeep(uint256 id, bytes calldata performData) external override returns (bool success) {
+    return performUpkeepWithParams(generatePerformParams(msg.sender, id, performData, true));
   }
 
   /**
@@ -299,10 +252,7 @@ contract KeeperRegistry is
     uint64 maxValid = s_upkeep[id].maxValidBlocknumber;
     bool notCanceled = maxValid == UINT64_MAX;
     bool isOwner = msg.sender == owner();
-    require(
-      notCanceled || (isOwner && maxValid > block.number),
-      "too late to cancel upkeep"
-    );
+    require(notCanceled || (isOwner && maxValid > block.number), "too late to cancel upkeep");
     require(isOwner || msg.sender == s_upkeep[id].admin, "only owner or admin");
 
     uint256 height = block.number;
@@ -324,10 +274,7 @@ contract KeeperRegistry is
    * @param amount number of LINK to transfer
    */
   function addFunds(uint256 id, uint96 amount) external override {
-    require(
-      s_upkeep[id].maxValidBlocknumber == UINT64_MAX,
-      "upkeep must be active"
-    );
+    require(s_upkeep[id].maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
     s_upkeep[id].balance = s_upkeep[id].balance.add(amount);
     s_expectedLinkBalance = s_expectedLinkBalance.add(amount);
     LINK.transferFrom(msg.sender, address(this), amount);
@@ -348,10 +295,7 @@ contract KeeperRegistry is
     require(msg.sender == address(LINK), "only callable through LINK");
     require(data.length == 32, "data must be 32 bytes");
     uint256 id = abi.decode(data, (uint256));
-    require(
-      s_upkeep[id].maxValidBlocknumber == UINT64_MAX,
-      "upkeep must be active"
-    );
+    require(s_upkeep[id].maxValidBlocknumber == UINT64_MAX, "upkeep must be active");
 
     s_upkeep[id].balance = s_upkeep[id].balance.add(uint96(amount));
     s_expectedLinkBalance = s_expectedLinkBalance.add(amount);
@@ -364,15 +308,9 @@ contract KeeperRegistry is
    * @param id upkeep to withdraw funds from
    * @param to destination address for sending remaining funds
    */
-  function withdrawFunds(uint256 id, address to)
-    external
-    validateRecipient(to)
-  {
+  function withdrawFunds(uint256 id, address to) external validateRecipient(to) {
     require(s_upkeep[id].admin == msg.sender, "only callable by admin");
-    require(
-      s_upkeep[id].maxValidBlocknumber <= block.number,
-      "upkeep must be canceled"
-    );
+    require(s_upkeep[id].maxValidBlocknumber <= block.number, "upkeep must be canceled");
 
     uint256 amount = s_upkeep[id].balance;
     s_upkeep[id].balance = 0;
@@ -398,10 +336,7 @@ contract KeeperRegistry is
    * @param from keeper address
    * @param to address to send the payment to
    */
-  function withdrawPayment(address from, address to)
-    external
-    validateRecipient(to)
-  {
+  function withdrawPayment(address from, address to) external validateRecipient(to) {
     KeeperInfo memory keeper = s_keeperInfo[from];
     require(keeper.payee == msg.sender, "only callable by payee");
 
@@ -432,10 +367,7 @@ contract KeeperRegistry is
    * @param keeper address to accept the payee role for
    */
   function acceptPayeeship(address keeper) external {
-    require(
-      s_proposedPayee[keeper] == msg.sender,
-      "only callable by proposed payee"
-    );
+    require(s_proposedPayee[keeper] == msg.sender, "only callable by proposed payee");
     address past = s_keeperInfo[keeper].payee;
     s_keeperInfo[keeper].payee = msg.sender;
     s_proposedPayee[keeper] = ZERO_ADDRESS;
@@ -509,14 +441,8 @@ contract KeeperRegistry is
    * @param payees addreses corresponding to keepers who are allowed to
    * move payments which have been accrued
    */
-  function setKeepers(address[] calldata keepers, address[] calldata payees)
-    external
-    onlyOwner
-  {
-    require(
-      keepers.length == payees.length,
-      "address lists not the same length"
-    );
+  function setKeepers(address[] calldata keepers, address[] calldata payees) external onlyOwner {
+    require(keepers.length == payees.length, "address lists not the same length");
     require(keepers.length >= 2, "not enough keepers");
     for (uint256 i = 0; i < s_keeperList.length; i++) {
       address keeper = s_keeperList[i];
@@ -528,12 +454,7 @@ contract KeeperRegistry is
       address oldPayee = s_keeper.payee;
       address newPayee = payees[i];
       require(newPayee != address(0), "cannot set payee to the zero address");
-      require(
-        oldPayee == ZERO_ADDRESS ||
-          oldPayee == newPayee ||
-          newPayee == IGNORE_ADDRESS,
-        "cannot change payee"
-      );
+      require(oldPayee == ZERO_ADDRESS || oldPayee == newPayee || newPayee == IGNORE_ADDRESS, "cannot change payee");
       require(!s_keeper.active, "cannot add keeper twice");
       s_keeper.active = true;
       if (newPayee != IGNORE_ADDRESS) {
@@ -596,12 +517,7 @@ contract KeeperRegistry is
   /**
    * @notice read the current list canceled upkeep IDs
    */
-  function getCanceledUpkeepList()
-    external
-    view
-    override
-    returns (uint256[] memory)
-  {
+  function getCanceledUpkeepList() external view override returns (uint256[] memory) {
     return s_canceledUpkeepList;
   }
 
@@ -668,22 +584,14 @@ contract KeeperRegistry is
   /**
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    */
-  function getMinBalanceForUpkeep(uint256 id)
-    external
-    view
-    returns (uint96 minBalance)
-  {
+  function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
     return getMaxPaymentForGas(s_upkeep[id].executeGas);
   }
 
   /**
    * @notice calculates the maximum payment for a given gas limit
    */
-  function getMaxPaymentForGas(uint256 gasLimit)
-    public
-    view
-    returns (uint96 maxPayment)
-  {
+  function getMaxPaymentForGas(uint256 gasLimit) public view returns (uint96 maxPayment) {
     (uint256 gasWei, uint256 linkEth) = getFeedData();
     uint256 adjustedGasWei = adjustGasPrice(gasWei, false);
     return calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
@@ -697,29 +605,19 @@ contract KeeperRegistry is
    * for gas it takes the min of gas price in the transaction or the fast gas
    * price in order to reduce costs for the upkeep clients.
    */
-  function getFeedData()
-    private
-    view
-    returns (uint256 gasWei, uint256 linkEth)
-  {
+  function getFeedData() private view returns (uint256 gasWei, uint256 linkEth) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 feedValue;
     (, feedValue, , timestamp, ) = FAST_GAS_FEED.latestRoundData();
-    if (
-      (staleFallback && stalenessSeconds < block.timestamp - timestamp) ||
-      feedValue <= 0
-    ) {
+    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       gasWei = s_fallbackGasPrice;
     } else {
       gasWei = uint256(feedValue);
     }
     (, feedValue, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
-    if (
-      (staleFallback && stalenessSeconds < block.timestamp - timestamp) ||
-      feedValue <= 0
-    ) {
+    if ((staleFallback && stalenessSeconds < block.timestamp - timestamp) || feedValue <= 0) {
       linkEth = s_fallbackLinkPrice;
     } else {
       linkEth = uint256(feedValue);
@@ -789,31 +687,18 @@ contract KeeperRegistry is
     require(upkeep.lastKeeper != params.from, "keepers must take turns");
 
     uint256 gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(
-      PERFORM_SELECTOR,
-      params.performData
-    );
+    bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
     success = callWithExactGas(params.gasLimit, upkeep.target, callData);
     gasUsed = gasUsed - gasleft();
 
-    uint96 payment = calculatePaymentAmount(
-      gasUsed,
-      params.adjustedGasWei,
-      params.linkEth
-    );
+    uint96 payment = calculatePaymentAmount(gasUsed, params.adjustedGasWei, params.linkEth);
     upkeep.balance = upkeep.balance.sub(payment);
     upkeep.lastKeeper = params.from;
     s_upkeep[params.id] = upkeep;
     uint96 newBalance = s_keeperInfo[params.from].balance.add(payment);
     s_keeperInfo[params.from].balance = newBalance;
 
-    emit UpkeepPerformed(
-      params.id,
-      success,
-      params.from,
-      payment,
-      params.performData
-    );
+    emit UpkeepPerformed(params.id, success, params.from, payment, params.performData);
     return success;
   }
 
@@ -821,20 +706,13 @@ contract KeeperRegistry is
    * @dev ensures a upkeep is valid
    */
   function validateUpkeep(uint256 id) private view {
-    require(
-      s_upkeep[id].maxValidBlocknumber > block.number,
-      "invalid upkeep id"
-    );
+    require(s_upkeep[id].maxValidBlocknumber > block.number, "invalid upkeep id");
   }
 
   /**
    * @dev adjusts the gas price to min(ceiling, tx.gasprice) or just uses the ceiling if tx.gasprice is disabled
    */
-  function adjustGasPrice(uint256 gasWei, bool useTxGasPrice)
-    private
-    view
-    returns (uint256 adjustedPrice)
-  {
+  function adjustGasPrice(uint256 gasWei, bool useTxGasPrice) private view returns (uint256 adjustedPrice) {
     adjustedPrice = gasWei.mul(s_config.gasCeilingMultiplier);
     if (useTxGasPrice && tx.gasprice < adjustedPrice) {
       adjustedPrice = tx.gasprice;
@@ -853,11 +731,7 @@ contract KeeperRegistry is
     uint256 gasLimit = s_upkeep[id].executeGas;
     (uint256 gasWei, uint256 linkEth) = getFeedData();
     uint256 adjustedGasWei = adjustGasPrice(gasWei, useTxGasPrice);
-    uint96 maxLinkPayment = calculatePaymentAmount(
-      gasLimit,
-      adjustedGasWei,
-      linkEth
-    );
+    uint96 maxLinkPayment = calculatePaymentAmount(gasLimit, adjustedGasWei, linkEth);
 
     return
       PerformParams({
@@ -874,11 +748,7 @@ contract KeeperRegistry is
   /**
    * @dev extracts a revert reason from a call result payload
    */
-  function getRevertMsg(bytes memory _payload)
-    private
-    pure
-    returns (string memory)
-  {
+  function getRevertMsg(bytes memory _payload) private pure returns (string memory) {
     if (_payload.length < 68) return "transaction reverted silently";
     assembly {
       _payload := add(_payload, 0x04)
@@ -909,10 +779,7 @@ contract KeeperRegistry is
    * @dev Reverts if called by anyone other than the contract owner or registrar.
    */
   modifier onlyOwnerOrRegistrar() {
-    require(
-      msg.sender == owner() || msg.sender == s_registrar,
-      "Only callable by owner or registrar"
-    );
+    require(msg.sender == owner() || msg.sender == s_registrar, "Only callable by owner or registrar");
     _;
   }
 }

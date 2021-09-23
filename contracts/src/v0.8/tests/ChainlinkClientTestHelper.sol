@@ -9,12 +9,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     setChainlinkOracle(_oracle);
   }
 
-  event Request(
-    bytes32 id,
-    address callbackAddress,
-    bytes4 callbackfunctionSelector,
-    bytes data
-  );
+  event Request(bytes32 id, address callbackAddress, bytes4 callbackfunctionSelector, bytes data);
   event LinkAmount(uint256 amount);
 
   function publicNewRequest(
@@ -22,17 +17,8 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     address _address,
     bytes memory _fulfillmentSignature
   ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
-      _id,
-      _address,
-      bytes4(keccak256(_fulfillmentSignature))
-    );
-    emit Request(
-      req.id,
-      req.callbackAddress,
-      req.callbackFunctionId,
-      req.buf.buf
-    );
+    Chainlink.Request memory req = buildChainlinkRequest(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
+    emit Request(req.id, req.callbackAddress, req.callbackFunctionId, req.buf.buf);
   }
 
   function publicRequest(
@@ -41,11 +27,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes memory _fulfillmentSignature,
     uint256 _wei
   ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
-      _id,
-      _address,
-      bytes4(keccak256(_fulfillmentSignature))
-    );
+    Chainlink.Request memory req = buildChainlinkRequest(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
     sendChainlinkRequest(req, _wei);
   }
 
@@ -56,11 +38,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes memory _fulfillmentSignature,
     uint256 _wei
   ) public {
-    Chainlink.Request memory run = buildChainlinkRequest(
-      _id,
-      _address,
-      bytes4(keccak256(_fulfillmentSignature))
-    );
+    Chainlink.Request memory run = buildChainlinkRequest(_id, _address, bytes4(keccak256(_fulfillmentSignature)));
     sendChainlinkRequestTo(_oracle, run, _wei);
   }
 
@@ -69,10 +47,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes memory _fulfillmentSignature,
     uint256 _wei
   ) public {
-    Chainlink.Request memory req = buildOperatorRequest(
-      _id,
-      bytes4(keccak256(_fulfillmentSignature))
-    );
+    Chainlink.Request memory req = buildOperatorRequest(_id, bytes4(keccak256(_fulfillmentSignature)));
     sendOperatorRequest(req, _wei);
   }
 
@@ -83,10 +58,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes memory _fulfillmentSignature,
     uint256 _wei
   ) public {
-    Chainlink.Request memory run = buildOperatorRequest(
-      _id,
-      bytes4(keccak256(_fulfillmentSignature))
-    );
+    Chainlink.Request memory run = buildOperatorRequest(_id, bytes4(keccak256(_fulfillmentSignature)));
     sendOperatorRequestTo(_oracle, run, _wei);
   }
 
@@ -96,12 +68,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes4 _callbackFunctionId,
     uint256 _expiration
   ) public {
-    cancelChainlinkRequest(
-      _requestId,
-      _payment,
-      _callbackFunctionId,
-      _expiration
-    );
+    cancelChainlinkRequest(_requestId, _payment, _callbackFunctionId, _expiration);
   }
 
   function publicChainlinkToken() public view returns (address) {
@@ -124,9 +91,7 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     return chainlinkOracleAddress();
   }
 
-  function publicAddExternalRequest(address _oracle, bytes32 _requestId)
-    public
-  {
+  function publicAddExternalRequest(address _oracle, bytes32 _requestId) public {
     addChainlinkExternalRequest(_oracle, _requestId);
   }
 }

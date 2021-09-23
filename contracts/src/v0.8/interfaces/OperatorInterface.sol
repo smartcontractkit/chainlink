@@ -30,10 +30,7 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     bytes calldata data
   ) external returns (bool success);
 
-  function distributeFunds(
-    address payable[] calldata receivers,
-    uint256[] calldata amounts
-  ) external payable;
+  function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable;
 
   function getAuthorizedSenders() external returns (address[] memory);
 

@@ -15,13 +15,7 @@ import "./vendor/SafeMathChainlink.sol";
  * @title The Chainlink Operator contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
-contract Operator is
-  AuthorizedReceiver,
-  ConfirmedOwner,
-  LinkTokenReceiver,
-  OperatorInterface,
-  WithdrawalInterface
-{
+contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
   using Address for address;
   using SafeMathChainlink for uint256;
 
@@ -35,16 +29,14 @@ contract Operator is
   uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
   uint256 private constant SELECTOR_LENGTH = 4;
   uint256 private constant EXPECTED_REQUEST_WORDS = 2;
-  uint256 private constant MINIMUM_REQUEST_LENGTH =
-    SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
+  uint256 private constant MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 private constant ONE_FOR_CONSISTENT_GAS_COST = 1;
   // oracleRequest is intended for version 1, enabling single word responses
   bytes4 private constant ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
   // operatorRequest is intended for version 2, enabling multi-word responses
-  bytes4 private constant OPERATOR_REQUEST_SELECTOR =
-    this.operatorRequest.selector;
+  bytes4 private constant OPERATOR_REQUEST_SELECTOR = this.operatorRequest.selector;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -70,11 +62,7 @@ contract Operator is
 
   event OwnableContractAccepted(address indexed acceptedContract);
 
-  event TargetsUpdatedAuthorizedSenders(
-    address[] targets,
-    address[] senders,
-    address changedBy
-  );
+  event TargetsUpdatedAuthorizedSenders(address[] targets, address[] senders, address changedBy);
 
   /**
    * @notice Deploy with the address of the LINK token
@@ -117,17 +105,7 @@ contract Operator is
       nonce,
       dataVersion
     );
-    emit OracleRequest(
-      specId,
-      sender,
-      requestId,
-      payment,
-      sender,
-      callbackFunctionId,
-      expiration,
-      dataVersion,
-      data
-    );
+    emit OracleRequest(specId, sender, requestId, payment, sender, callbackFunctionId, expiration, dataVersion, data);
   }
 
   /**
@@ -159,17 +137,7 @@ contract Operator is
       nonce,
       dataVersion
     );
-    emit OracleRequest(
-      specId,
-      sender,
-      requestId,
-      payment,
-      sender,
-      callbackFunctionId,
-      expiration,
-      dataVersion,
-      data
-    );
+    emit OracleRequest(specId, sender, requestId, payment, sender, callbackFunctionId, expiration, dataVersion, data);
   }
 
   /**
@@ -200,25 +168,13 @@ contract Operator is
     validateCallbackAddress(callbackAddress)
     returns (bool)
   {
-    _verifyOracleRequestAndProcessPayment(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      1
-    );
+    _verifyOracleRequestAndProcessPayment(requestId, payment, callbackAddress, callbackFunctionId, expiration, 1);
     emit OracleResponse(requestId);
-    require(
-      gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT,
-      "Must provide consumer enough gas"
-    );
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = callbackAddress.call(
-      abi.encodeWithSelector(callbackFunctionId, requestId, data)
-    ); // solhint-disable-line avoid-low-level-calls
+    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
 
@@ -251,25 +207,13 @@ contract Operator is
     validateMultiWordResponseId(requestId, data)
     returns (bool)
   {
-    _verifyOracleRequestAndProcessPayment(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      2
-    );
+    _verifyOracleRequestAndProcessPayment(requestId, payment, callbackAddress, callbackFunctionId, expiration, 2);
     emit OracleResponse(requestId);
-    require(
-      gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT,
-      "Must provide consumer enough gas"
-    );
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = callbackAddress.call(
-      abi.encodePacked(callbackFunctionId, data)
-    ); // solhint-disable-line avoid-low-level-calls
+    (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
 
@@ -280,10 +224,7 @@ contract Operator is
    * @param ownable list of addresses to transfer
    * @param newOwner address to transfer ownership to
    */
-  function transferOwnableContracts(
-    address[] calldata ownable,
-    address newOwner
-  ) external onlyOwner {
+  function transferOwnableContracts(address[] calldata ownable, address newOwner) external onlyOwner {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).transferOwnership(newOwner);
       s_owned[ownable[i]] = false;
@@ -297,10 +238,7 @@ contract Operator is
    * @dev Must be the pending owner on the contract
    * @param ownable list of addresses of Ownable contracts to accept
    */
-  function acceptOwnableContracts(address[] calldata ownable)
-    public
-    validateAuthorizedSenderSetter
-  {
+  function acceptOwnableContracts(address[] calldata ownable) public validateAuthorizedSenderSetter {
     for (uint256 i = 0; i < ownable.length; i++) {
       OwnableInterface(ownable[i]).acceptOwnership();
       s_owned[ownable[i]] = true;
@@ -313,10 +251,10 @@ contract Operator is
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
-  function setAuthorizedSendersOn(
-    address[] calldata targets,
-    address[] calldata senders
-  ) public validateAuthorizedSenderSetter {
+  function setAuthorizedSendersOn(address[] calldata targets, address[] calldata senders)
+    public
+    validateAuthorizedSenderSetter
+  {
     TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
     for (uint256 i = 0; i < targets.length; i++) {
@@ -332,10 +270,10 @@ contract Operator is
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
-  function acceptAuthorizedReceivers(
-    address[] calldata targets,
-    address[] calldata senders
-  ) external validateAuthorizedSenderSetter {
+  function acceptAuthorizedReceivers(address[] calldata targets, address[] calldata senders)
+    external
+    validateAuthorizedSenderSetter
+  {
     acceptOwnableContracts(targets);
     setAuthorizedSendersOn(targets, senders);
   }
@@ -360,12 +298,7 @@ contract Operator is
    * @dev We use `ONE_FOR_CONSISTENT_GAS_COST` in place of 0 in storage
    * @return The amount of withdrawable LINK on the contract
    */
-  function withdrawable()
-    external
-    view
-    override(OracleInterface, WithdrawalInterface)
-    returns (uint256)
-  {
+  function withdrawable() external view override(OracleInterface, WithdrawalInterface) returns (uint256) {
     return _fundsAvailable();
   }
 
@@ -375,11 +308,7 @@ contract Operator is
    * @param to address
    * @param data to forward
    */
-  function ownerForward(address to, bytes calldata data)
-    external
-    onlyOwner
-    validateNotToLINK(to)
-  {
+  function ownerForward(address to, bytes calldata data) external onlyOwner validateNotToLINK(to) {
     require(to.isContract(), "Must forward to a contract");
     (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
@@ -396,13 +325,7 @@ contract Operator is
     address to,
     uint256 value,
     bytes calldata data
-  )
-    external
-    override
-    onlyOwner
-    validateAvailableFunds(value)
-    returns (bool success)
-  {
+  ) external override onlyOwner validateAvailableFunds(value) returns (bool success) {
     return linkToken.transferAndCall(to, value, data);
   }
 
@@ -415,14 +338,8 @@ contract Operator is
    * @param receivers list of addresses
    * @param amounts list of amounts
    */
-  function distributeFunds(
-    address payable[] calldata receivers,
-    uint256[] calldata amounts
-  ) external payable {
-    require(
-      receivers.length > 0 && receivers.length == amounts.length,
-      "Invalid array length(s)"
-    );
+  function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable {
+    require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
     uint256 valueRemaining = msg.value;
     for (uint256 i = 0; i < receivers.length; i++) {
       uint256 sendAmount = amounts[i];
@@ -448,16 +365,8 @@ contract Operator is
     bytes4 callbackFunc,
     uint256 expiration
   ) external override {
-    bytes31 paramsHash = _buildParamsHash(
-      payment,
-      msg.sender,
-      callbackFunc,
-      expiration
-    );
-    require(
-      s_commitments[requestId].paramsHash == paramsHash,
-      "Params do not match request ID"
-    );
+    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -484,16 +393,8 @@ contract Operator is
     uint256 expiration
   ) external {
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
-    bytes31 paramsHash = _buildParamsHash(
-      payment,
-      msg.sender,
-      callbackFunc,
-      expiration
-    );
-    require(
-      s_commitments[requestId].paramsHash == paramsHash,
-      "Params do not match request ID"
-    );
+    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -516,15 +417,10 @@ contract Operator is
    * @notice Require that the token transfer action is valid
    * @dev OPERATOR_REQUEST_SELECTOR = multiword, ORACLE_REQUEST_SELECTOR = singleword
    */
-  function _validateTokenTransferAction(bytes4 funcSelector, bytes memory data)
-    internal
-    pure
-    override
-  {
+  function _validateTokenTransferAction(bytes4 funcSelector, bytes memory data) internal pure override {
     require(data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     require(
-      funcSelector == OPERATOR_REQUEST_SELECTOR ||
-        funcSelector == ORACLE_REQUEST_SELECTOR,
+      funcSelector == OPERATOR_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_SELECTOR,
       "Must use whitelisted functions"
     );
   }
@@ -544,25 +440,13 @@ contract Operator is
     bytes4 callbackFunctionId,
     uint256 nonce,
     uint256 dataVersion
-  )
-    private
-    validateNotToLINK(callbackAddress)
-    returns (bytes32 requestId, uint256 expiration)
-  {
+  ) private validateNotToLINK(callbackAddress) returns (bytes32 requestId, uint256 expiration) {
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     expiration = block.timestamp.add(getExpiryTime);
-    bytes31 paramsHash = _buildParamsHash(
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration
-    );
-    s_commitments[requestId] = Commitment(
-      paramsHash,
-      _safeCastToUint8(dataVersion)
-    );
+    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
+    s_commitments[requestId] = Commitment(paramsHash, _safeCastToUint8(dataVersion));
     s_tokensInEscrow = s_tokensInEscrow.add(payment);
     return (requestId, expiration);
   }
@@ -583,20 +467,9 @@ contract Operator is
     uint256 expiration,
     uint256 dataVersion
   ) internal {
-    bytes31 paramsHash = _buildParamsHash(
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration
-    );
-    require(
-      s_commitments[requestId].paramsHash == paramsHash,
-      "Params do not match request ID"
-    );
-    require(
-      s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion),
-      "Data versions must match"
-    );
+    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+    require(s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion), "Data versions must match");
     s_tokensInEscrow = s_tokensInEscrow.sub(payment);
     delete s_commitments[requestId];
   }
@@ -615,17 +488,7 @@ contract Operator is
     bytes4 callbackFunctionId,
     uint256 expiration
   ) internal pure returns (bytes31) {
-    return
-      bytes31(
-        keccak256(
-          abi.encodePacked(
-            payment,
-            callbackAddress,
-            callbackFunctionId,
-            expiration
-          )
-        )
-      );
+    return bytes31(keccak256(abi.encodePacked(payment, callbackAddress, callbackFunctionId, expiration)));
   }
 
   /**
@@ -682,10 +545,7 @@ contract Operator is
    * @param amount The given amount to compare to `s_withdrawableTokens`
    */
   modifier validateAvailableFunds(uint256 amount) {
-    require(
-      _fundsAvailable() >= amount,
-      "Amount requested is greater than withdrawable balance"
-    );
+    require(_fundsAvailable() >= amount, "Amount requested is greater than withdrawable balance");
     _;
   }
 
@@ -694,10 +554,7 @@ contract Operator is
    * @param requestId The given request ID to check in stored `commitments`
    */
   modifier validateRequestId(bytes32 requestId) {
-    require(
-      s_commitments[requestId].paramsHash != 0,
-      "Must have a valid requestId"
-    );
+    require(s_commitments[requestId].paramsHash != 0, "Must have a valid requestId");
     _;
   }
 

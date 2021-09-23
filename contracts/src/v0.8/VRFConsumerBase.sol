@@ -113,9 +113,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomness the VRF output
    */
-  function fulfillRandomness(bytes32 requestId, uint256 randomness)
-    internal
-    virtual;
+  function fulfillRandomness(bytes32 requestId, uint256 randomness) internal virtual;
 
   /**
    * @dev In order to keep backwards compatibility we have kept the user
@@ -151,24 +149,12 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @dev concurrent requests. It is passed as the first argument to
    * @dev fulfillRandomness.
    */
-  function requestRandomness(bytes32 _keyHash, uint256 _fee)
-    internal
-    returns (bytes32 requestId)
-  {
-    LINK.transferAndCall(
-      vrfCoordinator,
-      _fee,
-      abi.encode(_keyHash, USER_SEED_PLACEHOLDER)
-    );
+  function requestRandomness(bytes32 _keyHash, uint256 _fee) internal returns (bytes32 requestId) {
+    LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, USER_SEED_PLACEHOLDER));
     // This is the seed passed to VRFCoordinator. The oracle will mix this with
     // the hash of the block containing this request to obtain the seed/input
     // which is finally passed to the VRF cryptographic machinery.
-    uint256 vRFSeed = makeVRFInputSeed(
-      _keyHash,
-      USER_SEED_PLACEHOLDER,
-      address(this),
-      nonces[_keyHash]
-    );
+    uint256 vRFSeed = makeVRFInputSeed(_keyHash, USER_SEED_PLACEHOLDER, address(this), nonces[_keyHash]);
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
@@ -202,9 +188,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
-  function rawFulfillRandomness(bytes32 requestId, uint256 randomness)
-    external
-  {
+  function rawFulfillRandomness(bytes32 requestId, uint256 randomness) external {
     require(msg.sender == vrfCoordinator, "Only VRFCoordinator can fulfill");
     fulfillRandomness(requestId, randomness);
   }

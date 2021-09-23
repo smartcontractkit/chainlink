@@ -11,12 +11,7 @@ contract MockCompoundOracle is UniswapAnchoredView {
 
   mapping(string => OracleDetails) s_oracleDetails;
 
-  function price(string memory symbol)
-    external
-    view
-    override
-    returns (uint256)
-  {
+  function price(string memory symbol) external view override returns (uint256) {
     return s_oracleDetails[symbol].price;
   }
 

@@ -95,8 +95,7 @@ interface VRFCoordinatorV2Interface {
    * @param subId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner)
-    external;
+  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external;
 
   /**
    * @notice Request subscription owner transfer.

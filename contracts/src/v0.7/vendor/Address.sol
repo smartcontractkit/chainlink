@@ -58,10 +58,7 @@ library Address {
 
     // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
     (bool success, ) = recipient.call{value: amount}("");
-    require(
-      success,
-      "Address: unable to send value, recipient may have reverted"
-    );
+    require(success, "Address: unable to send value, recipient may have reverted");
   }
 
   /**
@@ -82,10 +79,7 @@ library Address {
    *
    * _Available since v3.1._
    */
-  function functionCall(address target, bytes memory data)
-    internal
-    returns (bytes memory)
-  {
+  function functionCall(address target, bytes memory data) internal returns (bytes memory) {
     return functionCall(target, data, "Address: low-level call failed");
   }
 
@@ -119,13 +113,7 @@ library Address {
     bytes memory data,
     uint256 value
   ) internal returns (bytes memory) {
-    return
-      functionCallWithValue(
-        target,
-        data,
-        value,
-        "Address: low-level call with value failed"
-      );
+    return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
   }
 
   /**
@@ -140,10 +128,7 @@ library Address {
     uint256 value,
     string memory errorMessage
   ) internal returns (bytes memory) {
-    require(
-      address(this).balance >= value,
-      "Address: insufficient balance for call"
-    );
+    require(address(this).balance >= value, "Address: insufficient balance for call");
     require(isContract(target), "Address: call to non-contract");
 
     // solhint-disable-next-line avoid-low-level-calls
@@ -157,13 +142,8 @@ library Address {
    *
    * _Available since v3.3._
    */
-  function functionStaticCall(address target, bytes memory data)
-    internal
-    view
-    returns (bytes memory)
-  {
-    return
-      functionStaticCall(target, data, "Address: low-level static call failed");
+  function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
+    return functionStaticCall(target, data, "Address: low-level static call failed");
   }
 
   /**
@@ -190,16 +170,8 @@ library Address {
    *
    * _Available since v3.4._
    */
-  function functionDelegateCall(address target, bytes memory data)
-    internal
-    returns (bytes memory)
-  {
-    return
-      functionDelegateCall(
-        target,
-        data,
-        "Address: low-level delegate call failed"
-      );
+  function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
+    return functionDelegateCall(target, data, "Address: low-level delegate call failed");
   }
 
   /**

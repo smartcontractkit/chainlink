@@ -133,8 +133,7 @@ pragma solidity ^0.8.0;
 contract VRF {
   // See https://www.secg.org/sec2-v2.pdf, section 2.4.1, for these constants.
   // Number of points in Secp256k1
-  uint256 private constant GROUP_ORDER =
-    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+  uint256 private constant GROUP_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
   // Prime characteristic of the galois field over which Secp256k1 is defined
   uint256 private constant FIELD_SIZE =
     // solium-disable-next-line indentation
@@ -143,11 +142,7 @@ contract VRF {
 
   // (base^exponent) % FIELD_SIZE
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
-  function bigModExp(uint256 base, uint256 exponent)
-    internal
-    view
-    returns (uint256 exponentiation)
-  {
+  function bigModExp(uint256 base, uint256 exponent) internal view returns (uint256 exponentiation) {
     uint256 callResult;
     uint256[6] memory bigModExpContractInputs;
     bigModExpContractInputs[0] = WORD_LENGTH_BYTES; // Length of base
@@ -216,11 +211,7 @@ contract VRF {
   // step 5.C, which references arbitrary_string_to_point, defined in
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5 as
   // returning the point with given x ordinate, and even y ordinate.
-  function newCandidateSecp256k1Point(bytes memory b)
-    internal
-    view
-    returns (uint256[2] memory p)
-  {
+  function newCandidateSecp256k1Point(bytes memory b) internal view returns (uint256[2] memory p) {
     unchecked {
       p[0] = fieldHash(b);
       p[1] = squareRoot(ySquared(p[0]));
@@ -250,14 +241,8 @@ contract VRF {
   //
   // This would greatly simplify the analysis in "OTHER SECURITY CONSIDERATIONS"
   // https://www.pivotaltracker.com/story/show/171120900
-  function hashToCurve(uint256[2] memory pk, uint256 input)
-    internal
-    view
-    returns (uint256[2] memory rv)
-  {
-    rv = newCandidateSecp256k1Point(
-      abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX, pk, input)
-    );
+  function hashToCurve(uint256[2] memory pk, uint256 input) internal view returns (uint256[2] memory rv) {
+    rv = newCandidateSecp256k1Point(abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX, pk, input));
     while (!isOnCurve(rv)) {
       rv = newCandidateSecp256k1Point(abi.encodePacked(rv[0]));
     }
@@ -288,9 +273,7 @@ contract VRF {
     bytes32 scalarTimesX = bytes32(mulmod(scalar, x, GROUP_ORDER));
     address actual = ecrecover(bytes32(0), v, bytes32(x), scalarTimesX);
     // Explicit conversion to address takes bottom 160 bits
-    address expected = address(
-      uint160(uint256(keccak256(abi.encodePacked(product))))
-    );
+    address expected = address(uint160(uint256(keccak256(abi.encodePacked(product)))));
     return (actual == expected);
   }
 
@@ -453,12 +436,7 @@ contract VRF {
       // (p[0]⁻¹ mod GROUP_ORDER)*(c*p[0]-(-s)*p[0]*g)=c*p+s*g.
       // See https://crypto.stackexchange.com/a/18106
       // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
-      address computed = ecrecover(
-        pseudoHash,
-        v,
-        bytes32(p[0]),
-        pseudoSignature
-      );
+      address computed = ecrecover(pseudoHash, v, bytes32(p[0]), pseudoSignature);
       return computed == lcWitness;
     }
   }
@@ -481,10 +459,7 @@ contract VRF {
   ) internal pure returns (uint256[2] memory) {
     unchecked {
       // Note we are relying on the wrap around here
-      require(
-        (cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
-        "points in sum must be distinct"
-      );
+      require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0, "points in sum must be distinct");
       require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
       require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);
@@ -513,19 +488,7 @@ contract VRF {
     address uWitness,
     uint256[2] memory v
   ) internal pure returns (uint256 s) {
-    return
-      uint256(
-        keccak256(
-          abi.encodePacked(
-            SCALAR_FROM_CURVE_POINTS_HASH_PREFIX,
-            hash,
-            pk,
-            gamma,
-            v,
-            uWitness
-          )
-        )
-      );
+    return uint256(keccak256(abi.encodePacked(SCALAR_FROM_CURVE_POINTS_HASH_PREFIX, hash, pk, gamma, v, uWitness)));
   }
 
   // True if (gamma, c, s) is a correctly constructed randomness proof from pk
@@ -558,22 +521,11 @@ contract VRF {
       // terms instead of taking the difference, and in the proof consruction in
       // vrf.GenerateProof, we correspondingly take the difference instead of
       // taking the sum as they do in step 7 of section 5.1.)
-      require(
-        verifyLinearCombinationWithGenerator(c, pk, s, uWitness),
-        "addr(c*pk+s*g)!=_uWitness"
-      );
+      require(verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
       // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
       uint256[2] memory hash = hashToCurve(pk, seed);
       // Step 6. of IETF draft section 5.3, but see note for step 5 about +/- terms
-      uint256[2] memory v = linearCombination(
-        c,
-        gamma,
-        cGammaWitness,
-        s,
-        hash,
-        sHashWitness,
-        zInv
-      );
+      uint256[2] memory v = linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
       uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
       require(c == derivedC, "invalid proof");
@@ -606,11 +558,7 @@ contract VRF {
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
      */
-  function randomValueFromVRFProof(Proof memory proof, uint256 seed)
-    internal
-    view
-    returns (uint256 output)
-  {
+  function randomValueFromVRFProof(Proof memory proof, uint256 seed) internal view returns (uint256 output) {
     verifyVRFProof(
       proof.pk,
       proof.gamma,
@@ -622,8 +570,6 @@ contract VRF {
       proof.sHashWitness,
       proof.zInv
     );
-    output = uint256(
-      keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, proof.gamma))
-    );
+    output = uint256(keccak256(abi.encode(VRF_RANDOM_OUTPUT_HASH_PREFIX, proof.gamma)));
   }
 }

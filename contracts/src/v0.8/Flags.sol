@@ -20,10 +20,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
 
   event FlagRaised(address indexed subject);
   event FlagLowered(address indexed subject);
-  event RaisingAccessControllerUpdated(
-    address indexed previous,
-    address indexed current
-  );
+  event RaisingAccessControllerUpdated(address indexed previous, address indexed current);
 
   /**
    * @param racAddress address for the raising access controller.
@@ -38,13 +35,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * @return A true value indicates that a flag was raised and a
    * false value indicates that no flag was raised.
    */
-  function getFlag(address subject)
-    external
-    view
-    override
-    checkAccess
-    returns (bool)
-  {
+  function getFlag(address subject) external view override checkAccess returns (bool) {
     return flags[subject];
   }
 
@@ -54,13 +45,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * @return An array of bools where a true value for any flag indicates that
    * a flag was raised and a false value indicates that no flag was raised.
    */
-  function getFlags(address[] calldata subjects)
-    external
-    view
-    override
-    checkAccess
-    returns (bool[] memory)
-  {
+  function getFlags(address[] calldata subjects) external view override checkAccess returns (bool[] memory) {
     bool[] memory responses = new bool[](subjects.length);
     for (uint256 i = 0; i < subjects.length; i++) {
       responses[i] = flags[subjects[i]];
@@ -113,11 +98,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
    * @notice allows owner to change the access controller for raising flags.
    * @param racAddress new address for the raising access controller.
    */
-  function setRaisingAccessController(address racAddress)
-    public
-    override
-    onlyOwner
-  {
+  function setRaisingAccessController(address racAddress) public override onlyOwner {
     address previous = address(raisingAccessController);
 
     if (previous != racAddress) {
@@ -130,9 +111,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
   // PRIVATE
 
   function allowedToRaiseFlags() private view returns (bool) {
-    return
-      msg.sender == owner() ||
-      raisingAccessController.hasAccess(msg.sender, msg.data);
+    return msg.sender == owner() || raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 
   function tryToRaiseFlag(address subject) private {

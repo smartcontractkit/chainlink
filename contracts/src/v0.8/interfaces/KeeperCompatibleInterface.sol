@@ -10,9 +10,7 @@ interface KeeperCompatibleInterface {
    * @return performData bytes that the keeper should call performUpkeep with,
    * if upkeep is needed.
    */
-  function checkUpkeep(bytes calldata checkData)
-    external
-    returns (bool upkeepNeeded, bytes memory performData);
+  function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData);
 
   /**
    * @notice Performs work on the contract. Executed by the keepers, via the registry.

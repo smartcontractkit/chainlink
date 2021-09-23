@@ -26,11 +26,7 @@ library BufferChainlink {
    * @param capacity The number of bytes of space to allocate the buffer.
    * @return The buffer, for chaining.
    */
-  function init(buffer memory buf, uint256 capacity)
-    internal
-    pure
-    returns (buffer memory)
-  {
+  function init(buffer memory buf, uint256 capacity) internal pure returns (buffer memory) {
     if (capacity % 32 != 0) {
       capacity += 32 - (capacity % 32);
     }
@@ -164,11 +160,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function append(buffer memory buf, bytes memory data)
-    internal
-    pure
-    returns (buffer memory)
-  {
+  function append(buffer memory buf, bytes memory data) internal pure returns (buffer memory) {
     return write(buf, buf.buf.length, data, data.length);
   }
 
@@ -212,11 +204,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function appendUint8(buffer memory buf, uint8 data)
-    internal
-    pure
-    returns (buffer memory)
-  {
+  function appendUint8(buffer memory buf, uint8 data) internal pure returns (buffer memory) {
     return writeUint8(buf, buf.buf.length, data);
   }
 
@@ -279,11 +267,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chhaining.
    */
-  function appendBytes20(buffer memory buf, bytes20 data)
-    internal
-    pure
-    returns (buffer memory)
-  {
+  function appendBytes20(buffer memory buf, bytes20 data) internal pure returns (buffer memory) {
     return write(buf, buf.buf.length, bytes32(data), 20);
   }
 
@@ -294,11 +278,7 @@ library BufferChainlink {
    * @param data The data to append.
    * @return The original buffer, for chaining.
    */
-  function appendBytes32(buffer memory buf, bytes32 data)
-    internal
-    pure
-    returns (buffer memory)
-  {
+  function appendBytes32(buffer memory buf, bytes32 data) internal pure returns (buffer memory) {
     return write(buf, buf.buf.length, data, 32);
   }
 
