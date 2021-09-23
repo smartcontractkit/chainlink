@@ -59,6 +59,7 @@ type EnvPrinter struct {
 	JobPipelineReaperThreshold                 time.Duration   `json:"JOB_PIPELINE_REAPER_THRESHOLD"`
 	KeeperDefaultTransactionQueueDepth         uint32          `json:"KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
 	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
+	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
 	KeeperMinimumRequiredConfirmations         uint64          `json:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS"`
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
@@ -147,6 +148,7 @@ func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
 			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
 			KeeperDefaultTransactionQueueDepth:    config.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:           config.KeeperGasPriceBufferPercent(),
+			KeeperGasTipCapBufferPercent:          config.KeeperGasTipCapBufferPercent(),
 			LogLevel:                              config.LogLevel(),
 			LogSQLMigrations:                      config.LogSQLMigrations(),
 			LogSQLStatements:                      config.LogSQLStatements(),
