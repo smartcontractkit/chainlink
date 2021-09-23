@@ -28,15 +28,15 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 4, 4, from)        // tx3
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
-	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, db.Create(&attempt).Error)
 
@@ -83,7 +83,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
@@ -115,7 +115,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	db := app.GetDB()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 

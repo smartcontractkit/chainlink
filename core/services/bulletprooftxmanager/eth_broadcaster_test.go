@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -196,6 +198,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		attempt := earlierTransaction.EthTxAttempts[0]
 
 		assert.Equal(t, earlierTransaction.ID, attempt.EthTxID)
+		assert.NotNil(t, attempt.GasPrice)
+		assert.Nil(t, attempt.GasTipCap)
+		assert.Nil(t, attempt.GasFeeCap)
 		assert.Equal(t, evmcfg.EvmGasPriceDefault().String(), attempt.GasPrice.String())
 
 		_, err = attempt.GetSignedTx()
@@ -227,6 +232,71 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 		ethClient.AssertExpectations(t)
 	})
+
+	t.Run("sends transactions with type 0x2 in EIP-1559 mode", func(t *testing.T) {
+		cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+		rnd := int64(1000000000 + rand.Intn(5000))
+		cfg.Overrides.GlobalEvmGasTipCapDefault = big.NewInt(rnd)
+		cfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(rnd + 1)
+
+		eipTxWithoutAl := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 0, 0},
+			Value:          assets.NewEthValue(142),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 0),
+			State:          bulletprooftxmanager.EthTxUnstarted,
+		}
+		eipTxWithAl := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: []byte{42, 42, 0},
+			Value:          assets.NewEthValue(242),
+			GasLimit:       gasLimit,
+			CreatedAt:      time.Unix(0, 1),
+			State:          bulletprooftxmanager.EthTxUnstarted,
+			AccessList:     bulletprooftxmanager.NullableEIP2930AccessListFrom(gethTypes.AccessList{gethTypes.AccessTuple{Address: cltest.NewAddress(), StorageKeys: []gethCommon.Hash{utils.NewHash()}}}),
+		}
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(3) && tx.Value().Cmp(big.NewInt(142)) == 0
+		})).Return(nil).Once()
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(4) && tx.Value().Cmp(big.NewInt(242)) == 0
+		})).Return(nil).Once()
+
+		require.NoError(t, db.Save(&eipTxWithAl).Error)
+		require.NoError(t, db.Save(&eipTxWithoutAl).Error)
+
+		// Do the thing
+		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+
+		// Check eipTxWithAl and it's attempt
+		// This was the earlier one sent so it has the lower nonce
+		eipTxWithAl, err := cltest.FindEthTxWithAttempts(db, eipTxWithAl.ID)
+		require.NoError(t, err)
+		assert.False(t, eipTxWithAl.Error.Valid)
+		require.NotNil(t, eipTxWithAl.FromAddress)
+		assert.Equal(t, fromAddress, eipTxWithAl.FromAddress)
+		require.NotNil(t, eipTxWithAl.Nonce)
+		assert.Equal(t, int64(4), *eipTxWithAl.Nonce)
+		assert.NotNil(t, eipTxWithAl.BroadcastAt)
+		assert.True(t, eipTxWithAl.AccessList.Valid)
+		assert.Len(t, eipTxWithAl.AccessList.AccessList, 1)
+		assert.Len(t, eipTxWithAl.EthTxAttempts, 1)
+
+		attempt := eipTxWithAl.EthTxAttempts[0]
+
+		assert.Equal(t, eipTxWithAl.ID, attempt.EthTxID)
+		assert.Nil(t, attempt.GasPrice)
+		assert.Equal(t, rnd, attempt.GasTipCap.ToInt().Int64())
+		assert.Equal(t, rnd+1, attempt.GasFeeCap.ToInt().Int64())
+
+		_, err = attempt.GetSignedTx()
+		require.NoError(t, err)
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
+		require.Len(t, attempt.EthReceipts, 0)
+	})
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
@@ -241,7 +311,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	chBlock := make(chan struct{})
 
 	estimator := new(gasmocks.Estimator)
-	estimator.On("EstimateGas", mock.Anything, mock.Anything).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Return(assets.GWei(32), uint64(500), nil).Run(func(_ mock.Arguments) {
 		close(chStartEstimate)
 		<-chBlock
 	})
@@ -1064,6 +1134,36 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		attempt := etx.EthTxAttempts[0]
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	require.NoError(t, db.Exec(`DELETE FROM eth_txes`).Error)
+	cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+
+	t.Run("eth node returns underpriced transaction for EIP-1559 tx, should return error", func(t *testing.T) {
+		// Experimentally this error is not actually possible; eth nodes will accept literally any price for EIP-1559 transactions
+		underpricedError := "transaction underpriced"
+		localNextNonce := getLocalNextNonce(t, db, fromAddress)
+
+		etx := bulletprooftxmanager.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          bulletprooftxmanager.EthTxUnstarted,
+		}
+		require.NoError(t, db.Save(&etx).Error)
+
+		// First was underpriced
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(underpricedError)).Once()
+
+		err := eb.ProcessUnstartedEthTxs(keyState)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "bumping gas on initial send is not supported for EIP-1559 transactions")
 
 		ethClient.AssertExpectations(t)
 	})

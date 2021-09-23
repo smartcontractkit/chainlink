@@ -9,8 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -21,14 +22,15 @@ var executeGas = uint64(10_000)
 
 func setupKeeperDB(t *testing.T) (
 	*gorm.DB,
-	*configtest.TestGeneralConfig,
+	evmconfig.ChainScopedConfig,
 	keeper.ORM,
 ) {
-	config := cltest.NewTestGeneralConfig(t)
+	gcfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
-	config.SetDB(db)
-	orm := keeper.NewORM(db, nil, config, bulletprooftxmanager.SendEveryStrategy{})
-	return db, config, orm
+	gcfg.SetDB(db)
+	cfg := evmtest.NewChainScopedConfig(t, gcfg)
+	orm := keeper.NewORM(db, nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
+	return db, cfg, orm
 }
 
 func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistration {
