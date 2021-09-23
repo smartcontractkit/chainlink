@@ -39,7 +39,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     external
     validateAuthorizedSender
   {
-    require(to != getChainlinkToken, "Cannot #forward to Link token");
+    require(to != getChainlinkToken, "Cannot forward to Link token");
     _forward(to, data);
   }
 
@@ -55,11 +55,14 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
 
   /**
    * @notice Transfer ownership with instructions for recipient
-   * @param to address proposed recipeint of ownership
+   * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
-  function transferOwnershipWithMessage(address to, bytes memory message)
-    public
+  function transferOwnershipWithMessage(
+    address to,
+    bytes calldata message
+  )
+    external
   {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);

@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
 )
 
 // ExternalInitiatorRequest is the incoming record used to create an ExternalInitiator.
@@ -32,7 +31,6 @@ type ExternalInitiator struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt null.Time // TODO: deprecated?
 }
 
 // NewExternalInitiator generates an ExternalInitiator from an

@@ -191,16 +191,13 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 	return 12345
 }
 
-func (c *TestGeneralConfig) P2PPeerID() (p2pkey.PeerID, error) {
-	if c.Overrides.P2PPeerIDError != nil {
-		return "", c.Overrides.P2PPeerIDError
-	}
+func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
 	if c.Overrides.P2PPeerID != nil {
-		return *c.Overrides.P2PPeerID, nil
+		return *c.Overrides.P2PPeerID
 	}
 	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID), nil
+	return p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {

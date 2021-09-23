@@ -88,7 +88,7 @@ describe("ConfirmedOwner", () => {
   });
 
   describe("when called by anyone but the owner", () => {
-    it("successfully calls the method", async () =>
+    it("reverts", async () =>
       await evmRevert(confirmedOwner.connect(nonOwner).transferOwnership(await newOwner.getAddress())));
   });
 
