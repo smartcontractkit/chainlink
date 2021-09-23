@@ -33,7 +33,7 @@ type (
 	registrations struct {
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
-		logger      *logger.Logger
+		logger      logger.Logger
 		evmChainID  big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
@@ -59,7 +59,7 @@ type (
 	}
 )
 
-func newRegistrations(logger *logger.Logger, evmChainID big.Int) *registrations {
+func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
@@ -259,7 +259,7 @@ func (r *subscribers) isAddressRegistered(address common.Address) bool {
 func (r *subscribers) sendLog(log types.Log, latestHead eth.Head,
 	broadcasts map[LogBroadcastAsKey]struct{},
 	decoders map[common.Address]ParseLogFunc,
-	logger *logger.Logger) {
+	logger logger.Logger) {
 
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup

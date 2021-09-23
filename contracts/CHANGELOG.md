@@ -1,6 +1,6 @@
 # @chainlink/contracts CHANGELOG.md
 
-## 0.2.2 - Unreleased
+## 0.2.2 - 2021-09-21
 
 ### Added:
 
@@ -11,6 +11,7 @@
   with related test contract `VRFConsumerV2.sol` and example contracts
   `VRFSingleConsumerExample.sol` and `VRFConsumerExternalSubOwnerExampl.sol`.
 - v0.6 `MockV3Aggregator` in src/v0.6/tests/.
+- v0.7 Added keeper-related smart contracts from the keeper repo. Added tests for `KeeperRegistry` and `UpkeepRegistrationRequests` in `test/v0.7/`.
 
 ### Changed:
 

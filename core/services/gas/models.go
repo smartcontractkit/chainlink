@@ -21,7 +21,7 @@ var (
 	ErrBumpGasExceedsLimit = errors.New("gas bump exceeds limit")
 )
 
-func NewEstimator(lggr *logger.Logger, ethClient eth.Client, config Config) Estimator {
+func NewEstimator(lggr logger.Logger, ethClient eth.Client, config Config) Estimator {
 	s := config.GasEstimatorMode()
 	switch s {
 	case "BlockHistory":

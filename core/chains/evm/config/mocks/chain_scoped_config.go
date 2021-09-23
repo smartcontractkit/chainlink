@@ -304,15 +304,15 @@ func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) error {
 }
 
 // CreateProductionLogger provides a mock function with given fields:
-func (_m *ChainScopedConfig) CreateProductionLogger() *logger.Logger {
+func (_m *ChainScopedConfig) CreateProductionLogger() logger.Logger {
 	ret := _m.Called()
 
-	var r0 *logger.Logger
-	if rf, ok := ret.Get(0).(func() *logger.Logger); ok {
+	var r0 logger.Logger
+	if rf, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logger.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 
@@ -995,36 +995,8 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
-// FeatureCronV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureCronV2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFluxMonitorV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureFluxMonitorV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1067,20 +1039,6 @@ func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
 
 // FeatureUIFeedsManager provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureUIFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureWebhookV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureWebhookV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2055,6 +2013,20 @@ func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// KeeperGasPriceBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
 // KeeperMaximumGracePeriod provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
 	ret := _m.Called()
@@ -2717,7 +2689,7 @@ func (_m *ChainScopedConfig) P2PNetworkingStackRaw() string {
 }
 
 // P2PPeerID provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
+func (_m *ChainScopedConfig) P2PPeerID() p2pkey.PeerID {
 	ret := _m.Called()
 
 	var r0 p2pkey.PeerID
@@ -2727,14 +2699,7 @@ func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		r0 = ret.Get(0).(p2pkey.PeerID)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // P2PPeerIDRaw provides a mock function with given fields:

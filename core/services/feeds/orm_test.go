@@ -11,8 +11,14 @@ import (
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
@@ -441,6 +447,76 @@ func Test_ORM_ApproveJobProposal(t *testing.T) {
 	assert.Equal(t, actualCreated.ProposedAt, actual.ProposedAt)
 }
 
+func Test_ORM_CancelJobProposal(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid.NewV4(),
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	// Defer the FK requirement of a job proposal so we don't have to setup a
+	// real job.
+	require.NoError(t, orm.db.Exec(
+		`SET CONSTRAINTS job_proposals_job_id_fkey DEFERRED`,
+	).Error)
+
+	id, err := orm.CreateJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	// Approve the job proposal
+	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	require.NoError(t, err)
+
+	err = orm.CancelJobProposal(ctx, id)
+	require.NoError(t, err)
+
+	actual, err := orm.GetJobProposal(context.Background(), id)
+	require.NoError(t, err)
+
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uuid.NullUUID{Valid: false}, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusCancelled, actual.Status)
+}
+
+func Test_ORM_IsJobManaged(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	externalJobID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	j := createJob(t, orm.db, externalJobID.UUID)
+
+	isManaged, err := orm.IsJobManaged(context.Background(), int64(j.ID))
+	require.NoError(t, err)
+	assert.False(t, isManaged)
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     externalJobID.UUID,
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	jpID, err := orm.CreateJobProposal(ctx, jp)
+	require.NoError(t, err)
+
+	err = orm.ApproveJobProposal(ctx, jpID, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	require.NoError(t, err)
+
+	isManaged, err = orm.IsJobManaged(context.Background(), int64(j.ID))
+	require.NoError(t, err)
+	assert.True(t, isManaged)
+}
+
 // createFeedsManager is a test helper to create a feeds manager
 func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	mgr := &feeds.FeedsManager{
@@ -455,4 +531,35 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	require.NoError(t, err)
 
 	return id
+}
+
+func createJob(t *testing.T, db *gorm.DB, externalJobID uuid.UUID) *job.Job {
+	config := cltest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	pipelineORM := pipeline.NewORM(db)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
+	defer orm.Close()
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, db.Create(bridge2).Error)
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	j, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
+
+	return &j
 }

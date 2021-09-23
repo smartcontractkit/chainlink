@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -62,6 +63,7 @@ answer1 [type=median index=0];
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
+	jobORM      *jobmocks.ORM
 	verORM      *verMocks.ORM
 	connMgr     *mocks.ConnectionsManager
 	txm         *pgmocks.TransactionManager
@@ -76,6 +78,7 @@ type TestService struct {
 func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
+		jobORM      = &jobmocks.ORM{}
 		verORM      = &verMocks.ORM{}
 		connMgr     = &mocks.ConnectionsManager{}
 		txm         = &pgmocks.TransactionManager{}
@@ -89,6 +92,7 @@ func setupTestService(t *testing.T) *TestService {
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
 			orm,
+			jobORM,
 			verORM,
 			connMgr,
 			txm,
@@ -103,12 +107,13 @@ func setupTestService(t *testing.T) *TestService {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
-	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc)
+	svc := feeds.NewService(orm, jobORM, verORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
+		jobORM:      jobORM,
 		verORM:      verORM,
 		connMgr:     connMgr,
 		txm:         txm,
@@ -563,6 +568,110 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 
 	err := svc.RejectJobProposal(ctx, jp.ID)
 	require.NoError(t, err)
+}
+
+func Test_Service_CancelJobProposal(t *testing.T) {
+	var (
+		externalJobID = uuid.NewV4()
+		ctx           = context.Background()
+		jp            = &feeds.JobProposal{
+			ID:             1,
+			ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
+			RemoteUUID:     externalJobID,
+			Status:         feeds.JobProposalStatusApproved,
+			FeedsManagerID: 2,
+		}
+		j = job.Job{
+			ID:            1,
+			ExternalJobID: externalJobID,
+		}
+	)
+
+	testCases := []struct {
+		name     string
+		beforeFn func(svc *TestService)
+		wantErr  string
+	}{
+		{
+			name: "success",
+			beforeFn: func(svc *TestService) {
+				ctx = mockTransactWithContext(ctx, svc.txm)
+
+				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+				svc.orm.On("CancelJobProposal",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					jp.ID,
+				).Return(nil)
+				svc.jobORM.On("FindJobByExternalJobID", ctx, externalJobID).Return(j, nil)
+				svc.spawner.On("DeleteJob", ctx, j.ID).Return(nil)
+
+				svc.fmsClient.On("CancelledJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.CancelledJobRequest{
+						Uuid: jp.RemoteUUID.String(),
+					},
+				).Return(&proto.CancelledJobResponse{}, nil)
+			},
+		},
+		{
+			name: "must be an approved job proposal",
+			beforeFn: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(&feeds.JobProposal{
+					ID:             1,
+					ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
+					RemoteUUID:     externalJobID,
+					Status:         feeds.JobProposalStatusPending,
+					FeedsManagerID: 2,
+				}, nil)
+			},
+			wantErr: "must be a approved job proposal",
+		},
+		{
+			name: "rpc client not connected",
+			beforeFn: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(nil, errors.New("not connected"))
+			},
+			wantErr: "fms rpc client: not connected",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t)
+
+			tc.beforeFn(svc)
+
+			err := svc.CancelJobProposal(ctx, jp.ID)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.EqualError(t, err, tc.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func Test_Service_IsJobManaged(t *testing.T) {
+	t.Parallel()
+
+	svc := setupTestService(t)
+	ctx := context.Background()
+	jobID := int64(1)
+
+	svc.orm.On("IsJobManaged", ctx, jobID).Return(true, nil)
+
+	isManaged, err := svc.IsJobManaged(ctx, jobID)
+	require.NoError(t, err)
+	assert.True(t, isManaged)
 }
 
 func Test_Service_UpdateJobProposalSpec(t *testing.T) {

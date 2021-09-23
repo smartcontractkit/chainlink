@@ -63,14 +63,14 @@ type (
 		gasPrice   *big.Int
 		gasPriceMu sync.RWMutex
 
-		logger *logger.Logger
+		logger logger.Logger
 	}
 )
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr *logger.Logger, ethClient eth.Client, config Config, chainID big.Int) Estimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config Config, chainID big.Int) Estimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		utils.StartStopOnce{},
@@ -394,6 +394,12 @@ func isUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) bool {
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.
 	if tx.GasLimit == 0 {
+		return false
+	}
+	// NOTE: This really shouldn't be possible, but at least one node op has
+	// reported it happening on mainnet so we need to handle this case
+	if tx.GasPrice == nil && tx.Type == 0x0 {
+		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
 	return chainSpecificIsUsableTx(tx, minGasPriceWei, chainID)

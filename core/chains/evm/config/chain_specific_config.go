@@ -118,7 +118,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	mainnet := fallbackDefaultSet
 	mainnet.linkContractAddress = "0x514910771AF9Ca656af840dff83E8264EcF986CA"
-	mainnet.minimumContractPayment = assets.NewLinkFromJuels(1000000000000000000) // 1 LINK
+	mainnet.minimumContractPayment = assets.NewLinkFromJuels(100000000000000000) // 0.1 LINK
 	// NOTE: There are probably other variables we can tweak for Kovan and other
 	// test chains, but the defaults have been working fine and if it ain't
 	// broke, don't fix it.

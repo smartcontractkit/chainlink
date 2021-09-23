@@ -36,7 +36,7 @@ type TestChainOpts struct {
 	DB             *gorm.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
-	Logger         *logger.Logger
+	Logger         logger.Logger
 }
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {

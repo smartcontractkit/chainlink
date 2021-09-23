@@ -17,6 +17,7 @@ type FeedsManagerClient interface {
 	ApprovedJob(ctx context.Context, in *ApprovedJobRequest) (*ApprovedJobResponse, error)
 	UpdateNode(ctx context.Context, in *UpdateNodeRequest) (*UpdateNodeResponse, error)
 	RejectedJob(ctx context.Context, in *RejectedJobRequest) (*RejectedJobResponse, error)
+	CancelledJob(ctx context.Context, in *CancelledJobRequest) (*CancelledJobResponse, error)
 }
 
 type feedsManagerClient struct {
@@ -54,11 +55,21 @@ func (c *feedsManagerClient) RejectedJob(ctx context.Context, in *RejectedJobReq
 	return out, nil
 }
 
+func (c *feedsManagerClient) CancelledJob(ctx context.Context, in *CancelledJobRequest) (*CancelledJobResponse, error) {
+	out := new(CancelledJobResponse)
+	err := c.cc.Invoke(ctx, "CancelledJob", in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FeedsManagerServer is the server API for FeedsManager service.
 type FeedsManagerServer interface {
 	ApprovedJob(context.Context, *ApprovedJobRequest) (*ApprovedJobResponse, error)
 	UpdateNode(context.Context, *UpdateNodeRequest) (*UpdateNodeResponse, error)
 	RejectedJob(context.Context, *RejectedJobRequest) (*RejectedJobResponse, error)
+	CancelledJob(context.Context, *CancelledJobRequest) (*CancelledJobResponse, error)
 }
 
 func RegisterFeedsManagerServer(s wsrpc.ServiceRegistrar, srv FeedsManagerServer) {
@@ -89,6 +100,14 @@ func _FeedsManager_RejectedJob_Handler(srv interface{}, ctx context.Context, dec
 	return srv.(FeedsManagerServer).RejectedJob(ctx, in)
 }
 
+func _FeedsManager_CancelledJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error) (interface{}, error) {
+	in := new(CancelledJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	return srv.(FeedsManagerServer).CancelledJob(ctx, in)
+}
+
 // FeedsManager_ServiceDesc is the wsrpc.ServiceDesc for FeedsManager service.
 // It's only intended for direct use with wsrpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -107,6 +126,10 @@ var FeedsManager_ServiceDesc = wsrpc.ServiceDesc{
 		{
 			MethodName: "RejectedJob",
 			Handler:    _FeedsManager_RejectedJob_Handler,
+		},
+		{
+			MethodName: "CancelledJob",
+			Handler:    _FeedsManager_CancelledJob_Handler,
 		},
 	},
 }

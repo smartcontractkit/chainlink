@@ -20,7 +20,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
@@ -62,7 +61,7 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
-	GetLogger() *loggerPkg.Logger
+	GetLogger() loggerPkg.Logger
 	GetHealthChecker() health.Checker
 	GetStore() *strpkg.Store
 	GetDB() *gorm.DB
@@ -89,7 +88,7 @@ type Application interface {
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error
+	SetServiceLogger(ctx context.Context, service string, level string) error
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -124,7 +123,7 @@ type ChainlinkApplication struct {
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
-	logger                   *loggerPkg.Logger
+	logger                   loggerPkg.Logger
 
 	started     bool
 	startStopMu sync.Mutex
@@ -139,7 +138,7 @@ type ApplicationOpts struct {
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
-	Logger                   *loggerPkg.Logger
+	Logger                   loggerPkg.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 }
 
@@ -255,7 +254,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			pipelineRunner,
 			concretePW,
 			monitoringEndpointGen,
@@ -280,7 +279,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		logger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
+		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
 	}
 
 	app := &ChainlinkApplication{
@@ -320,15 +319,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 }
 
 // SetServiceLogger sets the Logger for a given service and stores the setting in the db
-func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level zapcore.Level) error {
-	newL, err := app.logger.InitServiceLevelLogger(serviceName, level.String())
+func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
+	newL, err := app.logger.NewServiceLevelLogger(serviceName, level)
 	if err != nil {
 		return err
 	}
 
 	// TODO: Implement other service loggers
-	// FIXME: How to reconcile with multichain? This is broken and will currently overwrite the old label/value that sets evmChainID logger label
-	// See: https://app.clubhouse.io/chainlinklabs/story/15452/initservicelevellogger-appears-to-discard-label-values-set-by-previous-with
 	switch serviceName {
 	case loggerPkg.HeadTracker:
 		for _, c := range app.ChainSet.Chains() {
@@ -341,7 +338,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return app.logger.Orm.SetServiceLogLevel(ctx, serviceName, level)
+	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level)
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -470,7 +467,7 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() *loggerPkg.Logger {
+func (app *ChainlinkApplication) GetLogger() loggerPkg.Logger {
 	return app.logger
 }
 
@@ -520,6 +517,16 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name n
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
+	// Do not allow the job to be deleted if it is managed by the Feeds Manager
+	isManaged, err := app.FeedsService.IsJobManaged(ctx, int64(jobID))
+	if err != nil {
+		return err
+	}
+
+	if isManaged {
+		return errors.New("job must be deleted in the feeds manager")
+	}
+
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
@@ -586,7 +593,7 @@ func (app *ChainlinkApplication) RunJobV2(
 				},
 			}
 		}
-		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), *app.logger, saveTasks)
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.logger, saveTasks)
 	} else {
 		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
 		// TODO: Once all jobs have a pipeline this can be removed
