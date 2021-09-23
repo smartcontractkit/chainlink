@@ -1,5 +1,14 @@
 # @chainlink/contracts CHANGELOG.md
 
+## 0.2.3 - Unreleased
+
+### Changed:
+
+- Operator Contract and Chainlink Client are officially supported. This enables
+multiword requests/response are available through the ChainlinkClient by using
+the newly enabled `buildOperatorRequest` along with `sendOperatorRequest` or
+`sendOperatorRequestTo`.
+
 ## 0.2.2 - 2021-09-21
 
 ### Added:

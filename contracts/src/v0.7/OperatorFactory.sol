@@ -82,14 +82,14 @@ contract OperatorFactory {
     bytes memory tmp = new bytes(0);
     AuthorizedForwarder forwarder = new AuthorizedForwarder(
       getChainlinkToken,
+      address(this),
       address(operator),
-      address(0),
       tmp
     );
     s_created[address(forwarder)] = true;
     emit AuthorizedForwarderCreated(
       address(forwarder),
-      address(operator),
+      address(this),
       msg.sender
     );
 

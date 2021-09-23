@@ -788,9 +788,7 @@ describe("VRFCoordinatorV2", () => {
       // So we expect x to be in the range (few thousand gas for the call)
       // 1e18*1e9*(1000 gas)/30000000 < x < 1e18*1e9*(5000 gas)/30000000
       // 3.333333333E22 < x < 1.666666667E23
-      console.log(paymentAmount.toString());
-      const gss = await vrfCoordinatorV2TestHelper.getGasStart();
-      console.log(gss.toString());
+      //const gss = await vrfCoordinatorV2TestHelper.getGasStart();
       assert(paymentAmount.gt(BigNumber.from("33333333330000000000000")), "payment too small");
       assert(paymentAmount.lt(BigNumber.from("166666666600000000000000")), "payment too large");
     });
