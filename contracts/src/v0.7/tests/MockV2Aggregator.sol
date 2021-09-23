@@ -20,19 +20,11 @@ contract MockV2Aggregator is AggregatorInterface {
   mapping(uint256 => uint256) public override getTimestamp;
   mapping(uint256 => uint256) private getStartedAt;
 
-  constructor(
-    int256 _initialAnswer
-  )
-    public
-  {
+  constructor(int256 _initialAnswer) public {
     updateAnswer(_initialAnswer);
   }
 
-  function updateAnswer(
-    int256 _answer
-  )
-    public
-  {
+  function updateAnswer(int256 _answer) public {
     latestAnswer = _answer;
     latestTimestamp = block.timestamp;
     latestRound++;
@@ -45,9 +37,7 @@ contract MockV2Aggregator is AggregatorInterface {
     int256 _answer,
     uint256 _timestamp,
     uint256 _startedAt
-  )
-    public
-  {
+  ) public {
     latestRound = _roundId;
     latestAnswer = _answer;
     latestTimestamp = _timestamp;

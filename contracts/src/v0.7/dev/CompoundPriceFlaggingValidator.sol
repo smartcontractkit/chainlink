@@ -41,21 +41,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
   UniswapAnchoredView private s_compOpenOracle;
   mapping(address => CompoundFeedDetails) private s_feedDetails;
 
-  event CompoundOpenOracleAddressUpdated(
-    address indexed from,
-    address indexed to
-  );
-  event FlagsAddressUpdated(
-    address indexed from,
-    address indexed to
-  );
-  event FeedDetailsSet(
-    address indexed aggregator,
-    string symbol,
-    uint8 decimals,
-    uint32 deviationThresholdNumerator
-  );
-  
+  event CompoundOpenOracleAddressUpdated(address indexed from, address indexed to);
+  event FlagsAddressUpdated(address indexed from, address indexed to);
+  event FeedDetailsSet(address indexed aggregator, string symbol, uint8 decimals, uint32 deviationThresholdNumerator);
+
   /**
    * @notice Create a new CompoundPriceFlaggingValidator
    * @dev Use this contract to compare Chainlink aggregator prices
@@ -63,12 +52,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @param flagsAddress Address of the flag contract
    * @param compoundOracleAddress Address of the Compound Open Oracle UniswapAnchoredView contract
    */
-  constructor(
-    address flagsAddress,
-    address compoundOracleAddress
-  )
-    ConfirmedOwner(msg.sender)
-  {
+  constructor(address flagsAddress, address compoundOracleAddress) ConfirmedOwner(msg.sender) {
     setFlagsAddress(flagsAddress);
     setCompoundOpenOracleAddress(compoundOracleAddress);
   }
@@ -77,12 +61,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @notice Set the address of the Compound Open Oracle UniswapAnchoredView contract
    * @param oracleAddress Compound Open Oracle UniswapAnchoredView address
    */
-  function setCompoundOpenOracleAddress(
-    address oracleAddress
-  )
-    public
-    onlyOwner()
-  {
+  function setCompoundOpenOracleAddress(address oracleAddress) public onlyOwner {
     address previous = address(s_compOpenOracle);
     if (previous != oracleAddress) {
       s_compOpenOracle = UniswapAnchoredView(oracleAddress);
@@ -94,12 +73,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @notice Updates the flagging contract address for raising flags
    * @param flagsAddress sets the address of the flags contract
    */
-  function setFlagsAddress(
-    address flagsAddress
-  )
-    public
-    onlyOwner()
-  {
+  function setFlagsAddress(address flagsAddress) public onlyOwner {
     address previous = address(s_flags);
     if (previous != flagsAddress) {
       s_flags = FlagsInterface(flagsAddress);
@@ -125,12 +99,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     string calldata compoundSymbol,
     uint8 compoundDecimals,
     uint32 compoundDeviationThresholdNumerator
-  ) 
-    public 
-    onlyOwner() 
-  {
-    require(compoundDeviationThresholdNumerator > 0
-      && compoundDeviationThresholdNumerator <= BILLION, "Invalid threshold numerator");
+  ) public onlyOwner {
+    require(
+      compoundDeviationThresholdNumerator > 0 && compoundDeviationThresholdNumerator <= BILLION,
+      "Invalid threshold numerator"
+    );
     require(_compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
     string memory currentSymbol = s_feedDetails[aggregator].symbol;
     // If symbol is not set, use the new one
@@ -140,12 +113,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
         decimals: compoundDecimals,
         deviationThresholdNumerator: compoundDeviationThresholdNumerator
       });
-      emit FeedDetailsSet(
-        aggregator,
-        compoundSymbol,
-        compoundDecimals,
-        compoundDeviationThresholdNumerator
-      );
+      emit FeedDetailsSet(aggregator, compoundSymbol, compoundDecimals, compoundDeviationThresholdNumerator);
     }
     // If the symbol is already set, don't change it
     else {
@@ -154,12 +122,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
         decimals: compoundDecimals,
         deviationThresholdNumerator: compoundDeviationThresholdNumerator
       });
-      emit FeedDetailsSet(
-        aggregator,
-        currentSymbol,
-        compoundDecimals,
-        compoundDeviationThresholdNumerator
-      );
+      emit FeedDetailsSet(aggregator, currentSymbol, compoundDecimals, compoundDeviationThresholdNumerator);
     }
   }
 
@@ -170,15 +133,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @param aggregators address[] memory
    * @return address[] invalid feeds
    */
-  function check(
-    address[] memory aggregators
-  )
-    public
-    view
-    returns (
-      address[] memory
-    )
-  {
+  function check(address[] memory aggregators) public view returns (address[] memory) {
     address[] memory invalidAggregators = new address[](aggregators.length);
     uint256 invalidCount = 0;
     for (uint256 i = 0; i < aggregators.length; i++) {
@@ -204,14 +159,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @param aggregators address[] memory
    * @return address[] memory invalid aggregators
    */
-  function update(
-    address[] memory aggregators
-  )
-    public
-    returns (
-      address[] memory
-    )
-  {
+  function update(address[] memory aggregators) public returns (address[] memory) {
     address[] memory invalidAggregators = check(aggregators);
     s_flags.raiseFlags(invalidAggregators);
     return invalidAggregators;
@@ -225,17 +173,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return invalid aggregators - bytes encoded address array of invalid aggregator addresses
    */
-  function checkUpkeep(
-    bytes calldata data
-  )
-    external
-    view
-    override
-    returns (
-      bool,
-      bytes memory
-    )
-  {
+  function checkUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
     address[] memory invalidAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (invalidAggregators.length > 0);
     return (needsUpkeep, abi.encode(invalidAggregators));
@@ -247,12 +185,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @dev This contract must have write permissions on the Flags contract
    * @param data bytes encoded address array
    */
-  function performUpkeep(
-    bytes calldata data
-  )
-    external
-    override
-  {
+  function performUpkeep(bytes calldata data) external override {
     update(abi.decode(data, (address[])));
   }
 
@@ -263,9 +196,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @return uint8 Compound Oracle Decimals
    * @return uint32 Deviation Threshold Numerator
    */
-  function getFeedDetails(
-    address aggregator
-  )
+  function getFeedDetails(address aggregator)
     public
     view
     returns (
@@ -275,24 +206,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     )
   {
     CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
-    return(
-      compDetails.symbol,
-      compDetails.decimals,
-      compDetails.deviationThresholdNumerator
-    );
+    return (compDetails.symbol, compDetails.decimals, compDetails.deviationThresholdNumerator);
   }
 
   /**
    * @notice Get the flags address
    * @return address
    */
-  function flags()
-    external
-    view
-    returns (
-      address
-    )
-  {
+  function flags() external view returns (address) {
     return address(s_flags);
   }
 
@@ -300,13 +221,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @notice Get the Compound Open Oracle address
    * @return address
    */
-  function compoundOpenOracle()
-    external
-    view
-    returns (
-      address
-    )
-  {
+  function compoundOpenOracle() external view returns (address) {
     return address(s_compOpenOracle);
   }
 
@@ -315,15 +230,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @param symbol string
    * @return price uint256
    */
-  function _compoundPriceOf(
-    string memory symbol
-  )
-    private
-    view
-    returns (
-      uint256
-    )
-  {
+  function _compoundPriceOf(string memory symbol) private view returns (uint256) {
     return s_compOpenOracle.price(symbol);
   }
 
@@ -335,15 +242,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @param aggregator address of the Chainlink aggregator
    * @return invalid bool. True if the deviation exceeds threshold.
    */
-  function _isInvalid(
-    address aggregator
-  )
-    private
-    view
-    returns (
-      bool invalid
-    )
-  {
+  function _isInvalid(address aggregator) private view returns (bool invalid) {
     CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
     if (compDetails.deviationThresholdNumerator == 0) {
       return false;
@@ -370,18 +269,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
    * @return price uint256
    * @return decimals uint8
    */
-  function _aggregatorValues(
-    address aggregator
-  )
-    private
-    view
-    returns (
-      uint256 price,
-      uint8 decimals
-    )
-  {
+  function _aggregatorValues(address aggregator) private view returns (uint256 price, uint8 decimals) {
     AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
-    (,int256 signedPrice,,,) = priceFeed.latestRoundData();
+    (, int256 signedPrice, , , ) = priceFeed.latestRoundData();
     price = uint256(signedPrice);
     decimals = priceFeed.decimals();
   }
@@ -401,20 +291,12 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     uint8 aggregatorDecimals,
     uint256 compoundPrice,
     uint8 compoundDecimals
-  )
-    private
-    pure
-    returns (
-      uint256 adjustedAggregatorPrice,
-      uint256 adjustedCompoundPrice
-    )
-  {
+  ) private pure returns (uint256 adjustedAggregatorPrice, uint256 adjustedCompoundPrice) {
     if (aggregatorDecimals > compoundDecimals) {
       uint8 diff = aggregatorDecimals - compoundDecimals;
       uint256 multiplier = 10**uint256(diff);
       compoundPrice = compoundPrice * multiplier;
-    }
-    else if (aggregatorDecimals < compoundDecimals) {
+    } else if (aggregatorDecimals < compoundDecimals) {
       uint8 diff = compoundDecimals - aggregatorDecimals;
       uint256 multiplier = 10**uint256(diff);
       aggregatorPrice = aggregatorPrice * multiplier;
@@ -436,13 +318,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     uint256 aggregatorPrice,
     uint256 compPrice,
     uint32 deviationThresholdNumerator
-  )
-    private
-    pure
-    returns (
-      bool beyondThreshold
-    )
-  {
+  ) private pure returns (bool beyondThreshold) {
     // Deviation amount threshold from the aggregator price
     uint256 deviationAmountThreshold = aggregatorPrice.mul(deviationThresholdNumerator).div(BILLION);
 
@@ -450,8 +326,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, KeeperCompatibleInter
     uint256 deviation;
     if (aggregatorPrice > compPrice) {
       deviation = aggregatorPrice.sub(compPrice);
-    }
-    else if (aggregatorPrice < compPrice) {
+    } else if (aggregatorPrice < compPrice) {
       deviation = compPrice.sub(aggregatorPrice);
     }
     beyondThreshold = (deviation >= deviationAmountThreshold);
