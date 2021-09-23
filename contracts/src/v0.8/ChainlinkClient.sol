@@ -63,13 +63,7 @@ abstract contract ChainlinkClient {
   function buildOperatorRequest(
     bytes32 specId,
     bytes4 callbackFunctionSignature
-  )
-    internal
-    view
-    returns (
-      Chainlink.Request memory
-    )
-  {
+  ) internal view returns (Chainlink.Request memory) {
     Chainlink.Request memory req;
     return req.initialize(specId, address(this), callbackFunctionSignature);
   }
@@ -102,12 +96,7 @@ abstract contract ChainlinkClient {
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment
-  )
-    internal
-    returns (
-      bytes32 requestId
-    )
-  {
+  ) internal returns (bytes32 requestId) {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
     bytes memory encodedRequest = abi.encodeWithSelector(
@@ -119,7 +108,8 @@ abstract contract ChainlinkClient {
       req.callbackFunctionId,
       nonce,
       ORACLE_ARGS_VERSION,
-      req.buf.buf);
+      req.buf.buf
+    );
     return _rawRequest(oracleAddress, nonce, payment, encodedRequest);
   }
 
@@ -131,10 +121,7 @@ abstract contract ChainlinkClient {
    * @param payment The amount of LINK to send for the request
    * @return requestId The request ID
    */
-  function sendOperatorRequest(
-    Chainlink.Request memory req,
-    uint256 payment
-  )
+  function sendOperatorRequest(Chainlink.Request memory req, uint256 payment)
     internal
     returns (bytes32)
   {
@@ -156,12 +143,7 @@ abstract contract ChainlinkClient {
     address oracleAddress,
     Chainlink.Request memory req,
     uint256 payment
-  )
-    internal
-    returns (
-      bytes32 requestId
-    )
-  {
+  ) internal returns (bytes32 requestId) {
     uint256 nonce = s_requestCount;
     s_requestCount = nonce + 1;
     bytes memory encodedRequest = abi.encodeWithSelector(
@@ -172,7 +154,8 @@ abstract contract ChainlinkClient {
       req.callbackFunctionId,
       nonce,
       OPERATOR_ARGS_VERSION,
-      req.buf.buf);
+      req.buf.buf
+    );
     return _rawRequest(oracleAddress, nonce, payment, encodedRequest);
   }
 
@@ -189,16 +172,14 @@ abstract contract ChainlinkClient {
     uint256 nonce,
     uint256 payment,
     bytes memory encodedRequest
-  )
-    private
-    returns (
-      bytes32 requestId
-    )
-  {
+  ) private returns (bytes32 requestId) {
     requestId = keccak256(abi.encodePacked(this, nonce));
     s_pendingRequests[requestId] = oracleAddress;
     emit ChainlinkRequested(requestId);
-    require(s_link.transferAndCall(oracleAddress, payment, encodedRequest), "unable to transferAndCall to oracle");
+    require(
+      s_link.transferAndCall(oracleAddress, payment, encodedRequest),
+      "unable to transferAndCall to oracle"
+    );
   }
 
   /**
@@ -216,10 +197,10 @@ abstract contract ChainlinkClient {
     uint256 payment,
     bytes4 callbackFunc,
     uint256 expiration
-  )
-    internal
-  {
-    OperatorInterface requested = OperatorInterface(s_pendingRequests[requestId]);
+  ) internal {
+    OperatorInterface requested = OperatorInterface(
+      s_pendingRequests[requestId]
+    );
     delete s_pendingRequests[requestId];
     emit ChainlinkCancelled(requestId);
     requested.cancelOracleRequest(requestId, payment, callbackFunc, expiration);
@@ -230,26 +211,15 @@ abstract contract ChainlinkClient {
    * @dev starts at 1 in order to ensure consistent gas cost
    * @return returns the next request count to be used in a nonce
    */
-  function getNextRequestCount()
-    internal
-    view
-    returns (
-      uint256
-    )
-  {
+  function getNextRequestCount() internal view returns (uint256) {
     return s_requestCount;
   }
-
 
   /**
    * @notice Sets the stored oracle address
    * @param oracleAddress The address of the oracle contract
    */
-  function setChainlinkOracle(
-    address oracleAddress
-  )
-    internal
-  {
+  function setChainlinkOracle(address oracleAddress) internal {
     s_oracle = OperatorInterface(oracleAddress);
   }
 
@@ -257,11 +227,7 @@ abstract contract ChainlinkClient {
    * @notice Sets the LINK token address
    * @param linkAddress The address of the LINK token contract
    */
-  function setChainlinkToken(
-    address linkAddress
-  )
-    internal
-  {
+  function setChainlinkToken(address linkAddress) internal {
     s_link = LinkTokenInterface(linkAddress);
   }
 
@@ -277,13 +243,7 @@ abstract contract ChainlinkClient {
    * @notice Retrieves the stored address of the LINK token
    * @return The address of the LINK token
    */
-  function chainlinkTokenAddress()
-    internal
-    view
-    returns (
-      address
-    )
-  {
+  function chainlinkTokenAddress() internal view returns (address) {
     return address(s_link);
   }
 
@@ -291,13 +251,7 @@ abstract contract ChainlinkClient {
    * @notice Retrieves the stored address of the oracle contract
    * @return The address of the oracle contract
    */
-  function chainlinkOracleAddress()
-    internal
-    view
-    returns (
-      address
-    )
-  {
+  function chainlinkOracleAddress() internal view returns (address) {
     return address(s_oracle);
   }
 
@@ -320,16 +274,15 @@ abstract contract ChainlinkClient {
    * @param ensAddress The address of the ENS contract
    * @param node The ENS node hash
    */
-  function useChainlinkWithENS(
-    address ensAddress,
-    bytes32 node
-  )
-    internal
-  {
+  function useChainlinkWithENS(address ensAddress, bytes32 node) internal {
     s_ens = ENSInterface(ensAddress);
     s_ensNode = node;
-    bytes32 linkSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_TOKEN_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(linkSubnode));
+    bytes32 linkSubnode = keccak256(
+      abi.encodePacked(s_ensNode, ENS_TOKEN_SUBNAME)
+    );
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(
+      s_ens.resolver(linkSubnode)
+    );
     setChainlinkToken(resolver.addr(linkSubnode));
     updateChainlinkOracleWithENS();
   }
@@ -338,11 +291,13 @@ abstract contract ChainlinkClient {
    * @notice Sets the stored oracle contract with the address resolved by ENS
    * @dev This may be called on its own as long as `useChainlinkWithENS` has been called previously
    */
-  function updateChainlinkOracleWithENS()
-    internal
-  {
-    bytes32 oracleSubnode = keccak256(abi.encodePacked(s_ensNode, ENS_ORACLE_SUBNAME));
-    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(s_ens.resolver(oracleSubnode));
+  function updateChainlinkOracleWithENS() internal {
+    bytes32 oracleSubnode = keccak256(
+      abi.encodePacked(s_ensNode, ENS_ORACLE_SUBNAME)
+    );
+    ENSResolver_Chainlink resolver = ENSResolver_Chainlink(
+      s_ens.resolver(oracleSubnode)
+    );
     setChainlinkOracle(resolver.addr(oracleSubnode));
   }
 
@@ -364,12 +319,11 @@ abstract contract ChainlinkClient {
    * Emits ChainlinkFulfilled event.
    * @param requestId The request ID for fulfillment
    */
-  modifier recordChainlinkFulfillment(
-    bytes32 requestId
-  )
-  {
-    require(msg.sender == s_pendingRequests[requestId],
-            "Source must be the oracle of the request");
+  modifier recordChainlinkFulfillment(bytes32 requestId) {
+    require(
+      msg.sender == s_pendingRequests[requestId],
+      "Source must be the oracle of the request"
+    );
     delete s_pendingRequests[requestId];
     emit ChainlinkFulfilled(requestId);
     _;
@@ -379,11 +333,11 @@ abstract contract ChainlinkClient {
    * @dev Reverts if the request is already pending
    * @param requestId The request ID for fulfillment
    */
-  modifier notPendingRequest(
-    bytes32 requestId
-  )
-  {
-    require(s_pendingRequests[requestId] == address(0), "Request is already pending");
+  modifier notPendingRequest(bytes32 requestId) {
+    require(
+      s_pendingRequests[requestId] == address(0),
+      "Request is already pending"
+    );
     _;
   }
 }

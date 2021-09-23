@@ -39,11 +39,12 @@ contract Operator is
     SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
-  uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
+  uint256 private constant ONE_FOR_CONSISTENT_GAS_COST = 1;
   // oracleRequest is intended for version 1, enabling single word responses
-  bytes4 constant private ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
+  bytes4 private constant ORACLE_REQUEST_SELECTOR = this.oracleRequest.selector;
   // operatorRequest is intended for version 2, enabling multi-word responses
-  bytes4 constant private OPERATOR_REQUEST_SELECTOR = this.operatorRequest.selector;
+  bytes4 private constant OPERATOR_REQUEST_SELECTOR =
+    this.operatorRequest.selector;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -67,9 +68,7 @@ contract Operator is
 
   event OracleResponse(bytes32 indexed requestId);
 
-  event OwnableContractAccepted(
-    address indexed acceptedContract
-  );
+  event OwnableContractAccepted(address indexed acceptedContract);
 
   event TargetsUpdatedAuthorizedSenders(
     address[] targets,
@@ -109,11 +108,7 @@ contract Operator is
     uint256 nonce,
     uint256 dataVersion,
     bytes calldata data
-  )
-    external
-    override
-    validateFromLINK()
-  {
+  ) external override validateFromLINK {
     (bytes32 requestId, uint256 expiration) = _verifyAndProcessOracleRequest(
       sender,
       payment,
@@ -131,7 +126,8 @@ contract Operator is
       callbackFunctionId,
       expiration,
       dataVersion,
-      data);
+      data
+    );
   }
 
   /**
@@ -154,11 +150,7 @@ contract Operator is
     uint256 nonce,
     uint256 dataVersion,
     bytes calldata data
-  )
-    external
-    override
-    validateFromLINK()
-  {
+  ) external override validateFromLINK {
     (bytes32 requestId, uint256 expiration) = _verifyAndProcessOracleRequest(
       sender,
       payment,
@@ -206,9 +198,7 @@ contract Operator is
     validateAuthorizedSender
     validateRequestId(requestId)
     validateCallbackAddress(callbackAddress)
-    returns (
-      bool
-    )
+    returns (bool)
   {
     _verifyOracleRequestAndProcessPayment(
       requestId,
@@ -457,12 +447,17 @@ contract Operator is
     uint256 payment,
     bytes4 callbackFunc,
     uint256 expiration
-  )
-    external
-    override
-  {
-    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
-    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+  ) external override {
+    bytes31 paramsHash = _buildParamsHash(
+      payment,
+      msg.sender,
+      callbackFunc,
+      expiration
+    );
+    require(
+      s_commitments[requestId].paramsHash == paramsHash,
+      "Params do not match request ID"
+    );
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -487,12 +482,18 @@ contract Operator is
     uint256 payment,
     bytes4 callbackFunc,
     uint256 expiration
-  )
-    external
-  {
+  ) external {
     bytes32 requestId = keccak256(abi.encodePacked(msg.sender, nonce));
-    bytes31 paramsHash = _buildParamsHash(payment, msg.sender, callbackFunc, expiration);
-    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+    bytes31 paramsHash = _buildParamsHash(
+      payment,
+      msg.sender,
+      callbackFunc,
+      expiration
+    );
+    require(
+      s_commitments[requestId].paramsHash == paramsHash,
+      "Params do not match request ID"
+    );
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -546,17 +547,22 @@ contract Operator is
   )
     private
     validateNotToLINK(callbackAddress)
-    returns (
-      bytes32 requestId,
-      uint256 expiration
-    )
+    returns (bytes32 requestId, uint256 expiration)
   {
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     expiration = block.timestamp.add(getExpiryTime);
-    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
-    s_commitments[requestId] = Commitment(paramsHash, _safeCastToUint8(dataVersion));
+    bytes31 paramsHash = _buildParamsHash(
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration
+    );
+    s_commitments[requestId] = Commitment(
+      paramsHash,
+      _safeCastToUint8(dataVersion)
+    );
     s_tokensInEscrow = s_tokensInEscrow.add(payment);
     return (requestId, expiration);
   }
@@ -576,12 +582,21 @@ contract Operator is
     bytes4 callbackFunctionId,
     uint256 expiration,
     uint256 dataVersion
-  )
-    internal
-  {
-    bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
-    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
-    require(s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion), "Data versions must match");
+  ) internal {
+    bytes31 paramsHash = _buildParamsHash(
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration
+    );
+    require(
+      s_commitments[requestId].paramsHash == paramsHash,
+      "Params do not match request ID"
+    );
+    require(
+      s_commitments[requestId].dataVersion <= _safeCastToUint8(dataVersion),
+      "Data versions must match"
+    );
     s_tokensInEscrow = s_tokensInEscrow.sub(payment);
     delete s_commitments[requestId];
   }
@@ -647,13 +662,10 @@ contract Operator is
    * @param requestId bytes32
    * @param data bytes
    */
-  modifier validateMultiWordResponseId(
-    bytes32 requestId,
-    bytes calldata data
-  ) {
+  modifier validateMultiWordResponseId(bytes32 requestId, bytes calldata data) {
     require(data.length >= 32, "Response must be > 32 bytes");
     bytes32 firstDataWord;
-    assembly{
+    assembly {
       // extract the first word from data
       // functionSelector = 4
       // wordLength = 32
@@ -701,11 +713,8 @@ contract Operator is
   /**
    * @dev Reverts if the target address is owned by the operator
    */
-  modifier validateCallbackAddress(
-    address callbackAddress
-  ) {
+  modifier validateCallbackAddress(address callbackAddress) {
     require(!s_owned[callbackAddress], "Cannot call owned contract");
     _;
   }
-
 }
