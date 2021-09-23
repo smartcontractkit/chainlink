@@ -254,7 +254,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	opts.Logger.Infof("Creating ChainSet with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
+	opts.Logger.Infof("EVM ChainSet has default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	var err error
 	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), sync.RWMutex{}, opts.Logger, opts.ORM, opts}
 	for i := range dbchains {
