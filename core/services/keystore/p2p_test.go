@@ -93,6 +93,10 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 	})
+
+	t.Run("clears p2p_peers on delete", func(t *testing.T) {
+		t.Fatal("TODO")
+	})
 }
 
 func Test_P2PKeyStore_GetOrFirst(t *testing.T) {
