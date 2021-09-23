@@ -336,7 +336,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _ := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
+	config, _, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
@@ -345,13 +345,11 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	d := 1500 * time.Millisecond
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	store := cltest.NewStoreWithConfig(t, config)
-
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
-	orm := headtracker.NewORM(store.DB, *config.DefaultChainID())
+	orm := headtracker.NewORM(db, *config.DefaultChainID())
 	ht := createHeadTrackerWithChecker(ethClient, evmtest.NewChainScopedConfig(t, config), orm, checker)
 
 	chchHeaders := make(chan chan<- *eth.Head, 1)
@@ -460,7 +458,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _ := heavyweight.FullTestORM(t, "switches_longest_chain", true, true)
+	config, _, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
 
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
@@ -468,13 +466,11 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	d := 0 * time.Second
 	config.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 
-	store := cltest.NewStoreWithConfig(t, config)
-
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
 	checker := new(htmocks.HeadTrackable)
 	checker.Test(t)
-	orm := headtracker.NewORM(store.DB, cltest.FixtureChainID)
+	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 	ht := createHeadTrackerWithChecker(ethClient, evmcfg, orm, checker)
 

@@ -26,7 +26,7 @@ import (
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
-	config, _ := heavyweight.FullTestORM(t, "vrf_jpv2", true, true)
+	config, _, _ := heavyweight.FullTestDB(t, "vrf_jpv2", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	cu := newVRFCoordinatorUniverse(t, key)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
