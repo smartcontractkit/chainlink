@@ -1,9 +1,11 @@
 package keystore_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -91,4 +93,31 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 	})
+}
+
+func Test_P2PKeyStore_GetOrFirst(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
+	ks := keyStore.P2P()
+	_, err := ks.GetOrFirst("")
+	require.Contains(t, err.Error(), "no p2p keys exist")
+	id := cfg.P2PPeerID().Raw()
+	_, err = ks.GetOrFirst(id)
+	require.Contains(t, err.Error(), fmt.Sprintf("unable to find P2P key with id %s", id))
+	k1, err := keyStore.P2P().Create()
+	require.NoError(t, err)
+	k2, err := ks.GetOrFirst("")
+	require.NoError(t, err)
+	require.Equal(t, k1, k2)
+	k3, err := ks.GetOrFirst(k1.ID())
+	require.NoError(t, err)
+	require.Equal(t, k1, k3)
+	_, err = keyStore.P2P().Create()
+	require.NoError(t, err)
+	_, err = ks.GetOrFirst("")
+	require.Contains(t, err.Error(), "multiple p2p keys found")
+	k4, err := ks.GetOrFirst(k1.ID())
+	require.NoError(t, err)
+	require.Equal(t, k1, k4)
 }
