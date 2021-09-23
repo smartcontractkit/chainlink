@@ -15,6 +15,8 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI
 
+Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
+
 ### Changed
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
