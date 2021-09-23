@@ -294,6 +294,24 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 }
 
+func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
+	body, _ := json.Marshal(web.CreateJobRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+
+	b, err := ioutil.ReadAll(response.Body)
+	require.NoError(t, err)
+	require.Contains(t, string(b), "syntax is not supported. Please use \\\"{}\\\" instead")
+}
+
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
