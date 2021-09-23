@@ -164,27 +164,42 @@ const binanceBlocks: TestBlocks[] = [
 
 before(async () => {
   personas = (await getUsers()).personas;
-  blockhashStoreTestHelperFactory = await ethers.getContractFactory("BlockhashStoreTestHelper", personas.Default);
+  blockhashStoreTestHelperFactory = await ethers.getContractFactory(
+    "BlockhashStoreTestHelper",
+    personas.Default,
+  );
 });
 
 runBlockhashStoreTests(mainnetBlocks, "Ethereum");
 runBlockhashStoreTests(maticBlocks, "Matic");
 runBlockhashStoreTests(binanceBlocks, "Binance Smart Chain");
 
-async function runBlockhashStoreTests(blocks: TestBlocks[], description: string) {
+async function runBlockhashStoreTests(
+  blocks: TestBlocks[],
+  description: string,
+) {
   describe(`BlockhashStore (${description})`, () => {
     let blockhashStoreTestHelper: Contract;
 
     beforeEach(async () => {
-      blockhashStoreTestHelper = await blockhashStoreTestHelperFactory.connect(personas.Default).deploy();
+      blockhashStoreTestHelper = await blockhashStoreTestHelperFactory
+        .connect(personas.Default)
+        .deploy();
 
       const [lastBlock] = blocks.slice(-1);
-      await blockhashStoreTestHelper.connect(personas.Default).godmodeSetHash(lastBlock.num, lastBlock.hash);
-      assert.strictEqual(await blockhashStoreTestHelper.getBlockhash(lastBlock.num), lastBlock.hash);
+      await blockhashStoreTestHelper
+        .connect(personas.Default)
+        .godmodeSetHash(lastBlock.num, lastBlock.hash);
+      assert.strictEqual(
+        await blockhashStoreTestHelper.getBlockhash(lastBlock.num),
+        lastBlock.hash,
+      );
     });
 
     it("getBlockhash reverts for unknown blockhashes", async () => {
-      await expect(blockhashStoreTestHelper.getBlockhash(99999999)).to.be.revertedWith("blockhash not found in store");
+      await expect(
+        blockhashStoreTestHelper.getBlockhash(99999999),
+      ).to.be.revertedWith("blockhash not found in store");
     });
 
     it("storeVerifyHeader records valid blockhashes", async () => {
@@ -196,7 +211,10 @@ async function runBlockhashStoreTests(blocks: TestBlocks[], description: string)
         await blockhashStoreTestHelper
           .connect(personas.Default)
           .storeVerifyHeader(blocks[i].num, blocks[i + 1].rlpHeader);
-        assert.strictEqual(await blockhashStoreTestHelper.getBlockhash(blocks[i].num), blocks[i].hash);
+        assert.strictEqual(
+          await blockhashStoreTestHelper.getBlockhash(blocks[i].num),
+          blocks[i].hash,
+        );
       }
     });
 
@@ -214,7 +232,9 @@ async function runBlockhashStoreTests(blocks: TestBlocks[], description: string)
       const modifiedHeader = new Uint8Array(lastBlock.rlpHeader);
       modifiedHeader[137] += 1;
       await expect(
-        blockhashStoreTestHelper.connect(personas.Default).storeVerifyHeader(lastBlock.num - 1, modifiedHeader),
+        blockhashStoreTestHelper
+          .connect(personas.Default)
+          .storeVerifyHeader(lastBlock.num - 1, modifiedHeader),
       ).to.be.revertedWith("header has unknown blockhash");
     });
 
@@ -224,13 +244,16 @@ async function runBlockhashStoreTests(blocks: TestBlocks[], description: string)
       const n = (await ethers.provider.getBlockNumber()) - 1;
       await blockhashStoreTestHelper.connect(personas.Default).store(n);
 
-      assert.equal(await blockhashStoreTestHelper.getBlockhash(n), (await ethers.provider.getBlock(n)).hash);
+      assert.equal(
+        await blockhashStoreTestHelper.getBlockhash(n),
+        (await ethers.provider.getBlock(n)).hash,
+      );
     });
 
     it("store rejects future block numbers", async () => {
-      await expect(blockhashStoreTestHelper.connect(personas.Default).store(99999999999)).to.be.revertedWith(
-        "blockhash(n) failed",
-      );
+      await expect(
+        blockhashStoreTestHelper.connect(personas.Default).store(99999999999),
+      ).to.be.revertedWith("blockhash(n) failed");
     });
 
     it("store rejects old block numbers", async () => {
@@ -239,7 +262,9 @@ async function runBlockhashStoreTests(blocks: TestBlocks[], description: string)
       }
 
       await expect(
-        blockhashStoreTestHelper.connect(personas.Default).store((await ethers.provider.getBlockNumber()) - 256),
+        blockhashStoreTestHelper
+          .connect(personas.Default)
+          .store((await ethers.provider.getBlockNumber()) - 256),
       ).to.be.revertedWith("blockhash(n) failed");
     });
 
@@ -251,7 +276,10 @@ async function runBlockhashStoreTests(blocks: TestBlocks[], description: string)
       await blockhashStoreTestHelper.connect(personas.Default).storeEarliest();
 
       const n = (await ethers.provider.getBlockNumber()) - 256;
-      assert.equal(await blockhashStoreTestHelper.getBlockhash(n), (await ethers.provider.getBlock(n)).hash);
+      assert.equal(
+        await blockhashStoreTestHelper.getBlockhash(n),
+        (await ethers.provider.getBlock(n)).hash,
+      );
     });
   });
 }

@@ -1,6 +1,12 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
-import { BigNumber, constants, Contract, ContractFactory, ContractTransaction } from "ethers";
+import {
+  BigNumber,
+  constants,
+  Contract,
+  ContractFactory,
+  ContractTransaction,
+} from "ethers";
 import { getUsers, Personas, Roles } from "../test-helpers/setup";
 import {
   evmWordToAddress,
@@ -23,9 +29,18 @@ before(async () => {
 
   roles = users.roles;
   personas = users.personas;
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
-  vrfCoordinatorMockFactory = await ethers.getContractFactory("VRFCoordinatorMock", roles.defaultAccount);
-  vrfD20Factory = await ethers.getContractFactory("VRFD20", roles.defaultAccount);
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    roles.defaultAccount,
+  );
+  vrfCoordinatorMockFactory = await ethers.getContractFactory(
+    "VRFCoordinatorMock",
+    roles.defaultAccount,
+  );
+  vrfD20Factory = await ethers.getContractFactory(
+    "VRFD20",
+    roles.defaultAccount,
+  );
 });
 
 describe("VRFD20", () => {
@@ -39,7 +54,9 @@ describe("VRFD20", () => {
 
   beforeEach(async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy();
-    vrfCoordinator = await vrfCoordinatorMockFactory.connect(roles.defaultAccount).deploy(link.address);
+    vrfCoordinator = await vrfCoordinatorMockFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address);
     vrfD20 = await vrfD20Factory
       .connect(roles.defaultAccount)
       .deploy(vrfCoordinator.address, link.address, keyHash, fee);
@@ -69,24 +86,37 @@ describe("VRFD20", () => {
     describe("failure", () => {
       it("reverts when called by a non-owner", async () => {
         await expect(
-          vrfD20.connect(roles.stranger).withdrawLINK(await roles.stranger.getAddress(), deposit),
+          vrfD20
+            .connect(roles.stranger)
+            .withdrawLINK(await roles.stranger.getAddress(), deposit),
         ).to.be.revertedWith("Only callable by owner");
       });
 
       it("reverts when not enough LINK in the contract", async () => {
         const withdrawAmount = deposit.mul(2);
         await expect(
-          vrfD20.connect(roles.defaultAccount).withdrawLINK(await roles.defaultAccount.getAddress(), withdrawAmount),
+          vrfD20
+            .connect(roles.defaultAccount)
+            .withdrawLINK(
+              await roles.defaultAccount.getAddress(),
+              withdrawAmount,
+            ),
         ).to.be.reverted;
       });
     });
 
     describe("success", () => {
       it("withdraws LINK", async () => {
-        const startingAmount = await link.balanceOf(await roles.defaultAccount.getAddress());
+        const startingAmount = await link.balanceOf(
+          await roles.defaultAccount.getAddress(),
+        );
         const expectedAmount = BigNumber.from(startingAmount).add(deposit);
-        await vrfD20.connect(roles.defaultAccount).withdrawLINK(await roles.defaultAccount.getAddress(), deposit);
-        const actualAmount = await link.balanceOf(await roles.defaultAccount.getAddress());
+        await vrfD20
+          .connect(roles.defaultAccount)
+          .withdrawLINK(await roles.defaultAccount.getAddress(), deposit);
+        const actualAmount = await link.balanceOf(
+          await roles.defaultAccount.getAddress(),
+        );
         assert.equal(actualAmount.toString(), expectedAmount.toString());
       });
     });
@@ -97,7 +127,9 @@ describe("VRFD20", () => {
 
     describe("failure", () => {
       it("reverts when called by a non-owner", async () => {
-        await expect(vrfD20.connect(roles.stranger).setKeyHash(newHash)).to.be.revertedWith("Only callable by owner");
+        await expect(
+          vrfD20.connect(roles.stranger).setKeyHash(newHash),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
 
@@ -115,7 +147,9 @@ describe("VRFD20", () => {
 
     describe("failure", () => {
       it("reverts when called by a non-owner", async () => {
-        await expect(vrfD20.connect(roles.stranger).setFee(newFee)).to.be.revertedWith("Only callable by owner");
+        await expect(
+          vrfD20.connect(roles.stranger).setFee(newFee),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
 
@@ -131,12 +165,16 @@ describe("VRFD20", () => {
   describe("#house", () => {
     describe("failure", () => {
       it("reverts when dice not rolled", async () => {
-        await expect(vrfD20.house(await personas.Nancy.getAddress())).to.be.revertedWith("Dice not rolled");
+        await expect(
+          vrfD20.house(await personas.Nancy.getAddress()),
+        ).to.be.revertedWith("Dice not rolled");
       });
 
       it("reverts when dice roll is in progress", async () => {
         await vrfD20.rollDice(await personas.Nancy.getAddress());
-        await expect(vrfD20.house(await personas.Nancy.getAddress())).to.be.revertedWith("Roll in progress");
+        await expect(
+          vrfD20.house(await personas.Nancy.getAddress()),
+        ).to.be.revertedWith("Roll in progress");
       });
     });
 
@@ -147,7 +185,11 @@ describe("VRFD20", () => {
         const tx = await vrfD20.rollDice(await personas.Nancy.getAddress());
         const log = await getLog(tx, 3);
         const eventRequestId = log?.topics?.[1];
-        await vrfCoordinator.callBackWithRandomness(eventRequestId, randomness, vrfD20.address);
+        await vrfCoordinator.callBackWithRandomness(
+          eventRequestId,
+          randomness,
+          vrfD20.address,
+        );
         const response = await vrfD20.house(await personas.Nancy.getAddress());
         assert.equal(response.toString(), expectedHouse);
       });
@@ -175,20 +217,24 @@ describe("VRFD20", () => {
         const vrfD202 = await vrfD20Factory
           .connect(roles.defaultAccount)
           .deploy(vrfCoordinator.address, link.address, keyHash, fee);
-        await expect(vrfD202.rollDice(await personas.Nancy.getAddress())).to.be.revertedWith(
-          "Not enough LINK to pay fee",
-        );
+        await expect(
+          vrfD202.rollDice(await personas.Nancy.getAddress()),
+        ).to.be.revertedWith("Not enough LINK to pay fee");
       });
 
       it("reverts when called by a non-owner", async () => {
-        await expect(vrfD20.connect(roles.stranger).rollDice(await personas.Nancy.getAddress())).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          vrfD20
+            .connect(roles.stranger)
+            .rollDice(await personas.Nancy.getAddress()),
+        ).to.be.revertedWith("Only callable by owner");
       });
 
       it("reverts when the roller rolls more than once", async () => {
         await vrfD20.rollDice(await personas.Nancy.getAddress());
-        await expect(vrfD20.rollDice(await personas.Nancy.getAddress())).to.be.revertedWith("Already rolled");
+        await expect(
+          vrfD20.rollDice(await personas.Nancy.getAddress()),
+        ).to.be.revertedWith("Already rolled");
       });
     });
   });
@@ -207,7 +253,11 @@ describe("VRFD20", () => {
     describe("success", () => {
       let tx: ContractTransaction;
       beforeEach(async () => {
-        tx = await vrfCoordinator.callBackWithRandomness(eventRequestId, randomness, vrfD20.address);
+        tx = await vrfCoordinator.callBackWithRandomness(
+          eventRequestId,
+          randomness,
+          vrfD20.address,
+        );
       });
 
       it("emits a DiceLanded event", async () => {
@@ -226,15 +276,25 @@ describe("VRFD20", () => {
         tx = await vrfD20.rollDice(await personas.Ned.getAddress());
         const log = await getLog(tx, 3);
         eventRequestId = log?.topics?.[1];
-        tx = await vrfCoordinator.callBackWithRandomness(eventRequestId, secondRandomness, vrfD20.address);
+        tx = await vrfCoordinator.callBackWithRandomness(
+          eventRequestId,
+          secondRandomness,
+          vrfD20.address,
+        );
       });
     });
 
     describe("failure", () => {
       it("does not fulfill when fulfilled by the wrong VRFcoordinator", async () => {
-        const vrfCoordinator2 = await vrfCoordinatorMockFactory.connect(roles.defaultAccount).deploy(link.address);
+        const vrfCoordinator2 = await vrfCoordinatorMockFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address);
 
-        const tx = await vrfCoordinator2.callBackWithRandomness(eventRequestId, randomness, vrfD20.address);
+        const tx = await vrfCoordinator2.callBackWithRandomness(
+          eventRequestId,
+          randomness,
+          vrfD20.address,
+        );
         const logs = await getLogs(tx);
         assert.equal(logs.length, 0);
       });

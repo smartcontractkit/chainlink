@@ -28,7 +28,15 @@ describe("ChainlinkTestHelper", () => {
   });
 
   it("has a limited public interface [ @skip-coverage ]", () => {
-    publicAbi(ccl, ["add", "addBytes", "addInt", "addStringArray", "addUint", "closeEvent", "setBuffer"]);
+    publicAbi(ccl, [
+      "add",
+      "addBytes",
+      "addInt",
+      "addStringArray",
+      "addUint",
+      "closeEvent",
+      "setBuffer",
+    ]);
   });
 
   async function parseCCLEvent(tx: providers.TransactionResponse) {

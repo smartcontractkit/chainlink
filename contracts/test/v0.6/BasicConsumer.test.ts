@@ -4,7 +4,12 @@ import { assert, expect } from "chai";
 import { BigNumber, constants, Contract, ContractFactory } from "ethers";
 import { Roles, getUsers } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
-import { convertFufillParams, decodeRunRequest, encodeOracleRequest, RunRequest } from "../test-helpers/oracle";
+import {
+  convertFufillParams,
+  decodeRunRequest,
+  encodeOracleRequest,
+  RunRequest,
+} from "../test-helpers/oracle";
 import cbor from "cbor";
 import { makeDebug } from "../test-helpers/debug";
 
@@ -21,8 +26,14 @@ before(async () => {
     "src/v0.6/tests/BasicConsumer.sol:BasicConsumer",
     roles.defaultAccount,
   );
-  oracleFactory = await ethers.getContractFactory("src/v0.6/Oracle.sol:Oracle", roles.oracleNode);
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
+  oracleFactory = await ethers.getContractFactory(
+    "src/v0.6/Oracle.sol:Oracle",
+    roles.oracleNode,
+  );
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    roles.defaultAccount,
+  );
 });
 
 describe("BasicConsumer", () => {
@@ -36,17 +47,23 @@ describe("BasicConsumer", () => {
   beforeEach(async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy();
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address);
-    cc = await basicConsumerFactory.connect(roles.defaultAccount).deploy(link.address, oc.address, specId);
+    cc = await basicConsumerFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address, oc.address, specId);
   });
 
   it("has a predictable gas price [ @skip-coverage ]", async () => {
-    const rec = await ethers.provider.getTransactionReceipt(cc.deployTransaction.hash ?? "");
+    const rec = await ethers.provider.getTransactionReceipt(
+      cc.deployTransaction.hash ?? "",
+    );
     assert.isBelow(rec.gasUsed?.toNumber() ?? -1, 1750000);
   });
 
   describe("#requestEthereumPrice", () => {
     describe("without LINK", () => {
-      it("reverts", async () => await expect(cc.requestEthereumPrice(currency, payment)).to.be.reverted);
+      it("reverts", async () =>
+        await expect(cc.requestEthereumPrice(currency, payment)).to.be
+          .reverted);
     });
 
     describe("with LINK", () => {
@@ -96,14 +113,18 @@ describe("BasicConsumer", () => {
     });
 
     it("records the data given to it by the oracle", async () => {
-      await oc.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+      await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...convertFufillParams(request, response));
 
       const currentPrice = await cc.currentPrice();
       assert.equal(currentPrice, response);
     });
 
     it("logs the data given to it by the oracle", async () => {
-      const tx = await oc.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+      const tx = await oc
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...convertFufillParams(request, response));
       const receipt = await tx.wait();
 
       assert.equal(2, receipt?.logs?.length);
@@ -135,7 +156,9 @@ describe("BasicConsumer", () => {
 
       it("does not accept the data provided", async () => {
         d("otherRequest %s", otherRequest);
-        await oc.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(otherRequest, response));
+        await oc
+          .connect(roles.oracleNode)
+          .fulfillOracleRequest(...convertFufillParams(otherRequest, response));
 
         const received = await cc.currentPrice();
 
@@ -145,7 +168,9 @@ describe("BasicConsumer", () => {
 
     describe("when called by anyone other than the oracle contract", () => {
       it("does not accept the data provided", async () => {
-        await evmRevert(cc.connect(roles.oracleNode).fulfill(request.requestId, response));
+        await evmRevert(
+          cc.connect(roles.oracleNode).fulfill(request.requestId, response),
+        );
 
         const received = await cc.currentPrice();
         assert.equal(ethers.utils.parseBytes32String(received), "");
@@ -170,7 +195,13 @@ describe("BasicConsumer", () => {
         evmRevert(
           cc
             .connect(roles.consumer)
-            .cancelRequest(oc.address, request.requestId, request.payment, request.callbackFunc, request.expiration),
+            .cancelRequest(
+              oc.address,
+              request.requestId,
+              request.payment,
+              request.callbackFunc,
+              request.expiration,
+            ),
         ));
     });
 
@@ -180,7 +211,13 @@ describe("BasicConsumer", () => {
 
         await cc
           .connect(roles.consumer)
-          .cancelRequest(oc.address, request.requestId, request.payment, request.callbackFunc, request.expiration);
+          .cancelRequest(
+            oc.address,
+            request.requestId,
+            request.payment,
+            request.callbackFunc,
+            request.expiration,
+          );
       });
     });
   });
@@ -197,7 +234,9 @@ describe("BasicConsumer", () => {
     it("transfers LINK out of the contract", async () => {
       await cc.connect(roles.consumer).withdrawLink();
       const ccBalance = await link.balanceOf(cc.address);
-      const consumerBalance = BigNumber.from(await link.balanceOf(await roles.consumer.getAddress()));
+      const consumerBalance = BigNumber.from(
+        await link.balanceOf(await roles.consumer.getAddress()),
+      );
       bigNumEquals(ccBalance, 0);
       bigNumEquals(consumerBalance, depositAmount);
     });

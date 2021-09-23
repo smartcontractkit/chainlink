@@ -1,9 +1,23 @@
 import { ethers } from "hardhat";
 import { assert, expect } from "chai";
-import { Signer, Contract, ContractFactory, BigNumber, BigNumberish, ContractTransaction, constants } from "ethers";
+import {
+  Signer,
+  Contract,
+  ContractFactory,
+  BigNumber,
+  BigNumberish,
+  ContractTransaction,
+  constants,
+} from "ethers";
 import { Personas, getUsers } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
-import { publicAbi, toWei, increaseTimeBy, mineBlock, evmWordToAddress } from "../test-helpers/helpers";
+import {
+  publicAbi,
+  toWei,
+  increaseTimeBy,
+  mineBlock,
+  evmWordToAddress,
+} from "../test-helpers/helpers";
 import { randomBytes } from "@ethersproject/random";
 
 let personas: Personas;
@@ -21,11 +35,19 @@ before(async () => {
   personas = (await getUsers()).personas;
   linkTokenFactory = await ethers.getContractFactory("LinkToken");
   fluxAggregatorFactory = await ethers.getContractFactory("FluxAggregator");
-  validatorMockFactory = await ethers.getContractFactory("AggregatorValidatorMock");
-  testHelperFactory = await ethers.getContractFactory("FluxAggregatorTestHelper");
-  validatorFactory = await ethers.getContractFactory("DeviationFlaggingValidator");
+  validatorMockFactory = await ethers.getContractFactory(
+    "AggregatorValidatorMock",
+  );
+  testHelperFactory = await ethers.getContractFactory(
+    "FluxAggregatorTestHelper",
+  );
+  validatorFactory = await ethers.getContractFactory(
+    "DeviationFlaggingValidator",
+  );
   flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags");
-  acFactory = await ethers.getContractFactory("src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController");
+  acFactory = await ethers.getContractFactory(
+    "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
+  );
   gasGuzzlerFactory = await ethers.getContractFactory("GasGuzzler");
   emptyAddress = constants.AddressZero;
 });
@@ -126,9 +148,21 @@ describe("FluxAggregator", () => {
       paymentAmount: BigNumberish;
     },
   ) {
-    assert.equal(want.eligibleToSubmit, state._eligibleToSubmit, "round state: unexecpted eligibility");
-    bigNumEquals(want.roundId, state._roundId, "round state: unexpected Round ID");
-    bigNumEquals(want.latestSubmission, state._latestSubmission, "round state: unexpected latest submission");
+    assert.equal(
+      want.eligibleToSubmit,
+      state._eligibleToSubmit,
+      "round state: unexecpted eligibility",
+    );
+    bigNumEquals(
+      want.roundId,
+      state._roundId,
+      "round state: unexpected Round ID",
+    );
+    bigNumEquals(
+      want.latestSubmission,
+      state._latestSubmission,
+      "round state: unexpected latest submission",
+    );
     if (want.startedAt === ShouldBeSet) {
       assert.isAbove(
         state._startedAt.toNumber(),
@@ -136,12 +170,32 @@ describe("FluxAggregator", () => {
         "round state: expected the started at to be the same as previous",
       );
     } else {
-      bigNumEquals(0, state._startedAt, "round state: expected the started at not to be updated");
+      bigNumEquals(
+        0,
+        state._startedAt,
+        "round state: expected the started at not to be updated",
+      );
     }
-    bigNumEquals(want.timeout, state._timeout.toNumber(), "round state: unexepcted timeout");
-    bigNumEquals(want.availableFunds, state._availableFunds, "round state: unexepected funds");
-    bigNumEquals(want.oracleCount, state._oracleCount, "round state: unexpected oracle count");
-    bigNumEquals(want.paymentAmount, state._paymentAmount, "round state: unexpected paymentamount");
+    bigNumEquals(
+      want.timeout,
+      state._timeout.toNumber(),
+      "round state: unexepcted timeout",
+    );
+    bigNumEquals(
+      want.availableFunds,
+      state._availableFunds,
+      "round state: unexepected funds",
+    );
+    bigNumEquals(
+      want.oracleCount,
+      state._oracleCount,
+      "round state: unexpected oracle count",
+    );
+    bigNumEquals(
+      want.paymentAmount,
+      state._paymentAmount,
+      "round state: unexpected paymentamount",
+    );
   }
 
   beforeEach(async () => {
@@ -213,7 +267,10 @@ describe("FluxAggregator", () => {
 
   describe("#constructor", () => {
     it("sets the paymentAmount", async () => {
-      bigNumEquals(BigNumber.from(paymentAmount), await aggregator.paymentAmount());
+      bigNumEquals(
+        BigNumber.from(paymentAmount),
+        await aggregator.paymentAmount(),
+      );
     });
 
     it("sets the timeout", async () => {
@@ -225,7 +282,10 @@ describe("FluxAggregator", () => {
     });
 
     it("sets the description", async () => {
-      assert.equal(ethers.utils.formatBytes32String(description), await aggregator.description());
+      assert.equal(
+        ethers.utils.formatBytes32String(description),
+        await aggregator.description(),
+      );
     });
 
     it("sets the version to 3", async () => {
@@ -249,13 +309,17 @@ describe("FluxAggregator", () => {
     it("updates the allocated and available funds counters", async () => {
       bigNumEquals(0, await aggregator.allocatedFunds());
 
-      const tx = await aggregator.connect(personas.Neil).submit(nextRound, answer);
+      const tx = await aggregator
+        .connect(personas.Neil)
+        .submit(nextRound, answer);
       const receipt = await tx.wait();
 
       bigNumEquals(paymentAmount, await aggregator.allocatedFunds());
       const expectedAvailable = deposit.sub(paymentAmount);
       bigNumEquals(expectedAvailable, await aggregator.availableFunds());
-      const logged = BigNumber.from(receipt.logs?.[2].topics[1] ?? BigNumber.from(-1));
+      const logged = BigNumber.from(
+        receipt.logs?.[2].topics[1] ?? BigNumber.from(-1),
+      );
       bigNumEquals(expectedAvailable, logged);
     });
 
@@ -267,18 +331,32 @@ describe("FluxAggregator", () => {
 
     describe("when the minimum oracles have not reported", () => {
       it("pays the oracles that have reported", async () => {
-        bigNumEquals(0, await aggregator.connect(personas.Neil).withdrawablePayment(await personas.Neil.getAddress()));
+        bigNumEquals(
+          0,
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawablePayment(await personas.Neil.getAddress()),
+        );
 
         await aggregator.connect(personas.Neil).submit(nextRound, answer);
 
         bigNumEquals(
           paymentAmount,
-          await aggregator.connect(personas.Neil).withdrawablePayment(await personas.Neil.getAddress()),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawablePayment(await personas.Neil.getAddress()),
         );
-        bigNumEquals(0, await aggregator.connect(personas.Ned).withdrawablePayment(await personas.Ned.getAddress()));
         bigNumEquals(
           0,
-          await aggregator.connect(personas.Nelly).withdrawablePayment(await personas.Nelly.getAddress()),
+          await aggregator
+            .connect(personas.Ned)
+            .withdrawablePayment(await personas.Ned.getAddress()),
+        );
+        bigNumEquals(
+          0,
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawablePayment(await personas.Nelly.getAddress()),
         );
       });
 
@@ -331,14 +409,21 @@ describe("FluxAggregator", () => {
         await aggregator.connect(personas.Nelly).submit(nextRound, answer);
 
         const currentTimestamp = await aggregator.latestTimestamp();
-        assert.isAbove(currentTimestamp.toNumber(), originalTimestamp.toNumber());
+        assert.isAbove(
+          currentTimestamp.toNumber(),
+          originalTimestamp.toNumber(),
+        );
       });
 
       it("announces the new answer with a log event", async () => {
-        const tx = await aggregator.connect(personas.Nelly).submit(nextRound, answer);
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer);
         const receipt = await tx.wait();
 
-        const newAnswer = BigNumber.from(receipt.logs?.[0].topics[1] ?? ethers.constants.Zero);
+        const newAnswer = BigNumber.from(
+          receipt.logs?.[0].topics[1] ?? ethers.constants.Zero,
+        );
 
         assert.equal(answer, newAnswer.toNumber());
       });
@@ -362,17 +447,26 @@ describe("FluxAggregator", () => {
         bigNumEquals(nextRound, roundAfter.roundId);
         bigNumEquals(answer, roundAfter.answer);
         assert.isFalse(roundAfter.startedAt.isZero());
-        bigNumEquals(await aggregator.getTimestamp(nextRound), roundAfter.updatedAt);
+        bigNumEquals(
+          await aggregator.getTimestamp(nextRound),
+          roundAfter.updatedAt,
+        );
         bigNumEquals(nextRound, roundAfter.answeredInRound);
 
-        assert.isBelow(roundAfter.startedAt.toNumber(), roundAfter.updatedAt.toNumber());
+        assert.isBelow(
+          roundAfter.startedAt.toNumber(),
+          roundAfter.updatedAt.toNumber(),
+        );
 
         const roundAfterLatest = await aggregator.latestRoundData();
         bigNumEquals(roundAfter.roundId, roundAfterLatest.roundId);
         bigNumEquals(roundAfter.answer, roundAfterLatest.answer);
         bigNumEquals(roundAfter.startedAt, roundAfterLatest.startedAt);
         bigNumEquals(roundAfter.updatedAt, roundAfterLatest.updatedAt);
-        bigNumEquals(roundAfter.answeredInRound, roundAfterLatest.answeredInRound);
+        bigNumEquals(
+          roundAfter.answeredInRound,
+          roundAfterLatest.answeredInRound,
+        );
       });
     });
 
@@ -394,25 +488,36 @@ describe("FluxAggregator", () => {
       });
 
       it("reverts", async () => {
-        await evmRevert(aggregator.connect(personas.Ned).submit(nextRound, answer), "round not accepting submissions");
+        await evmRevert(
+          aggregator.connect(personas.Ned).submit(nextRound, answer),
+          "round not accepting submissions",
+        );
       });
     });
 
     describe("when a new highest round number is passed in", () => {
       it("increments the answer round", async () => {
-        const startingState = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+        const startingState = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          0,
+        );
         bigNumEquals(1, startingState._roundId);
 
         await advanceRound(aggregator, oracles);
 
-        const updatedState = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+        const updatedState = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          0,
+        );
         bigNumEquals(2, updatedState._roundId);
       });
 
       it("sets the startedAt time for the reporting round", async () => {
         evmRevert(aggregator.getRoundData(nextRound), "No data present");
 
-        const tx = await aggregator.connect(oracles[0]).submit(nextRound, answer);
+        const tx = await aggregator
+          .connect(oracles[0])
+          .submit(nextRound, answer);
         await aggregator.connect(oracles[1]).submit(nextRound, answer);
         await aggregator.connect(oracles[2]).submit(nextRound, answer);
         const receipt = await tx.wait();
@@ -423,7 +528,9 @@ describe("FluxAggregator", () => {
       });
 
       it("announces a new round by emitting a log", async () => {
-        const tx = await aggregator.connect(personas.Neil).submit(nextRound, answer);
+        const tx = await aggregator
+          .connect(personas.Neil)
+          .submit(nextRound, answer);
         const receipt = await tx.wait();
 
         const topics = receipt.logs?.[0].topics ?? [];
@@ -437,13 +544,19 @@ describe("FluxAggregator", () => {
 
     describe("when a round is passed in higher than expected", () => {
       it("reverts", async () => {
-        await evmRevert(aggregator.connect(personas.Neil).submit(nextRound + 1, answer), "invalid round to report");
+        await evmRevert(
+          aggregator.connect(personas.Neil).submit(nextRound + 1, answer),
+          "invalid round to report",
+        );
       });
     });
 
     describe("when called by a non-oracle", () => {
       it("reverts", async () => {
-        await evmRevert(aggregator.connect(personas.Carol).submit(nextRound, answer), "not enabled oracle");
+        await evmRevert(
+          aggregator.connect(personas.Carol).submit(nextRound, answer),
+          "not enabled oracle",
+        );
       });
     });
 
@@ -462,7 +575,10 @@ describe("FluxAggregator", () => {
       });
 
       it("reverts", async () => {
-        await evmRevert(aggregator.connect(personas.Neil).submit(nextRound, answer), "SafeMath: subtraction overflow");
+        await evmRevert(
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
+          "SafeMath: subtraction overflow",
+        );
       });
     });
 
@@ -470,7 +586,11 @@ describe("FluxAggregator", () => {
       beforeEach(async () => {
         oracles = [personas.Nancy, personas.Norbert];
         await addOracles(aggregator, oracles, 3, 4, rrDelay);
-        await advanceRound(aggregator, [personas.Nelly, personas.Neil, personas.Nancy]);
+        await advanceRound(aggregator, [
+          personas.Nelly,
+          personas.Neil,
+          personas.Nancy,
+        ]);
 
         // start the next round
         await aggregator.connect(personas.Nelly).submit(nextRound, answer);
@@ -489,13 +609,18 @@ describe("FluxAggregator", () => {
         });
 
         it("does not allow reports for the previous round", async () => {
-          await evmRevert(aggregator.connect(personas.Ned).submit(nextRound - 1, answer), "invalid round to report");
+          await evmRevert(
+            aggregator.connect(personas.Ned).submit(nextRound - 1, answer),
+            "invalid round to report",
+          );
         });
       });
 
       describe("when the previous round has finished", () => {
         beforeEach(async () => {
-          await aggregator.connect(personas.Norbert).submit(nextRound - 1, answer);
+          await aggregator
+            .connect(personas.Norbert)
+            .submit(nextRound - 1, answer);
         });
 
         it("does not allow reports for the previous round", async () => {
@@ -511,13 +636,23 @@ describe("FluxAggregator", () => {
       const newAmount = toWei("50");
 
       it("pays the same amount to all oracles per round", async () => {
-        await link.transfer(aggregator.address, newAmount.mul(oracles.length).mul(reserveRounds));
+        await link.transfer(
+          aggregator.address,
+          newAmount.mul(oracles.length).mul(reserveRounds),
+        );
         await aggregator.updateAvailableFunds();
 
-        bigNumEquals(0, await aggregator.connect(personas.Neil).withdrawablePayment(await personas.Neil.getAddress()));
         bigNumEquals(
           0,
-          await aggregator.connect(personas.Nelly).withdrawablePayment(await personas.Nelly.getAddress()),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawablePayment(await personas.Neil.getAddress()),
+        );
+        bigNumEquals(
+          0,
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawablePayment(await personas.Nelly.getAddress()),
         );
 
         await aggregator.connect(personas.Neil).submit(nextRound, answer);
@@ -528,11 +663,15 @@ describe("FluxAggregator", () => {
 
         bigNumEquals(
           paymentAmount,
-          await aggregator.connect(personas.Neil).withdrawablePayment(await personas.Neil.getAddress()),
+          await aggregator
+            .connect(personas.Neil)
+            .withdrawablePayment(await personas.Neil.getAddress()),
         );
         bigNumEquals(
           paymentAmount,
-          await aggregator.connect(personas.Nelly).withdrawablePayment(await personas.Nelly.getAddress()),
+          await aggregator
+            .connect(personas.Nelly)
+            .withdrawablePayment(await personas.Nelly.getAddress()),
         );
       });
     });
@@ -559,7 +698,10 @@ describe("FluxAggregator", () => {
 
         nextRound++;
 
-        await evmRevert(aggregator.connect(personas.Neil).submit(nextRound, answer), "previous round not supersedable");
+        await evmRevert(
+          aggregator.connect(personas.Neil).submit(nextRound, answer),
+          "previous round not supersedable",
+        );
       });
     });
 
@@ -638,7 +780,9 @@ describe("FluxAggregator", () => {
         assert.equal(0, updated.toNumber());
         assert.equal(0, ans.toNumber());
 
-        const tx = await aggregator.connect(personas.Nelly).submit(nextRound, answer);
+        const tx = await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer);
         const receipt = await tx.wait();
 
         const block = await ethers.provider.getBlock(receipt.blockHash ?? "");
@@ -668,7 +812,9 @@ describe("FluxAggregator", () => {
 
       it("still respects the delay restriction", async () => {
         // expected to revert because the sender started the last round
-        await evmRevert(aggregator.connect(personas.Ned).submit(nextRound, answer));
+        await evmRevert(
+          aggregator.connect(personas.Ned).submit(nextRound, answer),
+        );
       });
 
       it("uses the timeout set at the beginning of the round", async () => {
@@ -683,22 +829,30 @@ describe("FluxAggregator", () => {
     describe("submitting values near the edges of allowed values", () => {
       it("rejects values below the submission value range", async () => {
         await evmRevert(
-          aggregator.connect(personas.Neil).submit(nextRound, minSubmissionValue.sub(1)),
+          aggregator
+            .connect(personas.Neil)
+            .submit(nextRound, minSubmissionValue.sub(1)),
           "value below minSubmissionValue",
         );
       });
 
       it("accepts submissions equal to the min submission value", async () => {
-        await aggregator.connect(personas.Neil).submit(nextRound, minSubmissionValue);
+        await aggregator
+          .connect(personas.Neil)
+          .submit(nextRound, minSubmissionValue);
       });
 
       it("accepts submissions equal to the max submission value", async () => {
-        await aggregator.connect(personas.Neil).submit(nextRound, maxSubmissionValue);
+        await aggregator
+          .connect(personas.Neil)
+          .submit(nextRound, maxSubmissionValue);
       });
 
       it("rejects submissions equal to the max submission value", async () => {
         await evmRevert(
-          aggregator.connect(personas.Neil).submit(nextRound, maxSubmissionValue.add(1)),
+          aggregator
+            .connect(personas.Neil)
+            .submit(nextRound, maxSubmissionValue.add(1)),
           "value above maxSubmissionValue",
         );
       });
@@ -710,11 +864,15 @@ describe("FluxAggregator", () => {
         oracles = [personas.Nelly];
 
         validator = await validatorMockFactory.connect(personas.Carol).deploy();
-        await aggregator.connect(personas.Carol).setValidator(validator.address);
+        await aggregator
+          .connect(personas.Carol)
+          .setValidator(validator.address);
       });
 
       it("calls out to the validator", async () => {
-        await expect(aggregator.connect(personas.Nelly).submit(nextRound, answer))
+        await expect(
+          aggregator.connect(personas.Nelly).submit(nextRound, answer),
+        )
           .to.emit(validator, "Validated")
           .withArgs(0, 0, nextRound, answer);
       });
@@ -726,14 +884,18 @@ describe("FluxAggregator", () => {
         oracles = [personas.Nelly];
 
         gasGuzzler = await gasGuzzlerFactory.connect(personas.Carol).deploy();
-        await aggregator.connect(personas.Carol).setValidator(gasGuzzler.address);
+        await aggregator
+          .connect(personas.Carol)
+          .setValidator(gasGuzzler.address);
         assert.equal(gasGuzzler.address, await aggregator.validator());
       });
 
       it("still updates", async () => {
         bigNumEquals(0, await aggregator.latestAnswer());
 
-        await aggregator.connect(personas.Nelly).submit(nextRound, answer, { gasLimit: 500000 });
+        await aggregator
+          .connect(personas.Nelly)
+          .submit(nextRound, answer, { gasLimit: 500000 });
 
         bigNumEquals(answer, await aggregator.latestAnswer());
       });
@@ -803,11 +965,20 @@ describe("FluxAggregator", () => {
 
       it("adds the address in getOracles", async () => {
         await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay);
-        assert.deepEqual([await personas.Neil.getAddress()], await aggregator.getOracles());
+        assert.deepEqual(
+          [await personas.Neil.getAddress()],
+          await aggregator.getOracles(),
+        );
       });
 
       it("updates the round details", async () => {
-        await addOracles(aggregator, [personas.Neil, personas.Ned, personas.Nelly], 1, 3, 2);
+        await addOracles(
+          aggregator,
+          [personas.Neil, personas.Ned, personas.Nelly],
+          1,
+          3,
+          2,
+        );
         bigNumEquals(1, await aggregator.minSubmissionCount());
         bigNumEquals(3, await aggregator.maxSubmissionCount());
         bigNumEquals(2, await aggregator.restartDelay());
@@ -816,23 +987,42 @@ describe("FluxAggregator", () => {
       it("emits a log", async () => {
         const tx = await aggregator
           .connect(personas.Carol)
-          .changeOracles([], [await personas.Ned.getAddress()], [await personas.Neil.getAddress()], 1, 1, 0);
+          .changeOracles(
+            [],
+            [await personas.Ned.getAddress()],
+            [await personas.Neil.getAddress()],
+            1,
+            1,
+            0,
+          );
         expect(tx)
           .to.emit(aggregator, "OraclePermissionsUpdated")
           .withArgs(await personas.Ned.getAddress(), true);
 
         expect(tx)
           .to.emit(aggregator, "OracleAdminUpdated")
-          .withArgs(await personas.Ned.getAddress(), await personas.Neil.getAddress());
+          .withArgs(
+            await personas.Ned.getAddress(),
+            await personas.Neil.getAddress(),
+          );
       });
 
       describe("when the oracle has already been added", () => {
         beforeEach(async () => {
-          await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay);
+          await addOracles(
+            aggregator,
+            [personas.Neil],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
         });
 
         it("reverts", async () => {
-          await evmRevert(addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay), "oracle already enabled");
+          await evmRevert(
+            addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay),
+            "oracle already enabled",
+          );
         });
       });
 
@@ -857,15 +1047,30 @@ describe("FluxAggregator", () => {
       describe("when an oracle gets added mid-round", () => {
         beforeEach(async () => {
           oracles = [personas.Neil, personas.Ned];
-          await addOracles(aggregator, oracles, oracles.length, oracles.length, rrDelay);
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
 
-          await addOracles(aggregator, [personas.Nelly], oracles.length + 1, oracles.length + 1, rrDelay);
+          await addOracles(
+            aggregator,
+            [personas.Nelly],
+            oracles.length + 1,
+            oracles.length + 1,
+            rrDelay,
+          );
         });
 
         it("does not allow the oracle to update the round", async () => {
-          await evmRevert(aggregator.connect(personas.Nelly).submit(nextRound, answer), "not yet enabled oracle");
+          await evmRevert(
+            aggregator.connect(personas.Nelly).submit(nextRound, answer),
+            "not yet enabled oracle",
+          );
         });
 
         it("does allow the oracle to update future rounds", async () => {
@@ -873,14 +1078,22 @@ describe("FluxAggregator", () => {
           await aggregator.connect(personas.Ned).submit(nextRound, answer);
 
           // now can participate in new rounds
-          await aggregator.connect(personas.Nelly).submit(nextRound + 1, answer);
+          await aggregator
+            .connect(personas.Nelly)
+            .submit(nextRound + 1, answer);
         });
       });
 
       describe("when an oracle is added after removed for a round", () => {
         it("allows the oracle to update", async () => {
           oracles = [personas.Neil, personas.Nelly];
-          await addOracles(aggregator, oracles, oracles.length, oracles.length, rrDelay);
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
           await aggregator.connect(personas.Nelly).submit(nextRound, answer);
@@ -888,7 +1101,14 @@ describe("FluxAggregator", () => {
 
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Nelly.getAddress()], [], [], 1, 1, rrDelay);
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              1,
+              1,
+              rrDelay,
+            );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
           nextRound++;
@@ -901,7 +1121,13 @@ describe("FluxAggregator", () => {
 
       describe("when an oracle is added and immediately removed mid-round", () => {
         it("allows the oracle to update", async () => {
-          await addOracles(aggregator, oracles, oracles.length, oracles.length, rrDelay);
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
           await aggregator.connect(personas.Nelly).submit(nextRound, answer);
@@ -909,7 +1135,14 @@ describe("FluxAggregator", () => {
 
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Nelly.getAddress()], [], [], 1, 1, rrDelay);
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              1,
+              1,
+              rrDelay,
+            );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
           nextRound++;
@@ -922,13 +1155,26 @@ describe("FluxAggregator", () => {
 
       describe("when an oracle is re-added with a different admin address", () => {
         it("reverts", async () => {
-          await addOracles(aggregator, oracles, oracles.length, oracles.length, rrDelay);
+          await addOracles(
+            aggregator,
+            oracles,
+            oracles.length,
+            oracles.length,
+            rrDelay,
+          );
 
           await aggregator.connect(personas.Neil).submit(nextRound, answer);
 
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Nelly.getAddress()], [], [], 1, 1, rrDelay);
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              1,
+              1,
+              rrDelay,
+            );
 
           await evmRevert(
             aggregator
@@ -953,7 +1199,10 @@ describe("FluxAggregator", () => {
         beforeEach(async () => {
           oracles = [];
           for (let i = 0; i < limit; i++) {
-            const account = await new ethers.Wallet(randomBytes(32), ethers.provider);
+            const account = await new ethers.Wallet(
+              randomBytes(32),
+              ethers.provider,
+            );
             await personas.Default.sendTransaction({
               to: account.address,
               value: toWei("0.1"),
@@ -962,14 +1211,28 @@ describe("FluxAggregator", () => {
             oracles.push(account);
           }
 
-          await link.transfer(aggregator.address, paymentAmount.mul(limit).mul(reserveRounds));
+          await link.transfer(
+            aggregator.address,
+            paymentAmount.mul(limit).mul(reserveRounds),
+          );
           await aggregator.updateAvailableFunds();
 
           let addresses = oracles.slice(0, 50).map(async o => o.getAddress());
-          await aggregator.connect(personas.Carol).changeOracles([], addresses, addresses, 1, 50, rrDelay);
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles([], addresses, addresses, 1, 50, rrDelay);
           // add in two transactions to avoid gas limit issues
           addresses = oracles.slice(50, 100).map(async o => o.getAddress());
-          await aggregator.connect(personas.Carol).changeOracles([], addresses, addresses, 1, oracles.length, rrDelay);
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles(
+              [],
+              addresses,
+              addresses,
+              1,
+              oracles.length,
+              rrDelay,
+            );
         });
 
         it("not use too much gas [ @skip-coverage ]", async () => {
@@ -981,7 +1244,9 @@ describe("FluxAggregator", () => {
           );
           const inputs = adverserialQuickselectList(limit);
           for (let i = 0; i < limit; i++) {
-            tx = await aggregator.connect(oracles[i]).submit(nextRound, inputs[i]);
+            tx = await aggregator
+              .connect(oracles[i])
+              .submit(nextRound, inputs[i]);
           }
           assert.isTrue(!!tx);
           if (tx) {
@@ -1026,28 +1291,46 @@ describe("FluxAggregator", () => {
       });
 
       it("reverts when minSubmissions is set to 0", async () => {
-        await evmRevert(addOracles(aggregator, [personas.Neil], 0, 0, 0), "min must be greater than 0");
+        await evmRevert(
+          addOracles(aggregator, [personas.Neil], 0, 0, 0),
+          "min must be greater than 0",
+        );
       });
     });
 
     describe("removing oracles", () => {
       beforeEach(async () => {
         oracles = [personas.Neil, personas.Nelly];
-        await addOracles(aggregator, oracles, oracles.length, oracles.length, rrDelay);
+        await addOracles(
+          aggregator,
+          oracles,
+          oracles.length,
+          oracles.length,
+          rrDelay,
+        );
       });
 
       it("decreases the oracle count", async () => {
         const pastCount = await aggregator.oracleCount();
         await aggregator
           .connect(personas.Carol)
-          .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay);
+          .changeOracles(
+            [await personas.Neil.getAddress()],
+            [],
+            [],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
         const currentCount = await aggregator.oracleCount();
 
         expect(currentCount).to.equal(pastCount - 1);
       });
 
       it("updates the round details", async () => {
-        await aggregator.connect(personas.Carol).changeOracles([await personas.Neil.getAddress()], [], [], 1, 1, 0);
+        await aggregator
+          .connect(personas.Carol)
+          .changeOracles([await personas.Neil.getAddress()], [], [], 1, 1, 0);
 
         bigNumEquals(1, await aggregator.minSubmissionCount());
         bigNumEquals(1, await aggregator.maxSubmissionCount());
@@ -1058,7 +1341,14 @@ describe("FluxAggregator", () => {
         await expect(
           aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay),
+            .changeOracles(
+              [await personas.Neil.getAddress()],
+              [],
+              [],
+              minAns,
+              maxAns,
+              rrDelay,
+            ),
         )
           .to.emit(aggregator, "OraclePermissionsUpdated")
           .withArgs(await personas.Neil.getAddress(), false);
@@ -1067,22 +1357,46 @@ describe("FluxAggregator", () => {
       it("removes the address in getOracles", async () => {
         await aggregator
           .connect(personas.Carol)
-          .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay);
-        assert.deepEqual([await personas.Nelly.getAddress()], await aggregator.getOracles());
+          .changeOracles(
+            [await personas.Neil.getAddress()],
+            [],
+            [],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
+        assert.deepEqual(
+          [await personas.Nelly.getAddress()],
+          await aggregator.getOracles(),
+        );
       });
 
       describe("when the oracle is not currently added", () => {
         beforeEach(async () => {
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay);
+            .changeOracles(
+              [await personas.Neil.getAddress()],
+              [],
+              [],
+              minAns,
+              maxAns,
+              rrDelay,
+            );
         });
 
         it("reverts", async () => {
           await evmRevert(
             aggregator
               .connect(personas.Carol)
-              .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay),
+              .changeOracles(
+                [await personas.Neil.getAddress()],
+                [],
+                [],
+                minAns,
+                maxAns,
+                rrDelay,
+              ),
             "oracle not enabled",
           );
         });
@@ -1092,16 +1406,41 @@ describe("FluxAggregator", () => {
         it("does not revert", async () => {
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay);
+            .changeOracles(
+              [await personas.Neil.getAddress()],
+              [],
+              [],
+              minAns,
+              maxAns,
+              rrDelay,
+            );
 
-          await aggregator.connect(personas.Carol).changeOracles([await personas.Nelly.getAddress()], [], [], 0, 0, 0);
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              0,
+              0,
+              0,
+            );
         });
       });
 
       describe("when called by anyone but the owner", () => {
         it("reverts", async () => {
           await evmRevert(
-            aggregator.connect(personas.Ned).changeOracles([await personas.Neil.getAddress()], [], [], 0, 0, rrDelay),
+            aggregator
+              .connect(personas.Ned)
+              .changeOracles(
+                [await personas.Neil.getAddress()],
+                [],
+                [],
+                0,
+                0,
+                rrDelay,
+              ),
             "Only callable by owner",
           );
         });
@@ -1111,7 +1450,14 @@ describe("FluxAggregator", () => {
         beforeEach(async () => {
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Nelly.getAddress()], [], [], 1, 1, rrDelay);
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              1,
+              1,
+              rrDelay,
+            );
         });
 
         it("is allowed to report on one more round", async () => {
@@ -1121,7 +1467,10 @@ describe("FluxAggregator", () => {
           await advanceRound(aggregator, [personas.Neil]);
 
           // cannot participate in future rounds
-          await evmRevert(aggregator.connect(personas.Nelly).submit(nextRound, answer), "no longer allowed oracle");
+          await evmRevert(
+            aggregator.connect(personas.Nelly).submit(nextRound, answer),
+            "no longer allowed oracle",
+          );
         });
       });
 
@@ -1131,7 +1480,14 @@ describe("FluxAggregator", () => {
 
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([await personas.Nelly.getAddress()], [], [], 1, 1, rrDelay);
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              1,
+              1,
+              rrDelay,
+            );
         });
 
         it("is allowed to finish that round and one more round", async () => {
@@ -1140,13 +1496,25 @@ describe("FluxAggregator", () => {
           await advanceRound(aggregator, [personas.Nelly]); // next round
 
           // cannot participate in future rounds
-          await evmRevert(aggregator.connect(personas.Nelly).submit(nextRound, answer), "no longer allowed oracle");
+          await evmRevert(
+            aggregator.connect(personas.Nelly).submit(nextRound, answer),
+            "no longer allowed oracle",
+          );
         });
       });
 
       it("reverts when minSubmissions is set to 0", async () => {
         await evmRevert(
-          aggregator.connect(personas.Carol).changeOracles([await personas.Nelly.getAddress()], [], [], 0, 0, 0),
+          aggregator
+            .connect(personas.Carol)
+            .changeOracles(
+              [await personas.Nelly.getAddress()],
+              [],
+              [],
+              0,
+              0,
+              0,
+            ),
           "min must be greater than 0",
         );
       });
@@ -1159,8 +1527,14 @@ describe("FluxAggregator", () => {
       });
 
       it("can swap out oracles", async () => {
-        assert.include(await aggregator.getOracles(), await personas.Ned.getAddress());
-        assert.notInclude(await aggregator.getOracles(), await personas.Nelly.getAddress());
+        assert.include(
+          await aggregator.getOracles(),
+          await personas.Ned.getAddress(),
+        );
+        assert.notInclude(
+          await aggregator.getOracles(),
+          await personas.Nelly.getAddress(),
+        );
 
         await aggregator
           .connect(personas.Carol)
@@ -1173,12 +1547,21 @@ describe("FluxAggregator", () => {
             rrDelay,
           );
 
-        assert.notInclude(await aggregator.getOracles(), await personas.Ned.getAddress());
-        assert.include(await aggregator.getOracles(), await personas.Nelly.getAddress());
+        assert.notInclude(
+          await aggregator.getOracles(),
+          await personas.Ned.getAddress(),
+        );
+        assert.include(
+          await aggregator.getOracles(),
+          await personas.Nelly.getAddress(),
+        );
       });
 
       it("is possible to remove and add the same address", async () => {
-        assert.include(await aggregator.getOracles(), await personas.Ned.getAddress());
+        assert.include(
+          await aggregator.getOracles(),
+          await personas.Ned.getAddress(),
+        );
 
         await aggregator
           .connect(personas.Carol)
@@ -1191,7 +1574,10 @@ describe("FluxAggregator", () => {
             rrDelay,
           );
 
-        assert.include(await aggregator.getOracles(), await personas.Ned.getAddress());
+        assert.include(
+          await aggregator.getOracles(),
+          await personas.Ned.getAddress(),
+        );
       });
     });
   });
@@ -1201,7 +1587,10 @@ describe("FluxAggregator", () => {
       beforeEach(async () => {
         await addOracles(aggregator, [personas.Neil], minAns, maxAns, rrDelay);
 
-        assert.deepEqual([await personas.Neil.getAddress()], await aggregator.getOracles());
+        assert.deepEqual(
+          [await personas.Neil.getAddress()],
+          await aggregator.getOracles(),
+        );
       });
 
       it("returns the addresses of added oracles", async () => {
@@ -1214,7 +1603,11 @@ describe("FluxAggregator", () => {
 
         await addOracles(aggregator, [personas.Nelly], minAns, maxAns, rrDelay);
         assert.deepEqual(
-          [await personas.Neil.getAddress(), await personas.Ned.getAddress(), await personas.Nelly.getAddress()],
+          [
+            await personas.Neil.getAddress(),
+            await personas.Ned.getAddress(),
+            await personas.Nelly.getAddress(),
+          ],
           await aggregator.getOracles(),
         );
       });
@@ -1222,10 +1615,20 @@ describe("FluxAggregator", () => {
 
     describe("after removing oracles", () => {
       beforeEach(async () => {
-        await addOracles(aggregator, [personas.Neil, personas.Ned, personas.Nelly], minAns, maxAns, rrDelay);
+        await addOracles(
+          aggregator,
+          [personas.Neil, personas.Ned, personas.Nelly],
+          minAns,
+          maxAns,
+          rrDelay,
+        );
 
         assert.deepEqual(
-          [await personas.Neil.getAddress(), await personas.Ned.getAddress(), await personas.Nelly.getAddress()],
+          [
+            await personas.Neil.getAddress(),
+            await personas.Ned.getAddress(),
+            await personas.Nelly.getAddress(),
+          ],
           await aggregator.getOracles(),
         );
       });
@@ -1233,7 +1636,14 @@ describe("FluxAggregator", () => {
       it("reorders when removing from the beginning", async () => {
         await aggregator
           .connect(personas.Carol)
-          .changeOracles([await personas.Neil.getAddress()], [], [], minAns, maxAns, rrDelay);
+          .changeOracles(
+            [await personas.Neil.getAddress()],
+            [],
+            [],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
         assert.deepEqual(
           [await personas.Nelly.getAddress(), await personas.Ned.getAddress()],
           await aggregator.getOracles(),
@@ -1243,7 +1653,14 @@ describe("FluxAggregator", () => {
       it("reorders when removing from the middle", async () => {
         await aggregator
           .connect(personas.Carol)
-          .changeOracles([await personas.Ned.getAddress()], [], [], minAns, maxAns, rrDelay);
+          .changeOracles(
+            [await personas.Ned.getAddress()],
+            [],
+            [],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
         assert.deepEqual(
           [await personas.Neil.getAddress(), await personas.Nelly.getAddress()],
           await aggregator.getOracles(),
@@ -1253,7 +1670,14 @@ describe("FluxAggregator", () => {
       it("pops the last node off at the end", async () => {
         await aggregator
           .connect(personas.Carol)
-          .changeOracles([await personas.Nelly.getAddress()], [], [], minAns, maxAns, rrDelay);
+          .changeOracles(
+            [await personas.Nelly.getAddress()],
+            [],
+            [],
+            minAns,
+            maxAns,
+            rrDelay,
+          );
         assert.deepEqual(
           [await personas.Neil.getAddress(), await personas.Ned.getAddress()],
           await aggregator.getOracles(),
@@ -1264,17 +1688,26 @@ describe("FluxAggregator", () => {
 
   describe("#withdrawFunds", () => {
     it("succeeds", async () => {
-      await aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), deposit);
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(await personas.Carol.getAddress(), deposit);
 
       bigNumEquals(0, await aggregator.availableFunds());
-      bigNumEquals(deposit, await link.balanceOf(await personas.Carol.getAddress()));
+      bigNumEquals(
+        deposit,
+        await link.balanceOf(await personas.Carol.getAddress()),
+      );
     });
 
     it("does not let withdrawals happen multiple times", async () => {
-      await aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), deposit);
+      await aggregator
+        .connect(personas.Carol)
+        .withdrawFunds(await personas.Carol.getAddress(), deposit);
 
       await evmRevert(
-        aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), deposit),
+        aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(await personas.Carol.getAddress(), deposit),
         "insufficient reserve funds",
       );
     });
@@ -1288,11 +1721,16 @@ describe("FluxAggregator", () => {
 
       it("fails", async () => {
         await evmRevert(
-          aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), deposit),
+          aggregator
+            .connect(personas.Carol)
+            .withdrawFunds(await personas.Carol.getAddress(), deposit),
           "insufficient reserve funds",
         );
 
-        bigNumEquals(deposit.sub(paymentAmount), await aggregator.availableFunds());
+        bigNumEquals(
+          deposit.sub(paymentAmount),
+          await aggregator.availableFunds(),
+        );
       });
     });
 
@@ -1305,24 +1743,32 @@ describe("FluxAggregator", () => {
       });
 
       it("does not allow withdrawal with less than 2x rounds of payments", async () => {
-        const oracleReserve = paymentAmount.mul(oracles.length).mul(reserveRounds);
+        const oracleReserve = paymentAmount
+          .mul(oracles.length)
+          .mul(reserveRounds);
         const allowed = deposit.sub(oracleReserve);
 
         //one more than the allowed amount cannot be withdrawn
         await evmRevert(
-          aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), allowed.add(1)),
+          aggregator
+            .connect(personas.Carol)
+            .withdrawFunds(await personas.Carol.getAddress(), allowed.add(1)),
           "insufficient reserve funds",
         );
 
         // the allowed amount can be withdrawn
-        await aggregator.connect(personas.Carol).withdrawFunds(await personas.Carol.getAddress(), allowed);
+        await aggregator
+          .connect(personas.Carol)
+          .withdrawFunds(await personas.Carol.getAddress(), allowed);
       });
     });
 
     describe("when called by a non-owner", () => {
       it("fails", async () => {
         await evmRevert(
-          aggregator.connect(personas.Eddy).withdrawFunds(await personas.Carol.getAddress(), deposit),
+          aggregator
+            .connect(personas.Eddy)
+            .withdrawFunds(await personas.Carol.getAddress(), deposit),
           "Only callable by owner",
         );
 
@@ -1342,7 +1788,13 @@ describe("FluxAggregator", () => {
       oracles = [personas.Neil, personas.Ned, personas.Nelly];
       minSubmissionCount = oracles.length;
       maxSubmissionCount = oracles.length;
-      await addOracles(aggregator, oracles, minSubmissionCount, maxSubmissionCount, rrDelay);
+      await addOracles(
+        aggregator,
+        oracles,
+        minSubmissionCount,
+        maxSubmissionCount,
+        rrDelay,
+      );
 
       bigNumEquals(paymentAmount, await aggregator.paymentAmount());
       assert.equal(minSubmissionCount, await aggregator.minSubmissionCount());
@@ -1358,8 +1810,14 @@ describe("FluxAggregator", () => {
       });
 
       bigNumEquals(newPaymentAmount, await aggregator.paymentAmount());
-      bigNumEquals(BigNumber.from(newMin), await aggregator.minSubmissionCount());
-      bigNumEquals(BigNumber.from(newMax), await aggregator.maxSubmissionCount());
+      bigNumEquals(
+        BigNumber.from(newMin),
+        await aggregator.minSubmissionCount(),
+      );
+      bigNumEquals(
+        BigNumber.from(newMax),
+        await aggregator.maxSubmissionCount(),
+      );
       bigNumEquals(BigNumber.from(newDelay), await aggregator.restartDelay());
     });
 
@@ -1441,7 +1899,10 @@ describe("FluxAggregator", () => {
 
     describe("when called by anyone but the owner", () => {
       it("reverts", async () => {
-        await evmRevert(updateFutureRounds(aggregator.connect(personas.Ned)), "Only callable by owner");
+        await evmRevert(
+          updateFutureRounds(aggregator.connect(personas.Ned)),
+          "Only callable by owner",
+        );
       });
     });
   });
@@ -1506,10 +1967,20 @@ describe("FluxAggregator", () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdrawPayment(await personas.Neil.getAddress(), await personas.Neil.getAddress(), paymentAmount);
+        .withdrawPayment(
+          await personas.Neil.getAddress(),
+          await personas.Neil.getAddress(),
+          paymentAmount,
+        );
 
-      bigNumEquals(originalBalance.sub(paymentAmount), await link.balanceOf(aggregator.address));
-      bigNumEquals(paymentAmount, await link.balanceOf(await personas.Neil.getAddress()));
+      bigNumEquals(
+        originalBalance.sub(paymentAmount),
+        await link.balanceOf(aggregator.address),
+      );
+      bigNumEquals(
+        paymentAmount,
+        await link.balanceOf(await personas.Neil.getAddress()),
+      );
     });
 
     it("decrements the allocated funds counter", async () => {
@@ -1517,9 +1988,16 @@ describe("FluxAggregator", () => {
 
       await aggregator
         .connect(personas.Neil)
-        .withdrawPayment(await personas.Neil.getAddress(), await personas.Neil.getAddress(), paymentAmount);
+        .withdrawPayment(
+          await personas.Neil.getAddress(),
+          await personas.Neil.getAddress(),
+          paymentAmount,
+        );
 
-      bigNumEquals(originalAllocation.sub(paymentAmount), await aggregator.allocatedFunds());
+      bigNumEquals(
+        originalAllocation.sub(paymentAmount),
+        await aggregator.allocatedFunds(),
+      );
     });
 
     describe("when the caller withdraws more than they have", () => {
@@ -1542,7 +2020,11 @@ describe("FluxAggregator", () => {
         await evmRevert(
           aggregator
             .connect(personas.Nelly)
-            .withdrawPayment(await personas.Neil.getAddress(), await personas.Nelly.getAddress(), BigNumber.from(1)),
+            .withdrawPayment(
+              await personas.Neil.getAddress(),
+              await personas.Nelly.getAddress(),
+              BigNumber.from(1),
+            ),
           "only callable by admin",
         );
       });
@@ -1568,7 +2050,10 @@ describe("FluxAggregator", () => {
         await expect(
           aggregator
             .connect(personas.Neil)
-            .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress()),
+            .transferAdmin(
+              await personas.Ned.getAddress(),
+              await personas.Nelly.getAddress(),
+            ),
         )
           .to.emit(aggregator, "OracleAdminUpdateRequested")
           .withArgs(
@@ -1576,7 +2061,10 @@ describe("FluxAggregator", () => {
             await personas.Neil.getAddress(),
             await personas.Nelly.getAddress(),
           );
-        assert.equal(await personas.Neil.getAddress(), await aggregator.getAdmin(await personas.Ned.getAddress()));
+        assert.equal(
+          await personas.Neil.getAddress(),
+          await aggregator.getAdmin(await personas.Ned.getAddress()),
+        );
       });
     });
 
@@ -1585,7 +2073,10 @@ describe("FluxAggregator", () => {
         await evmRevert(
           aggregator
             .connect(personas.Carol)
-            .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress()),
+            .transferAdmin(
+              await personas.Ned.getAddress(),
+              await personas.Nelly.getAddress(),
+            ),
           "only callable by admin",
         );
       });
@@ -1596,7 +2087,10 @@ describe("FluxAggregator", () => {
         await evmRevert(
           aggregator
             .connect(personas.Ned)
-            .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress()),
+            .transferAdmin(
+              await personas.Ned.getAddress(),
+              await personas.Nelly.getAddress(),
+            ),
           "only callable by admin",
         );
       });
@@ -1617,27 +2111,44 @@ describe("FluxAggregator", () => {
         );
       const tx = await aggregator
         .connect(personas.Neil)
-        .transferAdmin(await personas.Ned.getAddress(), await personas.Nelly.getAddress());
+        .transferAdmin(
+          await personas.Ned.getAddress(),
+          await personas.Nelly.getAddress(),
+        );
       await tx.wait();
     });
 
     describe("when the new admin tries to accept", () => {
       it("works", async () => {
-        await expect(aggregator.connect(personas.Nelly).acceptAdmin(await personas.Ned.getAddress()))
+        await expect(
+          aggregator
+            .connect(personas.Nelly)
+            .acceptAdmin(await personas.Ned.getAddress()),
+        )
           .to.emit(aggregator, "OracleAdminUpdated")
-          .withArgs(await personas.Ned.getAddress(), await personas.Nelly.getAddress());
-        assert.equal(await personas.Nelly.getAddress(), await aggregator.getAdmin(await personas.Ned.getAddress()));
+          .withArgs(
+            await personas.Ned.getAddress(),
+            await personas.Nelly.getAddress(),
+          );
+        assert.equal(
+          await personas.Nelly.getAddress(),
+          await aggregator.getAdmin(await personas.Ned.getAddress()),
+        );
       });
     });
 
     describe("when someone other than the new admin tries to accept", () => {
       it("reverts", async () => {
         await evmRevert(
-          aggregator.connect(personas.Ned).acceptAdmin(await personas.Ned.getAddress()),
+          aggregator
+            .connect(personas.Ned)
+            .acceptAdmin(await personas.Ned.getAddress()),
           "only callable by pending admin",
         );
         await evmRevert(
-          aggregator.connect(personas.Neil).acceptAdmin(await personas.Ned.getAddress()),
+          aggregator
+            .connect(personas.Neil)
+            .acceptAdmin(await personas.Ned.getAddress()),
           "only callable by pending admin",
         );
       });
@@ -1673,11 +2184,18 @@ describe("FluxAggregator", () => {
       await aggregator.connect(personas.Neil).submit(nextRound, answer);
       nextRound = nextRound + 1;
 
-      await aggregator.setRequesterPermissions(await personas.Carol.getAddress(), true, 0);
+      await aggregator.setRequesterPermissions(
+        await personas.Carol.getAddress(),
+        true,
+        0,
+      );
     });
 
     it("announces a new round via log event", async () => {
-      await expect(aggregator.requestNewRound()).to.emit(aggregator, "NewRound");
+      await expect(aggregator.requestNewRound()).to.emit(
+        aggregator,
+        "NewRound",
+      );
     });
 
     it("returns the new round ID", async () => {
@@ -1699,7 +2217,10 @@ describe("FluxAggregator", () => {
       });
 
       it("reverts", async () => {
-        await evmRevert(aggregator.requestNewRound(), "prev round must be supersedable");
+        await evmRevert(
+          aggregator.requestNewRound(),
+          "prev round must be supersedable",
+        );
       });
 
       describe("when that round has timed out", () => {
@@ -1709,14 +2230,21 @@ describe("FluxAggregator", () => {
         });
 
         it("starts a new round", async () => {
-          await expect(aggregator.requestNewRound()).to.emit(aggregator, "NewRound");
+          await expect(aggregator.requestNewRound()).to.emit(
+            aggregator,
+            "NewRound",
+          );
         });
       });
     });
 
     describe("when there is a restart delay set", () => {
       beforeEach(async () => {
-        await aggregator.setRequesterPermissions(await personas.Eddy.getAddress(), true, 1);
+        await aggregator.setRequesterPermissions(
+          await personas.Eddy.getAddress(),
+          true,
+          1,
+        );
       });
 
       it("reverts if a round is started before the delay", async () => {
@@ -1726,7 +2254,10 @@ describe("FluxAggregator", () => {
         nextRound = nextRound + 1;
 
         // Eddy can't start because of the delay
-        await evmRevert(aggregator.connect(personas.Eddy).requestNewRound(), "must delay requests");
+        await evmRevert(
+          aggregator.connect(personas.Eddy).requestNewRound(),
+          "must delay requests",
+        );
         // Carol starts a new round instead
         await aggregator.connect(personas.Carol).requestNewRound();
 
@@ -1741,7 +2272,9 @@ describe("FluxAggregator", () => {
 
     describe("when all oracles have been removed and then re-added", () => {
       it("does not get stuck", async () => {
-        await aggregator.connect(personas.Carol).changeOracles([await personas.Neil.getAddress()], [], [], 0, 0, 0);
+        await aggregator
+          .connect(personas.Carol)
+          .changeOracles([await personas.Neil.getAddress()], [], [], 0, 0, 0);
 
         // advance a few rounds
         for (let i = 0; i < 7; i++) {
@@ -1767,24 +2300,42 @@ describe("FluxAggregator", () => {
 
     describe("when called by the owner", () => {
       it("allows the specified address to start new rounds", async () => {
-        await aggregator.setRequesterPermissions(await personas.Neil.getAddress(), true, 0);
+        await aggregator.setRequesterPermissions(
+          await personas.Neil.getAddress(),
+          true,
+          0,
+        );
 
         await aggregator.connect(personas.Neil).requestNewRound();
       });
 
       it("emits a log announcing the update", async () => {
-        await expect(aggregator.setRequesterPermissions(await personas.Neil.getAddress(), true, 0))
+        await expect(
+          aggregator.setRequesterPermissions(
+            await personas.Neil.getAddress(),
+            true,
+            0,
+          ),
+        )
           .to.emit(aggregator, "RequesterPermissionsSet")
           .withArgs(await personas.Neil.getAddress(), true, 0);
       });
 
       describe("when the address is already authorized", () => {
         beforeEach(async () => {
-          await aggregator.setRequesterPermissions(await personas.Neil.getAddress(), true, 0);
+          await aggregator.setRequesterPermissions(
+            await personas.Neil.getAddress(),
+            true,
+            0,
+          );
         });
 
         it("does not emit a log for already authorized accounts", async () => {
-          const tx = await aggregator.setRequesterPermissions(await personas.Neil.getAddress(), true, 0);
+          const tx = await aggregator.setRequesterPermissions(
+            await personas.Neil.getAddress(),
+            true,
+            0,
+          );
           const receipt = await tx.wait();
           assert.equal(0, receipt?.logs?.length);
         });
@@ -1792,23 +2343,44 @@ describe("FluxAggregator", () => {
 
       describe("when permission is removed by the owner", () => {
         beforeEach(async () => {
-          await aggregator.setRequesterPermissions(await personas.Neil.getAddress(), true, 0);
+          await aggregator.setRequesterPermissions(
+            await personas.Neil.getAddress(),
+            true,
+            0,
+          );
         });
 
         it("does not allow the specified address to start new rounds", async () => {
-          await aggregator.setRequesterPermissions(await personas.Neil.getAddress(), false, 0);
+          await aggregator.setRequesterPermissions(
+            await personas.Neil.getAddress(),
+            false,
+            0,
+          );
 
-          await evmRevert(aggregator.connect(personas.Neil).requestNewRound(), "not authorized requester");
+          await evmRevert(
+            aggregator.connect(personas.Neil).requestNewRound(),
+            "not authorized requester",
+          );
         });
 
         it("emits a log announcing the update", async () => {
-          await expect(aggregator.setRequesterPermissions(await personas.Neil.getAddress(), false, 0))
+          await expect(
+            aggregator.setRequesterPermissions(
+              await personas.Neil.getAddress(),
+              false,
+              0,
+            ),
+          )
             .to.emit(aggregator, "RequesterPermissionsSet")
             .withArgs(await personas.Neil.getAddress(), false, 0);
         });
 
         it("does not emit a log for accounts without authorization", async () => {
-          const tx = await aggregator.setRequesterPermissions(await personas.Ned.getAddress(), false, 0);
+          const tx = await aggregator.setRequesterPermissions(
+            await personas.Ned.getAddress(),
+            false,
+            0,
+          );
           const receipt = await tx.wait();
           assert.equal(0, receipt?.logs?.length);
         });
@@ -1818,11 +2390,16 @@ describe("FluxAggregator", () => {
     describe("when called by a stranger", () => {
       it("reverts", async () => {
         await evmRevert(
-          aggregator.connect(personas.Neil).setRequesterPermissions(await personas.Neil.getAddress(), true, 0),
+          aggregator
+            .connect(personas.Neil)
+            .setRequesterPermissions(await personas.Neil.getAddress(), true, 0),
           "Only callable by owner",
         );
 
-        await evmRevert(aggregator.connect(personas.Neil).requestNewRound(), "not authorized requester");
+        await evmRevert(
+          aggregator.connect(personas.Neil).requestNewRound(),
+          "not authorized requester",
+        );
       });
     });
   });
@@ -1836,19 +2413,38 @@ describe("FluxAggregator", () => {
       let submitters: Signer[];
 
       beforeEach(async () => {
-        oracles = [personas.Neil, personas.Ned, personas.Nelly, personas.Nancy, personas.Norbert];
+        oracles = [
+          personas.Neil,
+          personas.Ned,
+          personas.Nelly,
+          personas.Nancy,
+          personas.Norbert,
+        ];
         minAnswers = 3;
         maxAnswers = 4;
 
         await addOracles(aggregator, oracles, minAnswers, maxAnswers, rrDelay);
-        submitters = [personas.Nelly, personas.Ned, personas.Neil, personas.Nancy];
+        submitters = [
+          personas.Nelly,
+          personas.Ned,
+          personas.Neil,
+          personas.Nancy,
+        ];
         await advanceRound(aggregator, submitters, previousSubmission);
-        baseFunds = BigNumber.from(deposit).sub(paymentAmount.mul(submitters.length));
-        startingState = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+        baseFunds = BigNumber.from(deposit).sub(
+          paymentAmount.mul(submitters.length),
+        );
+        startingState = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          0,
+        );
       });
 
       it("returns all of the important round information", async () => {
-        const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+        const state = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          0,
+        );
 
         await checkOracleRoundState(state, {
           eligibleToSubmit: true,
@@ -1865,7 +2461,10 @@ describe("FluxAggregator", () => {
       it("reverts if called by a contract", async () => {
         testHelper = await testHelperFactory.connect(personas.Carol).deploy();
         await evmRevert(
-          testHelper.readOracleRoundState(aggregator.address, await personas.Neil.getAddress()),
+          testHelper.readOracleRoundState(
+            aggregator.address,
+            await personas.Neil.getAddress(),
+          ),
           "off-chain reading only",
         );
       });
@@ -1885,7 +2484,10 @@ describe("FluxAggregator", () => {
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -1906,7 +2508,10 @@ describe("FluxAggregator", () => {
           });
 
           it("is not eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -1927,7 +2532,10 @@ describe("FluxAggregator", () => {
             });
 
             it("is eligible to submit", async () => {
-              const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+              const state = await aggregator.oracleRoundState(
+                await personas.Nelly.getAddress(),
+                0,
+              );
 
               await checkOracleRoundState(state, {
                 eligibleToSubmit: true,
@@ -1945,11 +2553,18 @@ describe("FluxAggregator", () => {
 
         describe(">= min submissions and oracle not included", () => {
           beforeEach(async () => {
-            await advanceRound(aggregator, [personas.Neil, personas.Nancy, personas.Ned]);
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Nancy,
+              personas.Ned,
+            ]);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -1966,11 +2581,18 @@ describe("FluxAggregator", () => {
 
         describe(">= min submissions and oracle included", () => {
           beforeEach(async () => {
-            await advanceRound(aggregator, [personas.Neil, personas.Nelly, personas.Ned]);
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Nelly,
+              personas.Ned,
+            ]);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -1991,7 +2613,10 @@ describe("FluxAggregator", () => {
             });
 
             it("is eligible to submit", async () => {
-              const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+              const state = await aggregator.oracleRoundState(
+                await personas.Nelly.getAddress(),
+                0,
+              );
 
               await checkOracleRoundState(state, {
                 eligibleToSubmit: true,
@@ -2009,13 +2634,25 @@ describe("FluxAggregator", () => {
 
         describe("max submissions and oracle not included", () => {
           beforeEach(async () => {
-            submitters = [personas.Neil, personas.Ned, personas.Nancy, personas.Norbert];
-            assert.equal(submitters.length, maxAnswers, "precondition, please update submitters if maxAnswers changes");
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+              personas.Norbert,
+            ];
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              "precondition, please update submitters if maxAnswers changes",
+            );
             await advanceRound(aggregator, submitters);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2032,13 +2669,25 @@ describe("FluxAggregator", () => {
 
         describe("max submissions and oracle included", () => {
           beforeEach(async () => {
-            submitters = [personas.Neil, personas.Ned, personas.Nelly, personas.Nancy];
-            assert.equal(submitters.length, maxAnswers, "precondition, please update submitters if maxAnswers changes");
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+              personas.Nancy,
+            ];
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              "precondition, please update submitters if maxAnswers changes",
+            );
             await advanceRound(aggregator, submitters);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2069,7 +2718,10 @@ describe("FluxAggregator", () => {
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2090,7 +2742,10 @@ describe("FluxAggregator", () => {
           });
 
           it("is not eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2111,7 +2766,10 @@ describe("FluxAggregator", () => {
             });
 
             it("is eligible to submit", async () => {
-              const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+              const state = await aggregator.oracleRoundState(
+                await personas.Nelly.getAddress(),
+                0,
+              );
 
               await checkOracleRoundState(state, {
                 eligibleToSubmit: false,
@@ -2129,11 +2787,18 @@ describe("FluxAggregator", () => {
 
         describe(">= min submissions and oracle not included", () => {
           beforeEach(async () => {
-            await advanceRound(aggregator, [personas.Neil, personas.Ned, personas.Nancy]);
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+            ]);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2150,11 +2815,18 @@ describe("FluxAggregator", () => {
 
         describe(">= min submissions and oracle included", () => {
           beforeEach(async () => {
-            await advanceRound(aggregator, [personas.Neil, personas.Ned, personas.Nelly]);
+            await advanceRound(aggregator, [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+            ]);
           });
 
           it("is eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2175,7 +2847,10 @@ describe("FluxAggregator", () => {
             });
 
             it("is eligible to submit", async () => {
-              const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+              const state = await aggregator.oracleRoundState(
+                await personas.Nelly.getAddress(),
+                0,
+              );
 
               await checkOracleRoundState(state, {
                 eligibleToSubmit: false, // restart delay enforced
@@ -2193,13 +2868,25 @@ describe("FluxAggregator", () => {
 
         describe("max submissions and oracle not included", () => {
           beforeEach(async () => {
-            submitters = [personas.Neil, personas.Ned, personas.Nancy, personas.Norbert];
-            assert.equal(submitters.length, maxAnswers, "precondition, please update submitters if maxAnswers changes");
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nancy,
+              personas.Norbert,
+            ];
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              "precondition, please update submitters if maxAnswers changes",
+            );
             await advanceRound(aggregator, submitters, answer);
           });
 
           it("is not eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2216,13 +2903,25 @@ describe("FluxAggregator", () => {
 
         describe("max submissions and oracle included", () => {
           beforeEach(async () => {
-            submitters = [personas.Neil, personas.Ned, personas.Nelly, personas.Nancy];
-            assert.equal(submitters.length, maxAnswers, "precondition, please update submitters if maxAnswers changes");
+            submitters = [
+              personas.Neil,
+              personas.Ned,
+              personas.Nelly,
+              personas.Nancy,
+            ];
+            assert.equal(
+              submitters.length,
+              maxAnswers,
+              "precondition, please update submitters if maxAnswers changes",
+            );
             await advanceRound(aggregator, submitters, answer);
           });
 
           it("is not eligible to submit", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              0,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2247,17 +2946,29 @@ describe("FluxAggregator", () => {
         oracles = [personas.Neil, personas.Ned, personas.Nelly];
 
         await addOracles(aggregator, oracles, 2, 3, rrDelay);
-        startingState = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 0);
+        startingState = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          0,
+        );
         await advanceRound(aggregator, oracles, answers[1]);
-        await advanceRound(aggregator, [personas.Neil, personas.Ned], answers[2]);
+        await advanceRound(
+          aggregator,
+          [personas.Neil, personas.Ned],
+          answers[2],
+        );
         await advanceRound(aggregator, oracles, answers[3]);
         await advanceRound(aggregator, [personas.Neil], answers[4]);
         const submissionsSoFar = 9;
-        currentFunds = BigNumber.from(deposit).sub(paymentAmount.mul(submissionsSoFar));
+        currentFunds = BigNumber.from(deposit).sub(
+          paymentAmount.mul(submissionsSoFar),
+        );
       });
 
       it("returns info about previous rounds", async () => {
-        const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 1);
+        const state = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          1,
+        );
 
         await checkOracleRoundState(state, {
           eligibleToSubmit: false,
@@ -2272,7 +2983,10 @@ describe("FluxAggregator", () => {
       });
 
       it("returns info about previous rounds that were not submitted to", async () => {
-        const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 2);
+        const state = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          2,
+        );
 
         await checkOracleRoundState(state, {
           eligibleToSubmit: false,
@@ -2289,7 +3003,10 @@ describe("FluxAggregator", () => {
       describe("for the current round", () => {
         describe("which has not been submitted to", () => {
           it("returns info about the current round that hasn't been submitted to", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 4);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              4,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2304,7 +3021,10 @@ describe("FluxAggregator", () => {
           });
 
           it("returns info about the subsequent round", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 5);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              5,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2325,7 +3045,10 @@ describe("FluxAggregator", () => {
           });
 
           it("returns info about the current round that hasn't been submitted to", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 4);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              4,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: false,
@@ -2340,7 +3063,10 @@ describe("FluxAggregator", () => {
           });
 
           it("returns info about the subsequent round", async () => {
-            const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 5);
+            const state = await aggregator.oracleRoundState(
+              await personas.Nelly.getAddress(),
+              5,
+            );
 
             await checkOracleRoundState(state, {
               eligibleToSubmit: true,
@@ -2357,7 +3083,10 @@ describe("FluxAggregator", () => {
       });
 
       it("returns speculative info about future rounds", async () => {
-        const state = await aggregator.oracleRoundState(await personas.Nelly.getAddress(), 6);
+        const state = await aggregator.oracleRoundState(
+          await personas.Nelly.getAddress(),
+          6,
+        );
 
         await checkOracleRoundState(state, {
           eligibleToSubmit: false,
@@ -2394,7 +3123,10 @@ describe("FluxAggregator", () => {
     });
 
     it("reverts if a round is not present", async () => {
-      await evmRevert(aggregator.getRoundData(latestRoundId.add(1)), "No data present");
+      await evmRevert(
+        aggregator.getRoundData(latestRoundId.add(1)),
+        "No data present",
+      );
     });
 
     it("reverts if a round ID is too big", async () => {
@@ -2463,21 +3195,25 @@ describe("FluxAggregator", () => {
     });
 
     it("emits a log event showing the validator was changed", async () => {
-      await expect(aggregator.connect(personas.Carol).setValidator(validator.address))
+      await expect(
+        aggregator.connect(personas.Carol).setValidator(validator.address),
+      )
         .to.emit(aggregator, "ValidatorUpdated")
         .withArgs(emptyAddress, validator.address);
       assert.equal(validator.address, await aggregator.validator());
 
-      await expect(aggregator.connect(personas.Carol).setValidator(validator.address)).to.not.emit(
-        aggregator,
-        "ValidatorUpdated",
-      );
+      await expect(
+        aggregator.connect(personas.Carol).setValidator(validator.address),
+      ).to.not.emit(aggregator, "ValidatorUpdated");
       assert.equal(validator.address, await aggregator.validator());
     });
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await evmRevert(aggregator.connect(personas.Neil).setValidator(validator.address), "Only callable by owner");
+        await evmRevert(
+          aggregator.connect(personas.Neil).setValidator(validator.address),
+          "Only callable by owner",
+        );
       });
     });
   });
@@ -2491,7 +3227,9 @@ describe("FluxAggregator", () => {
     beforeEach(async () => {
       ac = await acFactory.connect(personas.Carol).deploy();
       flags = await flagsFactory.connect(personas.Carol).deploy(ac.address);
-      validator = await validatorFactory.connect(personas.Carol).deploy(flags.address, flaggingThreshold);
+      validator = await validatorFactory
+        .connect(personas.Carol)
+        .deploy(flags.address, flaggingThreshold);
       await ac.connect(personas.Carol).addAccess(validator.address);
 
       await aggregator.connect(personas.Carol).setValidator(validator.address);
@@ -2514,7 +3252,9 @@ describe("FluxAggregator", () => {
       await aggregator.connect(personas.Nelly).submit(nextRound, 100);
       nextRound++;
 
-      await expect(aggregator.connect(personas.Nelly).submit(nextRound, 101)).to.not.emit(flags, "FlagRaised");
+      await expect(
+        aggregator.connect(personas.Nelly).submit(nextRound, 101),
+      ).to.not.emit(flags, "FlagRaised");
     });
   });
 });

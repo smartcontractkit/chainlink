@@ -20,15 +20,23 @@ before(async () => {
   nonOwner = personas.Neil;
   newOwner = personas.Ned;
 
-  confirmedOwnerTestHelperFactory = await ethers.getContractFactory("ConfirmedOwnerTestHelper", owner);
-  confirmedOwnerFactory = await ethers.getContractFactory("src/v0.7/ConfirmedOwner.sol:ConfirmedOwner", owner);
+  confirmedOwnerTestHelperFactory = await ethers.getContractFactory(
+    "ConfirmedOwnerTestHelper",
+    owner,
+  );
+  confirmedOwnerFactory = await ethers.getContractFactory(
+    "src/v0.7/ConfirmedOwner.sol:ConfirmedOwner",
+    owner,
+  );
 });
 
 describe("ConfirmedOwner", () => {
   let confirmedOwner: Contract;
 
   beforeEach(async () => {
-    confirmedOwner = await confirmedOwnerTestHelperFactory.connect(owner).deploy();
+    confirmedOwner = await confirmedOwnerTestHelperFactory
+      .connect(owner)
+      .deploy();
   });
 
   it("has a limited public interface [ @skip-coverage ]", () => {
@@ -43,14 +51,19 @@ describe("ConfirmedOwner", () => {
 
   describe("#constructor", () => {
     it("assigns ownership to the deployer", async () => {
-      const [actual, expected] = await Promise.all([owner.getAddress(), confirmedOwner.owner()]);
+      const [actual, expected] = await Promise.all([
+        owner.getAddress(),
+        confirmedOwner.owner(),
+      ]);
 
       assert.equal(actual, expected);
     });
 
     it("reverts if assigned to the zero address", async () => {
       await evmRevert(
-        confirmedOwnerFactory.connect(owner).deploy(ethers.constants.AddressZero),
+        confirmedOwnerFactory
+          .connect(owner)
+          .deploy(ethers.constants.AddressZero),
         "Cannot set owner to zero",
       );
     });
@@ -65,14 +78,17 @@ describe("ConfirmedOwner", () => {
     });
 
     describe("when called by anyone but the owner", () => {
-      it("reverts", async () => await evmRevert(confirmedOwner.connect(nonOwner).modifierOnlyOwner()));
+      it("reverts", async () =>
+        await evmRevert(confirmedOwner.connect(nonOwner).modifierOnlyOwner()));
     });
   });
 
   describe("#transferOwnership", () => {
     describe("when called by an owner", () => {
       it("emits a log", async () => {
-        const tx = await confirmedOwner.connect(owner).transferOwnership(await newOwner.getAddress());
+        const tx = await confirmedOwner
+          .connect(owner)
+          .transferOwnership(await newOwner.getAddress());
         await expect(tx)
           .to.emit(confirmedOwner, "OwnershipTransferRequested")
           .withArgs(await owner.getAddress(), await newOwner.getAddress());
@@ -80,7 +96,9 @@ describe("ConfirmedOwner", () => {
 
       it("does not allow ownership transfer to self", async () => {
         await evmRevert(
-          confirmedOwner.connect(owner).transferOwnership(await owner.getAddress()),
+          confirmedOwner
+            .connect(owner)
+            .transferOwnership(await owner.getAddress()),
           "Cannot transfer to self",
         );
       });
@@ -89,13 +107,19 @@ describe("ConfirmedOwner", () => {
 
   describe("when called by anyone but the owner", () => {
     it("reverts", async () =>
-      await evmRevert(confirmedOwner.connect(nonOwner).transferOwnership(await newOwner.getAddress())));
+      await evmRevert(
+        confirmedOwner
+          .connect(nonOwner)
+          .transferOwnership(await newOwner.getAddress()),
+      ));
   });
 
   describe("#acceptOwnership", () => {
     describe("after #transferOwnership has been called", () => {
       beforeEach(async () => {
-        await confirmedOwner.connect(owner).transferOwnership(await newOwner.getAddress());
+        await confirmedOwner
+          .connect(owner)
+          .transferOwnership(await newOwner.getAddress());
       });
 
       it("allows the recipient to call it", async () => {

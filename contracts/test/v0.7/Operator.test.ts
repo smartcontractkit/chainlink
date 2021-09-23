@@ -8,7 +8,15 @@ import {
   getLog,
 } from "../test-helpers/helpers";
 import { assert, expect } from "chai";
-import { BigNumber, constants, Contract, ContractFactory, ContractReceipt, ContractTransaction, Signer } from "ethers";
+import {
+  BigNumber,
+  constants,
+  Contract,
+  ContractFactory,
+  ContractReceipt,
+  ContractTransaction,
+  Signer,
+} from "ethers";
 import { getUsers, Roles } from "../test-helpers/setup";
 import { bigNumEquals, evmRevert } from "../test-helpers/matchers";
 import type { providers } from "ethers";
@@ -42,18 +50,30 @@ before(async () => {
   const users = await getUsers();
 
   roles = users.roles;
-  v7ConsumerFactory = await ethers.getContractFactory("src/v0.7/tests/Consumer.sol:Consumer");
-  basicConsumerFactory = await ethers.getContractFactory("src/v0.6/tests/BasicConsumer.sol:BasicConsumer");
-  multiWordConsumerFactory = await ethers.getContractFactory("src/v0.7/tests/MultiWordConsumer.sol:MultiWordConsumer");
+  v7ConsumerFactory = await ethers.getContractFactory(
+    "src/v0.7/tests/Consumer.sol:Consumer",
+  );
+  basicConsumerFactory = await ethers.getContractFactory(
+    "src/v0.6/tests/BasicConsumer.sol:BasicConsumer",
+  );
+  multiWordConsumerFactory = await ethers.getContractFactory(
+    "src/v0.7/tests/MultiWordConsumer.sol:MultiWordConsumer",
+  );
   gasGuzzlingConsumerFactory = await ethers.getContractFactory(
     "src/v0.6/tests/GasGuzzlingConsumer.sol:GasGuzzlingConsumer",
   );
-  getterSetterFactory = await ethers.getContractFactory("src/v0.4/tests/GetterSetter.sol:GetterSetter");
+  getterSetterFactory = await ethers.getContractFactory(
+    "src/v0.4/tests/GetterSetter.sol:GetterSetter",
+  );
   maliciousRequesterFactory = await ethers.getContractFactory(
     "src/v0.4/tests/MaliciousRequester.sol:MaliciousRequester",
   );
-  maliciousConsumerFactory = await ethers.getContractFactory("src/v0.4/tests/MaliciousConsumer.sol:MaliciousConsumer");
-  maliciousMultiWordConsumerFactory = await ethers.getContractFactory("MaliciousMultiWordConsumer");
+  maliciousConsumerFactory = await ethers.getContractFactory(
+    "src/v0.4/tests/MaliciousConsumer.sol:MaliciousConsumer",
+  );
+  maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
+    "MaliciousMultiWordConsumer",
+  );
   operatorFactory = await ethers.getContractFactory("Operator");
   forwarderFactory = await ethers.getContractFactory("AuthorizedForwarder");
   linkTokenFactory = await ethers.getContractFactory("LinkToken");
@@ -71,12 +91,17 @@ describe("Operator", () => {
 
   beforeEach(async () => {
     fHash = getterSetterFactory.interface.getSighash("requestedBytes32");
-    specId = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
+    specId =
+      "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
     to = "0x80e29acb842498fe6591f020bd82766dce619d43";
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy();
     owner = roles.defaultAccount;
-    operator = await operatorFactory.connect(owner).deploy(link.address, await owner.getAddress());
-    await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode.getAddress()]);
+    operator = await operatorFactory
+      .connect(owner)
+      .deploy(link.address, await owner.getAddress());
+    await operator
+      .connect(roles.defaultAccount)
+      .setAuthorizedSenders([await roles.oracleNode.getAddress()]);
   });
 
   it("has a limited public interface [ @skip-coverage ]", () => {
@@ -111,14 +136,20 @@ describe("Operator", () => {
 
   describe("#transferOwnableContracts", () => {
     beforeEach(async () => {
-      forwarder1 = await forwarderFactory.connect(owner).deploy(link.address, operator.address, zeroAddress, "0x");
-      forwarder2 = await forwarderFactory.connect(owner).deploy(link.address, operator.address, zeroAddress, "0x");
+      forwarder1 = await forwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address, zeroAddress, "0x");
+      forwarder2 = await forwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address, zeroAddress, "0x");
     });
 
     describe("being called by the owner", () => {
       it("cannot transfer to self", async () => {
         await evmRevert(
-          operator.connect(owner).transferOwnableContracts([forwarder1.address], operator.address),
+          operator
+            .connect(owner)
+            .transferOwnableContracts([forwarder1.address], operator.address),
           "Cannot transfer to self",
         );
       });
@@ -126,7 +157,10 @@ describe("Operator", () => {
       it("emits an ownership transfer request event", async () => {
         const tx = await operator
           .connect(owner)
-          .transferOwnableContracts([forwarder1.address, forwarder2.address], await roles.oracleNode1.getAddress());
+          .transferOwnableContracts(
+            [forwarder1.address, forwarder2.address],
+            await roles.oracleNode1.getAddress(),
+          );
         const receipt = await tx.wait();
         assert.equal(receipt?.events?.length, 2);
         const log1 = receipt?.events?.[0];
@@ -147,7 +181,10 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.stranger)
-            .transferOwnableContracts([forwarder1.address], await roles.oracleNode2.getAddress()),
+            .transferOwnableContracts(
+              [forwarder1.address],
+              await roles.oracleNode2.getAddress(),
+            ),
           "Only callable by owner",
         );
       });
@@ -171,7 +208,10 @@ describe("Operator", () => {
           .deploy(link.address, operator.address, zeroAddress, "0x");
         await operator
           .connect(roles.defaultAccount)
-          .transferOwnableContracts([forwarder1.address, forwarder2.address], operator2.address);
+          .transferOwnableContracts(
+            [forwarder1.address, forwarder2.address],
+            operator2.address,
+          );
         const tx = await operator2
           .connect(roles.defaultAccount)
           .acceptOwnableContracts([forwarder1.address, forwarder2.address]);
@@ -203,7 +243,9 @@ describe("Operator", () => {
 
     describe("being called by a non-owner authorized sender", () => {
       it("does not revert", async () => {
-        await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode1.getAddress()]);
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([await roles.oracleNode1.getAddress()]);
 
         await operator.connect(roles.oracleNode1).acceptOwnableContracts([]);
       });
@@ -212,7 +254,9 @@ describe("Operator", () => {
     describe("being called by a non owner", () => {
       it("reverts with message", async () => {
         await evmRevert(
-          operator.connect(roles.stranger).acceptOwnableContracts([await roles.oracleNode2.getAddress()]),
+          operator
+            .connect(roles.stranger)
+            .acceptOwnableContracts([await roles.oracleNode2.getAddress()]),
           "Cannot set authorized senders",
         );
       });
@@ -222,16 +266,24 @@ describe("Operator", () => {
   describe("#distributeFunds", () => {
     describe("when called with empty arrays", () => {
       it("reverts with invalid array message", async () => {
-        await evmRevert(operator.connect(roles.defaultAccount).distributeFunds([], []), "Invalid array length(s)");
+        await evmRevert(
+          operator.connect(roles.defaultAccount).distributeFunds([], []),
+          "Invalid array length(s)",
+        );
       });
     });
 
     describe("when called with unequal array lengths", () => {
       it("reverts with invalid array message", async () => {
-        const receivers = [await roles.oracleNode2.getAddress(), await roles.oracleNode3.getAddress()];
+        const receivers = [
+          await roles.oracleNode2.getAddress(),
+          await roles.oracleNode3.getAddress(),
+        ];
         const amounts = [1, 2, 3];
         await evmRevert(
-          operator.connect(roles.defaultAccount).distributeFunds(receivers, amounts),
+          operator
+            .connect(roles.defaultAccount)
+            .distributeFunds(receivers, amounts),
           "Invalid array length(s)",
         );
       });
@@ -244,9 +296,13 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.defaultAccount)
-            .distributeFunds([await roles.oracleNode2.getAddress()], [amountToSend], {
-              value: ethSent,
-            }),
+            .distributeFunds(
+              [await roles.oracleNode2.getAddress()],
+              [amountToSend],
+              {
+                value: ethSent,
+              },
+            ),
           "SafeMath: subtraction overflow",
         );
       });
@@ -259,9 +315,13 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.defaultAccount)
-            .distributeFunds([await roles.oracleNode2.getAddress()], [amountToSend], {
-              value: ethSent,
-            }),
+            .distributeFunds(
+              [await roles.oracleNode2.getAddress()],
+              [amountToSend],
+              {
+                value: ethSent,
+              },
+            ),
           "Too much ETH sent",
         );
       });
@@ -271,20 +331,31 @@ describe("Operator", () => {
       it("updates the balances", async () => {
         const node2BalanceBefore = await roles.oracleNode2.getBalance();
         const node3BalanceBefore = await roles.oracleNode3.getBalance();
-        const receivers = [await roles.oracleNode2.getAddress(), await roles.oracleNode3.getAddress()];
+        const receivers = [
+          await roles.oracleNode2.getAddress(),
+          await roles.oracleNode3.getAddress(),
+        ];
         const sendNode2 = toWei("2");
         const sendNode3 = toWei("3");
         const totalAmount = toWei("5");
         const amounts = [sendNode2, sendNode3];
 
-        await operator.connect(roles.defaultAccount).distributeFunds(receivers, amounts, { value: totalAmount });
+        await operator
+          .connect(roles.defaultAccount)
+          .distributeFunds(receivers, amounts, { value: totalAmount });
 
         const node2BalanceAfter = await roles.oracleNode2.getBalance();
         const node3BalanceAfter = await roles.oracleNode3.getBalance();
 
-        assert.equal(node2BalanceAfter.sub(node2BalanceBefore).toString(), sendNode2.toString());
+        assert.equal(
+          node2BalanceAfter.sub(node2BalanceBefore).toString(),
+          sendNode2.toString(),
+        );
 
-        assert.equal(node3BalanceAfter.sub(node3BalanceBefore).toString(), sendNode3.toString());
+        assert.equal(
+          node3BalanceAfter.sub(node3BalanceBefore).toString(),
+          sendNode3.toString(),
+        );
       });
     });
   });
@@ -300,7 +371,9 @@ describe("Operator", () => {
             await roles.oracleNode2.getAddress(),
             await roles.oracleNode3.getAddress(),
           ];
-          const tx = await operator.connect(roles.defaultAccount).setAuthorizedSenders(newSenders);
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders);
           receipt = await tx.wait();
         });
 
@@ -333,7 +406,9 @@ describe("Operator", () => {
         });
 
         after(async () => {
-          await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode.getAddress()]);
+          await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([await roles.oracleNode.getAddress()]);
         });
       });
 
@@ -344,7 +419,9 @@ describe("Operator", () => {
 
         it("reverts with a minimum senders message", async () => {
           await evmRevert(
-            operator.connect(roles.defaultAccount).setAuthorizedSenders(newSenders),
+            operator
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
             "Must have at least 1 authorized sender",
           );
         });
@@ -354,18 +431,24 @@ describe("Operator", () => {
     describe("when called by an authorized sender", () => {
       beforeEach(async () => {
         newSenders = [await roles.oracleNode1.getAddress()];
-        await operator.connect(roles.defaultAccount).setAuthorizedSenders(newSenders);
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders(newSenders);
       });
 
       it("succeeds", async () => {
-        await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.stranger.getAddress()]);
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([await roles.stranger.getAddress()]);
       });
     });
 
     describe("when called by a non-owner", () => {
       it("cannot add an authorized node", async () => {
         await evmRevert(
-          operator.connect(roles.stranger).setAuthorizedSenders([await roles.stranger.getAddress()]),
+          operator
+            .connect(roles.stranger)
+            .setAuthorizedSenders([await roles.stranger.getAddress()]),
           "Cannot set authorized senders",
         );
       });
@@ -376,17 +459,28 @@ describe("Operator", () => {
     let newSenders: string[];
 
     beforeEach(async () => {
-      await operator.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode1.getAddress()]);
-      newSenders = [await roles.oracleNode2.getAddress(), await roles.oracleNode3.getAddress()];
+      await operator
+        .connect(roles.defaultAccount)
+        .setAuthorizedSenders([await roles.oracleNode1.getAddress()]);
+      newSenders = [
+        await roles.oracleNode2.getAddress(),
+        await roles.oracleNode3.getAddress(),
+      ];
 
-      forwarder1 = await forwarderFactory.connect(owner).deploy(link.address, operator.address, zeroAddress, "0x");
-      forwarder2 = await forwarderFactory.connect(owner).deploy(link.address, operator.address, zeroAddress, "0x");
+      forwarder1 = await forwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address, zeroAddress, "0x");
+      forwarder2 = await forwarderFactory
+        .connect(owner)
+        .deploy(link.address, operator.address, zeroAddress, "0x");
     });
 
     describe("when called by a non-authorized sender", () => {
       it("reverts", async () => {
         await evmRevert(
-          operator.connect(roles.stranger).setAuthorizedSendersOn(newSenders, [forwarder1.address]),
+          operator
+            .connect(roles.stranger)
+            .setAuthorizedSendersOn(newSenders, [forwarder1.address]),
           "Cannot set authorized senders",
         );
       });
@@ -396,7 +490,10 @@ describe("Operator", () => {
       it("does not revert", async () => {
         await operator
           .connect(roles.defaultAccount)
-          .setAuthorizedSendersOn([forwarder1.address, forwarder2.address], newSenders);
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          );
       });
     });
 
@@ -404,18 +501,26 @@ describe("Operator", () => {
       it("does not revert", async () => {
         await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn([forwarder1.address, forwarder2.address], newSenders);
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          );
       });
 
       it("does revert with 0 senders", async () => {
         await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn([forwarder1.address, forwarder2.address], newSenders);
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          );
       });
 
       it("emits a log announcing the change and who made it", async () => {
         const targets = [forwarder1.address, forwarder2.address];
-        const tx = await operator.connect(roles.oracleNode1).setAuthorizedSendersOn(targets, newSenders);
+        const tx = await operator
+          .connect(roles.oracleNode1)
+          .setAuthorizedSendersOn(targets, newSenders);
 
         const receipt = await tx.wait();
         const encodedArgs = ethers.utils.defaultAbiCoder.encode(
@@ -432,7 +537,10 @@ describe("Operator", () => {
       it("updates the sender list on each of the targets", async () => {
         const tx = await operator
           .connect(roles.oracleNode1)
-          .setAuthorizedSendersOn([forwarder1.address, forwarder2.address], newSenders);
+          .setAuthorizedSendersOn(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          );
 
         const receipt = await tx.wait();
         assert.equal(receipt.events?.length, 3, receipt.toString());
@@ -473,12 +581,21 @@ describe("Operator", () => {
           .deploy(link.address, operator.address, zeroAddress, "0x");
         await operator
           .connect(roles.defaultAccount)
-          .transferOwnableContracts([forwarder1.address, forwarder2.address], operator2.address);
-        newSenders = [await roles.oracleNode2.getAddress(), await roles.oracleNode3.getAddress()];
+          .transferOwnableContracts(
+            [forwarder1.address, forwarder2.address],
+            operator2.address,
+          );
+        newSenders = [
+          await roles.oracleNode2.getAddress(),
+          await roles.oracleNode3.getAddress(),
+        ];
 
         const tx = await operator2
           .connect(roles.defaultAccount)
-          .acceptAuthorizedReceivers([forwarder1.address, forwarder2.address], newSenders);
+          .acceptAuthorizedReceivers(
+            [forwarder1.address, forwarder2.address],
+            newSenders,
+          );
         receipt = await tx.wait();
       });
 
@@ -503,7 +620,10 @@ describe("Operator", () => {
         assert.equal(receipt?.events?.[3]?.event, "OwnableContractAccepted");
         assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address);
 
-        assert.equal(receipt?.events?.[4]?.event, "TargetsUpdatedAuthorizedSenders");
+        assert.equal(
+          receipt?.events?.[4]?.event,
+          "TargetsUpdatedAuthorizedSenders",
+        );
 
         const encodedSenders = ethers.utils.defaultAbiCoder.encode(
           ["address[]", "address"],
@@ -524,7 +644,10 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.stranger)
-            .acceptAuthorizedReceivers([forwarder1.address, forwarder2.address], newSenders),
+            .acceptAuthorizedReceivers(
+              [forwarder1.address, forwarder2.address],
+              newSenders,
+            ),
           "Cannot set authorized senders",
         );
       });
@@ -534,15 +657,33 @@ describe("Operator", () => {
   describe("#onTokenTransfer", () => {
     describe("when called from any address but the LINK token", () => {
       it("triggers the intended method", async () => {
-        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
+        const callData = encodeOracleRequest(
+          specId,
+          to,
+          fHash,
+          0,
+          constants.HashZero,
+        );
 
-        await evmRevert(operator.onTokenTransfer(await roles.defaultAccount.getAddress(), 0, callData));
+        await evmRevert(
+          operator.onTokenTransfer(
+            await roles.defaultAccount.getAddress(),
+            0,
+            callData,
+          ),
+        );
       });
     });
 
     describe("when called from the LINK token", () => {
       it("triggers the intended method", async () => {
-        const callData = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
+        const callData = encodeOracleRequest(
+          specId,
+          to,
+          fHash,
+          0,
+          constants.HashZero,
+        );
 
         const tx = await link.transferAndCall(operator.address, 0, callData, {
           value: 0,
@@ -569,7 +710,9 @@ describe("Operator", () => {
       const paymentAmount = toWei("1");
 
       beforeEach(async () => {
-        mock = await maliciousRequesterFactory.connect(roles.defaultAccount).deploy(link.address, operator.address);
+        mock = await maliciousRequesterFactory
+          .connect(roles.defaultAccount)
+          .deploy(link.address, operator.address);
         await link.transfer(mock.address, paymentAmount);
       });
 
@@ -608,9 +751,16 @@ describe("Operator", () => {
     });
 
     it("does not allow recursive calls of onTokenTransfer", async () => {
-      const requestPayload = encodeOracleRequest(specId, to, fHash, 0, constants.HashZero);
+      const requestPayload = encodeOracleRequest(
+        specId,
+        to,
+        fHash,
+        0,
+        constants.HashZero,
+      );
 
-      const ottSelector = operatorFactory.interface.getSighash("onTokenTransfer");
+      const ottSelector =
+        operatorFactory.interface.getSighash("onTokenTransfer");
       const header =
         "000000000000000000000000c5fdf4076b8f3a5357c5e395ab970b5b54098fef" + // to
         "0000000000000000000000000000000000000000000000000000000000000539" + // amount
@@ -634,7 +784,13 @@ describe("Operator", () => {
       let receipt: providers.TransactionReceipt;
 
       beforeEach(async () => {
-        const args = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero);
+        const args = encodeOracleRequest(
+          specId,
+          to,
+          fHash,
+          1,
+          constants.HashZero,
+        );
         const tx = await link.transferAndCall(operator.address, paid, args);
         receipt = await tx.wait();
         assert.equal(3, receipt?.logs?.length);
@@ -654,30 +810,45 @@ describe("Operator", () => {
 
       it("uses the expected event signature", async () => {
         // If updating this test, be sure to update models.RunLogTopic.
-        const eventSignature = "0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65";
+        const eventSignature =
+          "0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65";
         assert.equal(eventSignature, log?.topics?.[0]);
       });
 
       it("does not allow the same requestId to be used twice", async () => {
-        const args2 = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero);
+        const args2 = encodeOracleRequest(
+          specId,
+          to,
+          fHash,
+          1,
+          constants.HashZero,
+        );
         await evmRevert(link.transferAndCall(operator.address, paid, args2));
       });
 
       describe("when called with a payload less than 2 EVM words + function selector", () => {
         it("throws an error", async () => {
-          const funcSelector = operatorFactory.interface.getSighash("oracleRequest");
-          const maliciousData = funcSelector + "0000000000000000000000000000000000000000000000000000000000000000000";
-          await evmRevert(link.transferAndCall(operator.address, paid, maliciousData));
+          const funcSelector =
+            operatorFactory.interface.getSighash("oracleRequest");
+          const maliciousData =
+            funcSelector +
+            "0000000000000000000000000000000000000000000000000000000000000000000";
+          await evmRevert(
+            link.transferAndCall(operator.address, paid, maliciousData),
+          );
         });
       });
 
       describe("when called with a payload between 3 and 9 EVM words", () => {
         it("throws an error", async () => {
-          const funcSelector = operatorFactory.interface.getSighash("oracleRequest");
+          const funcSelector =
+            operatorFactory.interface.getSighash("oracleRequest");
           const maliciousData =
             funcSelector +
             "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001";
-          await evmRevert(link.transferAndCall(operator.address, paid, maliciousData));
+          await evmRevert(
+            link.transferAndCall(operator.address, paid, maliciousData),
+          );
         });
       });
     });
@@ -685,7 +856,14 @@ describe("Operator", () => {
     describe("when dataVersion is higher than 255", () => {
       it("throws an error", async () => {
         const paid = 100;
-        const args = encodeOracleRequest(specId, to, fHash, 1, constants.HashZero, 256);
+        const args = encodeOracleRequest(
+          specId,
+          to,
+          fHash,
+          1,
+          constants.HashZero,
+          256,
+        );
         await evmRevert(link.transferAndCall(operator.address, paid, args));
       });
     });
@@ -695,7 +873,16 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.oracleNode)
-            .oracleRequest("0x0000000000000000000000000000000000000000", 0, specId, to, fHash, 1, 1, "0x"),
+            .oracleRequest(
+              "0x0000000000000000000000000000000000000000",
+              0,
+              specId,
+              to,
+              fHash,
+              1,
+              1,
+              "0x",
+            ),
         );
       });
     });
@@ -708,7 +895,12 @@ describe("Operator", () => {
       let receipt: providers.TransactionReceipt;
 
       beforeEach(async () => {
-        const args = encodeRequestOracleData(specId, fHash, 1, constants.HashZero);
+        const args = encodeRequestOracleData(
+          specId,
+          fHash,
+          1,
+          constants.HashZero,
+        );
         const tx = await link.transferAndCall(operator.address, paid, args);
         receipt = await tx.wait();
         assert.equal(3, receipt?.logs?.length);
@@ -728,30 +920,44 @@ describe("Operator", () => {
 
       it("uses the expected event signature", async () => {
         // If updating this test, be sure to update models.RunLogTopic.
-        const eventSignature = "0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65";
+        const eventSignature =
+          "0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65";
         assert.equal(eventSignature, log?.topics?.[0]);
       });
 
       it("does not allow the same requestId to be used twice", async () => {
-        const args2 = encodeRequestOracleData(specId, fHash, 1, constants.HashZero);
+        const args2 = encodeRequestOracleData(
+          specId,
+          fHash,
+          1,
+          constants.HashZero,
+        );
         await evmRevert(link.transferAndCall(operator.address, paid, args2));
       });
 
       describe("when called with a payload less than 2 EVM words + function selector", () => {
         it("throws an error", async () => {
-          const funcSelector = operatorFactory.interface.getSighash("oracleRequest");
-          const maliciousData = funcSelector + "0000000000000000000000000000000000000000000000000000000000000000000";
-          await evmRevert(link.transferAndCall(operator.address, paid, maliciousData));
+          const funcSelector =
+            operatorFactory.interface.getSighash("oracleRequest");
+          const maliciousData =
+            funcSelector +
+            "0000000000000000000000000000000000000000000000000000000000000000000";
+          await evmRevert(
+            link.transferAndCall(operator.address, paid, maliciousData),
+          );
         });
       });
 
       describe("when called with a payload between 3 and 9 EVM words", () => {
         it("throws an error", async () => {
-          const funcSelector = operatorFactory.interface.getSighash("oracleRequest");
+          const funcSelector =
+            operatorFactory.interface.getSighash("oracleRequest");
           const maliciousData =
             funcSelector +
             "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001";
-          await evmRevert(link.transferAndCall(operator.address, paid, maliciousData));
+          await evmRevert(
+            link.transferAndCall(operator.address, paid, maliciousData),
+          );
         });
       });
     });
@@ -759,7 +965,13 @@ describe("Operator", () => {
     describe("when dataVersion is higher than 255", () => {
       it("throws an error", async () => {
         const paid = 100;
-        const args = encodeRequestOracleData(specId, fHash, 1, constants.HashZero, 256);
+        const args = encodeRequestOracleData(
+          specId,
+          fHash,
+          1,
+          constants.HashZero,
+          256,
+        );
         await evmRevert(link.transferAndCall(operator.address, paid, args));
       });
     });
@@ -769,7 +981,16 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.oracleNode)
-            .oracleRequest("0x0000000000000000000000000000000000000000", 0, specId, to, fHash, 1, 1, "0x"),
+            .oracleRequest(
+              "0x0000000000000000000000000000000000000000",
+              0,
+              specId,
+              to,
+              fHash,
+              1,
+              1,
+              "0x",
+            ),
         );
       });
     });
@@ -790,14 +1011,18 @@ describe("Operator", () => {
           .deploy(link.address, operator.address, specId);
         const paymentAmount = toWei("1");
         await link.transfer(gasGuzzlingConsumer.address, paymentAmount);
-        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount);
+        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+          paymentAmount,
+        );
         const receipt = await tx.wait();
         request = decodeRunRequest(receipt.logs?.[3]);
       });
 
       it("emits an OracleResponse event", async () => {
         const fulfillParams = convertFufillParams(request, response);
-        const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest(...fulfillParams);
+        const tx = await operator
+          .connect(roles.oracleNode)
+          .fulfillOracleRequest(...fulfillParams);
         const receipt = await tx.wait();
         assert.equal(receipt.events?.length, 1);
         const responseEvent = receipt.events?.[0];
@@ -814,19 +1039,29 @@ describe("Operator", () => {
         const paymentAmount = toWei("1");
         await link.transfer(basicConsumer.address, paymentAmount);
         const currency = "USD";
-        const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount);
+        const tx = await basicConsumer.requestEthereumPrice(
+          currency,
+          paymentAmount,
+        );
         const receipt = await tx.wait();
         request = decodeRunRequest(receipt.logs?.[3]);
       });
 
       describe("when called by an unauthorized node", () => {
         beforeEach(async () => {
-          assert.equal(false, await operator.isAuthorizedSender(await roles.stranger.getAddress()));
+          assert.equal(
+            false,
+            await operator.isAuthorizedSender(
+              await roles.stranger.getAddress(),
+            ),
+          );
         });
 
         it("raises an error", async () => {
           await evmRevert(
-            operator.connect(roles.stranger).fulfillOracleRequest(...convertFufillParams(request, response)),
+            operator
+              .connect(roles.stranger)
+              .fulfillOracleRequest(...convertFufillParams(request, response)),
           );
         });
       });
@@ -840,14 +1075,19 @@ describe("Operator", () => {
           const paymentAmount = toWei("1");
           await link.transfer(v7Consumer.address, paymentAmount);
           const currency = "USD";
-          const tx = await v7Consumer.requestEthereumPrice(currency, paymentAmount);
+          const tx = await v7Consumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          );
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
         });
 
         it("raises an error", async () => {
           await evmRevert(
-            operator.connect(roles.stranger).fulfillOracleRequest(...convertFufillParams(request, response)),
+            operator
+              .connect(roles.stranger)
+              .fulfillOracleRequest(...convertFufillParams(request, response)),
           );
         });
       });
@@ -856,12 +1096,16 @@ describe("Operator", () => {
         it("raises an error if the request ID does not exist", async () => {
           request.requestId = ethers.utils.formatBytes32String("DOESNOTEXIST");
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response)),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...convertFufillParams(request, response)),
           );
         });
 
         it("sets the value on the requested contract", async () => {
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
           const currentValue = await basicConsumer.currentPrice();
           assert.equal(response, ethers.utils.parseBytes32String(currentValue));
@@ -869,7 +1113,9 @@ describe("Operator", () => {
 
         it("emits an OracleResponse event", async () => {
           const fulfillParams = convertFufillParams(request, response);
-          const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest(...fulfillParams);
+          const tx = await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...fulfillParams);
           const receipt = await tx.wait();
           assert.equal(receipt.events?.length, 3);
           const responseEvent = receipt.events?.[0];
@@ -880,10 +1126,14 @@ describe("Operator", () => {
         it("does not allow a request to be fulfilled twice", async () => {
           const response2 = response + " && Hello World!!";
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response2)),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...convertFufillParams(request, response2)),
           );
 
           const currentValue = await basicConsumer.currentPrice();
@@ -935,13 +1185,20 @@ describe("Operator", () => {
 
       it("cannot cancel before the expiration", async () => {
         await evmRevert(
-          maliciousRequester.maliciousRequestCancel(specId, ethers.utils.toUtf8Bytes("doesNothing(bytes32,bytes32)")),
+          maliciousRequester.maliciousRequestCancel(
+            specId,
+            ethers.utils.toUtf8Bytes("doesNothing(bytes32,bytes32)"),
+          ),
         );
       });
 
       it("cannot call functions on the LINK token through callbacks", async () => {
         await evmRevert(
-          maliciousRequester.request(specId, link.address, ethers.utils.toUtf8Bytes("transfer(address,uint256)")),
+          maliciousRequester.request(
+            specId,
+            link.address,
+            ethers.utils.toUtf8Bytes("transfer(address,uint256)"),
+          ),
         );
       });
 
@@ -977,24 +1234,36 @@ describe("Operator", () => {
         });
 
         it("allows the oracle node to receive their payment", async () => {
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
-          const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+          const balance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(balance, 0);
 
-          await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
 
-          const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+          const newBalance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(paymentAmount, newBalance);
         });
 
         it("can't fulfill the data again", async () => {
           const response2 = "hack the planet 102";
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response2)),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...convertFufillParams(request, response2)),
           );
         });
       });
@@ -1011,13 +1280,21 @@ describe("Operator", () => {
         });
 
         it("allows the oracle node to receive their payment", async () => {
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
-          const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+          const balance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(balance, 0);
 
-          await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-          const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+          const newBalance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(paymentAmount, newBalance);
         });
       });
@@ -1035,26 +1312,38 @@ describe("Operator", () => {
         });
 
         it("allows the oracle node to receive their payment", async () => {
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
           const mockBalance = await link.balanceOf(maliciousConsumer.address);
           bigNumEquals(mockBalance, 0);
 
-          const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+          const balance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(balance, 0);
 
-          await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-          const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+          const newBalance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           bigNumEquals(paymentAmount, newBalance);
         });
 
         it("can't fulfill the data again", async () => {
           const response2 = "hack the planet 102";
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response2)),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...convertFufillParams(request, response2)),
           );
         });
       });
@@ -1068,9 +1357,14 @@ describe("Operator", () => {
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
 
-          bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+          bigNumEquals(
+            0,
+            await ethers.provider.getBalance(maliciousConsumer.address),
+          );
         });
 
         it("is not successful with send", async () => {
@@ -1081,8 +1375,13 @@ describe("Operator", () => {
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
-          bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
+          bigNumEquals(
+            0,
+            await ethers.provider.getBalance(maliciousConsumer.address),
+          );
         });
 
         it("is not successful with transfer", async () => {
@@ -1093,8 +1392,13 @@ describe("Operator", () => {
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
 
-          await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, response));
-          bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(...convertFufillParams(request, response));
+          bigNumEquals(
+            0,
+            await ethers.provider.getBalance(maliciousConsumer.address),
+          );
         });
       });
 
@@ -1106,7 +1410,10 @@ describe("Operator", () => {
         });
 
         it("does not allow the contract to callback to owned contracts", async () => {
-          const tx = await maliciousConsumer.requestData(specId, ethers.utils.toUtf8Bytes("whatever(bytes32,bytes32)"));
+          const tx = await maliciousConsumer.requestData(
+            specId,
+            ethers.utils.toUtf8Bytes("whatever(bytes32,bytes32)"),
+          );
           const receipt = await tx.wait();
           let request = decodeRunRequest(receipt.logs?.[3]);
           let responseParams = convertFufillParams(request, response);
@@ -1114,18 +1421,26 @@ describe("Operator", () => {
           responseParams[2] = forwarder1.address;
 
           //accept ownership
-          await operator.connect(roles.defaultAccount).acceptOwnableContracts([forwarder1.address]);
+          await operator
+            .connect(roles.defaultAccount)
+            .acceptOwnableContracts([forwarder1.address]);
 
           // do the thing
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...responseParams),
             "Cannot call owned contract",
           );
 
-          await operator.connect(roles.defaultAccount).transferOwnableContracts([forwarder1.address], link.address);
+          await operator
+            .connect(roles.defaultAccount)
+            .transferOwnableContracts([forwarder1.address], link.address);
           //reverts for a different reason after transferring ownership
           await evmRevert(
-            operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+            operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest(...responseParams),
             "Params do not match request ID",
           );
         });
@@ -1151,14 +1466,22 @@ describe("Operator", () => {
             .deploy(link.address, operator.address, specId);
           const paymentAmount = toWei("1");
           await link.transfer(gasGuzzlingConsumer.address, paymentAmount);
-          const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount);
+          const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+            paymentAmount,
+          );
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
         });
 
         it("emits an OracleResponse2 event", async () => {
-          const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-          const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+          const fulfillParams = convertFulfill2Params(
+            request,
+            responseTypes,
+            responseValues,
+          );
+          const tx = await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest2(...fulfillParams);
           const receipt = await tx.wait();
           assert.equal(receipt.events?.length, 1);
           const responseEvent = receipt.events?.[0];
@@ -1175,47 +1498,83 @@ describe("Operator", () => {
           const paymentAmount = toWei("1");
           await link.transfer(basicConsumer.address, paymentAmount);
           const currency = "USD";
-          const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount);
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          );
           const receipt = await tx.wait();
           request = decodeRunRequest(receipt.logs?.[3]);
         });
 
         describe("when called by an unauthorized node", () => {
           beforeEach(async () => {
-            assert.equal(false, await operator.isAuthorizedSender(await roles.stranger.getAddress()));
+            assert.equal(
+              false,
+              await operator.isAuthorizedSender(
+                await roles.stranger.getAddress(),
+              ),
+            );
           });
 
           it("raises an error", async () => {
             await evmRevert(
               operator
                 .connect(roles.stranger)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                ),
             );
           });
         });
 
         describe("when called by an authorized node", () => {
           it("raises an error if the request ID does not exist", async () => {
-            request.requestId = ethers.utils.formatBytes32String("DOESNOTEXIST");
+            request.requestId =
+              ethers.utils.formatBytes32String("DOESNOTEXIST");
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                ),
             );
           });
 
           it("sets the value on the requested contract", async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
             const currentValue = await basicConsumer.currentPrice();
-            assert.equal(response, ethers.utils.parseBytes32String(currentValue));
+            assert.equal(
+              response,
+              ethers.utils.parseBytes32String(currentValue),
+            );
           });
 
           it("emits an OracleResponse2 event", async () => {
-            const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-            const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+            const fulfillParams = convertFulfill2Params(
+              request,
+              responseTypes,
+              responseValues,
+            );
+            const tx = await operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest2(...fulfillParams);
             const receipt = await tx.wait();
             assert.equal(receipt.events?.length, 3);
             const responseEvent = receipt.events?.[0];
@@ -1228,16 +1587,31 @@ describe("Operator", () => {
             const response2Values = [toBytes32String(response2)];
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    response2Values,
+                  ),
+                ),
             );
 
             const currentValue = await basicConsumer.currentPrice();
-            assert.equal(response, ethers.utils.parseBytes32String(currentValue));
+            assert.equal(
+              response,
+              ethers.utils.parseBytes32String(currentValue),
+            );
           });
         });
 
@@ -1253,9 +1627,14 @@ describe("Operator", () => {
           it("does not allow the oracle to withdraw the payment", async () => {
             await evmRevert(
               operator.connect(roles.oracleNode).fulfillOracleRequest2(
-                ...convertFulfill2Params(request, responseTypes, responseValues, {
-                  gasLimit: 70000,
-                }),
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                  {
+                    gasLimit: 70000,
+                  },
+                ),
               ),
             );
 
@@ -1285,13 +1664,20 @@ describe("Operator", () => {
 
         it("cannot cancel before the expiration", async () => {
           await evmRevert(
-            maliciousRequester.maliciousRequestCancel(specId, ethers.utils.toUtf8Bytes("doesNothing(bytes32,bytes32)")),
+            maliciousRequester.maliciousRequestCancel(
+              specId,
+              ethers.utils.toUtf8Bytes("doesNothing(bytes32,bytes32)"),
+            ),
           );
         });
 
         it("cannot call functions on the LINK token through callbacks", async () => {
           await evmRevert(
-            maliciousRequester.request(specId, link.address, ethers.utils.toUtf8Bytes("transfer(address,uint256)")),
+            maliciousRequester.request(
+              specId,
+              link.address,
+              ethers.utils.toUtf8Bytes("transfer(address,uint256)"),
+            ),
           );
         });
 
@@ -1329,14 +1715,26 @@ describe("Operator", () => {
           it("allows the oracle node to receive their payment", async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
-            const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+            const balance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(balance, 0);
 
-            await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
 
-            const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+            const newBalance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(paymentAmount, newBalance);
           });
 
@@ -1345,12 +1743,24 @@ describe("Operator", () => {
             const response2Values = [toBytes32String(response2)];
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    response2Values,
+                  ),
+                ),
             );
           });
         });
@@ -1369,13 +1779,25 @@ describe("Operator", () => {
           it("allows the oracle node to receive their payment", async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
-            const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+            const balance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(balance, 0);
 
-            await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-            const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+            const newBalance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(paymentAmount, newBalance);
           });
         });
@@ -1384,7 +1806,9 @@ describe("Operator", () => {
           beforeEach(async () => {
             const tx = await maliciousConsumer.requestData(
               specId,
-              ethers.utils.toUtf8Bytes("cancelRequestOnFulfill(bytes32,bytes32)"),
+              ethers.utils.toUtf8Bytes(
+                "cancelRequestOnFulfill(bytes32,bytes32)",
+              ),
             );
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
@@ -1395,16 +1819,28 @@ describe("Operator", () => {
           it("allows the oracle node to receive their payment", async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
             const mockBalance = await link.balanceOf(maliciousConsumer.address);
             bigNumEquals(mockBalance, 0);
 
-            const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+            const balance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(balance, 0);
 
-            await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-            const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+            const newBalance = await link.balanceOf(
+              await roles.oracleNode.getAddress(),
+            );
             bigNumEquals(paymentAmount, newBalance);
           });
 
@@ -1414,12 +1850,24 @@ describe("Operator", () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    response2Values,
+                  ),
+                ),
             );
           });
         });
@@ -1435,9 +1883,18 @@ describe("Operator", () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
 
-            bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+            bigNumEquals(
+              0,
+              await ethers.provider.getBalance(maliciousConsumer.address),
+            );
           });
 
           it("is not successful with send", async () => {
@@ -1450,8 +1907,17 @@ describe("Operator", () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-            bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
+            bigNumEquals(
+              0,
+              await ethers.provider.getBalance(maliciousConsumer.address),
+            );
           });
 
           it("is not successful with transfer", async () => {
@@ -1464,8 +1930,17 @@ describe("Operator", () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-            bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+              .fulfillOracleRequest2(
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                ),
+              );
+            bigNumEquals(
+              0,
+              await ethers.provider.getBalance(maliciousConsumer.address),
+            );
           });
         });
 
@@ -1488,18 +1963,26 @@ describe("Operator", () => {
             responseParams[2] = forwarder1.address;
 
             //accept ownership
-            await operator.connect(roles.defaultAccount).acceptOwnableContracts([forwarder1.address]);
+            await operator
+              .connect(roles.defaultAccount)
+              .acceptOwnableContracts([forwarder1.address]);
 
             // do the thing
             await evmRevert(
-              operator.connect(roles.oracleNode).fulfillOracleRequest2(...responseParams),
+              operator
+                .connect(roles.oracleNode)
+                .fulfillOracleRequest2(...responseParams),
               "Cannot call owned contract",
             );
 
-            await operator.connect(roles.defaultAccount).transferOwnableContracts([forwarder1.address], link.address);
+            await operator
+              .connect(roles.defaultAccount)
+              .transferOwnableContracts([forwarder1.address], link.address);
             //reverts for a different reason after transferring ownership
             await evmRevert(
-              operator.connect(roles.oracleNode).fulfillOracleRequest(...responseParams),
+              operator
+                .connect(roles.oracleNode)
+                .fulfillOracleRequest(...responseParams),
               "Params do not match request ID",
             );
           });
@@ -1527,14 +2010,22 @@ describe("Operator", () => {
               .deploy(link.address, operator.address, specId);
             const paymentAmount = toWei("1");
             await link.transfer(gasGuzzlingConsumer.address, paymentAmount);
-            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(paymentAmount);
+            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(
+              paymentAmount,
+            );
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
           });
 
           it("emits an OracleResponse2 event", async () => {
-            const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-            const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+            const fulfillParams = convertFulfill2Params(
+              request,
+              responseTypes,
+              responseValues,
+            );
+            const tx = await operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest2(...fulfillParams);
             const receipt = await tx.wait();
             assert.equal(receipt.events?.length, 1);
             const responseEvent = receipt.events?.[0];
@@ -1551,7 +2042,10 @@ describe("Operator", () => {
             const paymentAmount = toWei("1");
             await link.transfer(multiConsumer.address, paymentAmount);
             const currency = "USD";
-            const tx = await multiConsumer.requestEthereumPrice(currency, paymentAmount);
+            const tx = await multiConsumer.requestEthereumPrice(
+              currency,
+              paymentAmount,
+            );
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
           });
@@ -1561,47 +2055,80 @@ describe("Operator", () => {
             const tx = await multiConsumer.requestEthereumPrice("USD", 0);
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
-            const packed = ethers.utils.solidityPack(["address", "uint256"], [multiConsumer.address, nonce]);
+            const packed = ethers.utils.solidityPack(
+              ["address", "uint256"],
+              [multiConsumer.address, nonce],
+            );
             const expected = ethers.utils.keccak256(packed);
             assert.equal(expected, request.requestId);
           });
 
           describe("when called by an unauthorized node", () => {
             beforeEach(async () => {
-              assert.equal(false, await operator.isAuthorizedSender(await roles.stranger.getAddress()));
+              assert.equal(
+                false,
+                await operator.isAuthorizedSender(
+                  await roles.stranger.getAddress(),
+                ),
+              );
             });
 
             it("raises an error", async () => {
               await evmRevert(
                 operator
                   .connect(roles.stranger)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      responseValues,
+                    ),
+                  ),
               );
             });
           });
 
           describe("when called by an authorized node", () => {
             it("raises an error if the request ID does not exist", async () => {
-              request.requestId = ethers.utils.formatBytes32String("DOESNOTEXIST");
+              request.requestId =
+                ethers.utils.formatBytes32String("DOESNOTEXIST");
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      responseValues,
+                    ),
+                  ),
               );
             });
 
             it("sets the value on the requested contract", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               const currentValue = await multiConsumer.currentPrice();
               assert.equal(response, ethers.utils.toUtf8String(currentValue));
             });
 
             it("emits an OracleResponse2 event", async () => {
-              const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-              const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+              const fulfillParams = convertFulfill2Params(
+                request,
+                responseTypes,
+                responseValues,
+              );
+              const tx = await operator
+                .connect(roles.oracleNode)
+                .fulfillOracleRequest2(...fulfillParams);
               const receipt = await tx.wait();
               assert.equal(receipt.events?.length, 3);
               const responseEvent = receipt.events?.[0];
@@ -1615,12 +2142,24 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      response2Values,
+                    ),
+                  ),
               );
 
               const currentValue = await multiConsumer.currentPrice();
@@ -1640,9 +2179,14 @@ describe("Operator", () => {
             it("does not allow the oracle to withdraw the payment", async () => {
               await evmRevert(
                 operator.connect(roles.oracleNode).fulfillOracleRequest2(
-                  ...convertFulfill2Params(request, responseTypes, responseValues, {
-                    gasLimit: 70000,
-                  }),
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                    {
+                      gasLimit: 70000,
+                    },
+                  ),
                 ),
               );
 
@@ -1651,9 +2195,14 @@ describe("Operator", () => {
 
             it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
               await operator.connect(roles.oracleNode).fulfillOracleRequest2(
-                ...convertFulfill2Params(request, responseTypes, responseValues, {
-                  gasLimit: defaultGasLimit,
-                }),
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                  {
+                    gasLimit: defaultGasLimit,
+                  },
+                ),
               );
 
               bigNumEquals(request.payment, await operator.withdrawable());
@@ -1681,7 +2230,11 @@ describe("Operator", () => {
 
           it("cannot call functions on the LINK token through callbacks", async () => {
             await evmRevert(
-              maliciousRequester.request(specId, link.address, ethers.utils.toUtf8Bytes("transfer(address,uint256)")),
+              maliciousRequester.request(
+                specId,
+                link.address,
+                ethers.utils.toUtf8Bytes("transfer(address,uint256)"),
+              ),
             );
           });
 
@@ -1719,14 +2272,26 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
 
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
 
@@ -1735,12 +2300,24 @@ describe("Operator", () => {
               const response2Values = [stringToBytes(response2)];
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      response2Values,
+                    ),
+                  ),
               );
             });
           });
@@ -1759,13 +2336,25 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
           });
@@ -1774,7 +2363,9 @@ describe("Operator", () => {
             beforeEach(async () => {
               const tx = await maliciousConsumer.requestData(
                 specId,
-                ethers.utils.toUtf8Bytes("cancelRequestOnFulfill(bytes32,bytes32)"),
+                ethers.utils.toUtf8Bytes(
+                  "cancelRequestOnFulfill(bytes32,bytes32)",
+                ),
               );
               const receipt = await tx.wait();
               request = decodeRunRequest(receipt.logs?.[3]);
@@ -1785,16 +2376,30 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const mockBalance = await link.balanceOf(maliciousConsumer.address);
+              const mockBalance = await link.balanceOf(
+                maliciousConsumer.address,
+              );
               bigNumEquals(mockBalance, 0);
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
 
@@ -1803,12 +2408,24 @@ describe("Operator", () => {
               const response2Values = [stringToBytes(response2)];
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, response2Values)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      response2Values,
+                    ),
+                  ),
               );
             });
           });
@@ -1824,9 +2441,18 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
 
             it("is not successful with send", async () => {
@@ -1839,8 +2465,17 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
 
             it("is not successful with transfer", async () => {
@@ -1853,8 +2488,17 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
           });
         });
@@ -1865,7 +2509,11 @@ describe("Operator", () => {
         const response2 = "7777777";
         const response3 = "forty two";
         const responseTypes = ["bytes32", "bytes32", "bytes32"];
-        const responseValues = [toBytes32String(response1), toBytes32String(response2), toBytes32String(response3)];
+        const responseValues = [
+          toBytes32String(response1),
+          toBytes32String(response2),
+          toBytes32String(response3),
+        ];
         let maliciousRequester: Contract;
         let multiConsumer: Contract;
         let maliciousConsumer: Contract;
@@ -1879,14 +2527,22 @@ describe("Operator", () => {
               .deploy(link.address, operator.address, specId);
             const paymentAmount = toWei("1");
             await link.transfer(gasGuzzlingConsumer.address, paymentAmount);
-            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(paymentAmount);
+            const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(
+              paymentAmount,
+            );
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
           });
 
           it("emits an OracleResponse2 event", async () => {
-            const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-            const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+            const fulfillParams = convertFulfill2Params(
+              request,
+              responseTypes,
+              responseValues,
+            );
+            const tx = await operator
+              .connect(roles.oracleNode)
+              .fulfillOracleRequest2(...fulfillParams);
             const receipt = await tx.wait();
             assert.equal(receipt.events?.length, 1);
             const responseEvent = receipt.events?.[0];
@@ -1903,51 +2559,93 @@ describe("Operator", () => {
             const paymentAmount = toWei("1");
             await link.transfer(multiConsumer.address, paymentAmount);
             const currency = "USD";
-            const tx = await multiConsumer.requestMultipleParameters(currency, paymentAmount);
+            const tx = await multiConsumer.requestMultipleParameters(
+              currency,
+              paymentAmount,
+            );
             const receipt = await tx.wait();
             request = decodeRunRequest(receipt.logs?.[3]);
           });
 
           describe("when called by an unauthorized node", () => {
             beforeEach(async () => {
-              assert.equal(false, await operator.isAuthorizedSender(await roles.stranger.getAddress()));
+              assert.equal(
+                false,
+                await operator.isAuthorizedSender(
+                  await roles.stranger.getAddress(),
+                ),
+              );
             });
 
             it("raises an error", async () => {
               await evmRevert(
                 operator
                   .connect(roles.stranger)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      responseValues,
+                    ),
+                  ),
               );
             });
           });
 
           describe("when called by an authorized node", () => {
             it("raises an error if the request ID does not exist", async () => {
-              request.requestId = ethers.utils.formatBytes32String("DOESNOTEXIST");
+              request.requestId =
+                ethers.utils.formatBytes32String("DOESNOTEXIST");
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      responseValues,
+                    ),
+                  ),
               );
             });
 
             it("sets the value on the requested contract", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               const firstValue = await multiConsumer.usd();
               const secondValue = await multiConsumer.eur();
               const thirdValue = await multiConsumer.jpy();
-              assert.equal(response1, ethers.utils.parseBytes32String(firstValue));
-              assert.equal(response2, ethers.utils.parseBytes32String(secondValue));
-              assert.equal(response3, ethers.utils.parseBytes32String(thirdValue));
+              assert.equal(
+                response1,
+                ethers.utils.parseBytes32String(firstValue),
+              );
+              assert.equal(
+                response2,
+                ethers.utils.parseBytes32String(secondValue),
+              );
+              assert.equal(
+                response3,
+                ethers.utils.parseBytes32String(thirdValue),
+              );
             });
 
             it("emits an OracleResponse2 event", async () => {
-              const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
-              const tx = await operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams);
+              const fulfillParams = convertFulfill2Params(
+                request,
+                responseTypes,
+                responseValues,
+              );
+              const tx = await operator
+                .connect(roles.oracleNode)
+                .fulfillOracleRequest2(...fulfillParams);
               const receipt = await tx.wait();
               assert.equal(receipt.events?.length, 3);
               const responseEvent = receipt.events?.[0];
@@ -1965,20 +2663,41 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, repeatedResponseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      repeatedResponseValues,
+                    ),
+                  ),
               );
 
               const firstValue = await multiConsumer.usd();
               const secondValue = await multiConsumer.eur();
               const thirdValue = await multiConsumer.jpy();
-              assert.equal(response1, ethers.utils.parseBytes32String(firstValue));
-              assert.equal(response2, ethers.utils.parseBytes32String(secondValue));
-              assert.equal(response3, ethers.utils.parseBytes32String(thirdValue));
+              assert.equal(
+                response1,
+                ethers.utils.parseBytes32String(firstValue),
+              );
+              assert.equal(
+                response2,
+                ethers.utils.parseBytes32String(secondValue),
+              );
+              assert.equal(
+                response3,
+                ethers.utils.parseBytes32String(thirdValue),
+              );
             });
           });
 
@@ -1994,9 +2713,14 @@ describe("Operator", () => {
             it("does not allow the oracle to withdraw the payment", async () => {
               await evmRevert(
                 operator.connect(roles.oracleNode).fulfillOracleRequest2(
-                  ...convertFulfill2Params(request, responseTypes, responseValues, {
-                    gasLimit: 70000,
-                  }),
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                    {
+                      gasLimit: 70000,
+                    },
+                  ),
                 ),
               );
 
@@ -2005,9 +2729,14 @@ describe("Operator", () => {
 
             it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
               await operator.connect(roles.oracleNode).fulfillOracleRequest2(
-                ...convertFulfill2Params(request, responseTypes, responseValues, {
-                  gasLimit: defaultGasLimit,
-                }),
+                ...convertFulfill2Params(
+                  request,
+                  responseTypes,
+                  responseValues,
+                  {
+                    gasLimit: defaultGasLimit,
+                  },
+                ),
               );
 
               bigNumEquals(request.payment, await operator.withdrawable());
@@ -2035,7 +2764,11 @@ describe("Operator", () => {
 
           it("cannot call functions on the LINK token through callbacks", async () => {
             await evmRevert(
-              maliciousRequester.request(specId, link.address, ethers.utils.toUtf8Bytes("transfer(address,uint256)")),
+              maliciousRequester.request(
+                specId,
+                link.address,
+                ethers.utils.toUtf8Bytes("transfer(address,uint256)"),
+              ),
             );
           });
 
@@ -2073,14 +2806,26 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
 
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
 
@@ -2093,12 +2838,24 @@ describe("Operator", () => {
               ];
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, repeatedResponseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      repeatedResponseValues,
+                    ),
+                  ),
               );
             });
           });
@@ -2117,13 +2874,25 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
           });
@@ -2132,7 +2901,9 @@ describe("Operator", () => {
             beforeEach(async () => {
               const tx = await maliciousConsumer.requestData(
                 specId,
-                ethers.utils.toUtf8Bytes("cancelRequestOnFulfill(bytes32,bytes32)"),
+                ethers.utils.toUtf8Bytes(
+                  "cancelRequestOnFulfill(bytes32,bytes32)",
+                ),
               );
               const receipt = await tx.wait();
               request = decodeRunRequest(receipt.logs?.[3]);
@@ -2143,16 +2914,30 @@ describe("Operator", () => {
             it("allows the oracle node to receive their payment", async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              const mockBalance = await link.balanceOf(maliciousConsumer.address);
+              const mockBalance = await link.balanceOf(
+                maliciousConsumer.address,
+              );
               bigNumEquals(mockBalance, 0);
 
-              const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+              const balance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(balance, 0);
 
-              await operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), paymentAmount);
-              const newBalance = await link.balanceOf(await roles.oracleNode.getAddress());
+              await operator
+                .connect(roles.defaultAccount)
+                .withdraw(await roles.oracleNode.getAddress(), paymentAmount);
+              const newBalance = await link.balanceOf(
+                await roles.oracleNode.getAddress(),
+              );
               bigNumEquals(paymentAmount, newBalance);
             });
 
@@ -2165,12 +2950,24 @@ describe("Operator", () => {
               ];
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, repeatedResponseValues)),
+                  .fulfillOracleRequest2(
+                    ...convertFulfill2Params(
+                      request,
+                      responseTypes,
+                      repeatedResponseValues,
+                    ),
+                  ),
               );
             });
           });
@@ -2186,9 +2983,18 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
 
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
 
             it("is not successful with send", async () => {
@@ -2201,8 +3007,17 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
 
             it("is not successful with transfer", async () => {
@@ -2215,8 +3030,17 @@ describe("Operator", () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...convertFulfill2Params(request, responseTypes, responseValues));
-              bigNumEquals(0, await ethers.provider.getBalance(maliciousConsumer.address));
+                .fulfillOracleRequest2(
+                  ...convertFulfill2Params(
+                    request,
+                    responseTypes,
+                    responseValues,
+                  ),
+                );
+              bigNumEquals(
+                0,
+                await ethers.provider.getBalance(maliciousConsumer.address),
+              );
             });
           });
         });
@@ -2234,14 +3058,23 @@ describe("Operator", () => {
           .deploy(link.address, operator.address, specId);
         const paymentAmount = toWei("1");
         await link.transfer(basicConsumer.address, paymentAmount);
-        const tx = await basicConsumer.requestEthereumPrice("USD", paymentAmount);
+        const tx = await basicConsumer.requestEthereumPrice(
+          "USD",
+          paymentAmount,
+        );
         const receipt = await tx.wait();
         let request = decodeRunRequest(receipt.logs?.[3]);
 
-        const fulfillParams = convertFulfill2Params(request, responseTypes, responseValues);
+        const fulfillParams = convertFulfill2Params(
+          request,
+          responseTypes,
+          responseValues,
+        );
         fulfillParams[5] = "0x"; // overwrite the data to be of lenght 0
         await evmRevert(
-          operator.connect(roles.oracleNode).fulfillOracleRequest2(...fulfillParams),
+          operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest2(...fulfillParams),
           "Response must be > 32 bytes",
         );
       });
@@ -2254,7 +3087,9 @@ describe("Operator", () => {
         let balance = await link.balanceOf(await roles.oracleNode.getAddress());
         assert.equal(0, balance.toNumber());
         await evmRevert(
-          operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), toWei("1")),
+          operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.oracleNode.getAddress(), toWei("1")),
         );
         balance = await link.balanceOf(await roles.oracleNode.getAddress());
         assert.equal(0, balance.toNumber());
@@ -2268,15 +3103,23 @@ describe("Operator", () => {
 
         it("withdraws funds", async () => {
           const operatorBalanceBefore = await link.balanceOf(operator.address);
-          const accountBalanceBefore = await link.balanceOf(await roles.defaultAccount.getAddress());
+          const accountBalanceBefore = await link.balanceOf(
+            await roles.defaultAccount.getAddress(),
+          );
 
-          await operator.connect(roles.defaultAccount).withdraw(await roles.defaultAccount.getAddress(), paid);
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.defaultAccount.getAddress(), paid);
 
           const operatorBalanceAfter = await link.balanceOf(operator.address);
-          const accountBalanceAfter = await link.balanceOf(await roles.defaultAccount.getAddress());
+          const accountBalanceAfter = await link.balanceOf(
+            await roles.defaultAccount.getAddress(),
+          );
 
-          const accountDifference = accountBalanceAfter.sub(accountBalanceBefore);
-          const operatorDifference = operatorBalanceBefore.sub(operatorBalanceAfter);
+          const accountDifference =
+            accountBalanceAfter.sub(accountBalanceBefore);
+          const operatorDifference =
+            operatorBalanceBefore.sub(operatorBalanceAfter);
 
           bigNumEquals(operatorDifference, paid);
           bigNumEquals(accountDifference, paid);
@@ -2290,7 +3133,13 @@ describe("Operator", () => {
 
       beforeEach(async () => {
         const requester = await roles.defaultAccount.getAddress();
-        const args = encodeOracleRequest(specId, requester, fHash, 0, constants.HashZero);
+        const args = encodeOracleRequest(
+          specId,
+          requester,
+          fHash,
+          0,
+          constants.HashZero,
+        );
         const tx = await link.transferAndCall(operator.address, payment, args);
         const receipt = await tx.wait();
         assert.equal(3, receipt.logs?.length);
@@ -2300,9 +3149,13 @@ describe("Operator", () => {
       describe("but not freeing funds w fulfillOracleRequest", () => {
         it("does not transfer funds", async () => {
           await evmRevert(
-            operator.connect(roles.defaultAccount).withdraw(await roles.oracleNode.getAddress(), payment),
+            operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.oracleNode.getAddress(), payment),
           );
-          const balance = await link.balanceOf(await roles.oracleNode.getAddress());
+          const balance = await link.balanceOf(
+            await roles.oracleNode.getAddress(),
+          );
           assert.equal(0, balance.toNumber());
         });
 
@@ -2313,16 +3166,26 @@ describe("Operator", () => {
           });
 
           it("withdraws funds", async () => {
-            const operatorBalanceBefore = await link.balanceOf(operator.address);
-            const accountBalanceBefore = await link.balanceOf(await roles.defaultAccount.getAddress());
+            const operatorBalanceBefore = await link.balanceOf(
+              operator.address,
+            );
+            const accountBalanceBefore = await link.balanceOf(
+              await roles.defaultAccount.getAddress(),
+            );
 
-            await operator.connect(roles.defaultAccount).withdraw(await roles.defaultAccount.getAddress(), paid);
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.defaultAccount.getAddress(), paid);
 
             const operatorBalanceAfter = await link.balanceOf(operator.address);
-            const accountBalanceAfter = await link.balanceOf(await roles.defaultAccount.getAddress());
+            const accountBalanceAfter = await link.balanceOf(
+              await roles.defaultAccount.getAddress(),
+            );
 
-            const accountDifference = accountBalanceAfter.sub(accountBalanceBefore);
-            const operatorDifference = operatorBalanceBefore.sub(operatorBalanceAfter);
+            const accountDifference =
+              accountBalanceAfter.sub(accountBalanceBefore);
+            const operatorDifference =
+              operatorBalanceBefore.sub(operatorBalanceAfter);
 
             bigNumEquals(operatorDifference, paid);
             bigNumEquals(accountDifference, paid);
@@ -2334,45 +3197,73 @@ describe("Operator", () => {
         beforeEach(async () => {
           await operator
             .connect(roles.oracleNode)
-            .fulfillOracleRequest(...convertFufillParams(request, "Hello World!"));
+            .fulfillOracleRequest(
+              ...convertFufillParams(request, "Hello World!"),
+            );
         });
 
         it("does not allow input greater than the balance", async () => {
           const originalOracleBalance = await link.balanceOf(operator.address);
-          const originalStrangerBalance = await link.balanceOf(await roles.stranger.getAddress());
+          const originalStrangerBalance = await link.balanceOf(
+            await roles.stranger.getAddress(),
+          );
           const withdrawalAmount = payment + 1;
 
           assert.isAbove(withdrawalAmount, originalOracleBalance.toNumber());
           await evmRevert(
-            operator.connect(roles.defaultAccount).withdraw(await roles.stranger.getAddress(), withdrawalAmount),
+            operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.stranger.getAddress(), withdrawalAmount),
           );
 
           const newOracleBalance = await link.balanceOf(operator.address);
-          const newStrangerBalance = await link.balanceOf(await roles.stranger.getAddress());
+          const newStrangerBalance = await link.balanceOf(
+            await roles.stranger.getAddress(),
+          );
 
-          assert.equal(originalOracleBalance.toNumber(), newOracleBalance.toNumber());
-          assert.equal(originalStrangerBalance.toNumber(), newStrangerBalance.toNumber());
+          assert.equal(
+            originalOracleBalance.toNumber(),
+            newOracleBalance.toNumber(),
+          );
+          assert.equal(
+            originalStrangerBalance.toNumber(),
+            newStrangerBalance.toNumber(),
+          );
         });
 
         it("allows transfer of partial balance by owner to specified address", async () => {
           const partialAmount = 6;
           const difference = payment - partialAmount;
-          await operator.connect(roles.defaultAccount).withdraw(await roles.stranger.getAddress(), partialAmount);
-          const strangerBalance = await link.balanceOf(await roles.stranger.getAddress());
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.stranger.getAddress(), partialAmount);
+          const strangerBalance = await link.balanceOf(
+            await roles.stranger.getAddress(),
+          );
           const oracleBalance = await link.balanceOf(operator.address);
           assert.equal(partialAmount, strangerBalance.toNumber());
           assert.equal(difference, oracleBalance.toNumber());
         });
 
         it("allows transfer of entire balance by owner to specified address", async () => {
-          await operator.connect(roles.defaultAccount).withdraw(await roles.stranger.getAddress(), payment);
-          const balance = await link.balanceOf(await roles.stranger.getAddress());
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(await roles.stranger.getAddress(), payment);
+          const balance = await link.balanceOf(
+            await roles.stranger.getAddress(),
+          );
           assert.equal(payment, balance.toNumber());
         });
 
         it("does not allow a transfer of funds by non-owner", async () => {
-          await evmRevert(operator.connect(roles.stranger).withdraw(await roles.stranger.getAddress(), payment));
-          const balance = await link.balanceOf(await roles.stranger.getAddress());
+          await evmRevert(
+            operator
+              .connect(roles.stranger)
+              .withdraw(await roles.stranger.getAddress(), payment),
+          );
+          const balance = await link.balanceOf(
+            await roles.stranger.getAddress(),
+          );
           assert.isTrue(ethers.constants.Zero.eq(balance));
         });
 
@@ -2383,16 +3274,26 @@ describe("Operator", () => {
           });
 
           it("withdraws funds", async () => {
-            const operatorBalanceBefore = await link.balanceOf(operator.address);
-            const accountBalanceBefore = await link.balanceOf(await roles.defaultAccount.getAddress());
+            const operatorBalanceBefore = await link.balanceOf(
+              operator.address,
+            );
+            const accountBalanceBefore = await link.balanceOf(
+              await roles.defaultAccount.getAddress(),
+            );
 
-            await operator.connect(roles.defaultAccount).withdraw(await roles.defaultAccount.getAddress(), paid);
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(await roles.defaultAccount.getAddress(), paid);
 
             const operatorBalanceAfter = await link.balanceOf(operator.address);
-            const accountBalanceAfter = await link.balanceOf(await roles.defaultAccount.getAddress());
+            const accountBalanceAfter = await link.balanceOf(
+              await roles.defaultAccount.getAddress(),
+            );
 
-            const accountDifference = accountBalanceAfter.sub(accountBalanceBefore);
-            const operatorDifference = operatorBalanceBefore.sub(operatorBalanceAfter);
+            const accountDifference =
+              accountBalanceAfter.sub(accountBalanceBefore);
+            const operatorDifference =
+              operatorBalanceBefore.sub(operatorBalanceAfter);
 
             bigNumEquals(operatorDifference, paid);
             bigNumEquals(accountDifference, paid);
@@ -2408,12 +3309,20 @@ describe("Operator", () => {
 
     beforeEach(async () => {
       const requester = await roles.defaultAccount.getAddress();
-      const args = encodeOracleRequest(specId, requester, fHash, 0, constants.HashZero);
+      const args = encodeOracleRequest(
+        specId,
+        requester,
+        fHash,
+        0,
+        constants.HashZero,
+      );
       const tx = await link.transferAndCall(operator.address, amount, args);
       const receipt = await tx.wait();
       assert.equal(3, receipt.logs?.length);
       request = decodeRunRequest(receipt.logs?.[2]);
-      await operator.connect(roles.oracleNode).fulfillOracleRequest(...convertFufillParams(request, "Hello World!"));
+      await operator
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(...convertFufillParams(request, "Hello World!"));
     });
 
     it("returns the correct value", async () => {
@@ -2461,7 +3370,9 @@ describe("Operator", () => {
       it("reverts with owner error message", async () => {
         await link.transfer(operator.address, startingBalance);
         await evmRevert(
-          operator.connect(roles.stranger).ownerTransferAndCall(to, payment, args),
+          operator
+            .connect(roles.stranger)
+            .ownerTransferAndCall(to, payment, args),
           "Only callable by owner",
         );
       });
@@ -2476,7 +3387,9 @@ describe("Operator", () => {
         it("reverts with funds message", async () => {
           const tooMuch = startingBalance * 2;
           await evmRevert(
-            operator.connect(roles.defaultAccount).ownerTransferAndCall(to, tooMuch, args),
+            operator
+              .connect(roles.defaultAccount)
+              .ownerTransferAndCall(to, tooMuch, args),
             "Amount requested is greater than withdrawable balance",
           );
         });
@@ -2493,7 +3406,9 @@ describe("Operator", () => {
         before(async () => {
           requesterBalanceBefore = await link.balanceOf(operator.address);
           receiverBalanceBefore = await link.balanceOf(operator2.address);
-          tx = await operator.connect(roles.defaultAccount).ownerTransferAndCall(to, payment, args);
+          tx = await operator
+            .connect(roles.defaultAccount)
+            .ownerTransferAndCall(to, payment, args);
           receipt = await tx.wait();
           requesterBalanceAfter = await link.balanceOf(operator.address);
           receiverBalanceAfter = await link.balanceOf(operator2.address);
@@ -2502,13 +3417,22 @@ describe("Operator", () => {
         it("emits an event", async () => {
           assert.equal(3, receipt.logs?.length);
           const transferLog = await getLog(tx, 1);
-          const parsedLog = link.interface.parseLog({ data: transferLog.data, topics: transferLog.topics });
+          const parsedLog = link.interface.parseLog({
+            data: transferLog.data,
+            topics: transferLog.topics,
+          });
           await expect(parsedLog.name).to.equal("Transfer");
         });
 
         it("transfers the tokens", async () => {
-          bigNumEquals(requesterBalanceBefore.sub(requesterBalanceAfter), payment);
-          bigNumEquals(receiverBalanceAfter.sub(receiverBalanceBefore), payment);
+          bigNumEquals(
+            requesterBalanceBefore.sub(requesterBalanceAfter),
+            payment,
+          );
+          bigNumEquals(
+            receiverBalanceAfter.sub(receiverBalanceBefore),
+            payment,
+          );
         });
       });
     });
@@ -2522,7 +3446,8 @@ describe("Operator", () => {
         const fakeRequest: RunRequest = {
           requestId: ethers.utils.formatBytes32String("1337"),
           payment: "0",
-          callbackFunc: getterSetterFactory.interface.getSighash("requestedBytes32"),
+          callbackFunc:
+            getterSetterFactory.interface.getSighash("requestedBytes32"),
           expiration: "999999999999",
 
           callbackAddr: "",
@@ -2537,7 +3462,9 @@ describe("Operator", () => {
         await evmRevert(
           operator
             .connect(roles.stranger)
-            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(fakeRequest, nonce)),
+            .cancelOracleRequestByRequester(
+              ...convertCancelByRequesterParams(fakeRequest, nonce),
+            ),
         );
       });
     });
@@ -2552,8 +3479,16 @@ describe("Operator", () => {
 
         await link.transfer(await roles.consumer.getAddress(), startingBalance);
 
-        const args = encodeOracleRequest(specId, await roles.consumer.getAddress(), fHash, nonce, constants.HashZero);
-        const tx = await link.connect(roles.consumer).transferAndCall(operator.address, requestAmount, args);
+        const args = encodeOracleRequest(
+          specId,
+          await roles.consumer.getAddress(),
+          fHash,
+          nonce,
+          constants.HashZero,
+        );
+        const tx = await link
+          .connect(roles.consumer)
+          .transferAndCall(operator.address, requestAmount, args);
         receipt = await tx.wait();
 
         assert.equal(3, receipt.logs?.length);
@@ -2563,8 +3498,13 @@ describe("Operator", () => {
         const oracleBalance = await link.balanceOf(operator.address);
         bigNumEquals(request.payment, oracleBalance);
 
-        const consumerAmount = await link.balanceOf(await roles.consumer.getAddress());
-        assert.equal(startingBalance - Number(request.payment), consumerAmount.toNumber());
+        const consumerAmount = await link.balanceOf(
+          await roles.consumer.getAddress(),
+        );
+        assert.equal(
+          startingBalance - Number(request.payment),
+          consumerAmount.toNumber(),
+        );
       });
 
       describe("from a stranger", () => {
@@ -2572,7 +3512,9 @@ describe("Operator", () => {
           await evmRevert(
             operator
               .connect(roles.consumer)
-              .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce)),
+              .cancelOracleRequestByRequester(
+                ...convertCancelByRequesterParams(request, nonce),
+              ),
           );
         });
       });
@@ -2582,8 +3524,12 @@ describe("Operator", () => {
           await increaseTime5Minutes(ethers.provider);
           await operator
             .connect(roles.consumer)
-            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
-          const balance = await link.balanceOf(await roles.consumer.getAddress());
+            .cancelOracleRequestByRequester(
+              ...convertCancelByRequesterParams(request, nonce),
+            );
+          const balance = await link.balanceOf(
+            await roles.consumer.getAddress(),
+          );
 
           assert.equal(startingBalance, balance.toNumber()); // 100
         });
@@ -2592,7 +3538,9 @@ describe("Operator", () => {
           await increaseTime5Minutes(ethers.provider);
           const tx = await operator
             .connect(roles.consumer)
-            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
+            .cancelOracleRequestByRequester(
+              ...convertCancelByRequesterParams(request, nonce),
+            );
           const receipt = await tx.wait();
 
           assert.equal(receipt.logs?.length, 2);
@@ -2603,10 +3551,14 @@ describe("Operator", () => {
           await increaseTime5Minutes(ethers.provider);
           await operator
             .connect(roles.consumer)
-            .cancelOracleRequestByRequester(...convertCancelByRequesterParams(request, nonce));
+            .cancelOracleRequestByRequester(
+              ...convertCancelByRequesterParams(request, nonce),
+            );
 
           await evmRevert(
-            operator.connect(roles.consumer).cancelOracleRequestByRequester(...convertCancelParams(request)),
+            operator
+              .connect(roles.consumer)
+              .cancelOracleRequestByRequester(...convertCancelParams(request)),
           );
         });
       });
@@ -2619,7 +3571,8 @@ describe("Operator", () => {
         const fakeRequest: RunRequest = {
           requestId: ethers.utils.formatBytes32String("1337"),
           payment: "0",
-          callbackFunc: getterSetterFactory.interface.getSighash("requestedBytes32"),
+          callbackFunc:
+            getterSetterFactory.interface.getSighash("requestedBytes32"),
           expiration: "999999999999",
 
           callbackAddr: "",
@@ -2631,7 +3584,11 @@ describe("Operator", () => {
         };
         await increaseTime5Minutes(ethers.provider);
 
-        await evmRevert(operator.connect(roles.stranger).cancelOracleRequest(...convertCancelParams(fakeRequest)));
+        await evmRevert(
+          operator
+            .connect(roles.stranger)
+            .cancelOracleRequest(...convertCancelParams(fakeRequest)),
+        );
       });
     });
 
@@ -2645,8 +3602,16 @@ describe("Operator", () => {
 
         await link.transfer(await roles.consumer.getAddress(), startingBalance);
 
-        const args = encodeOracleRequest(specId, await roles.consumer.getAddress(), fHash, 1, constants.HashZero);
-        const tx = await link.connect(roles.consumer).transferAndCall(operator.address, requestAmount, args);
+        const args = encodeOracleRequest(
+          specId,
+          await roles.consumer.getAddress(),
+          fHash,
+          1,
+          constants.HashZero,
+        );
+        const tx = await link
+          .connect(roles.consumer)
+          .transferAndCall(operator.address, requestAmount, args);
         receipt = await tx.wait();
 
         assert.equal(3, receipt.logs?.length);
@@ -2657,28 +3622,43 @@ describe("Operator", () => {
         const oracleBalance = await link.balanceOf(operator.address);
         bigNumEquals(request.payment, oracleBalance);
 
-        const consumerAmount = await link.balanceOf(await roles.consumer.getAddress());
-        assert.equal(startingBalance - Number(request.payment), consumerAmount.toNumber());
+        const consumerAmount = await link.balanceOf(
+          await roles.consumer.getAddress(),
+        );
+        assert.equal(
+          startingBalance - Number(request.payment),
+          consumerAmount.toNumber(),
+        );
       });
 
       describe("from a stranger", () => {
         it("fails", async () => {
-          await evmRevert(operator.connect(roles.consumer).cancelOracleRequest(...convertCancelParams(request)));
+          await evmRevert(
+            operator
+              .connect(roles.consumer)
+              .cancelOracleRequest(...convertCancelParams(request)),
+          );
         });
       });
 
       describe("from the requester", () => {
         it("refunds the correct amount", async () => {
           await increaseTime5Minutes(ethers.provider);
-          await operator.connect(roles.consumer).cancelOracleRequest(...convertCancelParams(request));
-          const balance = await link.balanceOf(await roles.consumer.getAddress());
+          await operator
+            .connect(roles.consumer)
+            .cancelOracleRequest(...convertCancelParams(request));
+          const balance = await link.balanceOf(
+            await roles.consumer.getAddress(),
+          );
 
           assert.equal(startingBalance, balance.toNumber()); // 100
         });
 
         it("triggers a cancellation event", async () => {
           await increaseTime5Minutes(ethers.provider);
-          const tx = await operator.connect(roles.consumer).cancelOracleRequest(...convertCancelParams(request));
+          const tx = await operator
+            .connect(roles.consumer)
+            .cancelOracleRequest(...convertCancelParams(request));
           const receipt = await tx.wait();
 
           assert.equal(receipt.logs?.length, 2);
@@ -2687,9 +3667,15 @@ describe("Operator", () => {
 
         it("fails when called twice", async () => {
           await increaseTime5Minutes(ethers.provider);
-          await operator.connect(roles.consumer).cancelOracleRequest(...convertCancelParams(request));
+          await operator
+            .connect(roles.consumer)
+            .cancelOracleRequest(...convertCancelParams(request));
 
-          await evmRevert(operator.connect(roles.consumer).cancelOracleRequest(...convertCancelParams(request)));
+          await evmRevert(
+            operator
+              .connect(roles.consumer)
+              .cancelOracleRequest(...convertCancelParams(request)),
+          );
         });
       });
     });
@@ -2711,7 +3697,9 @@ describe("Operator", () => {
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await evmRevert(operator.connect(roles.stranger).ownerForward(mock.address, payload));
+        await evmRevert(
+          operator.connect(roles.stranger).ownerForward(mock.address, payload),
+        );
       });
     });
 
@@ -2720,7 +3708,9 @@ describe("Operator", () => {
         it("reverts", async () => {
           const sighash = linkTokenFactory.interface.getSighash("name");
           await evmRevert(
-            operator.connect(roles.defaultAccount).ownerForward(link.address, sighash),
+            operator
+              .connect(roles.defaultAccount)
+              .ownerForward(link.address, sighash),
             "Cannot call to LINK",
           );
         });
@@ -2728,23 +3718,33 @@ describe("Operator", () => {
 
       describe("when forwarding to any other address", () => {
         it("forwards the data", async () => {
-          const tx = await operator.connect(roles.defaultAccount).ownerForward(mock.address, payload);
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload);
           await tx.wait();
           assert.equal(await mock.getBytes(), bytes);
         });
 
         it("reverts when sending to a non-contract address", async () => {
           await evmRevert(
-            operator.connect(roles.defaultAccount).ownerForward(zeroAddress, payload),
+            operator
+              .connect(roles.defaultAccount)
+              .ownerForward(zeroAddress, payload),
             "Must forward to a contract",
           );
         });
 
         it("perceives the message is sent by the Operator", async () => {
-          const tx = await operator.connect(roles.defaultAccount).ownerForward(mock.address, payload);
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload);
           const receipt = await tx.wait();
           const log: any = receipt.logs?.[0];
-          const logData = mock.interface.decodeEventLog(mock.interface.getEvent("SetBytes"), log.data, log.topics);
+          const logData = mock.interface.decodeEventLog(
+            mock.interface.getEvent("SetBytes"),
+            log.data,
+            log.topics,
+          );
           assert.equal(ethers.utils.getAddress(logData.from), operator.address);
         });
       });
