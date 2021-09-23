@@ -222,7 +222,6 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.gasEstimatorMode = "Optimism"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
-	optimismMainnet.linkContractAddress = "" // TBD
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minRequiredOutgoingConfirmations = 0
