@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,17 +43,21 @@ type Eth interface {
 
 type eth struct {
 	*keyManager
+	subscribers   [](chan struct{})
+	subscribersMu *sync.RWMutex
 }
 
-var _ Eth = eth{}
+var _ Eth = &eth{}
 
-func newEthKeyStore(km *keyManager) eth {
-	return eth{
-		km,
+func newEthKeyStore(km *keyManager) *eth {
+	return &eth{
+		keyManager:    km,
+		subscribers:   make([](chan struct{}), 0),
+		subscribersMu: new(sync.RWMutex),
 	}
 }
 
-func (ks eth) Get(id string) (ethkey.KeyV2, error) {
+func (ks *eth) Get(id string) (ethkey.KeyV2, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -61,7 +66,7 @@ func (ks eth) Get(id string) (ethkey.KeyV2, error) {
 	return ks.getByID(id)
 }
 
-func (ks eth) GetAll() (keys []ethkey.KeyV2, _ error) {
+func (ks *eth) GetAll() (keys []ethkey.KeyV2, _ error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -73,7 +78,7 @@ func (ks eth) GetAll() (keys []ethkey.KeyV2, _ error) {
 	return keys, nil
 }
 
-func (ks eth) Create() (ethkey.KeyV2, error) {
+func (ks *eth) Create() (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -83,10 +88,15 @@ func (ks eth) Create() (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, err
 	}
-	return key, ks.add(key)
+	err = ks.add(key)
+	if err != nil {
+		return ethkey.KeyV2{}, err
+	}
+	ks.notify()
+	return key, nil
 }
 
-func (ks eth) Add(key ethkey.KeyV2) error {
+func (ks *eth) Add(key ethkey.KeyV2) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -95,10 +105,15 @@ func (ks eth) Add(key ethkey.KeyV2) error {
 	if _, found := ks.keyRing.Eth[key.ID()]; found {
 		return fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return ks.add(key)
+	err := ks.add(key)
+	if err != nil {
+		return err
+	}
+	ks.notify()
+	return nil
 }
 
-func (ks eth) EnsureKeys() (
+func (ks *eth) EnsureKeys() (
 	sendingKey ethkey.KeyV2,
 	sendDidExist bool,
 	fundingKey ethkey.KeyV2,
@@ -143,10 +158,13 @@ func (ks eth) EnsureKeys() (
 			return ethkey.KeyV2{}, false, ethkey.KeyV2{}, false, err
 		}
 	}
+	if !sendDidExist || !fundDidExist {
+		ks.notify()
+	}
 	return sendingKey, sendDidExist, fundingKey, fundDidExist, nil
 }
 
-func (ks eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
+func (ks *eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -159,10 +177,15 @@ func (ks eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
 	if _, found := ks.keyRing.Eth[key.ID()]; found {
 		return ethkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
-	return key, ks.add(key)
+	err = ks.add(key)
+	if err != nil {
+		return ethkey.KeyV2{}, errors.Wrap(err, "unable to add eth key")
+	}
+	ks.notify()
+	return key, nil
 }
 
-func (ks eth) Export(id string, password string) ([]byte, error) {
+func (ks *eth) Export(id string, password string) ([]byte, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -175,7 +198,7 @@ func (ks eth) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks eth) Delete(id string) (ethkey.KeyV2, error) {
+func (ks *eth) Delete(id string) (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -188,14 +211,31 @@ func (ks eth) Delete(id string) (ethkey.KeyV2, error) {
 	err = ks.safeRemoveKey(key, func(db *gorm.DB) error {
 		return db.Where("address = ?", key.Address).Delete(ethkey.State{}).Error
 	})
-	return key, err
+	if err != nil {
+		return ethkey.KeyV2{}, errors.Wrap(err, "unable to remove eth key")
+	}
+	ks.notify()
+	return key, nil
 }
 
-func (ks eth) SubscribeToKeyChanges() (ch chan struct{}, unsub func()) {
-	return nil, func() {}
+func (ks *eth) SubscribeToKeyChanges() (ch chan struct{}, unsub func()) {
+	ch = make(chan struct{}, 1)
+	ks.subscribersMu.Lock()
+	defer ks.subscribersMu.Unlock()
+	ks.subscribers = append(ks.subscribers, ch)
+	return ch, func() {
+		ks.subscribersMu.Lock()
+		defer ks.subscribersMu.Unlock()
+		for i, sub := range ks.subscribers {
+			if sub == ch {
+				ks.subscribers = append(ks.subscribers[:i], ks.subscribers[i+1:]...)
+				close(ch)
+			}
+		}
+	}
 }
 
-func (ks eth) SignTx(address common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
+func (ks *eth) SignTx(address common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -209,7 +249,7 @@ func (ks eth) SignTx(address common.Address, tx *types.Transaction, chainID *big
 	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
 }
 
-func (ks eth) SendingKeys() (sendingKeys []ethkey.KeyV2, err error) {
+func (ks *eth) SendingKeys() (sendingKeys []ethkey.KeyV2, err error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -218,7 +258,16 @@ func (ks eth) SendingKeys() (sendingKeys []ethkey.KeyV2, err error) {
 	return ks.sendingKeys(), nil
 }
 
-func (ks eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address, error) {
+func (ks *eth) FundingKeys() (fundingKeys []ethkey.KeyV2, err error) {
+	ks.lock.RLock()
+	defer ks.lock.RUnlock()
+	if ks.isLocked() {
+		return nil, ErrLocked
+	}
+	return ks.fundingKeys(), nil
+}
+
+func (ks *eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -251,7 +300,7 @@ func (ks eth) GetRoundRobinAddress(whitelist ...common.Address) (common.Address,
 	return leastRecentlyUsed.Address.Address(), nil
 }
 
-func (ks eth) GetState(id string) (ethkey.State, error) {
+func (ks *eth) GetState(id string) (ethkey.State, error) {
 	ks.lock.RLock()
 	defer ks.lock.RUnlock()
 	if ks.isLocked() {
@@ -265,7 +314,7 @@ func (ks eth) GetState(id string) (ethkey.State, error) {
 }
 
 // SetState is only used in tests to manually update a key's state
-func (ks eth) SetState(state ethkey.State) error {
+func (ks *eth) SetState(state ethkey.State) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -282,7 +331,7 @@ func (ks eth) SetState(state ethkey.State) error {
 		Updates(state).Error
 }
 
-func (ks eth) GetStatesForKeys(keys []ethkey.KeyV2) (states []ethkey.State, err error) {
+func (ks *eth) GetStatesForKeys(keys []ethkey.KeyV2) (states []ethkey.State, err error) {
 	for _, k := range keys {
 		state, err := ks.GetState(k.ID())
 		if err != nil {
@@ -293,7 +342,7 @@ func (ks eth) GetStatesForKeys(keys []ethkey.KeyV2) (states []ethkey.State, err 
 	return
 }
 
-func (ks eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
+func (ks *eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
 		return keys, states, err
@@ -316,7 +365,7 @@ func (ks eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ err
 }
 
 // caller must hold lock!
-func (ks eth) getByID(id string) (ethkey.KeyV2, error) {
+func (ks *eth) getByID(id string) (ethkey.KeyV2, error) {
 	key, found := ks.keyRing.Eth[id]
 	if !found {
 		return ethkey.KeyV2{}, fmt.Errorf("unable to find eth key with id %s", id)
@@ -325,7 +374,7 @@ func (ks eth) getByID(id string) (ethkey.KeyV2, error) {
 }
 
 // caller must hold lock!
-func (ks eth) fundingKeys() (fundingKeys []ethkey.KeyV2) {
+func (ks *eth) fundingKeys() (fundingKeys []ethkey.KeyV2) {
 	for _, k := range ks.keyRing.Eth {
 		if ks.keyStates.Eth[k.ID()].IsFunding {
 			fundingKeys = append(fundingKeys, k)
@@ -336,7 +385,7 @@ func (ks eth) fundingKeys() (fundingKeys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks eth) sendingKeys() (sendingKeys []ethkey.KeyV2) {
+func (ks *eth) sendingKeys() (sendingKeys []ethkey.KeyV2) {
 	for _, k := range ks.keyRing.Eth {
 		if !ks.keyStates.Eth[k.ID()].IsFunding {
 			sendingKeys = append(sendingKeys, k)
@@ -347,12 +396,12 @@ func (ks eth) sendingKeys() (sendingKeys []ethkey.KeyV2) {
 }
 
 // caller must hold lock!
-func (ks eth) add(key ethkey.KeyV2) error {
+func (ks *eth) add(key ethkey.KeyV2) error {
 	return ks.addEthKeyWithState(key, ethkey.State{})
 }
 
 // caller must hold lock!
-func (ks eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
+func (ks *eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
 	state.Address = key.Address
 	return ks.safeAddKey(key, func(db *gorm.DB) error {
 		if err := db.Create(&state).Error; err != nil {
@@ -361,4 +410,16 @@ func (ks eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
 		ks.keyStates.Eth[key.ID()] = &state
 		return nil
 	})
+}
+
+// notify notifies subscribers that eth keys have changed
+func (ks *eth) notify() {
+	ks.subscribersMu.RLock()
+	defer ks.subscribersMu.RUnlock()
+	for _, ch := range ks.subscribers {
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}
 }
