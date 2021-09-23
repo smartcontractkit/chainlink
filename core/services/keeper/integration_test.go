@@ -89,7 +89,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	backend.Commit()
 
 	// setup app
-	config, _ := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
+	config, _, _ := heavyweight.FullTestDB(t, "keeper_eth_integration", true, true)
 	d := 24 * time.Hour
 	// disable full sync ticker for test
 	config.Overrides.KeeperRegistrySyncInterval = &d

@@ -46,7 +46,7 @@ type Config interface {
 	OCRTraceLogging() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	P2PBootstrapPeers() ([]string, error)
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() p2pkey.PeerID
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
 	FlagsContractAddress() string
 }
@@ -54,7 +54,7 @@ type Config interface {
 type Delegate struct {
 	db                    *gorm.DB
 	jobORM                job.ORM
-	keyStore              keystore.OCR
+	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -68,7 +68,7 @@ const ConfigOverriderPollInterval = 30 * time.Second
 func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
-	keyStore keystore.OCR,
+	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -142,11 +142,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PPeerID != nil {
 		peerID = *concreteSpec.P2PPeerID
 	} else {
-		peerID, err = chain.Config().P2PPeerID()
-		if err != nil {
-			return nil, err
+		k, err2 := d.keyStore.P2P().GetOrFirst(chain.Config().P2PPeerID().Raw())
+		if err2 != nil {
+			return nil, err2
 		}
+		peerID = k.PeerID()
 	}
+
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
@@ -208,7 +210,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				return nil, err
 			}
 		}
-		ocrkey, err := d.keyStore.Get(kb)
+		ocrkey, err := d.keyStore.OCR().Get(kb)
 		if err != nil {
 			return nil, err
 		}
