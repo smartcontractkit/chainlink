@@ -91,7 +91,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			return nil
 		}
 
-		key, err := p.keyStore.P2P().ConfiguredOrFirstKey(p.config.P2PPeerID())
+		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID().Raw())
 		if err != nil {
 			return errors.Wrap(err, "while fetching configured key")
 		}
