@@ -157,7 +157,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if concreteSpec.P2PPeerID != nil {
 		peerID = *concreteSpec.P2PPeerID
 	} else {
-		k, err2 := d.keyStore.P2P().ConfiguredOrFirstKey(d.config.P2PPeerID())
+		k, err2 := d.keyStore.P2P().GetOrFirst(d.config.P2PPeerID().Raw())
 		if err2 != nil {
 			return nil, err2
 		}
