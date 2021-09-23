@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
@@ -320,4 +321,134 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, ocrJob.ID, jb.ID)
 		assert.Equal(t, ocrJob.Name, jb.Name)
 	})
+}
+
+func Test_FindPipelineRuns(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	pipelineORM := pipeline.NewORM(db)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
+	defer orm.Close()
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, db.Create(bridge2).Error)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, count, err := orm.PipelineRuns(0, 10)
+		require.NoError(t, err)
+		assert.Equal(t, count, 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, db, ocrJob)
+
+		runs, count, err := orm.PipelineRuns(0, 10)
+		require.NoError(t, err)
+
+		assert.Equal(t, count, 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, ocrJob.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, ocrJob.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func Test_PipelineRunsByJobID(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	pipelineORM := pipeline.NewORM(db)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewORM(db, cc, pipelineORM, keyStore)
+	defer orm.Close()
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	require.NoError(t, db.Create(bridge2).Error)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, count, err := orm.PipelineRunsByJobID(ocrJob.ID, 0, 10)
+		require.NoError(t, err)
+		assert.Equal(t, count, 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, db, ocrJob)
+
+		runs, count, err := orm.PipelineRunsByJobID(ocrJob.ID, 0, 10)
+		require.NoError(t, err)
+
+		assert.Equal(t, count, 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, ocrJob.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, ocrJob.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func mustInsertPipelineRun(t *testing.T, db *gorm.DB, j job.Job) pipeline.Run {
+	t.Helper()
+
+	run := pipeline.Run{
+		PipelineSpecID: j.PipelineSpecID,
+		State:          pipeline.RunStatusRunning,
+		Outputs:        pipeline.JSONSerializable{Null: true},
+		Errors:         pipeline.RunErrors{},
+		FinishedAt:     null.Time{},
+	}
+	require.NoError(t, db.Create(&run).Error)
+	return run
 }
