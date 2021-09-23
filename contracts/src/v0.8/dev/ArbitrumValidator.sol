@@ -38,7 +38,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address private constant FLAG_ARBITRUM_SEQ_OFFLINE =
+  address public constant FLAG_ARBITRUM_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
   // Encode underlying Flags call/s
   bytes private constant CALL_RAISE_FLAG =
@@ -185,11 +185,11 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    */
   function withdrawFundsFromL2(uint256 amount, address refundAddr) external onlyOwner returns (uint256 id) {
     // Build an xDomain message to trigger the ArbSys precompile, which will create a L2 -> L1 tx transferring `amount`
-    bytes memory message = abi.encodeWithSelector(ArbSys.sendTxToL1.selector, address(this));
+    bytes memory message = abi.encodeWithSelector(ArbSys.withdrawEth.selector, address(this));
     // Make the xDomain call
     // NOTICE: We approximate the max submission cost of sending a retryable tx with specific calldata length.
     uint256 maxSubmissionCost = _approximateMaxSubmissionCost(message.length);
-    uint256 maxGas = 100_000; // static `maxGas` for L2 -> L1 transfer
+    uint256 maxGas = 120_000; // static `maxGas` for L2 -> L1 transfer
     uint256 gasPriceBid = s_gasConfig.gasPriceBid;
     uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1
       ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid)
