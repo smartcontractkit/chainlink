@@ -38,8 +38,6 @@ import (
 
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
-	store "github.com/smartcontractkit/chainlink/core/store"
-
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
@@ -273,22 +271,6 @@ func (_m *Application) GetLogger() logger.Logger {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(logger.Logger)
-		}
-	}
-
-	return r0
-}
-
-// GetStore provides a mock function with given fields:
-func (_m *Application) GetStore() *store.Store {
-	ret := _m.Called()
-
-	var r0 *store.Store
-	if rf, ok := ret.Get(0).(func() *store.Store); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*store.Store)
 		}
 	}
 

@@ -13,15 +13,8 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
   FlagsInterface private s_flags;
   mapping(address => uint256) private s_thresholdSeconds;
 
-  event FlagsAddressUpdated(
-    address indexed previous,
-    address indexed current
-  );
-  event FlaggingThresholdUpdated(
-    address indexed aggregator,
-    uint256 indexed previous,
-    uint256 indexed current
-  );
+  event FlagsAddressUpdated(address indexed previous, address indexed current);
+  event FlaggingThresholdUpdated(address indexed aggregator, uint256 indexed previous, uint256 indexed current);
 
   /**
    * @notice Create a new StalenessFlaggingValidator
@@ -29,11 +22,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @dev Ensure that this contract has sufficient write permissions
    * on the flag contract
    */
-  constructor(
-    address flagsAddress
-  )
-    ConfirmedOwner(msg.sender)
-  {
+  constructor(address flagsAddress) ConfirmedOwner(msg.sender) {
     setFlagsAddress(flagsAddress);
   }
 
@@ -41,12 +30,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @notice Updates the flagging contract address for raising flags
    * @param flagsAddress sets the address of the flags contract
    */
-  function setFlagsAddress(
-    address flagsAddress
-  )
-    public
-    onlyOwner()
-  {
+  function setFlagsAddress(address flagsAddress) public onlyOwner {
     address previous = address(s_flags);
     if (previous != flagsAddress) {
       s_flags = FlagsInterface(flagsAddress);
@@ -60,13 +44,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @param aggregators address[] memory
    * @param flaggingThresholds uint256[] memory
    */
-  function setThresholds(
-    address[] memory aggregators,
-    uint256[] memory flaggingThresholds
-  )
-    public 
-    onlyOwner()
-  {
+  function setThresholds(address[] memory aggregators, uint256[] memory flaggingThresholds) public onlyOwner {
     require(aggregators.length == flaggingThresholds.length, "Different sized arrays");
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
@@ -86,15 +64,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function check(
-    address[] memory aggregators
-  )
-    public
-    view
-    returns (
-      address[] memory
-    )
-  {
+  function check(address[] memory aggregators) public view returns (address[] memory) {
     uint256 currentTimestamp = block.timestamp;
     address[] memory staleAggregators = new address[](aggregators.length);
     uint256 staleCount = 0;
@@ -121,14 +91,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function update(
-    address[] memory aggregators
-  )
-    public
-    returns (
-      address[] memory
-    )
-  {
+  function update(address[] memory aggregators) public returns (address[] memory) {
     address[] memory staleAggregators = check(aggregators);
     s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
@@ -141,17 +104,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return staleAggregators bytes encoded address array of stale aggregator addresses
    */
-  function checkUpkeep(
-    bytes calldata data
-  )
-    external
-    view
-    override
-    returns (
-      bool,
-      bytes memory
-    )
-  {
+  function checkUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
     address[] memory staleAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (staleAggregators.length > 0);
     return (needsUpkeep, abi.encode(staleAggregators));
@@ -163,12 +116,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @dev Overriding KeeperInterface
    * @param data bytes encoded address array
    */
-  function performUpkeep(
-    bytes calldata data
-  )
-    external
-    override
-  {
+  function performUpkeep(bytes calldata data) external override {
     update(abi.decode(data, (address[])));
   }
 
@@ -177,13 +125,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @param aggregator address
    * @return uint256
    */
-  function threshold(
-    address aggregator
-  )
-    external
-    view
-    returns (uint256)
-  {
+  function threshold(address aggregator) external view returns (uint256) {
     return s_thresholdSeconds[aggregator];
   }
 
@@ -191,13 +133,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @notice Get the flags address
    * @return address
    */
-  function flags()
-    external
-    view
-    returns (
-      address
-    )
-  {
+  function flags() external view returns (address) {
     return address(s_flags);
   }
 
@@ -209,20 +145,11 @@ contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface
    * @param currentTimestamp uint256
    * @return stale bool
    */
-  function isStale(
-    address aggregator,
-    uint256 currentTimestamp
-  ) 
-    private
-    view
-    returns (
-      bool stale
-    )
-  {
+  function isStale(address aggregator, uint256 currentTimestamp) private view returns (bool stale) {
     if (s_thresholdSeconds[aggregator] == 0) {
       return false;
     }
-    (,,,uint updatedAt,) = AggregatorV3Interface(aggregator).latestRoundData();
+    (, , , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
     uint256 diff = currentTimestamp.sub(updatedAt);
     if (diff > s_thresholdSeconds[aggregator]) {
       return true;

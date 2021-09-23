@@ -3,6 +3,7 @@ package keystore
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"reflect"
 	"sync"
 
@@ -28,7 +29,7 @@ type Master interface {
 	P2P() P2P
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string) error
+	Migrate(vrfPassword string, chainID *big.Int) error
 	IsEmpty() (bool, error)
 }
 
@@ -91,7 +92,7 @@ func (ks *master) IsEmpty() (bool, error) {
 	return count == 0, nil
 }
 
-func (ks *master) Migrate(vrfPssword string) error {
+func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -144,7 +145,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 	if err = ks.keyManager.save(); err != nil {
 		return err
 	}
-	ethKeys, states, err := ks.eth.GetV1KeysAsV2()
+	ethKeys, states, err := ks.eth.GetV1KeysAsV2(chainID)
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func (ks *master) Migrate(vrfPssword string) error {
 		if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating Eth key %s", ethKey.ID())
+		logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
 		if err = ks.eth.addEthKeyWithState(ethKey, states[idx]); err != nil {
 			return err
 		}

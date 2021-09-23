@@ -5,18 +5,15 @@ import "./OracleInterface.sol";
 import "./ChainlinkRequestInterface.sol";
 
 interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
-
-  function requestOracleData(
+  function operatorRequest(
     address sender,
     uint256 payment,
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
     uint256 dataVersion,
     bytes calldata data
-  )
-    external;
+  ) external;
 
   function fulfillOracleRequest2(
     bytes32 requestId,
@@ -25,42 +22,19 @@ interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
     bytes4 callbackFunctionId,
     uint256 expiration,
     bytes calldata data
-  )
-    external
-    returns (
-      bool
-    );
+  ) external returns (bool);
 
   function ownerTransferAndCall(
     address to,
     uint256 value,
     bytes calldata data
-  )
-    external
-    returns (
-      bool success
-    );
+  ) external returns (bool success);
 
-  function distributeFunds(
-    address payable[] calldata receivers,
-    uint[] calldata amounts
-  )
-    external
-    payable;
+  function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable;
 
-  function getAuthorizedSenders()
-    external
-    returns (
-      address[] memory
-    );
+  function getAuthorizedSenders() external returns (address[] memory);
 
-  function setAuthorizedSenders(
-    address[] calldata senders
-  ) external;
+  function setAuthorizedSenders(address[] calldata senders) external;
 
-  function getForwarder()
-    external
-    returns (
-      address
-    );
+  function getForwarder() external returns (address);
 }
