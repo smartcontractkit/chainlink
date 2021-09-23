@@ -46,6 +46,7 @@ type ChainCfg struct {
 	BlockHistoryEstimatorBlockHistorySize null.Int
 	EthTxReaperThreshold                  *models.Duration
 	EthTxResendAfterThreshold             *models.Duration
+	EvmEIP1559DynamicFees                 null.Bool
 	EvmFinalityDepth                      null.Int
 	EvmGasBumpPercent                     null.Int
 	EvmGasBumpTxDepth                     null.Int
@@ -53,6 +54,8 @@ type ChainCfg struct {
 	EvmGasLimitDefault                    null.Int
 	EvmGasLimitMultiplier                 null.Float
 	EvmGasPriceDefault                    *utils.Big
+	EvmGasTipCapDefault                   *utils.Big
+	EvmGasTipCapMinimum                   *utils.Big
 	EvmHeadTrackerHistoryDepth            null.Int
 	EvmHeadTrackerMaxBufferSize           null.Int
 	EvmHeadTrackerSamplingInterval        *models.Duration

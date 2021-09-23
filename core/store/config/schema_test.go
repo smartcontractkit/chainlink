@@ -51,6 +51,7 @@ func TestConfigSchema(t *testing.T) {
 		"EthereumURL":                                "ETH_URL",
 		"EvmBalanceMonitorBlockDelay":                "ETH_BALANCE_MONITOR_BLOCK_DELAY",
 		"EvmDefaultBatchSize":                        "ETH_DEFAULT_BATCH_SIZE",
+		"EvmEIP1559DynamicFees":                      "EVM_EIP1559_DYNAMIC_FEES",
 		"EvmFinalityDepth":                           "ETH_FINALITY_DEPTH",
 		"EvmGasBumpPercent":                          "ETH_GAS_BUMP_PERCENT",
 		"EvmGasBumpThreshold":                        "ETH_GAS_BUMP_THRESHOLD",
@@ -60,6 +61,8 @@ func TestConfigSchema(t *testing.T) {
 		"EvmGasLimitMultiplier":                      "ETH_GAS_LIMIT_MULTIPLIER",
 		"EvmGasLimitTransfer":                        "ETH_GAS_LIMIT_TRANSFER",
 		"EvmGasPriceDefault":                         "ETH_GAS_PRICE_DEFAULT",
+		"EvmGasTipCapDefault":                        "EVM_GAS_TIP_CAP_DEFAULT",
+		"EvmGasTipCapMinimum":                        "EVM_GAS_TIP_CAP_MINIMUM",
 		"EvmHeadTrackerHistoryDepth":                 "ETH_HEAD_TRACKER_HISTORY_DEPTH",
 		"EvmHeadTrackerMaxBufferSize":                "ETH_HEAD_TRACKER_MAX_BUFFER_SIZE",
 		"EvmHeadTrackerSamplingInterval":             "ETH_HEAD_TRACKER_SAMPLING_INTERVAL",
@@ -96,6 +99,7 @@ func TestConfigSchema(t *testing.T) {
 		"JobPipelineResultWriteQueueDepth":           "JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH",
 		"KeeperDefaultTransactionQueueDepth":         "KEEPER_DEFAULT_TRANSACTION_QUEUE_DEPTH",
 		"KeeperGasPriceBufferPercent":                "KEEPER_GAS_PRICE_BUFFER_PERCENT",
+		"KeeperGasTipCapBufferPercent":               "KEEPER_GAS_TIP_CAP_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                   "KEEPER_MAXIMUM_GRACE_PERIOD",
 		"KeeperMinimumRequiredConfirmations":         "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
 		"KeeperRegistryCheckGasOverhead":             "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
@@ -186,9 +190,8 @@ func TestConfigSchema(t *testing.T) {
 0. Are you SURE that this config variable ought to apply to ALL chains? If this
    needs to be a chain-specific variable, you should follow the pattern of making
    it a Global and using the chain-specific overridable version in the chain
-   scoped config instead.
-1. Make sure that the method in config.go has a comment explaining in detail
-   what the new config var does
+   scoped config instead (for more info see notion doc here: https://www.notion.so/chainlink/Config-in-Chainlink-4f36fb8f28f241f7b87cd1857df54db7).
+1. Make sure that the method has a comment explaining in detail what the new config var does
 2. Update the Changelog
 3. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
    think this variable needs to be shown in the UI

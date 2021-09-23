@@ -35,6 +35,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -62,7 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -335,13 +335,16 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	var ethClient eth.Client = &eth.NullClient{}
 
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
-	shutdownSignal := &testShutdownSignal{t}
-	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
+	shutdownSignal := gracefulpanic.NewSignal()
+
+	url := cfg.DatabaseURL()
+	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	})
 	require.NoError(t, err)
-	db := store.DB
-	sqlxDB := postgres.UnwrapGormDB(db)
 
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
@@ -403,7 +406,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
-		Store:                    store,
 		GormDB:                   db,
 		SqlxDB:                   sqlxDB,
 		KeyStore:                 keyStore,
@@ -548,7 +550,6 @@ func (ta *TestApplication) Stop() error {
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.GetStore())
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -618,54 +619,11 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
-// NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *strpkg.Store {
-	t.Helper()
-
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	for _, flag := range flagsAndDeps {
-		switch dep := flag.(type) {
-		case postgres.AdvisoryLocker:
-			advisoryLocker = dep
-		}
-	}
-	s, err := strpkg.NewStore(c, advisoryLocker, gracefulpanic.NewSignal())
-	if err != nil {
-		require.NoError(t, err)
-	}
-	t.Cleanup(func() {
-		cleanUpStore(t, s)
-	})
-	c.SetDB(s.DB)
-	return s
-}
-
-// NewStore creates a new store
-func NewStore(t *testing.T, flagsAndDeps ...interface{}) *strpkg.Store {
-	t.Helper()
-
-	c := NewTestGeneralConfig(t)
-	return NewStoreWithConfig(t, c, flagsAndDeps...)
-}
-
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
-}
-
-func cleanUpStore(t testing.TB, store *strpkg.Store) {
-	t.Helper()
-
-	defer func() {
-		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
-			logger.Warn("unable to clear test store:", err)
-		}
-	}()
-	// Ignore sync errors for testing
-	_ = logger.Sync()
-	require.NoError(t, store.Close())
 }
 
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
@@ -1039,11 +997,21 @@ func Head(val interface{}) *eth.Head {
 	return &h
 }
 
-// TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
+// LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
+func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = gas.Transaction{Type: 0x0, GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+	}
+	return txs
+}
+
+// DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
+// given TipCaps (FeeCap is arbitrary)
+func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
+	txs := make([]gas.Transaction, len(tipCaps))
+	for i, tipCap := range tipCaps {
+		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }

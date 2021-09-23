@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -63,7 +62,6 @@ type Application interface {
 	Stop() error
 	GetLogger() loggerPkg.Logger
 	GetHealthChecker() health.Checker
-	GetStore() *strpkg.Store
 	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
 	GetKeyStore() keystore.Master
@@ -113,7 +111,6 @@ type ChainlinkApplication struct {
 	bptxmORM                 bulletprooftxmanager.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -124,6 +121,8 @@ type ChainlinkApplication struct {
 	subservices              []service.Service
 	HealthChecker            health.Checker
 	logger                   loggerPkg.Logger
+	sqlxDB                   *sqlx.DB
+	gormDB                   *gorm.DB
 
 	started     bool
 	startStopMu sync.Mutex
@@ -133,7 +132,6 @@ type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         postgres.EventBroadcaster
 	ShutdownSignal           gracefulpanic.Signal
-	Store                    *strpkg.Store
 	GormDB                   *gorm.DB
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
@@ -152,7 +150,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.GormDB
 	gormTxm := postgres.NewGormTransactionManager(db)
 	cfg := opts.Config
-	store := opts.Store
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
 	chainSet := opts.ChainSet
@@ -284,7 +281,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	app := &ChainlinkApplication{
 		ChainSet:                 chainSet,
-		store:                    store,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -304,6 +300,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
+
+		sqlxDB: opts.SqlxDB,
+		gormDB: opts.GormDB,
+
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -361,10 +361,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
-
-	if err := app.store.Start(); err != nil {
-		return err
-	}
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
@@ -436,7 +432,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Stopping SessionReaper...")
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
 			app.logger.Debug("Closing Store...")
-			merr = multierr.Append(merr, app.store.Close())
+			merr = multierr.Append(merr, app.sqlxDB.Close())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
 			if app.FeedsService != nil {
@@ -634,14 +630,10 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 	return app.ChainSet
 }
 
-func (app *ChainlinkApplication) GetStore() *strpkg.Store {
-	return app.store
-}
-
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
 	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.store.DB
+	return app.gormDB
 }

@@ -11,9 +11,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Add support for OKEx/ExChain.
 
-Chainlink now supports more than one primary eth node per chain. Requests are round-robined.
+Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
 
-Add CRUD functionality for EVM Chains and Nodes through Operator UI
+Add CRUD functionality for EVM Chains and Nodes through Operator UI.
+
+#### Full EIP1559 Support
+
+Chainlink now includes experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
+
+EIP-1559 mode is off by default but can be enabled on a per-chain basis or globally.
+
+To enable globally, set `EVM_EIP1559_DYNAMIC_FEES=true`. Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
+
+In EIP-1559 mode, the total price for the transaction is the minimum of base fee + tip cap and fee cap. More information can be found on the [official EIP](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
+
+Chainlink's implementation of this is to set a large fee cap and modify the tip cap to control confirmation speed of transactions. So, when in EIP1559 mode, the tip cap takes the place of gas price roughly speaking, with the varying base price remaining a constant (we always pay it).
+
+This may help to save gas on spikes: Chainlink ought to react faster on the upleg and avoid overpaying on the downleg. It may also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value e.g. 12 or even 6 because tip cap ought to be a more consistent indicator of inclusion time than total gas price. This would make Chainlink more responsive and ought to reduce response time variance. Some experimentation will be needed here to find optimum settings.
+
+A quick note on terminology - Chainlink uses the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
+
+Base Fee Per Gas = BaseFeePerGas
+Max Fee Per Gas = FeeCap
+Max Priority Fee Per Gas = TipCap
+
+In EIP-1559 mode, the following changes occur to how configuration works:
+
+- All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap (NOTE: existing pending legacy transactions will continue to be gas bumped in legacy mode)
+- BlockHistoryEstimator will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
+- FixedPriceEstimator will use `EVM_GAS_TIP_CAP_DEFAULT` instead of `ETH_GAS_PRICE_DEFAULT`
+- `ETH_GAS_PRICE_DEFAULT` is ignored for new transactions and `EVM_GAS_TIP_CAP_DEFAULT` is used instead (default 20GWei)
+- `ETH_MIN_GAS_PRICE_WEI` is ignored for new transactions and `EVM_GAS_TIP_CAP_MINIMUM` is used instead (default 0)
+- `ETH_MAX_GAS_PRICE_WEI` controls the FeeCap
+- `KEEPER_GAS_PRICE_BUFFER_PERCENT` is ignored in EIP-1559 mode and `KEEPER_TIP_CAP_BUFFER_PERCENT` is used instead
+
+The default tip cap is configurable per-chain but can be specified for all chains using `EVM_GAS_TIP_CAP_DEFAULT`. The fee cap is derived from `ETH_MAX_GAS_PRICE_WEI`.
+
+When using the FixedPriceEstimator, the default gas tip will be used for all transactions.
+
+When using the BlockHistoryEstimator, Chainlink will calculate the tip cap based on transactions already included (in the same way it calculates gas price in legacy mode).
+
+Enabling EIP1559 mode might lead to marginally faster transaction inclusion and make the node more responsive to sharp rises/falls in gas price, keeping response times more consistent.
+
+In addition, `ethcall` tasks now accept `gasTipCap` and `gasFeeCap` parameters in addition to `gasPrice`. This is required for Keeper jobs, i.e.:
+
+```
+check_upkeep_tx          [type=ethcall
+                          failEarly=true
+                          extractRevertReason=true
+                          contract="$(jobSpec.contractAddress)"
+                          gas="$(jobSpec.checkUpkeepGasLimit)"
+                          gasPrice="$(jobSpec.gasPrice)"
+                          gasTipCap="$(jobSpec.gasTipCap)"
+                          gasFeeCap="$(jobSpec.gasFeeCap)"
+                          data="$(encode_check_upkeep_tx)"]
+```
+
+
+NOTE: AccessLists are part of the 0x2 transaction type spec and Chainlink also implements support for these internally. This is not currently exposed in any way, if there is demand for this it ought to be straightforward enough to do so.
+
+Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
 
 ### Changed
 

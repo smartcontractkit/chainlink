@@ -11,7 +11,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -79,7 +78,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	var n int64 = 0
 	cltest.MustInsertInProgressEthTxWithAttempt(t, db, n, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, n, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, n, fromAddress)
 	n++
 
 	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
@@ -89,7 +88,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 
 	// deliberately one extra to exceed limit
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertConfirmedEthTxWithAttempt(t, db, n, 42, fromAddress)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, n, 42, fromAddress)
 		n++
 	}
 
@@ -141,10 +140,10 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 2, fromAddress)
 
 	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(db, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -163,7 +162,7 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
 	cltest.MustInsertUnstartedEthTx(t, db, fromAddress)
 	cltest.MustInsertUnstartedEthTx(t, db, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 2, fromAddress)
 
 	count, err := bulletprooftxmanager.CountUnstartedTransactions(db, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -363,7 +362,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 42, thisKey.Address.Address())
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 42, thisKey.Address.Address())
 		strategy := new(bptxmmocks.TxStrategy)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
@@ -478,18 +477,5 @@ func TestBulletproofTxManager_SignTx(t *testing.T) {
 		require.NotNil(t, rawBytes)
 		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")
 		require.Equal(t, "0x1458742e3ba53316481eb18237ced517a536c1cdef61e7b7fb2a9569d84e41a6", hash.Hex())
-	})
-}
-
-func TestBulletproofTxManager_NewAttempt(t *testing.T) {
-	t.Run("verifies max gas price", func(t *testing.T) {
-		gcfg := cltest.NewTestGeneralConfig(t)
-		cfg := evmtest.NewChainScopedConfig(t, gcfg)
-		gcfg.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(50)
-
-		addr := cltest.NewAddress()
-		_, err := bulletprooftxmanager.NewAttempt(cfg, nil, nil, *big.NewInt(1), bulletprooftxmanager.EthTx{FromAddress: addr}, big.NewInt(100), 100)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 would exceed max configured gas price of 50 for key %s", addr.Hex()))
 	})
 }
