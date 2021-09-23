@@ -18,11 +18,11 @@ before(async () => {
 
   defaultAccount = users.roles.defaultAccount
   linkTokenFactory = await ethers.getContractFactory(
-    'LinkToken',
+    'src/v0.4/LinkToken.sol:LinkToken',
     defaultAccount,
   )
   aggregatorFactory = await ethers.getContractFactory(
-    'Aggregator',
+    'src/v0.4/Aggregator.sol:Aggregator',
     defaultAccount,
   )
   oracleFactory = await ethers.getContractFactory(
@@ -30,7 +30,7 @@ before(async () => {
     defaultAccount,
   )
   aggregatorFacadeFactory = await ethers.getContractFactory(
-    'AggregatorFacade',
+    'src/v0.6/AggregatorFacade.sol:AggregatorFacade',
     defaultAccount,
   )
 })
