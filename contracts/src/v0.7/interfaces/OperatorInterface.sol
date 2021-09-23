@@ -9,11 +9,10 @@ interface OperatorInterface is
   OracleInterface
 {
 
-  function requestOracleData(
+  function operatorRequest(
     address sender,
     uint256 payment,
     bytes32 specId,
-    address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
     uint256 dataVersion,
