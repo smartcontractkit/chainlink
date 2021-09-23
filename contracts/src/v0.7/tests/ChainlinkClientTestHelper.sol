@@ -71,11 +71,11 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     bytes32 _id,
     bytes memory _fulfillmentSignature,
     uint256 _wei
-  )
-    public
-  {
+  ) public {
     Chainlink.Request memory req = buildOperatorRequest(
-      _id, bytes4(keccak256(_fulfillmentSignature)));
+      _id,
+      bytes4(keccak256(_fulfillmentSignature))
+    );
     sendOperatorRequest(req, _wei);
   }
 
@@ -85,10 +85,11 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
     address _address,
     bytes memory _fulfillmentSignature,
     uint256 _wei
-  )
-    public
-  {
-    Chainlink.Request memory run = buildOperatorRequest(_id, bytes4(keccak256(_fulfillmentSignature)));
+  ) public {
+    Chainlink.Request memory run = buildOperatorRequest(
+      _id,
+      bytes4(keccak256(_fulfillmentSignature))
+    );
     sendOperatorRequestTo(_oracle, run, _wei);
   }
 

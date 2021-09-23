@@ -58,10 +58,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
-  function transferOwnershipWithMessage(
-    address to,
-    bytes calldata message
-  )
+  function transferOwnershipWithMessage(address to, bytes calldata message)
     external
   {
     transferOwnership(to);

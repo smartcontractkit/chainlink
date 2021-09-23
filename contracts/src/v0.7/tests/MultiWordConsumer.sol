@@ -78,9 +78,7 @@ contract MultiWordConsumer is ChainlinkClient {
     string memory _urlJPY,
     string memory _pathJPY,
     uint256 _payment
-  )
-    public
-  {
+  ) public {
     Chainlink.Request memory req = buildOperatorRequest(
       specId,
       this.fulfillMultipleParametersWithCustomURLs.selector
@@ -154,11 +152,7 @@ contract MultiWordConsumer is ChainlinkClient {
     currentPrice = _price;
   }
 
-  function publicGetNextRequestCount()
-    external
-    view
-    returns (uint256)
-  {
+  function publicGetNextRequestCount() external view returns (uint256) {
     return getNextRequestCount();
   }
 }

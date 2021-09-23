@@ -4,11 +4,7 @@ pragma solidity ^0.7.0;
 import "./ChainlinkRequestInterface.sol";
 import "./OracleInterface.sol";
 
-interface OperatorInterface is
-  ChainlinkRequestInterface,
-  OracleInterface
-{
-
+interface OperatorInterface is ChainlinkRequestInterface, OracleInterface {
   function operatorRequest(
     address sender,
     uint256 payment,

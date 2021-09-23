@@ -36,7 +36,10 @@ contract Consumer is ChainlinkClient {
       specId,
       this.fulfill.selector
     );
-    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    req.add(
+      "get",
+      "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
+    );
     string[] memory path = new string[](1);
     path[0] = _currency;
     req.addStringArray("path", path);
@@ -48,9 +51,7 @@ contract Consumer is ChainlinkClient {
     string memory _urlUSD,
     string memory _pathUSD,
     uint256 _payment
-  )
-  public
-  {
+  ) public {
     Chainlink.Request memory req = buildOperatorRequest(
       specId,
       this.fulfillParametersWithCustomURLs.selector
