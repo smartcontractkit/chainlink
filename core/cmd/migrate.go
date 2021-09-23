@@ -90,6 +90,26 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 	dg := pipeline.NewGraph()
 	var foundEthTx = false
 	var last *pipeline.GraphNode
+
+	if tpe == job.DirectRequest {
+		attrs := map[string]string{
+			"type":   "ethabidecodelog",
+			"abi":    "OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes32 data)",
+			"data":   "$(jobRun.logData)",
+			"topics": "$(jobRun.logTopics)",
+		}
+		n := pipeline.NewGraphNode(dg.NewNode(), "decode_log", attrs)
+		dg.AddNode(n)
+		last = n
+
+		/*
+		   decode_log   [type=ethabidecodelog
+		                 abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes32 data)"
+		                 data="$(jobRun.logData)"
+		                 topics="$(jobRun.logTopics)"]
+		*/
+	}
+
 	for i, ts := range js.Tasks {
 		var n *pipeline.GraphNode
 		switch ts.Type {
@@ -140,7 +160,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			if tpe == job.DirectRequest {
 				attrs := map[string]string{
 					"type": "ethabiencode",
-					"abi":  "uint256 value",
+					"abi":  "(uint256 value)",
 					//"data": <{ "value": $(multiply) }>,
 				}
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_data_%d", i), attrs)
@@ -150,7 +170,49 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				}
 				last = n
 			}
+			if tpe == job.DirectRequest {
 
+				attrs1 := map[string]string{
+					"requestId":          "$(decode_log.requestId)",
+					"payment":            "$(decode_log.payment)",
+					"callbackAddress":    "$(decode_log.callbackAddr)",
+					"callbackFunctionId": "$(decode_log.callbackFunctionId)",
+					"expiration":         "$(decode_log.cancelExpiration)",
+					"data":               "$(encode_data)",
+				}
+
+				marshal, err := json.Marshal(&attrs1)
+				if err != nil {
+					return "", nil, err
+				}
+
+				/*
+					`
+						<{
+									"requestId": $(decode_log.requestId),
+									"payment":   $(decode_log.payment),
+									"callbackAddress": $(decode_log.callbackAddr),
+									"callbackFunctionId": $(decode_log.callbackFunctionId),
+									"expiration": $(decode_log.cancelExpiration),
+									"data": $(encode_data)
+							}>
+					`
+				*/
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				attrs := map[string]string{
+					"type": "ethabiencode",
+					"abi":  "fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)",
+					"data": template,
+				}
+				replacements["\""+template+"\""] = string(marshal)
+
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs)
+				dg.AddNode(n)
+				if last != nil {
+					dg.SetEdge(dg.NewEdge(last, n))
+				}
+				last = n
+			}
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeETHTx.String(),
 				"to":   js.Initiators[0].Address.String(),
@@ -160,23 +222,17 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			foundEthTx = true
 		default:
 			// assume it's a bridge task
-			mapp := make(map[string]interface{})
-			err := json.Unmarshal(ts.Params.Bytes(), &mapp)
+			encodedValue, err := encodeTemplate(ts.Params.Bytes())
 			if err != nil {
 				return "", nil, err
 			}
-			marshal, err := json.Marshal(&mapp)
-			if err != nil {
-				return "", nil, err
-			}
-
 			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 			attrs := map[string]string{
 				"type":        pipeline.TaskTypeBridge.String(),
 				"name":        ts.Type.String(),
 				"requestData": template,
 			}
-			replacements["\""+template+"\""] = string(marshal)
+			replacements["\""+template+"\""] = encodedValue
 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_to_bridge_%d", i), attrs)
 			i++
@@ -214,4 +270,17 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		return "", nil, errors.Wrapf(err, "failed to generate pipeline from: \n%v", generatedDotDagSource)
 	}
 	return generatedDotDagSource, p, err
+}
+
+func encodeTemplate(bytes []byte) (string, error) {
+	mapp := make(map[string]interface{})
+	err := json.Unmarshal(bytes, &mapp)
+	if err != nil {
+		return "", err
+	}
+	marshal, err := json.Marshal(&mapp)
+	if err != nil {
+		return "", err
+	}
+	return string(marshal), nil
 }
