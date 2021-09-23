@@ -88,7 +88,7 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
       const receipt1 = await tx1.wait();
       const receipt2 = await tx2.wait();
       // 38014 vs 40260
-      gasDiffLessThan(2500, receipt1, receipt2);
+      gasDiffLessThan(3900, receipt1, receipt2);
     });
   });
 

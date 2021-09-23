@@ -206,6 +206,30 @@ export function convertCancelParams(
 }
 
 /**
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
+ *  function cancelOracleRequestByRequester(
+ *    uint256 nonce,
+ *    uint256 _payment,
+ *    bytes4 _callbackFunc,
+ *    uint256 _expiration
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param nonce The nonce used to generate the request ID
+ * @param runRequest The run request to flatten into the correct order to perform the `cancelOracleRequest` function
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertCancelByRequesterParams(
+  runRequest: RunRequest,
+  nonce: number,
+  txOpts: TxOptions = {},
+): [number, string, string, string, TxOptions] {
+  return [nonce, runRequest.payment, runRequest.callbackFunc, runRequest.expiration, txOpts];
+}
+
+/**
  * Abi encode parameters to call the `oracleRequest` method on the Oracle.sol contract.
  * ```solidity
  *  function oracleRequest(
@@ -239,9 +263,9 @@ export function encodeOracleRequest(
 }
 
 /**
- * Abi encode parameters to call the `requestOracleData` method on the Operator.sol contract.
+ * Abi encode parameters to call the `operatorRequest` method on the Operator.sol contract.
  * ```solidity
- *  function requestOracleData(
+ *  function operatorRequest(
  *    address _sender,
  *    uint256 _payment,
  *    bytes32 _specId,
@@ -261,14 +285,26 @@ export function encodeOracleRequest(
  */
 export function encodeRequestOracleData(
   specId: string,
-  callbackAddr: string,
   callbackFunctionId: string,
   nonce: number,
   data: BigNumberish,
   dataVersion: BigNumberish = 2,
 ): string {
-  const requestOracleDataSignhash = "0x6de879d6";
-  return encodeRequest(requestOracleDataSignhash, specId, callbackAddr, callbackFunctionId, nonce, data, dataVersion);
+  const sendOperatorRequestSigHash = "0x3c6d41b9";
+  const requestInputs = [
+    { name: "_sender", type: "address" },
+    { name: "_payment", type: "uint256" },
+    { name: "_specId", type: "bytes32" },
+    { name: "_callbackFunctionId", type: "bytes4" },
+    { name: "_nonce", type: "uint256" },
+    { name: "_dataVersion", type: "uint256" },
+    { name: "_data", type: "bytes" },
+  ];
+  const encodedParams = ethers.utils.defaultAbiCoder.encode(
+    requestInputs.map(i => i.type),
+    [ethers.constants.AddressZero, 0, specId, callbackFunctionId, nonce, dataVersion, data],
+  );
+  return `${sendOperatorRequestSigHash}${stripHexPrefix(encodedParams)}`;
 }
 
 function encodeRequest(

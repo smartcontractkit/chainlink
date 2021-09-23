@@ -32,23 +32,11 @@ contract Consumer is ChainlinkClient {
   function requestEthereumPrice(string memory _currency, uint256 _payment)
     public
   {
-    requestEthereumPriceByCallback(_currency, _payment, address(this));
-  }
-
-  function requestEthereumPriceByCallback(
-    string memory _currency,
-    uint256 _payment,
-    address _callback
-  ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
+    Chainlink.Request memory req = buildOperatorRequest(
       specId,
-      _callback,
       this.fulfill.selector
     );
-    req.add(
-      "get",
-      "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"
-    );
+    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
     req.addStringArray("path", path);
@@ -60,10 +48,11 @@ contract Consumer is ChainlinkClient {
     string memory _urlUSD,
     string memory _pathUSD,
     uint256 _payment
-  ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
+  )
+  public
+  {
+    Chainlink.Request memory req = buildOperatorRequest(
       specId,
-      address(this),
       this.fulfillParametersWithCustomURLs.selector
     );
     req.add("urlUSD", _urlUSD);

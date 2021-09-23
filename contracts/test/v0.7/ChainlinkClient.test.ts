@@ -139,7 +139,6 @@ describe("ChainlinkClientTestHelper", () => {
     it("emits an event from the contract showing the run ID", async () => {
       const tx = await cc.publicRequestOracleData(
         specId,
-        cc.address,
         ethers.utils.toUtf8Bytes("fulfillRequest(bytes32,bytes32)"),
         0,
       );

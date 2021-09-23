@@ -53,31 +53,21 @@ contract MultiWordConsumer is ChainlinkClient {
   function requestEthereumPrice(string memory _currency, uint256 _payment)
     public
   {
-    requestEthereumPriceByCallback(_currency, _payment, address(this));
-  }
-
-  function requestEthereumPriceByCallback(
-    string memory _currency,
-    uint256 _payment,
-    address _callback
-  ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
+    Chainlink.Request memory req = buildOperatorRequest(
       specId,
-      _callback,
       this.fulfillBytes.selector
     );
-    requestOracleData(req, _payment);
+    sendOperatorRequest(req, _payment);
   }
 
   function requestMultipleParameters(string memory _currency, uint256 _payment)
     public
   {
-    Chainlink.Request memory req = buildChainlinkRequest(
+    Chainlink.Request memory req = buildOperatorRequest(
       specId,
-      address(this),
       this.fulfillMultipleParameters.selector
     );
-    requestOracleData(req, _payment);
+    sendOperatorRequest(req, _payment);
   }
 
   function requestMultipleParametersWithCustomURLs(
@@ -88,10 +78,11 @@ contract MultiWordConsumer is ChainlinkClient {
     string memory _urlJPY,
     string memory _pathJPY,
     uint256 _payment
-  ) public {
-    Chainlink.Request memory req = buildChainlinkRequest(
+  )
+    public
+  {
+    Chainlink.Request memory req = buildOperatorRequest(
       specId,
-      address(this),
       this.fulfillMultipleParametersWithCustomURLs.selector
     );
     req.add("urlUSD", _urlUSD);
@@ -100,7 +91,7 @@ contract MultiWordConsumer is ChainlinkClient {
     req.add("pathEUR", _pathEUR);
     req.add("urlJPY", _urlJPY);
     req.add("pathJPY", _pathJPY);
-    requestOracleData(req, _payment);
+    sendOperatorRequest(req, _payment);
   }
 
   function cancelRequest(
@@ -161,5 +152,13 @@ contract MultiWordConsumer is ChainlinkClient {
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
+  }
+
+  function publicGetNextRequestCount()
+    external
+    view
+    returns (uint256)
+  {
+    return getNextRequestCount();
   }
 }
