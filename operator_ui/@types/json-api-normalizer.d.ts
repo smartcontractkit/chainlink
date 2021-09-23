@@ -11,7 +11,7 @@ declare module 'json-api-normalizer' {
     TError extends ErrorsObject[] = ErrorsObject[],
     TIncluded extends ResourceObject<any, any, any, any>[] | never = never,
     TMeta extends Record<string, any> | never = never,
-    TLinks extends LinksObject | never = never,
+    TLinks extends LinksObject | never = never
   > {
     data: TData
     included?: TIncluded
@@ -33,7 +33,7 @@ declare module 'json-api-normalizer' {
    */
   type LinksObject = Partial<Record<string, string | LinkObject>>
   export interface LinkObject<
-    TLinkMeta extends Record<string, any> = Record<string, any>,
+    TLinkMeta extends Record<string, any> = Record<string, any>
   > {
     href: string
     meta: TLinkMeta
@@ -41,7 +41,7 @@ declare module 'json-api-normalizer' {
 
   export interface ErrorsObject<
     TMeta extends Record<string, any> = Record<string, any>,
-    TLinks extends LinksObject = LinksObject,
+    TLinks extends LinksObject = LinksObject
   > {
     id?: string
     links?: TLinks
@@ -67,7 +67,7 @@ declare module 'json-api-normalizer' {
    * that contains non-standard meta-information.
    */
   export interface ResourceIdentifierObject<
-    TMeta extends Record<string, any> = Record<string, any>,
+    TMeta extends Record<string, any> = Record<string, any>
   > {
     type: string
     id: string
@@ -121,11 +121,11 @@ declare module 'json-api-normalizer' {
    */
   export type Relationship<
     TMeta extends Record<string, any> = Record<string, any>,
-    TLinks extends LinksObject = LinksObject,
+    TLinks extends LinksObject = LinksObject
   > = _Relationship<TMeta, TLinks>
   export interface _Relationship<
     TMeta extends Record<string, any>,
-    TLinks extends LinksObject,
+    TLinks extends LinksObject
   > {
     data?: JsonApiResponse | JsonApiResponse[]
     links?: TLinks
@@ -174,7 +174,7 @@ declare module 'json-api-normalizer' {
       | Record<string, Relationship<Record<string, any>>>
       | never = never,
     TMeta extends Record<string, any> | never = never,
-    TLinks extends LinksObject | never = never,
+    TLinks extends LinksObject | never = never
   > {
     id: string
     type: string

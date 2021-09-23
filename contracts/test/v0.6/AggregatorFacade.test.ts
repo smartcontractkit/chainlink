@@ -17,14 +17,27 @@ before(async () => {
   const users = await getUsers();
 
   defaultAccount = users.roles.defaultAccount;
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", defaultAccount);
-  aggregatorFactory = await ethers.getContractFactory("Aggregator", defaultAccount);
-  oracleFactory = await ethers.getContractFactory("src/v0.6/Oracle.sol:Oracle", defaultAccount);
-  aggregatorFacadeFactory = await ethers.getContractFactory("AggregatorFacade", defaultAccount);
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    defaultAccount,
+  );
+  aggregatorFactory = await ethers.getContractFactory(
+    "Aggregator",
+    defaultAccount,
+  );
+  oracleFactory = await ethers.getContractFactory(
+    "src/v0.6/Oracle.sol:Oracle",
+    defaultAccount,
+  );
+  aggregatorFacadeFactory = await ethers.getContractFactory(
+    "AggregatorFacade",
+    defaultAccount,
+  );
 });
 
 describe("AggregatorFacade", () => {
-  const jobId1 = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001";
+  const jobId1 =
+    "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000001";
   const previousResponse = numToBytes32(54321);
   const response = numToBytes32(67890);
   const decimals = 18;
@@ -38,13 +51,19 @@ describe("AggregatorFacade", () => {
   beforeEach(async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy();
     oc1 = await oracleFactory.connect(defaultAccount).deploy(link.address);
-    aggregator = await aggregatorFactory.connect(defaultAccount).deploy(link.address, 0, 1, [oc1.address], [jobId1]);
-    facade = await aggregatorFacadeFactory.connect(defaultAccount).deploy(aggregator.address, decimals, description);
+    aggregator = await aggregatorFactory
+      .connect(defaultAccount)
+      .deploy(link.address, 0, 1, [oc1.address], [jobId1]);
+    facade = await aggregatorFacadeFactory
+      .connect(defaultAccount)
+      .deploy(aggregator.address, decimals, description);
 
     let requestTx = await aggregator.requestRateUpdate();
     let receipt = await requestTx.wait();
     let request = decodeRunRequest(receipt.logs?.[3]);
-    await oc1.fulfillOracleRequest(...convertFufillParams(request, previousResponse));
+    await oc1.fulfillOracleRequest(
+      ...convertFufillParams(request, previousResponse),
+    );
     requestTx = await aggregator.requestRateUpdate();
     receipt = await requestTx.wait();
     request = decodeRunRequest(receipt.logs?.[3]);
@@ -95,7 +114,10 @@ describe("AggregatorFacade", () => {
       assert.notEqual("0", height.toString());
       bigNumEquals(height, await facade.latestTimestamp());
       const latestRound = await facade.latestRound();
-      bigNumEquals(await aggregator.latestTimestamp(), await facade.getTimestamp(latestRound));
+      bigNumEquals(
+        await aggregator.latestTimestamp(),
+        await facade.getTimestamp(latestRound),
+      );
     });
   });
 

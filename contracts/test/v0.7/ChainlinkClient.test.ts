@@ -2,7 +2,12 @@ import { ethers } from "hardhat";
 import { assert } from "chai";
 import { Contract, ContractFactory } from "ethers";
 import { Roles, getUsers } from "../test-helpers/setup";
-import { convertFufillParams, decodeCCRequest, decodeRunRequest, RunRequest } from "../test-helpers/oracle";
+import {
+  convertFufillParams,
+  decodeCCRequest,
+  decodeRunRequest,
+  RunRequest,
+} from "../test-helpers/oracle";
 import { decodeDietCBOR } from "../test-helpers/helpers";
 import { evmRevert } from "../test-helpers/matchers";
 
@@ -29,12 +34,19 @@ before(async () => {
     "src/v0.5/tests/GetterSetter.sol:GetterSetter",
     roles.defaultAccount,
   );
-  operatorFactory = await ethers.getContractFactory("Operator", roles.defaultAccount);
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
+  operatorFactory = await ethers.getContractFactory(
+    "Operator",
+    roles.defaultAccount,
+  );
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    roles.defaultAccount,
+  );
 });
 
 describe("ChainlinkClientTestHelper", () => {
-  const specId = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
+  const specId =
+    "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
   let cc: Contract;
   let gs: Contract;
   let oc: Contract;
@@ -50,7 +62,9 @@ describe("ChainlinkClientTestHelper", () => {
       .connect(roles.defaultAccount)
       .deploy(link.address, await roles.defaultAccount.getAddress());
     gs = await getterSetterFactory.connect(roles.defaultAccount).deploy();
-    cc = await concreteChainlinkClientFactory.connect(roles.defaultAccount).deploy(link.address, oc.address);
+    cc = await concreteChainlinkClientFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address, oc.address);
   });
 
   describe("#newRequest", () => {
@@ -63,7 +77,9 @@ describe("ChainlinkClientTestHelper", () => {
       const receipt = await tx.wait();
 
       assert.equal(1, receipt.logs?.length);
-      const [jId, cbAddr, cbFId, cborData] = receipt.logs ? decodeCCRequest(receipt.logs[0]) : [];
+      const [jId, cbAddr, cbFId, cborData] = receipt.logs
+        ? decodeCCRequest(receipt.logs[0])
+        : [];
       const params = decodeDietCBOR(cborData ?? "");
 
       assert.equal(specId, jId);
@@ -202,7 +218,9 @@ describe("ChainlinkClientTestHelper", () => {
     let ecc: Contract;
 
     beforeEach(async () => {
-      const emptyOracle = await emptyOracleFactory.connect(roles.defaultAccount).deploy();
+      const emptyOracle = await emptyOracleFactory
+        .connect(roles.defaultAccount)
+        .deploy();
       ecc = await concreteChainlinkClientFactory
         .connect(roles.defaultAccount)
         .deploy(link.address, emptyOracle.address);
@@ -218,7 +236,12 @@ describe("ChainlinkClientTestHelper", () => {
     });
 
     it("emits an event from the contract showing the run was cancelled", async () => {
-      const tx = await ecc.publicCancelRequest(requestId, 0, ethers.utils.hexZeroPad("0x", 4), 0);
+      const tx = await ecc.publicCancelRequest(
+        requestId,
+        0,
+        ethers.utils.hexZeroPad("0x", 4),
+        0,
+      );
       const { events } = await tx.wait();
 
       assert.equal(1, events?.length);
@@ -228,7 +251,12 @@ describe("ChainlinkClientTestHelper", () => {
 
     it("throws if given a bogus event ID", async () => {
       await evmRevert(
-        ecc.publicCancelRequest(ethers.utils.formatBytes32String("bogusId"), 0, ethers.utils.hexZeroPad("0x", 4), 0),
+        ecc.publicCancelRequest(
+          ethers.utils.formatBytes32String("bogusId"),
+          0,
+          ethers.utils.hexZeroPad("0x", 4),
+          0,
+        ),
       );
     });
   });
@@ -252,7 +280,12 @@ describe("ChainlinkClientTestHelper", () => {
     it("emits an event marking the request fulfilled", async () => {
       const tx = await oc
         .connect(roles.defaultAccount)
-        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+        .fulfillOracleRequest(
+          ...convertFufillParams(
+            request,
+            ethers.utils.formatBytes32String("hi mom!"),
+          ),
+        );
       const { logs } = await tx.wait();
 
       const event = logs && cc.interface.parseLog(logs[1]);
@@ -265,12 +298,22 @@ describe("ChainlinkClientTestHelper", () => {
     it("should only allow one fulfillment per id", async () => {
       await oc
         .connect(roles.defaultAccount)
-        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+        .fulfillOracleRequest(
+          ...convertFufillParams(
+            request,
+            ethers.utils.formatBytes32String("hi mom!"),
+          ),
+        );
 
       await evmRevert(
         oc
           .connect(roles.defaultAccount)
-          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+          .fulfillOracleRequest(
+            ...convertFufillParams(
+              request,
+              ethers.utils.formatBytes32String("hi mom!"),
+            ),
+          ),
         "Must have a valid requestId",
       );
     });
@@ -279,7 +322,12 @@ describe("ChainlinkClientTestHelper", () => {
       await evmRevert(
         oc
           .connect(roles.stranger)
-          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+          .fulfillOracleRequest(
+            ...convertFufillParams(
+              request,
+              ethers.utils.formatBytes32String("hi mom!"),
+            ),
+          ),
         "Not authorized sender",
       );
     });
@@ -293,7 +341,9 @@ describe("ChainlinkClientTestHelper", () => {
       const tx = await cc.publicRequest(
         specId,
         cc.address,
-        ethers.utils.toUtf8Bytes("publicFulfillChainlinkRequest(bytes32,bytes32)"),
+        ethers.utils.toUtf8Bytes(
+          "publicFulfillChainlinkRequest(bytes32,bytes32)",
+        ),
         0,
       );
       const { logs } = await tx.wait();
@@ -304,7 +354,12 @@ describe("ChainlinkClientTestHelper", () => {
     it("emits an event marking the request fulfilled", async () => {
       const tx = await oc
         .connect(roles.defaultAccount)
-        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+        .fulfillOracleRequest(
+          ...convertFufillParams(
+            request,
+            ethers.utils.formatBytes32String("hi mom!"),
+          ),
+        );
 
       const { logs } = await tx.wait();
       const event = logs && cc.interface.parseLog(logs[1]);
@@ -317,12 +372,22 @@ describe("ChainlinkClientTestHelper", () => {
     it("should only allow one fulfillment per id", async () => {
       await oc
         .connect(roles.defaultAccount)
-        .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+        .fulfillOracleRequest(
+          ...convertFufillParams(
+            request,
+            ethers.utils.formatBytes32String("hi mom!"),
+          ),
+        );
 
       await evmRevert(
         oc
           .connect(roles.defaultAccount)
-          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+          .fulfillOracleRequest(
+            ...convertFufillParams(
+              request,
+              ethers.utils.formatBytes32String("hi mom!"),
+            ),
+          ),
         "Must have a valid requestId",
       );
     });
@@ -331,7 +396,12 @@ describe("ChainlinkClientTestHelper", () => {
       await evmRevert(
         oc
           .connect(roles.stranger)
-          .fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!"))),
+          .fulfillOracleRequest(
+            ...convertFufillParams(
+              request,
+              ethers.utils.formatBytes32String("hi mom!"),
+            ),
+          ),
         "Not authorized sender",
       );
     });
@@ -349,7 +419,9 @@ describe("ChainlinkClientTestHelper", () => {
     let request: RunRequest;
 
     beforeEach(async () => {
-      mock = await concreteChainlinkClientFactory.connect(roles.defaultAccount).deploy(link.address, oc.address);
+      mock = await concreteChainlinkClientFactory
+        .connect(roles.defaultAccount)
+        .deploy(link.address, oc.address);
 
       const tx = await cc.publicRequest(
         specId,
@@ -365,11 +437,18 @@ describe("ChainlinkClientTestHelper", () => {
 
     it("allows the external request to be fulfilled", async () => {
       await oc.setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
-      await oc.fulfillOracleRequest(...convertFufillParams(request, ethers.utils.formatBytes32String("hi mom!")));
+      await oc.fulfillOracleRequest(
+        ...convertFufillParams(
+          request,
+          ethers.utils.formatBytes32String("hi mom!"),
+        ),
+      );
     });
 
     it("does not allow the same requestId to be used", async () => {
-      await evmRevert(cc.publicAddExternalRequest(newoc.address, request.requestId));
+      await evmRevert(
+        cc.publicAddExternalRequest(newoc.address, request.requestId),
+      );
     });
   });
 });

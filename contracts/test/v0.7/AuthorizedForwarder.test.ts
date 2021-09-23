@@ -20,8 +20,14 @@ before(async () => {
     "src/v0.4/tests/GetterSetter.sol:GetterSetter",
     roles.defaultAccount,
   );
-  forwarderFactory = await ethers.getContractFactory("AuthorizedForwarder", roles.defaultAccount);
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
+  forwarderFactory = await ethers.getContractFactory(
+    "AuthorizedForwarder",
+    roles.defaultAccount,
+  );
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    roles.defaultAccount,
+  );
 });
 
 describe("AuthorizedForwarder", () => {
@@ -32,7 +38,12 @@ describe("AuthorizedForwarder", () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy();
     forwarder = await forwarderFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address, await roles.defaultAccount.getAddress(), zeroAddress, "0x");
+      .deploy(
+        link.address,
+        await roles.defaultAccount.getAddress(),
+        zeroAddress,
+        "0x",
+      );
   });
 
   it("has a limited public interface [ @skip-coverage ]", () => {
@@ -73,7 +84,9 @@ describe("AuthorizedForwarder", () => {
             await roles.oracleNode2.getAddress(),
             await roles.oracleNode3.getAddress(),
           ];
-          const tx = await forwarder.connect(roles.defaultAccount).setAuthorizedSenders(newSenders);
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders);
           receipt = await tx.wait();
         });
 
@@ -97,12 +110,18 @@ describe("AuthorizedForwarder", () => {
         });
 
         it("replaces the authorized nodes", async () => {
-          const newSenders = await forwarder.connect(roles.defaultAccount).getAuthorizedSenders();
-          assert.notIncludeOrderedMembers(newSenders, [await roles.oracleNode.getAddress()]);
+          const newSenders = await forwarder
+            .connect(roles.defaultAccount)
+            .getAuthorizedSenders();
+          assert.notIncludeOrderedMembers(newSenders, [
+            await roles.oracleNode.getAddress(),
+          ]);
         });
 
         after(async () => {
-          await forwarder.connect(roles.defaultAccount).setAuthorizedSenders([await roles.oracleNode.getAddress()]);
+          await forwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([await roles.oracleNode.getAddress()]);
         });
       });
 
@@ -113,7 +132,9 @@ describe("AuthorizedForwarder", () => {
 
         it("reverts with a minimum senders message", async () => {
           await evmRevert(
-            forwarder.connect(roles.defaultAccount).setAuthorizedSenders(newSenders),
+            forwarder
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
             "Must have at least 1 authorized sender",
           );
         });
@@ -123,7 +144,9 @@ describe("AuthorizedForwarder", () => {
     describe("when called by a non-owner", () => {
       it("cannot add an authorized node", async () => {
         await evmRevert(
-          forwarder.connect(roles.stranger).setAuthorizedSenders([await roles.stranger.getAddress()]),
+          forwarder
+            .connect(roles.stranger)
+            .setAuthorizedSenders([await roles.stranger.getAddress()]),
           "Cannot set authorized senders",
         );
       });
@@ -146,19 +169,25 @@ describe("AuthorizedForwarder", () => {
 
     describe("when called by an unauthorized node", () => {
       it("reverts", async () => {
-        await evmRevert(forwarder.connect(roles.stranger).forward(mock.address, payload));
+        await evmRevert(
+          forwarder.connect(roles.stranger).forward(mock.address, payload),
+        );
       });
     });
 
     describe("when called by an authorized node", () => {
       beforeEach(async () => {
-        await forwarder.connect(roles.defaultAccount).setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
+        await forwarder
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([await roles.defaultAccount.getAddress()]);
       });
 
       describe("when sending to a non-contract address", () => {
         it("reverts", async () => {
           await evmRevert(
-            forwarder.connect(roles.defaultAccount).forward(zeroAddress, payload),
+            forwarder
+              .connect(roles.defaultAccount)
+              .forward(zeroAddress, payload),
             "Must forward to a contract",
           );
         });
@@ -167,20 +196,30 @@ describe("AuthorizedForwarder", () => {
       describe("when attempting to forward to the link token", () => {
         it("reverts", async () => {
           const sighash = linkTokenFactory.interface.getSighash("name"); // any Link Token function
-          await evmRevert(forwarder.connect(roles.defaultAccount).forward(link.address, sighash));
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .forward(link.address, sighash),
+          );
         });
       });
 
       describe("when forwarding to any other address", () => {
         it("forwards the data", async () => {
-          const tx = await forwarder.connect(roles.defaultAccount).forward(mock.address, payload);
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .forward(mock.address, payload);
           await tx.wait();
           assert.equal(await mock.getBytes(), bytes);
         });
 
         it("perceives the message is sent by the AuthorizedForwarder", async () => {
-          const tx = await forwarder.connect(roles.defaultAccount).forward(mock.address, payload);
-          await expect(tx).to.emit(mock, "SetBytes").withArgs(forwarder.address, bytes);
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .forward(mock.address, payload);
+          await expect(tx)
+            .to.emit(mock, "SetBytes")
+            .withArgs(forwarder.address, bytes);
         });
       });
     });
@@ -192,7 +231,12 @@ describe("AuthorizedForwarder", () => {
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
         await evmRevert(
-          forwarder.connect(roles.stranger).transferOwnershipWithMessage(await roles.stranger.getAddress(), message),
+          forwarder
+            .connect(roles.stranger)
+            .transferOwnershipWithMessage(
+              await roles.stranger.getAddress(),
+              message,
+            ),
           "Only callable by owner",
         );
       });
@@ -202,25 +246,46 @@ describe("AuthorizedForwarder", () => {
       it("calls the normal ownership transfer proposal", async () => {
         const tx = await forwarder
           .connect(roles.defaultAccount)
-          .transferOwnershipWithMessage(await roles.stranger.getAddress(), message);
+          .transferOwnershipWithMessage(
+            await roles.stranger.getAddress(),
+            message,
+          );
         const receipt = await tx.wait();
 
         assert.equal(receipt?.events?.[0]?.event, "OwnershipTransferRequested");
         assert.equal(receipt?.events?.[0]?.address, forwarder.address);
-        assert.equal(receipt?.events?.[0]?.args?.[0], await roles.defaultAccount.getAddress());
-        assert.equal(receipt?.events?.[0]?.args?.[1], await roles.stranger.getAddress());
+        assert.equal(
+          receipt?.events?.[0]?.args?.[0],
+          await roles.defaultAccount.getAddress(),
+        );
+        assert.equal(
+          receipt?.events?.[0]?.args?.[1],
+          await roles.stranger.getAddress(),
+        );
       });
 
       it("calls the normal ownership transfer proposal", async () => {
         const tx = await forwarder
           .connect(roles.defaultAccount)
-          .transferOwnershipWithMessage(await roles.stranger.getAddress(), message);
+          .transferOwnershipWithMessage(
+            await roles.stranger.getAddress(),
+            message,
+          );
         const receipt = await tx.wait();
 
-        assert.equal(receipt?.events?.[1]?.event, "OwnershipTransferRequestedWithMessage");
+        assert.equal(
+          receipt?.events?.[1]?.event,
+          "OwnershipTransferRequestedWithMessage",
+        );
         assert.equal(receipt?.events?.[1]?.address, forwarder.address);
-        assert.equal(receipt?.events?.[1]?.args?.[0], await roles.defaultAccount.getAddress());
-        assert.equal(receipt?.events?.[1]?.args?.[1], await roles.stranger.getAddress());
+        assert.equal(
+          receipt?.events?.[1]?.args?.[0],
+          await roles.defaultAccount.getAddress(),
+        );
+        assert.equal(
+          receipt?.events?.[1]?.args?.[1],
+          await roles.stranger.getAddress(),
+        );
         assert.equal(receipt?.events?.[1]?.args?.[2], message);
       });
     });
@@ -242,7 +307,9 @@ describe("AuthorizedForwarder", () => {
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await evmRevert(forwarder.connect(roles.stranger).ownerForward(mock.address, payload));
+        await evmRevert(
+          forwarder.connect(roles.stranger).ownerForward(mock.address, payload),
+        );
       });
     });
 
@@ -251,27 +318,37 @@ describe("AuthorizedForwarder", () => {
         it("does not revert", async () => {
           const sighash = linkTokenFactory.interface.getSighash("name"); // any Link Token function
 
-          await forwarder.connect(roles.defaultAccount).ownerForward(link.address, sighash);
+          await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(link.address, sighash);
         });
       });
 
       describe("when forwarding to any other address", () => {
         it("forwards the data", async () => {
-          const tx = await forwarder.connect(roles.defaultAccount).ownerForward(mock.address, payload);
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload);
           await tx.wait();
           assert.equal(await mock.getBytes(), bytes);
         });
 
         it("reverts when sending to a non-contract address", async () => {
           await evmRevert(
-            forwarder.connect(roles.defaultAccount).ownerForward(zeroAddress, payload),
+            forwarder
+              .connect(roles.defaultAccount)
+              .ownerForward(zeroAddress, payload),
             "Must forward to a contract",
           );
         });
 
         it("perceives the message is sent by the Operator", async () => {
-          const tx = await forwarder.connect(roles.defaultAccount).ownerForward(mock.address, payload);
-          await expect(tx).to.emit(mock, "SetBytes").withArgs(forwarder.address, bytes);
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .ownerForward(mock.address, payload);
+          await expect(tx)
+            .to.emit(mock, "SetBytes")
+            .withArgs(forwarder.address, bytes);
         });
       });
     });

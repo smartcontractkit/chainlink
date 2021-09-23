@@ -18,7 +18,10 @@ before(async () => {
   owner = personas.Carol;
   nonOwner = personas.Neil;
   newOwner = personas.Ned;
-  ownedFactory = await ethers.getContractFactory("src/v0.6/Owned.sol:Owned", owner);
+  ownedFactory = await ethers.getContractFactory(
+    "src/v0.6/Owned.sol:Owned",
+    owner,
+  );
 });
 
 describe("Owned", () => {
@@ -32,7 +35,10 @@ describe("Owned", () => {
 
   describe("#constructor", () => {
     it("assigns ownership to the deployer", async () => {
-      const [actual, expected] = await Promise.all([owner.getAddress(), owned.owner()]);
+      const [actual, expected] = await Promise.all([
+        owner.getAddress(),
+        owned.owner(),
+      ]);
 
       assert.equal(actual, expected);
     });
@@ -41,7 +47,9 @@ describe("Owned", () => {
   describe("#transferOwnership", () => {
     describe("when called by an owner", () => {
       it("emits a log", async () => {
-        await expect(owned.connect(owner).transferOwnership(await newOwner.getAddress()))
+        await expect(
+          owned.connect(owner).transferOwnership(await newOwner.getAddress()),
+        )
           .to.emit(owned, "OwnershipTransferRequested")
           .withArgs(await owner.getAddress(), await newOwner.getAddress());
       });
@@ -50,13 +58,17 @@ describe("Owned", () => {
 
   describe("when called by anyone but the owner", () => {
     it("reverts", async () =>
-      await expect(owned.connect(nonOwner).transferOwnership(await newOwner.getAddress())).to.be.reverted);
+      await expect(
+        owned.connect(nonOwner).transferOwnership(await newOwner.getAddress()),
+      ).to.be.reverted);
   });
 
   describe("#acceptOwnership", () => {
     describe("after #transferOwnership has been called", () => {
       beforeEach(async () => {
-        await owned.connect(owner).transferOwnership(await newOwner.getAddress());
+        await owned
+          .connect(owner)
+          .transferOwnership(await newOwner.getAddress());
       });
 
       it("allows the recipient to call it", async () => {

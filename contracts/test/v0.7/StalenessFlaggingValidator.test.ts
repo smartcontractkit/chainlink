@@ -1,5 +1,11 @@
 import { ethers } from "hardhat";
-import { evmWordToAddress, getLog, getLogs, numToBytes32, publicAbi } from "../test-helpers/helpers";
+import {
+  evmWordToAddress,
+  getLog,
+  getLogs,
+  numToBytes32,
+  publicAbi,
+} from "../test-helpers/helpers";
 import { assert, expect } from "chai";
 import { BigNumber, Contract, ContractFactory } from "ethers";
 import { Personas, getUsers } from "../test-helpers/setup";
@@ -14,8 +20,14 @@ let aggregatorFactory: ContractFactory;
 before(async () => {
   personas = (await getUsers()).personas;
 
-  validatorFactory = await ethers.getContractFactory("StalenessFlaggingValidator", personas.Carol);
-  flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags", personas.Carol);
+  validatorFactory = await ethers.getContractFactory(
+    "StalenessFlaggingValidator",
+    personas.Carol,
+  );
+  flagsFactory = await ethers.getContractFactory(
+    "src/v0.6/Flags.sol:Flags",
+    personas.Carol,
+  );
   acFactory = await ethers.getContractFactory(
     "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
     personas.Carol,
@@ -37,7 +49,9 @@ describe("StalenessFlaggingValidator", () => {
   beforeEach(async () => {
     ac = await acFactory.connect(personas.Carol).deploy();
     flags = await flagsFactory.connect(personas.Carol).deploy(ac.address);
-    validator = await validatorFactory.connect(personas.Carol).deploy(flags.address);
+    validator = await validatorFactory
+      .connect(personas.Carol)
+      .deploy(flags.address);
 
     await ac.connect(personas.Carol).addAccess(validator.address);
   });
@@ -82,17 +96,26 @@ describe("StalenessFlaggingValidator", () => {
     });
 
     it("emits a log event only when actually changed", async () => {
-      const tx = await validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress);
-      await expect(tx).to.emit(validator, "FlagsAddressUpdated").withArgs(flags.address, newFlagsAddress);
+      const tx = await validator
+        .connect(personas.Carol)
+        .setFlagsAddress(newFlagsAddress);
+      await expect(tx)
+        .to.emit(validator, "FlagsAddressUpdated")
+        .withArgs(flags.address, newFlagsAddress);
 
-      const sameChangeTx = await validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress);
+      const sameChangeTx = await validator
+        .connect(personas.Carol)
+        .setFlagsAddress(newFlagsAddress);
 
       await expect(sameChangeTx).to.not.emit(validator, "FlagsAddressUpdated");
     });
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await evmRevert(validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress), "Only callable by owner");
+        await evmRevert(
+          validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress),
+          "Only callable by owner",
+        );
       });
     });
   });
@@ -106,8 +129,12 @@ describe("StalenessFlaggingValidator", () => {
     beforeEach(async () => {
       const decimals = 8;
       const initialAnswer = 10000000000;
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
     });
 
     describe("failure", () => {
@@ -118,14 +145,18 @@ describe("StalenessFlaggingValidator", () => {
 
       it("reverts when called by a non-owner", async () => {
         await evmRevert(
-          validator.connect(personas.Neil).setThresholds(aggregators, thresholds),
+          validator
+            .connect(personas.Neil)
+            .setThresholds(aggregators, thresholds),
           "Only callable by owner",
         );
       });
 
       it("reverts when passed uneven arrays", async () => {
         await evmRevert(
-          validator.connect(personas.Carol).setThresholds(aggregators, thresholds),
+          validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds),
           "Different sized arrays",
         );
       });
@@ -141,7 +172,9 @@ describe("StalenessFlaggingValidator", () => {
 
       describe("when called with 2 new thresholds", () => {
         beforeEach(async () => {
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, thresholds);
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds);
         });
 
         it("sets the thresholds", async () => {
@@ -163,10 +196,14 @@ describe("StalenessFlaggingValidator", () => {
 
       describe("when called with 2, but 1 has not changed", () => {
         it("emits only 1 event", async () => {
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, thresholds);
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds);
 
           const newThreshold = flaggingThreshold2 + 1;
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, [flaggingThreshold1, newThreshold]);
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, [flaggingThreshold1, newThreshold]);
           const logs = await getLogs(tx);
           assert.equal(logs.length, 1);
           const log = logs[0];
@@ -186,8 +223,12 @@ describe("StalenessFlaggingValidator", () => {
     const decimals = 8;
     const initialAnswer = 10000000000;
     beforeEach(async () => {
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
       aggregators = [agg1.address, agg2.address];
       thresholds = [flaggingThreshold1, flaggingThreshold2];
       await validator.setThresholds(aggregators, thresholds);
@@ -202,7 +243,9 @@ describe("StalenessFlaggingValidator", () => {
 
     describe("when threshold is not set in the validator", () => {
       it("returns an empty array", async () => {
-        const agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer);
         const response = await validator.check([agg3.address]);
         assert.equal(response.length, 0);
       });
@@ -211,8 +254,15 @@ describe("StalenessFlaggingValidator", () => {
     describe("when one of the aggregators is stale", () => {
       it("returns an array with one stale aggregator", async () => {
         const currentTimestamp = await agg1.latestTimestamp();
-        const staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        const staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
         const response = await validator.check(aggregators);
 
         assert.equal(response.length, 1);
@@ -223,12 +273,26 @@ describe("StalenessFlaggingValidator", () => {
     describe("When both aggregators are stale", () => {
       it("returns an array with both aggregators", async () => {
         let currentTimestamp = await agg1.latestTimestamp();
-        let staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        let staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         currentTimestamp = await agg2.latestTimestamp();
-        staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold2 + 1));
-        await agg2.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold2 + 1),
+        );
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         const response = await validator.check(aggregators);
 
@@ -247,8 +311,12 @@ describe("StalenessFlaggingValidator", () => {
     const decimals = 8;
     const initialAnswer = 10000000000;
     beforeEach(async () => {
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
       aggregators = [agg1.address, agg2.address];
       thresholds = [flaggingThreshold1, flaggingThreshold2];
       await validator.setThresholds(aggregators, thresholds);
@@ -264,7 +332,9 @@ describe("StalenessFlaggingValidator", () => {
 
     describe("when threshold is not set in the validator", () => {
       it("does not raise a flag", async () => {
-        const agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer);
         const tx = await validator.update([agg3.address]);
         const logs = await getLogs(tx);
         assert.equal(logs.length, 0);
@@ -274,8 +344,15 @@ describe("StalenessFlaggingValidator", () => {
     describe("when one is stale", () => {
       it("raises a flag for that aggregator", async () => {
         const currentTimestamp = await agg1.latestTimestamp();
-        const staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        const staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         const tx = await validator.update(aggregators);
         const logs = await getLogs(tx);
@@ -287,12 +364,26 @@ describe("StalenessFlaggingValidator", () => {
     describe("when both are stale", () => {
       it("raises 2 flags, one for each aggregator", async () => {
         let currentTimestamp = await agg1.latestTimestamp();
-        let staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        let staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         currentTimestamp = await agg2.latestTimestamp();
-        staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold2 + 1));
-        await agg2.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold2 + 1),
+        );
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         const tx = await validator.update(aggregators);
         const logs = await getLogs(tx);
@@ -311,8 +402,12 @@ describe("StalenessFlaggingValidator", () => {
     const decimals = 8;
     const initialAnswer = 10000000000;
     beforeEach(async () => {
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
       aggregators = [agg1.address, agg2.address];
       thresholds = [flaggingThreshold1, flaggingThreshold2];
       await validator.setThresholds(aggregators, thresholds);
@@ -320,23 +415,37 @@ describe("StalenessFlaggingValidator", () => {
 
     describe("when neither are stale", () => {
       it("returns false and an empty array", async () => {
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const response = await validator.checkUpkeep(bytesData);
 
         assert.equal(response[0], false);
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1]);
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ["address[]"],
+          response?.[1],
+        );
         assert.equal(decodedResponse[0].length, 0);
       });
     });
 
     describe("when threshold is not set in the validator", () => {
       it("returns flase and an empty array", async () => {
-        const agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [[agg3.address]]);
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [[agg3.address]],
+        );
         const response = await validator.checkUpkeep(bytesData);
 
         assert.equal(response[0], false);
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1]);
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ["address[]"],
+          response?.[1],
+        );
         assert.equal(decodedResponse[0].length, 0);
       });
     });
@@ -344,14 +453,27 @@ describe("StalenessFlaggingValidator", () => {
     describe("when one of the aggregators is stale", () => {
       it("returns true with an array with one stale aggregator", async () => {
         const currentTimestamp = await agg1.latestTimestamp();
-        const staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        const staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const response = await validator.checkUpkeep(bytesData);
 
         assert.equal(response[0], true);
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1]);
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ["address[]"],
+          response?.[1],
+        );
         const decodedArray = decodedResponse[0];
         assert.equal(decodedArray.length, 1);
         assert.equal(decodedArray[0], agg1.address);
@@ -361,18 +483,38 @@ describe("StalenessFlaggingValidator", () => {
     describe("When both aggregators are stale", () => {
       it("returns true with an array with both aggregators", async () => {
         let currentTimestamp = await agg1.latestTimestamp();
-        let staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        let staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         currentTimestamp = await agg2.latestTimestamp();
-        staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold2 + 1));
-        await agg2.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold2 + 1),
+        );
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const response = await validator.checkUpkeep(bytesData);
 
         assert.equal(response[0], true);
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1]);
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ["address[]"],
+          response?.[1],
+        );
         const decodedArray = decodedResponse[0];
         assert.equal(decodedArray.length, 2);
         assert.equal(decodedArray[0], agg1.address);
@@ -389,8 +531,12 @@ describe("StalenessFlaggingValidator", () => {
     const decimals = 8;
     const initialAnswer = 10000000000;
     beforeEach(async () => {
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer);
       aggregators = [agg1.address, agg2.address];
       thresholds = [flaggingThreshold1, flaggingThreshold2];
       await validator.setThresholds(aggregators, thresholds);
@@ -398,7 +544,10 @@ describe("StalenessFlaggingValidator", () => {
 
     describe("when neither are stale", () => {
       it("does not raise a flag", async () => {
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const tx = await validator.performUpkeep(bytesData);
         const logs = await getLogs(tx);
         assert.equal(logs.length, 0);
@@ -407,8 +556,13 @@ describe("StalenessFlaggingValidator", () => {
 
     describe("when threshold is not set in the validator", () => {
       it("does not raise a flag", async () => {
-        const agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer);
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [[agg3.address]]);
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [[agg3.address]],
+        );
         const tx = await validator.performUpkeep(bytesData);
         const logs = await getLogs(tx);
         assert.equal(logs.length, 0);
@@ -418,10 +572,20 @@ describe("StalenessFlaggingValidator", () => {
     describe("when one is stale", () => {
       it("raises a flag for that aggregator", async () => {
         const currentTimestamp = await agg1.latestTimestamp();
-        const staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        const staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const tx = await validator.performUpkeep(bytesData);
         const logs = await getLogs(tx);
         assert.equal(logs.length, 1);
@@ -432,14 +596,31 @@ describe("StalenessFlaggingValidator", () => {
     describe("when both are stale", () => {
       it("raises 2 flags, one for each aggregator", async () => {
         let currentTimestamp = await agg1.latestTimestamp();
-        let staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold1 + 1));
-        await agg1.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        let staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold1 + 1),
+        );
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
         currentTimestamp = await agg2.latestTimestamp();
-        staleTimestamp = currentTimestamp.sub(BigNumber.from(flaggingThreshold2 + 1));
-        await agg2.updateRoundData(99, initialAnswer, staleTimestamp, staleTimestamp);
+        staleTimestamp = currentTimestamp.sub(
+          BigNumber.from(flaggingThreshold2 + 1),
+        );
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        );
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators]);
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ["address[]"],
+          [aggregators],
+        );
         const tx = await validator.performUpkeep(bytesData);
         const logs = await getLogs(tx);
         assert.equal(logs.length, 2);

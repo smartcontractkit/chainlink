@@ -98,10 +98,9 @@ export const ChainsIndex = ({
     getChains().then(setChains).catch(setError)
   }, [setError])
 
-  const chainFilter = React.useMemo(
-    () => simpleChainFilter(search.trim()),
-    [search],
-  )
+  const chainFilter = React.useMemo(() => simpleChainFilter(search.trim()), [
+    search,
+  ])
 
   return (
     <Content>

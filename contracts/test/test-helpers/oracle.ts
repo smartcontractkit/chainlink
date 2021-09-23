@@ -126,7 +126,10 @@ export function convertFufillParams(
   d("Response param: %s", response);
 
   const bytes32Len = 32 * 2 + 2;
-  const convertedResponse = response.length < bytes32Len ? ethers.utils.formatBytes32String(response) : response;
+  const convertedResponse =
+    response.length < bytes32Len
+      ? ethers.utils.formatBytes32String(response)
+      : response;
   d("Converted Response param: %s", convertedResponse);
 
   return [
@@ -202,7 +205,13 @@ export function convertCancelParams(
   runRequest: RunRequest,
   txOpts: TxOptions = {},
 ): [string, string, string, string, TxOptions] {
-  return [runRequest.requestId, runRequest.payment, runRequest.callbackFunc, runRequest.expiration, txOpts];
+  return [
+    runRequest.requestId,
+    runRequest.payment,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    txOpts,
+  ];
 }
 
 /**
@@ -226,7 +235,13 @@ export function convertCancelByRequesterParams(
   nonce: number,
   txOpts: TxOptions = {},
 ): [number, string, string, string, TxOptions] {
-  return [nonce, runRequest.payment, runRequest.callbackFunc, runRequest.expiration, txOpts];
+  return [
+    nonce,
+    runRequest.payment,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    txOpts,
+  ];
 }
 
 /**
@@ -259,7 +274,15 @@ export function encodeOracleRequest(
   dataVersion: BigNumberish = 1,
 ): string {
   const oracleRequestSighash = "0x40429946";
-  return encodeRequest(oracleRequestSighash, specId, callbackAddr, callbackFunctionId, nonce, data, dataVersion);
+  return encodeRequest(
+    oracleRequestSighash,
+    specId,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    data,
+    dataVersion,
+  );
 }
 
 /**
@@ -302,7 +325,15 @@ export function encodeRequestOracleData(
   ];
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
     requestInputs.map(i => i.type),
-    [ethers.constants.AddressZero, 0, specId, callbackFunctionId, nonce, dataVersion, data],
+    [
+      ethers.constants.AddressZero,
+      0,
+      specId,
+      callbackFunctionId,
+      nonce,
+      dataVersion,
+      data,
+    ],
   );
   return `${sendOperatorRequestSigHash}${stripHexPrefix(encodedParams)}`;
 }
@@ -328,7 +359,16 @@ function encodeRequest(
   ];
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
     oracleRequestInputs.map(i => i.type),
-    [ethers.constants.AddressZero, 0, specId, callbackAddr, callbackFunctionId, nonce, dataVersion, data],
+    [
+      ethers.constants.AddressZero,
+      0,
+      specId,
+      callbackAddr,
+      callbackFunctionId,
+      nonce,
+      dataVersion,
+      data,
+    ],
   );
   return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`;
 }
@@ -357,9 +397,26 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
     throw Error("No logs found to decode");
   }
 
-  const ORACLE_REQUEST_TYPES = ["address", "bytes32", "uint256", "address", "bytes4", "uint256", "uint256", "bytes"];
-  const [requester, requestId, payment, callbackAddress, callbackFunc, expiration, version, data] =
-    ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data);
+  const ORACLE_REQUEST_TYPES = [
+    "address",
+    "bytes32",
+    "uint256",
+    "address",
+    "bytes4",
+    "uint256",
+    "uint256",
+    "bytes",
+  ];
+  const [
+    requester,
+    requestId,
+    payment,
+    callbackAddress,
+    callbackFunc,
+    expiration,
+    version,
+    data,
+  ] = ethers.utils.defaultAbiCoder.decode(ORACLE_REQUEST_TYPES, log.data);
 
   return {
     specId: log.topics[1],
@@ -391,12 +448,17 @@ export function decodeRunRequest(log?: ethers.providers.Log): RunRequest {
  *
  * @param log The log to decode
  */
-export function decodeCCRequest(log: ethers.providers.Log): ethers.utils.Result {
+export function decodeCCRequest(
+  log: ethers.providers.Log,
+): ethers.utils.Result {
   const d = debug.extend("decodeRunABI");
   d("params %o", log);
 
   const REQUEST_TYPES = ["bytes32", "address", "bytes4", "bytes"];
-  const decodedValue = ethers.utils.defaultAbiCoder.decode(REQUEST_TYPES, log.data);
+  const decodedValue = ethers.utils.defaultAbiCoder.decode(
+    REQUEST_TYPES,
+    log.data,
+  );
   d("decoded value %o", decodedValue);
 
   return decodedValue;

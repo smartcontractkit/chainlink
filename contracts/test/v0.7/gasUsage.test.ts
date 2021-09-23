@@ -2,7 +2,11 @@ import { ethers } from "hardhat";
 import { toBytes32String, toWei } from "../test-helpers/helpers";
 import { Contract, ContractFactory } from "ethers";
 import { getUsers, Roles } from "../test-helpers/setup";
-import { convertFufillParams, convertFulfill2Params, decodeRunRequest } from "../test-helpers/oracle";
+import {
+  convertFufillParams,
+  convertFulfill2Params,
+  decodeRunRequest,
+} from "../test-helpers/oracle";
 import { gasDiffLessThan } from "../test-helpers/matchers";
 
 let operatorFactory: ContractFactory;
@@ -16,17 +20,27 @@ before(async () => {
   const users = await getUsers();
 
   roles = users.roles;
-  operatorFactory = await ethers.getContractFactory("Operator", roles.defaultAccount);
-  oracleFactory = await ethers.getContractFactory("src/v0.6/Oracle.sol:Oracle", roles.defaultAccount);
+  operatorFactory = await ethers.getContractFactory(
+    "Operator",
+    roles.defaultAccount,
+  );
+  oracleFactory = await ethers.getContractFactory(
+    "src/v0.6/Oracle.sol:Oracle",
+    roles.defaultAccount,
+  );
   basicConsumerFactory = await ethers.getContractFactory(
     "src/v0.6/tests/BasicConsumer.sol:BasicConsumer",
     roles.defaultAccount,
   );
-  linkTokenFactory = await ethers.getContractFactory("LinkToken", roles.defaultAccount);
+  linkTokenFactory = await ethers.getContractFactory(
+    "LinkToken",
+    roles.defaultAccount,
+  );
 });
 
 describe("Operator Gas Tests [ @skip-coverage ]", () => {
-  const specId = "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
+  const specId =
+    "0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000";
   let link: Contract;
   let oracle1: Contract;
   let operator1: Contract;
@@ -45,8 +59,13 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
       .deploy(link.address, await roles.defaultAccount.getAddress());
     await operator2.setAuthorizedSenders([await roles.oracleNode.getAddress()]);
 
-    oracle1 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address);
-    await oracle1.setFulfillmentPermission(await roles.oracleNode.getAddress(), true);
+    oracle1 = await oracleFactory
+      .connect(roles.defaultAccount)
+      .deploy(link.address);
+    await oracle1.setFulfillmentPermission(
+      await roles.oracleNode.getAddress(),
+      true,
+    );
   });
 
   // Test Oracle.fulfillOracleRequest vs Operator.fulfillOracleRequest
@@ -59,7 +78,9 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
     let request2: ReturnType<typeof decodeRunRequest>;
 
     beforeEach(async () => {
-      basicConsumer1 = await basicConsumerFactory.connect(roles.consumer).deploy(link.address, oracle1.address, specId);
+      basicConsumer1 = await basicConsumerFactory
+        .connect(roles.consumer)
+        .deploy(link.address, oracle1.address, specId);
       basicConsumer2 = await basicConsumerFactory
         .connect(roles.consumer)
         .deploy(link.address, operator1.address, specId);
@@ -68,12 +89,18 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
       const currency = "USD";
 
       await link.transfer(basicConsumer1.address, paymentAmount);
-      const tx1 = await basicConsumer1.requestEthereumPrice(currency, paymentAmount);
+      const tx1 = await basicConsumer1.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      );
       const receipt1 = await tx1.wait();
       request1 = decodeRunRequest(receipt1.logs?.[3]);
 
       await link.transfer(basicConsumer2.address, paymentAmount);
-      const tx2 = await basicConsumer2.requestEthereumPrice(currency, paymentAmount);
+      const tx2 = await basicConsumer2.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      );
       const receipt2 = await tx2.wait();
       request2 = decodeRunRequest(receipt2.logs?.[3]);
     });
@@ -114,12 +141,18 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
       const currency = "USD";
 
       await link.transfer(basicConsumer1.address, paymentAmount);
-      const tx1 = await basicConsumer1.requestEthereumPrice(currency, paymentAmount);
+      const tx1 = await basicConsumer1.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      );
       const receipt1 = await tx1.wait();
       request1 = decodeRunRequest(receipt1.logs?.[3]);
 
       await link.transfer(basicConsumer2.address, paymentAmount);
-      const tx2 = await basicConsumer2.requestEthereumPrice(currency, paymentAmount);
+      const tx2 = await basicConsumer2.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      );
       const receipt2 = await tx2.wait();
       request2 = decodeRunRequest(receipt2.logs?.[3]);
     });
@@ -133,7 +166,9 @@ describe("Operator Gas Tests [ @skip-coverage ]", () => {
       const responseValues = [toBytes32String(response)];
       const tx2 = await operator2
         .connect(roles.oracleNode)
-        .fulfillOracleRequest2(...convertFulfill2Params(request2, responseTypes, responseValues));
+        .fulfillOracleRequest2(
+          ...convertFulfill2Params(request2, responseTypes, responseValues),
+        );
 
       const receipt1 = await tx1.wait();
       const receipt2 = await tx2.wait();

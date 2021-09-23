@@ -24,7 +24,10 @@ before(async () => {
     "src/v0.8/tests/FlagsTestHelper.sol:FlagsTestHelper",
     personas.Nelly,
   );
-  flagsFactory = await ethers.getContractFactory("src/v0.8/Flags.sol:Flags", personas.Nelly);
+  flagsFactory = await ethers.getContractFactory(
+    "src/v0.8/Flags.sol:Flags",
+    personas.Nelly,
+  );
 });
 
 describe("Flags", () => {
@@ -80,7 +83,9 @@ describe("Flags", () => {
         });
 
         it("emits an event log", async () => {
-          const tx = await flags.connect(personas.Nelly).raiseFlag(consumer.address);
+          const tx = await flags
+            .connect(personas.Nelly)
+            .raiseFlag(consumer.address);
           const receipt = await tx.wait();
           assert.equal(0, receipt.events?.length);
         });
@@ -89,7 +94,9 @@ describe("Flags", () => {
 
     describe("when called by an enabled setter", () => {
       beforeEach(async () => {
-        await controller.connect(personas.Nelly).addAccess(await personas.Neil.getAddress());
+        await controller
+          .connect(personas.Nelly)
+          .addAccess(await personas.Neil.getAddress());
       });
 
       it("sets the flags", async () => {
@@ -100,18 +107,25 @@ describe("Flags", () => {
 
     describe("when called by a non-enabled setter", () => {
       it("reverts", async () => {
-        await expect(flags.connect(personas.Neil).raiseFlag(consumer.address)).to.be.revertedWith(
-          "Not allowed to raise flags",
-        );
+        await expect(
+          flags.connect(personas.Neil).raiseFlag(consumer.address),
+        ).to.be.revertedWith("Not allowed to raise flags");
       });
     });
 
     describe("when called when there is no raisingAccessController", () => {
       beforeEach(async () => {
         await expect(
-          flags.connect(personas.Nelly).setRaisingAccessController("0x0000000000000000000000000000000000000000"),
+          flags
+            .connect(personas.Nelly)
+            .setRaisingAccessController(
+              "0x0000000000000000000000000000000000000000",
+            ),
         ).to.emit(flags, "RaisingAccessControllerUpdated");
-        assert.equal("0x0000000000000000000000000000000000000000", await flags.raisingAccessController());
+        assert.equal(
+          "0x0000000000000000000000000000000000000000",
+          await flags.raisingAccessController(),
+        );
       });
 
       it("succeeds for the owner", async () => {
@@ -120,7 +134,8 @@ describe("Flags", () => {
       });
 
       it("reverts for non-owner", async () => {
-        await expect(flags.connect(personas.Neil).raiseFlag(consumer.address)).to.be.reverted;
+        await expect(flags.connect(personas.Neil).raiseFlag(consumer.address))
+          .to.be.reverted;
       });
     });
   });
@@ -136,7 +151,9 @@ describe("Flags", () => {
       });
 
       it("emits an event log", async () => {
-        await expect(flags.connect(personas.Nelly).raiseFlags([consumer.address]))
+        await expect(
+          flags.connect(personas.Nelly).raiseFlags([consumer.address]),
+        )
           .to.emit(flags, "FlagRaised")
           .withArgs(consumer.address);
       });
@@ -147,7 +164,9 @@ describe("Flags", () => {
         });
 
         it("emits an event log", async () => {
-          const tx = await flags.connect(personas.Nelly).raiseFlags([consumer.address]);
+          const tx = await flags
+            .connect(personas.Nelly)
+            .raiseFlags([consumer.address]);
           const receipt = await tx.wait();
           assert.equal(0, receipt.events?.length);
         });
@@ -156,7 +175,9 @@ describe("Flags", () => {
 
     describe("when called by an enabled setter", () => {
       beforeEach(async () => {
-        await controller.connect(personas.Nelly).addAccess(await personas.Neil.getAddress());
+        await controller
+          .connect(personas.Nelly)
+          .addAccess(await personas.Neil.getAddress());
       });
 
       it("sets the flags", async () => {
@@ -167,19 +188,26 @@ describe("Flags", () => {
 
     describe("when called by a non-enabled setter", () => {
       it("reverts", async () => {
-        await expect(flags.connect(personas.Neil).raiseFlags([consumer.address])).to.be.revertedWith(
-          "Not allowed to raise flags",
-        );
+        await expect(
+          flags.connect(personas.Neil).raiseFlags([consumer.address]),
+        ).to.be.revertedWith("Not allowed to raise flags");
       });
     });
 
     describe("when called when there is no raisingAccessController", () => {
       beforeEach(async () => {
         await expect(
-          flags.connect(personas.Nelly).setRaisingAccessController("0x0000000000000000000000000000000000000000"),
+          flags
+            .connect(personas.Nelly)
+            .setRaisingAccessController(
+              "0x0000000000000000000000000000000000000000",
+            ),
         ).to.emit(flags, "RaisingAccessControllerUpdated");
 
-        assert.equal("0x0000000000000000000000000000000000000000", await flags.raisingAccessController());
+        assert.equal(
+          "0x0000000000000000000000000000000000000000",
+          await flags.raisingAccessController(),
+        );
       });
 
       it("succeeds for the owner", async () => {
@@ -188,7 +216,9 @@ describe("Flags", () => {
       });
 
       it("reverts for non-owners", async () => {
-        await expect(flags.connect(personas.Neil).raiseFlags([consumer.address])).to.be.reverted;
+        await expect(
+          flags.connect(personas.Neil).raiseFlags([consumer.address]),
+        ).to.be.reverted;
       });
     });
   });
@@ -208,7 +238,9 @@ describe("Flags", () => {
       });
 
       it("emits an event log", async () => {
-        await expect(flags.connect(personas.Nelly).lowerFlags([consumer.address]))
+        await expect(
+          flags.connect(personas.Nelly).lowerFlags([consumer.address]),
+        )
           .to.emit(flags, "FlagLowered")
           .withArgs(consumer.address);
       });
@@ -219,7 +251,9 @@ describe("Flags", () => {
         });
 
         it("emits an event log", async () => {
-          const tx = await flags.connect(personas.Nelly).lowerFlags([consumer.address]);
+          const tx = await flags
+            .connect(personas.Nelly)
+            .lowerFlags([consumer.address]);
           const receipt = await tx.wait();
           assert.equal(0, receipt.events?.length);
         });
@@ -228,9 +262,9 @@ describe("Flags", () => {
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await expect(flags.connect(personas.Neil).lowerFlags([consumer.address])).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          flags.connect(personas.Neil).lowerFlags([consumer.address]),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
   });
@@ -242,7 +276,9 @@ describe("Flags", () => {
       });
 
       it("reverts", async () => {
-        await expect(consumer.getFlag(consumer.address)).to.be.revertedWith("No access");
+        await expect(consumer.getFlag(consumer.address)).to.be.revertedWith(
+          "No access",
+        );
       });
 
       describe("if access is granted to the address", () => {
@@ -282,13 +318,18 @@ describe("Flags", () => {
       await flags.connect(personas.Nelly).disableAccessCheck();
       await flags
         .connect(personas.Nelly)
-        .raiseFlags([await personas.Neil.getAddress(), await personas.Norbert.getAddress()]);
+        .raiseFlags([
+          await personas.Neil.getAddress(),
+          await personas.Norbert.getAddress(),
+        ]);
     });
 
     it("respects the access controls of #getFlag", async () => {
       await flags.connect(personas.Nelly).enableAccessCheck();
 
-      await expect(consumer.getFlag(consumer.address)).to.be.revertedWith("No access");
+      await expect(consumer.getFlag(consumer.address)).to.be.revertedWith(
+        "No access",
+      );
 
       await flags.connect(personas.Nelly).addAccess(consumer.address);
 
@@ -320,33 +361,44 @@ describe("Flags", () => {
       await controller.connect(personas.Nelly).addAccess(neilAddress);
       await flags.connect(personas.Neil).raiseFlags([consumer.address]); // doesn't raise
 
-      await flags.connect(personas.Nelly).setRaisingAccessController(controller2.address);
+      await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address);
 
-      await expect(flags.connect(personas.Neil).raiseFlags([consumer.address])).to.be.revertedWith(
-        "Not allowed to raise flags",
-      );
+      await expect(
+        flags.connect(personas.Neil).raiseFlags([consumer.address]),
+      ).to.be.revertedWith("Not allowed to raise flags");
     });
 
     it("emits a log announcing the change", async () => {
-      await expect(flags.connect(personas.Nelly).setRaisingAccessController(controller2.address))
+      await expect(
+        flags
+          .connect(personas.Nelly)
+          .setRaisingAccessController(controller2.address),
+      )
         .to.emit(flags, "RaisingAccessControllerUpdated")
         .withArgs(controller.address, controller2.address);
     });
 
     it("does not emit a log when there is no change", async () => {
-      await flags.connect(personas.Nelly).setRaisingAccessController(controller2.address);
+      await flags
+        .connect(personas.Nelly)
+        .setRaisingAccessController(controller2.address);
 
-      await expect(flags.connect(personas.Nelly).setRaisingAccessController(controller2.address)).to.not.emit(
-        flags,
-        "RaisingAccessControllerUpdated",
-      );
+      await expect(
+        flags
+          .connect(personas.Nelly)
+          .setRaisingAccessController(controller2.address),
+      ).to.not.emit(flags, "RaisingAccessControllerUpdated");
     });
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await expect(flags.connect(personas.Neil).setRaisingAccessController(controller2.address)).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          flags
+            .connect(personas.Neil)
+            .setRaisingAccessController(controller2.address),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
   });

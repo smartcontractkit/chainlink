@@ -81,18 +81,24 @@ describe("ValidatorProxy", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = users.contracts.contract4;
-        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          validatorProxy
+            .connect(stranger)
+            .proposeNewAggregator(newAggregatorAddress),
+        ).to.be.revertedWith("Only callable by owner");
       });
 
       it("should revert if no change in proposal", async () => {
         await validatorProxy.proposeNewAggregator(newAggregatorAddress);
-        await expect(validatorProxy.proposeNewAggregator(newAggregatorAddress)).to.be.revertedWith("Invalid proposal");
+        await expect(
+          validatorProxy.proposeNewAggregator(newAggregatorAddress),
+        ).to.be.revertedWith("Invalid proposal");
       });
 
       it("should revert if the proposal is the same as the current", async () => {
-        await expect(validatorProxy.proposeNewAggregator(aggregatorAddress)).to.be.revertedWith("Invalid proposal");
+        await expect(
+          validatorProxy.proposeNewAggregator(aggregatorAddress),
+        ).to.be.revertedWith("Invalid proposal");
       });
     });
 
@@ -126,11 +132,15 @@ describe("ValidatorProxy", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = users.contracts.contract4;
-        await expect(validatorProxy.connect(stranger).upgradeAggregator()).to.be.revertedWith("Only callable by owner");
+        await expect(
+          validatorProxy.connect(stranger).upgradeAggregator(),
+        ).to.be.revertedWith("Only callable by owner");
       });
 
       it("should revert if there is no proposal", async () => {
-        await expect(validatorProxy.upgradeAggregator()).to.be.revertedWith("No proposal");
+        await expect(validatorProxy.upgradeAggregator()).to.be.revertedWith(
+          "No proposal",
+        );
       });
     });
 
@@ -171,18 +181,24 @@ describe("ValidatorProxy", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = users.contracts.contract4;
-        await expect(validatorProxy.connect(stranger).proposeNewAggregator(newValidatorAddress)).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          validatorProxy
+            .connect(stranger)
+            .proposeNewAggregator(newValidatorAddress),
+        ).to.be.revertedWith("Only callable by owner");
       });
 
       it("should revert if no change in proposal", async () => {
         await validatorProxy.proposeNewValidator(newValidatorAddress);
-        await expect(validatorProxy.proposeNewValidator(newValidatorAddress)).to.be.revertedWith("Invalid proposal");
+        await expect(
+          validatorProxy.proposeNewValidator(newValidatorAddress),
+        ).to.be.revertedWith("Invalid proposal");
       });
 
       it("should revert if the proposal is the same as the current", async () => {
-        await expect(validatorProxy.proposeNewValidator(validatorAddress)).to.be.revertedWith("Invalid proposal");
+        await expect(
+          validatorProxy.proposeNewValidator(validatorAddress),
+        ).to.be.revertedWith("Invalid proposal");
       });
     });
 
@@ -216,11 +232,15 @@ describe("ValidatorProxy", () => {
     describe("failure", () => {
       it("should only be called by the owner", async () => {
         const stranger = users.contracts.contract4;
-        await expect(validatorProxy.connect(stranger).upgradeValidator()).to.be.revertedWith("Only callable by owner");
+        await expect(
+          validatorProxy.connect(stranger).upgradeValidator(),
+        ).to.be.revertedWith("Only callable by owner");
       });
 
       it("should revert if there is no proposal", async () => {
-        await expect(validatorProxy.upgradeValidator()).to.be.revertedWith("No proposal");
+        await expect(validatorProxy.upgradeValidator()).to.be.revertedWith(
+          "No proposal",
+        );
       });
     });
 
@@ -253,18 +273,21 @@ describe("ValidatorProxy", () => {
     describe("failure", () => {
       it("reverts when not called by aggregator or proposed aggregator", async () => {
         const stranger = users.contracts.contract5;
-        await expect(validatorProxy.connect(stranger).validate(99, 88, 77, 66)).to.be.revertedWith(
-          "Not a configured aggregator",
-        );
+        await expect(
+          validatorProxy.connect(stranger).validate(99, 88, 77, 66),
+        ).to.be.revertedWith("Not a configured aggregator");
       });
 
       it("reverts when there is no validator set", async () => {
         const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
-        validatorProxy = await vpf.deploy(aggregatorAddress, constants.AddressZero);
-        await validatorProxy.deployed();
-        await expect(validatorProxy.connect(aggregator).validate(99, 88, 77, 66)).to.be.revertedWith(
-          "No validator set",
+        validatorProxy = await vpf.deploy(
+          aggregatorAddress,
+          constants.AddressZero,
         );
+        await validatorProxy.deployed();
+        await expect(
+          validatorProxy.connect(aggregator).validate(99, 88, 77, 66),
+        ).to.be.revertedWith("No validator set");
       });
     });
 
@@ -272,23 +295,33 @@ describe("ValidatorProxy", () => {
       describe("from the aggregator", () => {
         let mockValidator1: Contract;
         beforeEach(async () => {
-          const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner);
+          const mvf = await ethers.getContractFactory(
+            "MockAggregatorValidator",
+            owner,
+          );
           mockValidator1 = await mvf.deploy(1);
           mockValidator1 = await mockValidator1.deployed();
           const vpf = await ethers.getContractFactory("ValidatorProxy", owner);
-          validatorProxy = await vpf.deploy(aggregatorAddress, mockValidator1.address);
+          validatorProxy = await vpf.deploy(
+            aggregatorAddress,
+            mockValidator1.address,
+          );
           validatorProxy = await validatorProxy.deployed();
         });
 
         describe("for a single validator", () => {
           it("calls validate on the validator", async () => {
-            await expect(validatorProxy.connect(aggregator).validate(200, 300, 400, 500))
+            await expect(
+              validatorProxy.connect(aggregator).validate(200, 300, 400, 500),
+            )
               .to.emit(mockValidator1, "ValidateCalled")
               .withArgs(1, 200, 300, 400, 500);
           });
 
           it("uses a specific amount of gas [ @skip-coverage ]", async () => {
-            const resp = await validatorProxy.connect(aggregator).validate(200, 300, 400, 500);
+            const resp = await validatorProxy
+              .connect(aggregator)
+              .validate(200, 300, 400, 500);
             const receipt = await resp.wait();
             assert.equal(receipt.gasUsed.toString(), "32406");
           });
@@ -298,26 +331,39 @@ describe("ValidatorProxy", () => {
           let mockValidator2: Contract;
 
           beforeEach(async () => {
-            const mvf = await ethers.getContractFactory("MockAggregatorValidator", owner);
+            const mvf = await ethers.getContractFactory(
+              "MockAggregatorValidator",
+              owner,
+            );
             mockValidator2 = await mvf.deploy(2);
             mockValidator2 = await mockValidator2.deployed();
             await validatorProxy.proposeNewValidator(mockValidator2.address);
           });
 
           it("calls validate on the validator", async () => {
-            await expect(validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000))
+            await expect(
+              validatorProxy
+                .connect(aggregator)
+                .validate(2000, 3000, 4000, 5000),
+            )
               .to.emit(mockValidator1, "ValidateCalled")
               .withArgs(1, 2000, 3000, 4000, 5000);
           });
 
           it("also calls validate on the proposed validator", async () => {
-            await expect(validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000))
+            await expect(
+              validatorProxy
+                .connect(aggregator)
+                .validate(2000, 3000, 4000, 5000),
+            )
               .to.emit(mockValidator2, "ValidateCalled")
               .withArgs(2, 2000, 3000, 4000, 5000);
           });
 
           it("uses a specific amount of gas [ @skip-coverage ]", async () => {
-            const resp = await validatorProxy.connect(aggregator).validate(2000, 3000, 4000, 5000);
+            const resp = await validatorProxy
+              .connect(aggregator)
+              .validate(2000, 3000, 4000, 5000);
             const receipt = await resp.wait();
             assert.equal(receipt.gasUsed.toString(), "40495");
           });
@@ -330,11 +376,15 @@ describe("ValidatorProxy", () => {
         beforeEach(async () => {
           newAggregator = users.contracts.contract3;
           newAggregatorAddress = await newAggregator.getAddress();
-          await validatorProxy.connect(owner).proposeNewAggregator(newAggregatorAddress);
+          await validatorProxy
+            .connect(owner)
+            .proposeNewAggregator(newAggregatorAddress);
         });
 
         it("emits an event", async () => {
-          await expect(validatorProxy.connect(newAggregator).validate(555, 666, 777, 888))
+          await expect(
+            validatorProxy.connect(newAggregator).validate(555, 666, 777, 888),
+          )
             .to.emit(validatorProxy, "ProposedAggregatorValidateCall")
             .withArgs(newAggregatorAddress, 555, 666, 777, 888);
         });

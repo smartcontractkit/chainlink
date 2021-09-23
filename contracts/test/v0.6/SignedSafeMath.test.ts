@@ -10,7 +10,10 @@ let concreteSignedSafeMathFactory: ContractFactory;
 before(async () => {
   const personas: Personas = (await getUsers()).personas;
   defaultAccount = personas.Default;
-  concreteSignedSafeMathFactory = await ethers.getContractFactory("ConcreteSignedSafeMath", defaultAccount);
+  concreteSignedSafeMathFactory = await ethers.getContractFactory(
+    "ConcreteSignedSafeMath",
+    defaultAccount,
+  );
 });
 
 describe("SignedSafeMath", () => {
@@ -19,11 +22,17 @@ describe("SignedSafeMath", () => {
   let adder: Contract;
   let response: BigNumber;
 
-  const INT256_MAX = BigNumber.from("57896044618658097711785492504343953926634992332820282019728792003956564819967");
-  const INT256_MIN = BigNumber.from("-57896044618658097711785492504343953926634992332820282019728792003956564819968");
+  const INT256_MAX = BigNumber.from(
+    "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+  );
+  const INT256_MIN = BigNumber.from(
+    "-57896044618658097711785492504343953926634992332820282019728792003956564819968",
+  );
 
   beforeEach(async () => {
-    adder = await concreteSignedSafeMathFactory.connect(defaultAccount).deploy();
+    adder = await concreteSignedSafeMathFactory
+      .connect(defaultAccount)
+      .deploy();
   });
 
   describe("#add", () => {
@@ -40,7 +49,9 @@ describe("SignedSafeMath", () => {
 
       describe("when both are large enough to overflow", () => {
         it("throws", async () => {
-          await expect(adder.testAdd(INT256_MAX, 1)).to.be.revertedWith("SignedSafeMath: addition overflow");
+          await expect(adder.testAdd(INT256_MAX, 1)).to.be.revertedWith(
+            "SignedSafeMath: addition overflow",
+          );
         });
       });
     });
@@ -58,7 +69,9 @@ describe("SignedSafeMath", () => {
 
       describe("when both are large enough to overflow", () => {
         it("throws", async () => {
-          await expect(adder.testAdd(INT256_MIN, -1)).to.be.revertedWith("SignedSafeMath: addition overflow");
+          await expect(adder.testAdd(INT256_MIN, -1)).to.be.revertedWith(
+            "SignedSafeMath: addition overflow",
+          );
         });
       });
     });

@@ -26,11 +26,15 @@ export function addHexPrefix(hex: string): string {
  *
  * @param num The number value to convert to bytes32 format
  */
-export function numToBytes32(num: Parameters<typeof ethers.utils.hexlify>[0]): string {
+export function numToBytes32(
+  num: Parameters<typeof ethers.utils.hexlify>[0],
+): string {
   const hexNum = ethers.utils.hexlify(num);
   const strippedNum = stripHexPrefix(hexNum);
   if (strippedNum.length > 32 * 2) {
-    throw Error("Cannot convert number to bytes32 format, value is greater than maximum bytes32 value");
+    throw Error(
+      "Cannot convert number to bytes32 format, value is greater than maximum bytes32 value",
+    );
   }
   return addHexPrefix(strippedNum.padStart(32 * 2, "0"));
 }
@@ -41,7 +45,10 @@ export function numToBytes32(num: Parameters<typeof ethers.utils.hexlify>[0]): s
  * @param tx The transaction to wait for, then extract logs from
  * @param index The index of the log to retrieve
  */
-export async function getLog(tx: ContractTransaction, index: number): Promise<providers.Log> {
+export async function getLog(
+  tx: ContractTransaction,
+  index: number,
+): Promise<providers.Log> {
   const logs = await getLogs(tx);
   if (!logs[index]) {
     throw Error("unable to extract log from transaction receipt");
@@ -54,7 +61,9 @@ export async function getLog(tx: ContractTransaction, index: number): Promise<pr
  *
  * @param tx The transaction to wait for, then extract logs from
  */
-export async function getLogs(tx: ContractTransaction): Promise<providers.Log[]> {
+export async function getLogs(
+  tx: ContractTransaction,
+): Promise<providers.Log[]> {
   const receipt = await tx.wait();
   if (!receipt.logs) {
     throw Error("unable to extract logs from transaction receipt");
@@ -126,7 +135,10 @@ export function addCBORMapDelimiters(buffer: Buffer): Buffer {
    * @see https://en.wikipedia.org/wiki/CBOR#CBOR_data_item_header
    */
   const endIndefiniteLengthMap = Buffer.from([0xff]);
-  return Buffer.concat([startIndefiniteLengthMap, buffer, endIndefiniteLengthMap], buffer.length + 2);
+  return Buffer.concat(
+    [startIndefiniteLengthMap, buffer, endIndefiniteLengthMap],
+    buffer.length + 2,
+  );
 }
 
 /**
@@ -134,7 +146,9 @@ export function addCBORMapDelimiters(buffer: Buffer): Buffer {
  *
  * @param args Ether value to convert to an Ether amount
  */
-export function toWei(...args: Parameters<typeof ethers.utils.parseEther>): ReturnType<typeof ethers.utils.parseEther> {
+export function toWei(
+  ...args: Parameters<typeof ethers.utils.parseEther>
+): ReturnType<typeof ethers.utils.parseEther> {
   return ethers.utils.parseEther(...args);
 }
 
@@ -143,7 +157,9 @@ export function toWei(...args: Parameters<typeof ethers.utils.parseEther>): Retu
  *
  * @param args Value to convert to a hex string
  */
-export function toHex(...args: Parameters<typeof ethers.utils.hexlify>): ReturnType<typeof ethers.utils.hexlify> {
+export function toHex(
+  ...args: Parameters<typeof ethers.utils.hexlify>
+): ReturnType<typeof ethers.utils.hexlify> {
   return ethers.utils.hexlify(...args);
 }
 
@@ -152,7 +168,9 @@ export function toHex(...args: Parameters<typeof ethers.utils.hexlify>): ReturnT
  *
  * @param provider The ethers provider to send the time increase request to
  */
-export async function increaseTime5Minutes(provider: providers.JsonRpcProvider): Promise<void> {
+export async function increaseTime5Minutes(
+  provider: providers.JsonRpcProvider,
+): Promise<void> {
   await increaseTimeBy(5 * 600, provider);
 }
 
@@ -162,7 +180,10 @@ export async function increaseTime5Minutes(provider: providers.JsonRpcProvider):
  * @param seconds The number of seconds to increase to the current time by
  * @param provider The ethers provider to send the time increase request to
  */
-export async function increaseTimeBy(seconds: number, provider: providers.JsonRpcProvider) {
+export async function increaseTimeBy(
+  seconds: number,
+  provider: providers.JsonRpcProvider,
+) {
   await provider.send("evm_increaseTime", [seconds]);
 }
 

@@ -12,7 +12,10 @@ let personas: Personas;
 
 before(async () => {
   personas = (await getUsers()).personas;
-  mathFactory = await ethers.getContractFactory("CheckedMathTestHelper", personas.Default);
+  mathFactory = await ethers.getContractFactory(
+    "CheckedMathTestHelper",
+    personas.Default,
+  );
 });
 
 const int256Max = constants.MaxInt256;

@@ -12,8 +12,14 @@ let acFactory: ContractFactory;
 
 before(async () => {
   personas = (await getUsers()).personas;
-  validatorFactory = await ethers.getContractFactory("DeviationFlaggingValidator", personas.Carol);
-  flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags", personas.Carol);
+  validatorFactory = await ethers.getContractFactory(
+    "DeviationFlaggingValidator",
+    personas.Carol,
+  );
+  flagsFactory = await ethers.getContractFactory(
+    "src/v0.6/Flags.sol:Flags",
+    personas.Carol,
+  );
   acFactory = await ethers.getContractFactory(
     "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
     personas.Carol,
@@ -33,7 +39,9 @@ describe("DeviationFlaggingValidator", () => {
   beforeEach(async () => {
     ac = await acFactory.connect(personas.Carol).deploy();
     flags = await flagsFactory.connect(personas.Carol).deploy(ac.address);
-    validator = await validatorFactory.connect(personas.Carol).deploy(flags.address, flaggingThreshold);
+    validator = await validatorFactory
+      .connect(personas.Carol)
+      .deploy(flags.address, flaggingThreshold);
     await ac.connect(personas.Carol).addAccess(validator.address);
   });
 
@@ -66,7 +74,14 @@ describe("DeviationFlaggingValidator", () => {
 
       it("does raises a flag for the calling address", async () => {
         await expect(
-          validator.connect(personas.Nelly).validate(previousRoundId, previousValue, currentRoundId, currentValue),
+          validator
+            .connect(personas.Nelly)
+            .validate(
+              previousRoundId,
+              previousValue,
+              currentRoundId,
+              currentValue,
+            ),
         )
           .to.emit(flags, "FlagRaised")
           .withArgs(await personas.Nelly.getAddress());
@@ -75,7 +90,12 @@ describe("DeviationFlaggingValidator", () => {
       it("uses less than the gas allotted by the aggregator", async () => {
         const tx = await validator
           .connect(personas.Nelly)
-          .validate(previousRoundId, previousValue, currentRoundId, currentValue);
+          .validate(
+            previousRoundId,
+            previousValue,
+            currentRoundId,
+            currentValue,
+          );
         const receipt = await tx.wait();
         assert(receipt);
         if (receipt && receipt.gasUsed) {
@@ -89,14 +109,26 @@ describe("DeviationFlaggingValidator", () => {
 
       it("does raises a flag for the calling address", async () => {
         await expect(
-          validator.connect(personas.Nelly).validate(previousRoundId, previousValue, currentRoundId, currentValue),
+          validator
+            .connect(personas.Nelly)
+            .validate(
+              previousRoundId,
+              previousValue,
+              currentRoundId,
+              currentValue,
+            ),
         ).to.not.emit(flags, "FlagRaised");
       });
 
       it("uses less than the gas allotted by the aggregator", async () => {
         const tx = await validator
           .connect(personas.Nelly)
-          .validate(previousRoundId, previousValue, currentRoundId, currentValue);
+          .validate(
+            previousRoundId,
+            previousValue,
+            currentRoundId,
+            currentValue,
+          );
         const receipt = await tx.wait();
         assert(receipt);
         if (receipt && receipt.gasUsed) {
@@ -111,7 +143,12 @@ describe("DeviationFlaggingValidator", () => {
       it("does not raise any flags", async () => {
         const tx = await validator
           .connect(personas.Nelly)
-          .validate(previousRoundId, previousValue, currentRoundId, currentValue);
+          .validate(
+            previousRoundId,
+            previousValue,
+            currentRoundId,
+            currentValue,
+          );
         const receipt = await tx.wait();
         assert.equal(0, receipt.events?.length);
       });
@@ -124,14 +161,18 @@ describe("DeviationFlaggingValidator", () => {
     describe("with a validation larger than the deviation", () => {
       const currentValue = 1100010;
       it("is not valid", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
     describe("with a validation smaller than the deviation", () => {
       const currentValue = 1100009;
       it("is valid", async () => {
-        assert.isTrue(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isTrue(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
@@ -139,7 +180,9 @@ describe("DeviationFlaggingValidator", () => {
       const previousValue = 1000000;
       const currentValue = -900000;
       it("correctly detects the difference", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
@@ -147,7 +190,9 @@ describe("DeviationFlaggingValidator", () => {
       const previousValue = -900000;
       const currentValue = 1000000;
       it("correctly detects the difference", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
@@ -156,7 +201,9 @@ describe("DeviationFlaggingValidator", () => {
       const currentValue = BigNumber.from(-1);
 
       it("does not revert and returns false", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
@@ -165,7 +212,9 @@ describe("DeviationFlaggingValidator", () => {
       const currentValue = BigNumber.from(1);
 
       it("does not revert and returns false", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
 
@@ -174,7 +223,9 @@ describe("DeviationFlaggingValidator", () => {
       const currentValue = BigNumber.from(-1);
 
       it("does not revert and returns false", async () => {
-        assert.isFalse(await validator.isValid(0, previousValue, 1, currentValue));
+        assert.isFalse(
+          await validator.isValid(0, previousValue, 1, currentValue),
+        );
       });
     });
   });
@@ -185,27 +236,30 @@ describe("DeviationFlaggingValidator", () => {
     it("changes the flagging thresold", async () => {
       assert.equal(flaggingThreshold, await validator.flaggingThreshold());
 
-      await validator.connect(personas.Carol).setFlaggingThreshold(newThreshold);
+      await validator
+        .connect(personas.Carol)
+        .setFlaggingThreshold(newThreshold);
 
       assert.equal(newThreshold, await validator.flaggingThreshold());
     });
 
     it("emits a log event only when actually changed", async () => {
-      await expect(validator.connect(personas.Carol).setFlaggingThreshold(newThreshold))
+      await expect(
+        validator.connect(personas.Carol).setFlaggingThreshold(newThreshold),
+      )
         .to.emit(validator, "FlaggingThresholdUpdated")
         .withArgs(flaggingThreshold, newThreshold);
 
-      await expect(validator.connect(personas.Carol).setFlaggingThreshold(newThreshold)).to.not.emit(
-        validator,
-        "FlaggingThresholdUpdated",
-      );
+      await expect(
+        validator.connect(personas.Carol).setFlaggingThreshold(newThreshold),
+      ).to.not.emit(validator, "FlaggingThresholdUpdated");
     });
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await expect(validator.connect(personas.Neil).setFlaggingThreshold(newThreshold)).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          validator.connect(personas.Neil).setFlaggingThreshold(newThreshold),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
   });
@@ -222,21 +276,22 @@ describe("DeviationFlaggingValidator", () => {
     });
 
     it("emits a log event only when actually changed", async () => {
-      await expect(validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress))
+      await expect(
+        validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress),
+      )
         .to.emit(validator, "FlagsAddressUpdated")
         .withArgs(flags.address, newFlagsAddress);
 
-      await expect(validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress)).to.not.emit(
-        validator,
-        "FlagsAddressUpdated",
-      );
+      await expect(
+        validator.connect(personas.Carol).setFlagsAddress(newFlagsAddress),
+      ).to.not.emit(validator, "FlagsAddressUpdated");
     });
 
     describe("when called by a non-owner", () => {
       it("reverts", async () => {
-        await expect(validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress)).to.be.revertedWith(
-          "Only callable by owner",
-        );
+        await expect(
+          validator.connect(personas.Neil).setFlagsAddress(newFlagsAddress),
+        ).to.be.revertedWith("Only callable by owner");
       });
     });
   });
