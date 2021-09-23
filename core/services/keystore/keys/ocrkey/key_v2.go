@@ -6,13 +6,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
 )
@@ -22,28 +22,20 @@ var (
 	curve           = secp256k1.S256()
 )
 
+type keyBundleRawData struct {
+	EcdsaD             big.Int
+	Ed25519PrivKey     []byte
+	OffChainEncryption [curve25519.ScalarSize]byte
+}
+
 type Raw []byte
 
 func (raw Raw) Key() KeyV2 {
-	if l := len(raw); l != 128 {
-		panic(fmt.Sprintf("invalid raw key length: %d", l))
-	}
 	var key KeyV2
-	ecdsaD := big.NewInt(0).SetBytes(raw[:32])
-	var ed25519PrivKey []byte = raw[32:96]
-	var offChainEncryption [32]byte
-	copy(offChainEncryption[:], raw[96:])
-	publicKey := ecdsa.PublicKey{Curve: curve}
-	publicKey.X, publicKey.Y = curve.ScalarBaseMult(ecdsaD.Bytes())
-	privateKey := ecdsa.PrivateKey{
-		PublicKey: publicKey,
-		D:         ecdsaD,
+	err := json.Unmarshal(raw, &key)
+	if err != nil {
+		panic(errors.Wrap(err, "while unmarshalling OCR key"))
 	}
-	OnChainSigning := onChainPrivateKey(privateKey)
-	OffChainSigning := offChainPrivateKey(ed25519PrivKey)
-	key.OnChainSigning = &OnChainSigning
-	key.OffChainSigning = &OffChainSigning
-	key.OffChainEncryption = &offChainEncryption
 	return key
 }
 
@@ -106,13 +98,11 @@ func (key KeyV2) ID() string {
 }
 
 func (key KeyV2) Raw() Raw {
-	dBytes := make([]byte, 32) // pad D to 32 bytes
-	copy(dBytes, key.OnChainSigning.D.Bytes())
-	return utils.ConcatBytes(
-		dBytes,
-		[]byte(*key.OffChainSigning),
-		key.OffChainEncryption[:],
-	)
+	marshalledPrivK, err := json.Marshal(key)
+	if err != nil {
+		panic(errors.Wrap(err, "while calculating OCR key ID"))
+	}
+	return marshalledPrivK
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
@@ -171,4 +161,39 @@ func (key KeyV2) String() string {
 
 func (key KeyV2) GoString() string {
 	return key.String()
+}
+
+// MarshalJSON marshals the private keys into json
+func (key KeyV2) MarshalJSON() ([]byte, error) {
+	rawKeyData := keyBundleRawData{
+		EcdsaD:             *key.OnChainSigning.D,
+		Ed25519PrivKey:     []byte(*key.OffChainSigning),
+		OffChainEncryption: *key.OffChainEncryption,
+	}
+	return json.Marshal(&rawKeyData)
+}
+
+func (key *KeyV2) UnmarshalJSON(b []byte) (err error) {
+	var rawKeyData keyBundleRawData
+	err = json.Unmarshal(b, &rawKeyData)
+	if err != nil {
+		return err
+	}
+	ecdsaDSize := len(rawKeyData.EcdsaD.Bytes())
+	if ecdsaDSize > curve25519.PointSize {
+		return errors.Wrapf(ErrScalarTooBig, "got %d byte ecdsa scalar", ecdsaDSize)
+	}
+
+	publicKey := ecdsa.PublicKey{Curve: curve}
+	publicKey.X, publicKey.Y = curve.ScalarBaseMult(rawKeyData.EcdsaD.Bytes())
+	privateKey := ecdsa.PrivateKey{
+		PublicKey: publicKey,
+		D:         &rawKeyData.EcdsaD,
+	}
+	onChainSigning := onChainPrivateKey(privateKey)
+	offChainSigning := offChainPrivateKey(rawKeyData.Ed25519PrivKey)
+	key.OnChainSigning = &onChainSigning
+	key.OffChainSigning = &offChainSigning
+	key.OffChainEncryption = &rawKeyData.OffChainEncryption
+	return nil
 }
