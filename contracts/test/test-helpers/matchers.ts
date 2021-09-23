@@ -1,6 +1,6 @@
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
-import { ContractReceipt } from "@ethersproject/contracts";
-import { assert, expect } from "chai";
+import { BigNumber, BigNumberish } from '@ethersproject/bignumber'
+import { ContractReceipt } from '@ethersproject/contracts'
+import { assert, expect } from 'chai'
 
 /**
  * Check that two big numbers are the same value.
@@ -14,11 +14,11 @@ export function bigNumEquals(
   actual: BigNumberish,
   failureMessage?: string,
 ): void {
-  const msg = failureMessage ? ": " + failureMessage : "";
+  const msg = failureMessage ? ': ' + failureMessage : ''
   assert(
     BigNumber.from(expected).eq(BigNumber.from(actual)),
     `BigNum (expected)${expected} is not (actual)${actual} ${msg}`,
-  );
+  )
 }
 
 /**
@@ -32,9 +32,9 @@ export async function evmRevert(
   msg?: string,
 ) {
   if (msg) {
-    await expect(action).to.be.revertedWith(msg);
+    await expect(action).to.be.revertedWith(msg)
   } else {
-    await expect(action).to.be.reverted;
+    await expect(action).to.be.reverted
   }
 }
 
@@ -50,8 +50,8 @@ export function gasDiffLessThan(
   receipt1: ContractReceipt,
   receipt2: ContractReceipt,
 ) {
-  assert(receipt1, "receipt1 is not present for gas comparison");
-  assert(receipt2, "receipt2 is not present for gas comparison");
-  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0);
-  assert.isAbove(max, diff?.toNumber() || Infinity);
+  assert(receipt1, 'receipt1 is not present for gas comparison')
+  assert(receipt2, 'receipt2 is not present for gas comparison')
+  const diff = receipt2.gasUsed?.sub(receipt1.gasUsed || 0)
+  assert.isAbove(max, diff?.toNumber() || Infinity)
 }
