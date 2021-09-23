@@ -253,12 +253,14 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Avalanche
 	avalancheMainnet := fallbackDefaultSet
-	avalancheMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6" // TBD
+	avalancheMainnet.linkContractAddress = "0x5947BB275c521040051D82396192181b413227A3"
 	avalancheMainnet.finalityDepth = 1
-	avalancheMainnet.gasEstimatorMode = "FixedPrice"
-	avalancheMainnet.gasPriceDefault = *big.NewInt(225000000000) // 225 Gwei
-	avalancheMainnet.maxGasPriceWei = *big.NewInt(225000000000)
-	avalancheMainnet.minGasPriceWei = *big.NewInt(225000000000)
+	avalancheMainnet.gasEstimatorMode = "BlockHistory"
+	avalancheMainnet.gasPriceDefault = *assets.GWei(25)
+	avalancheMainnet.maxGasPriceWei = *assets.GWei(1000)
+	avalancheMainnet.minGasPriceWei = *assets.GWei(25)
+	avalancheMainnet.blockHistoryEstimatorBlockHistorySize = 24 // Average block time of 2s
+	avalancheMainnet.blockHistoryEstimatorBlockDelay = 2
 	avalancheMainnet.minIncomingConfirmations = 1
 	avalancheMainnet.minRequiredOutgoingConfirmations = 1
 	avalancheMainnet.ocrContractConfirmations = 1

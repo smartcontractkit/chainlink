@@ -70,6 +70,8 @@ check_upkeep_tx          [type=ethcall
 
 NOTE: AccessLists are part of the 0x2 transaction type spec and Chainlink also implements support for these internally. This is not currently exposed in any way, if there is demand for this it ought to be straightforward enough to do so.
 
+Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
+
 ### Changed
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
