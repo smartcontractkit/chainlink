@@ -5,10 +5,10 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/require"
 )
 
@@ -93,31 +93,46 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
 	})
-}
 
-func Test_P2PKeyStore_GetOrFirst(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	cfg := configtest.NewTestGeneralConfig(t)
-	ks := keyStore.P2P()
-	_, err := ks.GetOrFirst("")
-	require.Contains(t, err.Error(), "no p2p keys exist")
-	id := cfg.P2PPeerID().Raw()
-	_, err = ks.GetOrFirst(id)
-	require.Contains(t, err.Error(), fmt.Sprintf("unable to find P2P key with id %s", id))
-	k1, err := keyStore.P2P().Create()
-	require.NoError(t, err)
-	k2, err := ks.GetOrFirst("")
-	require.NoError(t, err)
-	require.Equal(t, k1, k2)
-	k3, err := ks.GetOrFirst(k1.ID())
-	require.NoError(t, err)
-	require.Equal(t, k1, k3)
-	_, err = keyStore.P2P().Create()
-	require.NoError(t, err)
-	_, err = ks.GetOrFirst("")
-	require.Contains(t, err.Error(), "multiple p2p keys found")
-	k4, err := ks.GetOrFirst(k1.ID())
-	require.NoError(t, err)
-	require.Equal(t, k1, k4)
+	t.Run("GetOrFirst", func(t *testing.T) {
+		defer reset()
+		_, err := ks.GetOrFirst("")
+		require.Contains(t, err.Error(), "no p2p keys exist")
+		id := cltest.DefaultP2PPeerID.Raw()
+		_, err = ks.GetOrFirst(id)
+		require.Contains(t, err.Error(), fmt.Sprintf("unable to find P2P key with id %s", id))
+		k1, err := ks.Create()
+		require.NoError(t, err)
+		k2, err := ks.GetOrFirst("")
+		require.NoError(t, err)
+		require.Equal(t, k1, k2)
+		k3, err := ks.GetOrFirst(k1.ID())
+		require.NoError(t, err)
+		require.Equal(t, k1, k3)
+		_, err = ks.Create()
+		require.NoError(t, err)
+		_, err = ks.GetOrFirst("")
+		require.Contains(t, err.Error(), "multiple p2p keys found")
+		k4, err := ks.GetOrFirst(k1.ID())
+		require.NoError(t, err)
+		require.Equal(t, k1, k4)
+	})
+
+	t.Run("clears p2p_peers on delete", func(t *testing.T) {
+		key, err := ks.Create()
+		require.NoError(t, err)
+		p2pPeer1 := offchainreporting.P2PPeer{
+			Addr:   cltest.NewAddress().Hex(),
+			PeerID: cltest.DefaultPeerID, // different p2p key
+		}
+		p2pPeer2 := offchainreporting.P2PPeer{
+			Addr:   cltest.NewAddress().Hex(),
+			PeerID: key.PeerID().Raw(),
+		}
+		require.NoError(t, db.Create(&p2pPeer1).Error)
+		require.NoError(t, db.Create(&p2pPeer2).Error)
+		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 2)
+		ks.Delete(key.ID())
+		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 1)
+	})
 }

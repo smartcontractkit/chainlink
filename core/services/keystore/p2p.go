@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"gorm.io/gorm"
 )
 
 type P2P interface {
@@ -91,7 +92,9 @@ func (ks *p2p) Delete(id string) (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key)
+	err = ks.safeRemoveKey(key, func(db *gorm.DB) error {
+		return db.Exec(`DELETE FROM p2p_peers WHERE peer_id = ?`, key.ID()).Error
+	})
 	return key, err
 }
 
