@@ -8,7 +8,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -19,16 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/common"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	uuid "github.com/satori/go.uuid"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"gorm.io/gorm"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -39,6 +39,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
+	EvmEIP1559DynamicFees() bool
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
@@ -47,9 +48,12 @@ type Config interface {
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
 	EvmGasBumpWei() *big.Int
+	EvmGasFeeCap() *big.Int
 	EvmGasLimitDefault() uint64
 	EvmGasLimitMultiplier() float32
 	EvmGasPriceDefault() *big.Int
+	EvmGasTipCapDefault() *big.Int
+	EvmGasTipCapMinimum() *big.Int
 	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
@@ -365,64 +369,6 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 	return etx, err
 }
 
-func NewAttempt(cfg Config, ethClient eth.Client, ks KeyStore, chainID big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	if err = validateGas(cfg, gasPrice, gasLimit, etx); err != nil {
-		return attempt, errors.Wrap(err, "error validating gas")
-	}
-
-	tx := newLegacyTransaction(
-		uint64(*etx.Nonce),
-		etx.ToAddress,
-		etx.Value.ToInt(),
-		gasLimit,
-		gasPrice,
-		etx.EncodedPayload,
-	)
-
-	transaction := gethTypes.NewTx(&tx)
-	hash, signedTxBytes, err := SignTx(ks, etx.FromAddress, transaction, &chainID)
-	if err != nil {
-		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
-	}
-
-	attempt.State = EthTxAttemptInProgress
-	attempt.SignedRawTx = signedTxBytes
-	attempt.EthTxID = etx.ID
-	attempt.GasPrice = *utils.NewBig(gasPrice)
-	attempt.Hash = hash
-	attempt.ChainSpecificGasLimit = gasLimit
-
-	return attempt, nil
-}
-
-// validateGas is a sanity check - we have other checks elsewhere, but this
-// makes sure we _never_ create an invalid attempt
-func validateGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx) error {
-	if gasPrice == nil {
-		panic("gas price missing")
-	}
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	if gasPrice.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.Hex())
-	}
-	min := cfg.EvmMinGasPriceWei()
-	if gasPrice.Cmp(min) < 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s is below min configured gas price of %s for key %s", gasPrice.String(), min.String(), etx.FromAddress.Hex())
-	}
-	return nil
-}
-
-func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) gethTypes.LegacyTx {
-	return gethTypes.LegacyTx{
-		Nonce:    nonce,
-		To:       &to,
-		Value:    value,
-		Gas:      gasLimit,
-		GasPrice: gasPrice,
-		Data:     data,
-	}
-}
-
 func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
 	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
@@ -466,7 +412,8 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
-	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "gasPriceWei", a.GasPrice.ToInt().Int64(), "err", err, "meta", e.Meta, "gasLimit", e.GasLimit)
+	a.EthTx = e // for logging
+	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())

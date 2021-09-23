@@ -23,6 +23,8 @@ type ETHCallTask struct {
 	Data                string `json:"data"`
 	Gas                 string `json:"gas"`
 	GasPrice            string `json:"gasPrice"`
+	GasTipCap           string `json:"gasTipCap"`
+	GasFeeCap           string `json:"gasFeeCap"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
@@ -47,6 +49,8 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		data         BytesParam
 		gas          Uint64Param
 		gasPrice     MaybeBigIntParam
+		gasTipCap    MaybeBigIntParam
+		gasFeeCap    MaybeBigIntParam
 	)
 
 	err = multierr.Combine(
@@ -54,6 +58,8 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars), JSONWithVarExprs(t.Data, vars, false))), "data"),
 		errors.Wrap(ResolveParam(&gas, From(VarExpr(t.Gas, vars), NonemptyString(t.Gas), 0)), "gas"),
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
+		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
+		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 	)
 	if err != nil {
 		return Result{Error: err}
@@ -62,10 +68,12 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	}
 
 	call := ethereum.CallMsg{
-		To:       (*common.Address)(&contractAddr),
-		Data:     []byte(data),
-		Gas:      uint64(gas),
-		GasPrice: gasPrice.BigInt(),
+		To:        (*common.Address)(&contractAddr),
+		Data:      []byte(data),
+		Gas:       uint64(gas),
+		GasPrice:  gasPrice.BigInt(),
+		GasTipCap: gasTipCap.BigInt(),
+		GasFeeCap: gasFeeCap.BigInt(),
 	}
 
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)

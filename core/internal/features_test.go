@@ -280,10 +280,8 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
 	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-	sb := new(big.Int)
-	sb, _ = sb.SetString("100000000000000000000", 10)
 	genesisData := core.GenesisAlloc{
-		user.From: {Balance: sb}, // 1 eth
+		user.From: {Balance: assets.Ether(1000)},
 	}
 	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	b := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
@@ -327,103 +325,118 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
-	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
-	// in a single callback.
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
-	operatorContracts := setupOperatorContracts(t)
-	b := operatorContracts.sim
-	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	tests := []struct {
+		name    string
+		eip1559 bool
+	}{
+		{"legacy mode", false},
+		{"eip1559 mode", true},
+	}
 
-	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
-	require.NoError(t, err)
-	authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
-	tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
-	require.NoError(t, err)
-	b.Commit()
-	cltest.RequireTxSuccessful(t, b, tx.Hash())
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
+			// in a single callback.
+			config := cltest.NewTestGeneralConfig(t)
+			config.Overrides.SetTriggerFallbackDBPollInterval(100 * time.Millisecond)
+			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(true)
+			operatorContracts := setupOperatorContracts(t)
+			b := operatorContracts.sim
+			app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 
-	// Fund node account with ETH.
-	n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
-	require.NoError(t, err)
-	tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
-	signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
-	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
-	require.NoError(t, err)
-	b.Commit()
+			sendingKeys, err := app.KeyStore.Eth().SendingKeys()
+			require.NoError(t, err)
+			authorizedSenders := []common.Address{sendingKeys[0].Address.Address()}
+			tx, err := operatorContracts.operator.SetAuthorizedSenders(operatorContracts.user, authorizedSenders)
+			require.NoError(t, err)
+			b.Commit()
+			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-	err = app.Start()
-	require.NoError(t, err)
+			// Fund node account with ETH.
+			n, err := b.NonceAt(context.Background(), operatorContracts.user.From, nil)
+			require.NoError(t, err)
+			tx = types.NewTransaction(n, sendingKeys[0].Address.Address(), assets.Ether(100), 21000, big.NewInt(1000000000), nil)
+			signedTx, err := operatorContracts.user.Signer(operatorContracts.user.From, tx)
+			require.NoError(t, err)
+			err = b.SendTransaction(context.Background(), signedTx)
+			require.NoError(t, err)
+			b.Commit()
 
-	mockServerUSD := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
-	mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
-	mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
+			err = app.Start()
+			require.NoError(t, err)
 
-	spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
-	spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-	j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
-	cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
+			mockServerUSD := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
+			mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
+			mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
 
-	var jobID [32]byte
-	copy(jobID[:], j.ExternalJobID.Bytes())
-	tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
-	require.NoError(t, err)
-	b.Commit()
-	cltest.RequireTxSuccessful(t, b, tx.Hash())
+			spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
+			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
+			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
+			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
-	operatorContracts.user.GasLimit = 1000000
-	tx, err = operatorContracts.multiWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
-		mockServerUSD.URL, "USD",
-		mockServerEUR.URL, "EUR",
-		mockServerJPY.URL, "JPY",
-		big.NewInt(1000),
-	)
-	require.NoError(t, err)
-	b.Commit()
-	cltest.RequireTxSuccessful(t, b, tx.Hash())
+			var jobID [32]byte
+			copy(jobID[:], j.ExternalJobID.Bytes())
+			tx, err = operatorContracts.multiWord.SetSpecID(operatorContracts.user, jobID)
+			require.NoError(t, err)
+			b.Commit()
+			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-	empty := big.NewInt(0)
-	assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
+			operatorContracts.user.GasLimit = 1000000
+			tx, err = operatorContracts.multiWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
+				mockServerUSD.URL, "USD",
+				mockServerEUR.URL, "EUR",
+				mockServerJPY.URL, "JPY",
+				big.NewInt(1000),
+			)
+			require.NoError(t, err)
+			b.Commit()
+			cltest.RequireTxSuccessful(t, b, tx.Hash())
 
-	stopBlocks := finiteTicker(100*time.Millisecond, func() {
-		triggerAllKeys(t, app)
-		b.Commit()
-	})
-	defer stopBlocks()
+			empty := big.NewInt(0)
+			assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
 
-	pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
-	pipelineRun := pipelineRuns[0]
-	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
-	assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
+			stopBlocks := finiteTicker(100*time.Millisecond, func() {
+				triggerAllKeys(t, app)
+				b.Commit()
+			})
+			defer stopBlocks()
 
-	// Do a single word request
-	singleWordSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec-cbor.toml"))
-	singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-	jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
-	cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
+			pipelineRuns := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, 14, app.JobORM(), 10*time.Second, 100*time.Millisecond)
+			pipelineRun := pipelineRuns[0]
+			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
-	var jobIDSingleWord [32]byte
-	copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
-	tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
-	require.NoError(t, err)
-	b.Commit()
-	cltest.RequireTxSuccessful(t, b, tx.Hash())
-	mockServerUSD2 := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
-	tx, err = operatorContracts.singleWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
-		mockServerUSD2.URL, "USD",
-		big.NewInt(1000),
-	)
-	require.NoError(t, err)
-	b.Commit()
-	cltest.RequireTxSuccessful(t, b, tx.Hash())
+			// Do a single word request
+			singleWordSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec-cbor.toml"))
+			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
+			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
+			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
-	pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), 5*time.Second, 100*time.Millisecond)
-	pipelineRun = pipelineRuns[0]
-	cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
-	v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
-	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(61464), v)
+			var jobIDSingleWord [32]byte
+			copy(jobIDSingleWord[:], jobSingleWord.ExternalJobID.Bytes())
+			tx, err = operatorContracts.singleWord.SetSpecID(operatorContracts.user, jobIDSingleWord)
+			require.NoError(t, err)
+			b.Commit()
+			cltest.RequireTxSuccessful(t, b, tx.Hash())
+			mockServerUSD2 := cltest.NewHTTPMockServer(t, 200, "GET", `{"USD": 614.64}`)
+			tx, err = operatorContracts.singleWord.RequestMultipleParametersWithCustomURLs(operatorContracts.user,
+				mockServerUSD2.URL, "USD",
+				big.NewInt(1000),
+			)
+			require.NoError(t, err)
+			b.Commit()
+			cltest.RequireTxSuccessful(t, b, tx.Hash())
+
+			pipelineRuns = cltest.WaitForPipelineComplete(t, 0, jobSingleWord.ID, 1, 8, app.JobORM(), 5*time.Second, 100*time.Millisecond)
+			pipelineRun = pipelineRuns[0]
+			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
+			v, err := operatorContracts.singleWord.CurrentPriceInt(nil)
+			require.NoError(t, err)
+			assert.Equal(t, big.NewInt(61464), v)
+		})
+	}
 }
 
 func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator, *flags_wrapper.Flags, common.Address) {
@@ -431,7 +444,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	require.NoError(t, err, "failed to generate ethereum identity")
 	owner := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 	sb := new(big.Int)
-	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
+	sb, _ = sb.SetString("100000000000000000000000", 10) // 1000 eth
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: sb},
 	}
@@ -495,7 +508,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	n, err := b.NonceAt(context.Background(), owner.From, nil)
 	require.NoError(t, err)
 
-	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
+	tx := types.NewTransaction(n, transmitter, assets.Ether(100), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
@@ -508,139 +521,151 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 }
 
 func TestIntegration_OCR(t *testing.T) {
-	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
-	owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
-
-	// Note it's plausible these ports could be occupied on a CI machine.
-	// May need a port randomize + retry approach if we observe collisions.
-	appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, 19999, "bootstrap", b)
-
-	var (
-		oracles      []confighelper.OracleIdentityExtra
-		transmitters []common.Address
-		keys         []ocrkey.KeyV2
-		apps         []*cltest.TestApplication
-	)
-	for i := 0; i < 4; i++ {
-		app, peerID, transmitter, key, cfg := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d", i), b)
-		// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-		// we'll flood it with messages and slow things down. 5s is about how long it takes the
-		// bootstrap node to come up.
-		cfg.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
-		// GracePeriod < ObservationTimeout
-		cfg.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
-		cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(flagsContractAddress.String())
-
-		keys = append(keys, key)
-		apps = append(apps, app)
-		transmitters = append(transmitters, transmitter)
-
-		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
-				TransmitAddress:       transmitter,
-				OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
-				PeerID:                peerID,
-			},
-			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
-		})
+	tests := []struct {
+		name    string
+		eip1559 bool
+	}{
+		{"legacy mode", false},
+		{"eip1559 mode", true},
 	}
 
-	stopBlocks := finiteTicker(time.Second, func() {
-		b.Commit()
-	})
-	defer stopBlocks()
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			g := gomega.NewGomegaWithT(t)
+			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
-	_, err := ocrContract.SetPayees(owner,
-		transmitters,
-		transmitters,
-	)
-	require.NoError(t, err)
-	signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := confighelper.ContractSetConfigArgsForIntegrationTest(
-		oracles,
-		1,
-		1000000000/100, // threshold PPB
-	)
-	require.NoError(t, err)
-	_, err = ocrContract.SetConfig(owner,
-		signers,
-		transmitters,
-		threshold,
-		encodedConfigVersion,
-		encodedConfig,
-	)
-	require.NoError(t, err)
-	b.Commit()
+			// Note it's plausible these ports could be occupied on a CI machine.
+			// May need a port randomize + retry approach if we observe collisions.
+			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, 19999, fmt.Sprintf("bootstrap_%v", test.eip1559), b)
 
-	err = appBootstrap.Start()
-	require.NoError(t, err)
+			var (
+				oracles      []confighelper.OracleIdentityExtra
+				transmitters []common.Address
+				keys         []ocrkey.KeyV2
+				apps         []*cltest.TestApplication
+			)
+			for i := 0; i < 4; i++ {
+				app, peerID, transmitter, key, cfg := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b)
+				// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
+				// we'll flood it with messages and slow things down. 5s is about how long it takes the
+				// bootstrap node to come up.
+				cfg.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
+				// GracePeriod < ObservationTimeout
+				cfg.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
+				cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(flagsContractAddress.String())
+				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 
-	ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
+				keys = append(keys, key)
+				apps = append(apps, app)
+				transmitters = append(transmitters, transmitter)
+
+				oracles = append(oracles, confighelper.OracleIdentityExtra{
+					OracleIdentity: confighelper.OracleIdentity{
+						OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
+						TransmitAddress:       transmitter,
+						OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
+						PeerID:                peerID,
+					},
+					SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
+				})
+			}
+
+			stopBlocks := finiteTicker(time.Second, func() {
+				b.Commit()
+			})
+			defer stopBlocks()
+
+			_, err := ocrContract.SetPayees(owner,
+				transmitters,
+				transmitters,
+			)
+			require.NoError(t, err)
+			signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := confighelper.ContractSetConfigArgsForIntegrationTest(
+				oracles,
+				1,
+				1000000000/100, // threshold PPB
+			)
+			require.NoError(t, err)
+			_, err = ocrContract.SetConfig(owner,
+				signers,
+				transmitters,
+				threshold,
+				encodedConfigVersion,
+				encodedConfig,
+			)
+			require.NoError(t, err)
+			b.Commit()
+
+			err = appBootstrap.Start()
+			require.NoError(t, err)
+
+			ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
 isBootstrapPeer    = true
 `, ocrContractAddress))
-	require.NoError(t, err)
-	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
-	require.NoError(t, err)
-
-	// Raising flags to initiate hibernation
-	_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
-	require.NoError(t, err, "failed to raise flag for ocrContractAddress")
-	_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
-	require.NoError(t, err, "failed to raise flag for ZeroAddress")
-
-	b.Commit()
-
-	var jids []int32
-	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
-	// We expect metadata of:
-	//  latestAnswer:nil // First call
-	//  latestAnswer:0
-	//  latestAnswer:10
-	//  latestAnswer:20
-	//  latestAnswer:30
-	var metaLock sync.Mutex
-	expectedMeta := map[string]struct{}{
-		"0": {}, "10": {}, "20": {}, "30": {},
-	}
-	for i := 0; i < 4; i++ {
-		err = apps[i].Start()
-		require.NoError(t, err)
-
-		// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
-		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			time.Sleep(5 * time.Second)
-			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
-		}))
-		defer slowServers[i].Close()
-		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := ioutil.ReadAll(req.Body)
 			require.NoError(t, err)
-			var m bridges.BridgeMetaDataJSON
-			require.NoError(t, json.Unmarshal(b, &m))
-			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-				metaLock.Lock()
-				delete(expectedMeta, m.Meta.LatestAnswer.String())
-				metaLock.Unlock()
-			}
-			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
-		}))
-		defer servers[i].Close()
-		u, _ := url.Parse(servers[i].URL)
-		apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
-			URL:  models.WebURL(*u),
-		})
+			_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
+			require.NoError(t, err)
 
-		// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
-		// So 200ms + 200ms + 500ms < 1s
-		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+			// Raising flags to initiate hibernation
+			_, err = flagsContract.RaiseFlag(owner, ocrContractAddress)
+			require.NoError(t, err, "failed to raise flag for ocrContractAddress")
+			_, err = flagsContract.RaiseFlag(owner, utils.ZeroAddress)
+			require.NoError(t, err, "failed to raise flag for ZeroAddress")
+
+			b.Commit()
+
+			var jids []int32
+			var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+			// We expect metadata of:
+			//  latestAnswer:nil // First call
+			//  latestAnswer:0
+			//  latestAnswer:10
+			//  latestAnswer:20
+			//  latestAnswer:30
+			var metaLock sync.Mutex
+			expectedMeta := map[string]struct{}{
+				"0": {}, "10": {}, "20": {}, "30": {},
+			}
+			for i := 0; i < 4; i++ {
+				err = apps[i].Start()
+				require.NoError(t, err)
+
+				// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
+				slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+					time.Sleep(5 * time.Second)
+					res.WriteHeader(http.StatusOK)
+					res.Write([]byte(`{"data":10}`))
+				}))
+				defer slowServers[i].Close()
+				servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+					b, err := ioutil.ReadAll(req.Body)
+					require.NoError(t, err)
+					var m bridges.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal(b, &m))
+					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+						metaLock.Lock()
+						delete(expectedMeta, m.Meta.LatestAnswer.String())
+						metaLock.Unlock()
+					}
+					res.WriteHeader(http.StatusOK)
+					res.Write([]byte(`{"data":10}`))
+				}))
+				defer servers[i].Close()
+				u, _ := url.Parse(servers[i].URL)
+				apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+					Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
+					URL:  models.WebURL(*u),
+				})
+
+				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
+				// So 200ms + 200ms + 500ms < 1s
+				ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -671,52 +696,54 @@ observationSource = """
 	answer1 [type=median index=0];
 """
 `, ocrContractAddress, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
-		require.NoError(t, err)
-		jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
-		require.NoError(t, err)
-		jids = append(jids, jb.ID)
-	}
+				require.NoError(t, err)
+				jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+				require.NoError(t, err)
+				jids = append(jids, jb.ID)
+			}
 
-	// Assert that all the OCR jobs get a run with valid values eventually.
-	var wg sync.WaitGroup
-	for i := 0; i < 4; i++ {
-		ic := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
-			jb, err := pr[0].Outputs.MarshalJSON()
-			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
-			require.NoError(t, err)
-		}()
-	}
-	wg.Wait()
+			// Assert that all the OCR jobs get a run with valid values eventually.
+			var wg sync.WaitGroup
+			for i := 0; i < 4; i++ {
+				ic := i
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					// Want at least 2 runs so we see all the metadata.
+					pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
+					jb, err := pr[0].Outputs.MarshalJSON()
+					require.NoError(t, err)
+					assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
+					require.NoError(t, err)
+				}()
+			}
+			wg.Wait()
 
-	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	g.Eventually(func() string {
-		answer, err := ocrContract.LatestAnswer(nil)
-		require.NoError(t, err)
-		return answer.String()
-	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+			// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
+			g.Eventually(func() string {
+				answer, err := ocrContract.LatestAnswer(nil)
+				require.NoError(t, err)
+				return answer.String()
+			}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
-	for _, app := range apps {
-		jobs, _, err := app.JobORM().JobsV2(0, 1000)
-		require.NoError(t, err)
-		// No spec errors
-		for _, j := range jobs {
-			ignore := 0
-			for i := range j.JobSpecErrors {
-				// Non-fatal timing related error, ignore for testing.
-				if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
-					ignore++
+			for _, app := range apps {
+				jobs, _, err := app.JobORM().JobsV2(0, 1000)
+				require.NoError(t, err)
+				// No spec errors
+				for _, j := range jobs {
+					ignore := 0
+					for i := range j.JobSpecErrors {
+						// Non-fatal timing related error, ignore for testing.
+						if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
+							ignore++
+						}
+					}
+					require.Len(t, j.JobSpecErrors, ignore)
 				}
 			}
-			require.Len(t, j.JobSpecErrors, ignore)
-		}
+			assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+		})
 	}
-	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 }
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {
@@ -746,17 +773,17 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	b41 := gas.Block{
 		Number:       41,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(41000000000, 41500000000),
 	}
 	b42 := gas.Block{
 		Number:       42,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(44000000000, 45000000000),
 	}
 	b43 := gas.Block{
 		Number:       43,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(48000000000, 49000000000, 31000000000),
 	}
 
 	h40 := eth.Head{Hash: utils.NewHash(), Number: 40}
@@ -798,7 +825,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	chain := evmtest.MustGetDefaultChain(t, cc)
 	estimator := chain.TxManager().GetGasEstimator()
-	gasPrice, gasLimit, err := estimator.EstimateGas(nil, 500000)
+	gasPrice, gasLimit, err := estimator.GetLegacyGas(nil, 500000)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(500000), gasLimit)
 	assert.Equal(t, "41500000000", gasPrice.String())
@@ -823,7 +850,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	newHeads <- cltest.Head(43)
 
 	gomega.NewGomegaWithT(t).Eventually(func() string {
-		gasPrice, _, err := estimator.EstimateGas(nil, 500000)
+		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()
 	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))

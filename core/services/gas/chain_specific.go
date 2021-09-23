@@ -12,7 +12,7 @@ func chainSpecificIsUsableTx(tx Transaction, minGasPriceWei, chainID *big.Int) b
 		// price that is always processed at top priority. Ordinary transactions
 		// must be priced at least 1GWei, so we have to discard anything priced
 		// below that (unless the contract is whitelisted).
-		if tx.GasPrice.Cmp(minGasPriceWei) < 0 {
+		if tx.GasPrice != nil && tx.GasPrice.Cmp(minGasPriceWei) < 0 {
 			return false
 		}
 	}
