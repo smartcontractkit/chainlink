@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -41,12 +40,6 @@ type (
 		CreatedAt             time.Time
 		UpdatedAt             time.Time
 		DeletedAt             gorm.DeletedAt
-	}
-
-	keyBundleRawData struct {
-		EcdsaD             big.Int
-		Ed25519PrivKey     []byte
-		OffChainEncryption [curve25519.ScalarSize]byte
 	}
 )
 

@@ -1,6 +1,7 @@
 package ocrkey_test
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -28,4 +29,18 @@ func TestOCRKeys_NewKeyBundle(t *testing.T) {
 	assertKeyBundlesNotEqual(t, pk1, pk2)
 	assertKeyBundlesNotEqual(t, pk1, pk3)
 	assertKeyBundlesNotEqual(t, pk2, pk3)
+}
+
+func TestOCRKeys_NewBundleIDMatchesOld(t *testing.T) {
+	t.Parallel()
+	oldKey, err := ocrkey.NewKeyBundle()
+	require.NoError(t, err)
+	newKey := oldKey.ToV2()
+	require.Equal(t, oldKey.ID.String(), newKey.ID())
+}
+
+func TestOCRKeys_Raw_Key(t *testing.T) {
+	t.Parallel()
+	key := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
+	require.Equal(t, key.ID(), key.Raw().Key().ID())
 }
