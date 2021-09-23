@@ -14,11 +14,7 @@ contract FlagsTestHelper {
     return flags.getFlag(subject);
   }
 
-  function getFlags(address[] calldata subjects)
-    external
-    view
-    returns (bool[] memory)
-  {
+  function getFlags(address[] calldata subjects) external view returns (bool[] memory) {
     return flags.getFlags(subjects);
   }
 }

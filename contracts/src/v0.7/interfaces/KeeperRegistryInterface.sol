@@ -10,9 +10,7 @@ interface KeeperRegistryBaseInterface {
     bytes calldata checkData
   ) external returns (uint256 id);
 
-  function performUpkeep(uint256 id, bytes calldata performData)
-    external
-    returns (bool success);
+  function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
 
   function cancelUpkeep(uint256 id) external;
 

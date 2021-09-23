@@ -31,10 +31,7 @@ interface FeedRegistryInterface {
 
   function decimals(address base, address quote) external view returns (uint8);
 
-  function description(address base, address quote)
-    external
-    view
-    returns (string memory);
+  function description(address base, address quote) external view returns (string memory);
 
   function version(address base, address quote) external view returns (uint256);
 
@@ -66,20 +63,11 @@ interface FeedRegistryInterface {
 
   // V2 AggregatorInterface
 
-  function latestAnswer(address base, address quote)
-    external
-    view
-    returns (int256 answer);
+  function latestAnswer(address base, address quote) external view returns (int256 answer);
 
-  function latestTimestamp(address base, address quote)
-    external
-    view
-    returns (uint256 timestamp);
+  function latestTimestamp(address base, address quote) external view returns (uint256 timestamp);
 
-  function latestRound(address base, address quote)
-    external
-    view
-    returns (uint256 roundId);
+  function latestRound(address base, address quote) external view returns (uint256 roundId);
 
   function getAnswer(
     address base,
@@ -95,10 +83,7 @@ interface FeedRegistryInterface {
 
   // Registry getters
 
-  function getFeed(address base, address quote)
-    external
-    view
-    returns (AggregatorV2V3Interface aggregator);
+  function getFeed(address base, address quote) external view returns (AggregatorV2V3Interface aggregator);
 
   function getPhaseFeed(
     address base,
@@ -188,8 +173,5 @@ interface FeedRegistryInterface {
     );
 
   // Phases
-  function getCurrentPhaseId(address base, address quote)
-    external
-    view
-    returns (uint16 currentPhaseId);
+  function getCurrentPhaseId(address base, address quote) external view returns (uint16 currentPhaseId);
 }

@@ -20,9 +20,7 @@ interface KeeperCompatibleInterface {
    * upkeep is needed. If you would like to encode data to decode later, try
    * `abi.encode`.
    */
-  function checkUpkeep(bytes calldata checkData)
-    external
-    returns (bool upkeepNeeded, bytes memory performData);
+  function checkUpkeep(bytes calldata checkData) external returns (bool upkeepNeeded, bytes memory performData);
 
   /**
    * @notice method that is actually executed by the keepers, via the registry.

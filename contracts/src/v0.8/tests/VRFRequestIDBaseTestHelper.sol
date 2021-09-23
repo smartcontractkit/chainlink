@@ -13,11 +13,7 @@ contract VRFRequestIDBaseTestHelper is VRFRequestIDBase {
     return makeVRFInputSeed(_keyHash, _userSeed, _requester, _nonce);
   }
 
-  function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed)
-    public
-    pure
-    returns (bytes32)
-  {
+  function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) public pure returns (bytes32) {
     return makeRequestId(_keyHash, _vRFInputSeed);
   }
 }

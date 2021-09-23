@@ -14,9 +14,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   uint256 public s_gasAvailable;
   bytes32 s_keyHash;
 
-  constructor(address vrfCoordinator, address link)
-    VRFConsumerBaseV2(vrfCoordinator)
-  {
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
@@ -25,10 +23,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     s_keyHash = keyHash;
   }
 
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
-    internal
-    override
-  {
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
     s_requestId = requestId;
@@ -42,11 +37,7 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
       COORDINATOR.addConsumer(s_subId, address(this));
     }
     // Approve the link transfer.
-    LINKTOKEN.transferAndCall(
-      address(COORDINATOR),
-      amount,
-      abi.encode(s_subId)
-    );
+    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
   }
 
   function updateSubscription(address[] memory consumers) external {

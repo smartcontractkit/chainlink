@@ -24,13 +24,7 @@ contract MockAggregatorValidator is AggregatorValidatorInterface {
     uint256 currentRoundId,
     int256 currentAnswer
   ) external override returns (bool) {
-    emit ValidateCalled(
-      id,
-      previousRoundId,
-      previousAnswer,
-      currentRoundId,
-      currentAnswer
-    );
+    emit ValidateCalled(id, previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     return true;
   }
 }

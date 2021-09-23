@@ -40,24 +40,15 @@ library CBORChainlink {
     }
   }
 
-  function encodeIndefiniteLengthType(
-    BufferChainlink.buffer memory buf,
-    uint8 major
-  ) private pure {
+  function encodeIndefiniteLengthType(BufferChainlink.buffer memory buf, uint8 major) private pure {
     buf.appendUint8(uint8((major << 5) | 31));
   }
 
-  function encodeUInt(BufferChainlink.buffer memory buf, uint256 value)
-    internal
-    pure
-  {
+  function encodeUInt(BufferChainlink.buffer memory buf, uint256 value) internal pure {
     encodeType(buf, MAJOR_TYPE_INT, value);
   }
 
-  function encodeInt(BufferChainlink.buffer memory buf, int256 value)
-    internal
-    pure
-  {
+  function encodeInt(BufferChainlink.buffer memory buf, int256 value) internal pure {
     if (value < -0x10000000000000000) {
       encodeSignedBigNum(buf, value);
     } else if (value > 0xFFFFFFFFFFFFFFFF) {
@@ -69,34 +60,22 @@ library CBORChainlink {
     }
   }
 
-  function encodeBytes(BufferChainlink.buffer memory buf, bytes memory value)
-    internal
-    pure
-  {
+  function encodeBytes(BufferChainlink.buffer memory buf, bytes memory value) internal pure {
     encodeType(buf, MAJOR_TYPE_BYTES, value.length);
     buf.append(value);
   }
 
-  function encodeBigNum(BufferChainlink.buffer memory buf, int256 value)
-    internal
-    pure
-  {
+  function encodeBigNum(BufferChainlink.buffer memory buf, int256 value) internal pure {
     buf.appendUint8(uint8((MAJOR_TYPE_TAG << 5) | TAG_TYPE_BIGNUM));
     encodeBytes(buf, abi.encode(uint256(value)));
   }
 
-  function encodeSignedBigNum(BufferChainlink.buffer memory buf, int256 input)
-    internal
-    pure
-  {
+  function encodeSignedBigNum(BufferChainlink.buffer memory buf, int256 input) internal pure {
     buf.appendUint8(uint8((MAJOR_TYPE_TAG << 5) | TAG_TYPE_NEGATIVE_BIGNUM));
     encodeBytes(buf, abi.encode(uint256(-1 - input)));
   }
 
-  function encodeString(BufferChainlink.buffer memory buf, string memory value)
-    internal
-    pure
-  {
+  function encodeString(BufferChainlink.buffer memory buf, string memory value) internal pure {
     encodeType(buf, MAJOR_TYPE_STRING, bytes(value).length);
     buf.append(bytes(value));
   }

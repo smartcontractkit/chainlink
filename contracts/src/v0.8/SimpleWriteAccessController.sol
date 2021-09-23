@@ -11,10 +11,7 @@ import "./interfaces/AccessControllerInterface.sol";
  * @dev does not make any special permissions for externally, see
  * SimpleReadAccessController for that.
  */
-contract SimpleWriteAccessController is
-  AccessControllerInterface,
-  ConfirmedOwner
-{
+contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwner {
   bool public checkEnabled;
   mapping(address => bool) internal accessList;
 
@@ -31,13 +28,7 @@ contract SimpleWriteAccessController is
    * @notice Returns the access of an address
    * @param _user The address to query
    */
-  function hasAccess(address _user, bytes memory)
-    public
-    view
-    virtual
-    override
-    returns (bool)
-  {
+  function hasAccess(address _user, bytes memory) public view virtual override returns (bool) {
     return accessList[_user] || !checkEnabled;
   }
 

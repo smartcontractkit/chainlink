@@ -17,11 +17,7 @@ import "./interfaces/FlagsInterface.sol";
  * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is
-  TypeAndVersionInterface,
-  FlagsInterface,
-  SimpleReadAccessController
-{
+contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;
 
@@ -29,14 +25,8 @@ contract Flags is
 
   event FlagRaised(address indexed subject);
   event FlagLowered(address indexed subject);
-  event RaisingAccessControllerUpdated(
-    address indexed previous,
-    address indexed current
-  );
-  event LoweringAccessControllerUpdated(
-    address indexed previous,
-    address indexed current
-  );
+  event RaisingAccessControllerUpdated(address indexed previous, address indexed current);
+  event LoweringAccessControllerUpdated(address indexed previous, address indexed current);
 
   /**
    * @param racAddress address for the raising access controller.
@@ -55,13 +45,7 @@ contract Flags is
    *
    * @inheritdoc TypeAndVersionInterface
    */
-  function typeAndVersion()
-    external
-    pure
-    virtual
-    override
-    returns (string memory)
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "Flags 1.1.0";
   }
 
@@ -71,13 +55,7 @@ contract Flags is
    * @return A true value indicates that a flag was raised and a
    * false value indicates that no flag was raised.
    */
-  function getFlag(address subject)
-    external
-    view
-    override
-    checkAccess
-    returns (bool)
-  {
+  function getFlag(address subject) external view override checkAccess returns (bool) {
     return flags[subject];
   }
 
@@ -87,13 +65,7 @@ contract Flags is
    * @return An array of bools where a true value for any flag indicates that
    * a flag was raised and a false value indicates that no flag was raised.
    */
-  function getFlags(address[] calldata subjects)
-    external
-    view
-    override
-    checkAccess
-    returns (bool[] memory)
-  {
+  function getFlags(address[] calldata subjects) external view override checkAccess returns (bool[] memory) {
     bool[] memory responses = new bool[](subjects.length);
     for (uint256 i = 0; i < subjects.length; i++) {
       responses[i] = flags[subjects[i]];
@@ -159,11 +131,7 @@ contract Flags is
    * @notice allows owner to change the access controller for raising flags.
    * @param racAddress new address for the raising access controller.
    */
-  function setRaisingAccessController(address racAddress)
-    public
-    override
-    onlyOwner
-  {
+  function setRaisingAccessController(address racAddress) public override onlyOwner {
     address previous = address(raisingAccessController);
 
     if (previous != racAddress) {
@@ -173,11 +141,7 @@ contract Flags is
     }
   }
 
-  function setLoweringAccessController(address lacAddress)
-    public
-    override
-    onlyOwner
-  {
+  function setLoweringAccessController(address lacAddress) public override onlyOwner {
     address previous = address(loweringAccessController);
 
     if (previous != lacAddress) {
@@ -189,15 +153,11 @@ contract Flags is
 
   // PRIVATE
   function _allowedToRaiseFlags() private view returns (bool) {
-    return
-      msg.sender == owner() ||
-      raisingAccessController.hasAccess(msg.sender, msg.data);
+    return msg.sender == owner() || raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 
   function _allowedToLowerFlags() private view returns (bool) {
-    return
-      msg.sender == owner() ||
-      loweringAccessController.hasAccess(msg.sender, msg.data);
+    return msg.sender == owner() || loweringAccessController.hasAccess(msg.sender, msg.data);
   }
 
   function _tryToRaiseFlag(address subject) private {

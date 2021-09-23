@@ -40,10 +40,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     });
   }
 
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords)
-    internal
-    override
-  {
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     s_randomWords = randomWords;
   }
 
@@ -61,11 +58,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
 
   // Assumes this contract owns link
   function topUpSubscription(uint256 amount) external {
-    LINKTOKEN.transferAndCall(
-      address(COORDINATOR),
-      amount,
-      abi.encode(s_requestConfig.subId)
-    );
+    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
   }
 
   function unsubscribe() external {

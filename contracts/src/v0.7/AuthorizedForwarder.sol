@@ -11,11 +11,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
 
   address public immutable getChainlinkToken;
 
-  event OwnershipTransferRequestedWithMessage(
-    address indexed from,
-    address indexed to,
-    bytes message
-  );
+  event OwnershipTransferRequestedWithMessage(address indexed from, address indexed to, bytes message);
 
   constructor(
     address link,
@@ -35,10 +31,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    * @param to address
    * @param data to forward
    */
-  function forward(address to, bytes calldata data)
-    external
-    validateAuthorizedSender
-  {
+  function forward(address to, bytes calldata data) external validateAuthorizedSender {
     require(to != getChainlinkToken, "Cannot forward to Link token");
     _forward(to, data);
   }
@@ -58,9 +51,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
    * @param to address proposed recipient of ownership
    * @param message instructions for recipient upon accepting ownership
    */
-  function transferOwnershipWithMessage(address to, bytes calldata message)
-    external
-  {
+  function transferOwnershipWithMessage(address to, bytes calldata message) external {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);
   }

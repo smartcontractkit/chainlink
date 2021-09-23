@@ -54,11 +54,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint8 indexed source
   );
 
-  event RegistrationApproved(
-    bytes32 indexed hash,
-    string displayName,
-    uint256 indexed upkeepId
-  );
+  event RegistrationApproved(bytes32 indexed hash, string displayName, uint256 indexed upkeepId);
 
   event RegistrationRejected(bytes32 indexed hash);
 
@@ -70,9 +66,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint256 minLINKJuels
   );
 
-  constructor(address LINKAddress, uint256 minimumLINKJuels)
-    ConfirmedOwner(msg.sender)
-  {
+  constructor(address LINKAddress, uint256 minimumLINKJuels) ConfirmedOwner(msg.sender) {
     LINK = LinkTokenInterface(LINKAddress);
     s_minLINKJuels = minimumLINKJuels;
   }
@@ -101,9 +95,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     uint8 source
   ) external onlyLINK {
     require(adminAddress != address(0), "invalid admin address");
-    bytes32 hash = keccak256(
-      abi.encode(upkeepContract, gasLimit, adminAddress, checkData)
-    );
+    bytes32 hash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
 
     emit RegistrationRequested(
       hash,
@@ -121,21 +113,10 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     if (config.enabled && _underApprovalLimit(config)) {
       _incrementApprovedCount(config);
 
-      _approve(
-        name,
-        upkeepContract,
-        gasLimit,
-        adminAddress,
-        checkData,
-        amount,
-        hash
-      );
+      _approve(name, upkeepContract, gasLimit, adminAddress, checkData, amount, hash);
     } else {
       uint96 newBalance = s_pendingRequests[hash].balance.add(amount);
-      s_pendingRequests[hash] = PendingRequest({
-        admin: adminAddress,
-        balance: newBalance
-      });
+      s_pendingRequests[hash] = PendingRequest({admin: adminAddress, balance: newBalance});
     }
   }
 
@@ -152,20 +133,10 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   ) external onlyOwner {
     PendingRequest memory request = s_pendingRequests[hash];
     require(request.admin != address(0), "request not found");
-    bytes32 expectedHash = keccak256(
-      abi.encode(upkeepContract, gasLimit, adminAddress, checkData)
-    );
+    bytes32 expectedHash = keccak256(abi.encode(upkeepContract, gasLimit, adminAddress, checkData));
     require(hash == expectedHash, "hash and payload do not match");
     delete s_pendingRequests[hash];
-    _approve(
-      name,
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData,
-      request.balance,
-      hash
-    );
+    _approve(name, upkeepContract, gasLimit, adminAddress, checkData, request.balance, hash);
   }
 
   /**
@@ -174,16 +145,10 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
    */
   function cancel(bytes32 hash) external {
     PendingRequest memory request = s_pendingRequests[hash];
-    require(
-      msg.sender == request.admin || msg.sender == owner(),
-      "only admin / owner can cancel"
-    );
+    require(msg.sender == request.admin || msg.sender == owner(), "only admin / owner can cancel");
     require(request.admin != address(0), "request not found");
     delete s_pendingRequests[hash];
-    require(
-      LINK.transfer(msg.sender, request.balance),
-      "LINK token transfer failed"
-    );
+    require(LINK.transfer(msg.sender, request.balance), "LINK token transfer failed");
     emit RegistrationRejected(hash);
   }
 
@@ -211,13 +176,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     s_minLINKJuels = minLINKJuels;
     s_keeperRegistry = KeeperRegistryBaseInterface(keeperRegistry);
 
-    emit ConfigChanged(
-      enabled,
-      windowSizeInBlocks,
-      allowedPerWindow,
-      keeperRegistry,
-      minLINKJuels
-    );
+    emit ConfigChanged(enabled, windowSizeInBlocks, allowedPerWindow, keeperRegistry, minLINKJuels);
   }
 
   /**
@@ -251,11 +210,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @notice gets the admin address and the current balance of a registration request
    */
-  function getPendingRequest(bytes32 hash)
-    external
-    view
-    returns (address, uint96)
-  {
+  function getPendingRequest(bytes32 hash) external view returns (address, uint96) {
     PendingRequest memory request = s_pendingRequests[hash];
     return (request.admin, request.balance);
   }
@@ -269,12 +224,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     address, /* sender */
     uint256 amount,
     bytes calldata data
-  )
-    external
-    onlyLINK
-    permittedFunctionsForLINK(data)
-    isActualAmount(amount, data)
-  {
+  ) external onlyLINK permittedFunctionsForLINK(data) isActualAmount(amount, data) {
     require(amount >= s_minLINKJuels, "Insufficient payment");
     (bool success, ) = address(this).delegatecall(data);
     // calls register
@@ -310,18 +260,9 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
     KeeperRegistryBaseInterface keeperRegistry = s_keeperRegistry;
 
     // register upkeep
-    uint256 upkeepId = keeperRegistry.registerUpkeep(
-      upkeepContract,
-      gasLimit,
-      adminAddress,
-      checkData
-    );
+    uint256 upkeepId = keeperRegistry.registerUpkeep(upkeepContract, gasLimit, adminAddress, checkData);
     // fund upkeep
-    bool success = LINK.transferAndCall(
-      address(keeperRegistry),
-      amount,
-      abi.encode(upkeepId)
-    );
+    bool success = LINK.transferAndCall(address(keeperRegistry), amount, abi.encode(upkeepId));
     require(success, "failed to fund upkeep");
 
     emit RegistrationApproved(hash, name, upkeepId);
@@ -330,10 +271,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
   /**
    * @dev determine approval limits and check if in range
    */
-  function _underApprovalLimit(AutoApprovedConfig memory config)
-    private
-    returns (bool)
-  {
+  function _underApprovalLimit(AutoApprovedConfig memory config) private returns (bool) {
     _resetWindowIfRequired(config);
     if (config.approvedInCurrentWindow < config.allowedPerWindow) {
       return true;
@@ -369,10 +307,7 @@ contract UpkeepRegistrationRequests is ConfirmedOwner {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
-    require(
-      funcSelector == REGISTER_REQUEST_SELECTOR,
-      "Must use whitelisted functions"
-    );
+    require(funcSelector == REGISTER_REQUEST_SELECTOR, "Must use whitelisted functions");
     _;
   }
 

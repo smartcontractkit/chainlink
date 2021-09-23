@@ -7,21 +7,14 @@ import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/KeeperCompatibleInterface.sol";
 
-contract StalenessFlaggingValidator is
-  ConfirmedOwner,
-  KeeperCompatibleInterface
-{
+contract StalenessFlaggingValidator is ConfirmedOwner, KeeperCompatibleInterface {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
   mapping(address => uint256) private s_thresholdSeconds;
 
   event FlagsAddressUpdated(address indexed previous, address indexed current);
-  event FlaggingThresholdUpdated(
-    address indexed aggregator,
-    uint256 indexed previous,
-    uint256 indexed current
-  );
+  event FlaggingThresholdUpdated(address indexed aggregator, uint256 indexed previous, uint256 indexed current);
 
   /**
    * @notice Create a new StalenessFlaggingValidator
@@ -51,25 +44,15 @@ contract StalenessFlaggingValidator is
    * @param aggregators address[] memory
    * @param flaggingThresholds uint256[] memory
    */
-  function setThresholds(
-    address[] memory aggregators,
-    uint256[] memory flaggingThresholds
-  ) public onlyOwner {
-    require(
-      aggregators.length == flaggingThresholds.length,
-      "Different sized arrays"
-    );
+  function setThresholds(address[] memory aggregators, uint256[] memory flaggingThresholds) public onlyOwner {
+    require(aggregators.length == flaggingThresholds.length, "Different sized arrays");
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
       uint256 previousThreshold = s_thresholdSeconds[aggregator];
       uint256 newThreshold = flaggingThresholds[i];
       if (previousThreshold != newThreshold) {
         s_thresholdSeconds[aggregator] = newThreshold;
-        emit FlaggingThresholdUpdated(
-          aggregator,
-          previousThreshold,
-          newThreshold
-        );
+        emit FlaggingThresholdUpdated(aggregator, previousThreshold, newThreshold);
       }
     }
   }
@@ -81,11 +64,7 @@ contract StalenessFlaggingValidator is
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function check(address[] memory aggregators)
-    public
-    view
-    returns (address[] memory)
-  {
+  function check(address[] memory aggregators) public view returns (address[] memory) {
     uint256 currentTimestamp = block.timestamp;
     address[] memory staleAggregators = new address[](aggregators.length);
     uint256 staleCount = 0;
@@ -112,10 +91,7 @@ contract StalenessFlaggingValidator is
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function update(address[] memory aggregators)
-    public
-    returns (address[] memory)
-  {
+  function update(address[] memory aggregators) public returns (address[] memory) {
     address[] memory staleAggregators = check(aggregators);
     s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
@@ -128,12 +104,7 @@ contract StalenessFlaggingValidator is
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return staleAggregators bytes encoded address array of stale aggregator addresses
    */
-  function checkUpkeep(bytes calldata data)
-    external
-    view
-    override
-    returns (bool, bytes memory)
-  {
+  function checkUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
     address[] memory staleAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (staleAggregators.length > 0);
     return (needsUpkeep, abi.encode(staleAggregators));
@@ -174,16 +145,11 @@ contract StalenessFlaggingValidator is
    * @param currentTimestamp uint256
    * @return stale bool
    */
-  function isStale(address aggregator, uint256 currentTimestamp)
-    private
-    view
-    returns (bool stale)
-  {
+  function isStale(address aggregator, uint256 currentTimestamp) private view returns (bool stale) {
     if (s_thresholdSeconds[aggregator] == 0) {
       return false;
     }
-    (, , , uint256 updatedAt, ) = AggregatorV3Interface(aggregator)
-      .latestRoundData();
+    (, , , uint256 updatedAt, ) = AggregatorV3Interface(aggregator).latestRoundData();
     uint256 diff = currentTimestamp.sub(updatedAt);
     if (diff > s_thresholdSeconds[aggregator]) {
       return true;

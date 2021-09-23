@@ -5,11 +5,7 @@ import "./ConfirmedOwner.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
 import "./interfaces/TypeAndVersionInterface.sol";
 
-contract ValidatorProxy is
-  AggregatorValidatorInterface,
-  TypeAndVersionInterface,
-  ConfirmedOwner
-{
+contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
     address target;
@@ -34,10 +30,7 @@ contract ValidatorProxy is
   event AggregatorProposed(address indexed aggregator);
   event AggregatorUpgraded(address indexed previous, address indexed current);
   event ValidatorProposed(AggregatorValidatorInterface indexed validator);
-  event ValidatorUpgraded(
-    AggregatorValidatorInterface indexed previous,
-    AggregatorValidatorInterface indexed current
-  );
+  event ValidatorUpgraded(AggregatorValidatorInterface indexed previous, AggregatorValidatorInterface indexed current);
   /// @notice The proposed aggregator called validate, but the call was not passed on to any validators
   event ProposedAggregatorValidateCall(
     address indexed proposed,
@@ -52,17 +45,9 @@ contract ValidatorProxy is
    * @param aggregator address
    * @param validator address
    */
-  constructor(address aggregator, AggregatorValidatorInterface validator)
-    ConfirmedOwner(msg.sender)
-  {
-    s_currentAggregator = AggregatorConfiguration({
-      target: aggregator,
-      hasNewProposal: false
-    });
-    s_currentValidator = ValidatorConfiguration({
-      target: validator,
-      hasNewProposal: false
-    });
+  constructor(address aggregator, AggregatorValidatorInterface validator) ConfirmedOwner(msg.sender) {
+    s_currentAggregator = AggregatorConfiguration({target: aggregator, hasNewProposal: false});
+    s_currentValidator = ValidatorConfiguration({target: validator, hasNewProposal: false});
   }
 
   /**
@@ -144,11 +129,7 @@ contract ValidatorProxy is
    * @param proposed address
    */
   function proposeNewAggregator(address proposed) external onlyOwner {
-    require(
-      s_proposedAggregator != proposed &&
-        s_currentAggregator.target != proposed,
-      "Invalid proposal"
-    );
+    require(s_proposedAggregator != proposed && s_currentAggregator.target != proposed, "Invalid proposal");
     s_proposedAggregator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentAggregator.hasNewProposal = (proposed != address(0));
@@ -167,10 +148,7 @@ contract ValidatorProxy is
 
     // Perform the upgrade
     require(current.hasNewProposal, "No proposal");
-    s_currentAggregator = AggregatorConfiguration({
-      target: proposed,
-      hasNewProposal: false
-    });
+    s_currentAggregator = AggregatorConfiguration({target: proposed, hasNewProposal: false});
     delete s_proposedAggregator;
 
     emit AggregatorUpgraded(previous, proposed);
@@ -203,14 +181,8 @@ contract ValidatorProxy is
    * @dev A zero address can be used to unset the proposed validator. Only owner can call.
    * @param proposed address
    */
-  function proposeNewValidator(AggregatorValidatorInterface proposed)
-    external
-    onlyOwner
-  {
-    require(
-      s_proposedValidator != proposed && s_currentValidator.target != proposed,
-      "Invalid proposal"
-    );
+  function proposeNewValidator(AggregatorValidatorInterface proposed) external onlyOwner {
+    require(s_proposedValidator != proposed && s_currentValidator.target != proposed, "Invalid proposal");
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentValidator.hasNewProposal = (address(proposed) != address(0));
@@ -229,10 +201,7 @@ contract ValidatorProxy is
 
     // Perform the upgrade
     require(current.hasNewProposal, "No proposal");
-    s_currentValidator = ValidatorConfiguration({
-      target: proposed,
-      hasNewProposal: false
-    });
+    s_currentValidator = ValidatorConfiguration({target: proposed, hasNewProposal: false});
     delete s_proposedValidator;
 
     emit ValidatorUpgraded(previous, proposed);
@@ -262,13 +231,7 @@ contract ValidatorProxy is
    * @notice The type and version of this contract
    * @return Type and version string
    */
-  function typeAndVersion()
-    external
-    pure
-    virtual
-    override
-    returns (string memory)
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "ValidatorProxy 1.0.0";
   }
 }

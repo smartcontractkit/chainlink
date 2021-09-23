@@ -13,10 +13,7 @@ import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOV
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract OptimismCrossDomainForwarder is
-  TypeAndVersionInterface,
-  CrossDomainForwarder
-{
+contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
   // OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007
   address private immutable OVM_CROSS_DOMAIN_MESSENGER;
 
@@ -25,13 +22,8 @@ contract OptimismCrossDomainForwarder is
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address crossDomainMessengerAddr, address l1OwnerAddr)
-    CrossDomainForwarder(l1OwnerAddr)
-  {
-    require(
-      crossDomainMessengerAddr != address(0),
-      "Invalid xDomain Messenger address"
-    );
+  constructor(address crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {
+    require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
     OVM_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
   }
 
@@ -42,13 +34,7 @@ contract OptimismCrossDomainForwarder is
    *
    * @inheritdoc TypeAndVersionInterface
    */
-  function typeAndVersion()
-    external
-    pure
-    virtual
-    override
-    returns (string memory)
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismCrossDomainForwarder 0.1.0";
   }
 
@@ -58,14 +44,10 @@ contract OptimismCrossDomainForwarder is
    */
   function forward(address target, bytes memory data) external override {
     // 1. The call MUST come from the L1 Messenger
-    require(
-      msg.sender == OVM_CROSS_DOMAIN_MESSENGER,
-      "Sender is not the L2 messenger"
-    );
+    require(msg.sender == OVM_CROSS_DOMAIN_MESSENGER, "Sender is not the L2 messenger");
     // 2. The L1 Messenger's caller MUST be the L1 Owner
     require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER)
-        .xDomainMessageSender() == l1Owner(),
+      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
     );
     // 3. Make the external call
@@ -77,13 +59,7 @@ contract OptimismCrossDomainForwarder is
    * @notice This is always the address of the OVM_L2CrossDomainMessenger contract
    * @inheritdoc CrossDomainForwarder
    */
-  function crossDomainMessenger()
-    public
-    view
-    virtual
-    override
-    returns (address)
-  {
+  function crossDomainMessenger() public view virtual override returns (address) {
     return OVM_CROSS_DOMAIN_MESSENGER;
   }
 }

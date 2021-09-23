@@ -22,11 +22,7 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  *  - Gas configuration is controlled by a configurable external SimpleWriteAccessController
  *  - Funds on the contract are managed by the owner
  */
-contract ArbitrumValidator is
-  TypeAndVersionInterface,
-  AggregatorValidatorInterface,
-  SimpleWriteAccessController
-{
+contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   enum PaymentStrategy {
     L1,
     L2
@@ -39,35 +35,23 @@ contract ArbitrumValidator is
   }
 
   /// @dev Precompiled contract that exists in every Arbitrum chain at address(100). Exposes a variety of system-level functionality.
-  address constant ARBSYS_ADDR =
-    address(0x0000000000000000000000000000000000000064);
+  address constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
   address private constant FLAG_ARBITRUM_SEQ_OFFLINE =
-    address(
-      bytes20(
-        bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)
-      )
-    );
+    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
   // Encode underlying Flags call/s
   bytes private constant CALL_RAISE_FLAG =
-    abi.encodeWithSelector(
-      FlagsInterface.raiseFlag.selector,
-      FLAG_ARBITRUM_SEQ_OFFLINE
-    );
+    abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   bytes private constant CALL_LOWER_FLAG =
-    abi.encodeWithSelector(
-      FlagsInterface.lowerFlag.selector,
-      FLAG_ARBITRUM_SEQ_OFFLINE
-    );
+    abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
   address public immutable CROSS_DOMAIN_MESSENGER;
   address public immutable L2_CROSS_DOMAIN_FORWARDER;
   address public immutable L2_FLAGS;
   // L2 xDomain alias address of this contract
-  address public immutable L2_ALIAS =
-    AddressAliasHelper.applyL1ToL2Alias(address(this));
+  address public immutable L2_ALIAS = AddressAliasHelper.applyL1ToL2Alias(address(this));
 
   PaymentStrategy private s_paymentStrategy;
   GasConfig private s_gasConfig;
@@ -85,11 +69,7 @@ contract ArbitrumValidator is
    * @param gasPriceBid maximum L2 gas price to pay
    * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
    */
-  event GasConfigSet(
-    uint256 maxGas,
-    uint256 gasPriceBid,
-    address indexed gasPriceL1FeedAddr
-  );
+  event GasConfigSet(uint256 maxGas, uint256 gasPriceBid, address indexed gasPriceL1FeedAddr);
 
   /**
    * @notice emitted when a new gas access-control contract is set
@@ -103,11 +83,7 @@ contract ArbitrumValidator is
    * @param id unique id of the published retryable transaction (keccak256(requestID, uint(0))
    * @param amount of funds to withdraw
    */
-  event L2WithdrawalRequested(
-    uint256 indexed id,
-    uint256 amount,
-    address indexed refundAddr
-  );
+  event L2WithdrawalRequested(uint256 indexed id, uint256 amount, address indexed refundAddr);
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
@@ -129,14 +105,8 @@ contract ArbitrumValidator is
     address gasPriceL1FeedAddr,
     PaymentStrategy paymentStrategy
   ) {
-    require(
-      crossDomainMessengerAddr != address(0),
-      "Invalid xDomain Messenger address"
-    );
-    require(
-      l2CrossDomainForwarderAddr != address(0),
-      "Invalid L2 xDomain Forwarder address"
-    );
+    require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
+    require(l2CrossDomainForwarderAddr != address(0), "Invalid L2 xDomain Forwarder address");
     require(l2FlagsAddr != address(0), "Invalid Flags contract address");
     CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
     L2_CROSS_DOMAIN_FORWARDER = l2CrossDomainForwarderAddr;
@@ -158,13 +128,7 @@ contract ArbitrumValidator is
    *
    * @inheritdoc TypeAndVersionInterface
    */
-  function typeAndVersion()
-    external
-    pure
-    virtual
-    override
-    returns (string memory)
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumValidator 0.2.0";
   }
 
@@ -219,16 +183,9 @@ contract ArbitrumValidator is
    *   WARNING: `refundAddr` is not aliased! Make sure you can recover the refunded funds on L2.
    * @return id unique id of the published retryable transaction (keccak256(requestID, uint(0))
    */
-  function withdrawFundsFromL2(uint256 amount, address refundAddr)
-    external
-    onlyOwner
-    returns (uint256 id)
-  {
+  function withdrawFundsFromL2(uint256 amount, address refundAddr) external onlyOwner returns (uint256 id) {
     // Build an xDomain message to trigger the ArbSys precompile, which will create a L2 -> L1 tx transferring `amount`
-    bytes memory message = abi.encodeWithSelector(
-      ArbSys.sendTxToL1.selector,
-      address(this)
-    );
+    bytes memory message = abi.encodeWithSelector(ArbSys.sendTxToL1.selector, address(this));
     // Make the xDomain call
     // NOTICE: We approximate the max submission cost of sending a retryable tx with specific calldata length.
     uint256 maxSubmissionCost = _approximateMaxSubmissionCost(message.length);
@@ -238,8 +195,7 @@ contract ArbitrumValidator is
       ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid)
       : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
-    id = IInbox(CROSS_DOMAIN_MESSENGER)
-      .createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
+    id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
       ARBSYS_ADDR, // target
       amount, // L2 call value (requested)
       maxSubmissionCost,
@@ -281,10 +237,7 @@ contract ArbitrumValidator is
    * @dev access control provided by `configAC`
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
-  function setPaymentStrategy(PaymentStrategy paymentStrategy)
-    external
-    onlyOwnerOrConfigAccess
-  {
+  function setPaymentStrategy(PaymentStrategy paymentStrategy) external onlyOwnerOrConfigAccess {
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -313,9 +266,7 @@ contract ArbitrumValidator is
     bytes4 selector = ForwarderInterface.forward.selector;
     address target = L2_FLAGS;
     // Choose and encode the underlying Flags call
-    bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE
-      ? CALL_RAISE_FLAG
-      : CALL_LOWER_FLAG;
+    bytes memory data = currentAnswer == ANSWER_SEQ_OFFLINE ? CALL_RAISE_FLAG : CALL_LOWER_FLAG;
     bytes memory message = abi.encodeWithSelector(selector, target, data);
     // Make the xDomain call
     // NOTICE: We approximate the max submission cost of sending a retryable tx with specific calldata length.
@@ -327,9 +278,7 @@ contract ArbitrumValidator is
       : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
     // We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
-    IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{
-      value: l1PaymentValue
-    }(
+    IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
       L2_CROSS_DOMAIN_FORWARDER, // target
       0, // L2 call value
       maxSubmissionCost,
@@ -357,10 +306,7 @@ contract ArbitrumValidator is
   ) internal {
     require(maxGas > 0, "Max gas is zero");
     require(gasPriceBid > 0, "Gas price bid is zero");
-    require(
-      gasPriceL1FeedAddr != address(0),
-      "Gas price Aggregator is zero address"
-    );
+    require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
     s_gasConfig = GasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
@@ -379,17 +325,10 @@ contract ArbitrumValidator is
    * @dev On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
    * @param calldataSizeInBytes xDomain message size in bytes
    */
-  function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes)
-    internal
-    view
-    returns (uint256)
-  {
-    (, int256 l1GasPriceInWei, , , ) = AggregatorV3Interface(
-      s_gasConfig.gasPriceL1FeedAddr
-    ).latestRoundData();
+  function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes) internal view returns (uint256) {
+    (, int256 l1GasPriceInWei, , , ) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 3; // add 200% buffer (price volatility error margin)
-    return
-      (l1GasPriceEstimate * calldataSizeInBytes) / 256 + l1GasPriceEstimate;
+    return (l1GasPriceEstimate * calldataSizeInBytes) / 256 + l1GasPriceEstimate;
   }
 
   /// @notice Internal helper method that calculates the total cost of the xDomain retryable ticket call
@@ -404,9 +343,7 @@ contract ArbitrumValidator is
   /// @dev reverts if the caller does not have access to change the configuration
   modifier onlyOwnerOrConfigAccess() {
     require(
-      msg.sender == owner() ||
-        (address(s_configAC) != address(0) &&
-          s_configAC.hasAccess(msg.sender, msg.data)),
+      msg.sender == owner() || (address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data)),
       "No access"
     );
     _;
