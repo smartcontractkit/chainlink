@@ -269,7 +269,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Harmony
 	harmonyMainnet := fallbackDefaultSet
-	harmonyMainnet.linkContractAddress = "one1yxzn9gf28zdy4yhup30my2gp68qerx929rv2ns" // NOT FINAL YET
+	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
 	harmonyMainnet.gasPriceDefault = *big.NewInt(5000000000)
 	harmonyMainnet.minIncomingConfirmations = 3
 	harmonyMainnet.minRequiredOutgoingConfirmations = 2
