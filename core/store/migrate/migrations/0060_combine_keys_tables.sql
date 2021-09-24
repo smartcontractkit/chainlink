@@ -22,6 +22,10 @@ ALTER TABLE offchainreporting_oracle_specs DROP CONSTRAINT offchainreporting_ora
 ALTER TABLE offchainreporting_oracle_specs DROP CONSTRAINT offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey;
 ALTER TABLE offchainreporting_oracle_specs DROP CONSTRAINT offchainreporting_oracle_specs_p2p_peer_id_fkey;
 ALTER TABLE p2p_peers DROP CONSTRAINT p2p_peers_peer_id_fkey;
+ALTER TABLE offchainreporting_oracle_specs
+    ALTER COLUMN encrypted_ocr_key_bundle_id TYPE text
+    USING encode(encrypted_ocr_key_bundle_id, 'hex');
+
 
 -- +goose Down
 DROP TABLE encrypted_key_rings;
