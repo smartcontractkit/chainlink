@@ -378,7 +378,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					now := time.Now()
 					run.FinishedAt = null.TimeFrom(now)
 				case pipeline.RunStatusErrored:
-					run.Errors = []null.String{
+					run.FatalErrors = []null.String{
 						null.StringFrom("Random: String, foo"),
 					}
 				default:
@@ -971,8 +971,8 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 		}, nil).Once()
 	finishedAt := time.Now()
 	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
-		FinishedAt: null.TimeFrom(finishedAt),
-		Errors:     []null.String{null.StringFrom("an error to start retry ticker")},
+		FinishedAt:  null.TimeFrom(finishedAt),
+		FatalErrors: []null.String{null.StringFrom("an error to start retry ticker")},
 	}, nil)
 
 	select {

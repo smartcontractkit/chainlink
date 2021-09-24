@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -99,6 +100,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logger.Debugw("Found user", "user", user)
 
 	if !constantTimeEmailCompare(sr.Email, user.Email) {
 		return "", errors.New("Invalid email")
