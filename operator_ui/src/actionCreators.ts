@@ -134,32 +134,6 @@ export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
 export const submitSignOut = () => sendSignOut
 
-export const deleteJobSpec = (
-  id: string,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_DELETE })
-
-    const endpoint = api.v2.jobs
-
-    return endpoint
-      .destroyJobSpec(id)
-      .then((doc) => {
-        dispatch(receiveDeleteSuccess(id))
-        dispatch(notifySuccess(successCallback, doc))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_DELETE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
 export const deleteChain = (
   id: string,
   successCallback: React.ReactNode,

@@ -6,6 +6,7 @@ export const ENDPOINT = '/v2/job_proposals'
 export const SHOW_ENDPOINT = `${ENDPOINT}/:id`
 export const REJECT_ENDPOINT = `${ENDPOINT}/:id/reject`
 export const APPROVE_ENDPOINT = `${ENDPOINT}/:id/approve`
+export const CANCEL_ENDPOINT = `${ENDPOINT}/:id/cancel`
 export const UPDATE_SPEC_ENDPOINT = `${ENDPOINT}/:id/spec`
 
 // Job Proposals represents the job proposals
@@ -36,6 +37,13 @@ export class JobProposals {
     id: string,
   ): Promise<jsonapi.ApiResponse<models.JobProposal>> {
     return this.reject({}, { id })
+  }
+
+  @boundMethod
+  public cancelJobProposal(
+    id: string,
+  ): Promise<jsonapi.ApiResponse<models.JobProposal>> {
+    return this.cancel({}, { id })
   }
 
   @boundMethod
@@ -70,6 +78,14 @@ export class JobProposals {
       id: string
     }
   >(APPROVE_ENDPOINT)
+
+  private cancel = this.api.createResource<
+    {},
+    models.JobProposal,
+    {
+      id: string
+    }
+  >(CANCEL_ENDPOINT)
 
   private updateSpec = this.api.updateResource<
     models.UpdateJobProposalSpecRequest,
