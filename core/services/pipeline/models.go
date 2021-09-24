@@ -40,8 +40,9 @@ type Run struct {
 	Meta           JSONSerializable `json:"meta" gorm:"type:jsonb"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
-	Errors RunErrors        `json:"errors" gorm:"type:jsonb"`
-	Inputs JSONSerializable `json:"inputs" gorm:"type:jsonb"`
+	AllErrors   RunErrors        `json:"all_errors" gorm:"type:jsonb"`
+	FatalErrors RunErrors        `json:"fatal_errors" gorm:"type:jsonb"`
+	Inputs      JSONSerializable `json:"inputs" gorm:"type:jsonb"`
 	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
@@ -71,8 +72,17 @@ func (r *Run) SetID(value string) error {
 	return nil
 }
 
+func (r Run) HasFatalErrors() bool {
+	for _, err := range r.FatalErrors {
+		if !err.IsZero() {
+			return true
+		}
+	}
+	return false
+}
+
 func (r Run) HasErrors() bool {
-	for _, err := range r.Errors {
+	for _, err := range r.AllErrors {
 		if !err.IsZero() {
 			return true
 		}
@@ -82,7 +92,7 @@ func (r Run) HasErrors() bool {
 
 // Status determines the status of the run.
 func (r *Run) Status() RunStatus {
-	if r.HasErrors() {
+	if r.HasFatalErrors() {
 		return RunStatusErrored
 	} else if r.FinishedAt.Valid {
 		return RunStatusCompleted

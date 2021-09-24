@@ -81,8 +81,6 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 		var parsedResponse presenters.PipelineRunResource
 		err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-		bs, _ := json.MarshalIndent(parsedResponse, "", "    ")
-		fmt.Println(string(bs))
 		assert.NoError(t, err)
 		assert.NotNil(t, parsedResponse.ID)
 		assert.NotNil(t, parsedResponse.CreatedAt)
@@ -170,7 +168,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
@@ -180,8 +178,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
-	// Successful pipeline runs does not save task runs.
-	require.Len(t, parsedResponse[1].TaskRuns, 0)
+	require.Len(t, parsedResponse[1].TaskRuns, 8)
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
@@ -193,7 +190,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
@@ -203,8 +200,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
 	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
-	// Successful pipeline runs does not save task runs.
-	require.Len(t, parsedResponse[1].TaskRuns, 0)
+	require.Len(t, parsedResponse[1].TaskRuns, 8)
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
@@ -216,7 +212,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 
 	var parsedResponse []presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 	assert.Contains(t, string(responseBytes), `"meta":{"count":2}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
@@ -226,7 +222,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	assert.Equal(t, parsedResponse[0].ID, strconv.Itoa(int(runIDs[1])))
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
-	require.Len(t, parsedResponse[0].TaskRuns, 0)
+	require.Len(t, parsedResponse[0].TaskRuns, 8)
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
@@ -238,14 +234,14 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 	var parsedResponse presenters.PipelineRunResource
 	responseBytes := cltest.ParseResponseBody(t, response)
-	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"inputs":{"answer":"3","ds":"{\"USD\": 1}","ds_multiply":"3","ds_parse":1,"jobRun":{"meta":null}}`)
+	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, parsedResponse.ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse.CreatedAt)
 	assert.NotNil(t, parsedResponse.FinishedAt)
-	require.Len(t, parsedResponse.TaskRuns, 0)
+	require.Len(t, parsedResponse.TaskRuns, 8)
 }
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
@@ -270,7 +266,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	client := app.NewHTTPClient()
-	mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -287,15 +282,23 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	transmitterAddress = "%s"
 	observationSource = """
 		// data source 1
-		ds          [type=http method=GET url="%s"];
-		ds_parse    [type=jsonparse path="USD"];
-		ds_multiply [type=multiply times=3];
+		ds1          [type=memo value=<"{\\"USD\\": 1}">];
+		ds1_parse    [type=jsonparse path="USD"];
+		ds1_multiply [type=multiply times=3];
 
-		ds -> ds_parse -> ds_multiply -> answer;
+		ds2          [type=memo value=<"{\\"USD\\": 1}">];
+		ds2_parse    [type=jsonparse path="USD"];
+		ds2_multiply [type=multiply times=3];
+
+		ds3          [type=fail msg="uh oh"];
+
+		ds1 -> ds1_parse -> ds1_multiply -> answer;
+		ds2 -> ds2_parse -> ds2_multiply -> answer;
+		ds3 -> answer;
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex(), mockHTTP.URL)
+	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var ocrJobSpec job.Job
 	err := toml.Unmarshal([]byte(sp), &ocrJobSpec)
 	require.NoError(t, err)
