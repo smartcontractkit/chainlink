@@ -2,10 +2,13 @@ package pipeline
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -33,6 +36,15 @@ type ETHCallTask struct {
 }
 
 var _ Task = (*ETHCallTask)(nil)
+
+var (
+	promETHCallTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_eth_call_execution_time",
+		Help: "Time taken to fully execute the ETH call",
+	},
+		[]string{"pipeline_task_spec_id"},
+	)
+)
 
 func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
@@ -81,7 +93,9 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		return Result{Error: err}
 	}
 
+	start := time.Now()
 	resp, err := chain.Client().CallContract(ctx, call, nil)
+	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
 			err = t.retrieveRevertReason(err)
@@ -89,6 +103,9 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 
 		return Result{Error: err}
 	}
+
+	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+
 	return Result{Value: resp}
 }
 
