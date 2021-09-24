@@ -30,6 +30,20 @@ func (_m *ORM) ApproveJobProposal(ctx context.Context, id int64, externalJobID u
 	return r0
 }
 
+// CancelJobProposal provides a mock function with given fields: ctx, id
+func (_m *ORM) CancelJobProposal(ctx context.Context, id int64) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CountJobProposals provides a mock function with given fields: ctx
 func (_m *ORM) CountJobProposals(ctx context.Context) (int64, error) {
 	ret := _m.Called(ctx)
@@ -176,6 +190,27 @@ func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, e
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
 		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsJobManaged provides a mock function with given fields: ctx, jobID
+func (_m *ORM) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
+	ret := _m.Called(ctx, jobID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(context.Context, int64) bool); ok {
+		r0 = rf(ctx, jobID)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, jobID)
 	} else {
 		r1 = ret.Error(1)
 	}

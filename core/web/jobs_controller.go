@@ -137,20 +137,23 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
+	j := job.Job{}
+	err := j.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
+	// Delete the job
+	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
 	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+
 		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
+
 		return
 	}
 

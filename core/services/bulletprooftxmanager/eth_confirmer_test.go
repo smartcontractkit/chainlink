@@ -46,22 +46,22 @@ func mustInsertUnstartedEthTx(t *testing.T, db *gorm.DB, fromAddress gethCommon.
 	require.NoError(t, db.Save(&etx).Error)
 }
 
-func newBroadcastEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
-	attempt := cltest.NewEthTxAttempt(t, etxID)
+func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
+	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
-		attempt.GasPrice = *utils.NewBig(big.NewInt(gp))
+		attempt.GasPrice = utils.NewBig(big.NewInt(gp))
 	}
 	return attempt
 }
 
-func newInProgressEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
-	attempt := cltest.NewEthTxAttempt(t, etxID)
+func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) bulletprooftxmanager.EthTxAttempt {
+	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
 	if len(gasPrice) > 0 {
 		gp := gasPrice[0]
-		attempt.GasPrice = *utils.NewBig(big.NewInt(gp))
+		attempt.GasPrice = utils.NewBig(big.NewInt(gp))
 	}
 	return attempt
 }
@@ -98,7 +98,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, fromAddress)
 
 	headNum := int64(9000)
 	var err error
@@ -117,7 +117,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 
 	t.Run("does not change eth_tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
 		n := int64(42)
-		attempt := newBroadcastEthTxAttempt(t, etx.ID, 2)
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
 		attempt.BroadcastBeforeBlockNum = &n
 		require.NoError(t, db.Save(&attempt).Error)
 
@@ -154,7 +154,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		cltest.MustInsertFatalErrorEthTx(t, db, fromAddress)
 		mustInsertInProgressEthTx(t, db, nonce, fromAddress)
 		nonce++
-		cltest.MustInsertConfirmedEthTxWithAttempt(t, db, nonce, 1, fromAddress)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, nonce, 1, fromAddress)
 		nonce++
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, nonce, fromAddress)
 		nonce++
@@ -166,7 +166,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	require.Len(t, etx1.EthTxAttempts, 1)
 	attempt1_1 := etx1.EthTxAttempts[0]
@@ -250,7 +250,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 0)
 	})
 
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	require.Len(t, etx2.EthTxAttempts, 1)
 	attempt2_1 := etx2.EthTxAttempts[0]
@@ -306,11 +306,11 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	})
 
 	t.Run("fetches and saves receipts for several attempts in gas price order", func(t *testing.T) {
-		attempt2_2 := newBroadcastEthTxAttempt(t, etx2.ID)
-		attempt2_2.GasPrice = *utils.NewBig(big.NewInt(10))
+		attempt2_2 := newBroadcastLegacyEthTxAttempt(t, etx2.ID)
+		attempt2_2.GasPrice = utils.NewBig(big.NewInt(10))
 
-		attempt2_3 := newBroadcastEthTxAttempt(t, etx2.ID)
-		attempt2_3.GasPrice = *utils.NewBig(big.NewInt(20))
+		attempt2_3 := newBroadcastLegacyEthTxAttempt(t, etx2.ID)
+		attempt2_3.GasPrice = utils.NewBig(big.NewInt(20))
 
 		// Insert order deliberately reversed to test sorting by gas price
 		require.NoError(t, db.Create(&attempt2_3).Error)
@@ -353,7 +353,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Len(t, etx.EthTxAttempts, 3)
 	})
 
-	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	attempt3_1 := etx3.EthTxAttempts[0]
 	nonce++
 
@@ -447,13 +447,13 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	attempt4_1 := etx4.EthTxAttempts[0]
 	nonce++
 
 	t.Run("on receipt fetch marks in_progress eth_tx_attempt as broadcast", func(t *testing.T) {
-		attempt4_2 := newInProgressEthTxAttempt(t, etx4.ID)
-		attempt4_2.GasPrice = *utils.NewBig(big.NewInt(10))
+		attempt4_2 := newInProgressLegacyEthTxAttempt(t, etx4.ID)
+		attempt4_2.GasPrice = utils.NewBig(big.NewInt(10))
 
 		require.NoError(t, db.Create(&attempt4_2).Error)
 
@@ -525,7 +525,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
-		attempt := newBroadcastEthTxAttempt(t, etx.ID, int64(i+2))
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, int64(i+2))
 		require.NoError(t, db.Create(&attempt).Error)
 		attempts = append(attempts, attempt)
 	}
@@ -584,12 +584,12 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 	// inserting in DESC nonce order to test DB ASC ordering
 	etx2 := cltest.MustInsertUnconfirmedEthTx(t, db, 1, fromAddress)
 	for i := 0; i < 4; i++ {
-		attempt := newBroadcastEthTxAttempt(t, etx2.ID, int64(100-i))
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx2.ID, int64(100-i))
 		require.NoError(t, db.Create(&attempt).Error)
 	}
 	etx := cltest.MustInsertUnconfirmedEthTx(t, db, 0, fromAddress)
 	for i := 0; i < 4; i++ {
-		attempt := newBroadcastEthTxAttempt(t, etx.ID, int64(100-i))
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, int64(100-i))
 		require.NoError(t, db.Create(&attempt).Error)
 
 		// only adding these because a batch for only those attempts should be sent
@@ -638,7 +638,7 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, db, 1, fromAddress)
 	for i := 0; i < 4; i++ {
-		attempt := newBroadcastEthTxAttempt(t, etx.ID, int64(100-i))
+		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, int64(100-i))
 		require.NoError(t, db.Create(&attempt).Error)
 	}
 
@@ -678,25 +678,25 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	b := int64(21)
 
 	etx0 := cltest.MustInsertUnconfirmedEthTx(t, db, 0, fromAddress)
-	attempt0_1 := newBroadcastEthTxAttempt(t, etx0.ID, int64(1))
-	attempt0_2 := newBroadcastEthTxAttempt(t, etx0.ID, int64(2))
+	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(1))
+	attempt0_2 := newBroadcastLegacyEthTxAttempt(t, etx0.ID, int64(2))
 	attempt0_2.BroadcastBeforeBlockNum = &b
 	require.NoError(t, db.Create(&attempt0_1).Error)
 	require.NoError(t, db.Create(&attempt0_2).Error)
 
 	etx1 := cltest.MustInsertUnconfirmedEthTx(t, db, 1, fromAddress)
-	attempt1_1 := newBroadcastEthTxAttempt(t, etx1.ID, int64(1))
-	attempt1_2 := newBroadcastEthTxAttempt(t, etx1.ID, int64(2))
+	attempt1_1 := newBroadcastLegacyEthTxAttempt(t, etx1.ID, int64(1))
+	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID, int64(2))
 	attempt1_2.BroadcastBeforeBlockNum = &b
 	require.NoError(t, db.Create(&attempt1_1).Error)
 	require.NoError(t, db.Create(&attempt1_2).Error)
 
 	etx2 := cltest.MustInsertUnconfirmedEthTx(t, db, 2, fromAddress)
-	attempt2_1 := newBroadcastEthTxAttempt(t, etx2.ID, int64(1))
+	attempt2_1 := newBroadcastLegacyEthTxAttempt(t, etx2.ID, int64(1))
 	require.NoError(t, db.Create(&attempt2_1).Error)
 
 	etx3 := cltest.MustInsertUnconfirmedEthTx(t, db, 3, fromAddress)
-	attempt3_1 := newBroadcastEthTxAttempt(t, etx3.ID, int64(1))
+	attempt3_1 := newBroadcastLegacyEthTxAttempt(t, etx3.ID, int64(1))
 	require.NoError(t, db.Create(&attempt3_1).Error)
 
 	d, _ := db.DB()
@@ -921,16 +921,16 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	// Insert order is mixed up to test sorting
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 1, fromAddress)
-	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
-	attempt3_2 := cltest.NewEthTxAttempt(t, etx3.ID)
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 2, fromAddress)
+	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
 	attempt3_2.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
-	attempt3_2.GasPrice = *utils.NewBig(big.NewInt(100))
+	attempt3_2.GasPrice = utils.NewBig(big.NewInt(100))
 	require.NoError(t, db.Save(&attempt3_2).Error)
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, fromAddress)
 
 	// These should never be returned
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 3, fromAddress)
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 4, 100, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 3, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 4, 100, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, otherAddress)
 
 	t.Run("returns all eth_txes with at least one attempt that is in insufficient_eth state", func(t *testing.T) {
@@ -1006,7 +1006,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	// This one has BroadcastBeforeBlockNum set as nil... which can happen, but it should be ignored
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
@@ -1016,14 +1016,14 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Len(t, etxs, 0)
 	})
 
-	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx1.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &tooNew
 	require.NoError(t, db.Save(&attempt1_1).Error)
-	attempt1_2 := newBroadcastEthTxAttempt(t, etx1.ID)
+	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID)
 	attempt1_2.BroadcastBeforeBlockNum = &onTheMoney
-	attempt1_2.GasPrice = *utils.NewBigI(30000)
+	attempt1_2.GasPrice = utils.NewBigI(30000)
 	require.NoError(t, db.Save(&attempt1_2).Error)
 
 	t.Run("returns nothing when the transaction is unconfirmed with an attempt that is recent", func(t *testing.T) {
@@ -1033,7 +1033,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Len(t, etxs, 0)
 	})
 
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	attempt2_1.BroadcastBeforeBlockNum = &tooNew
@@ -1079,14 +1079,14 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		require.Len(t, etxs, 0)
 	})
 
-	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.EthTxAttempts[0]
 	attempt3_1.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, db.Save(&attempt3_1).Error)
 
 	// NOTE: It should ignore qualifying eth_txes from a different address
-	etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, otherAddress)
+	etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, otherAddress)
 	attemptOther1 := etxOther.EthTxAttempts[0]
 	attemptOther1.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, db.Save(&attemptOther1).Error)
@@ -1135,7 +1135,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
 	})
 
-	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt4_1 := etx4.EthTxAttempts[0]
 	attempt4_1.BroadcastBeforeBlockNum = &oldEnough
@@ -1143,7 +1143,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	t.Run("ignores pending transactions for another key", func(t *testing.T) {
 		// Re-use etx3 nonce for another key, it should not affect the results for this key
-		etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, *etx3.Nonce, otherAddress)
+		etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, *etx3.Nonce, otherAddress)
 		aOther := etxOther.EthTxAttempts[0]
 		aOther.BroadcastBeforeBlockNum = &oldEnough
 		require.NoError(t, db.Save(&aOther).Error)
@@ -1157,9 +1157,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, etx4.ID, etxs[2].ID)
 	})
 
-	attempt3_2 := newBroadcastEthTxAttempt(t, etx3.ID)
+	attempt3_2 := newBroadcastLegacyEthTxAttempt(t, etx3.ID)
 	attempt3_2.BroadcastBeforeBlockNum = &oldEnough
-	attempt3_2.GasPrice = *utils.NewBigI(30000)
+	attempt3_2.GasPrice = utils.NewBigI(30000)
 	require.NoError(t, db.Save(&attempt3_2).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with two attempts that are older than gasBumpThreshold blocks", func(t *testing.T) {
@@ -1172,9 +1172,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, etx4.ID, etxs[2].ID)
 	})
 
-	attempt3_3 := newBroadcastEthTxAttempt(t, etx3.ID)
+	attempt3_3 := newBroadcastLegacyEthTxAttempt(t, etx3.ID)
 	attempt3_3.BroadcastBeforeBlockNum = &tooNew
-	attempt3_3.GasPrice = *utils.NewBigI(40000)
+	attempt3_3.GasPrice = utils.NewBigI(40000)
 	require.NoError(t, db.Save(&attempt3_3).Error)
 
 	t.Run("does not return the transaction if it has some older but one newer attempt", func(t *testing.T) {
@@ -1190,16 +1190,16 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		require.Equal(t, int64(7), *etx4.Nonce)
 	})
 
-	attempt0_1 := newBroadcastEthTxAttempt(t, etxWithoutAttempts.ID)
+	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etxWithoutAttempts.ID)
 	attempt0_1.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
 	require.NoError(t, db.Save(&attempt0_1).Error)
 
 	// This attempt has insufficient_eth, but there is also another attempt4_1
 	// which is old enough, so this will be caught by both queries and should
 	// not be duplicated
-	attempt4_2 := cltest.NewEthTxAttempt(t, etx4.ID)
+	attempt4_2 := cltest.NewLegacyEthTxAttempt(t, etx4.ID)
 	attempt4_2.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
-	attempt4_2.GasPrice = *utils.NewBigI(40000)
+	attempt4_2.GasPrice = utils.NewBigI(40000)
 	require.NoError(t, db.Save(&attempt4_2).Error)
 
 	etx5 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, nonce, fromAddress)
@@ -1209,9 +1209,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	// the gas bumping query, but it should still be caught by the insufficient
 	// eth query
 	etx6 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, nonce, fromAddress)
-	attempt6_2 := newBroadcastEthTxAttempt(t, etx3.ID)
+	attempt6_2 := newBroadcastLegacyEthTxAttempt(t, etx3.ID)
 	attempt6_2.BroadcastBeforeBlockNum = &tooNew
-	attempt6_2.GasPrice = *utils.NewBigI(30001)
+	attempt6_2.GasPrice = utils.NewBigI(30001)
 	require.NoError(t, db.Save(&attempt6_2).Error)
 	nonce++
 
@@ -1270,15 +1270,15 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress, originalBroadcastAt)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress, originalBroadcastAt)
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, db.Save(&attempt1_1).Error)
 	var err error
 
-	t.Run("returns on keystore error", func(t *testing.T) {
-		// simulate transaction that is somehow impossible to sign
+	t.Run("re-sends previous transaction on keystore error", func(t *testing.T) {
+		// simulate bumped transaction that is somehow impossible to sign
 		kst.On("SignTx", fromAddress,
 			mock.MatchedBy(func(tx *types.Transaction) bool {
 				return tx.Nonce() == uint64(*etx.Nonce)
@@ -1516,7 +1516,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	// Mark original tx as confirmed so we won't pick it up any more
 	require.NoError(t, db.Exec(`UPDATE eth_txes SET state = 'confirmed'`).Error)
 
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.EthTxAttempts[0]
 	attempt2_1.BroadcastBeforeBlockNum = &oldEnough
@@ -1631,11 +1631,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	// Original tx is confirmed so we won't pick it up any more
-	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.EthTxAttempts[0]
 	attempt3_1.BroadcastBeforeBlockNum = &oldEnough
-	attempt3_1.GasPrice = *utils.NewBig(big.NewInt(35000000000))
+	attempt3_1.GasPrice = utils.NewBig(big.NewInt(35000000000))
 	require.NoError(t, db.Save(&attempt3_1).Error)
 
 	var attempt3_2 bulletprooftxmanager.EthTxAttempt
@@ -1819,6 +1819,84 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		kst.AssertExpectations(t)
 	})
 
+	// The EIP-1559 etx and attempt
+	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, db, nonce, fromAddress)
+	nonce++
+	attempt4_1 := etx4.EthTxAttempts[0]
+	attempt4_1.BroadcastBeforeBlockNum = &oldEnough
+	attempt4_1.GasTipCap = utils.NewBig(assets.GWei(35))
+	attempt4_1.GasFeeCap = utils.NewBig(assets.GWei(100))
+	require.NoError(t, db.Save(&attempt4_1).Error)
+	var attempt4_2 bulletprooftxmanager.EthTxAttempt
+
+	t.Run("bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
+		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1000)
+		ethTx := *types.NewTx(&types.DynamicFeeTx{})
+		kst.On("SignTx",
+			fromAddress,
+			mock.MatchedBy(func(tx *types.Transaction) bool {
+				if int64(tx.Nonce()) != *etx4.Nonce {
+					return false
+				}
+				ethTx = *tx
+				return true
+			}),
+			mock.Anything).Return(&ethTx, nil).Once()
+		// This is the new, EIP-1559 attempt
+		gasTipCap := assets.GWei(42)
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return int64(tx.Nonce()) == *etx4.Nonce && gasTipCap.Cmp(tx.GasTipCap()) == 0
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
+
+		etx4, err = cltest.FindEthTxWithAttempts(db, etx4.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+
+		// A new, bumped attempt
+		require.Len(t, etx4.EthTxAttempts, 2)
+		attempt4_2 = etx4.EthTxAttempts[1]
+		assert.Nil(t, attempt4_2.GasPrice)
+		assert.Equal(t, assets.GWei(42).String(), attempt4_2.GasTipCap.String())
+		assert.Equal(t, assets.GWei(1000).String(), attempt4_2.GasFeeCap.String())
+		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt1_2.State)
+
+		ethClient.AssertExpectations(t)
+		kst.AssertExpectations(t)
+	})
+
+	attempt4_2.GasTipCap = utils.NewBig(assets.GWei(999))
+	attempt4_2.GasFeeCap = utils.NewBig(assets.GWei(1000))
+	attempt4_2.BroadcastBeforeBlockNum = &oldEnough
+	require.NoError(t, db.Save(&attempt4_2).Error)
+
+	t.Run("resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
+		cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(1000)
+
+		// Third attempt failed to bump, resubmits old one instead
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+			return int64(tx.Nonce()) == *etx4.Nonce && attempt4_2.Hash == tx.Hash()
+		})).Return(nil).Once()
+
+		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
+
+		etx4, err = cltest.FindEthTxWithAttempts(db, etx4.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx4.State)
+
+		// No new tx attempts
+		require.Len(t, etx4.EthTxAttempts, 2)
+		attempt4_2 := etx4.EthTxAttempts[1]
+		assert.Equal(t, assets.GWei(999).Int64(), attempt4_2.GasTipCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(1000).Int64(), attempt4_2.GasFeeCap.ToInt().Int64())
+
+		ethClient.AssertExpectations(t)
+		kst.AssertExpectations(t)
+	})
+
 	kst.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
 }
@@ -1842,7 +1920,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	oldEnough := int64(19)
 	nonce := int64(0)
 
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, nonce, fromAddress)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &oldEnough
@@ -1994,7 +2072,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, fromAddress)
 
 		// Do the thing
 		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
@@ -2005,7 +2083,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("does nothing to confirmed transactions with receipts within head height of the chain and included in the chain", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 2, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 2, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		cltest.MustInsertEthReceipt(t, db, head.Number, head.Hash, attempt.Hash)
 
@@ -2018,7 +2096,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("does nothing to confirmed transactions that only have receipts older than the start of the chain", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 3, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is older than the lowest block of the chain
 		cltest.MustInsertEthReceipt(t, db, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
@@ -2032,7 +2110,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of the chain but not included in the chain", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 4, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 4, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Include one within head height but a different block hash
 		cltest.MustInsertEthReceipt(t, db, head.Parent.Number, utils.NewHash(), attempt.Hash)
@@ -2058,7 +2136,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("unconfirms and rebroadcasts transactions that have receipts within head height of chain but not included in the chain even if a receipt exists older than the start of the chain", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 5, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 5, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is older than the lowest block of the chain
 		cltest.MustInsertEthReceipt(t, db, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
@@ -2081,14 +2159,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("if more than one attempt has a receipt (should not be possible but isn't prevented by database constraints) unconfirms and rebroadcasts only the attempt with the highest gas price", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 6, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 6, 1, fromAddress)
 		require.Len(t, etx.EthTxAttempts, 1)
 		// Sanity check to assert the included attempt has the lowest gas price
 		require.Less(t, etx.EthTxAttempts[0].GasPrice.ToInt().Int64(), int64(30000))
 
-		attempt2 := newBroadcastEthTxAttempt(t, etx.ID, 30000)
+		attempt2 := newBroadcastLegacyEthTxAttempt(t, etx.ID, 30000)
 		attempt2.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a98503b9aca000832ab98094f5fff180082d6017036b771ba883025c654bc93580a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0f25601065ee369b6470c0399a2334afcfbeb0b5c8f3d9a9042e448ed29b5bcbda05b676e00248b85faf4dd889f0e2dcf91eb867e23ac9eeb14a73f9e4c14972cdf")
-		attempt3 := newBroadcastEthTxAttempt(t, etx.ID, 40000)
+		attempt3 := newBroadcastLegacyEthTxAttempt(t, etx.ID, 40000)
 		attempt3.SignedRawTx = hexutil.MustDecode("0xf88c8301f3a88503b9aca0008316e36094151445852b0cfdf6a4cc81440f2af99176e8ad0880a4daa6d556000000000000000000000000000000000000000000000000000000000000000026a0dcb5a7ad52b96a866257134429f944c505820716567f070e64abb74899803855a04c13eff2a22c218e68da80111e1bb6dc665d3dea7104ab40ff8a0275a99f630d")
 		require.NoError(t, db.Create(&attempt2).Error)
 		require.NoError(t, db.Create(&attempt3).Error)
@@ -2122,7 +2200,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	})
 
 	t.Run("if receipt has a block number that is in the future, does not mark for rebroadcast (the safe thing to do is simply wait until heads catches up)", func(t *testing.T) {
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 7, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 7, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		// Add receipt that is higher than head
 		cltest.MustInsertEthReceipt(t, db, head.Number+1, utils.NewHash(), attempt.Hash)
@@ -2151,8 +2229,8 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	config := newTestChainScopedConfig(t)
 	mustInsertUnstartedEthTx(t, db, fromAddress)
 	mustInsertInProgressEthTx(t, db, 0, fromAddress)
-	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 1, fromAddress)
-	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 2, fromAddress)
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, fromAddress)
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 2, fromAddress)
 
 	gasPriceWei := uint64(assets.GWei(52).Int64())
 	overrideGasLimit := uint64(20000)
@@ -2289,7 +2367,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 1, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		cltest.MustInsertEthReceipt(t, db, head.Number-minConfirmations, head.Hash, attempt.Hash)
 		err := db.Exec(`UPDATE eth_txes SET pipeline_task_run_id = ?, min_confirmations = ? WHERE id = ?`, &tr.ID, minConfirmations, etx.ID).Error
@@ -2309,7 +2387,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
 		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 2, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 2, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		cltest.MustInsertEthReceipt(t, db, head.Number, head.Hash, attempt.Hash)
 
@@ -2333,7 +2411,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		err := db.Exec(`UPDATE pipeline_runs SET state = 'suspended' WHERE id = ?`, run.ID).Error
 		require.NoError(t, err)
 
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 3, 1, fromAddress)
+		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 3, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
 		receipt := cltest.MustInsertEthReceipt(t, db, head.Number-minConfirmations, head.Hash, attempt.Hash)
 

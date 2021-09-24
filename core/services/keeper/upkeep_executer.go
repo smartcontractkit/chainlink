@@ -3,11 +3,15 @@ package keeper
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
@@ -27,6 +31,15 @@ const (
 var (
 	_ job.Service           = (*UpkeepExecuter)(nil)
 	_ httypes.HeadTrackable = (*UpkeepExecuter)(nil)
+)
+
+var (
+	promCheckUpkeepExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "keeper_check_upkeep_execution_time",
+		Help: "Time taken to fully execute the check upkeep logic",
+	},
+		[]string{"upkeepID"},
+	)
 )
 
 // UpkeepExecuter implements the logic to communicate with KeeperRegistry
@@ -165,13 +178,14 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 
+	start := time.Now()
 	svcLogger := ex.logger.With("blockNum", headNumber, "upkeepID", upkeep.UpkeepID)
 	svcLogger.Debug("checking upkeep")
 
 	ctxService, cancel := utils.ContextFromChanWithDeadline(ex.chStop, time.Minute)
 	defer cancel()
 
-	gasPrice, err := ex.estimateGasPrice(upkeep)
+	gasPrice, fee, err := ex.estimateGasPrice(upkeep)
 	if err != nil {
 		svcLogger.Error(errors.Wrap(err, "estimating gas price"))
 		return
@@ -186,7 +200,9 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 			"performUpkeepGasLimit": upkeep.ExecuteGas + ex.orm.config.KeeperRegistryPerformGasOverhead(),
 			"checkUpkeepGasLimit": ex.config.KeeperRegistryCheckGasOverhead() + uint64(upkeep.Registry.CheckGas) +
 				ex.config.KeeperRegistryPerformGasOverhead() + upkeep.ExecuteGas,
-			"gasPrice": gasPrice,
+			"gasPrice":  gasPrice,
+			"gasTipCap": fee.TipCap,
+			"gasFeeCap": fee.FeeCap,
 		},
 	})
 
@@ -202,26 +218,40 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		if err != nil {
 			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}
+
+		elapsed := time.Since(start)
+		promCheckUpkeepExecutionTime.
+			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
+			Set(float64(elapsed))
 	}
 }
 
-func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (*big.Int, error) {
-	performTxData, err := RegistryABI.Pack(
+func (ex *UpkeepExecuter) estimateGasPrice(upkeep UpkeepRegistration) (gasPrice *big.Int, fee gas.DynamicFee, err error) {
+	var performTxData []byte
+	performTxData, err = RegistryABI.Pack(
 		"performUpkeep",
 		big.NewInt(upkeep.UpkeepID),
 		common.Hex2Bytes("1234"), // placeholder
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to construct performUpkeep data")
+		return nil, fee, errors.Wrap(err, "unable to construct performUpkeep data")
 	}
-	gasPrice, _, err := ex.gasEstimator.EstimateGas(performTxData, upkeep.ExecuteGas)
+	if ex.config.EvmEIP1559DynamicFees() {
+		fee, _, err = ex.gasEstimator.GetDynamicFee(upkeep.ExecuteGas)
+		fee.TipCap = addBuffer(fee.TipCap, ex.config.KeeperGasTipCapBufferPercent())
+	} else {
+		gasPrice, _, err = ex.gasEstimator.GetLegacyGas(performTxData, upkeep.ExecuteGas)
+		gasPrice = addBuffer(gasPrice, ex.config.KeeperGasPriceBufferPercent())
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to estimate gas")
+		return nil, fee, errors.Wrap(err, "unable to estimate gas")
 	}
-	// add GasPriceBuffer to gasPrice
-	gasPrice = bigmath.Div(
-		bigmath.Mul(gasPrice, 100+ex.config.KeeperGasPriceBufferPercent()),
+	return gasPrice, fee, nil
+}
+
+func addBuffer(val *big.Int, prct uint32) *big.Int {
+	return bigmath.Div(
+		bigmath.Mul(val, 100+prct),
 		100,
 	)
-	return gasPrice, nil
 }

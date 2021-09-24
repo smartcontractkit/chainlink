@@ -8,25 +8,18 @@ interface KeeperRegistryBaseInterface {
     uint32 gasLimit,
     address admin,
     bytes calldata checkData
-  ) external returns (
-      uint256 id
-    );
-  function performUpkeep(
-    uint256 id,
-    bytes calldata performData
-  ) external returns (
-      bool success
-    );
-  function cancelUpkeep(
-    uint256 id
-  ) external;
-  function addFunds(
-    uint256 id,
-    uint96 amount
-  ) external;
+  ) external returns (uint256 id);
+
+  function performUpkeep(uint256 id, bytes calldata performData) external returns (bool success);
+
+  function cancelUpkeep(uint256 id) external;
+
+  function addFunds(uint256 id, uint96 amount) external;
 
   function getUpkeep(uint256 id)
-    external view returns (
+    external
+    view
+    returns (
       address target,
       uint32 executeGas,
       bytes memory checkData,
@@ -35,20 +28,26 @@ interface KeeperRegistryBaseInterface {
       address admin,
       uint64 maxValidBlocknumber
     );
-  function getUpkeepCount()
-    external view returns (uint256);
-  function getCanceledUpkeepList()
-    external view returns (uint256[] memory);
-  function getKeeperList()
-    external view returns (address[] memory);
+
+  function getUpkeepCount() external view returns (uint256);
+
+  function getCanceledUpkeepList() external view returns (uint256[] memory);
+
+  function getKeeperList() external view returns (address[] memory);
+
   function getKeeperInfo(address query)
-    external view returns (
+    external
+    view
+    returns (
       address payee,
       bool active,
       uint96 balance
     );
+
   function getConfig()
-    external view returns (
+    external
+    view
+    returns (
       uint32 paymentPremiumPPB,
       uint24 checkFrequencyBlocks,
       uint32 checkGasLimit,
@@ -60,15 +59,12 @@ interface KeeperRegistryBaseInterface {
 }
 
 /**
-  * @dev The view methods are not actually marked as view in the implementation
-  * but we want them to be easily queried off-chain. Solidity will not compile
-  * if we actually inherrit from this interface, so we document it here.
-  */
+ * @dev The view methods are not actually marked as view in the implementation
+ * but we want them to be easily queried off-chain. Solidity will not compile
+ * if we actually inherrit from this interface, so we document it here.
+ */
 interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(
-    uint256 upkeepId,
-    address from
-  )
+  function checkUpkeep(uint256 upkeepId, address from)
     external
     view
     returns (
@@ -81,10 +77,7 @@ interface KeeperRegistryInterface is KeeperRegistryBaseInterface {
 }
 
 interface KeeperRegistryExecutableInterface is KeeperRegistryBaseInterface {
-  function checkUpkeep(
-    uint256 upkeepId,
-    address from
-  )
+  function checkUpkeep(uint256 upkeepId, address from)
     external
     returns (
       bytes memory performData,

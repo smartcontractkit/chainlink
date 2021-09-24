@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -62,9 +61,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetLogger() loggerPkg.Logger
-	SetLogger(func(old loggerPkg.Logger) loggerPkg.Logger)
 	GetHealthChecker() health.Checker
-	GetStore() *strpkg.Store
 	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
 	GetKeyStore() keystore.Master
@@ -114,7 +111,6 @@ type ChainlinkApplication struct {
 	bptxmORM                 bulletprooftxmanager.ORM
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
-	store                    *strpkg.Store
 	Config                   config.GeneralConfig
 	KeyStore                 keystore.Master
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -125,6 +121,8 @@ type ChainlinkApplication struct {
 	subservices              []service.Service
 	HealthChecker            health.Checker
 	logger                   loggerPkg.Logger
+	sqlxDB                   *sqlx.DB
+	gormDB                   *gorm.DB
 
 	started     bool
 	startStopMu sync.Mutex
@@ -134,7 +132,6 @@ type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         postgres.EventBroadcaster
 	ShutdownSignal           gracefulpanic.Signal
-	Store                    *strpkg.Store
 	GormDB                   *gorm.DB
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
@@ -153,7 +150,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	db := opts.GormDB
 	gormTxm := postgres.NewGormTransactionManager(db)
 	cfg := opts.Config
-	store := opts.Store
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
 	chainSet := opts.ChainSet
@@ -255,7 +251,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			pipelineRunner,
 			concretePW,
 			monitoringEndpointGen,
@@ -280,12 +276,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		logger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
+		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
 	}
 
 	app := &ChainlinkApplication{
 		ChainSet:                 chainSet,
-		store:                    store,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -305,6 +300,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
+
+		sqlxDB: opts.SqlxDB,
+		gormDB: opts.GormDB,
+
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -321,7 +320,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 // SetServiceLogger sets the Logger for a given service and stores the setting in the db
 func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
-	newL, err := app.logger.InitServiceLevelLogger(serviceName, level)
+	newL, err := app.logger.NewServiceLevelLogger(serviceName, level)
 	if err != nil {
 		return err
 	}
@@ -339,7 +338,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return app.logger.GetORM().SetServiceLogLevel(ctx, serviceName, level)
+	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level)
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -362,10 +361,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.logger.ErrorIf(app.Stop())
 		app.Exiter(0)
 	}()
-
-	if err := app.store.Start(); err != nil {
-		return err
-	}
 
 	if app.FeedsService != nil {
 		if err := app.FeedsService.Start(); err != nil {
@@ -437,7 +432,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			app.logger.Debug("Stopping SessionReaper...")
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
 			app.logger.Debug("Closing Store...")
-			merr = multierr.Append(merr, app.store.Close())
+			merr = multierr.Append(merr, app.sqlxDB.Close())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
 			if app.FeedsService != nil {
@@ -470,10 +465,6 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 
 func (app *ChainlinkApplication) GetLogger() loggerPkg.Logger {
 	return app.logger
-}
-
-func (app *ChainlinkApplication) SetLogger(fn func(old loggerPkg.Logger) loggerPkg.Logger) {
-	app.logger = fn(app.logger)
 }
 
 func (app *ChainlinkApplication) GetHealthChecker() health.Checker {
@@ -522,6 +513,16 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name n
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
+	// Do not allow the job to be deleted if it is managed by the Feeds Manager
+	isManaged, err := app.FeedsService.IsJobManaged(ctx, int64(jobID))
+	if err != nil {
+		return err
+	}
+
+	if isManaged {
+		return errors.New("job must be deleted in the feeds manager")
+	}
+
 	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
@@ -629,14 +630,10 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 	return app.ChainSet
 }
 
-func (app *ChainlinkApplication) GetStore() *strpkg.Store {
-	return app.store
-}
-
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
 	return app.EventBroadcaster
 }
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.store.DB
+	return app.gormDB
 }

@@ -69,6 +69,20 @@ func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	return r0
 }
 
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *Config) EvmEIP1559DynamicFees() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // EvmFinalityDepth provides a mock function with given fields:
 func (_m *Config) EvmFinalityDepth() uint32 {
 	ret := _m.Called()
@@ -113,6 +127,22 @@ func (_m *Config) EvmGasBumpWei() *big.Int {
 	return r0
 }
 
+// EvmGasFeeCap provides a mock function with given fields:
+func (_m *Config) EvmGasFeeCap() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // EvmGasLimitMultiplier provides a mock function with given fields:
 func (_m *Config) EvmGasLimitMultiplier() float32 {
 	ret := _m.Called()
@@ -129,6 +159,38 @@ func (_m *Config) EvmGasLimitMultiplier() float32 {
 
 // EvmGasPriceDefault provides a mock function with given fields:
 func (_m *Config) EvmGasPriceDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapDefault provides a mock function with given fields:
+func (_m *Config) EvmGasTipCapDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapMinimum provides a mock function with given fields:
+func (_m *Config) EvmGasTipCapMinimum() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int

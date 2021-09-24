@@ -2,6 +2,8 @@ package bulletprooftxmanager
 
 import (
 	"bytes"
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -10,12 +12,14 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/datatypes"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
 )
 
 type EthTxMeta struct {
@@ -44,6 +48,68 @@ const (
 	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 )
 
+type NullableEIP2930AccessList struct {
+	AccessList types.AccessList
+	Valid      bool
+}
+
+func NullableEIP2930AccessListFrom(al types.AccessList) (n NullableEIP2930AccessList) {
+	if al == nil {
+		return
+	}
+	n.AccessList = al
+	n.Valid = true
+	return
+}
+
+func (e NullableEIP2930AccessList) MarshalJSON() ([]byte, error) {
+	if !e.Valid {
+		return []byte("null"), nil
+	}
+	return json.Marshal(e.AccessList)
+}
+
+func (e *NullableEIP2930AccessList) UnmarshalJSON(input []byte) error {
+	if bytes.Equal(input, []byte("null")) {
+		e.Valid = false
+		return nil
+	}
+	if err := json.Unmarshal(input, &e.AccessList); err != nil {
+		return errors.Wrap(err, "NullableEIP2930AccessList: couldn't unmarshal JSON")
+	}
+	e.Valid = true
+	return nil
+}
+
+// Value returns this instance serialized for database storage
+func (e NullableEIP2930AccessList) Value() (driver.Value, error) {
+	if !e.Valid {
+		return nil, nil
+	}
+	return json.Marshal(e)
+}
+
+// Scan returns the selector from its serialization in the database
+func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
+	if value == nil {
+		e.Valid = false
+		return nil
+	}
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, e)
+	default:
+		return errors.Errorf("unable to convert %v of %T to Big", value, value)
+	}
+}
+
+// GormDataType override forces gorm to scan/dump as JSON (otherwise it
+// incorrectly auto-infers the postgres type from the first element in the
+// struct)
+func (NullableEIP2930AccessList) GormDataType() string {
+	return "jsonb"
+}
+
 type EthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -60,7 +126,7 @@ type EthTx struct {
 	BroadcastAt   *time.Time
 	CreatedAt     time.Time
 	State         EthTxState
-	EthTxAttempts []EthTxAttempt `gorm:"->"`
+	EthTxAttempts []EthTxAttempt `gorm:"->" json:"-"`
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
@@ -70,6 +136,10 @@ type EthTx struct {
 
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  cnull.Uint32
+
+	// AccessList is optional and only has an effect on DynamicFee transactions
+	// on chains that support it (e.g. Ethereum Mainnet after London hard fork)
+	AccessList NullableEIP2930AccessList
 }
 
 func (e EthTx) GetError() error {
@@ -85,10 +155,14 @@ func (e EthTx) GetID() string {
 }
 
 type EthTxAttempt struct {
-	ID       int64
-	EthTxID  int64
-	EthTx    EthTx `gorm:"foreignkey:EthTxID;->"`
-	GasPrice utils.Big
+	ID      int64
+	EthTxID int64
+	EthTx   EthTx `gorm:"foreignkey:EthTxID;->"`
+	// GasPrice applies to LegacyTx
+	GasPrice *utils.Big
+	// GasTipCap and GasFeeCap are used instead for DynamicFeeTx
+	GasTipCap *utils.Big
+	GasFeeCap *utils.Big
 	// ChainSpecificGasLimit on the EthTxAttempt is always the same as the on-chain encoded value for gas limit
 	ChainSpecificGasLimit   uint64
 	SignedRawTx             []byte
@@ -96,7 +170,8 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->"`
+	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->" json:"-"`
+	TxType                  int
 }
 
 // GetSignedTx decodes the SignedRawTx into a types.Transaction struct
@@ -108,6 +183,13 @@ func (a EthTxAttempt) GetSignedTx() (*types.Transaction, error) {
 		return nil, err
 	}
 	return signedTx, nil
+}
+
+func (a EthTxAttempt) DynamicFee() gas.DynamicFee {
+	return gas.DynamicFee{
+		FeeCap: a.GasFeeCap.ToInt(),
+		TipCap: a.GasTipCap.ToInt(),
+	}
 }
 
 type EthReceipt struct {

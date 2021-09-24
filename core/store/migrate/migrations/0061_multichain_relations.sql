@@ -56,7 +56,7 @@ CREATE INDEX idx_heads_number ON heads(number int8_ops);
 
 CREATE INDEX idx_eth_txes_min_unconfirmed_nonce_for_key ON eth_txes(from_address bytea_ops,nonce int8_ops) WHERE state = 'unconfirmed'::eth_txes_state;
 CREATE UNIQUE INDEX idx_eth_txes_nonce_from_address ON eth_txes(from_address bytea_ops,nonce int8_ops);
-CREATE UNIQUE INDEX idx_only_one_in_progress_tx_per_account_id ON eth_txes(from_address bytea_ops) WHERE state = 'in_progress'::eth_txes_state;
+CREATE UNIQUE INDEX idx_only_one_in_progress_tx_per_account ON eth_txes(from_address bytea_ops) WHERE state = 'in_progress'::eth_txes_state;
 CREATE INDEX idx_eth_txes_state_from_address ON eth_txes(from_address bytea_ops,state enum_ops) WHERE state <> 'confirmed'::eth_txes_state;
 CREATE INDEX idx_eth_txes_unstarted_subject_id ON eth_txes(subject uuid_ops,id int8_ops) WHERE subject IS NOT NULL AND state = 'unstarted'::eth_txes_state;
 
