@@ -13,7 +13,7 @@ let personas: Personas
 before(async () => {
   personas = (await getUsers()).personas
   mathFactory = await ethers.getContractFactory(
-    'CheckedMathTestHelper',
+    'src/v0.6/tests/CheckedMathTestHelper.sol:CheckedMathTestHelper',
     personas.Default,
   )
 })

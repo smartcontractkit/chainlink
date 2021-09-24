@@ -21,7 +21,7 @@ before(async () => {
 
   roles = users.roles
   operatorFactory = await ethers.getContractFactory(
-    'Operator',
+    'src/v0.7/Operator.sol:Operator',
     roles.defaultAccount,
   )
   oracleFactory = await ethers.getContractFactory(
@@ -33,7 +33,7 @@ before(async () => {
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
-    'LinkToken',
+    'src/v0.4/LinkToken.sol:LinkToken',
     roles.defaultAccount,
   )
 })
