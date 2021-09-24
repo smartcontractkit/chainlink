@@ -485,6 +485,7 @@ declare module 'core/store/models' {
     status: string
     external_job_id: string | null
     createdAt: time.Time
+    proposedAt: time.Time
   }
 
   export interface UpdateJobProposalSpecRequest {
