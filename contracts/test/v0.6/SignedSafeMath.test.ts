@@ -11,7 +11,7 @@ before(async () => {
   const personas: Personas = (await getUsers()).personas
   defaultAccount = personas.Default
   concreteSignedSafeMathFactory = await ethers.getContractFactory(
-    'ConcreteSignedSafeMath',
+    'src/v0.6/tests/ConcreteSignedSafeMath.sol:ConcreteSignedSafeMath',
     defaultAccount,
   )
 })

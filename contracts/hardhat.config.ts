@@ -1,3 +1,5 @@
+import '@typechain/hardhat'
+import '@nomiclabs/hardhat-ethers'
 import '@nomiclabs/hardhat-waffle'
 import 'hardhat-contract-sizer'
 import 'hardhat-abi-exporter'
@@ -25,6 +27,10 @@ export default {
     cache: './cache',
     sources: './src',
     tests: './test',
+  },
+  typechain: {
+    outDir: './typechain',
+    target: 'ethers-v5',
   },
   networks: {
     hardhat: {},

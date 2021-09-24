@@ -5,3 +5,4 @@ solc
 abi
 coverage
 coverage.json
+typechain

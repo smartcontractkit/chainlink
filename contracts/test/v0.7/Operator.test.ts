@@ -72,11 +72,17 @@ before(async () => {
     'src/v0.4/tests/MaliciousConsumer.sol:MaliciousConsumer',
   )
   maliciousMultiWordConsumerFactory = await ethers.getContractFactory(
-    'MaliciousMultiWordConsumer',
+    'src/v0.6/tests/MaliciousMultiWordConsumer.sol:MaliciousMultiWordConsumer',
   )
-  operatorFactory = await ethers.getContractFactory('Operator')
-  forwarderFactory = await ethers.getContractFactory('AuthorizedForwarder')
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  operatorFactory = await ethers.getContractFactory(
+    'src/v0.7/Operator.sol:Operator',
+  )
+  forwarderFactory = await ethers.getContractFactory(
+    'src/v0.7/AuthorizedForwarder.sol:AuthorizedForwarder',
+  )
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
 })
 
 describe('Operator', () => {

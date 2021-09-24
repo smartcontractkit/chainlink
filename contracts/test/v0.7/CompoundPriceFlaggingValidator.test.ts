@@ -21,7 +21,7 @@ before(async () => {
   personas = (await getUsers()).personas
 
   validatorFactory = await ethers.getContractFactory(
-    'CompoundPriceFlaggingValidator',
+    'src/v0.7/dev/CompoundPriceFlaggingValidator.sol:CompoundPriceFlaggingValidator',
     personas.Carol,
   )
   acFactory = await ethers.getContractFactory(
@@ -37,7 +37,7 @@ before(async () => {
     personas.Carol,
   )
   compoundOracleFactory = await ethers.getContractFactory(
-    'MockCompoundOracle',
+    'src/v0.7/tests/MockCompoundOracle.sol:MockCompoundOracle',
     personas.Carol,
   )
 })
