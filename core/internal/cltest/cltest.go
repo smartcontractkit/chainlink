@@ -431,15 +431,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func contains(flagsAndDeps []interface{}, value interface{}) bool {
-	for _, flag := range flagsAndDeps {
-		if flag == value {
-			return true
-		}
-	}
-	return false
-}
-
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
