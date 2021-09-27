@@ -267,6 +267,15 @@ func setChainSpecificConfigDefaultSets() {
 	avalancheFuji := avalancheMainnet
 	avalancheFuji.linkContractAddress = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
 
+	// Harmony
+	harmonyMainnet := fallbackDefaultSet
+	harmonyMainnet.linkContractAddress = "0x218532a12a389a4a92fC0C5Fb22901D1c19198aA"
+	harmonyMainnet.gasPriceDefault = *assets.GWei(5)
+	harmonyMainnet.minIncomingConfirmations = 1
+	harmonyMainnet.minRequiredOutgoingConfirmations = 2
+	harmonyTestnet := harmonyMainnet
+	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -288,4 +297,6 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[31] = rskTestnet
 	chainSpecificConfigDefaultSets[43113] = avalancheFuji
 	chainSpecificConfigDefaultSets[43114] = avalancheMainnet
+	chainSpecificConfigDefaultSets[1666600000] = harmonyMainnet
+	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
 }
