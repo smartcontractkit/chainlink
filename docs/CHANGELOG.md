@@ -24,6 +24,10 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
+#### New env vars
+
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
+
 #### Misc
 
 - Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs,

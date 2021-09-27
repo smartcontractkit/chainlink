@@ -109,6 +109,7 @@ type GeneralConfig interface {
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
 	KeyFile() string
+	Layer2Type() string
 	LogLevel() LogLevel
 	LogSQLMigrations() bool
 	LogSQLStatements() bool
@@ -772,6 +773,14 @@ func (c *generalConfig) ORMMaxOpenConns() int {
 
 func (c *generalConfig) ORMMaxIdleConns() int {
 	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
+}
+
+func (*generalConfig) Layer2Type() string {
+	val, ok := lookupEnv(EnvVarName("Layer2Type"), parseString)
+	if !ok || val == nil {
+		return ""
+	}
+	return val.(string)
 }
 
 // LogLevel represents the maximum level of log messages to output.
