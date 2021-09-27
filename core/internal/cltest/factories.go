@@ -615,7 +615,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, r
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
 		State:      pipeline.RunStatusRunning,
-		Outputs:    pipeline.JSONSerializable{Null: true},
+		Outputs:    pipeline.JSONSerializable{},
 		Errors:     pipeline.RunErrors{},
 		FinishedAt: null.Time{},
 	}

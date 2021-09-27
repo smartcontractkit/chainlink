@@ -70,7 +70,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (empty) + meta",
 			``,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{},
@@ -80,7 +80,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable) + meta",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
@@ -90,7 +90,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{nil, true},
+			pipeline.JSONSerializable{nil, false},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": map[string]interface{}{"foo": 543.21}}),
 			map[string]interface{}{"foo": 543.21},
@@ -100,7 +100,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable, missing)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"not_some_data": map[string]interface{}{"foo": 543.21}}),
 			nil,
@@ -110,7 +110,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (pure variable, not a map)",
 			`$(some_data)`,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"some_data": 543.21}),
 			nil,
@@ -120,7 +120,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (interpolation) + meta",
 			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"medianize": 543.21}),
 			map[string]interface{}{"data": map[string]interface{}{"result": 543.21}},
@@ -130,7 +130,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 		{
 			"requestData (interpolation, missing)",
 			`{"data":{"result":$(medianize)}}`,
-			pipeline.JSONSerializable{validMeta, false},
+			pipeline.JSONSerializable{validMeta, true},
 			[]pipeline.Result{{Value: 123.45}},
 			pipeline.NewVarsFrom(map[string]interface{}{"nope": "foo bar"}),
 			nil,

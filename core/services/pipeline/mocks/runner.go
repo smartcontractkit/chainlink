@@ -149,13 +149,13 @@ func (_m *Runner) Ready() error {
 	return r0
 }
 
-// ResumeRun provides a mock function with given fields: taskID, result
-func (_m *Runner) ResumeRun(taskID uuid.UUID, result interface{}) error {
-	ret := _m.Called(taskID, result)
+// ResumeRun provides a mock function with given fields: taskID, value, err
+func (_m *Runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
+	ret := _m.Called(taskID, value, err)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uuid.UUID, interface{}) error); ok {
-		r0 = rf(taskID, result)
+	if rf, ok := ret.Get(0).(func(uuid.UUID, interface{}, error) error); ok {
+		r0 = rf(taskID, value, err)
 	} else {
 		r0 = ret.Error(0)
 	}

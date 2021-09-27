@@ -113,12 +113,12 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				CreatedAt:      time.Now(),
 				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
-				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
+				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{
 						ID:         uuid.NewV4(),
 						Type:       pipeline.TaskTypeHTTP,
-						Output:     &pipeline.JSONSerializable{Val: 10, Null: false},
+						Output:     pipeline.JSONSerializable{Val: 10, Valid: true},
 						CreatedAt:  f,
 						FinishedAt: null.TimeFrom(f),
 					},

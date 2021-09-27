@@ -125,7 +125,7 @@ func (s *scheduler) reconstructResults() {
 			result.Error = errors.New(r.Error.String)
 		}
 
-		if !r.Output.Null {
+		if r.Output.Valid {
 			result.Value = r.Output.Val
 		}
 

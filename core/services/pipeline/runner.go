@@ -32,7 +32,7 @@ type Runner interface {
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
 	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx *gorm.DB) error) (incomplete bool, err error)
-	ResumeRun(taskID uuid.UUID, result interface{}) error
+	ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
@@ -175,8 +175,8 @@ func NewRun(spec Spec, vars Vars) Run {
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
-		Inputs:         JSONSerializable{Val: vars.vars, Null: false},
-		Outputs:        JSONSerializable{Val: nil, Null: true},
+		Inputs:         JSONSerializable{Val: vars.vars, Valid: true},
+		Outputs:        JSONSerializable{Val: nil, Valid: false},
 		CreatedAt:      time.Now(),
 	}
 }
@@ -314,7 +314,7 @@ func (r *runner) run(
 			PipelineRunID: run.ID,
 			Type:          result.Task.Type(),
 			Index:         result.Task.OutputIndex(),
-			Output:        &output,
+			Output:        output,
 			Error:         result.Result.ErrorDB(),
 			DotID:         result.Task.DotID(),
 			CreatedAt:     result.CreatedAt,
@@ -340,7 +340,7 @@ func (r *runner) run(
 			outputs = append(outputs, result.Output.Val)
 		}
 		run.Errors = errors
-		run.Outputs = JSONSerializable{Val: outputs, Null: false}
+		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
 
 		if run.HasErrors() {
 			run.State = RunStatusErrored
@@ -529,12 +529,18 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	}
 }
 
-func (r *runner) ResumeRun(taskID uuid.UUID, result interface{}) error {
+func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error {
+	result := Result{
+		Value: value,
+		Error: err,
+	}
 	run, start, err := r.orm.UpdateTaskRunResult(taskID, result)
 	if err != nil {
 		return err
 	}
 
+	// TODO: Should probably replace this with a listener to update events
+	// which allows to pass in a transactionalised database to this function
 	if start {
 		// start the runner again
 		go func() {
@@ -556,7 +562,7 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
-		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}},
+		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}, Valid: true},
 		CreatedAt:      t,
 		FinishedAt:     null.TimeFrom(t),
 	}, false)
