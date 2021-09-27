@@ -42,7 +42,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		gasPrice, gasLimit, err := f.BumpGas(big.NewInt(42), 100000)
 		require.NoError(t, err)
 
-		expectedGasPrice, expectedGasLimit, err := gas.BumpGasPriceOnly(config, big.NewInt(42), 100000)
+		expectedGasPrice, expectedGasLimit, err := gas.BumpGasPriceOnly(config, nil, big.NewInt(42), 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)

@@ -68,7 +68,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			}
 		})
 
-		err := estimator.Start()
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
