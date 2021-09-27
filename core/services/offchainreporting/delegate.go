@@ -217,8 +217,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.New("need at least one bootstrap peer")
 		}
 		var kb string
-		if concreteSpec.EncryptedOCRKeyBundleID.Valid {
-			kb = concreteSpec.EncryptedOCRKeyBundleID.String
+		if concreteSpec.EncryptedOCRKeyBundleID != nil {
+			kb = concreteSpec.EncryptedOCRKeyBundleID.String()
 		} else {
 			kb, err = d.config.OCRKeyBundleID()
 			if err != nil {
