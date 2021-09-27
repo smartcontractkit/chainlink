@@ -487,12 +487,13 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitte
 	t.Helper()
 
 	pid := p2pkey.PeerID(DefaultP2PPeerID)
+	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
 		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                null.NewString(DefaultOCRKeyBundleID, true),
+		EncryptedOCRKeyBundleID:                &ocrKeyID,
 		TransmitterAddress:                     &transmitterAddress,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
