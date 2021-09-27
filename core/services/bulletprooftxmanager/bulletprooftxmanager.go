@@ -84,6 +84,9 @@ var (
 
 var _ TxManager = &BulletproofTxManager{}
 
+// ResumeCallback is assumed to be idempotent
+type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
+
 //go:generate mockery --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager interface {
 	httypes.HeadTrackable
@@ -91,7 +94,7 @@ type TxManager interface {
 	Trigger(addr common.Address)
 	CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
-	RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error)
+	RegisterResumeCallback(fn ResumeCallback)
 }
 
 type BulletproofTxManager struct {
@@ -108,7 +111,7 @@ type BulletproofTxManager struct {
 
 	chHeads        chan eth.Head
 	trigger        chan common.Address
-	resumeCallback func(id uuid.UUID, value interface{}) error
+	resumeCallback ResumeCallback
 
 	chStop   chan struct{}
 	chSubbed chan struct{}
@@ -118,7 +121,7 @@ type BulletproofTxManager struct {
 	ethResender *EthResender
 }
 
-func (b *BulletproofTxManager) RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error) {
+func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
@@ -161,7 +164,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 
 		b.logger.Debugw("BulletproofTxManager: booting", "keyStates", keyStates)
 
-		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		ec := NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 		if err := eb.Start(); err != nil {
 			return errors.Wrap(err, "BulletproofTxManager: EthBroadcaster failed to start")
@@ -237,7 +240,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 			b.logger.ErrorIfCalling(eb.Close)
 			b.logger.ErrorIfCalling(ec.Close)
 
-			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.logger)
+			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
 			b.logger.ErrorIfCalling(eb.Start)
@@ -517,7 +520,7 @@ func (n *NullTxManager) Trigger(common.Address)                      { panic(n.E
 func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager) Healthy() error                                                        { return nil }
-func (n *NullTxManager) Ready() error                                                          { return nil }
-func (n *NullTxManager) GetGasEstimator() gas.Estimator                                        { return nil }
-func (n *NullTxManager) RegisterResumeCallback(fn func(id uuid.UUID, value interface{}) error) {}
+func (n *NullTxManager) Healthy() error                           { return nil }
+func (n *NullTxManager) Ready() error                             { return nil }
+func (n *NullTxManager) GetGasEstimator() gas.Estimator           { return nil }
+func (n *NullTxManager) RegisterResumeCallback(fn ResumeCallback) {}

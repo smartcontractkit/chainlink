@@ -2,6 +2,7 @@ package bulletprooftxmanager
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -44,13 +45,14 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
-	logger    logger.Logger
-	db        *gorm.DB
-	ethClient eth.Client
-	chainID   big.Int
-	config    Config
-	keystore  KeyStore
-	estimator gas.Estimator
+	logger         logger.Logger
+	db             *gorm.DB
+	ethClient      eth.Client
+	chainID        big.Int
+	config         Config
+	keystore       KeyStore
+	estimator      gas.Estimator
+	resumeCallback ResumeCallback
 
 	ethTxInsertListener postgres.Subscription
 	eventBroadcaster    postgres.EventBroadcaster
@@ -72,7 +74,8 @@ type EthBroadcaster struct {
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
 	eventBroadcaster postgres.EventBroadcaster,
-	keyStates []ethkey.State, estimator gas.Estimator, logger logger.Logger) *EthBroadcaster {
+	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
+	logger logger.Logger) *EthBroadcaster {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
@@ -331,14 +334,14 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return saveFatallyErroredTransaction(eb.db, &etx)
+		return eb.saveFatallyErroredTransaction(&etx)
 	}
 
 	if sendError.Fatal() {
 		eb.logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
-		return saveFatallyErroredTransaction(eb.db, &etx)
+		return eb.saveFatallyErroredTransaction(&etx)
 	}
 
 	etx.BroadcastAt = &initialBroadcastAt
@@ -552,16 +555,36 @@ func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, in
 	return eb.handleInProgressEthTx(etx, replacementAttempt, initialBroadcastAt)
 }
 
-func saveFatallyErroredTransaction(db *gorm.DB, etx *EthTx) error {
+func (eb *EthBroadcaster) saveFatallyErroredTransaction(etx *EthTx) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
 	if !etx.Error.Valid {
 		return errors.New("expected error field to be set")
 	}
+	// NOTE: It's simpler to not do this transactionally for now (would require
+	// refactoring pipeline runner resume to use postgres events)
+	//
+	// There is a very tiny possibility of the following:
+	//
+	// 1. We get a fatal error on the tx, resuming the pipeline with error
+	// 2. Crash or failure during persist of fatal errored tx
+	// 3. On the subsequent run the tx somehow succeeds and we save it as successful
+	//
+	// Now we have an errored pipeline even though the tx succeeded. This case
+	// is relatively benign and probably nobody will ever run into it in
+	// practice, but something to be aware of.
+	if etx.PipelineTaskRunID.Valid && eb.resumeCallback != nil {
+		err := eb.resumeCallback(etx.PipelineTaskRunID.UUID, nil, errors.Errorf("fatal error while sending transaction: %s", etx.Error.String))
+		if errors.Is(err, sql.ErrNoRows) {
+			eb.logger.Debugw("callback missing or already resumed", "etxID", etx.ID)
+		} else if err != nil {
+			return errors.Wrap(err, "failed to resume pipeline")
+		}
+	}
 	etx.Nonce = nil
 	etx.State = EthTxFatalError
-	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
+	return postgres.GormTransactionWithDefaultContext(eb.db, func(tx *gorm.DB) error {
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
