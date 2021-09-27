@@ -30,7 +30,7 @@ func (f *fixedPriceEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) 
 }
 
 func (f *fixedPriceEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(f.config, originalGasPrice, originalGasLimit)
+	return BumpLegacyGasPriceOnly(f.config, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit)
 }
 
 func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
@@ -46,5 +46,5 @@ func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicF
 }
 
 func (f *fixedPriceEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(f.config, originalFee, originalGasLimit)
+	return BumpDynamicFeeOnly(f.config, f.config.EvmGasTipCapDefault(), originalFee, originalGasLimit)
 }
