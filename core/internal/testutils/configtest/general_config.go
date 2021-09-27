@@ -74,6 +74,7 @@ type GeneralConfigOverrides struct {
 	GlobalEvmRPCDefaultBatchSize              null.Int
 	GlobalFlagsContractAddress                null.String
 	GlobalGasEstimatorMode                    null.String
+	GlobalLayer2Type                          null.String
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
@@ -432,6 +433,13 @@ func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
 		return c.Overrides.GlobalGasEstimatorMode.String, true
 	}
 	return c.GeneralConfig.GlobalGasEstimatorMode()
+}
+
+func (c *TestGeneralConfig) GlobalLayer2Type() (string, bool) {
+	if c.Overrides.GlobalLayer2Type.Valid {
+		return c.Overrides.GlobalLayer2Type.String, true
+	}
+	return c.GeneralConfig.GlobalLayer2Type()
 }
 
 func (c *TestGeneralConfig) GlobalEvmNonceAutoSync() (bool, bool) {

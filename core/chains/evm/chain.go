@@ -24,16 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-type ChainIdentification interface {
-	IsL2() bool
-	IsArbitrum() bool
-	IsOptimism() bool
-}
-
 //go:generate mockery --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
 	service.Service
-	ChainIdentification
 	ID() *big.Int
 	Client() eth.Client
 	Config() evmconfig.ChainScopedConfig
@@ -63,7 +56,7 @@ type chain struct {
 func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	chainID := dbchain.ID.ToInt()
 	l := opts.Logger.With("evmChainID", chainID.String())
-	cfg := evmconfig.NewChainScopedConfig(opts.ORM, l, opts.Config, dbchain)
+	cfg := evmconfig.NewChainScopedConfig(chainID, dbchain.Cfg, opts.ORM, l, opts.Config)
 	if cfg.EVMDisabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, EVM is disabled", dbchain.ID.String())
 	}
@@ -285,10 +278,6 @@ func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster  { return c.headBroadc
 func (c *chain) TxManager() bulletprooftxmanager.TxManager { return c.txm }
 func (c *chain) HeadTracker() httypes.Tracker              { return c.headTracker }
 func (c *chain) Logger() logger.Logger                     { return c.logger }
-
-func (c *chain) IsL2() bool       { return types.IsL2(c.id) }
-func (c *chain) IsArbitrum() bool { return types.IsArbitrum(c.id) }
-func (c *chain) IsOptimism() bool { return types.IsOptimism(c.id) }
 
 var ErrNoPrimaryNode = errors.New("no primary node found")
 
