@@ -68,7 +68,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			}
 		})
 
-		err := estimator.Start()
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
@@ -892,4 +892,117 @@ func TestBlockHistoryEstimator_EIP1559Block(t *testing.T) {
 	assert.Nil(t, block.Transactions[3].GasPrice)
 	assert.Equal(t, 21000, int(block.Transactions[3].GasLimit))
 	assert.Equal(t, "0x13d4ecea98e37359e63e39e350ed0b1456e1acbf985eb8d4a0ef0e89a705c10d", block.Transactions[3].Hash.String())
+}
+
+func TestBlockHistoryEstimator_Bumps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly with proper current gas price", func(t *testing.T) {
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
+		bhe := newBlockHistoryEstimator(nil, config)
+
+		config.On("EvmGasBumpPercent").Return(uint16(10))
+		config.On("EvmGasBumpWei").Return(big.NewInt(150))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+
+		t.Run("ignores nil current gas price", func(t *testing.T) {
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, nil, big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, expectedGasPrice, gasPrice)
+		})
+
+		t.Run("ignores current gas price > max gas price", func(t *testing.T) {
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			massive := big.NewInt(100000000000000)
+			gas.SetGasPrice(bhe, massive)
+
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, massive, big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, expectedGasPrice, gasPrice)
+		})
+
+		t.Run("ignores current gas price < bumped gas price", func(t *testing.T) {
+			gas.SetGasPrice(bhe, big.NewInt(191))
+
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, big.NewInt(192), gasPrice)
+		})
+
+		t.Run("uses current gas price > bumped gas price", func(t *testing.T) {
+			gas.SetGasPrice(bhe, big.NewInt(193))
+
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, big.NewInt(193), gasPrice)
+		})
+
+		config.AssertExpectations(t)
+	})
+
+	t.Run("BumpDynamicFee bumps the fee", func(t *testing.T) {
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(nil, config)
+
+		config.On("EvmGasBumpPercent").Return(uint16(10))
+		config.On("EvmGasBumpWei").Return(big.NewInt(150))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmGasTipCapDefault").Return(big.NewInt(52))
+
+		t.Run("when current tip cap is nil", func(t *testing.T) {
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+		t.Run("ignores current tip cap that is smaller than original fee with bump applied", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(201))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+		t.Run("uses current tip cap that is larger than original fee with bump applied", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(203))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(203)}, fee)
+		})
+		t.Run("ignores absurdly large current tip cap", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(1000000000000000))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+
+		config.AssertExpectations(t)
+	})
 }
