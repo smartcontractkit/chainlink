@@ -107,6 +107,10 @@ This only applies to EAs using the `X-Chainlink-Pending` header to signal that t
 
 - `belt/` and `evm-test-helpers/` removed from the codebase.
 
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
 ## [v1.0.0]
 
 
