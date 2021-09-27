@@ -31,6 +31,10 @@ This release will DROP legacy job tables so please take a backup before upgradin
 - When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
 - Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
 
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
 ## [0.10.14] - 2021-09-06
 
 ### Added
