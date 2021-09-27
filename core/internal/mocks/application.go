@@ -354,11 +354,11 @@ func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64) error {
 }
 
 // ResumeJobV2 provides a mock function with given fields: ctx, taskID, result
-func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error {
+func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error {
 	ret := _m.Called(ctx, taskID, result)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, interface{}) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, pipeline.Result) error); ok {
 		r0 = rf(ctx, taskID, result)
 	} else {
 		r0 = ret.Error(0)

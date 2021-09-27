@@ -37,7 +37,7 @@ type Run struct {
 	ID             int64            `json:"-" gorm:"primary_key"`
 	PipelineSpecID int32            `json:"-"`
 	PipelineSpec   Spec             `json:"pipelineSpec"`
-	Meta           JSONSerializable `json:"meta"`
+	Meta           JSONSerializable `json:"meta" gorm:"type:jsonb"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
 	Errors RunErrors        `json:"errors" gorm:"type:jsonb"`
@@ -129,17 +129,35 @@ func (re RunErrors) HasError() bool {
 	return false
 }
 
+type ResumeRequest struct {
+	Error null.String     `json:"error"`
+	Value json.RawMessage `json:"value"`
+}
+
+func (rr ResumeRequest) ToResult() (Result, error) {
+	var res Result
+	if rr.Error.Valid && rr.Value == nil {
+		res.Error = errors.New(rr.Error.ValueOrZero())
+		return res, nil
+	}
+	if !rr.Error.Valid && rr.Value != nil {
+		res.Value = []byte(rr.Value)
+		return res, nil
+	}
+	return Result{}, errors.New("must provide only one of either 'value' or 'error' key")
+}
+
 type TaskRun struct {
-	ID            uuid.UUID         `json:"id" gorm:"primary_key"`
-	Type          TaskType          `json:"type"`
-	PipelineRun   Run               `json:"-"`
-	PipelineRunID int64             `json:"-"`
-	Output        *JSONSerializable `json:"output" gorm:"type:jsonb"`
-	Error         null.String       `json:"error"`
-	CreatedAt     time.Time         `json:"createdAt"`
-	FinishedAt    null.Time         `json:"finishedAt"`
-	Index         int32             `json:"index"`
-	DotID         string            `json:"dotId"`
+	ID            uuid.UUID        `json:"id" gorm:"primary_key"`
+	Type          TaskType         `json:"type"`
+	PipelineRun   Run              `json:"-"`
+	PipelineRunID int64            `json:"-"`
+	Output        JSONSerializable `json:"output" gorm:"type:jsonb"`
+	Error         null.String      `json:"error"`
+	CreatedAt     time.Time        `json:"createdAt"`
+	FinishedAt    null.Time        `json:"finishedAt"`
+	Index         int32            `json:"index"`
+	DotID         string           `json:"dotId"`
 
 	// Used internally for sorting completed results
 	task Task
@@ -170,7 +188,7 @@ func (tr TaskRun) Result() Result {
 	var result Result
 	if !tr.Error.IsZero() {
 		result.Error = errors.New(tr.Error.ValueOrZero())
-	} else if tr.Output != nil && tr.Output.Val != nil {
+	} else if tr.Output.Valid && tr.Output.Val != nil {
 		result.Value = tr.Output.Val
 	}
 	return result
