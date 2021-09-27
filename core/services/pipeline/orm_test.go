@@ -55,7 +55,7 @@ func mustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 
 	run := pipeline.Run{
 		State:      pipeline.RunStatusRunning,
-		Outputs:    pipeline.JSONSerializable{Null: true},
+		Outputs:    pipeline.JSONSerializable{},
 		Errors:     pipeline.RunErrors{},
 		FinishedAt: null.Time{},
 	}
@@ -98,7 +98,7 @@ answer2 [type=bridge name=election_winner index=1];
 		PipelineSpecID: specID,
 		State:          pipeline.RunStatusRunning,
 		Errors:         nil,
-		Outputs:        pipeline.JSONSerializable{Null: true},
+		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
 	}
 
@@ -134,7 +134,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        &pipeline.JSONSerializable{Val: 1},
+			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -165,7 +165,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "bridge",
 			DotID:         "ds1",
-			Output:        &pipeline.JSONSerializable{Val: 2},
+			Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -213,7 +213,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		PipelineRunID: run.ID,
 		Type:          "bridge",
 		DotID:         "ds1",
-		Output:        &pipeline.JSONSerializable{Val: 2},
+		Output:        pipeline.JSONSerializable{Val: 2, Valid: true},
 		CreatedAt:     now,
 		FinishedAt:    null.TimeFrom(now),
 	})
@@ -235,7 +235,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        &pipeline.JSONSerializable{Val: 1},
+			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -280,7 +280,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        &pipeline.JSONSerializable{Val: 1},
+			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},
@@ -295,7 +295,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that run should be in "paused" state
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
-	r, start, err := orm.UpdateTaskRunResult(ds1_id, "foo")
+	r, start, err := orm.UpdateTaskRunResult(ds1_id, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 2)
@@ -307,7 +307,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	// assert that the task is now updated
 	task := run.ByDotID("ds1")
 	require.True(t, task.FinishedAt.Valid)
-	require.Equal(t, &pipeline.JSONSerializable{Val: "foo"}, task.Output)
+	require.Equal(t, pipeline.JSONSerializable{Val: "foo", Valid: true}, task.Output)
 }
 
 func Test_PipelineORM_DeleteRun(t *testing.T) {
@@ -335,7 +335,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 			PipelineRunID: run.ID,
 			Type:          "median",
 			DotID:         "answer2",
-			Output:        &pipeline.JSONSerializable{Val: 1},
+			Output:        pipeline.JSONSerializable{Val: 1, Valid: true},
 			CreatedAt:     now,
 			FinishedAt:    null.TimeFrom(now),
 		},

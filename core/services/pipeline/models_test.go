@@ -45,7 +45,7 @@ func TestRun_Status(t *testing.T) {
 			name: "Completed",
 			run: &pipeline.Run{
 				Errors:     pipeline.RunErrors{},
-				Outputs:    pipeline.JSONSerializable{Val: []interface{}{10, 10}, Null: false},
+				Outputs:    pipeline.JSONSerializable{Val: []interface{}{10, 10}, Valid: true},
 				FinishedAt: now,
 			},
 			want: pipeline.RunStatusCompleted,

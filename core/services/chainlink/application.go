@@ -83,7 +83,7 @@ type Application interface {
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
-	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error
+	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level string) error
@@ -602,9 +602,9 @@ func (app *ChainlinkApplication) RunJobV2(
 func (app *ChainlinkApplication) ResumeJobV2(
 	ctx context.Context,
 	taskID uuid.UUID,
-	result interface{},
+	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result)
+	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
