@@ -227,8 +227,8 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 }
 
 // BumpGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpGasPriceOnly(config Config, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	gasPrice, err = bumpGasPrice(config, originalGasPrice)
+func BumpGasPriceOnly(config Config, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
+	gasPrice, err = bumpGasPrice(config, currentGasPrice, originalGasPrice)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -240,18 +240,26 @@ func BumpGasPriceOnly(config Config, originalGasPrice *big.Int, originalGasLimit
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(config Config, originalGasPrice *big.Int) (*big.Int, error) {
-	baselinePrice := max(originalGasPrice, config.EvmGasPriceDefault())
+func bumpGasPrice(config Config, currentGasPrice, originalGasPrice *big.Int) (*big.Int, error) {
+	maxGasPrice := config.EvmMaxGasPriceWei()
 
 	var priceByPercentage = new(big.Int)
-	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EvmGasBumpPercent())))
+	priceByPercentage.Mul(originalGasPrice, big.NewInt(int64(100+config.EvmGasBumpPercent())))
 	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
 
 	var priceByIncrement = new(big.Int)
-	priceByIncrement.Add(baselinePrice, config.EvmGasBumpWei())
+	priceByIncrement.Add(originalGasPrice, config.EvmGasBumpWei())
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
-	if bumpedGasPrice.Cmp(config.EvmMaxGasPriceWei()) > 0 {
+	if currentGasPrice != nil {
+		if currentGasPrice.Cmp(maxGasPrice) > 0 {
+			logger.Errorf("invariant violation: ignoring current gas price of %s that would exceed max gas price of %s", currentGasPrice.String(), maxGasPrice.String())
+		} else if bumpedGasPrice.Cmp(currentGasPrice) < 0 {
+			// If the current gas price is higher than the old price bumped, use that instead
+			bumpedGasPrice = currentGasPrice
+		}
+	}
+	if bumpedGasPrice.Cmp(maxGasPrice) > 0 {
 		promGasBumpExceedsLimit.Inc()
 		return config.EvmMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s). %s",
 			bumpedGasPrice.String(), config.EvmMaxGasPriceWei(), originalGasPrice.String(), static.EthNodeConnectivityProblemLabel)

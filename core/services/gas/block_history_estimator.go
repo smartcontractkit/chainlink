@@ -129,9 +129,7 @@ func (b *BlockHistoryEstimator) Close() error {
 func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
-		b.gasPriceMu.RLock()
-		defer b.gasPriceMu.RUnlock()
-		gasPrice = b.gasPrice
+		gasPrice = b.getGasPrice()
 	})
 	if !ok {
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
@@ -142,8 +140,14 @@ func (b *BlockHistoryEstimator) EstimateGas(_ []byte, gasLimit uint64, _ ...Opt)
 	return
 }
 
+func (b *BlockHistoryEstimator) getGasPrice() *big.Int {
+	b.gasPriceMu.RLock()
+	defer b.gasPriceMu.RUnlock()
+	return b.gasPrice
+}
+
 func (b *BlockHistoryEstimator) BumpGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return BumpGasPriceOnly(b.config, originalGasPrice, gasLimit)
+	return BumpGasPriceOnly(b.config, b.getGasPrice(), originalGasPrice, gasLimit)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {
