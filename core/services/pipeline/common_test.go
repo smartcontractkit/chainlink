@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -115,4 +116,42 @@ func Test_UnmarshalTaskFromMap(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
 	})
+}
+
+func TestUnmarshalJSONSerializable_Valid(t *testing.T) {
+	tests := []struct {
+		name, input string
+		expected    interface{}
+	}{
+		{"bool", `true`, true},
+		{"string", `"foo"`, "foo"},
+		{"raw", `{"foo": 42}`, map[string]interface{}{"foo": float64(42)}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i pipeline.JSONSerializable
+			err := json.Unmarshal([]byte(test.input), &i)
+			require.NoError(t, err)
+			assert.True(t, i.Valid)
+			assert.Equal(t, test.expected, i.Val)
+		})
+	}
+}
+
+func TestUnmarshalJSONSerializable_Invalid(t *testing.T) {
+	tests := []struct {
+		name, input string
+	}{
+		{"null json", `null`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var i pipeline.JSONSerializable
+			err := json.Unmarshal([]byte(test.input), &i)
+			require.NoError(t, err)
+			assert.False(t, i.Valid)
+		})
+	}
 }

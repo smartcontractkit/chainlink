@@ -31,7 +31,7 @@ func TestWebhookDelegate(t *testing.T) {
 		}
 
 		requestBody = "foo"
-		meta        = pipeline.JSONSerializable{Val: "bar"}
+		meta        = pipeline.JSONSerializable{Val: "bar", Valid: true}
 		vars        = map[string]interface{}{
 			"jobSpec": map[string]interface{}{
 				"databaseID":    spec.ID,
