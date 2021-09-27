@@ -112,6 +112,8 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		{"fantomMainnet", 250, 500000, 100000000000000},
 		{"fantomTestnet", 4002, 500000, 100000000000000},
 		{"polygonMatic", 800001, 500000, 100000000000000},
+		{"harmonyMainnet", 1666600000, 500000, 100000000000000},
+		{"harmonyTestnet", 1666700000, 500000, 100000000000000},
 
 		{"xDai", 100, 500000, 100000000000000},
 	}
