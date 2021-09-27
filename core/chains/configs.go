@@ -35,6 +35,7 @@ type (
 		HeadTrackerHistoryDepth                    uint
 		HeadTrackerMaxBufferSize                   uint
 		HeadTrackerSamplingInterval                time.Duration
+		Layer2Type                                 string
 		LinkContractAddress                        string
 		LogBackfillBatchSize                       uint32
 		MaxGasPriceWei                             big.Int
@@ -186,6 +187,7 @@ func setConfigs() {
 	arbitrumMainnet.MaxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.MinGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.GasEstimatorMode = "FixedPrice"
+	arbitrumMainnet.Layer2Type = "Arbitrum"
 	arbitrumMainnet.BlockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.LinkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.OCRContractConfirmations = 1
@@ -202,6 +204,7 @@ func setConfigs() {
 	optimismMainnet.GasEstimatorMode = "Optimism"
 	optimismMainnet.HeadTrackerHistoryDepth = 10
 	optimismMainnet.HeadTrackerSamplingInterval = 1 * time.Second
+	optimismMainnet.Layer2Type = "Optimism"
 	optimismMainnet.LinkContractAddress = "" // TBD
 	optimismMainnet.LinkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.MinIncomingConfirmations = 1
