@@ -82,7 +82,7 @@ type Result struct {
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
 func (result Result) OutputDB() JSONSerializable {
-	return JSONSerializable{Val: result.Value, Null: result.Value == nil}
+	return JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run
@@ -167,8 +167,21 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 }
 
 type JSONSerializable struct {
-	Val  interface{}
-	Null bool
+	Val   interface{}
+	Valid bool
+}
+
+// NewJSONSerializable returns an instance of JSONSerializable with the passed parameters.
+func NewJSONSerializable(val interface{}, valid bool) JSONSerializable {
+	return JSONSerializable{
+		Val:   val,
+		Valid: valid,
+	}
+}
+
+// JSONSerializableFrom creates a new JSONSerializable that will always be valid.
+func JSONSerializableFrom(val interface{}) JSONSerializable {
+	return NewJSONSerializable(val, true)
 }
 
 // UnmarshalJSON implements custom unmarshaling logic
@@ -176,12 +189,22 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
+	str := string(bs)
+	if str == "" || str == "null" {
+		js.Valid = false
+		return nil
+	}
 
-	return json.Unmarshal(bs, &js.Val)
+	err := json.Unmarshal(bs, &js.Val)
+	js.Valid = err == nil
+	return err
 }
 
 // MarshalJSON implements custom marshaling logic
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
+	if !js.Valid {
+		return []byte("null"), nil
+	}
 	switch x := js.Val.(type) {
 	case []byte:
 		// Don't need to HEX encode if it is a valid JSON string
@@ -202,7 +225,7 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 
 func (js *JSONSerializable) Scan(value interface{}) error {
 	if value == nil {
-		*js = JSONSerializable{Null: true}
+		*js = JSONSerializable{}
 		return nil
 	}
 	bytes, ok := value.([]byte)
@@ -216,14 +239,14 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 }
 
 func (js JSONSerializable) Value() (driver.Value, error) {
-	if js.Null {
+	if !js.Valid {
 		return nil, nil
 	}
 	return js.MarshalJSON()
 }
 
 func (js *JSONSerializable) Empty() bool {
-	return js == nil || js.Null
+	return js == nil || !js.Valid
 }
 
 type TaskType string
