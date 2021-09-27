@@ -247,7 +247,6 @@ function completeKeyRegistration(response: any) {
   })
 }
 
-// Why does this not work when I have dispatch: Dispatch?
 function sendBeginRegistration() {
   if (navigator.credentials === undefined) {
     alert(
@@ -275,10 +274,11 @@ function sendBeginRegistration() {
           clientDataJSON: bufferEncode(response.clientDataJSON),
         },
       }
-
       return api.v2.webauthn.finishKeyRegistration(credentialStr)
     }),
-  )
+  ).catch(err => {
+    alert("Key registration error, ensure RPID and RPOrigin environment variables are set.\n" + err)
+  })
 }
 
 const RECEIVE_CREATE_SUCCESS_ACTION = {

@@ -1459,12 +1459,13 @@ func (c Config) RootDir() string {
 	return c.getWithFallback("RootDir", parseHomeDir).(string)
 }
 
-// Fetch the RPID used for WebAuthn sessions
+// Fetch the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
 func (c Config) RPID() string {
 	return c.viper.GetString(EnvVarName("RPID"))
 }
 
-// Fetch the RPOrigin used for WebAuthn sessions
+// Fetch the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
+// the origin URL where WebAuthn requests initiate (http://localhost:6688/)
 func (c Config) RPOrigin() string {
 	return c.viper.GetString(EnvVarName("RPOrigin"))
 }

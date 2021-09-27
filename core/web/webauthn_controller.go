@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/jackc/pgtype"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -57,7 +58,6 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	optionsp := presenters.NewRegistrationSettings(*options)
 
 	jsonAPIResponse(ctx, optionsp, "settings")
-	return
 }
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
@@ -94,7 +94,6 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	}
 
 	ctx.String(http.StatusOK, "{}")
-	return
 }
 
 func (c *WebAuthnController) addCredentialToUser(user models.User, credential *webauthn.Credential) error {
@@ -104,9 +103,11 @@ func (c *WebAuthnController) addCredentialToUser(user models.User, credential *w
 	}
 
 	token := models.WebAuthn{
-		Email:         user.Email,
-		PublicKeyData: string(credj),
-		Settings:      "",
+		Email: user.Email,
+		PublicKeyData: pgtype.JSONB{
+			Bytes:  credj,
+			Status: pgtype.Present,
+		},
 	}
 	err = c.App.GetStore().SaveWebAuthn(&token)
 	if err != nil {

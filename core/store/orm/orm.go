@@ -1001,7 +1001,7 @@ func findUser(db *gorm.DB) (user models.User, err error) {
 // token multiple times.
 func (orm *ORM) GetUserWebAuthn(user *models.User) ([]models.WebAuthn, error) {
 	var uwas []models.WebAuthn
-	err := orm.DB.Where("email = ?", user.Email).Find(&uwas).Error
+	err := orm.DB.Where("UPPER(email) = ?", strings.ToUpper(user.Email)).Find(&uwas).Error
 
 	if err != nil {
 		// In the event of not found, there is no MFA on this account and it is not an error

@@ -821,8 +821,8 @@ func (app *ChainlinkApplication) ReplayFromBlock(number uint64) error {
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
 func (app *ChainlinkApplication) GetWebAuthnConfiguration() models.WebAuthnConfiguration {
-	rpid := app.Store.Config.RPID()
-	rporigin := app.Store.Config.RPOrigin()
+	rpid := app.Config.RPID()
+	rporigin := app.Config.RPOrigin()
 	if rpid == "" {
 		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
 	}

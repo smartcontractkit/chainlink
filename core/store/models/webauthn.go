@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgtype"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
@@ -19,10 +20,11 @@ import (
 // User holds the credentials for API user.
 type WebAuthn struct {
 	Email         string
-	PublicKeyData string
-	Settings      string
+	PublicKeyData pgtype.JSONB
 }
 
+// This struct implements the required duo-labs/webauthn/ 'User' interface
+// kept seperate from our internal 'User' struct
 type WebAuthnUser struct {
 	Email         string
 	WACredentials []webauthn.Credential
@@ -219,7 +221,10 @@ func (u WebAuthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
 func (u *WebAuthnUser) LoadWebAuthnCredentials(uwas []WebAuthn) error {
 	for _, v := range uwas {
 		var credential webauthn.Credential
-		json.Unmarshal([]byte(v.PublicKeyData), &credential)
+		err := json.Unmarshal([]byte(v.PublicKeyData.Bytes), &credential)
+		if err != nil {
+			return fmt.Errorf("Error unmarshalling provided PublicKeyData: %s", err)
+		}
 		u.WACredentials = append(u.WACredentials, credential)
 	}
 	return nil

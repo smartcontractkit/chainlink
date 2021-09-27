@@ -6,14 +6,15 @@ import (
 
 const up53 = `
 	CREATE TABLE web_authns (
-		"id" BIGSERIAL PRIMARY KEY, 
+		"id" BIGSERIAL PRIMARY KEY,
 		"email" text NOT NULL,
-		"public_key_data" text NOT NULL,
-		"settings" text NOT NULL,
+		"public_key_data" jsonb NOT NULL,
 		CONSTRAINT fk_email
 			FOREIGN KEY(email)
 			REFERENCES users(email)
 	);
+
+	CREATE UNIQUE INDEX web_authns_email_idx ON web_authns (email);
 `
 
 const down53 = `
