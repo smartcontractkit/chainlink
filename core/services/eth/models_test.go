@@ -363,11 +363,11 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	assert.Equal(t, "jsonb", nNull.GormDataType())
 
 	t.Run("MarshalJSON", func(t *testing.T) {
-		b, err := json.Marshal(nNull)
+		_, err := json.Marshal(nNull)
 		require.NoError(t, err)
 		assert.Nil(t, nil)
 
-		b, err = json.Marshal(nValid)
+		b, err := json.Marshal(nValid)
 		require.NoError(t, err)
 		assert.Equal(t, alb, b)
 	})

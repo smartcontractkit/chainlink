@@ -23,10 +23,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func verifyMatchingChainIDs(t testing.TB, n *big.Int, m *big.Int) {
-	require.Equal(t, n.Cmp(m), 0, "expected chain IDs to match")
-}
-
 type TestChainOpts struct {
 	Client         eth.Client
 	LogBroadcaster log.Broadcaster

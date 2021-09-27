@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/atomic"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -90,8 +89,6 @@ type client struct {
 	pool    *Pool
 	chainID *big.Int
 	mocked  bool
-
-	roundRobinCount atomic.Uint32
 }
 
 var _ Client = (*client)(nil)
