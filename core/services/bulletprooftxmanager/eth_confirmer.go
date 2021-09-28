@@ -1252,7 +1252,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	if err != nil {
 		return gethCommon.Hash{}, errors.Wrap(err, "(EthConfirmer).sendEmptyTransaction failed")
 	}
-	hash, err := signedTxHash(tx, &ec.chainID)
+	hash, err := signedTxHash(tx, ec.config.ChainType())
 	if err != nil {
 		return hash, err
 	}

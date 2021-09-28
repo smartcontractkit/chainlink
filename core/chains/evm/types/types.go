@@ -108,10 +108,6 @@ func IsL2(chainType string) bool {
 	return false
 }
 
-func IsExChain(id *big.Int) bool {
-	return id.Cmp(big.NewInt(65)) == 0 || id.Cmp(big.NewInt(66)) == 0
-}
-
 type Node struct {
 	ID         int32 `gorm:"primary_key"`
 	Name       string

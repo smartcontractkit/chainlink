@@ -76,7 +76,7 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 #### New env vars
 
-`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`.
+`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`.
 
 ### Changed
 

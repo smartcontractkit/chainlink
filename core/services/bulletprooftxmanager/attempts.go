@@ -112,7 +112,7 @@ func NewLegacyAttempt(cfg Config, ks KeyStore, chainID *big.Int, etx EthTx, gasP
 	)
 
 	transaction := types.NewTx(&tx)
-	hash, signedTxBytes, err := SignTx(ks, etx.FromAddress, transaction, chainID)
+	hash, signedTxBytes, err := SignTx(ks, etx.FromAddress, transaction, chainID, cfg.ChainType())
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
