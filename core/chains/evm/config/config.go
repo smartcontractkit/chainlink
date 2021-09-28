@@ -58,6 +58,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
+	Layer2Type() string
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -89,14 +90,14 @@ type chainScopedConfig struct {
 	onceMapMu    sync.RWMutex
 }
 
-func NewChainScopedConfig(orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig, chain evmtypes.Chain) ChainScopedConfig {
-	csorm := &chainScopedConfigORM{chain.ID.ToInt(), orm}
-	defaultSet, exists := chainSpecificConfigDefaultSets[chain.ID.ToInt().Int64()]
+func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
+	csorm := &chainScopedConfigORM{chainID, orm}
+	defaultSet, exists := chainSpecificConfigDefaultSets[chainID.Int64()]
 	if !exists {
-		logger.Warnf("Unrecognised chain %d, falling back to generic default configuration", chain.ID.ToInt())
+		logger.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)
 		defaultSet = fallbackDefaultSet
 	}
-	css := chainScopedConfig{gcfg, lggr, csorm, chain.Cfg, defaultSet, chain.ID.ToInt(), sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
+	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
 	return &css
 }
 
@@ -587,6 +588,20 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 		return keySpecific.ToInt()
 	}
 	return c.EvmMaxGasPriceWei()
+}
+
+func (c *chainScopedConfig) Layer2Type() string {
+	val, ok := c.GeneralConfig.GlobalLayer2Type()
+	if ok {
+		c.logEnvOverrideOnce("Layer2Type", val)
+		return val
+	}
+
+	if c.persistedCfg.Layer2Type.Valid {
+		c.logPersistedOverrideOnce("Layer2Type", c.persistedCfg.Layer2Type.String)
+		return c.persistedCfg.Layer2Type.String
+	}
+	return c.defaultSet.layer2Type
 }
 
 // LinkContractAddress represents the address of the official LINK token

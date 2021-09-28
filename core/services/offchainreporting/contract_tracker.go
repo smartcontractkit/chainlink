@@ -383,7 +383,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	// We skip confirmation checking anyway on Optimism so there's no need to
 	// care about the block height; we have no way of getting the L1 block
 	// height anyway
-	if t.chain.IsOptimism() {
+	if t.chain.Layer2Type() == "Optimism" {
 		return 0, nil
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

@@ -6,8 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
-	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -36,7 +37,7 @@ type TestChainOpts struct {
 }
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
-	return evmconfig.NewChainScopedConfig(nil, logger.Default, cfg, evmtypes.Chain{ID: *utils.NewBigI(0)})
+	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.Default, cfg)
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -171,14 +172,13 @@ func (mo *MockORM) NodesForChain(chainID utils.Big, offset int, limit int) ([]ev
 	panic("not implemented")
 }
 
-func ChainEthMainnet() evmtypes.Chain      { return evmtypes.Chain{ID: *utils.NewBigI(1)} }
-func ChainOptimismMainnet() evmtypes.Chain { return evmtypes.Chain{ID: *utils.NewBigI(10)} }
-func ChainOptimismKovan() evmtypes.Chain   { return evmtypes.Chain{ID: *utils.NewBigI(69)} }
-func ChainArbitrumMainnet() evmtypes.Chain { return evmtypes.Chain{ID: *utils.NewBigI(42161)} }
-func ChainArbitrumRinkeby() evmtypes.Chain { return evmtypes.Chain{ID: *utils.NewBigI(421611)} }
+func ChainEthMainnet(t *testing.T) evmconfig.ChainScopedConfig      { return scopedConfig(t, 1) }
+func ChainOptimismMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 10) }
+func ChainOptimismKovan(t *testing.T) evmconfig.ChainScopedConfig   { return scopedConfig(t, 69) }
+func ChainArbitrumMainnet(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 42161) }
+func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 421611) }
 
-func NewMockChainSet(t testing.TB) *evmmocks.ChainSet {
-	cc := new(evmmocks.ChainSet)
-	cc.Test(t)
-	return cc
+func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
+	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
+		logger.CreateTestLogger(zapcore.DebugLevel), configtest.NewTestGeneralConfig(t))
 }
