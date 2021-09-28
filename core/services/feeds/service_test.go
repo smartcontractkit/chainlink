@@ -467,75 +467,191 @@ func Test_Service_GetJobProposal(t *testing.T) {
 
 func Test_Service_ApproveJobProposal(t *testing.T) {
 	var (
-		ctx = context.Background()
-		jp  = &feeds.JobProposal{
+		ctx  = context.Background()
+		spec = `name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
+schemaVersion = 1
+contractAddress = '0x0000000000000000000000000000000000000000'
+type = 'fluxmonitor'
+externalJobID = '00000000-0000-0000-0000-000000000001'
+threshold = 1.0
+idleTimerPeriod = '4h'
+idleTimerDisabled = false
+pollingTimerPeriod = '1m'
+pollingTimerDisabled = false
+observationSource = """
+// data source 1
+ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
+ds1_parse [type=jsonparse path="result"];
+ds1_multiply [type=multiply times=1000000000000000000];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+
+answer1 [type=median index=0];
+"""
+`
+		pendingProposal = &feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
 			Status:         feeds.JobProposalStatusPending,
 			FeedsManagerID: 2,
-			Spec: `name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
-			schemaVersion = 1
-			contractAddress = '0x0000000000000000000000000000000000000000'
-			type = 'fluxmonitor'
-			externalJobID = '00000000-0000-0000-0000-000000000001'
-			threshold = 1.0
-			idleTimerPeriod = '4h'
-			idleTimerDisabled = false
-			pollingTimerPeriod = '1m'
-			pollingTimerDisabled = false
-			observationSource = """
-			// data source 1
-			ds1 [type=bridge name=\"bridge-api0\" requestData="{\\\"data\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
-			ds1_parse [type=jsonparse path="result"];
-			ds1_multiply [type=multiply times=1000000000000000000];
-			ds1 -> ds1_parse -> ds1_multiply -> answer1;
-
-			// data source 2
-			ds2 [type=bridge name="bridge-api1" requestData="{\\\"data\\\": {\\\"from\\\":\\\"LINK\\\",\\\"to\\\":\\\"ETH\\\"}}"];
-			ds2_parse [type=jsonparse path="result"];
-			ds2_multiply [type=multiply times=1000000000000000000];
-			ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-			answer1 [type=median index=0];
-			"""
-			`,
+			Spec:           spec,
+		}
+		cancelledProposal = &feeds.JobProposal{
+			ID:             1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         feeds.JobProposalStatusCancelled,
+			FeedsManagerID: 2,
+			Spec:           spec,
 		}
 		jb = job.Job{
 			ID: int32(1),
 		}
 	)
 
-	svc := setupTestService(t)
+	testCases := []struct {
+		name    string
+		before  func(svc *TestService)
+		id      int64
+		wantErr string
+	}{
+		{
+			name: "pending job success",
+			id:   pendingProposal.ID,
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, pendingProposal.ID).Return(pendingProposal, nil)
+				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
+				ctx = mockTransactWithContext(ctx, svc.txm)
 
-	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
-	ctx = mockTransactWithContext(ctx, svc.txm)
-
-	svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
-	svc.spawner.
-		On("CreateJob",
-			ctx,
-			mock.MatchedBy(func(j job.Job) bool {
-				return true
-			}),
-			null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
-		).
-		Return(jb, nil)
-	svc.orm.On("ApproveJobProposal",
-		mock.MatchedBy(func(ctx context.Context) bool { return true }),
-		jp.ID,
-		uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
-		feeds.JobProposalStatusApproved,
-	).Return(nil)
-	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
-	svc.fmsClient.On("ApprovedJob",
-		mock.MatchedBy(func(ctx context.Context) bool { return true }),
-		&proto.ApprovedJobRequest{
-			Uuid: jp.RemoteUUID.String(),
+				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
+				svc.spawner.
+					On("CreateJob",
+						ctx,
+						mock.MatchedBy(func(j job.Job) bool {
+							return true
+						}),
+						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+					).
+					Return(jb, nil)
+				svc.orm.On("ApproveJobProposal",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					pendingProposal.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					feeds.JobProposalStatusApproved,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid: pendingProposal.RemoteUUID.String(),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+			},
 		},
-	).Return(&proto.ApprovedJobResponse{}, nil)
+		{
+			name: "cancelled job success",
+			id:   cancelledProposal.ID,
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, cancelledProposal.ID).Return(cancelledProposal, nil)
+				svc.connMgr.On("GetClient", cancelledProposal.FeedsManagerID).Return(svc.fmsClient, nil)
+				ctx = mockTransactWithContext(ctx, svc.txm)
 
-	err := svc.ApproveJobProposal(ctx, jp.ID)
-	require.NoError(t, err)
+				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
+				svc.spawner.
+					On("CreateJob",
+						ctx,
+						mock.MatchedBy(func(j job.Job) bool {
+							return true
+						}),
+						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+					).
+					Return(jb, nil)
+				svc.orm.On("ApproveJobProposal",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					cancelledProposal.ID,
+					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
+					feeds.JobProposalStatusApproved,
+				).Return(nil)
+				svc.fmsClient.On("ApprovedJob",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					&proto.ApprovedJobRequest{
+						Uuid: cancelledProposal.RemoteUUID.String(),
+					},
+				).Return(&proto.ApprovedJobResponse{}, nil)
+			},
+		},
+		{
+			name: "job proposal does not exist",
+			id:   int64(1),
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, int64(1)).Return(nil, errors.New("Not Found"))
+			},
+			wantErr: "job proposal error: Not Found",
+		},
+		{
+			name: "FMS client not connected",
+			id:   int64(1),
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, cancelledProposal.ID).Return(pendingProposal, nil)
+				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(nil, errors.New("Not Connected"))
+			},
+			wantErr: "fms rpc client is not connected: Not Connected",
+		},
+		{
+			name: "job proposal already approved",
+			id:   int64(1),
+			before: func(svc *TestService) {
+				jp := &feeds.JobProposal{
+					ID:             1,
+					RemoteUUID:     uuid.NewV4(),
+					Status:         feeds.JobProposalStatusApproved,
+					FeedsManagerID: 2,
+					Spec:           spec,
+				}
+				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
+			},
+			wantErr: "must be a pending or cancelled job proposal",
+		},
+		{
+			name: "orm error",
+			id:   int64(1),
+			before: func(svc *TestService) {
+				svc.orm.On("GetJobProposal", ctx, pendingProposal.ID).Return(pendingProposal, nil)
+				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
+				ctx = mockTransactWithContext(ctx, svc.txm)
+
+				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
+				svc.spawner.
+					On("CreateJob",
+						ctx,
+						mock.MatchedBy(func(j job.Job) bool {
+							return true
+						}),
+						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+					).
+					Return(job.Job{}, errors.New("could not save"))
+			},
+			wantErr: "could not approve job proposal: could not save",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			svc := setupTestService(t)
+
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			err := svc.ApproveJobProposal(ctx, tc.id)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func Test_Service_RejectJobProposal(t *testing.T) {
