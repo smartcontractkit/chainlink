@@ -26,6 +26,14 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   }
 
   /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "AuthorizedForwarder 1.0.0";
+  }
+
+  /**
    * @notice Forward a call to another contract
    * @dev Only callable by an authorized sender
    * @param to address

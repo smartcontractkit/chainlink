@@ -75,6 +75,14 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   }
 
   /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "Operator 1.0.0";
+  }
+
+  /**
    * @notice Creates the Chainlink request. This is a backwards compatible API
    * with the Oracle.sol contract, but the behavior changes because
    * callbackAddress is assumed to be the same as the request sender.
