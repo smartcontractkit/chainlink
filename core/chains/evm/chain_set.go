@@ -44,7 +44,7 @@ type chainSet struct {
 	defaultID *big.Int
 	chains    map[string]*chain
 	chainsMu  sync.RWMutex
-	logger    *logger.Logger
+	logger    logger.Logger
 	orm       types.ORM
 	opts      ChainSetOpts
 }
@@ -221,7 +221,7 @@ func (cll *chainSet) ORM() types.ORM {
 
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
-	Logger           *logger.Logger
+	Logger           logger.Logger
 	GormDB           *gorm.DB
 	SQLxDB           *sqlx.DB
 	KeyStore         keystore.Eth
@@ -254,7 +254,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	opts.Logger.Infof("Creating ChainSet with default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
+	opts.Logger.Infof("EVM ChainSet has default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
 	var err error
 	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), sync.RWMutex{}, opts.Logger, opts.ORM, opts}
 	for i := range dbchains {

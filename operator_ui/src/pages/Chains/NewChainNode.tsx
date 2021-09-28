@@ -75,14 +75,22 @@ const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
     httpURL: Yup.string()
       .required('Required')
       .test('validScheme', 'Invalid HTTP URL', function (value = '') {
-        const url = new URL(value)
-        return url.protocol === 'http:' || url.protocol === 'https:'
+        try {
+          const url = new URL(value)
+          return url.protocol === 'http:' || url.protocol === 'https:'
+        } catch (_) {
+          return false
+        }
       }),
     wsURL: Yup.string()
       .required('Required')
       .test('validScheme', 'Invalid Websocket URL', function (value = '') {
-        const url = new URL(value)
-        return url.protocol === 'ws:' || url.protocol === 'wss:'
+        try {
+          const url = new URL(value)
+          return url.protocol === 'ws:' || url.protocol === 'wss:'
+        } catch (_) {
+          return false
+        }
       }),
   })
 

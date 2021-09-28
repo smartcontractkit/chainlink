@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"testing"
+	"time"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -296,6 +297,104 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 			}
 
 			resp, cleanup := ctrl.client.Post(fmt.Sprintf("/v2/job_proposals/%s/reject", id), bytes.NewReader([]byte{}))
+			t.Cleanup(cleanup)
+			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
+
+			if tc.want != nil {
+				resource := presenters.JobProposalResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
+				require.NoError(t, err)
+
+				assert.Equal(t, id, resource.ID)
+				assert.Equal(t, tc.want.Spec, resource.Spec)
+				assert.Equal(t, tc.want.Status, resource.Status)
+			}
+		})
+	}
+}
+
+func Test_JobProposalsController_Cancel(t *testing.T) {
+	t.Parallel()
+
+	var (
+		spec = string(cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml"))
+		jp1  = feeds.JobProposal{
+			RemoteUUID:     uuid.Must(uuid.FromString("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47")),
+			Spec:           spec,
+			Status:         feeds.JobProposalStatusPending,
+			ExternalJobID:  uuid.NullUUID{},
+			FeedsManagerID: 10,
+		}
+		expected  = jp1
+		rpcClient = &feedMocks.FeedsManagerClient{}
+	)
+	expected.Status = feeds.JobProposalStatusCancelled
+
+	testCases := []struct {
+		name           string
+		before         func(t *testing.T, ctrl *TestJobProposalsController, id *string)
+		want           *feeds.JobProposal
+		wantStatusCode int
+	}{
+		{
+			name: "success",
+			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+				fsvc := ctrl.app.GetFeedsService()
+
+				jp1ID, err := fsvc.CreateJobProposal(&jp1)
+				require.NoError(t, err)
+				fmt.Println(jp1ID)
+
+				ctrl.connMgr.On("GetClient", jp1.FeedsManagerID).Return(rpcClient, nil)
+				rpcClient.On("ApprovedJob", mock.MatchedBy(func(c context.Context) bool { return true }), &pb.ApprovedJobRequest{
+					Uuid: jp1.RemoteUUID.String(),
+				}).Return(&pb.ApprovedJobResponse{}, nil)
+
+				err = fsvc.ApproveJobProposal(context.Background(), jp1ID)
+				require.NoError(t, err)
+
+				time.Sleep(5 * time.Second)
+
+				ctrl.connMgr.On("GetClient", jp1.FeedsManagerID).Return(rpcClient, nil)
+
+				*id = strconv.Itoa(int(jp1ID))
+
+				rpcClient.On("CancelledJob", mock.MatchedBy(func(c context.Context) bool { return true }), &pb.CancelledJobRequest{
+					Uuid: jp1.RemoteUUID.String(),
+				}).Return(&pb.CancelledJobResponse{}, nil)
+			},
+			wantStatusCode: http.StatusOK,
+			want:           &expected,
+		},
+		{
+			name: "invalid id",
+			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+				*id = "notanint"
+			},
+			wantStatusCode: http.StatusBadRequest,
+		},
+		{
+			name: "not found",
+			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+				*id = "999999999"
+			},
+			wantStatusCode: http.StatusNotFound,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctrl := setupJobProposalsTest(t)
+
+			var id string
+			if tc.before != nil {
+				tc.before(t, ctrl, &id)
+			}
+
+			resp, cleanup := ctrl.client.Post(fmt.Sprintf("/v2/job_proposals/%s/cancel", id), bytes.NewReader([]byte{}))
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 

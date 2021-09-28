@@ -50,9 +50,9 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	cltest.MustInsertFatalErrorEthTx(t, db, fromAddress)
 	cltest.MustInsertInProgressEthTxWithAttempt(t, db, n, fromAddress)
 	n++
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, n, 42, fromAddress)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, n, 42, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, n, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, n, fromAddress)
 	n++
 	initialEtxs := []bulletprooftxmanager.EthTx{
 		cltest.MustInsertUnstartedEthTx(t, db, fromAddress, subj1),

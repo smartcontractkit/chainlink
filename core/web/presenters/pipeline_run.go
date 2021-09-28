@@ -36,33 +36,35 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 	}
 	// The UI expects all outputs to be strings.
 	var outputs []*string
-	// Note for async jobs, the output can be nil.
-	outs, ok := pr.Outputs.Val.([]interface{})
-	if !ok {
-		logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
-	} else if !pr.Outputs.Null && pr.Outputs.Val != nil {
-		for _, out := range outs {
-			switch v := out.(type) {
-			case string:
-				s := v
-				outputs = append(outputs, &s)
-			case map[string]interface{}:
-				b, _ := json.Marshal(v)
-				bs := string(b)
-				outputs = append(outputs, &bs)
-			case decimal.Decimal:
-				s := v.String()
-				outputs = append(outputs, &s)
-			case *big.Int:
-				s := v.String()
-				outputs = append(outputs, &s)
-			case float64:
-				s := fmt.Sprintf("%f", v)
-				outputs = append(outputs, &s)
-			case nil:
-				outputs = append(outputs, nil)
-			default:
-				logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out)
+	// Note for async jobs, Outputs can be nil/invalid
+	if pr.Outputs.Valid {
+		outs, ok := pr.Outputs.Val.([]interface{})
+		if !ok {
+			logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
+		} else if pr.Outputs.Valid && pr.Outputs.Val != nil {
+			for _, out := range outs {
+				switch v := out.(type) {
+				case string:
+					s := v
+					outputs = append(outputs, &s)
+				case map[string]interface{}:
+					b, _ := json.Marshal(v)
+					bs := string(b)
+					outputs = append(outputs, &bs)
+				case decimal.Decimal:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case *big.Int:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case float64:
+					s := fmt.Sprintf("%f", v)
+					outputs = append(outputs, &s)
+				case nil:
+					outputs = append(outputs, nil)
+				default:
+					logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out)
+				}
 			}
 		}
 	}
@@ -105,7 +107,7 @@ func (r PipelineTaskRunResource) GetName() string {
 
 func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 	var output *string
-	if tr.Output != nil && !tr.Output.Null {
+	if tr.Output.Valid {
 		outputBytes, _ := tr.Output.MarshalJSON()
 		outputStr := string(outputBytes)
 		output = &outputStr

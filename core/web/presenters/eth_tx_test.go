@@ -69,7 +69,7 @@ func TestEthTxResource(t *testing.T) {
 	txa := bulletprooftxmanager.EthTxAttempt{
 		EthTx:                   tx,
 		Hash:                    hash,
-		GasPrice:                *gasPrice,
+		GasPrice:                gasPrice,
 		SignedRawTx:             hexutil.MustDecode("0xcafe"),
 		BroadcastBeforeBlockNum: &broadcastBefore,
 	}

@@ -304,15 +304,15 @@ func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) error {
 }
 
 // CreateProductionLogger provides a mock function with given fields:
-func (_m *ChainScopedConfig) CreateProductionLogger() *logger.Logger {
+func (_m *ChainScopedConfig) CreateProductionLogger() logger.Logger {
 	ret := _m.Called()
 
-	var r0 *logger.Logger
-	if rf, ok := ret.Get(0).(func() *logger.Logger); ok {
+	var r0 logger.Logger
+	if rf, ok := ret.Get(0).(func() logger.Logger); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logger.Logger)
+			r0 = ret.Get(0).(logger.Logger)
 		}
 	}
 
@@ -663,6 +663,20 @@ func (_m *ChainScopedConfig) EvmDefaultBatchSize() uint32 {
 	return r0
 }
 
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmEIP1559DynamicFees() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // EvmFinalityDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmFinalityDepth() uint32 {
 	ret := _m.Called()
@@ -735,6 +749,22 @@ func (_m *ChainScopedConfig) EvmGasBumpWei() *big.Int {
 	return r0
 }
 
+// EvmGasFeeCap provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasFeeCap() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
 // EvmGasLimitDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasLimitDefault() uint64 {
 	ret := _m.Called()
@@ -779,6 +809,38 @@ func (_m *ChainScopedConfig) EvmGasLimitTransfer() uint64 {
 
 // EvmGasPriceDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) EvmGasPriceDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasTipCapDefault() *big.Int {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// EvmGasTipCapMinimum provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -995,36 +1057,8 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
-// FeatureCronV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureCronV2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureFluxMonitorV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureFluxMonitorV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1067,20 +1101,6 @@ func (_m *ChainScopedConfig) FeatureUICSAKeys() bool {
 
 // FeatureUIFeedsManager provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureUIFeedsManager() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// FeatureWebhookV2 provides a mock function with given fields:
-func (_m *ChainScopedConfig) FeatureWebhookV2() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1359,6 +1379,27 @@ func (_m *ChainScopedConfig) GlobalEvmDefaultBatchSize() (uint32, bool) {
 	return r0, r1
 }
 
+// GlobalEvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalEvmFinalityDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmFinalityDepth() (uint32, bool) {
 	ret := _m.Called()
@@ -1531,6 +1572,52 @@ func (_m *ChainScopedConfig) GlobalEvmGasLimitTransfer() (uint64, bool) {
 
 // GlobalEvmGasPriceDefault provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalEvmGasPriceDefault() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasTipCapDefault provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	ret := _m.Called()
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalEvmGasTipCapMinimum provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -2043,6 +2130,34 @@ func (_m *ChainScopedConfig) JobPipelineResultWriteQueueDepth() uint64 {
 
 // KeeperDefaultTransactionQueueDepth provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// KeeperGasPriceBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// KeeperGasTipCapBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32
@@ -2717,7 +2832,7 @@ func (_m *ChainScopedConfig) P2PNetworkingStackRaw() string {
 }
 
 // P2PPeerID provides a mock function with given fields:
-func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
+func (_m *ChainScopedConfig) P2PPeerID() p2pkey.PeerID {
 	ret := _m.Called()
 
 	var r0 p2pkey.PeerID
@@ -2727,14 +2842,7 @@ func (_m *ChainScopedConfig) P2PPeerID() (p2pkey.PeerID, error) {
 		r0 = ret.Get(0).(p2pkey.PeerID)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // P2PPeerIDRaw provides a mock function with given fields:

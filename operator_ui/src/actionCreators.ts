@@ -134,7 +134,7 @@ export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
 export const submitSignOut = () => sendSignOut
 
-export const deleteJobSpec = (
+export const deleteChain = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
@@ -142,10 +142,10 @@ export const deleteJobSpec = (
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint = api.v2.jobs
+    const endpoint = api.v2.chains
 
     return endpoint
-      .destroyJobSpec(id)
+      .destroyChain(id)
       .then((doc) => {
         dispatch(receiveDeleteSuccess(id))
         dispatch(notifySuccess(successCallback, doc))
