@@ -106,6 +106,7 @@ type ConfigSchema struct {
 	KeeperRegistryCheckGasOverhead             uint64                        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead           uint64                        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                 time.Duration                 `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
+	Layer2Type                                 string                        `env:"LAYER_2_TYPE"`
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`

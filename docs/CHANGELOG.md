@@ -15,7 +15,7 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
-Chanlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
+Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
 #### Full EIP1559 Support
 
@@ -134,6 +134,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 `ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
 
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
 
 #### Removed env vars
 

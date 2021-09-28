@@ -44,6 +44,7 @@ type (
 		headTrackerHistoryDepth                    uint32
 		headTrackerMaxBufferSize                   uint32
 		headTrackerSamplingInterval                time.Duration
+		layer2Type                                 string
 		linkContractAddress                        string
 		logBackfillBatchSize                       uint32
 		maxGasPriceWei                             big.Int
@@ -108,6 +109,7 @@ func setChainSpecificConfigDefaultSets() {
 		headTrackerHistoryDepth:                    100,
 		headTrackerMaxBufferSize:                   3,
 		headTrackerSamplingInterval:                1 * time.Second,
+		layer2Type:                                 "",
 		linkContractAddress:                        "",
 		logBackfillBatchSize:                       100,
 		maxGasPriceWei:                             *assets.GWei(5000),
@@ -206,6 +208,7 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.gasEstimatorMode = "FixedPrice"
+	arbitrumMainnet.layer2Type = "Arbitrum"
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
@@ -222,6 +225,7 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet.gasEstimatorMode = "Optimism"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
+	optimismMainnet.layer2Type = "Optimism"
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minRequiredOutgoingConfirmations = 0
