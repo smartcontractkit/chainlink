@@ -5,7 +5,9 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -23,12 +25,9 @@ func TestChainScopedConfig(t *testing.T) {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	lggr := gcfg.CreateProductionLogger()
 	lggr = lggr.With("evmChainID", chainID.String())
-	cfg := evmconfig.NewChainScopedConfig(orm, lggr, gcfg, evmtypes.Chain{
-		ID: *utils.NewBig(chainID),
-		Cfg: evmtypes.ChainCfg{
-			KeySpecific: make(map[string]evmtypes.ChainCfg),
-		},
-	})
+	cfg := evmconfig.NewChainScopedConfig(chainID, evmtypes.ChainCfg{
+		KeySpecific: make(map[string]evmtypes.ChainCfg),
+	}, orm, lggr, gcfg)
 
 	t.Run("EvmGasPriceDefault", func(t *testing.T) {
 		t.Run("sets the gas price", func(t *testing.T) {
@@ -100,8 +99,8 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		expectedMinimumContractPayment int64
 	}{
 		{"default", 0, 500000, 100000000000000},
-		{"mainnet", 1, 500000, 1000000000000000000},
-		{"kovan", 42, 500000, 1000000000000000000},
+		{"mainnet", 1, 500000, 100000000000000000},
+		{"kovan", 42, 500000, 100000000000000000},
 
 		{"optimism", 10, 500000, 100000000000000},
 		{"optimism", 69, 500000, 100000000000000},
@@ -112,13 +111,16 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		{"fantomMainnet", 250, 500000, 100000000000000},
 		{"fantomTestnet", 4002, 500000, 100000000000000},
 		{"polygonMatic", 800001, 500000, 100000000000000},
+		{"harmonyMainnet", 1666600000, 500000, 100000000000000},
+		{"harmonyTestnet", 1666700000, 500000, 100000000000000},
 
 		{"xDai", 100, 500000, 100000000000000},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gcfg := configtest.NewTestGeneralConfig(t)
-			config := evmconfig.NewChainScopedConfig(nil, gcfg.CreateProductionLogger(), gcfg, evmtypes.Chain{ID: *utils.NewBigI(tt.chainID)})
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
 			assert.Equal(t, assets.NewLinkFromJuels(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())

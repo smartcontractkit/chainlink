@@ -5,6 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -12,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 func clearJobsDb(t *testing.T, db *gorm.DB) {
@@ -141,7 +143,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], pipeline.NewVarsFrom(nil), *logger.Default, true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(context.Background(), pipelineSpecs[0], pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run
@@ -159,9 +161,9 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.Len(t, taskRuns, len(expectedTasks))
 
 		for _, taskRun := range taskRuns {
-			require.Equal(t, runID, taskRun.PipelineRunID)
-			require.Nil(t, taskRun.Output)
-			require.False(t, taskRun.Error.IsZero())
+			assert.Equal(t, runID, taskRun.PipelineRunID)
+			assert.False(t, taskRun.Output.Valid)
+			assert.False(t, taskRun.Error.IsZero())
 		}
 	})
 }

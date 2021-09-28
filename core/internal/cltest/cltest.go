@@ -35,6 +35,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -62,7 +63,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
-	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -106,7 +106,7 @@ const (
 	// A peer ID without an associated p2p key.
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
-	DefaultOCRKeyBundleID = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
+	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 )
 
 var (
@@ -203,10 +203,10 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default)
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), nil, logger.Default)
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
@@ -216,7 +216,7 @@ func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evm
 type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
-	Logger   *logger.Logger
+	Logger   logger.Logger
 	Server   *httptest.Server
 	wsServer *httptest.Server
 	Started  bool
@@ -335,19 +335,22 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	var ethClient eth.Client = &eth.NullClient{}
 
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
-	var lggr *logger.Logger = cfg.CreateProductionLogger()
-	shutdownSignal := &testShutdownSignal{t}
-	store, err := strpkg.NewStore(cfg, advisoryLocker, shutdownSignal)
+	shutdownSignal := gracefulpanic.NewSignal()
+
+	url := cfg.DatabaseURL()
+	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	})
 	require.NoError(t, err)
-	db := store.DB
-	sqlxDB := postgres.UnwrapGormDB(db)
 
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
+	var lggr logger.Logger
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -361,7 +364,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
 		case postgres.EventBroadcaster:
 			eventBroadcaster = dep
-		case *logger.Logger:
+		case logger.Logger:
 			lggr = dep
 		default:
 			switch flag {
@@ -371,7 +374,9 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 		}
 	}
-	lggr.SetDB(db)
+	if lggr == nil {
+		lggr = cfg.CreateProductionLogger()
+	}
 	cfg.SetDB(db)
 	if chainORM == nil {
 		chainORM = evm.NewORM(sqlxDB)
@@ -397,12 +402,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		logger.Fatal(err)
 	}
 
-	ta := &TestApplication{t: t}
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
-		Store:                    store,
 		GormDB:                   db,
 		SqlxDB:                   sqlxDB,
 		KeyStore:                 keyStore,
@@ -412,26 +415,20 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
-	ta.ChainlinkApplication = app
-	server := newServer(ta)
+	ta := &TestApplication{
+		t:                    t,
+		ChainlinkApplication: app,
+		Logger:               lggr,
+	}
+	ta.Server = newServer(ta)
 
-	cfg.Overrides.ClientNodeURL = null.StringFrom(server.URL)
+	cfg.Overrides.ClientNodeURL = null.StringFrom(ta.Server.URL)
 
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
 
-	ta.Server = server
 	return ta
-}
-
-func contains(flagsAndDeps []interface{}, value interface{}) bool {
-	for _, flag := range flagsAndDeps {
-		if flag == value {
-			return true
-		}
-	}
-	return false
 }
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
@@ -544,7 +541,6 @@ func (ta *TestApplication) Stop() error {
 	if err != nil {
 		return err
 	}
-	cleanUpStore(ta.t, ta.GetStore())
 	if ta.Server != nil {
 		ta.Server.Close()
 	}
@@ -614,54 +610,11 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	return client
 }
 
-// NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(t testing.TB, c config.GeneralConfig, flagsAndDeps ...interface{}) *strpkg.Store {
-	t.Helper()
-
-	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
-	for _, flag := range flagsAndDeps {
-		switch dep := flag.(type) {
-		case postgres.AdvisoryLocker:
-			advisoryLocker = dep
-		}
-	}
-	s, err := strpkg.NewStore(c, advisoryLocker, gracefulpanic.NewSignal())
-	if err != nil {
-		require.NoError(t, err)
-	}
-	t.Cleanup(func() {
-		cleanUpStore(t, s)
-	})
-	c.SetDB(s.DB)
-	return s
-}
-
-// NewStore creates a new store
-func NewStore(t *testing.T, flagsAndDeps ...interface{}) *strpkg.Store {
-	t.Helper()
-
-	c := NewTestGeneralConfig(t)
-	return NewStoreWithConfig(t, c, flagsAndDeps...)
-}
-
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
-}
-
-func cleanUpStore(t testing.TB, store *strpkg.Store) {
-	t.Helper()
-
-	defer func() {
-		if err := os.RemoveAll(store.Config.RootDir()); err != nil {
-			logger.Warn("unable to clear test store:", err)
-		}
-	}()
-	// Ignore sync errors for testing
-	_ = logger.Sync()
-	require.NoError(t, store.Close())
 }
 
 func ParseJSON(t testing.TB, body io.Reader) models.JSON {
@@ -932,35 +885,40 @@ func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job
 	return jse
 }
 
+func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
+}
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
+}
+
+func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
-	var numPipelineRuns int
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
-		var completed []pipeline.Run
+		var matched []pipeline.Run
 
 		for _, pr := range prs {
-			if pr.State != pipeline.RunStatusCompleted {
+			if pr.State != state {
 				continue
 			}
 
 			// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-			// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+			// (if the read occurs mid-transaction and a job run is inserted but task runs not yet).
 			if len(pr.PipelineTaskRuns) == expectedTaskRuns {
-				completed = append(completed, pr)
+				matched = append(matched, pr)
 			}
 		}
 
-		numPipelineRuns = len(completed)
-		if numPipelineRuns >= expectedPipelineRuns {
-			pr = completed
+		if len(matched) >= expectedPipelineRuns {
+			pr = matched
 			return true
 		}
 		return false
-	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs (found %v runs)", jobID, nodeID, expectedPipelineRuns, numPipelineRuns))
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not %s with %d runs", jobID, nodeID, state, expectedPipelineRuns))
 	return pr
 }
 
@@ -1035,11 +993,21 @@ func Head(val interface{}) *eth.Head {
 	return &h
 }
 
-// TransactionsFromGasPrices returns transactions matching the given gas prices
-func TransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
+// LegacyTransactionsFromGasPrices returns transactions matching the given gas prices
+func LegacyTransactionsFromGasPrices(gasPrices ...int64) []gas.Transaction {
 	txs := make([]gas.Transaction, len(gasPrices))
 	for i, gasPrice := range gasPrices {
-		txs[i] = gas.Transaction{GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+		txs[i] = gas.Transaction{Type: 0x0, GasPrice: big.NewInt(gasPrice), GasLimit: 42}
+	}
+	return txs
+}
+
+// DynamicFeeTransactionsFromTipCaps returns EIP-1559 transactions with the
+// given TipCaps (FeeCap is arbitrary)
+func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
+	txs := make([]gas.Transaction, len(tipCaps))
+	for i, tipCap := range tipCaps {
+		txs[i] = gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(tipCap), GasLimit: 42, MaxFeePerGas: assets.GWei(5000)}
 	}
 	return txs
 }

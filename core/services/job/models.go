@@ -183,7 +183,7 @@ type OffchainReportingOracleSpec struct {
 	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
 	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
 	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                null.String          `toml:"keyBundleID" gorm:"type:bytea"`
+	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
 	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
 	ObservationTimeout                     models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
 	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`

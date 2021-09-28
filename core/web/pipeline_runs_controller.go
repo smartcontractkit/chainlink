@@ -2,22 +2,21 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	uuid "github.com/satori/go.uuid"
-
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -114,7 +113,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			return
 		}
 		if canRun {
-			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{Null: true})
+			jobRunID, err3 := prc.App.RunWebhookJobV2(c.Request.Context(), jobUUID, string(bodyBytes), pipeline.JSONSerializable{})
 			if errors.Is(err3, webhook.ErrJobNotExists) {
 				jsonAPIError(c, http.StatusNotFound, err3)
 				return
@@ -159,13 +158,20 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+	rr := pipeline.ResumeRequest{}
+	decoder := json.NewDecoder(c.Request.Body)
+	err = errors.Wrap(decoder.Decode(&rr), "failed to unmarshal JSON body")
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	result, err := rr.ToResult()
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	if err := prc.App.ResumeJobV2(context.Background(), taskID, bodyBytes); err != nil {
+	if err := prc.App.ResumeJobV2(context.Background(), taskID, result); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

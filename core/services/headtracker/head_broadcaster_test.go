@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
-	store := cltest.NewStoreWithConfig(t, cfg)
+	db := pgtest.NewGormDB(t)
+	cfg.SetDB(db)
 	logger := cfg.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
@@ -41,7 +43,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hr := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(store.DB, *ethClient.ChainID())
+	orm := headtracker.NewORM(db, *ethClient.ChainID())
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()

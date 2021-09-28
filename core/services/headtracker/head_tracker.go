@@ -36,7 +36,7 @@ const HeadsBufferSize = 10
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	log             *logger.Logger
+	log             logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	ethClient       eth.Client
 	chainID         big.Int
@@ -56,7 +56,7 @@ type HeadTracker struct {
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
 func NewHeadTracker(
-	l *logger.Logger,
+	l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	orm *ORM,
@@ -82,14 +82,14 @@ func NewHeadTracker(
 }
 
 // SetLogger sets and reconfigures the log for the head tracker service
-func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
+func (ht *HeadTracker) SetLogger(logger logger.Logger) {
 	ht.muLogger.Lock()
 	defer ht.muLogger.Unlock()
 	ht.log = logger
 	ht.headListener.SetLogger(logger)
 }
 
-func (ht *HeadTracker) logger() *logger.Logger {
+func (ht *HeadTracker) logger() logger.Logger {
 	ht.muLogger.RLock()
 	defer ht.muLogger.RUnlock()
 	return ht.log
@@ -279,7 +279,7 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, dep
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -292,7 +292,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight i
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
 	defer func() {
-		if ctx.Err() != nil {
+		if ctxParent.Err() != nil {
 			return
 		}
 		ht.logger().Debugw("HeadTracker: finished backfill",
@@ -306,10 +306,13 @@ func (ht *HeadTracker) backfill(ctx context.Context, head eth.Head, baseHeight i
 			"err", err)
 	}()
 
+	ctx, cancel := utils.CombinedContext(ht.chStop, ctxParent)
+	defer cancel()
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		var existingHead *eth.Head
 		existingHead, err = ht.headSaver.HeadByHash(ctx, head.ParentHash)
+
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
@@ -417,4 +420,4 @@ func (*NullTracker) Stop() error    { return nil }
 func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 
-func (*NullTracker) SetLogger(*logger.Logger) {}
+func (*NullTracker) SetLogger(logger.Logger) {}

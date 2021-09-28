@@ -24,7 +24,7 @@ type ORM interface {
 	CreateRun(db postgres.Queryer, run *Run) (err error)
 	DeleteRun(id int64) error
 	StoreRun(db postgres.Queryer, run *Run) (restart bool, err error)
-	UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error)
+	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindRun(id int64) (Run, error)
@@ -182,7 +182,7 @@ func (o *orm) DeleteRun(id int64) error {
 	return err
 }
 
-func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run, start bool, err error) {
+func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error) {
 	err = postgres.SqlxTransaction(context.Background(), postgres.UnwrapGormDB(o.db), func(tx *sqlx.Tx) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
@@ -196,8 +196,8 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run
 		}
 
 		// Update the task with result
-		sql = `UPDATE pipeline_task_runs SET output = $2, finished_at = $3 WHERE id = $1`
-		if _, err = tx.Exec(sql, taskID, JSONSerializable{Val: result}, time.Now()); err != nil {
+		sql = `UPDATE pipeline_task_runs SET output = $2, error = $3, finished_at = $4 WHERE id = $1`
+		if _, err = tx.Exec(sql, taskID, result.OutputDB(), result.ErrorDB(), time.Now()); err != nil {
 			return errors.Wrap(err, "UpdateTaskRunResult")
 		}
 
@@ -219,6 +219,7 @@ func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (run Run
 
 		return nil
 	})
+
 	return run, start, err
 }
 

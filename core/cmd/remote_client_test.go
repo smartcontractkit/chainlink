@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 var (
@@ -73,8 +72,6 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	l := config.CreateProductionLogger().With("testname", t.Name())
 	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	app.Logger = l
-	app.Logger.SetDB(app.GetDB())
 
 	require.NoError(t, app.Start())
 
@@ -166,9 +163,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			require.NoError(t, err)
 
 			var exi bridges.ExternalInitiator
-			err = app.GetStore().RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-				return db.Where("name = ?", test.args[0]).Find(&exi).Error
-			})
+			err = app.GetDB().Where("name = ?", test.args[0]).Find(&exi).Error
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {
@@ -584,7 +579,7 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	err := client.SetLogPkg(c)
 	require.NoError(t, err)
 
-	level, err := app.Logger.ServiceLogLevel(logPkg)
-	require.NoError(t, err)
+	level, ok := logger.NewORM(app.GetDB()).GetServiceLogLevel(logPkg)
+	require.True(t, ok)
 	assert.Equal(t, logLevel, level)
 }

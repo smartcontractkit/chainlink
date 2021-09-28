@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/atomic"
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -86,19 +85,17 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 // client represents an abstract client that manages connections to
 // multiple ethereum nodes
 type client struct {
-	logger  *logger.Logger
+	logger  logger.Logger
 	pool    *Pool
 	chainID *big.Int
 	mocked  bool
-
-	roundRobinCount atomic.Uint32
 }
 
 var _ Client = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger *logger.Logger, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
+func NewClientWithNodes(logger logger.Logger, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
 	pool := NewPool(logger, primaryNodes, sendOnlyNodes, chainID)
 	return &client{
 		logger:  logger,

@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -24,18 +25,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
+	config := new(gumocks.Config)
+	config.Test(t)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
+	return config
+}
+
+func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
+	config := new(gumocks.Config)
+	config.Test(t)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
+	return config
+}
+
 func newBlockHistoryEstimatorWithChainID(c eth.Client, cfg gas.Config, cid big.Int) gas.Estimator {
 	return gas.NewBlockHistoryEstimator(logger.Default, c, cfg, cid)
 }
 
-func newBlockHistoryEstimator(c eth.Client, cfg gas.Config) gas.Estimator {
-	return newBlockHistoryEstimatorWithChainID(c, cfg, cltest.FixtureChainID)
+func newBlockHistoryEstimator(c eth.Client, cfg gas.Config) *gas.BlockHistoryEstimator {
+	iface := newBlockHistoryEstimatorWithChainID(c, cfg, cltest.FixtureChainID)
+	return gas.BlockHistoryEstimatorFromInterface(iface)
 }
 
 func TestBlockHistoryEstimator_Start(t *testing.T) {
 	t.Parallel()
 
-	config := new(gumocks.Config)
+	config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 	var batchSize uint32 = 0
 	var blockDelay uint16 = 0
@@ -51,12 +67,12 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
 	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
 	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
+	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
 
 	t.Run("loads initial state", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		estimator := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(estimator)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		h := &eth.Head{Hash: utils.NewHash(), Number: 42}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
@@ -76,7 +92,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 			}
 		})
 
-		err := estimator.Start()
+		err := bhe.Start()
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
@@ -115,7 +131,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		err := bhe.Start()
 		require.NoError(t, err)
 
-		_, _, err = bhe.EstimateGas(make([]byte, 0), 100)
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
@@ -135,7 +151,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		err := bhe.Start()
 		require.NoError(t, err)
 
-		_, _, err = bhe.EstimateGas(make([]byte, 0), 100)
+		_, _, err = bhe.GetLegacyGas(make([]byte, 0), 100)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "has not finished the first gas estimation yet")
 
@@ -149,9 +165,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 	t.Run("with history size of 0, errors", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 0
@@ -166,9 +181,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 	t.Run("with current block height less than block delay does nothing", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 1
@@ -188,9 +202,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 	t.Run("with error retrieving blocks returns error", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		var blockDelay uint16 = 3
 		var historySize uint16 = 3
@@ -211,9 +224,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 	t.Run("batch fetches heads and transactions and sets them on the block history estimator instance", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		var blockDelay uint16 = 1
 		var historySize uint16 = 3
@@ -226,17 +238,17 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		b41 := gas.Block{
 			Number:       41,
 			Hash:         utils.NewHash(),
-			Transactions: cltest.TransactionsFromGasPrices(1, 2),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
 		}
 		b42 := gas.Block{
 			Number:       42,
 			Hash:         utils.NewHash(),
-			Transactions: cltest.TransactionsFromGasPrices(3),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(3),
 		}
 		b43 := gas.Block{
 			Number:       43,
 			Hash:         utils.NewHash(),
-			Transactions: cltest.TransactionsFromGasPrices(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(),
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -272,7 +284,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		b44 := gas.Block{
 			Number:       44,
 			Hash:         utils.NewHash(),
-			Transactions: cltest.TransactionsFromGasPrices(4),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(4),
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -308,11 +320,11 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 	})
 }
 
-func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
+func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	config := new(gumocks.Config)
+	config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 	config.On("BlockHistoryEstimatorBlockDelay").Return(uint16(0))
 	config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
@@ -321,23 +333,22 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 	config.On("BlockHistoryEstimatorBatchSize").Return(uint32(0))
 
-	ibhe := newBlockHistoryEstimator(ethClient, config)
-	bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+	bhe := newBlockHistoryEstimator(ethClient, config)
 
 	b1 := gas.Block{
 		Number:       1,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(1),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(1),
 	}
 	b2 := gas.Block{
 		Number:       2,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(2),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(2),
 	}
 	b3 := gas.Block{
 		Number:       3,
 		Hash:         utils.NewHash(),
-		Transactions: cltest.TransactionsFromGasPrices(200, 300, 100, 100, 100, 100),
+		Transactions: cltest.LegacyTransactionsFromGasPrices(200, 300, 100, 100, 100, 100),
 	}
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -363,7 +374,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
+func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 	t.Parallel()
 
 	maxGasPrice := big.NewInt(100)
@@ -371,13 +382,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		blocks := []gas.Block{}
 		gas.SetRollingBlockHistory(bhe, blocks)
@@ -397,25 +408,24 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		blocks := []gas.Block{
 			gas.Block{
 				Number:       0,
 				Hash:         utils.NewHash(),
-				Transactions: cltest.TransactionsFromGasPrices(9001),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(9001),
 			},
 			gas.Block{
 				Number:       1,
 				Hash:         utils.NewHash(),
-				Transactions: cltest.TransactionsFromGasPrices(9002),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(9002),
 			},
 		}
 
@@ -432,25 +442,24 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("sets gas price to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		blocks := []gas.Block{
 			gas.Block{
 				Number:       0,
 				Hash:         utils.NewHash(),
-				Transactions: cltest.TransactionsFromGasPrices(5),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(5),
 			},
 			gas.Block{
 				Number:       1,
 				Hash:         utils.NewHash(),
-				Transactions: cltest.TransactionsFromGasPrices(7),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(7),
 			},
 		}
 
@@ -467,14 +476,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(100))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		b1Hash := utils.NewHash()
 		b2Hash := utils.NewHash()
@@ -484,7 +492,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
-				Transactions: cltest.TransactionsFromGasPrices(50),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(50),
 			},
 			{
 				Number:       1,
@@ -514,14 +522,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	t.Run("takes into account zero priced transctions if chain is not xDai", func(t *testing.T) {
 		// Because everyone loves free gas!
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		b1Hash := utils.NewHash()
 
@@ -530,7 +537,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
-				Transactions: cltest.TransactionsFromGasPrices(0, 0, 0, 0, 100),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 0, 0, 100),
 			},
 		}
 
@@ -549,7 +556,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		chainID := big.NewInt(100)
 
 		ethClient := cltest.NewEthClientMock(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
@@ -565,7 +572,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
-				Transactions: cltest.TransactionsFromGasPrices(0, 0, 0, 0, 100),
+				Transactions: cltest.LegacyTransactionsFromGasPrices(0, 0, 0, 0, 100),
 			},
 		}
 
@@ -584,7 +591,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		// Seems unlikely we will ever experience gas prices > 9 Petawei on mainnet (praying to the eth Gods 🙏)
 		// But other chains could easily use a different base of account
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
 
@@ -592,8 +599,7 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(10))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		unreasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000000))
 
@@ -631,14 +637,13 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 
 	t.Run("doesn't panic if gas price is nil (although I'm still unsure how this can happen)", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		config := new(gumocks.Config)
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
 
-		ibhe := newBlockHistoryEstimator(ethClient, config)
-		bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+		bhe := newBlockHistoryEstimator(ethClient, config)
 
 		b1Hash := utils.NewHash()
 
@@ -666,12 +671,265 @@ func TestBlockHistoryEstimator_Recalculate(t *testing.T) {
 	})
 }
 
+func newBlockWithBaseFee() gas.Block {
+	return gas.Block{BaseFeePerGas: assets.GWei(5)}
+}
+
+func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
+	t.Parallel()
+
+	maxGasPrice := big.NewInt(100)
+
+	t.Run("does not crash or set gas price to zero if there are no transactions", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
+
+		bhe := newBlockHistoryEstimator(ethClient, config)
+
+		blocks := []gas.Block{}
+		gas.SetRollingBlockHistory(bhe, blocks)
+		bhe.Recalculate(*cltest.Head(1))
+
+		blocks = []gas.Block{gas.Block{}} // No base fee (doesn't crash)
+		gas.SetRollingBlockHistory(bhe, blocks)
+		bhe.Recalculate(*cltest.Head(1))
+
+		blocks = []gas.Block{newBlockWithBaseFee()}
+		gas.SetRollingBlockHistory(bhe, blocks)
+		bhe.Recalculate(*cltest.Head(1))
+
+		empty := newBlockWithBaseFee()
+		empty.Transactions = []gas.Transaction{}
+		blocks = []gas.Block{empty}
+		gas.SetRollingBlockHistory(bhe, blocks)
+		bhe.Recalculate(*cltest.Head(1))
+
+		withOnlyLegacyTransactions := newBlockWithBaseFee()
+		withOnlyLegacyTransactions.Transactions = cltest.LegacyTransactionsFromGasPrices(9001)
+		blocks = []gas.Block{withOnlyLegacyTransactions}
+		gas.SetRollingBlockHistory(bhe, blocks)
+		bhe.Recalculate(*cltest.Head(1))
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("can set tip higher than ETH_MAX_GAS_PRICE_WEI (we rely on fee cap to limit it)", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(0))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+
+		bhe := newBlockHistoryEstimator(ethClient, config)
+
+		blocks := []gas.Block{
+			gas.Block{
+				BaseFeePerGas: big.NewInt(1),
+				Number:        0,
+				Hash:          utils.NewHash(),
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(9001),
+			},
+			gas.Block{
+				BaseFeePerGas: big.NewInt(1),
+				Number:        1,
+				Hash:          utils.NewHash(),
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(9002),
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(1))
+
+		tipCap := gas.GetTipCap(bhe)
+		require.Greater(t, tipCap.Int64(), maxGasPrice.Int64())
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("sets tip cap to ETH_MIN_GAS_PRICE_WEI if the calculation would otherwise fall below it", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(10))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+
+		bhe := newBlockHistoryEstimator(ethClient, config)
+
+		blocks := []gas.Block{
+			gas.Block{
+				BaseFeePerGas: big.NewInt(1),
+				Number:        0,
+				Hash:          utils.NewHash(),
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(5),
+			},
+			gas.Block{
+				BaseFeePerGas: big.NewInt(1),
+				Number:        1,
+				Hash:          utils.NewHash(),
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(7),
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(1))
+
+		price := gas.GetTipCap(bhe)
+		require.Equal(t, big.NewInt(10), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("ignores any transaction with a zero gas limit", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(10))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(95))
+
+		bhe := newBlockHistoryEstimator(ethClient, config)
+
+		b1Hash := utils.NewHash()
+		b2Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			{
+				Number:       0,
+				Hash:         b1Hash,
+				ParentHash:   common.Hash{},
+				Transactions: cltest.LegacyTransactionsFromGasPrices(50),
+			},
+			{
+				BaseFeePerGas: big.NewInt(10),
+				Number:        1,
+				Hash:          b2Hash,
+				ParentHash:    b1Hash,
+				Transactions:  []gas.Transaction{gas.Transaction{Type: 0x2, MaxFeePerGas: big.NewInt(1000), MaxPriorityFeePerGas: big.NewInt(60), GasLimit: 42}},
+			},
+			{
+				Number:       2,
+				Hash:         utils.NewHash(),
+				ParentHash:   b2Hash,
+				Transactions: []gas.Transaction{gas.Transaction{Type: 0x2, MaxFeePerGas: big.NewInt(1000), MaxPriorityFeePerGas: big.NewInt(80), GasLimit: 0}},
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(2))
+
+		price := gas.GetTipCap(bhe)
+		require.Equal(t, big.NewInt(60), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("allows to set zero tip cap if minimum allows it", func(t *testing.T) {
+		// Because everyone loves *cheap* gas!
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
+		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
+		config.On("EvmGasTipCapMinimum").Return(big.NewInt(0))
+		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
+
+		bhe := newBlockHistoryEstimator(ethClient, config)
+
+		b1Hash := utils.NewHash()
+
+		blocks := []gas.Block{
+			gas.Block{
+				BaseFeePerGas: big.NewInt(10),
+				Number:        0,
+				Hash:          b1Hash,
+				ParentHash:    common.Hash{},
+				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(0, 0, 0, 0, 100),
+			},
+		}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		bhe.Recalculate(*cltest.Head(0))
+
+		price := gas.GetTipCap(bhe)
+		require.Equal(t, big.NewInt(0), price)
+
+		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+}
+
+func TestBlockHistoryEstimator_EffectiveTipCap(t *testing.T) {
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	config := newConfigWithEIP1559DynamicFeesEnabled(t)
+
+	bhe := newBlockHistoryEstimator(ethClient, config)
+
+	block := gas.Block{
+		Number:     0,
+		Hash:       utils.NewHash(),
+		ParentHash: common.Hash{},
+	}
+
+	eipblock := block
+	eipblock.BaseFeePerGas = big.NewInt(100)
+
+	t.Run("returns nil if block is missing base fee", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x0, GasPrice: big.NewInt(42), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveTipCap(block, tx)
+		assert.Nil(t, res)
+	})
+	t.Run("legacy transaction type infers tip cap from tx.gas_price - block.base_fee_per_gas", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x0, GasPrice: big.NewInt(142), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveTipCap(eipblock, tx)
+		assert.Equal(t, "42", res.String())
+	})
+	t.Run("tx type 2 should calculate gas price", func(t *testing.T) {
+		// 0x2 transaction (should use MaxPriorityFeePerGas)
+		tx := gas.Transaction{Type: 0x2, MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveTipCap(eipblock, tx)
+		assert.Equal(t, "200", res.String())
+		// 0x2 transaction (should use MaxPriorityFeePerGas, ignoring gas price)
+		tx = gas.Transaction{Type: 0x2, GasPrice: big.NewInt(400), MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(350), GasLimit: 42, Hash: utils.NewHash()}
+		res = bhe.EffectiveTipCap(eipblock, tx)
+		assert.Equal(t, "200", res.String())
+	})
+	t.Run("missing field returns nil", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x2, GasPrice: big.NewInt(132), MaxFeePerGas: big.NewInt(200), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveTipCap(eipblock, tx)
+		assert.Nil(t, res)
+	})
+	t.Run("unknown type returns nil", func(t *testing.T) {
+		tx := gas.Transaction{Type: 0x3, GasPrice: big.NewInt(55555), MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
+		res := bhe.EffectiveTipCap(eipblock, tx)
+		assert.Nil(t, res)
+	})
+
+	ethClient.AssertExpectations(t)
+	config.AssertExpectations(t)
+}
+
 func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	config := new(gumocks.Config)
+	config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
-	ibhe := newBlockHistoryEstimator(ethClient, config)
-	bhe := gas.BlockHistoryEstimatorFromInterface(ibhe)
+	bhe := newBlockHistoryEstimator(ethClient, config)
 
 	block := gas.Block{
 		Number:     0,
@@ -717,10 +975,10 @@ func TestBlockHistoryEstimator_EffectiveGasPrice(t *testing.T) {
 		res := bhe.EffectiveGasPrice(block, tx)
 		assert.Equal(t, "55555", res.String())
 	})
-	t.Run("unknown type uses gas price", func(t *testing.T) {
+	t.Run("unknown type returns nil", func(t *testing.T) {
 		tx := gas.Transaction{Type: 0x3, GasPrice: big.NewInt(55555), MaxPriorityFeePerGas: big.NewInt(200), MaxFeePerGas: big.NewInt(250), GasLimit: 42, Hash: utils.NewHash()}
 		res := bhe.EffectiveGasPrice(block, tx)
-		assert.Equal(t, "55555", res.String())
+		assert.Nil(t, res)
 	})
 
 	ethClient.AssertExpectations(t)
@@ -958,4 +1216,117 @@ func TestBlockHistoryEstimator_EIP1559Block_Unmarshal(t *testing.T) {
 	assert.Nil(t, block.Transactions[3].GasPrice)
 	assert.Equal(t, 21000, int(block.Transactions[3].GasLimit))
 	assert.Equal(t, "0x13d4ecea98e37359e63e39e350ed0b1456e1acbf985eb8d4a0ef0e89a705c10d", block.Transactions[3].Hash.String())
+}
+
+func TestBlockHistoryEstimator_Bumps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly with proper current gas price", func(t *testing.T) {
+		config := newConfigWithEIP1559DynamicFeesDisabled(t)
+		bhe := newBlockHistoryEstimator(nil, config)
+
+		config.On("EvmGasBumpPercent").Return(uint16(10))
+		config.On("EvmGasBumpWei").Return(big.NewInt(150))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+
+		t.Run("ignores nil current gas price", func(t *testing.T) {
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, nil, big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, expectedGasPrice, gasPrice)
+		})
+
+		t.Run("ignores current gas price > max gas price", func(t *testing.T) {
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			massive := big.NewInt(100000000000000)
+			gas.SetGasPrice(bhe, massive)
+
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, massive, big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, expectedGasLimit, gasLimit)
+			assert.Equal(t, expectedGasPrice, gasPrice)
+		})
+
+		t.Run("ignores current gas price < bumped gas price", func(t *testing.T) {
+			gas.SetGasPrice(bhe, big.NewInt(191))
+
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, big.NewInt(192), gasPrice)
+		})
+
+		t.Run("uses current gas price > bumped gas price", func(t *testing.T) {
+			gas.SetGasPrice(bhe, big.NewInt(193))
+
+			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, big.NewInt(193), gasPrice)
+		})
+
+		config.AssertExpectations(t)
+	})
+
+	t.Run("BumpDynamicFee bumps the fee", func(t *testing.T) {
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(nil, config)
+
+		config.On("EvmGasBumpPercent").Return(uint16(10))
+		config.On("EvmGasBumpWei").Return(big.NewInt(150))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmGasTipCapDefault").Return(big.NewInt(52))
+
+		t.Run("when current tip cap is nil", func(t *testing.T) {
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+		t.Run("ignores current tip cap that is smaller than original fee with bump applied", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(201))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+		t.Run("uses current tip cap that is larger than original fee with bump applied", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(203))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(203)}, fee)
+		})
+		t.Run("ignores absurdly large current tip cap", func(t *testing.T) {
+			gas.SetTipCap(bhe, big.NewInt(1000000000000000))
+
+			originalFee := gas.DynamicFee{FeeCap: big.NewInt(100), TipCap: big.NewInt(25)}
+			fee, gasLimit, err := bhe.BumpDynamicFee(originalFee, 100000)
+			require.NoError(t, err)
+
+			assert.Equal(t, 110000, int(gasLimit))
+			assert.Equal(t, gas.DynamicFee{FeeCap: big.NewInt(1000000), TipCap: big.NewInt(202)}, fee)
+		})
+
+		config.AssertExpectations(t)
+	})
 }

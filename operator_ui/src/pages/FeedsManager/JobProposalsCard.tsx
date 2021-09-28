@@ -2,7 +2,7 @@ import React from 'react'
 
 import { v2 } from 'api'
 import Link from 'components/Link'
-import * as models from 'core/store/models'
+import { JobProposal, Resource } from 'core/store/models'
 import { tableStyles } from 'components/Table'
 
 import Card from '@material-ui/core/Card'
@@ -21,6 +21,7 @@ const tabToStatus: { [key: number]: string } = {
   0: 'pending',
   1: 'approved',
   2: 'rejected',
+  3: 'cancelled',
 }
 
 const styles = () => {
@@ -31,14 +32,8 @@ const styles = () => {
   })
 }
 
-interface JobProposal {
-  attributes: models.JobProposal
-  id: string
-  type: string
-}
-
 interface JobProposalRowProps extends WithStyles<typeof tableStyles> {
-  proposal: JobProposal
+  proposal: Resource<JobProposal>
 }
 
 const JobProposalRow = withStyles(tableStyles)(
@@ -53,7 +48,7 @@ const JobProposalRow = withStyles(tableStyles)(
 
         <TableCell>{proposal.attributes.external_job_id || 'N/A'}</TableCell>
         <TableCell>
-          <TimeAgo tooltip>{proposal.attributes.createdAt}</TimeAgo>
+          <TimeAgo tooltip>{proposal.attributes.proposedAt}</TimeAgo>
         </TableCell>
       </TableRow>
     )
@@ -64,7 +59,7 @@ interface Props extends WithStyles<typeof styles> {}
 
 export const JobProposalsCard = withStyles(styles)(({ classes }: Props) => {
   const [tabValue, setTabValue] = React.useState(0)
-  const [proposals, setProposals] = React.useState<JobProposal[]>()
+  const [proposals, setProposals] = React.useState<Resource<JobProposal>[]>()
 
   React.useEffect(() => {
     v2.jobProposals.getJobProposals().then((res) => {
@@ -72,7 +67,7 @@ export const JobProposalsCard = withStyles(styles)(({ classes }: Props) => {
     })
   }, [])
 
-  const filteredProposals: JobProposal[] = React.useMemo(() => {
+  const filteredProposals: Resource<JobProposal>[] = React.useMemo(() => {
     if (!proposals) {
       return []
     }
@@ -97,6 +92,7 @@ export const JobProposalsCard = withStyles(styles)(({ classes }: Props) => {
         <Tab label="Pending" />
         <Tab label="Approved" />
         <Tab label="Rejected" />
+        <Tab label="Cancelled" />
       </Tabs>
 
       <Table>

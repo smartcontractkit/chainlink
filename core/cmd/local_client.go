@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -18,14 +19,15 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
+	"github.com/kylelemons/godebug/diff"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -36,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -85,36 +86,17 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 	}
 
-	err = keyStore.Migrate(vrfpwd)
+	chainSet := app.GetChainSet()
+	dflt, err := chainSet.Default()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	err = keyStore.Migrate(vrfpwd, dflt.ID())
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "error migrating keystore"))
 	}
 
-	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
-		logger.Warn(e)
-	}
-
-	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
-		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
-	}
-	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
-		if err == ErrorNoAPICredentialsAvailable {
-			return cli.errorOut(err)
-		}
-		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
-	}
-
-	logger.Info("API exposed for user ", user.Email)
-	if e := app.Start(); e != nil {
-		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
-	}
-	defer loggedStop(app)
-	err = logConfigVariables(cli.Config)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	for _, ch := range app.GetChainSet().Chains() {
+	for _, ch := range chainSet.Chains() {
 		skey, sexisted, fkey, fexisted, err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 		if err2 != nil {
 			return cli.errorOut(err)
@@ -140,6 +122,31 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 	if !didExist {
 		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
+	}
+
+	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+		logger.Warn(e)
+	}
+
+	var user sessions.User
+	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
+	}
+	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
+		if err == ErrorNoAPICredentialsAvailable {
+			return cli.errorOut(err)
+		}
+		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
+	}
+
+	logger.Info("API exposed for user ", user.Email)
+	if e := app.Start(); e != nil {
+		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
+	}
+	defer loggedStop(app)
+	err = logConfigVariables(cli.Config)
+	if err != nil {
+		return cli.errorOut(err)
 	}
 
 	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
@@ -253,7 +260,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	}
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cli.Config.SetDialect(dialects.PostgresWithoutLock)
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -271,7 +277,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	store := app.GetStore()
+	db := app.GetDB()
 	keyStore := app.GetKeyStore()
 
 	ethClient := chain.Client()
@@ -286,18 +292,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	err = store.Start()
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
 	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(store.DB, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -374,10 +375,24 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
 	logger.Infof("Resetting database: %#v", parsed.String())
+	logger.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
+	logger.Debugf("Migrating database: %#v", parsed.String())
 	if err := migrateDB(cfg); err != nil {
+		return cli.errorOut(err)
+	}
+	schema, err := dumpSchema(cfg)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	logger.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
+	var baseVersionID int64 = 54
+	if err := downAndUpDB(cfg, baseVersionID); err != nil {
+		return cli.errorOut(err)
+	}
+	if err := checkSchema(cfg, schema); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -424,20 +439,12 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 	}
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err := migrate.Rollback(db, version); err != nil {
+	if err := migrate.Rollback(db.DB, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -447,20 +454,12 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	version, err := migrate.Current(db)
+	version, err := migrate.Current(db.DB)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -472,20 +471,12 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Status(db); err != nil {
+	if err = migrate.Status(db.DB); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -494,32 +485,37 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 // CreateMigration displays the database migration status
 func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cfg := cli.Config
-	parsed := cfg.DatabaseURL()
-	if parsed.String() == "" {
-		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-
-	orm, err := orm.NewORM(parsed.String(), cfg.DatabaseTimeout(), gracefulpanic.NewSignal(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
+	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
 
 	migrationType := c.String("type")
 	if migrationType != "go" {
 		migrationType = "sql"
 	}
 
-	if err = migrate.Create(db, c.Args().First(), migrationType); err != nil {
+	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
+}
+
+func newConnection(cfg config.GeneralConfig) (*sqlx.DB, error) {
+	parsed := cfg.DatabaseURL()
+	if parsed.String() == "" {
+		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
+	}
+	config := postgres.Config{
+		LogSQLStatements: cfg.LogSQLStatements(),
+		MaxOpenConns:     cfg.ORMMaxOpenConns(),
+		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	}
+	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	return db, err
 }
 
 func dropAndCreateDB(parsed url.URL) (err error) {
@@ -549,20 +545,55 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func migrateDB(config config.GeneralConfig) error {
-	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	db, err := newConnection(config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-
-	db := postgres.UnwrapGormDB(orm.DB).DB
-
-	if err = migrate.Migrate(db); err != nil {
+	if err = migrate.Migrate(db.DB); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
-	orm.SetLogging(config.LogSQLStatements())
-	return orm.Close()
+	return db.Close()
+}
+
+func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
+	db, err := newConnection(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize orm: %v", err)
+	}
+	if err = migrate.Rollback(db.DB, null.IntFrom(baseVersionID)); err != nil {
+		return fmt.Errorf("test rollback failed: %v", err)
+	}
+	if err = migrate.Migrate(db.DB); err != nil {
+		return fmt.Errorf("second migrateDB failed: %v", err)
+	}
+	return db.Close()
+}
+
+func dumpSchema(cfg config.GeneralConfig) (string, error) {
+	dbURL := cfg.DatabaseURL()
+	args := []string{
+		dbURL.String(),
+		"--schema-only",
+	}
+	cmd := exec.Command(
+		"pg_dump", args...,
+	)
+
+	schema, err := cmd.Output()
+	return string(schema), err
+}
+
+func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
+	newSchema, err := dumpSchema(cfg)
+	if err != nil {
+		return err
+	}
+	df := diff.Diff(prevSchema, newSchema)
+	if len(df) > 0 {
+		fmt.Println(df)
+		return errors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
+	}
+	return nil
 }
 
 func insertFixtures(config config.GeneralConfig) (err error) {
