@@ -226,8 +226,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function transferOwnableContracts(address[] calldata ownable, address newOwner) external onlyOwner {
     for (uint256 i = 0; i < ownable.length; i++) {
-      OwnableInterface(ownable[i]).transferOwnership(newOwner);
       s_owned[ownable[i]] = false;
+      OwnableInterface(ownable[i]).transferOwnership(newOwner);
     }
   }
 
@@ -240,9 +240,9 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function acceptOwnableContracts(address[] calldata ownable) public validateAuthorizedSenderSetter {
     for (uint256 i = 0; i < ownable.length; i++) {
-      OwnableInterface(ownable[i]).acceptOwnership();
       s_owned[ownable[i]] = true;
       emit OwnableContractAccepted(ownable[i]);
+      OwnableInterface(ownable[i]).acceptOwnership();
     }
   }
 
