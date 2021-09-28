@@ -34,7 +34,8 @@ func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pi
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(db)
-	r := pipeline.NewRunner(orm, cfg, cc, nil, nil)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
 	return r, orm
 }
 
@@ -500,9 +501,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = &pipeline.JSONSerializable{
-		Val:  `{"data":{"result":"9700"}}` + "\n",
-		Null: false,
+	task.Output = pipeline.JSONSerializable{
+		Val:   `{"data":{"result":"9700"}}` + "\n",
+		Valid: true,
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
@@ -615,9 +616,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = &pipeline.JSONSerializable{
-			Val:  `{"data":{"result":"9700"}}` + "\n",
-			Null: false,
+		task.Output = pipeline.JSONSerializable{
+			Val:   `{"data":{"result":"9700"}}` + "\n",
+			Valid: true,
 		}
 	}).Once()
 	// StoreRun is called again to store the final result

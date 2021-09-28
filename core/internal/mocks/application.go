@@ -38,8 +38,6 @@ import (
 
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
-	store "github.com/smartcontractkit/chainlink/core/store"
-
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	uuid "github.com/satori/go.uuid"
@@ -279,22 +277,6 @@ func (_m *Application) GetLogger() logger.Logger {
 	return r0
 }
 
-// GetStore provides a mock function with given fields:
-func (_m *Application) GetStore() *store.Store {
-	ret := _m.Called()
-
-	var r0 *store.Store
-	if rf, ok := ret.Get(0).(func() *store.Store); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*store.Store)
-		}
-	}
-
-	return r0
-}
-
 // JobORM provides a mock function with given fields:
 func (_m *Application) JobORM() job.ORM {
 	ret := _m.Called()
@@ -372,11 +354,11 @@ func (_m *Application) ReplayFromBlock(chainID *big.Int, number uint64) error {
 }
 
 // ResumeJobV2 provides a mock function with given fields: ctx, taskID, result
-func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error {
+func (_m *Application) ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error {
 	ret := _m.Called(ctx, taskID, result)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, interface{}) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, pipeline.Result) error); ok {
 		r0 = rf(ctx, taskID, result)
 	} else {
 		r0 = ret.Error(0)

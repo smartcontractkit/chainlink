@@ -21,14 +21,14 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, db, 1, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 1, 2, from) // tx2
 
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
-	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt := cltest.NewLegacyEthTxAttempt(t, tx2.ID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, db.Create(&attempt).Error)
 

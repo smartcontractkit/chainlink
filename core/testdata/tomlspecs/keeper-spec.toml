@@ -1,5 +1,5 @@
 type            = "keeper"
-schemaVersion   = 1
+schemaVersion   = 2
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
@@ -16,6 +16,8 @@ check_upkeep_tx          [type=ethcall
                           contract="$(jobSpec.contractAddress)"
                           gas="$(jobSpec.checkUpkeepGasLimit)"
                           gasPrice="$(jobSpec.gasPrice)"
+                          gasTipCap="$(jobSpec.gasTipCap)"
+                          gasFeeCap="$(jobSpec.gasFeeCap)"
                           data="$(encode_check_upkeep_tx)"]
 decode_check_upkeep_tx   [type=ethabidecode
                           abi="bytes memory performData, uint256 maxLinkPayment, uint256 gasLimit, uint256 adjustedGasWei, uint256 linkEth"]

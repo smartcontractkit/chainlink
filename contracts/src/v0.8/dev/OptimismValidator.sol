@@ -18,16 +18,19 @@ import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOV
  */
 contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address constant private FLAG_OPTIMISM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
+  address public constant FLAG_OPTIMISM_SEQ_OFFLINE =
+    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.optimism-seq-offline")) - 1)));
   // Encode underlying Flags call/s
-  bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
-  uint32 constant private CALL_GAS_LIMIT = 1_200_000;
-  int256 constant private ANSWER_SEQ_OFFLINE = 1;
+  bytes private constant CALL_RAISE_FLAG =
+    abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+  bytes private constant CALL_LOWER_FLAG =
+    abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_OPTIMISM_SEQ_OFFLINE);
+  uint32 private constant CALL_GAS_LIMIT = 1_200_000;
+  int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
-  address immutable public CROSS_DOMAIN_MESSENGER;
-  address immutable public L2_CROSS_DOMAIN_FORWARDER;
-  address immutable public L2_FLAGS;
+  address public immutable CROSS_DOMAIN_MESSENGER;
+  address public immutable L2_CROSS_DOMAIN_FORWARDER;
+  address public immutable L2_FLAGS;
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Optimism bridge L1) contract address
@@ -54,15 +57,7 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *
    * @inheritdoc TypeAndVersionInterface
    */
-  function typeAndVersion()
-    external
-    pure
-    override
-    virtual
-    returns (
-      string memory
-    )
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "OptimismValidator 0.1.0";
   }
 
@@ -75,16 +70,11 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256 /* previousRoundId */,
+    uint256, /* previousRoundId */
     int256 previousAnswer,
-    uint256 /* currentRoundId */,
+    uint256, /* currentRoundId */
     int256 currentAnswer
-  )
-    external
-    override
-    checkAccess()
-    returns (bool)
-  {
+  ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
     if (previousAnswer == currentAnswer) {
       return true; // noop

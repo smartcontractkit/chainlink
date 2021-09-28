@@ -1,8 +1,7 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react'
-import { connect } from 'react-redux'
+import { connect, useDispatch } from 'react-redux'
 import { Redirect, useLocation } from 'react-router-dom'
 
-import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import Dialog from '@material-ui/core/Dialog'
 import Grid from '@material-ui/core/Grid'
@@ -19,13 +18,16 @@ import {
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 
-import { createJobRunV2, deleteJobSpec } from 'actionCreators'
+import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
+import * as api from 'api'
+import { createJobRunV2 } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
+import { notifySuccess, notifyError } from 'actionCreators'
 import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
@@ -127,12 +129,11 @@ const CreateRunSuccessNotification = ({ data }: any) => (
   </React.Fragment>
 )
 
-const DeleteSuccessNotification = ({ id }: any) => (
+const DeleteSuccessNotification = ({ id }: { id: string }) => (
   <React.Fragment>Successfully deleted job {id}</React.Fragment>
 )
 interface Props extends WithStyles<typeof styles> {
   createJobRunV2: Function
-  deleteJobSpec: Function
   jobId: string
   externalJobID?: string
   job: JobData['job']
@@ -145,11 +146,11 @@ const RegionalNavComponent = ({
   createJobRunV2,
   jobId,
   job,
-  deleteJobSpec,
   getJobSpecRuns,
   runsCount,
   externalJobID,
 }: Props) => {
+  const dispatch = useDispatch()
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
   const navDefinitionActive = location.pathname.endsWith('/definition')
@@ -178,17 +179,20 @@ const RegionalNavComponent = ({
     })
   }
 
-  const handleDelete = (id: string) => {
-    deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
-    setDeleted(true)
+  const handleDelete = async (id: string) => {
+    try {
+      await api.v2.jobs.destroyJobSpec(id)
+      setDeleted(true)
+      dispatch(notifySuccess(DeleteSuccessNotification, { id }))
+    } catch (e: any) {
+      dispatch(notifyError(ErrorMessage, e))
+
+      setModalOpen(false)
+    }
   }
 
   const typeDetail = useMemo(() => {
-    if (!job) {
-      return 'Unknown job type'
-    }
-
-    return `${job.specType}`
+    return job ? job.specType : 'Unknown job type'
   }, [job])
 
   const toggleRunJobModal = useCallback(() => {
@@ -479,7 +483,6 @@ const RunJobModal = (props: {
 
 export const ConnectedRegionalNav = connect(null, {
   createJobRunV2,
-  deleteJobSpec,
 })(RegionalNavComponent)
 
 export const RegionalNav = withStyles(styles)(ConnectedRegionalNav)

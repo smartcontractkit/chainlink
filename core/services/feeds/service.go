@@ -333,7 +333,7 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
-		return errors.Wrap(err, "job proposal does not exist")
+		return errors.Wrap(err, "job proposal error")
 	}
 
 	fmsClient, err := s.connMgr.GetClient(jp.FeedsManagerID)
@@ -341,8 +341,8 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client is not connected")
 	}
 
-	if jp.Status != JobProposalStatusPending {
-		return errors.New("must be a pending job proposal")
+	if jp.Status != JobProposalStatusPending && jp.Status != JobProposalStatusCancelled {
+		return errors.New("must be a pending or cancelled job proposal")
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)

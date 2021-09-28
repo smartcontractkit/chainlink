@@ -19,20 +19,20 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/spf13/viper"
+	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/spf13/viper"
-	"go.uber.org/zap/zapcore"
-	"gorm.io/gorm"
 )
 
 // this permission grants read / write accccess to file owners only
@@ -99,6 +99,7 @@ type GeneralOnlyConfig interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
+	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
@@ -190,6 +191,7 @@ type GlobalConfig interface {
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
 	GlobalEvmDefaultBatchSize() (uint32, bool)
+	GlobalEvmEIP1559DynamicFees() (bool, bool)
 	GlobalEvmFinalityDepth() (uint32, bool)
 	GlobalEvmGasBumpPercent() (uint16, bool)
 	GlobalEvmGasBumpThreshold() (uint64, bool)
@@ -199,6 +201,8 @@ type GlobalConfig interface {
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
 	GlobalEvmGasPriceDefault() (*big.Int, bool)
+	GlobalEvmGasTipCapDefault() (*big.Int, bool)
+	GlobalEvmGasTipCapMinimum() (*big.Int, bool)
 	GlobalEvmHeadTrackerHistoryDepth() (uint32, bool)
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
@@ -211,6 +215,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
+	GlobalLayer2Type() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -232,12 +237,10 @@ type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	ORM              *ORM
-	ks               keystore.Master
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
 	advisoryLockID   int64
-	p2ppeerIDmtx     sync.Mutex
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -623,10 +626,16 @@ func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
 }
 
-// KeeperGasPriceBufferPercent controls the queue size for DropOldestStrategy in Keeper
-// Set to 0 to use SendEvery strategy instead
+// KeeperGasPriceBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in legacy mode.
 func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperGasPriceBufferPercent"))
+}
+
+// KeeperGasTipCapBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
+	return c.viper.GetUint32(EnvVarName("KeeperGasTipCapBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
@@ -1440,6 +1449,13 @@ func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
+func (*generalConfig) GlobalLayer2Type() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
+	if val == nil {
+		return "", false
+	}
+	return val.(string), ok
+}
 func (*generalConfig) GlobalLinkContractAddress() (string, bool) {
 	val, ok := lookupEnv(EnvVarName("LinkContractAddress"), ParseString)
 	if val == nil {
@@ -1474,6 +1490,27 @@ func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 		return 0, false
 	}
 	return val.(uint16), ok
+}
+func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)
+	if val == nil {
+		return false, false
+	}
+	return val.(bool), ok
+}
+func (*generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmGasTipCapDefault"), ParseBigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmGasTipCapMinimum"), ParseBigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
 }
 
 // ClobberNodesFromEnv will upsert a new chain using the DefaultChainID and

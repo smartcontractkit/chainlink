@@ -5,7 +5,6 @@ import (
 	"math"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -64,8 +63,6 @@ type (
 		services []Service
 	}
 )
-
-const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 

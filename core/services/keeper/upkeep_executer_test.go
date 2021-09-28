@@ -47,28 +47,29 @@ func setup(t *testing.T) (
 	cltest.JobPipelineV2TestHelper,
 	*bptxmmocks.TxManager,
 ) {
-	config := cltest.NewTestGeneralConfig(t)
-	config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	db := pgtest.NewGormDB(t)
-	config.SetDB(db)
+	cfg.SetDB(db)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, keyStore.Eth())
-	cfg := cltest.NewTestGeneralConfig(t)
 	txm := new(bptxmmocks.TxManager)
+	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
+	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
-	estimator.On("EstimateGas", mock.Anything, mock.Anything).Return(assets.GWei(60), uint64(0), nil)
+	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, txm, config, bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), config.CreateProductionLogger(), config)
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
+	orm := keeper.NewORM(db, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), cfg.CreateProductionLogger(), ch.Config())
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start()
-	t.Cleanup(func() { executer.Close() })
+	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
-	return db, config, ethClient, executer, registry, upkeep, job, jpv2, txm
+	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
 }
 
 var checkUpkeepResponse = struct {
