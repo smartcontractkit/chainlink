@@ -148,9 +148,7 @@ func (b *BlockHistoryEstimator) Close() error {
 func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
-		b.mu.RLock()
-		defer b.mu.RUnlock()
-		gasPrice = b.gasPrice
+		gasPrice = b.getGasPrice()
 	})
 	if !ok {
 		return nil, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
@@ -161,8 +159,19 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt
 	return
 }
 
+func (b *BlockHistoryEstimator) getGasPrice() *big.Int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.gasPrice
+}
+func (b *BlockHistoryEstimator) getTipCap() *big.Int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return b.tipCap
+}
+
 func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(b.config, originalGasPrice, gasLimit)
+	return BumpLegacyGasPriceOnly(b.config, b.getGasPrice(), originalGasPrice, gasLimit)
 }
 
 func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
@@ -172,9 +181,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 	var tipCap *big.Int
 	ok := b.IfStarted(func() {
 		chainSpecificGasLimit = applyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
-		b.mu.RLock()
-		defer b.mu.RUnlock()
-		tipCap = b.tipCap
+		tipCap = b.getTipCap()
 	})
 	if !ok {
 		return fee, 0, errors.New("BlockHistoryEstimator is not started; cannot estimate gas")
@@ -188,7 +195,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 }
 
 func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(b.config, originalFee, originalGasLimit)
+	return BumpDynamicFeeOnly(b.config, b.getTipCap(), originalFee, originalGasLimit)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {

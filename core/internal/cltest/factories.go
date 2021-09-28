@@ -487,12 +487,13 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitte
 	t.Helper()
 
 	pid := p2pkey.PeerID(DefaultP2PPeerID)
+	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
 		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                null.NewString(DefaultOCRKeyBundleID, true),
+		EncryptedOCRKeyBundleID:                &ocrKeyID,
 		TransmitterAddress:                     &transmitterAddress,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
@@ -614,7 +615,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, r
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
 		State:      pipeline.RunStatusRunning,
-		Outputs:    pipeline.JSONSerializable{Null: true},
+		Outputs:    pipeline.JSONSerializable{},
 		Errors:     pipeline.RunErrors{},
 		FinishedAt: null.Time{},
 	}

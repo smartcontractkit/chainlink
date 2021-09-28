@@ -13,7 +13,6 @@ import (
 func Test_FixedPriceEstimator(t *testing.T) {
 	t.Parallel()
 
-	// TODO: Add this test for BlockHistoryEstimator also
 	t.Run("GetLegacyGas returns EvmGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
 		config := new(mocks.Config)
 		f := gas.NewFixedPriceEstimator(config)
@@ -42,7 +41,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		gasPrice, gasLimit, err := f.BumpLegacyGas(big.NewInt(42), 100000)
 		require.NoError(t, err)
 
-		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, big.NewInt(42), 100000)
+		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, nil, big.NewInt(42), 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
@@ -83,7 +82,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		fee, gasLimit, err := f.BumpDynamicFee(originalFee, 100000)
 		require.NoError(t, err)
 
-		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, originalFee, 100000)
+		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, nil, originalFee, 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)

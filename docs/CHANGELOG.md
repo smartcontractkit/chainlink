@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-Add support for OKEx/ExChain.
+Support for OKEx/ExChain.
 
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
+
+Chanlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
 #### Full EIP1559 Support
 
@@ -21,13 +23,13 @@ Chainlink now includes experimental support for submitting transactions using ty
 
 EIP-1559 mode is off by default but can be enabled on a per-chain basis or globally.
 
+This may help to save gas on spikes: Chainlink ought to react faster on the upleg and avoid overpaying on the downleg. It may also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value e.g. 12 or even 6 because tip cap ought to be a more consistent indicator of inclusion time than total gas price. This would make Chainlink more responsive and ought to reduce response time variance. Some experimentation will be needed here to find optimum settings.
+
 To enable globally, set `EVM_EIP1559_DYNAMIC_FEES=true`. Set with caution, if you set this on a chain that does not actually support EIP-1559 your node will be broken.
 
 In EIP-1559 mode, the total price for the transaction is the minimum of base fee + tip cap and fee cap. More information can be found on the [official EIP](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md).
 
 Chainlink's implementation of this is to set a large fee cap and modify the tip cap to control confirmation speed of transactions. So, when in EIP1559 mode, the tip cap takes the place of gas price roughly speaking, with the varying base price remaining a constant (we always pay it).
-
-This may help to save gas on spikes: Chainlink ought to react faster on the upleg and avoid overpaying on the downleg. It may also be possible to set `BLOCK_HISTORY_ESTIMATOR_BATCH_SIZE` to a smaller value e.g. 12 or even 6 because tip cap ought to be a more consistent indicator of inclusion time than total gas price. This would make Chainlink more responsive and ought to reduce response time variance. Some experimentation will be needed here to find optimum settings.
 
 A quick note on terminology - Chainlink uses the same terms used internally by go-ethereum source code to describe various prices. This is not the same as the externally used terms. For reference:
 
@@ -76,9 +78,38 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
 
+#### Async support in external adapters
+
+External Adapters making async callbacks can now error job runs. This required a slight change to format, the correct way to callback from an asynchronous EA is using the following JSON:
+
+SUCCESS CASE:
+
+```json
+{
+    "value": < any valid json object >
+}
+```
+
+ERROR CASE:
+
+
+```json
+{
+    "error": "some error string"
+}
+```
+
+This only applies to EAs using the `X-Chainlink-Pending` header to signal that the result will be POSTed back to the Chainlink node sometime 'later'. Regular synchronous calls to EAs work just as they always have done.
+
+(NOTE: Official documentation for EAs needs to be updated)
+
 ### Removed
 
 - `belt/` and `evm-test-helpers/` removed from the codebase.
+
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
 
 ## [v1.0.0]
 

@@ -1349,7 +1349,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Once for the bumped attempt which exceeds limit
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(25000000000)
+			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(20000000000)
 		})).Return(errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
 
 		// Do the thing
@@ -1373,7 +1373,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1425,7 +1425,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	var attempt1_3 bulletprooftxmanager.EthTxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(30000000000)
+		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1467,7 +1467,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	var attempt1_4 bulletprooftxmanager.EthTxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(36000000000)
+		expectedBumpedGasPrice := big.NewInt(30000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1524,7 +1524,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	var attempt2_2 bulletprooftxmanager.EthTxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1595,7 +1595,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	require.NoError(t, db.Save(&attempt2_2).Error)
 
 	t.Run("assumes that 'nonce too low' error means success", func(t *testing.T) {
-		expectedBumpedGasPrice := big.NewInt(30000000000)
+		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
 		ethTx := *types.NewTx(&types.LegacyTx{})
@@ -1932,7 +1932,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("saves attempt with state 'insufficient_eth' if eth node returns this error", func(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, keyStates, nil)
 
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -1960,7 +1960,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("does not bump gas when previous error was 'out of eth', instead resubmits existing transaction", func(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, keyStates, nil)
 
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -1987,7 +1987,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
 		ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, keyStates, nil)
 
-		expectedBumpedGasPrice := big.NewInt(25000000000)
+		expectedBumpedGasPrice := big.NewInt(20000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_1.GasPrice.ToInt().Int64())
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
@@ -2359,7 +2359,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
 
 	t.Run("doesn't process task runs that are not suspended (possibly already previously resumed)", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2379,7 +2379,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	})
 
 	t.Run("doesn't process task runs where the receipt is younger than minConfirmations", func(t *testing.T) {
-		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(uuid.UUID, interface{}, error) error {
 			t.Fatal("No value expected")
 			return nil
 		})
@@ -2401,7 +2401,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	t.Run("processes eth_txes with receipts older than minConfirmations", func(t *testing.T) {
 		ch := make(chan interface{})
-		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}) error {
+		ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, func(id uuid.UUID, value interface{}, err error) error {
+			require.Nil(t, err)
 			ch <- value
 			return nil
 		})

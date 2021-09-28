@@ -203,10 +203,10 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), logger.Default)
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), nil, logger.Default)
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn func(id uuid.UUID, value interface{}) error) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
 	return ec
@@ -429,15 +429,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 
 	return ta
-}
-
-func contains(flagsAndDeps []interface{}, value interface{}) bool {
-	for _, flag := range flagsAndDeps {
-		if flag == value {
-			return true
-		}
-	}
-	return false
 }
 
 func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
@@ -894,35 +885,40 @@ func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job
 	return jse
 }
 
+func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
+}
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
+}
+
+func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
-	var numPipelineRuns int
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
-		var completed []pipeline.Run
+		var matched []pipeline.Run
 
 		for _, pr := range prs {
-			if pr.State != pipeline.RunStatusCompleted {
+			if pr.State != state {
 				continue
 			}
 
 			// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
-			// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+			// (if the read occurs mid-transaction and a job run is inserted but task runs not yet).
 			if len(pr.PipelineTaskRuns) == expectedTaskRuns {
-				completed = append(completed, pr)
+				matched = append(matched, pr)
 			}
 		}
 
-		numPipelineRuns = len(completed)
-		if numPipelineRuns >= expectedPipelineRuns {
-			pr = completed
+		if len(matched) >= expectedPipelineRuns {
+			pr = matched
 			return true
 		}
 		return false
-	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs (found %v runs)", jobID, nodeID, expectedPipelineRuns, numPipelineRuns))
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not %s with %d runs", jobID, nodeID, state, expectedPipelineRuns))
 	return pr
 }
 
