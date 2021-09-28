@@ -57,7 +57,17 @@ describe('OperatorFactory', () => {
       'deployNewForwarder',
       'deployNewForwarderAndTransferOwnership',
       'getChainlinkToken',
+      'typeAndVersion',
     ])
+  })
+
+  describe('#typeAndVersion', () => {
+    it('describes the authorized forwarder', async () => {
+      assert.equal(
+        await operatorGenerator.typeAndVersion(),
+        'OperatorFactory 1.0.0',
+      )
+    })
   })
 
   describe('#deployNewOperator', () => {

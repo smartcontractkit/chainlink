@@ -131,6 +131,7 @@ describe('Operator', () => {
       'setAuthorizedSenders',
       'setAuthorizedSendersOn',
       'transferOwnableContracts',
+      'typeAndVersion',
       'withdraw',
       'withdrawable',
       // Ownable methods:
@@ -138,6 +139,12 @@ describe('Operator', () => {
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#typeAndVersion', () => {
+    it('describes the operator', async () => {
+      assert.equal(await operator.typeAndVersion(), 'Operator 1.0.0')
+    })
   })
 
   describe('#transferOwnableContracts', () => {
