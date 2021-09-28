@@ -130,6 +130,19 @@ export const JobProposalScreen = () => {
             </Button>
           </>
         )
+      case 'cancelled':
+        return (
+          <>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => setConfirmApprove(true)}
+            >
+              Approve
+            </Button>
+          </>
+        )
+
       default:
         return null
     }
