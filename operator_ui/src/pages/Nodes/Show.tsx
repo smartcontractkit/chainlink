@@ -8,7 +8,7 @@ import {
   withStyles,
 } from '@material-ui/core/styles'
 import { v2 } from 'api'
-import { NodeSpecV2 } from '../NodesIndex/NodesIndex'
+import { NodeResource } from '../NodesIndex/NodesIndex'
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
@@ -94,7 +94,7 @@ interface Props extends WithStyles<typeof styles> {
 
 export const NodesShow = ({ classes, deleteNode }: Props) => {
   const { nodeId } = useParams<RouteParams>()
-  const [node, setNode] = React.useState<NodeSpecV2>()
+  const [node, setNode] = React.useState<NodeResource>()
   const [modalOpen, setModalOpen] = useState(false)
   const [deleted, setDeleted] = useState(false)
 
@@ -110,7 +110,7 @@ export const NodesShow = ({ classes, deleteNode }: Props) => {
   React.useEffect(() => {
     Promise.all([v2.nodes.getNodes()])
       .then(([v2Nodes]) =>
-        v2Nodes.data.find((node: NodeSpecV2) => node.id === nodeId),
+        v2Nodes.data.find((node: NodeResource) => node.id === nodeId),
       )
       .then(setNode)
   }, [nodeId])
