@@ -55,11 +55,21 @@ describe('AuthorizedForwarder', () => {
       'ownerForward',
       'setAuthorizedSenders',
       'transferOwnershipWithMessage',
+      'typeAndVersion',
       // ConfirmedOwner
       'transferOwnership',
       'acceptOwnership',
       'owner',
     ])
+  })
+
+  describe('#typeAndVersion', () => {
+    it('describes the authorized forwarder', async () => {
+      assert.equal(
+        await forwarder.typeAndVersion(),
+        'AuthorizedForwarder 1.0.0',
+      )
+    })
   })
 
   describe('deployment', () => {

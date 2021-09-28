@@ -23,6 +23,14 @@ contract OperatorFactory {
   }
 
   /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "OperatorFactory 1.0.0";
+  }
+
+  /**
    * @notice creates a new Operator contract with the msg.sender as owner
    */
   function deployNewOperator() external returns (address) {
