@@ -68,7 +68,7 @@ type EthConfirmer struct {
 	config         Config
 	keystore       KeyStore
 	estimator      gas.Estimator
-	resumeCallback func(id uuid.UUID, value interface{}) error
+	resumeCallback ResumeCallback
 
 	keyStates []ethkey.State
 
@@ -80,7 +80,7 @@ type EthConfirmer struct {
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback func(id uuid.UUID, value interface{}) error, logger logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, logger logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
@@ -1296,7 +1296,7 @@ func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head eth.Head
 	}
 
 	for _, data := range receipts {
-		if err := ec.resumeCallback(data.ID, data.Receipt); err != nil {
+		if err := ec.resumeCallback(data.ID, data.Receipt, nil); err != nil {
 			return err
 		}
 	}

@@ -27,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -216,6 +215,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
+	GlobalLayer2Type() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -237,12 +237,10 @@ type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	ORM              *ORM
-	ks               keystore.Master
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
 	advisoryLockID   int64
-	p2ppeerIDmtx     sync.Mutex
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -1446,6 +1444,13 @@ func (*generalConfig) GlobalFlagsContractAddress() (string, bool) {
 }
 func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	val, ok := lookupEnv(EnvVarName("GasEstimatorMode"), ParseString)
+	if val == nil {
+		return "", false
+	}
+	return val.(string), ok
+}
+func (*generalConfig) GlobalLayer2Type() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
 	if val == nil {
 		return "", false
 	}

@@ -8,8 +8,7 @@ import (
 )
 
 type Chain interface {
-	IsArbitrum() bool
-	IsOptimism() bool
+	Layer2Type() string
 }
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
@@ -20,9 +19,10 @@ type BlockTranslator interface {
 
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(chain Chain, client eth.Client) BlockTranslator {
-	if chain.IsArbitrum() {
+	switch chain.Layer2Type() {
+	case "Arbitrum":
 		return NewArbitrumBlockTranslator(client)
-	} else if chain.IsOptimism() {
+	case "Optimism":
 		return newOptimismBlockTranslator()
 	}
 	return &l1BlockTranslator{}

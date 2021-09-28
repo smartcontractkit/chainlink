@@ -131,6 +131,7 @@ describe('Operator', () => {
       'setAuthorizedSenders',
       'setAuthorizedSendersOn',
       'transferOwnableContracts',
+      'typeAndVersion',
       'withdraw',
       'withdrawable',
       // Ownable methods:
@@ -138,6 +139,12 @@ describe('Operator', () => {
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#typeAndVersion', () => {
+    it('describes the operator', async () => {
+      assert.equal(await operator.typeAndVersion(), 'Operator 1.0.0')
+    })
   })
 
   describe('#transferOwnableContracts', () => {
@@ -229,21 +236,21 @@ describe('Operator', () => {
       })
 
       it('emits ownership transferred events', async () => {
-        assert.equal(receipt?.events?.[0]?.event, 'OwnershipTransferred')
-        assert.equal(receipt?.events?.[0]?.address, forwarder1.address)
-        assert.equal(receipt?.events?.[0]?.args?.[0], operator.address)
-        assert.equal(receipt?.events?.[0]?.args?.[1], operator2.address)
+        assert.equal(receipt?.events?.[0]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[0]?.args?.[0], forwarder1.address)
 
-        assert.equal(receipt?.events?.[1]?.event, 'OwnableContractAccepted')
-        assert.equal(receipt?.events?.[1]?.args?.[0], forwarder1.address)
+        assert.equal(receipt?.events?.[1]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[1]?.address, forwarder1.address)
+        assert.equal(receipt?.events?.[1]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[1]?.args?.[1], operator2.address)
 
-        assert.equal(receipt?.events?.[2]?.event, 'OwnershipTransferred')
-        assert.equal(receipt?.events?.[2]?.address, forwarder2.address)
-        assert.equal(receipt?.events?.[2]?.args?.[0], operator.address)
-        assert.equal(receipt?.events?.[2]?.args?.[1], operator2.address)
+        assert.equal(receipt?.events?.[2]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[2]?.args?.[0], forwarder2.address)
 
-        assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
-        assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
+        assert.equal(receipt?.events?.[3]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[3]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[3]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[3]?.args?.[1], operator2.address)
       })
     })
 
@@ -610,21 +617,21 @@ describe('Operator', () => {
       })
 
       it('emits ownership transferred events', async () => {
-        assert.equal(receipt?.events?.[0]?.event, 'OwnershipTransferred')
-        assert.equal(receipt?.events?.[0]?.address, forwarder1.address)
-        assert.equal(receipt?.events?.[0]?.args?.[0], operator.address)
-        assert.equal(receipt?.events?.[0]?.args?.[1], operator2.address)
+        assert.equal(receipt?.events?.[0]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[0]?.args?.[0], forwarder1.address)
 
-        assert.equal(receipt?.events?.[1]?.event, 'OwnableContractAccepted')
-        assert.equal(receipt?.events?.[1]?.args?.[0], forwarder1.address)
+        assert.equal(receipt?.events?.[1]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[1]?.address, forwarder1.address)
+        assert.equal(receipt?.events?.[1]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[1]?.args?.[1], operator2.address)
 
-        assert.equal(receipt?.events?.[2]?.event, 'OwnershipTransferred')
-        assert.equal(receipt?.events?.[2]?.address, forwarder2.address)
-        assert.equal(receipt?.events?.[2]?.args?.[0], operator.address)
-        assert.equal(receipt?.events?.[2]?.args?.[1], operator2.address)
+        assert.equal(receipt?.events?.[2]?.event, 'OwnableContractAccepted')
+        assert.equal(receipt?.events?.[2]?.args?.[0], forwarder2.address)
 
-        assert.equal(receipt?.events?.[3]?.event, 'OwnableContractAccepted')
-        assert.equal(receipt?.events?.[3]?.args?.[0], forwarder2.address)
+        assert.equal(receipt?.events?.[3]?.event, 'OwnershipTransferred')
+        assert.equal(receipt?.events?.[3]?.address, forwarder2.address)
+        assert.equal(receipt?.events?.[3]?.args?.[0], operator.address)
+        assert.equal(receipt?.events?.[3]?.args?.[1], operator2.address)
 
         assert.equal(
           receipt?.events?.[4]?.event,

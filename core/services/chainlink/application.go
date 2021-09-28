@@ -28,7 +28,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	loggerPkg "github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -60,7 +59,7 @@ import (
 type Application interface {
 	Start() error
 	Stop() error
-	GetLogger() loggerPkg.Logger
+	GetLogger() logger.Logger
 	GetHealthChecker() health.Checker
 	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
@@ -83,7 +82,7 @@ type Application interface {
 	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
-	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result interface{}) error
+	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	SetServiceLogger(ctx context.Context, service string, level string) error
@@ -120,7 +119,7 @@ type ChainlinkApplication struct {
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
-	logger                   loggerPkg.Logger
+	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
 	gormDB                   *gorm.DB
 
@@ -136,7 +135,7 @@ type ApplicationOpts struct {
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
-	Logger                   loggerPkg.Logger
+	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 }
 
@@ -327,13 +326,13 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 
 	// TODO: Implement other service loggers
 	switch serviceName {
-	case loggerPkg.HeadTracker:
+	case logger.HeadTracker:
 		for _, c := range app.ChainSet.Chains() {
 			c.HeadTracker().SetLogger(newL)
 		}
-	case loggerPkg.FluxMonitor:
+	case logger.FluxMonitor:
 		// TODO: Set FMv2?
-	case loggerPkg.Keeper:
+	case logger.Keeper:
 	default:
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
@@ -463,7 +462,7 @@ func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() loggerPkg.Logger {
+func (app *ChainlinkApplication) GetLogger() logger.Logger {
 	return app.logger
 }
 
@@ -602,9 +601,9 @@ func (app *ChainlinkApplication) RunJobV2(
 func (app *ChainlinkApplication) ResumeJobV2(
 	ctx context.Context,
 	taskID uuid.UUID,
-	result interface{},
+	result pipeline.Result,
 ) error {
-	return app.pipelineRunner.ResumeRun(taskID, result)
+	return app.pipelineRunner.ResumeRun(taskID, result.Value, result.Error)
 }
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {

@@ -533,20 +533,6 @@ func (_m *ChainScopedConfig) Dev() bool {
 	return r0
 }
 
-// EvmEIP1559DynamicFees provides a mock function with given fields:
-func (_m *ChainScopedConfig) EvmEIP1559DynamicFees() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // EVMDisabled provides a mock function with given fields:
 func (_m *ChainScopedConfig) EVMDisabled() bool {
 	ret := _m.Called()
@@ -672,6 +658,20 @@ func (_m *ChainScopedConfig) EvmDefaultBatchSize() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// EvmEIP1559DynamicFees provides a mock function with given fields:
+func (_m *ChainScopedConfig) EvmEIP1559DynamicFees() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0
@@ -2144,6 +2144,20 @@ func (_m *ChainScopedConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 
 // KeeperGasPriceBufferPercent provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperGasPriceBufferPercent() uint32 {
+	ret := _m.Called()
+
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// KeeperGasTipCapBufferPercent provides a mock function with given fields:
+func (_m *ChainScopedConfig) KeeperGasTipCapBufferPercent() uint32 {
 	ret := _m.Called()
 
 	var r0 uint32

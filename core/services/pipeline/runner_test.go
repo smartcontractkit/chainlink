@@ -501,9 +501,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = &pipeline.JSONSerializable{
-		Val:  `{"data":{"result":"9700"}}` + "\n",
-		Null: false,
+	task.Output = pipeline.JSONSerializable{
+		Val:   `{"data":{"result":"9700"}}` + "\n",
+		Valid: true,
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
@@ -616,9 +616,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = &pipeline.JSONSerializable{
-			Val:  `{"data":{"result":"9700"}}` + "\n",
-			Null: false,
+		task.Output = pipeline.JSONSerializable{
+			Val:   `{"data":{"result":"9700"}}` + "\n",
+			Valid: true,
 		}
 	}).Once()
 	// StoreRun is called again to store the final result

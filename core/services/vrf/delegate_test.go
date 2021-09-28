@@ -523,7 +523,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 		}
 		// Log parsing task itself should succeed.
 		if tr.Type != pipeline.TaskTypeETHABIDecodeLog {
-			assert.Nil(t, tr.Output)
+			assert.False(t, tr.Output.Valid)
 		}
 	}
 

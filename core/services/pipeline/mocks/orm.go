@@ -205,25 +205,25 @@ func (_m *ORM) StoreRun(db postgres.Queryer, run *pipeline.Run) (bool, error) {
 }
 
 // UpdateTaskRunResult provides a mock function with given fields: taskID, result
-func (_m *ORM) UpdateTaskRunResult(taskID uuid.UUID, result interface{}) (pipeline.Run, bool, error) {
+func (_m *ORM) UpdateTaskRunResult(taskID uuid.UUID, result pipeline.Result) (pipeline.Run, bool, error) {
 	ret := _m.Called(taskID, result)
 
 	var r0 pipeline.Run
-	if rf, ok := ret.Get(0).(func(uuid.UUID, interface{}) pipeline.Run); ok {
+	if rf, ok := ret.Get(0).(func(uuid.UUID, pipeline.Result) pipeline.Run); ok {
 		r0 = rf(taskID, result)
 	} else {
 		r0 = ret.Get(0).(pipeline.Run)
 	}
 
 	var r1 bool
-	if rf, ok := ret.Get(1).(func(uuid.UUID, interface{}) bool); ok {
+	if rf, ok := ret.Get(1).(func(uuid.UUID, pipeline.Result) bool); ok {
 		r1 = rf(taskID, result)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(uuid.UUID, interface{}) error); ok {
+	if rf, ok := ret.Get(2).(func(uuid.UUID, pipeline.Result) error); ok {
 		r2 = rf(taskID, result)
 	} else {
 		r2 = ret.Error(2)
