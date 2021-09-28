@@ -35,32 +35,17 @@ import (
 // Unless otherwise specified, these should support changing at runtime
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
-	BlockHistoryEstimatorBatchSize() uint32
-	BlockHistoryEstimatorBlockDelay() uint16
-	BlockHistoryEstimatorBlockHistorySize() uint16
-	BlockHistoryEstimatorTransactionPercentile() uint16
-	EvmEIP1559DynamicFees() bool
+	gas.Config
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
-	EvmFinalityDepth() uint32
-	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
-	EvmGasBumpWei() *big.Int
-	EvmGasFeeCap() *big.Int
 	EvmGasLimitDefault() uint64
-	EvmGasLimitMultiplier() float32
-	EvmGasPriceDefault() *big.Int
-	EvmGasTipCapDefault() *big.Int
-	EvmGasTipCapMinimum() *big.Int
-	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
-	EvmMinGasPriceWei() *big.Int
 	EvmNonceAutoSync() bool
 	EvmRPCDefaultBatchSize() uint32
-	GasEstimatorMode() string
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
 }

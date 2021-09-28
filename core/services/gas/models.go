@@ -80,6 +80,7 @@ type Config interface {
 	BlockHistoryEstimatorBlockDelay() uint16
 	BlockHistoryEstimatorBlockHistorySize() uint16
 	BlockHistoryEstimatorTransactionPercentile() uint16
+	ChainType() string
 	EvmEIP1559DynamicFees() bool
 	EvmFinalityDepth() uint32
 	EvmGasBumpPercent() uint16

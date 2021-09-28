@@ -149,6 +149,7 @@ func setChainSpecificConfigDefaultSets() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := fallbackDefaultSet
+	xDaiMainnet.chainType = "XDai"
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)

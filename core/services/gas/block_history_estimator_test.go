@@ -329,6 +329,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 	config.On("BlockHistoryEstimatorBlockDelay").Return(uint16(0))
 	config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(uint16(3))
+	config.On("ChainType").Return("")
 	config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000))
 	config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 	config.On("BlockHistoryEstimatorBatchSize").Return(uint32(0))
@@ -410,6 +411,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
@@ -444,6 +446,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
@@ -478,6 +481,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(minGasPrice)
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(100))
@@ -524,6 +528,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
@@ -558,6 +563,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMock(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
@@ -595,6 +601,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		reasonablyHugeGasPrice := big.NewInt(0).Mul(big.NewInt(math.MaxInt64), big.NewInt(1000))
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(reasonablyHugeGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(10))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
@@ -639,6 +646,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(100))
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(50))
@@ -685,6 +693,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
 
@@ -722,6 +731,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("EvmGasTipCapMinimum").Return(big.NewInt(0))
@@ -759,6 +769,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("EvmGasTipCapMinimum").Return(big.NewInt(10))
@@ -796,6 +807,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("EvmGasTipCapMinimum").Return(big.NewInt(10))
@@ -844,6 +856,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
+		config.On("ChainType").Return("")
 		config.On("EvmMaxGasPriceWei").Return(maxGasPrice)
 		config.On("EvmMinGasPriceWei").Return(big.NewInt(0))
 		config.On("EvmGasTipCapMinimum").Return(big.NewInt(0))
