@@ -75,6 +75,14 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   }
 
   /**
+   * @notice The type and version of this contract
+   * @return Type and version string
+   */
+  function typeAndVersion() external pure virtual returns (string memory) {
+    return "Operator 1.0.0";
+  }
+
+  /**
    * @notice Creates the Chainlink request. This is a backwards compatible API
    * with the Oracle.sol contract, but the behavior changes because
    * callbackAddress is assumed to be the same as the request sender.
@@ -226,8 +234,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function transferOwnableContracts(address[] calldata ownable, address newOwner) external onlyOwner {
     for (uint256 i = 0; i < ownable.length; i++) {
-      OwnableInterface(ownable[i]).transferOwnership(newOwner);
       s_owned[ownable[i]] = false;
+      OwnableInterface(ownable[i]).transferOwnership(newOwner);
     }
   }
 
@@ -240,9 +248,9 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function acceptOwnableContracts(address[] calldata ownable) public validateAuthorizedSenderSetter {
     for (uint256 i = 0; i < ownable.length; i++) {
-      OwnableInterface(ownable[i]).acceptOwnership();
       s_owned[ownable[i]] = true;
       emit OwnableContractAccepted(ownable[i]);
+      OwnableInterface(ownable[i]).acceptOwnership();
     }
   }
 
