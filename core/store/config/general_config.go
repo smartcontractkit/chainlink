@@ -215,7 +215,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalLayer2Type() (string, bool)
+	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -1449,8 +1449,8 @@ func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalLayer2Type() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
+func (*generalConfig) GlobalChainType() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("ChainType"), ParseString)
 	if val == nil {
 		return "", false
 	}

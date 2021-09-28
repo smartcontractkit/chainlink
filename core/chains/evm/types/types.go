@@ -65,7 +65,7 @@ type ChainCfg struct {
 	EvmRPCDefaultBatchSize                null.Int
 	FlagsContractAddress                  null.String
 	GasEstimatorMode                      null.String
-	Layer2Type                            null.String
+	ChainType                             null.String
 	MinIncomingConfirmations              null.Int
 	MinRequiredOutgoingConfirmations      null.Int
 	MinimumContractPayment                *assets.Link
@@ -96,6 +96,16 @@ type Chain struct {
 
 func (Chain) TableName() string {
 	return "evm_chains"
+}
+
+// IsL2 returns true if this chain is an L2 chain. Notably the block numbers
+// used for log searching are different from calling block.number
+func IsL2(chainType string) bool {
+	switch chainType {
+	case "Arbitrum", "Optimism":
+		return true
+	}
+	return false
 }
 
 func IsExChain(id *big.Int) bool {

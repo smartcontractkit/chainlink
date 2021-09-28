@@ -8,7 +8,7 @@ import (
 )
 
 type Chain interface {
-	Layer2Type() string
+	ChainType() string
 }
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
@@ -19,7 +19,7 @@ type BlockTranslator interface {
 
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(chain Chain, client eth.Client) BlockTranslator {
-	switch chain.Layer2Type() {
+	switch chain.ChainType() {
 	case "Arbitrum":
 		return NewArbitrumBlockTranslator(client)
 	case "Optimism":

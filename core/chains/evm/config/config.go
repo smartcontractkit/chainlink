@@ -58,7 +58,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	Layer2Type() string
+	ChainType() string
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -590,18 +590,18 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) Layer2Type() string {
-	val, ok := c.GeneralConfig.GlobalLayer2Type()
+func (c *chainScopedConfig) ChainType() string {
+	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
-		c.logEnvOverrideOnce("Layer2Type", val)
+		c.logEnvOverrideOnce("ChainType", val)
 		return val
 	}
 
-	if c.persistedCfg.Layer2Type.Valid {
-		c.logPersistedOverrideOnce("Layer2Type", c.persistedCfg.Layer2Type.String)
-		return c.persistedCfg.Layer2Type.String
+	if c.persistedCfg.ChainType.Valid {
+		c.logPersistedOverrideOnce("ChainType", c.persistedCfg.ChainType.String)
+		return c.persistedCfg.ChainType.String
 	}
-	return c.defaultSet.layer2Type
+	return c.defaultSet.chainType
 }
 
 // LinkContractAddress represents the address of the official LINK token

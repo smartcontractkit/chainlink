@@ -24,6 +24,7 @@ type (
 		blockHistoryEstimatorBlockDelay            uint16
 		blockHistoryEstimatorBlockHistorySize      uint16
 		blockHistoryEstimatorTransactionPercentile uint16
+		chainType                                  string
 		eip1559DynamicFees                         bool
 		ethTxReaperInterval                        time.Duration
 		ethTxReaperThreshold                       time.Duration
@@ -44,7 +45,6 @@ type (
 		headTrackerHistoryDepth                    uint32
 		headTrackerMaxBufferSize                   uint32
 		headTrackerSamplingInterval                time.Duration
-		layer2Type                                 string
 		linkContractAddress                        string
 		logBackfillBatchSize                       uint32
 		maxGasPriceWei                             big.Int
@@ -90,39 +90,39 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      16,
 		blockHistoryEstimatorTransactionPercentile: 60,
-		eip1559DynamicFees:                         false,
-		ethTxReaperInterval:                        1 * time.Hour,
-		ethTxReaperThreshold:                       168 * time.Hour,
-		ethTxResendAfterThreshold:                  1 * time.Minute,
-		finalityDepth:                              50,
-		gasBumpPercent:                             20,
-		gasBumpThreshold:                           3,
-		gasBumpTxDepth:                             10,
-		gasBumpWei:                                 *assets.GWei(5),
-		gasEstimatorMode:                           "BlockHistory",
-		gasLimitDefault:                            DefaultGasLimit,
-		gasLimitMultiplier:                         1.0,
-		gasLimitTransfer:                           21000,
-		gasPriceDefault:                            *DefaultGasPrice,
-		gasTipCapDefault:                           *DefaultGasTip,
-		gasTipCapMinimum:                           *big.NewInt(0),
-		headTrackerHistoryDepth:                    100,
-		headTrackerMaxBufferSize:                   3,
-		headTrackerSamplingInterval:                1 * time.Second,
-		layer2Type:                                 "",
-		linkContractAddress:                        "",
-		logBackfillBatchSize:                       100,
-		maxGasPriceWei:                             *assets.GWei(5000),
-		maxInFlightTransactions:                    16,
-		maxQueuedTransactions:                      250,
-		minGasPriceWei:                             *assets.GWei(1),
-		minIncomingConfirmations:                   3,
-		minRequiredOutgoingConfirmations:           12,
-		minimumContractPayment:                     DefaultMinimumContractPayment,
-		nonceAutoSync:                              true,
-		ocrContractConfirmations:                   4,
-		rpcDefaultBatchSize:                        100,
-		set:                                        true,
+		chainType:                        "",
+		eip1559DynamicFees:               false,
+		ethTxReaperInterval:              1 * time.Hour,
+		ethTxReaperThreshold:             168 * time.Hour,
+		ethTxResendAfterThreshold:        1 * time.Minute,
+		finalityDepth:                    50,
+		gasBumpPercent:                   20,
+		gasBumpThreshold:                 3,
+		gasBumpTxDepth:                   10,
+		gasBumpWei:                       *assets.GWei(5),
+		gasEstimatorMode:                 "BlockHistory",
+		gasLimitDefault:                  DefaultGasLimit,
+		gasLimitMultiplier:               1.0,
+		gasLimitTransfer:                 21000,
+		gasPriceDefault:                  *DefaultGasPrice,
+		gasTipCapDefault:                 *DefaultGasTip,
+		gasTipCapMinimum:                 *big.NewInt(0),
+		headTrackerHistoryDepth:          100,
+		headTrackerMaxBufferSize:         3,
+		headTrackerSamplingInterval:      1 * time.Second,
+		linkContractAddress:              "",
+		logBackfillBatchSize:             100,
+		maxGasPriceWei:                   *assets.GWei(5000),
+		maxInFlightTransactions:          16,
+		maxQueuedTransactions:            250,
+		minGasPriceWei:                   *assets.GWei(1),
+		minIncomingConfirmations:         3,
+		minRequiredOutgoingConfirmations: 12,
+		minimumContractPayment:           DefaultMinimumContractPayment,
+		nonceAutoSync:                    true,
+		ocrContractConfirmations:         4,
+		rpcDefaultBatchSize:              100,
+		set:                              true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -201,6 +201,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
+	arbitrumMainnet.chainType = "Arbitrum"
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
 	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
@@ -208,7 +209,6 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.gasEstimatorMode = "FixedPrice"
-	arbitrumMainnet.layer2Type = "Arbitrum"
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
@@ -219,13 +219,13 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
+	optimismMainnet.chainType = "Optimism"
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
 	optimismMainnet.gasEstimatorMode = "Optimism"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
-	optimismMainnet.layer2Type = "Optimism"
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minRequiredOutgoingConfirmations = 0

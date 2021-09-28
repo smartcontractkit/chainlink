@@ -25,7 +25,7 @@ type ValidationConfig interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
-	Layer2Type() string
+	ChainType() string
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
