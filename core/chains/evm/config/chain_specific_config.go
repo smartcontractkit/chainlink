@@ -282,6 +282,14 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
+	// OKExChain
+	okxMainnet := fallbackDefaultSet
+	okxMainnet.chainType = chains.ExChain
+	//TODO more?
+
+	okxTestnet := okxMainnet
+	//TODO more?
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -305,4 +313,6 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[43114] = avalancheMainnet
 	chainSpecificConfigDefaultSets[1666600000] = harmonyMainnet
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
+	chainSpecificConfigDefaultSets[65] = okxTestnet
+	chainSpecificConfigDefaultSets[66] = okxMainnet
 }

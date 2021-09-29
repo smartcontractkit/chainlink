@@ -85,6 +85,7 @@ type chainScopedConfig struct {
 	orm          *chainScopedConfigORM
 	persistedCfg evmtypes.ChainCfg
 	defaultSet   chainSpecificConfigDefaultSet
+	knownID      bool
 	id           *big.Int
 	persistMu    sync.RWMutex
 	onceMap      map[string]struct{}
@@ -98,7 +99,7 @@ func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.
 		logger.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)
 		defaultSet = fallbackDefaultSet
 	}
-	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
+	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, exists, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
 	return &css
 }
 
@@ -161,19 +162,22 @@ func (c *chainScopedConfig) validate() (err error) {
 
 	chainType := c.ChainType()
 	if !chainType.IsValid() {
-		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE is invalid: %s", chainType))
-	}
-	switch chainType {
-	case chains.Arbitrum:
-		//TODO extra validation
-	case chains.ExChain:
-		//TODO extra validation
-	case chains.Optimism:
-		//TODO extra validation
-	case chains.XDai:
-		//TODO extra validation
-	default:
-		//TODO standard-only validation
+		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q unrecognised", chainType))
+	} else if c.knownID && c.defaultSet.chainType != chainType {
+		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+	} else {
+		switch chainType {
+		case chains.Arbitrum:
+			//TODO extra validation
+		case chains.ExChain:
+			//TODO extra validation
+		case chains.Optimism:
+			//TODO extra validation
+		case chains.XDai:
+			//TODO extra validation
+		default:
+			//TODO standard-only validation
+		}
 	}
 
 	return err
