@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -16,6 +17,7 @@ type PollManagerConfig struct {
 	IdleTimerDisabled       bool
 	DrumbeatSchedule        string
 	DrumbeatEnabled         bool
+	DrumbeatRandomDelay     time.Duration
 	HibernationPollPeriod   time.Duration
 	MinRetryBackoffDuration time.Duration
 	MaxRetryBackoffDuration time.Duration
@@ -173,7 +175,9 @@ func (pm *PollManager) ShouldPerformInitialPoll() bool {
 // Reset resets the timers except for the hibernation timer. Will not reset if
 // hibernating.
 func (pm *PollManager) Reset(roundState flux_aggregator_wrapper.OracleRoundState) {
-	if !pm.cfg.IsHibernating {
+	if pm.cfg.IsHibernating {
+		pm.hibernationTimer.Reset(pm.cfg.HibernationPollPeriod)
+	} else {
 		pm.startPollTicker()
 		pm.startIdleTimer(roundState.StartedAt)
 		pm.startRoundTimer(roundStateTimesOutAt(roundState))
@@ -181,7 +185,7 @@ func (pm *PollManager) Reset(roundState flux_aggregator_wrapper.OracleRoundState
 	}
 }
 
-// Reset resets the idle timer unless hibernating
+// ResetIdleTimer resets the idle timer unless hibernating
 func (pm *PollManager) ResetIdleTimer(roundStartedAtUTC uint64) {
 	if !pm.cfg.IsHibernating {
 		pm.startIdleTimer(roundStartedAtUTC)
@@ -194,8 +198,10 @@ func (pm *PollManager) StartRetryTicker() bool {
 }
 
 // StopRetryTicker stops the retry ticker
-func (pm *PollManager) StopRetryTicker() bool {
-	return pm.retryTicker.Stop()
+func (pm *PollManager) StopRetryTicker() {
+	if pm.retryTicker.Stop() {
+		pm.logger.Debug("stopped retry ticker")
+	}
 }
 
 // Stop stops all timers/tickers
@@ -210,7 +216,7 @@ func (pm *PollManager) Stop() {
 // Hibernate sets hibernation to true, starts the hibernation timer and stops
 // all other ticker/timers
 func (pm *PollManager) Hibernate() {
-	pm.logger.Info("entering hibernation mode")
+	pm.logger.Infof("entering hibernation mode (period: %v)", pm.cfg.HibernationPollPeriod)
 
 	// Start the hibernation timer
 	pm.cfg.IsHibernating = true
@@ -221,6 +227,7 @@ func (pm *PollManager) Hibernate() {
 	pm.idleTimer.Stop()
 	pm.roundTimer.Stop()
 	pm.drumbeat.Stop()
+	pm.StopRetryTicker()
 }
 
 // Awaken sets hibernation to false, stops the hibernation timer and starts all
@@ -310,7 +317,7 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 	timeoutDuration := time.Until(timesOutAt)
 
 	if timeoutDuration <= 0 {
-		log.Debugw("disabling roundTimer, as the round is already past its timeout")
+		log.Debugw(fmt.Sprintf("disabling roundTimer, as the round is already past its timeout by %v", -timeoutDuration))
 		pm.roundTimer.Stop()
 
 		return
@@ -323,14 +330,15 @@ func (pm *PollManager) startRoundTimer(roundTimesOutAt uint64) {
 // startDrumbeat starts the drumbeat ticker if it is enabled
 func (pm *PollManager) startDrumbeat() {
 	if !pm.cfg.DrumbeatEnabled {
-		pm.logger.Debug("disabling drumbeat")
-		pm.drumbeat.Stop()
-
+		if pm.drumbeat.Stop() {
+			pm.logger.Debug("disabled drumbeat ticker")
+		}
 		return
 	}
 
-	pm.logger.Debugw("starting drumbeat ticker", "schedule", pm.cfg.DrumbeatSchedule)
-	pm.drumbeat.Start()
+	if pm.drumbeat.Start() {
+		pm.logger.Debugw("started drumbeat ticker", "schedule", pm.cfg.DrumbeatSchedule)
+	}
 }
 
 func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {

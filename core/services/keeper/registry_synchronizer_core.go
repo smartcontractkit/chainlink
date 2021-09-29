@@ -7,10 +7,32 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+// RegistrySynchronizer conforms to the Service and Listener interfaces
+var (
+	_ job.Service  = (*RegistrySynchronizer)(nil)
+	_ log.Listener = (*RegistrySynchronizer)(nil)
+)
+
+type RegistrySynchronizer struct {
+	chStop           chan struct{}
+	contract         *keeper_registry_wrapper.KeeperRegistry
+	interval         time.Duration
+	job              job.Job
+	jrm              job.ORM
+	logBroadcaster   log.Broadcaster
+	mailRoom         MailRoom
+	minConfirmations uint64
+	orm              ORM
+	logger           *logger.Logger
+	wgDone           sync.WaitGroup
+	utils.StartStopOnce
+}
 
 // MailRoom holds the log mailboxes for all the log types that keeper cares about
 type MailRoom struct {
@@ -20,6 +42,7 @@ type MailRoom struct {
 	mbUpkeepRegistered *utils.Mailbox
 }
 
+// NewRegistrySynchronizer is the constructor of RegistrySynchronizer
 func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
@@ -28,6 +51,7 @@ func NewRegistrySynchronizer(
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
 	minConfirmations uint64,
+	logger *logger.Logger,
 ) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
@@ -45,27 +69,8 @@ func NewRegistrySynchronizer(
 		mailRoom:         mailRoom,
 		minConfirmations: minConfirmations,
 		orm:              orm,
-		StartStopOnce:    utils.StartStopOnce{},
-		wgDone:           sync.WaitGroup{},
+		logger:           logger,
 	}
-}
-
-// RegistrySynchronizer conforms to the Service, Listener, and HeadRelayable interfaces
-var _ job.Service = (*RegistrySynchronizer)(nil)
-var _ log.Listener = (*RegistrySynchronizer)(nil)
-
-type RegistrySynchronizer struct {
-	chStop           chan struct{}
-	contract         *keeper_registry_wrapper.KeeperRegistry
-	interval         time.Duration
-	job              job.Job
-	jrm              job.ORM
-	logBroadcaster   log.Broadcaster
-	mailRoom         MailRoom
-	minConfirmations uint64
-	orm              ORM
-	wgDone           sync.WaitGroup
-	utils.StartStopOnce
 }
 
 func (rs *RegistrySynchronizer) Start() error {

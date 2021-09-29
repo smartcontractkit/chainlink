@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
@@ -35,13 +35,14 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 		c.Sessions = sessionStore
 	}
 
-	user, err := c.App.GetStore().FindUser()
+	orm := c.App.SessionORM()
+	user, err := orm.FindUser()
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 
-	uwas, err := c.App.GetStore().GetUserWebAuthn(&user)
+	uwas, err := orm.GetUserWebAuthn(&user)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return
@@ -49,7 +50,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	options, err := models.BeginWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
+	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
 		return
@@ -67,13 +68,14 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	user, err := c.App.GetStore().FindUser()
+	orm := c.App.SessionORM()
+	user, err := orm.FindUser()
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 
-	uwas, err := c.App.GetStore().GetUserWebAuthn(&user)
+	uwas, err := orm.GetUserWebAuthn(&user)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return
@@ -81,7 +83,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	credential, err := models.FinishWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
+	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("Registration was unsuccessful"))
 		return
@@ -96,20 +98,20 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	ctx.String(http.StatusOK, "{}")
 }
 
-func (c *WebAuthnController) addCredentialToUser(user models.User, credential *webauthn.Credential) error {
+func (c *WebAuthnController) addCredentialToUser(user sessions.User, credential *webauthn.Credential) error {
 	credj, err := json.Marshal(credential)
 	if err != nil {
 		return err
 	}
 
-	token := models.WebAuthn{
+	token := sessions.WebAuthn{
 		Email: user.Email,
 		PublicKeyData: pgtype.JSONB{
 			Bytes:  credj,
 			Status: pgtype.Present,
 		},
 	}
-	err = c.App.GetStore().SaveWebAuthn(&token)
+	err = c.App.SessionORM().SaveWebAuthn(&token)
 	if err != nil {
 		logger.Errorf("Database error: %v", err)
 	}

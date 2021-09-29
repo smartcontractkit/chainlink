@@ -101,16 +101,7 @@ func (lock *postgresAdvisoryLock) tryLock(ctx context.Context, classID int32, ob
 	}
 
 	gotLock := false
-	rows, err := lock.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", classID, objectID)
-	if err != nil {
-		return err
-	}
-	defer logger.ErrorIfCalling(rows.Close)
-	gotRow := rows.Next()
-	if !gotRow {
-		return errors.New("query unexpectedly returned 0 rows")
-	}
-	if err := rows.Scan(&gotLock); err != nil {
+	if err = lock.conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", classID, objectID).Scan(&gotLock); err != nil {
 		return err
 	}
 	if gotLock {
@@ -140,6 +131,10 @@ func (lock *postgresAdvisoryLock) WithAdvisoryLock(ctx context.Context, classID 
 }
 
 var _ AdvisoryLocker = &NullAdvisoryLocker{}
+
+func NewNullAdvisoryLocker() *NullAdvisoryLocker {
+	return &NullAdvisoryLocker{}
+}
 
 type NullAdvisoryLocker struct {
 	mu     sync.Mutex

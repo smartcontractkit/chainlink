@@ -109,7 +109,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
+	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The
@@ -531,6 +531,20 @@ func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFun
 	return ctx, cancel
 }
 
+// ContextFromChanWithDeadline creates a context with a deadline that finishes when the provided channel
+// receives or is closed.
+func ContextFromChanWithDeadline(chStop <-chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	go func() {
+		select {
+		case <-chStop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
 // CombinedContext creates a context that finishes when any of the provided
 // signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
 // a `time.Duration` (which is transformed into a `context.WithTimeout`).
@@ -753,6 +767,7 @@ func LogIfError(err *error, msg string) {
 
 // DebugPanic logs a panic exception being called
 func DebugPanic() {
+	//revive:disable:defer
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
 		runtime.Callers(5, pc)
@@ -761,6 +776,13 @@ func DebugPanic() {
 		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
 		panic(err)
 	}
+}
+
+type TickerBase interface {
+	Resume()
+	Pause()
+	Destroy()
+	Ticks() <-chan time.Time
 }
 
 // PausableTicker stores a ticker with a duration
@@ -815,7 +837,8 @@ func (t *PausableTicker) Destroy() {
 
 type CronTicker struct {
 	*cron.Cron
-	ch chan time.Time
+	ch      chan time.Time
+	beenRun *abool.AtomicBool
 }
 
 func NewCronTicker(schedule string) (CronTicker, error) {
@@ -828,21 +851,31 @@ func NewCronTicker(schedule string) (CronTicker, error) {
 		}
 	})
 	if err != nil {
-		return CronTicker{}, err
+		return CronTicker{beenRun: abool.New()}, err
 	}
-	return CronTicker{Cron: cron, ch: ch}, nil
+	return CronTicker{Cron: cron, ch: ch, beenRun: abool.New()}, nil
 }
 
-func (t *CronTicker) Start() {
+// Start - returns true if the CronTicker was actually started, false otherwise
+func (t *CronTicker) Start() bool {
 	if t.Cron != nil {
-		t.Cron.Start()
+		if t.beenRun.SetToIf(false, true) {
+			t.Cron.Start()
+			return true
+		}
 	}
+	return false
 }
 
-func (t *CronTicker) Stop() {
+// Stop - returns true if the CronTicker was actually stopped, false otherwise
+func (t *CronTicker) Stop() bool {
 	if t.Cron != nil {
-		t.Cron.Stop()
+		if t.beenRun.SetToIf(true, false) {
+			t.Cron.Stop()
+			return true
+		}
 	}
+	return false
 }
 
 func (t *CronTicker) Ticks() <-chan time.Time {

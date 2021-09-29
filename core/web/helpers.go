@@ -1,6 +1,7 @@
 package web
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -8,18 +9,8 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"gorm.io/gorm"
 )
-
-// StatusCodeForError returns an http status code for an error type.
-func StatusCodeForError(err interface{}) int {
-	switch err.(type) {
-	case *models.ValidationError:
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
-}
 
 // jsonAPIError adds an error to the gin context and sets
 // the JSON value of errors.
@@ -43,7 +34,7 @@ func paginatedResponseWithMeta(
 	err error,
 	meta map[string]interface{},
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 
@@ -65,7 +56,7 @@ func paginatedResponse(
 	count int,
 	err error,
 ) {
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
 

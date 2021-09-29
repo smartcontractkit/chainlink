@@ -10,11 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // NullClient satisfies the Client but has no side effects
-type NullClient struct{}
+type NullClient struct{ CID *big.Int }
+
+func NewNullClient() *NullClient {
+	return &NullClient{big.NewInt(NullClientChainID)}
+}
 
 // NullClientChainID the ChainID that nullclient will return
 // 0 is never used as a real chain ID so makes sense as a dummy value here
@@ -24,7 +27,7 @@ const NullClientChainID = 0
 // Client methods
 //
 
-func (nc *NullClient) Dial(ctx context.Context) error {
+func (nc *NullClient) Dial(context.Context) error {
 	logger.Debug("NullClient#Dial")
 	return nil
 }
@@ -40,7 +43,7 @@ func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress co
 
 func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	logger.Debug("NullClient#GetLINKBalance")
-	return assets.NewLink(0), nil
+	return assets.NewLinkFromJuels(0), nil
 }
 
 func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
@@ -58,7 +61,7 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 	return nil
 }
 
-func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+func (nc *NullClient) HeadByNumber(ctx context.Context, n *big.Int) (*Head, error) {
 	logger.Debug("NullClient#HeadByNumber")
 	return nil, nil
 }
@@ -79,7 +82,7 @@ func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	return &nullSubscription{}, nil
 }
 
-func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
+func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error) {
 	logger.Debug("NullClient#SubscribeNewHead")
 	return &nullSubscription{}, nil
 }
@@ -88,9 +91,12 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 // GethClient methods
 //
 
-func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
+func (nc *NullClient) ChainID() *big.Int {
 	logger.Debug("NullClient#ChainID")
-	return big.NewInt(NullClientChainID), nil
+	if nc.CID != nil {
+		return nc.CID
+	}
+	return big.NewInt(NullClientChainID)
 }
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -159,10 +165,6 @@ func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockN
 }
 
 func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
-	return nil
-}
-
-func (nc *NullClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return nil
 }
 

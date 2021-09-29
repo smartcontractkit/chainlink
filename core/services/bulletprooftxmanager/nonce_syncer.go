@@ -3,15 +3,17 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
@@ -52,6 +54,7 @@ type (
 	NonceSyncer struct {
 		db        *gorm.DB
 		ethClient eth.Client
+		chainID   *big.Int
 	}
 	// NSinserttx represents an EthTx and Attempt to be inserted together
 	NSinserttx struct {
@@ -65,6 +68,7 @@ func NewNonceSyncer(db *gorm.DB, ethClient eth.Client) *NonceSyncer {
 	return &NonceSyncer{
 		db,
 		ethClient,
+		ethClient.ChainID(),
 	}
 }
 
@@ -72,20 +76,20 @@ func NewNonceSyncer(db *gorm.DB, ethClient eth.Client) *NonceSyncer {
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) SyncAll(ctx context.Context, keys []ethkey.Key) (merr error) {
+func (s NonceSyncer) SyncAll(ctx context.Context, keyStates []ethkey.State) (merr error) {
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
-	wg.Add(len(keys))
-	for _, key := range keys {
-		go func(k ethkey.Key) {
+	wg.Add(len(keyStates))
+	for _, keyState := range keyStates {
+		go func(k ethkey.State) {
 			defer wg.Done()
 			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {
 				errMu.Lock()
 				defer errMu.Unlock()
 				merr = multierr.Combine(merr, err)
 			}
-		}(key)
+		}(keyState)
 	}
 
 	wg.Wait()
@@ -104,7 +108,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 
 	selectCtx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	keyNextNonce, err := GetNextNonce(s.db.WithContext(selectCtx), address)
+	keyNextNonce, err := GetNextNonce(s.db.WithContext(selectCtx), address, s.chainID)
 	if err != nil {
 		return err
 	}
@@ -138,7 +142,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 	return postgres.DBWithDefaultContext(s.db, func(db *gorm.DB) error {
-		res := db.Exec(`UPDATE keys SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ?`, newNextNonce, time.Now(), address, keyNextNonce)
+		res := db.Exec(`UPDATE eth_key_states SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ? AND evm_chain_id = ?`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if res.Error != nil {
 			return errors.Wrap(res.Error, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}
@@ -158,7 +162,7 @@ func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account comm
 
 func (s NonceSyncer) hasInProgressTransaction(account common.Address) (exists bool, err error) {
 	err = postgres.DBWithDefaultContext(s.db, func(db *gorm.DB) error {
-		return db.Raw(`SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = ?)`, account).Scan(&exists).Error
+		return db.Raw(`SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = ? AND evm_chain_id = ?)`, account, s.chainID.String()).Scan(&exists).Error
 	})
 	return
 }

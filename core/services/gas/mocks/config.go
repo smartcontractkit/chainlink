@@ -69,38 +69,22 @@ func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 	return r0
 }
 
-// ChainID provides a mock function with given fields:
-func (_m *Config) ChainID() *big.Int {
+// EvmFinalityDepth provides a mock function with given fields:
+func (_m *Config) EvmFinalityDepth() uint32 {
 	ret := _m.Called()
 
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+	var r0 uint32
+	if rf, ok := ret.Get(0).(func() uint32); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
+		r0 = ret.Get(0).(uint32)
 	}
 
 	return r0
 }
 
-// EthFinalityDepth provides a mock function with given fields:
-func (_m *Config) EthFinalityDepth() uint {
-	ret := _m.Called()
-
-	var r0 uint
-	if rf, ok := ret.Get(0).(func() uint); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint)
-	}
-
-	return r0
-}
-
-// EthGasBumpPercent provides a mock function with given fields:
-func (_m *Config) EthGasBumpPercent() uint16 {
+// EvmGasBumpPercent provides a mock function with given fields:
+func (_m *Config) EvmGasBumpPercent() uint16 {
 	ret := _m.Called()
 
 	var r0 uint16
@@ -113,8 +97,8 @@ func (_m *Config) EthGasBumpPercent() uint16 {
 	return r0
 }
 
-// EthGasBumpWei provides a mock function with given fields:
-func (_m *Config) EthGasBumpWei() *big.Int {
+// EvmGasBumpWei provides a mock function with given fields:
+func (_m *Config) EvmGasBumpWei() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -129,8 +113,8 @@ func (_m *Config) EthGasBumpWei() *big.Int {
 	return r0
 }
 
-// EthGasLimitMultiplier provides a mock function with given fields:
-func (_m *Config) EthGasLimitMultiplier() float32 {
+// EvmGasLimitMultiplier provides a mock function with given fields:
+func (_m *Config) EvmGasLimitMultiplier() float32 {
 	ret := _m.Called()
 
 	var r0 float32
@@ -143,8 +127,8 @@ func (_m *Config) EthGasLimitMultiplier() float32 {
 	return r0
 }
 
-// EthGasPriceDefault provides a mock function with given fields:
-func (_m *Config) EthGasPriceDefault() *big.Int {
+// EvmGasPriceDefault provides a mock function with given fields:
+func (_m *Config) EvmGasPriceDefault() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -159,8 +143,8 @@ func (_m *Config) EthGasPriceDefault() *big.Int {
 	return r0
 }
 
-// EthMaxGasPriceWei provides a mock function with given fields:
-func (_m *Config) EthMaxGasPriceWei() *big.Int {
+// EvmMaxGasPriceWei provides a mock function with given fields:
+func (_m *Config) EvmMaxGasPriceWei() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int
@@ -175,8 +159,8 @@ func (_m *Config) EthMaxGasPriceWei() *big.Int {
 	return r0
 }
 
-// EthMinGasPriceWei provides a mock function with given fields:
-func (_m *Config) EthMinGasPriceWei() *big.Int {
+// EvmMinGasPriceWei provides a mock function with given fields:
+func (_m *Config) EvmMinGasPriceWei() *big.Int {
 	ret := _m.Called()
 
 	var r0 *big.Int

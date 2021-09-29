@@ -5,16 +5,18 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
 // We only support OCR and FM for the feeds manager
 const (
 	JobTypeFluxMonitor       = "fluxmonitor"
-	JobTypeOffchainReporting = "offchainreporting"
+	JobTypeOffchainReporting = "ocr"
 )
 
+// FeedsManager contains feeds manager related fields
 type FeedsManager struct {
 	ID        int64
 	Name      string
@@ -29,6 +31,9 @@ type FeedsManager struct {
 	// The libp2p multiaddress which the node operator will assign to this node
 	// for bootstrap peer discovery.
 	OCRBootstrapPeerMultiaddr null.String
+
+	// IsConnectionActive is the indicator of connection activeness
+	IsConnectionActive bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -56,6 +61,8 @@ type JobProposal struct {
 	// ExternalJobID is the external job id in the spec.
 	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
+	Multiaddrs     pq.StringArray `gorm:"type:text[]"`
+	ProposedAt     time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

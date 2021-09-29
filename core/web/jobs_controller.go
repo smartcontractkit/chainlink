@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // JobsController manages jobs
@@ -28,6 +28,11 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	if c.Query("size") == "" {
+		size = 1000
+	}
+
 	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -53,7 +58,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	}
 
 	jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
 	}
@@ -83,14 +88,14 @@ func (jc *JobsController) Create(c *gin.Context) {
 
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
 	}
 
 	var jb job.Job
-	config := jc.App.GetStore().Config
+	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetChainSet(), request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
@@ -98,7 +103,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetConfig(), request.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
@@ -139,8 +144,8 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = jc.App.DeleteJobV2(c.Request.Context(), jobSpec.ID)
-	if errors.Cause(err) == orm.ErrorNotFound {
+	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
+	if errors.Cause(err) == gorm.ErrRecordNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return
 	}

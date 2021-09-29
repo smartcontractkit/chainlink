@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,9 +28,7 @@ import (
 func TestHTTPTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestGeneralConfig(t)
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
@@ -146,8 +145,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -161,12 +160,12 @@ func TestHTTPTask_Variables(t *testing.T) {
 				Name:        "foo",
 				RequestData: test.requestData,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
 			bridge.URL = *feedWebURL
-			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+			require.NoError(t, db.Create(&bridge).Error)
 
 			test.vars.Set("meta", test.meta)
 			result := task.Run(context.Background(), test.vars, test.inputs)
@@ -194,9 +193,7 @@ func TestHTTPTask_Variables(t *testing.T) {
 func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -234,9 +231,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 func TestHTTPTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -265,9 +260,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
+	config := cltest.NewTestGeneralConfig(t)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)

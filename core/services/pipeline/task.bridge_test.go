@@ -17,7 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -113,8 +115,8 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 func TestBridgeTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
@@ -128,12 +130,12 @@ func TestBridgeTask_Happy(t *testing.T) {
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 	// Insert bridge
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.NoError(t, result.Error)
@@ -150,10 +152,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, "https://chain.link"))
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	id := uuid.NewV4()
 
@@ -165,7 +165,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 
 		err = json.Unmarshal(payload, &reqBody)
 		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("https://chain.link/v2/resume/%v", id.String()), reqBody.ResponseURL)
+		require.Equal(t, fmt.Sprintf("%s/v2/resume/%v", cfg.BridgeResponseURL(), id.String()), reqBody.ResponseURL)
 		w.Header().Set("Content-Type", "application/json")
 
 		// w.Header().Set("X-Chainlink-Pending", "true")
@@ -185,11 +185,11 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 		RequestData: ethUSDPairing,
 		Async:       "true",
 	}
-	task.HelperSetDependencies(store.Config, store.DB, id)
+	task.HelperSetDependencies(cfg, db, id)
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 
@@ -343,8 +343,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
 			defer s1.Close()
@@ -359,12 +359,12 @@ func TestBridgeTask_Variables(t *testing.T) {
 				RequestData:       test.requestData,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 			// Insert bridge
 			_, bridge := cltest.NewBridgeType(t, task.Name)
 			bridge.URL = *feedWebURL
-			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+			require.NoError(t, db.Create(&bridge).Error)
 
 			result := task.Run(context.Background(), test.vars, test.inputs)
 			if test.expectedErrorCause != nil {
@@ -391,8 +391,8 @@ func TestBridgeTask_Variables(t *testing.T) {
 func TestBridgeTask_Meta(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	var empty adapterResponse
 
@@ -407,7 +407,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	metaDataForBridge, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
+	metaDataForBridge, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)
@@ -421,11 +421,11 @@ func TestBridgeTask_Meta(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t)
 	bridge.URL = *feedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	task.Run(context.Background(), pipeline.NewVarsFrom(map[string]interface{}{"meta": metaDataForBridge}), nil)
 }
@@ -453,8 +453,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		test := test
 
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
 			defer s1.Close()
@@ -465,14 +465,14 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 				RequestData:       btcUSDPairing,
 				IncludeInputAtKey: test.includeInputAtKey,
 			}
-			task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+			task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 			// Insert bridge
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 			_, bridge := cltest.NewBridgeType(t, task.Name)
 			bridge.URL = *(*models.WebURL)(feedURL)
-			require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+			require.NoError(t, db.Create(&bridge).Error)
 
 			result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
 			if test.expectedErrorCause != nil {
@@ -496,8 +496,8 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 func TestBridgeTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -518,11 +518,11 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Error(t, result.Error)
@@ -533,8 +533,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -553,11 +553,11 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 		Name:        "foo",
 		RequestData: ethUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 	_, bridge := cltest.NewBridgeType(t, task.Name)
 	bridge.URL = *feedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Error(t, result.Error)
@@ -568,14 +568,14 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	task := pipeline.BridgeTask{
 		Name:        "foo",
 		RequestData: btcUSDPairing,
 	}
-	task.HelperSetDependencies(store.Config, store.DB, uuid.UUID{})
+	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
 	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
 	require.Nil(t, result.Value)

@@ -20,7 +20,10 @@ before(async () => {
     "src/v0.6/SimpleWriteAccessController.sol:SimpleWriteAccessController",
     personas.Carol,
   );
-  aggregatorFactory = await ethers.getContractFactory("MockV3Aggregator", personas.Carol);
+  aggregatorFactory = await ethers.getContractFactory(
+    "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
+    personas.Carol,
+  );
 });
 
 describe("StalenessFlaggingValidator", () => {
@@ -39,7 +42,7 @@ describe("StalenessFlaggingValidator", () => {
     await ac.connect(personas.Carol).addAccess(validator.address);
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(validator, [
       "update",
       "check",

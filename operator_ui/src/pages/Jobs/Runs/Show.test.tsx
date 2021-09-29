@@ -1,74 +1,82 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 import { syncFetch } from 'test-helpers/syncFetch'
-import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
+import { jobRunAPIResponse } from 'factories/jsonApiOcrJobRun'
 import { Show } from './Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import globPath from 'test-helpers/globPath'
 
 describe('pages/JobRuns/Show/Overview', () => {
-  const JOB_SPEC_ID = '942e8b218d414e10a053-000455fdd470'
-  const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
+  const JOB_ID = '200'
+  const RUN_ID = '100'
 
   it('renders the details of the job spec and its latest runs', async () => {
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
-    const jobRunResponse = jsonApiJobSpecRunFactory({
-      id: JOB_RUN_ID,
+
+    // Mock the job runs fetch
+    const run = {
+      jobID: JOB_ID,
       createdAt: minuteAgo,
-      jobId: JOB_SPEC_ID,
-      initiator: {
-        type: 'web',
-        params: {},
+      outputs: [null],
+      errors: ['task inputs: too many errors'],
+      inputs: {
+        ds: {},
+        ds_parse: {},
+        jobRun: {
+          meta: null,
+          requestBody: '',
+        },
+        jobSpec: {
+          databaseID: 38,
+          externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+          name: '',
+        },
       },
       taskRuns: [
         {
-          id: 'taskRunA',
-          status: 'completed',
-          task: { type: 'noop', params: {} },
+          type: 'http',
+          createdAt: '2021-07-27T19:26:37.312358+08:00',
+          finishedAt: '2021-07-27T19:26:38.116848+08:00',
+          output: null,
+          error:
+            'got error from https://chain.link/ETH-USD: (status code 404) ',
+          dotId: 'ds',
         },
         {
-          id: 'taskRunB',
-          result: {
-            data: {},
-            error: `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
-          },
-          data: {},
-          error: `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
-          status: 'errored',
-          task: {
-            CreatedAt: '2020-11-23T11:49:27.945672Z',
-            ID: 10,
-            UpdatedAt: '2020-11-23T11:49:27.945672Z',
-            confirmations: 0,
-            params: { get: 'http://localhost:5973' },
-            type: 'httpgetwithunrestrictednetworkaccess',
-          },
+          type: 'jsonparse',
+          createdAt: '2021-07-27T19:26:38.11691+08:00',
+          finishedAt: '2021-07-27T19:26:38.117104+08:00',
+          output: null,
+          error: 'task inputs: too many errors',
+          dotId: 'ds_parse',
         },
       ],
-      result: {
-        data: {
-          value:
-            '0x05070f7f6a40e4ce43be01fa607577432c68730c2cb89a0f50b665e980d926b5',
-        },
+      pipelineSpec: {
+        ID: 40,
+        dotDagSource:
+          '\t\t\t\tds          [type=http method=GET url="https://chain.link/ETH-USD"];\n\t\t\t\tds_parse    [type=jsonparse path="data,price"];\n\t\t\t\tds -\u003e ds_parse;\n\t\t\t',
+        CreatedAt: '2021-07-27T19:26:38.117104+08:00',
+        jobID: JOB_ID,
       },
-    })
-    global.fetch.getOnce(globPath(`/v2/runs/${JOB_RUN_ID}`), jobRunResponse)
+    }
+
+    global.fetch.getOnce(
+      globPath(`/v2/jobs/${JOB_ID}/runs/${RUN_ID}`),
+      jobRunAPIResponse(run),
+    )
 
     const wrapper = mountWithProviders(
-      <Route path={`/jobs/:jobSpecId/runs/:jobRunId`} component={Show} />,
+      <Route path={`/jobs/:jobId/runs/:jobRunId`} component={Show} />,
       {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}/runs/${JOB_RUN_ID}`],
+        initialEntries: [`/jobs/${JOB_ID}/runs/${RUN_ID}`],
       },
     )
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Web')
-    expect(wrapper.text()).toContain('Noop')
-    expect(wrapper.text()).toContain('Completed')
+    expect(wrapper.text()).toContain('Errored')
+    expect(wrapper.text()).toContain('Task list')
     expect(wrapper.text()).toContain('Errors')
-    expect(wrapper.text()).toContain(
-      `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
-    )
+    expect(wrapper.text()).toContain(`task inputs: too many errors`)
   })
 })

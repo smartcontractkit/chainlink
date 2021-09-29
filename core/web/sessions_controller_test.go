@@ -9,8 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/onsi/gomega"
@@ -21,15 +20,10 @@ import (
 func TestSessionsController_Create(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
-	app.Start()
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start())
 
-	config := app.Store.Config
+	config := app.GetConfig()
 	client := http.Client{}
 	tests := []struct {
 		name        string
@@ -60,7 +54,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)
 				require.NoError(t, err)
-				user, err := app.Store.AuthorizedUserWithSession(decrypted)
+				user, err := app.SessionORM().AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 
@@ -70,7 +64,7 @@ func TestSessionsController_Create(t *testing.T) {
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				// Ignore fixture session
-				sessions, err := postgres.Sessions(app.Store.DB, 1, 2)
+				sessions, err := app.SessionORM().Sessions(1, 2)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -81,17 +75,12 @@ func TestSessionsController_Create(t *testing.T) {
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
-	app.Start()
+	app := cltest.NewApplicationEVMDisabled(t)
+	require.NoError(t, app.Start())
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.DB.Save(&staleSession).Error)
+	require.NoError(t, app.GetDB().Save(&staleSession).Error)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -100,14 +89,14 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	var sessions []models.Session
-	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err = postgres.Sessions(app.Store.DB, 0, 10)
+	var s []sessions.Session
+	gomega.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+		s, err = app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
-		return sessions
+		return s
 	}).Should(gomega.HaveLen(1))
 
-	for _, session := range sessions {
+	for _, session := range s {
 		assert.NotEqual(t, session.ID, staleSession.ID)
 	}
 }
@@ -115,18 +104,13 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 func TestSessionsController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	correctSession := models.NewSession()
-	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
-	defer cleanup()
+	correctSession := sessions.NewSession()
+	require.NoError(t, app.GetDB().Save(&correctSession).Error)
 
-	config := app.Store.Config
+	config := app.GetConfig()
 	client := http.Client{}
 	tests := []struct {
 		name, sessionID string
@@ -146,7 +130,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
 
-			_, err = app.Store.AuthorizedUserWithSession(test.sessionID)
+			_, err = app.SessionORM().AuthorizedUserWithSession(test.sessionID)
 			assert.Error(t, err)
 			if test.success {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -161,21 +145,16 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	t.Parallel()
 
 	client := http.Client{}
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
-	defer cleanup()
+	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	correctSession := models.NewSession()
-	require.NoError(t, app.Store.DB.Save(&correctSession).Error)
+	correctSession := sessions.NewSession()
+	require.NoError(t, app.GetDB().Save(&correctSession).Error)
 	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.Store.DB.Save(&staleSession).Error)
+	require.NoError(t, app.GetDB().Save(&staleSession).Error)
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
@@ -185,8 +164,8 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	gomega.NewGomegaWithT(t).Eventually(func() []models.Session {
-		sessions, err := postgres.Sessions(app.Store.DB, 0, 10)
+	gomega.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+		sessions, err := app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))

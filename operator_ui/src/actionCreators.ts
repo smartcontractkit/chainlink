@@ -306,12 +306,11 @@ export const deleteJobSpec = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
-  jobType: 'Off-chain reporting' | 'Direct request',
 ) => {
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint = jobType === 'Direct request' ? api.v2.specs : api.v2.jobs
+    const endpoint = api.v2.jobs
 
     return endpoint
       .destroyJobSpec(id)
@@ -329,24 +328,26 @@ export const deleteJobSpec = (
   }
 }
 
-export const createJobRun = (
+export const deleteNode = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
-): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
+) => {
   return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+    dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    return api.v2.runs
-      .createJobSpecRun(id)
+    const endpoint = api.v2.nodes
+
+    return endpoint
+      .destroyNode(id)
       .then((doc) => {
-        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
+        dispatch(receiveDeleteSuccess(id))
         dispatch(notifySuccess(successCallback, doc))
       })
       .catch((error: Errors) => {
         curryErrorHandler(
           dispatch,
-          ResourceActionType.RECEIVE_CREATE_ERROR,
+          ResourceActionType.RECEIVE_DELETE_ERROR,
         )(error)
         dispatch(notifyError(errorCallback, error))
       })
@@ -572,40 +573,6 @@ export const fetchBridgeSpec = requestFetch(
   (json) => normalize(json),
 )
 
-export const fetchJobs = requestFetch(
-  'JOBS',
-  api.v2.specs.getJobSpecs,
-  (json) => normalize(json, { endpoint: 'currentPageJobs' }),
-)
-
-export const fetchRecentlyCreatedJobs = requestFetch(
-  'RECENTLY_CREATED_JOBS',
-  api.v2.specs.getRecentJobSpecs,
-  (json) => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
-)
-
-export const fetchJob = requestFetch('JOB', api.v2.specs.getJobSpec, (json) =>
-  normalize(json, { camelizeKeys: false }),
-)
-
-export const fetchJobRuns = requestFetch(
-  'JOB_RUNS',
-  api.v2.runs.getJobSpecRuns,
-  (json) => normalize(json, { endpoint: 'currentPageJobRuns' }),
-)
-
-export const fetchRecentJobRuns = requestFetch(
-  'RECENT_JOB_RUNS',
-  api.v2.runs.getRecentJobRuns,
-  (json) => normalize(json, { endpoint: 'recentJobRuns' }),
-)
-
-export const fetchJobRun = requestFetch(
-  'JOB_RUN',
-  api.v2.runs.getJobSpecRun,
-  (json) => normalize(json, { camelizeKeys: false }),
-)
-
 export const deleteCompletedJobRuns = (updatedBefore: string) =>
   requestDelete(
     'COMPLETED_JOB_RUNS',
@@ -631,10 +598,3 @@ export const fetchTransaction = requestFetch(
   api.v2.transactions.getTransaction,
   (json) => normalize(json),
 )
-
-export const deleteJobSpecError = (id: string, jobSpecID: string) =>
-  requestDelete(
-    'JOB_SPEC_ERROR',
-    api.v2.jobSpecErrors.destroyJobSpecError,
-    (_) => ({ id, jobSpecID }), // no data returned from api, just dispatch error & job ids
-  )(id)

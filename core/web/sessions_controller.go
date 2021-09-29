@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/duo-labs/webauthn.io/session"
 	"github.com/gin-gonic/contrib/sessions"
@@ -37,7 +37,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	}
 
 	session := sessions.Default(c)
-	var sr models.SessionRequest
+	var sr clsessions.SessionRequest
 	if err := c.ShouldBindJSON(&sr); err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("error binding json %v", err))
 		return
@@ -49,7 +49,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	sr.RequestContext = c
 	sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 
-	sid, err := sc.App.GetStore().CreateSession(sr)
+	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -74,7 +74,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.App.GetStore().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

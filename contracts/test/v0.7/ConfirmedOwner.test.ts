@@ -31,7 +31,7 @@ describe("ConfirmedOwner", () => {
     confirmedOwner = await confirmedOwnerTestHelperFactory.connect(owner).deploy();
   });
 
-  it("has a limited public interface", () => {
+  it("has a limited public interface [ @skip-coverage ]", () => {
     publicAbi(confirmedOwner, [
       "acceptOwnership",
       "owner",

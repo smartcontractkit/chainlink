@@ -31,9 +31,9 @@ func parseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 	}
 
 	for _, argStr := range argStrs {
-		argStr = bytes.Replace(argStr, calldataKeyword, nil, -1) // Strip `calldata` modifiers
-		argStr = bytes.Replace(argStr, memoryKeyword, nil, -1)   // Strip `memory` modifiers
-		argStr = bytes.Replace(argStr, storageKeyword, nil, -1)  // Strip `storage` modifiers
+		argStr = bytes.ReplaceAll(argStr, calldataKeyword, nil) // Strip `calldata` modifiers
+		argStr = bytes.ReplaceAll(argStr, memoryKeyword, nil)   // Strip `memory` modifiers
+		argStr = bytes.ReplaceAll(argStr, storageKeyword, nil)  // Strip `storage` modifiers
 		argStr = bytes.TrimSpace(argStr)
 		parts := bytes.Split(argStr, spaceDelim)
 
@@ -204,6 +204,11 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 		} else if srcVal.Type().Elem().Kind() != reflect.Uint8 {
 			return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), destType)
 		}
+		if destType.Kind() == reflect.Array {
+			destVal := reflect.New(destType).Elem()
+			reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
+			return destVal.Interface(), nil
+		}
 		destVal := reflect.MakeSlice(destType, length, length)
 		reflect.Copy(destVal.Slice(0, length), srcVal.Slice(0, srcVal.Len()))
 		return destVal.Interface(), nil
@@ -224,7 +229,11 @@ func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length in
 			if len(s) != (length*2)+2 {
 				return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", length, destType.Len())
 			}
-			return hexutil.Decode(s)
+			maybeBytes, err := hexutil.Decode(s)
+			if err != nil {
+				return nil, err
+			}
+			return convertToETHABIBytes(destType, reflect.ValueOf(maybeBytes), length)
 		}
 
 		if destType.Len() != length {

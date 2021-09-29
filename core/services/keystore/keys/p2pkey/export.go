@@ -4,58 +4,56 @@ import (
 	"encoding/json"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// EncryptedP2PKeyExport represents the structure of P2P keys exported and imported
-// to/from the disk
+const keyTypeIdentifier = "P2P"
+
+func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
+	var export EncryptedP2PKeyExport
+	if err := json.Unmarshal(keyJSON, &export); err != nil {
+		return KeyV2{}, err
+	}
+	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
+	if err != nil {
+		return KeyV2{}, errors.Wrap(err, "failed to decrypt P2P key")
+	}
+	key := Raw(privKey).Key()
+	return key, nil
+}
+
 type EncryptedP2PKeyExport struct {
-	PublicKey PublicKeyBytes      `json:"publicKey"`
+	KeyType   string              `json:"keyType"`
+	PublicKey string              `json:"publicKey"`
 	PeerID    PeerID              `json:"peerID"`
 	Crypto    keystore.CryptoJSON `json:"crypto"`
 }
 
-func (k Key) ToEncryptedExport(auth string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	var marshalledPrivK []byte
-	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
+func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+	cryptoJSON, err := keystore.EncryptDataV3(
+		key.Raw(),
+		[]byte(adulteratedPassword(password)),
+		scryptParams.N,
+		scryptParams.P,
+	)
 	if err != nil {
-		return export, err
+		return nil, errors.Wrapf(err, "could not encrypt P2P key")
 	}
-	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword(auth)), scryptParams.N, scryptParams.P)
+	rawPubKey, err := key.GetPublic().Bytes()
 	if err != nil {
-		return export, errors.Wrapf(err, "could not encrypt p2p key")
+		return nil, errors.Wrapf(err, "could not get raw public key")
 	}
-
-	pubKeyBytes, err := k.GetPublic().Raw()
-	if err != nil {
-		return export, errors.Wrapf(err, "could not ger public key bytes from private key")
-	}
-	peerID, err := k.GetPeerID()
-	if err != nil {
-		return export, errors.Wrapf(err, "could not ger peerID from private key")
-	}
-
-	encryptedP2PKExport := EncryptedP2PKeyExport{
-		PublicKey: pubKeyBytes,
-		PeerID:    peerID,
+	encryptedOCRKExport := EncryptedP2PKeyExport{
+		KeyType:   keyTypeIdentifier,
+		PublicKey: hexutil.Encode(rawPubKey),
+		PeerID:    key.PeerID(),
 		Crypto:    cryptoJSON,
 	}
-	return json.Marshal(encryptedP2PKExport)
+	return json.Marshal(encryptedOCRKExport)
 }
 
-// DecryptPrivateKey returns the PrivateKey in export, decrypted via auth, or an error
-func (export EncryptedP2PKeyExport) DecryptPrivateKey(auth string) (k *Key, err error) {
-	marshalledPrivK, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(auth))
-	if err != nil {
-		return k, errors.Wrapf(err, "could not decrypt key 0x%x", export.PublicKey)
-	}
-	privK, err := cryptop2p.UnmarshalPrivateKey(marshalledPrivK)
-	if err != nil {
-		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", export.PublicKey)
-	}
-	return &Key{
-		privK,
-	}, nil
+func adulteratedPassword(password string) string {
+	return "p2pkey" + password
 }

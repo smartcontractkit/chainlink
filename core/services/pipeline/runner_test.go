@@ -16,9 +16,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,9 +30,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(db)
+	r := pipeline.NewRunner(orm, cfg, cc, nil, nil)
+	return r, orm
+}
+
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -42,7 +54,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	_, bridge := cltest.NewBridgeType(t, "example-bridge")
 	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -53,10 +65,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	r, _ := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -184,8 +193,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			db := pgtest.NewGormDB(t)
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -204,7 +213,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 
 			// 1. Setup bridge
-			ds1 := makeBridge(t, store, "example-bridge", expectedRequestDS1, map[string]interface{}{
+			ds1 := makeBridge(t, db, "example-bridge", expectedRequestDS1, map[string]interface{}{
 				"data": map[string]interface{}{
 					"result": map[string]interface{}{
 						"result": decimal.NewFromInt(9700),
@@ -227,13 +236,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit := makeBridge(t, store, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
+			submit := makeBridge(t, db, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
 			defer submit.Close()
 
-			orm := new(mocks.ORM)
-			orm.On("DB").Return(store.DB)
-
-			runner := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+			runner, _ := newRunner(t, db, cfg)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
@@ -281,10 +287,9 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// We want to test the scenario where one or multiple APIs time out,
 	// but a sufficient number of them still complete within the desired time frame
 	// and so we can still obtain a median.
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
+	orm.On("DB").Return(db)
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		res.WriteHeader(http.StatusOK)
@@ -308,8 +313,9 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	r, _ := newRunner(t, db, cfg)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -328,11 +334,9 @@ answer1 [type=median                      index=0];
 }
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	db := pgtest.NewGormDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -357,11 +361,8 @@ a->b2->c;`,
 }
 
 func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, pgtest.NewGormDB(t), cfg)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -381,15 +382,12 @@ a->b2;`,
 }
 
 func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, pgtest.NewGormDB(t), cfg)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
@@ -409,8 +407,7 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -439,7 +436,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 
 	_, bridge := cltest.NewBridgeType(t, "example-bridge")
 	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -450,10 +447,8 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, orm := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -489,7 +484,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -498,7 +493,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -511,7 +506,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -538,8 +533,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	db := pgtest.NewGormDB(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -568,7 +562,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 
 	_, bridge := cltest.NewBridgeType(t, "example-bridge")
 	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
+	require.NoError(t, db.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -579,10 +573,8 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
-
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, orm := newRunner(t, db, cfg)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -630,7 +622,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -656,14 +648,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_FailEarly(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := new(mocks.ORM)
-	orm.On("DB").Return(store.DB)
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		require.Fail(t, "ds1 shouldn't have been called")
 	}))
-	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	r, _ := newRunner(t, pgtest.NewGormDB(t), cfg)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds_panic [type=panic msg="oh no" failEarly=true]
@@ -677,6 +666,10 @@ ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
 	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.True(t, run.FailEarly)
-	require.Equal(t, 1, len(trrs))
-	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs[0].Result.Error)
+	require.Equal(t, 4, len(trrs))
+	assert.Contains(t, run.ByDotID("ds_panic").Error.String, "panicked")
+	// all the other runs are failed with ErrCancelled
+	assert.Contains(t, run.ByDotID("ds1").Error.String, "cancelled")
+	assert.Contains(t, run.ByDotID("ds_parse").Error.String, "cancelled")
+	assert.Contains(t, run.ByDotID("ds_multiply").Error.String, "cancelled")
 }

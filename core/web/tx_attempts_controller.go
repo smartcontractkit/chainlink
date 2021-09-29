@@ -14,7 +14,7 @@ type TxAttemptsController struct {
 
 // Index returns paginated transaction attempts
 func (tac *TxAttemptsController) Index(c *gin.Context, size, page, offset int) {
-	attempts, count, err := tac.App.GetStore().EthTxAttempts(offset, size)
+	attempts, count, err := tac.App.BPTXMORM().EthTxAttempts(offset, size)
 	ptxs := make([]presenters.EthTxResource, len(attempts))
 	for i, attempt := range attempts {
 		ptxs[i] = presenters.NewEthTxResourceFromAttempt(attempt)

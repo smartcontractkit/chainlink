@@ -4,18 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
-	"math/big"
-
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum"
@@ -40,7 +39,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{})
+		ethClient, err := eth.NewClient(logger.Default, wsUrl, nil, []url.URL{}, nil)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -62,7 +61,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 		})
 		defer wsCleanup()
 
-		ethClient, err := eth.NewClient(wsUrl, nil, nil)
+		ethClient, err := eth.NewClient(logger.Default, wsUrl, nil, nil, nil)
 		require.NoError(t, err)
 		err = ethClient.Dial(context.Background())
 		require.NoError(t, err)
@@ -91,7 +90,7 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url, nil, nil)
+	ethClient, err := eth.NewClient(logger.Default, url, nil, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -132,7 +131,7 @@ func TestEthClient_BalanceAt(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(logger.Default, url, nil, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -162,7 +161,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := cltest.NewAddress()
 			userAddress := cltest.NewAddress()
-			functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			functionSelector := eth.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
 			_, url, cleanup := cltest.NewWSServer(`{
@@ -183,7 +182,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(logger.Default, url, nil, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -250,7 +249,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			})
 			defer cleanup()
 
-			ethClient, err := eth.NewClient(url, nil, nil)
+			ethClient, err := eth.NewClient(logger.Default, url, nil, nil, nil)
 			require.NoError(t, err)
 			err = ethClient.Dial(context.Background())
 			require.NoError(t, err)
@@ -284,7 +283,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	})
 	defer cleanup()
 
-	ethClient, err := eth.NewClient(url, nil, nil)
+	ethClient, err := eth.NewClient(logger.Default, url, nil, nil, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
@@ -320,8 +319,8 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	secondaryUrl := *cltest.MustParseURL(server.URL)
-	ethClient, err := eth.NewClient(wsUrl, nil, []url.URL{secondaryUrl, secondaryUrl})
+	sendonlyUrl := *cltest.MustParseURL(server.URL)
+	ethClient, err := eth.NewClient(logger.Default, wsUrl, nil, []url.URL{sendonlyUrl, sendonlyUrl}, nil)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)

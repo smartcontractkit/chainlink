@@ -29,9 +29,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(&Logger{
-		SugaredLogger: zl.Sugar(),
-	})
+	SetLogger(CreateLogger(zl.Sugar()))
 }
 
 // SetLogger sets the internal logger to the given input.
@@ -64,12 +62,6 @@ func Infow(msg string, keysAndValues ...interface{}) {
 // Debugw logs a debug message and any additional given information.
 func Debugw(msg string, keysAndValues ...interface{}) {
 	Default.Debugw(msg, keysAndValues...)
-}
-
-// Tracew is a shim stand-in for when we have real trace-level logging support
-func Tracew(msg string, keysAndValues ...interface{}) {
-	// Zap does not support trace logging just yet
-	Default.Debugw("TRACE: "+msg, keysAndValues...)
 }
 
 // Warnw logs a debug message and any additional given information.

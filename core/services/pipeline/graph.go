@@ -107,6 +107,7 @@ func (p *Pipeline) UnmarshalText(bs []byte) (err error) {
 	*p = *parsed
 	return nil
 }
+
 func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	var minTimeout time.Duration = 1<<63 - 1
 	var aTimeoutSet bool
@@ -119,10 +120,17 @@ func (p *Pipeline) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
-func (p *Pipeline) HasAsync() bool {
+func (p *Pipeline) RequiresPreInsert() bool {
 	for _, task := range p.Tasks {
-		if t, ok := task.(*BridgeTask); ok && t.Async == "true" {
+		switch task.Type() {
+		case TaskTypeBridge:
+			if task.(*BridgeTask).Async == "true" {
+				return true
+			}
+		case TaskTypeETHTx:
+			// we want to pre-insert pipeline_task_runs always
 			return true
+		default:
 		}
 	}
 	return false

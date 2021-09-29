@@ -28,11 +28,13 @@ import BaseLink from '../components/BaseLink'
 import LoadingBar from '../components/LoadingBar'
 import MainLogo from '../components/Logos/Main'
 import fetchCountSelector from '../selectors/fetchCount'
-import { Feature, useFeature } from 'src/lib/featureFlags'
+import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
   ['/runs', 'Runs'],
+  ['/chains', 'Chains'],
+  ['/nodes', 'Nodes'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/keys', 'Keys'],
@@ -155,7 +157,7 @@ const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
               href={navItemPath}
               className={classNames(
                 classes.horizontalNavLink,
-                pathname.includes(navItemPath) && classes.activeNavLink,
+                pathname.startsWith(navItemPath) && classes.activeNavLink,
               )}
             >
               {text}
@@ -165,15 +167,17 @@ const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
         {/* Feeds Manager link hidden behind a feature flag. This is temporary until we
         enable this for everyone */}
         {isFeedsManagerFeatureEnabled && (
-          <BaseLink
-            href={'/feeds_manager'}
-            className={classNames(
-              classes.horizontalNavLink,
-              pathname.includes('/feeds_manager') && classes.activeNavLink,
-            )}
-          >
-            Feeds Manager
-          </BaseLink>
+          <ListItem className={classes.horizontalNavItem}>
+            <BaseLink
+              href={'/feeds_manager'}
+              className={classNames(
+                classes.horizontalNavLink,
+                pathname.includes('/feeds_manager') && classes.activeNavLink,
+              )}
+            >
+              Feeds Manager
+            </BaseLink>
+          </ListItem>
         )}
         {authenticated && (
           <ListItem className={classes.horizontalNavItem}>
