@@ -291,6 +291,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 
 func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled); ok {
+		lsn.l.Infow("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
