@@ -229,11 +229,11 @@ func ExtractRPCError(err error) *JsonError {
 	return jErr
 }
 
-func extractRPCError(err error) (*JsonError, error) {
-	if err == nil {
+func extractRPCError(baseErr error) (*JsonError, error) {
+	if baseErr == nil {
 		return nil, errors.New("no error present")
 	}
-	cause := errors.Cause(err)
+	cause := errors.Cause(baseErr)
 	jsonBytes, err := json.Marshal(cause)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to marshal err to json")
@@ -241,10 +241,10 @@ func extractRPCError(err error) (*JsonError, error) {
 	jErr := JsonError{}
 	err = json.Unmarshal(jsonBytes, &jErr)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to unmarshal json into jsonError struct")
+		return nil, errors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
 	}
 	if jErr.Code == 0 {
-		return nil, errors.Wrap(err, "is not a RPCError (does not have a code)")
+		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
 	}
 	return &jErr, nil
 }
