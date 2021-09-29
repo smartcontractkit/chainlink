@@ -34,7 +34,8 @@ func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pi
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(db)
-	r := pipeline.NewRunner(orm, cfg, cc, nil, nil)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
 	return r, orm
 }
 
@@ -94,7 +95,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
@@ -247,7 +248,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			spec := pipeline.Spec{
 				DotDagSource: specStr,
 			}
-			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), *logger.Default)
+			_, taskRunResults, err := runner.ExecuteRun(context.Background(), spec, pipeline.NewVarsFrom(test.vars), logger.Default)
 			require.NoError(t, err)
 			require.Len(t, taskRunResults, len(p.Tasks))
 
@@ -324,7 +325,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(ctx, spec, vars, *logger.Default)
+	_, trrs, err := r.ExecuteRun(ctx, spec, vars, logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal() {
@@ -346,7 +347,7 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, false, trrs.FinalResult().HasErrors())
@@ -371,7 +372,7 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), *logger.Default)
+	}, pipeline.NewVarsFrom(input), logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
 	result := trrs.FinalResult()
@@ -398,7 +399,7 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
@@ -484,7 +485,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err := r.Run(context.Background(), &run, logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -493,20 +494,20 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err = r.Run(context.Background(), &run, logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
 	task.Error = null.NewString("", false)
-	task.Output = &pipeline.JSONSerializable{
-		Val:  `{"data":{"result":"9700"}}` + "\n",
-		Null: false,
+	task.Output = pipeline.JSONSerializable{
+		Val:   `{"data":{"result":"9700"}}` + "\n",
+		Valid: true,
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err = r.Run(context.Background(), &run, logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -615,14 +616,14 @@ ds5 [type=http method="GET" url="%s" index=2]
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
-		task.Output = &pipeline.JSONSerializable{
-			Val:  `{"data":{"result":"9700"}}` + "\n",
-			Null: false,
+		task.Output = pipeline.JSONSerializable{
+			Val:   `{"data":{"result":"9700"}}` + "\n",
+			Valid: true,
 		}
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err := r.Run(context.Background(), &run, logger.Default, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -663,7 +664,7 @@ ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
 	}
 	vars := pipeline.NewVarsFrom(nil)
 
-	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.Default)
 	require.NoError(t, err)
 	require.True(t, run.FailEarly)
 	require.Equal(t, 4, len(trrs))

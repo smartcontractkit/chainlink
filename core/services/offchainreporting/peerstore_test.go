@@ -17,8 +17,6 @@ import (
 func Test_Peerstore_Start(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
-	// Deferring the constraint avoids having to insert an entire set of jobs/specs
-	require.NoError(t, db.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
 	err := db.Exec(`INSERT INTO p2p_peers (id, addr, created_at, updated_at, peer_id) VALUES
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
@@ -62,9 +60,6 @@ func Test_Peerstore_Start(t *testing.T) {
 
 func Test_Peerstore_WriteToDB(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-
-	// Deferring the constraint avoids having to insert an entire set of jobs/specs
-	require.NoError(t, db.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
 
 	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
 	require.NoError(t, err)

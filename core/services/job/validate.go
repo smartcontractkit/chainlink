@@ -1,6 +1,8 @@
 package job
 
 import (
+	"strings"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 )
@@ -54,5 +56,10 @@ func ValidateSpec(ts string) (Type, error) {
 	if jb.Pipeline.RequiresPreInsert() && !jb.Type.SupportsAsync() {
 		return "", errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
+
+	if strings.Contains(ts, "<{}>") {
+		return "", errors.Errorf("'<{}>' syntax is not supported. Please use \"{}\" instead")
+	}
+
 	return jb.Type, nil
 }

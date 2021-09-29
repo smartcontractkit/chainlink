@@ -54,6 +54,7 @@ type GeneralConfigOverrides struct {
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
+	GlobalEvmEIP1559DynamicFees               null.Bool
 	GlobalEvmFinalityDepth                    null.Int
 	GlobalEvmGasBumpPercent                   null.Int
 	GlobalEvmGasBumpTxDepth                   null.Int
@@ -61,15 +62,19 @@ type GeneralConfigOverrides struct {
 	GlobalEvmGasLimitDefault                  null.Int
 	GlobalEvmGasLimitMultiplier               null.Float
 	GlobalEvmGasPriceDefault                  *big.Int
+	GlobalEvmGasTipCapDefault                 *big.Int
+	GlobalEvmGasTipCapMinimum                 *big.Int
 	GlobalEvmHeadTrackerHistoryDepth          null.Int
 	GlobalEvmHeadTrackerMaxBufferSize         null.Int
 	GlobalEvmHeadTrackerSamplingInterval      *time.Duration
 	GlobalEvmLogBackfillBatchSize             null.Int
 	GlobalEvmMaxGasPriceWei                   *big.Int
+	GlobalEvmMinGasPriceWei                   *big.Int
 	GlobalEvmNonceAutoSync                    null.Bool
 	GlobalEvmRPCDefaultBatchSize              null.Int
 	GlobalFlagsContractAddress                null.String
 	GlobalGasEstimatorMode                    null.String
+	GlobalLayer2Type                          null.String
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
@@ -191,16 +196,13 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 	return 12345
 }
 
-func (c *TestGeneralConfig) P2PPeerID() (p2pkey.PeerID, error) {
-	if c.Overrides.P2PPeerIDError != nil {
-		return "", c.Overrides.P2PPeerIDError
-	}
+func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
 	if c.Overrides.P2PPeerID != nil {
-		return *c.Overrides.P2PPeerID, nil
+		return *c.Overrides.P2PPeerID
 	}
 	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID), nil
+	return p2pkey.PeerID(defaultP2PPeerID)
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
@@ -352,7 +354,7 @@ func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error)
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c *TestGeneralConfig) CreateProductionLogger() *logger.Logger {
+func (c *TestGeneralConfig) CreateProductionLogger() logger.Logger {
 	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
@@ -433,6 +435,13 @@ func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
 	return c.GeneralConfig.GlobalGasEstimatorMode()
 }
 
+func (c *TestGeneralConfig) GlobalLayer2Type() (string, bool) {
+	if c.Overrides.GlobalLayer2Type.Valid {
+		return c.Overrides.GlobalLayer2Type.String, true
+	}
+	return c.GeneralConfig.GlobalLayer2Type()
+}
+
 func (c *TestGeneralConfig) GlobalEvmNonceAutoSync() (bool, bool) {
 	if c.Overrides.GlobalEvmNonceAutoSync.Valid {
 		return c.Overrides.GlobalEvmNonceAutoSync.Bool, true
@@ -509,6 +518,13 @@ func (c *TestGeneralConfig) GlobalEvmMaxGasPriceWei() (*big.Int, bool) {
 	return c.GeneralConfig.GlobalEvmMaxGasPriceWei()
 }
 
+func (c *TestGeneralConfig) GlobalEvmMinGasPriceWei() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmMinGasPriceWei != nil {
+		return c.Overrides.GlobalEvmMinGasPriceWei, true
+	}
+	return c.GeneralConfig.GlobalEvmMinGasPriceWei()
+}
+
 func (c *TestGeneralConfig) GlobalEvmGasBumpTxDepth() (uint16, bool) {
 	if c.Overrides.GlobalEvmGasBumpTxDepth.Valid {
 		return uint16(c.Overrides.GlobalEvmGasBumpTxDepth.Int64), true
@@ -577,6 +593,27 @@ func (c *TestGeneralConfig) GlobalEthTxReaperThreshold() (time.Duration, bool) {
 		return *c.Overrides.GlobalEthTxReaperThreshold, true
 	}
 	return c.GeneralConfig.GlobalEthTxReaperThreshold()
+}
+
+func (c *TestGeneralConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	if c.Overrides.GlobalEvmEIP1559DynamicFees.Valid {
+		return c.Overrides.GlobalEvmEIP1559DynamicFees.Bool, true
+	}
+	return c.GeneralConfig.GlobalEvmEIP1559DynamicFees()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasTipCapDefault != nil {
+		return c.Overrides.GlobalEvmGasTipCapDefault, true
+	}
+	return c.GeneralConfig.GlobalEvmGasTipCapDefault()
+}
+
+func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+	if c.Overrides.GlobalEvmGasTipCapMinimum != nil {
+		return c.Overrides.GlobalEvmGasTipCapMinimum, true
+	}
+	return c.GeneralConfig.GlobalEvmGasTipCapMinimum()
 }
 
 func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {

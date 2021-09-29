@@ -7,7 +7,7 @@ import "../interfaces/AccessControllerInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../SimpleWriteAccessController.sol";
 
-/* ./dev dependencies - to be re/moved after audit */
+/* ./dev dependencies - to be moved from ./dev after audit */
 import "./interfaces/ForwarderInterface.sol";
 import "./interfaces/FlagsInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
@@ -23,7 +23,10 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  *  - Funds on the contract are managed by the owner
  */
 contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterface, SimpleWriteAccessController {
-  enum PaymentStrategy { L1, L2 }
+  enum PaymentStrategy {
+    L1,
+    L2
+  }
   // Config for L1 -> L2 Arbitrum retryable ticket message
   struct GasConfig {
     uint256 maxGas;
@@ -35,17 +38,20 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   address constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
 
   /// @dev Follows: https://eips.ethereum.org/EIPS/eip-1967
-  address constant private FLAG_ARBITRUM_SEQ_OFFLINE = address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
+  address public constant FLAG_ARBITRUM_SEQ_OFFLINE =
+    address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
   // Encode underlying Flags call/s
-  bytes constant private CALL_RAISE_FLAG = abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
-  bytes constant private CALL_LOWER_FLAG = abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
-  int256 constant private ANSWER_SEQ_OFFLINE = 1;
+  bytes private constant CALL_RAISE_FLAG =
+    abi.encodeWithSelector(FlagsInterface.raiseFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
+  bytes private constant CALL_LOWER_FLAG =
+    abi.encodeWithSelector(FlagsInterface.lowerFlag.selector, FLAG_ARBITRUM_SEQ_OFFLINE);
+  int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
-  address immutable public CROSS_DOMAIN_MESSENGER;
-  address immutable public L2_CROSS_DOMAIN_FORWARDER;
-  address immutable public L2_FLAGS;
+  address public immutable CROSS_DOMAIN_MESSENGER;
+  address public immutable L2_CROSS_DOMAIN_FORWARDER;
+  address public immutable L2_FLAGS;
   // L2 xDomain alias address of this contract
-  address immutable public L2_ALIAS = AddressAliasHelper.applyL1ToL2Alias(address(this));
+  address public immutable L2_ALIAS = AddressAliasHelper.applyL1ToL2Alias(address(this));
 
   PaymentStrategy private s_paymentStrategy;
   GasConfig private s_gasConfig;
@@ -55,9 +61,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @notice emitted when a new payment strategy is set
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
-  event PaymentStrategySet(
-    PaymentStrategy indexed paymentStrategy
-  );
+  event PaymentStrategySet(PaymentStrategy indexed paymentStrategy);
 
   /**
    * @notice emitted when a new gas configuration is set
@@ -65,32 +69,21 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasPriceBid maximum L2 gas price to pay
    * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
    */
-  event GasConfigSet(
-    uint256 maxGas,
-    uint256 gasPriceBid,
-    address indexed gasPriceL1FeedAddr
-  );
+  event GasConfigSet(uint256 maxGas, uint256 gasPriceBid, address indexed gasPriceL1FeedAddr);
 
   /**
    * @notice emitted when a new gas access-control contract is set
    * @param previous the address prior to the current setting
    * @param current the address of the new access-control contract
    */
-  event ConfigACSet(
-    address indexed previous,
-    address indexed current
-  );
+  event ConfigACSet(address indexed previous, address indexed current);
 
   /**
    * @notice emitted when a new ETH withdrawal from L2 was requested
    * @param id unique id of the published retryable transaction (keccak256(requestID, uint(0))
    * @param amount of funds to withdraw
    */
-  event L2WithdrawalRequested(
-    uint256 indexed id,
-    uint256 amount,
-    address indexed refundAddr
-  );
+  event L2WithdrawalRequested(uint256 indexed id, uint256 amount, address indexed refundAddr);
 
   /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
@@ -135,45 +128,22 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *
    * @inheritdoc TypeAndVersionInterface
    */
-  function typeAndVersion()
-    external
-    pure
-    virtual
-    override
-    returns (
-      string memory
-    )
-  {
+  function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumValidator 0.2.0";
   }
 
   /// @return stored PaymentStrategy
-  function paymentStrategy()
-    external
-    view
-    virtual
-    returns (PaymentStrategy)
-  {
+  function paymentStrategy() external view virtual returns (PaymentStrategy) {
     return s_paymentStrategy;
   }
 
   /// @return stored GasConfig
-  function gasConfig()
-    external
-    view
-    virtual
-    returns (GasConfig memory)
-  {
+  function gasConfig() external view virtual returns (GasConfig memory) {
     return s_gasConfig;
   }
 
   /// @return config AccessControllerInterface contract address
-  function configAC()
-    external
-    view
-    virtual
-    returns (address)
-  {
+  function configAC() external view virtual returns (address) {
     return address(s_configAC);
   }
 
@@ -183,19 +153,13 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *  - to use them (if configured) to pay for L2 execution on L1
    *  - when withdrawing funds from L2 xDomain alias address (pay for L2 execution on L2)
    */
-  receive()
-    external
-    payable
-  {}
+  receive() external payable {}
 
   /**
    * @notice withdraws all funds available in this contract to the msg.sender
    * @dev only owner can call this
    */
-  function withdrawFunds()
-    external
-    onlyOwner()
-  {
+  function withdrawFunds() external onlyOwner {
     address payable recipient = payable(msg.sender);
     uint256 amount = address(this).balance;
     Address.sendValue(recipient, amount);
@@ -206,12 +170,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @dev only owner can call this
    * @param recipient address where to send the funds
    */
-  function withdrawFundsTo(
-    address payable recipient
-  ) 
-    external
-    onlyOwner()
-  {
+  function withdrawFundsTo(address payable recipient) external onlyOwner {
     uint256 amount = address(this).balance;
     Address.sendValue(recipient, amount);
   }
@@ -224,22 +183,17 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    *   WARNING: `refundAddr` is not aliased! Make sure you can recover the refunded funds on L2.
    * @return id unique id of the published retryable transaction (keccak256(requestID, uint(0))
    */
-  function withdrawFundsFromL2(
-    uint256 amount,
-    address refundAddr
-  )
-    external
-    onlyOwner()
-    returns (uint256 id)
-  {
+  function withdrawFundsFromL2(uint256 amount, address refundAddr) external onlyOwner returns (uint256 id) {
     // Build an xDomain message to trigger the ArbSys precompile, which will create a L2 -> L1 tx transferring `amount`
-    bytes memory message = abi.encodeWithSelector(ArbSys.sendTxToL1.selector, address(this));
+    bytes memory message = abi.encodeWithSelector(ArbSys.withdrawEth.selector, address(this));
     // Make the xDomain call
     // NOTICE: We approximate the max submission cost of sending a retryable tx with specific calldata length.
     uint256 maxSubmissionCost = _approximateMaxSubmissionCost(message.length);
-    uint256 maxGas = 100_000; // static `maxGas` for L2 -> L1 transfer
+    uint256 maxGas = 120_000; // static `maxGas` for L2 -> L1 transfer
     uint256 gasPriceBid = s_gasConfig.gasPriceBid;
-    uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1 ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid) : 0;
+    uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1
+      ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid)
+      : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
     id = IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
       ARBSYS_ADDR, // target
@@ -259,12 +213,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @dev only owner can call this
    * @param accessController new AccessControllerInterface contract address
    */
-  function setConfigAC(
-    address accessController
-  )
-    external
-    onlyOwner()
-  {
+  function setConfigAC(address accessController) external onlyOwner {
     _setConfigAC(accessController);
   }
 
@@ -279,10 +228,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxGas,
     uint256 gasPriceBid,
     address gasPriceL1FeedAddr
-  )
-    external
-    onlyOwnerOrConfigAccess()
-  {
+  ) external onlyOwnerOrConfigAccess {
     _setGasConfig(maxGas, gasPriceBid, gasPriceL1FeedAddr);
   }
 
@@ -291,12 +237,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @dev access control provided by `configAC`
    * @param paymentStrategy strategy describing how the contract pays for xDomain calls
    */
-  function setPaymentStrategy(
-    PaymentStrategy paymentStrategy
-  )
-    external
-    onlyOwnerOrConfigAccess()
-  {
+  function setPaymentStrategy(PaymentStrategy paymentStrategy) external onlyOwnerOrConfigAccess {
     _setPaymentStrategy(paymentStrategy);
   }
 
@@ -309,16 +250,11 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256 /* previousRoundId */,
+    uint256, /* previousRoundId */
     int256 previousAnswer,
-    uint256 /* currentRoundId */,
+    uint256, /* currentRoundId */
     int256 currentAnswer
-  )
-    external
-    override
-    checkAccess()
-    returns (bool)
-  {
+  ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
     if (previousAnswer == currentAnswer) {
       return true;
@@ -337,7 +273,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost = _approximateMaxSubmissionCost(message.length);
     uint256 maxGas = s_gasConfig.maxGas;
     uint256 gasPriceBid = s_gasConfig.gasPriceBid;
-    uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1 ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid) : 0;
+    uint256 l1PaymentValue = s_paymentStrategy == PaymentStrategy.L1
+      ? _maxRetryableTicketCost(maxSubmissionCost, maxGas, gasPriceBid)
+      : 0;
     // NOTICE: In the case of PaymentStrategy.L2 the L2 xDomain alias address needs to be funded, as it will be paying the fee.
     // We also ignore the returned msg number, that can be queried via the `InboxMessageDelivered` event.
     IInbox(CROSS_DOMAIN_MESSENGER).createRetryableTicketNoRefundAliasRewrite{value: l1PaymentValue}(
@@ -355,11 +293,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @notice internal method that stores the payment strategy
-  function _setPaymentStrategy(
-    PaymentStrategy paymentStrategy
-  )
-    internal
-  {
+  function _setPaymentStrategy(PaymentStrategy paymentStrategy) internal {
     s_paymentStrategy = paymentStrategy;
     emit PaymentStrategySet(paymentStrategy);
   }
@@ -369,9 +303,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxGas,
     uint256 gasPriceBid,
     address gasPriceL1FeedAddr
-  )
-    internal
-  {
+  ) internal {
     require(maxGas > 0, "Max gas is zero");
     require(gasPriceBid > 0, "Gas price bid is zero");
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
@@ -380,11 +312,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @notice Internal method that stores the configuration access controller
-  function _setConfigAC(
-    address accessController
-  )
-    internal
-  {
+  function _setConfigAC(address accessController) internal {
     address previousAccessController = address(s_configAC);
     if (accessController != previousAccessController) {
       s_configAC = AccessControllerInterface(accessController);
@@ -397,16 +325,10 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @dev On L2 this info is available via `ArbRetryableTx.getSubmissionPrice`.
    * @param calldataSizeInBytes xDomain message size in bytes
    */
-  function _approximateMaxSubmissionCost(
-    uint256 calldataSizeInBytes
-  )
-    internal
-    view
-    returns (uint256)
-  {
-    (,int256 l1GasPriceInWei,,,) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
+  function _approximateMaxSubmissionCost(uint256 calldataSizeInBytes) internal view returns (uint256) {
+    (, int256 l1GasPriceInWei, , , ) = AggregatorV3Interface(s_gasConfig.gasPriceL1FeedAddr).latestRoundData();
     uint256 l1GasPriceEstimate = uint256(l1GasPriceInWei) * 3; // add 200% buffer (price volatility error margin)
-    return l1GasPriceEstimate * calldataSizeInBytes / 256 + l1GasPriceEstimate;
+    return (l1GasPriceEstimate * calldataSizeInBytes) / 256 + l1GasPriceEstimate;
   }
 
   /// @notice Internal helper method that calculates the total cost of the xDomain retryable ticket call
@@ -414,19 +336,14 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 maxSubmissionCost,
     uint256 maxGas,
     uint256 gasPriceBid
-  )
-    internal
-    pure
-    returns (uint256)
-  {
+  ) internal pure returns (uint256) {
     return maxSubmissionCost + maxGas * gasPriceBid;
   }
 
   /// @dev reverts if the caller does not have access to change the configuration
   modifier onlyOwnerOrConfigAccess() {
     require(
-      msg.sender == owner() ||
-        address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data),
+      msg.sender == owner() || (address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data)),
       "No access"
     );
     _;

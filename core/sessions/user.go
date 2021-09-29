@@ -26,8 +26,6 @@ type User struct {
 	TokenSalt         null.String
 	TokenHashedSecret null.String
 	UpdatedAt         time.Time
-
-	TokenSecret null.String // TODO: looks unused?
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/

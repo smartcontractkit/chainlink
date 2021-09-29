@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -105,7 +106,7 @@ func TestRunner(t *testing.T) {
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]interface{}{"jobRun": map[string]interface{}{"meta": m}}), logger.Default, true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -200,7 +201,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Errors, 1)
@@ -223,11 +224,10 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
-				// FIXME: Shouldn't it be the Val that is null?
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -247,7 +247,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -269,10 +269,10 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
 				assert.Contains(t, run.Error.ValueOrZero(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Contains(t, run.Error.ValueOrZero(), pipeline.ErrTooManyErrors.Error())
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -292,7 +292,7 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -313,10 +313,10 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
-				assert.Nil(t, run.Output)
+				assert.False(t, run.Output.Valid)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -349,7 +349,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			nil,
 			nil,
@@ -388,7 +388,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -443,7 +443,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -480,7 +480,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -511,7 +511,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -544,7 +544,7 @@ ds1 -> ds1_parse;
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
-			keyStore.OCR(),
+			keyStore,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -605,7 +605,7 @@ ds1 -> ds1_parse;
 		jb, err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
@@ -613,7 +613,7 @@ ds1 -> ds1_parse;
 		jbs = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.Errors[0])
@@ -625,7 +625,7 @@ ds1 -> ds1_parse;
 		jb, err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
 	})
@@ -643,7 +643,7 @@ ds1 -> ds1_parse;
 		jb, err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.Errors[0])
@@ -654,7 +654,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run, it should fail
-		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), *logger.Default, true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.Error(t, err)
 	})
 }
@@ -793,13 +793,11 @@ observationSource   = """
 		require.NoError(t, err)
 		job := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		jobID = job.ID
-		t.Log("JOB created", job.WebhookSpecID)
 
 		require.Eventually(t, func() bool { return eiNotifiedOfCreate }, 5*time.Second, 10*time.Millisecond, "expected external initiator to be notified of new job")
 	}
 
-	// Simulate request from EI -> Core node
-	{
+	t.Run("simulate request from EI -> Core node with successful callback", func(t *testing.T) {
 		cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
@@ -818,7 +816,7 @@ observationSource   = """
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
 			client := app.NewHTTPClient()
-			body := strings.NewReader(`{"data":{"result":"123.45"}}`)
+			body := strings.NewReader(`{"value": {"data":{"result":"123.45"}}}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
 			cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -832,9 +830,45 @@ observationSource   = """
 		require.Empty(t, run.PipelineTaskRuns[1].Error)
 		require.Empty(t, run.PipelineTaskRuns[2].Error)
 		require.Empty(t, run.PipelineTaskRuns[3].Error)
-		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Null: false}, run.Outputs)
+		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
+		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.Errors)
+	})
 
-	}
+	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
+		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
+
+		pipelineORM := pipeline.NewORM(app.GetDB())
+		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
+
+		// Trigger v2/resume
+		select {
+		case <-bridgeCalled:
+		case <-time.After(time.Second):
+			t.Fatal("expected bridge server to be called")
+		}
+		// Make the request
+		{
+			url, err := url.Parse(responseURL)
+			require.NoError(t, err)
+			client := app.NewHTTPClient()
+			body := strings.NewReader(`{"error": "something exploded in EA"}`)
+			response, cleanup := client.Patch(url.Path, body)
+			defer cleanup()
+			cltest.AssertServerResponse(t, response, http.StatusOK)
+		}
+
+		runs := cltest.WaitForPipelineError(t, 0, jobID, 1, 4, jobORM, 5*time.Second, 300*time.Millisecond)
+		require.Len(t, runs, 1)
+		run := runs[0]
+		require.Len(t, run.PipelineTaskRuns, 4)
+		require.Empty(t, run.PipelineTaskRuns[0].Error)
+		assert.True(t, run.PipelineTaskRuns[1].Error.Valid)
+		assert.Equal(t, "something exploded in EA", run.PipelineTaskRuns[1].Error.String)
+		assert.True(t, run.PipelineTaskRuns[2].Error.Valid)
+		assert.True(t, run.PipelineTaskRuns[3].Error.Valid)
+		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
+		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.Errors)
+	})
 
 	// Delete the job
 	{

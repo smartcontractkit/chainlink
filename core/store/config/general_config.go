@@ -19,20 +19,20 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/spf13/viper"
+	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/spf13/viper"
-	"go.uber.org/zap/zapcore"
-	"gorm.io/gorm"
 )
 
 // this permission grants read / write accccess to file owners only
@@ -57,7 +57,7 @@ type GeneralOnlyConfig interface {
 	CertFile() string
 	ClientNodeURL() string
 	ClobberNodesFromEnv() bool
-	CreateProductionLogger() *logger.Logger
+	CreateProductionLogger() logger.Logger
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -99,6 +99,7 @@ type GeneralOnlyConfig interface {
 	JobPipelineResultWriteQueueDepth() uint64
 	KeeperDefaultTransactionQueueDepth() uint32
 	KeeperGasPriceBufferPercent() uint32
+	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
 	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
@@ -138,7 +139,7 @@ type GeneralOnlyConfig interface {
 	P2PListenPortRaw() string
 	P2PNetworkingStack() (n ocrnetworking.NetworkingStack)
 	P2PNetworkingStackRaw() string
-	P2PPeerID() (p2pkey.PeerID, error)
+	P2PPeerID() p2pkey.PeerID
 	P2PPeerIDRaw() string
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
@@ -159,7 +160,6 @@ type GeneralOnlyConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
-	SetKeyStore(keystore.Master)
 	SetLogLevel(ctx context.Context, value string) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
@@ -193,6 +193,7 @@ type GlobalConfig interface {
 	GlobalEthTxReaperThreshold() (time.Duration, bool)
 	GlobalEthTxResendAfterThreshold() (time.Duration, bool)
 	GlobalEvmDefaultBatchSize() (uint32, bool)
+	GlobalEvmEIP1559DynamicFees() (bool, bool)
 	GlobalEvmFinalityDepth() (uint32, bool)
 	GlobalEvmGasBumpPercent() (uint16, bool)
 	GlobalEvmGasBumpThreshold() (uint64, bool)
@@ -202,6 +203,8 @@ type GlobalConfig interface {
 	GlobalEvmGasLimitMultiplier() (float32, bool)
 	GlobalEvmGasLimitTransfer() (uint64, bool)
 	GlobalEvmGasPriceDefault() (*big.Int, bool)
+	GlobalEvmGasTipCapDefault() (*big.Int, bool)
+	GlobalEvmGasTipCapMinimum() (*big.Int, bool)
 	GlobalEvmHeadTrackerHistoryDepth() (uint32, bool)
 	GlobalEvmHeadTrackerMaxBufferSize() (uint32, bool)
 	GlobalEvmHeadTrackerSamplingInterval() (time.Duration, bool)
@@ -214,6 +217,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
+	GlobalLayer2Type() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -235,12 +239,10 @@ type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
 	ORM              *ORM
-	ks               keystore.Master
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
 	advisoryLockID   int64
-	p2ppeerIDmtx     sync.Mutex
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -301,9 +303,6 @@ func (c *generalConfig) Validate() error {
 		logger.Warn("MINIMUM_CONTRACT_PAYMENT is now deprecated and will be removed from a future release, use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead.")
 	}
 
-	if _, err := c.P2PPeerID(); errors.Cause(err) == ErrInvalid {
-		return err
-	}
 	if _, err := c.OCRKeyBundleID(); errors.Cause(err) == ErrInvalid {
 		return err
 	}
@@ -329,11 +328,6 @@ func (c *generalConfig) Validate() error {
 func (c *generalConfig) SetDB(db *gorm.DB) {
 	orm := NewORM(db)
 	c.ORM = orm
-}
-
-// SetKeyStore provides reference to the keystore for runtime configuration values
-func (c *generalConfig) SetKeyStore(ks keystore.Master) {
-	c.ks = ks
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -634,10 +628,16 @@ func (c *generalConfig) KeeperDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperDefaultTransactionQueueDepth"))
 }
 
-// KeeperGasPriceBufferPercent controls the queue size for DropOldestStrategy in Keeper
-// Set to 0 to use SendEvery strategy instead
+// KeeperGasPriceBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in legacy mode.
 func (c *generalConfig) KeeperGasPriceBufferPercent() uint32 {
 	return c.viper.GetUint32(EnvVarName("KeeperGasPriceBufferPercent"))
+}
+
+// KeeperGasTipCapBufferPercent adds the specified percentage to the gas price
+// used for checking whether to perform an upkeep. Only applies in EIP-1559 mode.
+func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
+	return c.viper.GetUint32(EnvVarName("KeeperGasTipCapBufferPercent"))
 }
 
 // KeeperRegistrySyncInterval is the interval in which the RegistrySynchronizer performs a full
@@ -948,47 +948,17 @@ func (c *generalConfig) P2PPeerstoreWriteInterval() time.Duration {
 }
 
 // P2PPeerID is the default peer ID that will be used, if not overridden
-func (c *generalConfig) P2PPeerID() (p2pkey.PeerID, error) {
-	var err error
-	func() {
-		c.p2ppeerIDmtx.Lock()
-		defer c.p2ppeerIDmtx.Unlock()
-		if c.viper.GetString(EnvVarName("P2PPeerID")) == "" {
-			if c.ks == nil {
-				err = errors.New("keystore was not set on config")
-				return
-			}
-			keys, err2 := c.ks.P2P().GetAll()
-			if err2 != nil {
-				logger.Warnw("Failed to load keys, falling back to env", "err", err2.Error())
-				return
-			}
-			if len(keys) > 0 {
-				peerID := keys[0].PeerID()
-				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
-				c.viper.Set(EnvVarName("P2PPeerID"), peerID)
-				if len(keys) > 1 {
-					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
-				}
-			} else {
-				err = errors.New("the configuration variable P2P_PEER_ID was not specified and found no P2P keys in the database. Please set P2P_PEER_ID explicitly or add at least one key")
-			}
-		}
-	}()
-	if err != nil {
-		return "", err
-	}
-
+func (c *generalConfig) P2PPeerID() p2pkey.PeerID {
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
-	if pidStr != "" {
-		var pid p2pkey.PeerID
-		err := pid.UnmarshalText([]byte(pidStr))
-		if err != nil {
-			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
-		}
-		return pid, nil
+	if pidStr == "" {
+		return ""
 	}
-	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID env var is not set")
+	var pid p2pkey.PeerID
+	if err := pid.UnmarshalText([]byte(pidStr)); err != nil {
+		logger.Error(errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err))
+		return ""
+	}
+	return pid
 }
 
 // P2PPeerIDRaw returns the string value of whatever P2P_PEER_ID was set to with no parsing
@@ -1188,7 +1158,7 @@ func (c *generalConfig) CertFile() string {
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func (c *generalConfig) CreateProductionLogger() *logger.Logger {
+func (c *generalConfig) CreateProductionLogger() logger.Logger {
 	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
@@ -1492,6 +1462,13 @@ func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
+func (*generalConfig) GlobalLayer2Type() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
+	if val == nil {
+		return "", false
+	}
+	return val.(string), ok
+}
 func (*generalConfig) GlobalLinkContractAddress() (string, bool) {
 	val, ok := lookupEnv(EnvVarName("LinkContractAddress"), ParseString)
 	if val == nil {
@@ -1526,6 +1503,27 @@ func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 		return 0, false
 	}
 	return val.(uint16), ok
+}
+func (*generalConfig) GlobalEvmEIP1559DynamicFees() (bool, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmEIP1559DynamicFees"), ParseBool)
+	if val == nil {
+		return false, false
+	}
+	return val.(bool), ok
+}
+func (*generalConfig) GlobalEvmGasTipCapDefault() (*big.Int, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmGasTipCapDefault"), ParseBigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
+}
+func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
+	val, ok := lookupEnv(EnvVarName("EvmGasTipCapMinimum"), ParseBigInt)
+	if val == nil {
+		return nil, false
+	}
+	return val.(*big.Int), ok
 }
 
 // ClobberNodesFromEnv will upsert a new chain using the DefaultChainID and

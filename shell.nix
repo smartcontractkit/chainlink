@@ -4,7 +4,7 @@ pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
     go
 
-    postgresql
+    postgresql_13
     python3
     python3Packages.pip
     curl

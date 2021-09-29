@@ -41,7 +41,7 @@ type Eth interface {
 	GetStatesForKeys([]ethkey.KeyV2) ([]ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 
-	GetV1KeysAsV2() ([]ethkey.KeyV2, []ethkey.State, error)
+	GetV1KeysAsV2(chainID *big.Int) ([]ethkey.KeyV2, []ethkey.State, error)
 }
 
 type eth struct {
@@ -356,7 +356,7 @@ func (ks *eth) GetStatesForChain(chainID *big.Int) (states []ethkey.State, err e
 	return
 }
 
-func (ks *eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
+func (ks *eth) GetV1KeysAsV2(chainID *big.Int) (keys []ethkey.KeyV2, states []ethkey.State, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
 		return keys, states, err
@@ -369,9 +369,10 @@ func (ks *eth) GetV1KeysAsV2() (keys []ethkey.KeyV2, states []ethkey.State, _ er
 		keyV2 := ethkey.FromPrivateKey(dKey.PrivateKey)
 		keys = append(keys, keyV2)
 		state := ethkey.State{
-			Address:   keyV1.Address,
-			NextNonce: keyV1.NextNonce,
-			IsFunding: keyV1.IsFunding,
+			Address:    keyV1.Address,
+			NextNonce:  keyV1.NextNonce,
+			IsFunding:  keyV1.IsFunding,
+			EVMChainID: *utils.NewBig(chainID),
 		}
 		states = append(states, state)
 	}

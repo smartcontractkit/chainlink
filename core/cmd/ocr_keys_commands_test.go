@@ -24,7 +24,7 @@ func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		bundleID = "b609c2e0e042cdb788de5234017a49103b489e6a9f94cb45ec3d34e1fe1a0f5f"
+		bundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 		buffer   = bytes.NewBufferString("")
 		r        = cmd.RendererTable{Writer: buffer}
 	)
