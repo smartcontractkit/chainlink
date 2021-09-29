@@ -1,11 +1,9 @@
 package sessions
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgtype"
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
@@ -15,12 +13,13 @@ import (
 	"github.com/duo-labs/webauthn.io/session"
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
+	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 )
 
 // User holds the credentials for API user.
 type WebAuthn struct {
 	Email         string
-	PublicKeyData pgtype.JSONB
+	PublicKeyData sqlxTypes.JSONText
 }
 
 // This struct implements the required duo-labs/webauthn/ 'User' interface
@@ -221,7 +220,7 @@ func (u WebAuthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
 func (u *WebAuthnUser) LoadWebAuthnCredentials(uwas []WebAuthn) error {
 	for _, v := range uwas {
 		var credential webauthn.Credential
-		err := json.Unmarshal([]byte(v.PublicKeyData.Bytes), &credential)
+		err := v.PublicKeyData.Unmarshal(&credential)
 		if err != nil {
 			return fmt.Errorf("Error unmarshalling provided PublicKeyData: %s", err)
 		}

@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jackc/pgtype"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	sqlxTypes "github.com/smartcontractkit/sqlx/types"
 
 	"github.com/gin-gonic/gin"
 
@@ -105,11 +105,8 @@ func (c *WebAuthnController) addCredentialToUser(user sessions.User, credential 
 	}
 
 	token := sessions.WebAuthn{
-		Email: user.Email,
-		PublicKeyData: pgtype.JSONB{
-			Bytes:  credj,
-			Status: pgtype.Present,
-		},
+		Email:         user.Email,
+		PublicKeyData: sqlxTypes.JSONText(credj),
 	}
 	err = c.App.SessionORM().SaveWebAuthn(&token)
 	if err != nil {

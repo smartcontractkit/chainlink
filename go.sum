@@ -101,7 +101,6 @@ github.com/VictoriaMetrics/fastcache v1.6.0/go.mod h1:0qHz5QP0GMX4pfmMA/zt5RgfNu
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
 github.com/aead/siphash v1.0.1/go.mod h1:Nywa3cDsYNNK3gaciGTWPwHt0wlpNV15vwmswBAUSII=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
-github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412 h1:w1UutsfOrms1J05zt7ISrnJIXKzwaspym5BTKGx93EI=
 github.com/agl/ed25519 v0.0.0-20170116200512-5312a6153412/go.mod h1:WPjqKcmVOxf0XSf3YxCJs6N6AOSrOx3obionmG7T0y0=
 github.com/ajstarks/svgo v0.0.0-20180226025133-644b8db467af/go.mod h1:K08gAheRH3/J6wwsYMMT4xOr94bZjxIelGM0+d/wbFw=
 github.com/akavel/rsrc v0.8.0/go.mod h1:uLoCtb9J+EyAqh+26kdrTgmzRBFPGOolLWKpdxkKq+c=
@@ -296,7 +295,6 @@ github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8
 github.com/dlclark/regexp2 v1.2.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
 github.com/docker/docker v1.4.2-0.20180625184442-8e610b2b55bf/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/dop251/goja v0.0.0-20200721192441-a695b0cdd498/go.mod h1:Mw6PkjjMXWbTj+nnj4s3QPXq1jaT0s5pC0iFD4+BOAA=
-github.com/duo-labs/webauthn v0.0.0-20191119193225-4bf9a0f776d4 h1:rXVUYM3uQcdXgSvQ5Bo+JZFMnLi0H3jib+2mz7B6M4U=
 github.com/duo-labs/webauthn v0.0.0-20191119193225-4bf9a0f776d4/go.mod h1:KR2KScxcZAWdZGOUnsPGjD3ow0cvNfv3WHXC/Xz+d9g=
 github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc h1:mLNknBMRNrYNf16wFFUyhSAe1tISZN7oAfal4CZ2OxY=
 github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc/go.mod h1:/X2OJiJxjQ7alqWZqX9EtBTmZc+4qQ0LvZ1k5wP67RM=
@@ -902,7 +900,6 @@ github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 h1:ZHuwnjpP8LsVsUYqTq
 github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9/go.mod h1:Od972xHfMJowv7NGVDiWVxk2zxnWgjLlJzE+F4F7AGU=
 github.com/karrick/godirwalk v1.10.12 h1:BqUm+LuJcXjGv1d2mj3gBiQyrQ57a0rYoAmhvJQ7RDU=
 github.com/karrick/godirwalk v1.10.12/go.mod h1:RoGL9dQei4vP9ilrpETWE8CLOZ1kiN0LhBygSwrAsHA=
-github.com/katzenpost/core v0.0.7 h1:ZI4oYACe/3n2iS2XsCccGbTFdhhRJunjFW05Utwna+g=
 github.com/katzenpost/core v0.0.7/go.mod h1:UXMLmMXlBHrhMXhWTy4DvCXqwTRLOh4DP/mR1Cm1sR8=
 github.com/kilic/bls12-381 v0.0.0-20201226121925-69dacb279461/go.mod h1:vDTTHJONJ6G+P2R74EhnyotQDTliQDnFEwhdmfzw1ig=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
