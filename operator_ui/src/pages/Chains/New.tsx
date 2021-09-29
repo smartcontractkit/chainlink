@@ -81,7 +81,7 @@ export const New = ({
     try {
       JSON.parse(overrides)
     } catch (e) {
-      setOverridesErrorMsg('Invalid JSON')
+      setOverridesErrorMsg('Invalid job spec')
       valid = false
     }
     return valid
