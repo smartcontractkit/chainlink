@@ -8,7 +8,7 @@ CREATE TABLE web_authns (
         REFERENCES users(email)
 );
 
-CREATE UNIQUE INDEX web_authns_email_idx ON web_authns (email);
+CREATE UNIQUE INDEX web_authns_email_idx ON web_authns (lower(email));
 
 -- +goose Down
 DROP TABLE IF EXISTS web_authns;
