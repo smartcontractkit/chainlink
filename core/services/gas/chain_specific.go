@@ -1,13 +1,11 @@
 package gas
 
-import (
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-)
+import "github.com/smartcontractkit/chainlink/core/chains"
 
 // chainSpecificIsUsable allows for additional logic specific to a particular
 // Config that determines whether a transaction should be used for gas estimation
 func (tx *Transaction) chainSpecificIsUsable(cfg Config) bool {
-	if cfg.ChainType() == evmtypes.XDai {
+	if cfg.ChainType() == chains.XDai {
 		// GasPrice 0 on most chains is great since it indicates cheap/free transactions.
 		// However, xDai reserves a special type of "bridge" transaction with 0 gas
 		// price that is always processed at top priority. Ordinary transactions

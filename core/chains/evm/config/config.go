@@ -15,6 +15,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/config"
@@ -58,7 +59,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	ChainType() evmtypes.ChainType
+	ChainType() chains.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -156,6 +157,23 @@ func (c *chainScopedConfig) validate() (err error) {
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
 		err = multierr.Combine(err, ocrerr)
+	}
+
+	chainType := c.ChainType()
+	if !chainType.IsValid() {
+		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE is invalid: %s", chainType))
+	}
+	switch chainType {
+	case chains.Arbitrum:
+		//TODO extra validation
+	case chains.ExChain:
+		//TODO extra validation
+	case chains.Optimism:
+		//TODO extra validation
+	case chains.XDai:
+		//TODO extra validation
+	default:
+		//TODO standard-only validation
 	}
 
 	return err
@@ -590,16 +608,16 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) ChainType() evmtypes.ChainType {
+func (c *chainScopedConfig) ChainType() chains.ChainType {
 	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
 		c.logEnvOverrideOnce("ChainType", val)
-		return evmtypes.ChainType(val)
+		return chains.ChainType(val)
 	}
 
 	if c.persistedCfg.ChainType.Valid {
 		c.logPersistedOverrideOnce("ChainType", c.persistedCfg.ChainType.String)
-		return evmtypes.ChainType(c.persistedCfg.ChainType.String)
+		return chains.ChainType(c.persistedCfg.ChainType.String)
 	}
 	return c.defaultSet.chainType
 }

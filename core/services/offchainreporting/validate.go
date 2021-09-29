@@ -7,7 +7,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"go.uber.org/multierr"
 
@@ -26,7 +26,7 @@ type ValidationConfig interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
-	ChainType() types.ChainType
+	ChainType() chains.ChainType
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

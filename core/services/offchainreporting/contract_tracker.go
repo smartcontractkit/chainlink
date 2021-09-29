@@ -14,7 +14,8 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -384,7 +385,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	// We skip confirmation checking anyway on Optimism so there's no need to
 	// care about the block height; we have no way of getting the L1 block
 	// height anyway
-	if t.cfg.ChainType() == evmtypes.Optimism {
+	if t.cfg.ChainType() == chains.Optimism {
 		return 0, nil
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

@@ -4,7 +4,7 @@ import (
 	"context"
 	"math/big"
 
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
@@ -17,12 +17,12 @@ type BlockTranslator interface {
 // NewBlockTranslator returns the block translator for the given chain
 func NewBlockTranslator(cfg Config, client eth.Client) BlockTranslator {
 	switch cfg.ChainType() {
-	case evmtypes.Arbitrum:
+	case chains.Arbitrum:
 		return NewArbitrumBlockTranslator(client)
-	case evmtypes.Optimism:
+	case chains.Optimism:
 		return newOptimismBlockTranslator()
 
-	case evmtypes.XDai, evmtypes.ExChain:
+	case chains.XDai, chains.ExChain:
 		fallthrough
 	default:
 		return &l1BlockTranslator{}

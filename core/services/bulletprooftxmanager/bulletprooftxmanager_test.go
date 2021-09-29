@@ -10,7 +10,7 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -459,7 +459,7 @@ func TestBulletproofTxManager_SignTx(t *testing.T) {
 
 	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
-		var chainType evmtypes.ChainType
+		var chainType chains.ChainType
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
@@ -470,7 +470,7 @@ func TestBulletproofTxManager_SignTx(t *testing.T) {
 	})
 	t.Run("returns correct hash for okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
-		chainType := evmtypes.ExChain
+		chainType := chains.ExChain
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()

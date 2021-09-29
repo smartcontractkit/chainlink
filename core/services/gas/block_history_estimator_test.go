@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -30,7 +30,7 @@ func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
-	config.On("ChainType").Maybe().Return(evmtypes.ChainType(""))
+	config.On("ChainType").Maybe().Return(chains.ChainType(""))
 	return config
 }
 
@@ -38,7 +38,7 @@ func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
-	config.On("ChainType").Maybe().Return(evmtypes.ChainType(""))
+	config.On("ChainType").Maybe().Return(chains.ChainType(""))
 	return config
 }
 
