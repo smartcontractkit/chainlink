@@ -113,8 +113,12 @@ func (c ChainType) IsL2() bool {
 	switch c {
 	case Arbitrum, Optimism:
 		return true
+
+	case XDai, ExChain:
+		fallthrough
+	default:
+		return false
 	}
-	return false
 }
 
 type Node struct {

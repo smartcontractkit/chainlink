@@ -21,8 +21,12 @@ func NewBlockTranslator(cfg Config, client eth.Client) BlockTranslator {
 		return NewArbitrumBlockTranslator(client)
 	case evmtypes.Optimism:
 		return newOptimismBlockTranslator()
+
+	case evmtypes.XDai, evmtypes.ExChain:
+		fallthrough
+	default:
+		return &l1BlockTranslator{}
 	}
-	return &l1BlockTranslator{}
 }
 
 type l1BlockTranslator struct{}

@@ -416,7 +416,7 @@ func (b *BlockHistoryEstimator) percentilePrices(percentile int, eip1559 bool) (
 			b.logger.Warnw(fmt.Sprintf("BlockHistoryEstimator: block %v is not usable, %s", block.Number, err.Error()), "block", block, "err", err)
 		}
 		for _, tx := range block.Transactions {
-			if isUsableTx(tx, b.config) {
+			if tx.isUsable(b.config) {
 				gp := b.EffectiveGasPrice(block, tx)
 				if gp != nil {
 					gasPrices = append(gasPrices, gp)
@@ -503,7 +503,9 @@ func (b *BlockHistoryEstimator) RollingBlockHistory() []Block {
 	return b.rollingBlockHistory
 }
 
-func isUsableTx(tx Transaction, cfg Config) bool {
+// isUsable returns true if the tx is usable both generally and specifically for
+// this Config.
+func (tx *Transaction) isUsable(cfg Config) bool {
 	// GasLimit 0 is impossible on Ethereum official, but IS possible
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.
@@ -516,7 +518,7 @@ func isUsableTx(tx Transaction, cfg Config) bool {
 		logger.Debugw("BlockHistoryEstimator: ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
-	return chainSpecificIsUsableTx(tx, cfg)
+	return tx.chainSpecificIsUsable(cfg)
 }
 
 func (b *BlockHistoryEstimator) EffectiveGasPrice(block Block, tx Transaction) *big.Int {
