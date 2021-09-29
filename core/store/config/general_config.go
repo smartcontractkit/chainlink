@@ -83,6 +83,7 @@ type GeneralOnlyConfig interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
+	FMSimulateTransactions() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	FeatureExternalInitiators() bool
@@ -126,6 +127,7 @@ type GeneralOnlyConfig interface {
 	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
+	OCRSimulateTransactions() bool
 	OCRTraceLogging() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	ORMMaxIdleConns() int
@@ -513,6 +515,12 @@ func (c *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("FMDefaultTransactionQueueDepth"))
 }
 
+// FMSimulateTransactions enables using eth_call transaction simulation before
+// sending when set to true
+func (c *generalConfig) FMSimulateTransactions() bool {
+	return c.viper.GetBool(EnvVarName("FMSimulateTransactions"))
+}
+
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c *generalConfig) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
@@ -761,6 +769,12 @@ func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
 
 func (c *generalConfig) OCROutgoingMessageBufferSize() int {
 	return int(c.getWithFallback("OCRIncomingMessageBufferSize", ParseUint16).(uint16))
+}
+
+// OCRSimulateTransactions enables using eth_call transaction simulation before
+// sending when set to true
+func (c *generalConfig) OCRSimulateTransactions() bool {
+	return c.viper.GetBool(EnvVarName("OCRSimulateTransactions"))
 }
 
 // OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The

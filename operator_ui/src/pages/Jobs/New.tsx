@@ -149,7 +149,7 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setValueErrorMsg('Invalid JSON')
+            setValueErrorMsg('Invalid job spec')
           } else {
             setValueErrorMsg(error.toString())
           }
