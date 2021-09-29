@@ -1,7 +1,6 @@
 package offchainreporting
 
 import (
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
@@ -11,7 +10,7 @@ func NewLocalConfig(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) 
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      spec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
-		SkipContractConfigConfirmations:        types.IsL2(cfg.ChainType()),
+		SkipContractConfigConfirmations:        cfg.ChainType().IsL2(),
 		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval.Duration(),
 		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval.Duration(),
 		ContractTransmitterTransmitTimeout:     cfg.OCRContractTransmitterTransmitTimeout(),

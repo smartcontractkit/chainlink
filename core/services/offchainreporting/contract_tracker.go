@@ -14,6 +14,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -59,7 +60,7 @@ type (
 		db               OCRContractTrackerDB
 		gdb              *gorm.DB
 		blockTranslator  BlockTranslator
-		chain            Chain
+		cfg              Config
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -101,7 +102,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	gdb *gorm.DB,
 	db OCRContractTrackerDB,
-	chain Chain,
+	cfg Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -116,8 +117,8 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
-		NewBlockTranslator(chain, ethClient),
-		chain,
+		NewBlockTranslator(cfg, ethClient),
+		cfg,
 		headBroadcaster,
 		nil,
 		ctx,
@@ -383,7 +384,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	// We skip confirmation checking anyway on Optimism so there's no need to
 	// care about the block height; we have no way of getting the L1 block
 	// height anyway
-	if t.chain.ChainType() == "Optimism" {
+	if t.cfg.ChainType() == evmtypes.Optimism {
 		return 0, nil
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

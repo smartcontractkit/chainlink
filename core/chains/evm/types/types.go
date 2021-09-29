@@ -98,11 +98,20 @@ func (Chain) TableName() string {
 	return "evm_chains"
 }
 
-// IsL2 returns true if this chain is an L2 chain. Notably the block numbers
+type ChainType string
+
+const (
+	Arbitrum ChainType = "arbitrum"
+	ExChain  ChainType = "exchain"
+	Optimism ChainType = "optimism"
+	XDai     ChainType = "xdai"
+)
+
+// IsL2 returns true if this chain is a Layer 2 chain. Notably the block numbers
 // used for log searching are different from calling block.number
-func IsL2(chainType string) bool {
-	switch chainType {
-	case "Arbitrum", "Optimism":
+func (c ChainType) IsL2() bool {
+	switch c {
+	case Arbitrum, Optimism:
 		return true
 	}
 	return false

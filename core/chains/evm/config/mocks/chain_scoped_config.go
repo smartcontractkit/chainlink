@@ -262,14 +262,14 @@ func (_m *ChainScopedConfig) ChainID() *big.Int {
 }
 
 // ChainType provides a mock function with given fields:
-func (_m *ChainScopedConfig) ChainType() string {
+func (_m *ChainScopedConfig) ChainType() types.ChainType {
 	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
+	var r0 types.ChainType
+	if rf, ok := ret.Get(0).(func() types.ChainType); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(types.ChainType)
 	}
 
 	return r0

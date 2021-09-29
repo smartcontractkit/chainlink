@@ -58,7 +58,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	ChainType() string
+	ChainType() evmtypes.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -590,16 +590,16 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) ChainType() string {
+func (c *chainScopedConfig) ChainType() evmtypes.ChainType {
 	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
 		c.logEnvOverrideOnce("ChainType", val)
-		return val
+		return evmtypes.ChainType(val)
 	}
 
 	if c.persistedCfg.ChainType.Valid {
 		c.logPersistedOverrideOnce("ChainType", c.persistedCfg.ChainType.String)
-		return c.persistedCfg.ChainType.String
+		return evmtypes.ChainType(c.persistedCfg.ChainType.String)
 	}
 	return c.defaultSet.chainType
 }

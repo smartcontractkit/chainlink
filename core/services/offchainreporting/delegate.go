@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -49,6 +50,7 @@ type Config interface {
 	P2PPeerID() p2pkey.PeerID
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
 	FlagsContractAddress() string
+	ChainType() evmtypes.ChainType
 }
 
 type Delegate struct {

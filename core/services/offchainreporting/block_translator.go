@@ -4,12 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
-
-type Chain interface {
-	ChainType() string
-}
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
 // block number range suitable for query in FilterLogs
@@ -18,11 +15,11 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(chain Chain, client eth.Client) BlockTranslator {
-	switch chain.ChainType() {
-	case "Arbitrum":
+func NewBlockTranslator(cfg Config, client eth.Client) BlockTranslator {
+	switch cfg.ChainType() {
+	case evmtypes.Arbitrum:
 		return NewArbitrumBlockTranslator(client)
-	case "Optimism":
+	case evmtypes.Optimism:
 		return newOptimismBlockTranslator()
 	}
 	return &l1BlockTranslator{}

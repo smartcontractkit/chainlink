@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -356,7 +357,7 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 	return etx, err
 }
 
-func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int, chainType string) (common.Hash, []byte, error) {
+func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int, chainType evmtypes.ChainType) (common.Hash, []byte, error) {
 	signedTx, err := keyStore.SignTx(address, tx, chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
@@ -373,8 +374,8 @@ func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction
 	return hash, rlp.Bytes(), nil
 }
 
-func signedTxHash(signedTx *gethTypes.Transaction, chainType string) (hash common.Hash, err error) {
-	if chainType == "ExChain" {
+func signedTxHash(signedTx *gethTypes.Transaction, chainType evmtypes.ChainType) (hash common.Hash, err error) {
+	if chainType == evmtypes.ExChain {
 		hash, err = exchainutils.Hash(signedTx)
 		if err != nil {
 			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")
