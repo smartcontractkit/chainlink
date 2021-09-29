@@ -172,39 +172,21 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			}
 			if tpe == job.DirectRequest {
 
-				attrs1 := map[string]string{
-					"requestId":          "$(decode_log.requestId)",
-					"payment":            "$(decode_log.payment)",
-					"callbackAddress":    "$(decode_log.callbackAddr)",
-					"callbackFunctionId": "$(decode_log.callbackFunctionId)",
-					"expiration":         "$(decode_log.cancelExpiration)",
-					"data":               "$(encode_data)",
-				}
-
-				marshal, err := json.Marshal(&attrs1)
-				if err != nil {
-					return "", nil, err
-				}
-
-				/*
-					`
-						<{
-									"requestId": $(decode_log.requestId),
-									"payment":   $(decode_log.payment),
-									"callbackAddress": $(decode_log.callbackAddr),
-									"callbackFunctionId": $(decode_log.callbackFunctionId),
-									"expiration": $(decode_log.cancelExpiration),
-									"data": $(encode_data)
-							}>
-					`
-				*/
 				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 				attrs := map[string]string{
 					"type": "ethabiencode",
 					"abi":  "fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)",
 					"data": template,
 				}
-				replacements["\""+template+"\""] = string(marshal)
+				replacements["\""+template+"\""] = `{
+"requestId":          $(decode_log.requestId),
+"payment":            $(decode_log.payment),
+"callbackAddress":    $(decode_log.callbackAddr),
+"callbackFunctionId": $(decode_log.callbackFunctionId),
+"expiration":         $(decode_log.cancelExpiration),
+"data":               $(encode_data)
+}
+`
 
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs)
 				dg.AddNode(n)

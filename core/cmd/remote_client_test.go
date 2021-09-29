@@ -861,18 +861,50 @@ contractAddress = "0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
 externalJobID = "%v"
 minIncomingConfirmations = "10"
 observationSource = """
-send_to_bridge [
+decode_log [
+	abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes32 data)"
+	data="$(jobRun.logData)"
+	topics="$(jobRun.logTopics)"
+	type=ethabidecodelog
+	];
+	send_to_bridge_0 [
 	name=qdt
 	requestData=<{"endpoint":"price"}>
 	type=bridge
 	];
-	multiply1 [
+	multiply_1 [
 	times=100000000
 	type=multiply
 	];
+	encode_data_3 [
+	abi="(uint256 value)"
+	type=ethabiencode
+	];
+	encode_tx_3 [
+	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
+	data=<{
+"requestId":          $(decode_log.requestId),
+"payment":            $(decode_log.payment),
+"callbackAddress":    $(decode_log.callbackAddr),
+"callbackFunctionId": $(decode_log.callbackFunctionId),
+"expiration":         $(decode_log.cancelExpiration),
+"data":               $(encode_data)
+}
+>
+	type=ethabiencode
+	];
+	send_tx_3 [
+	data="$(encode_tx_3)"
+	to="0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
+	type=ethtx
+	];
 	
 	// Edge definitions.
-	send_to_bridge -> multiply1;
+	decode_log -> send_to_bridge_0;
+	send_to_bridge_0 -> multiply_1;
+	multiply_1 -> encode_data_3;
+	encode_data_3 -> encode_tx_3;
+	encode_tx_3 -> send_tx_3;
 	"""
 `, j.ExternalJobID), toml)
 
