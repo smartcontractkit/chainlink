@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	_ "github.com/smartcontractkit/chainlink/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
+	"github.com/smartcontractkit/chainlink/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/pressly/goose/v3"
@@ -41,9 +41,13 @@ func ensureMigrated(db *sql.DB) {
 		// already migrated
 		return
 	}
-
-	// ensure a goose migrations table exists with it's initial v0
-	if _, err = goose.GetDBVersion(db); err != nil {
+	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+		// ensure that no legacy job specs are present: we _must_ bail out early if
+		// so because otherwise we run the risk of dropping working jobs if the
+		// user has not read the release notes
+		return migrations.CheckNoLegacyJobs(tx.Tx)
+	})
+	if err != nil {
 		panic(err)
 	}
 
@@ -55,9 +59,13 @@ func ensureMigrated(db *sql.DB) {
 		}
 	}
 	if !found {
-		panic("Database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version")
+		panic("Database state is too old. Need to migrate to chainlink version 0.9.10 first before upgrading to this version. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing.")
 	}
 
+	// ensure a goose migrations table exists with it's initial v0
+	if _, err = goose.GetDBVersion(db); err != nil {
+		panic(err)
+	}
 	// insert records for existing migrations
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
 	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {

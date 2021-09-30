@@ -32,7 +32,7 @@ func init() {
 }
 
 func Up54(tx *sql.Tx) error {
-	if err := checkNoLegacyJobs(tx); err != nil {
+	if err := CheckNoLegacyJobs(tx); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(up54); err != nil {
@@ -45,13 +45,13 @@ func Down54(tx *sql.Tx) error {
 	return errors.New("irreversible migration")
 }
 
-func checkNoLegacyJobs(tx *sql.Tx) error {
+func CheckNoLegacyJobs(tx *sql.Tx) error {
 	var count int
 	if err := tx.QueryRow(`SELECT COUNT(*) FROM job_specs WHERE deleted_at IS NULL`).Scan(&count); err != nil {
 		return err
 	}
 	if count > 0 {
-		return errors.Errorf("cannot migrate; this release removes support for legacy job specs but there are still %d in the database. Please migrate these jobs specs to the V2 pipeline and make sure job_specs table is empty, then run the migration again", count)
+		return errors.Errorf("cannot migrate; this release removes support for legacy job specs but there are still %d in the database. Please migrate these jobs specs to the V2 pipeline and make sure job_specs table is empty (run sql command: `DELETE FROM job_specs;`), then run the migration again. This upgrade is NOT REVERSIBLE, so it is STRONGLY RECOMMENDED that you take a database backup before continuing.", count)
 	}
 	return nil
 }
