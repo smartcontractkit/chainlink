@@ -213,6 +213,13 @@ func startApplication(
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start())
+
+	t.Cleanup(func() {
+		if err := app.Stop(); err != nil {
+			fmt.Println("error stopping app")
+		}
+	})
+
 	return app
 }
 
