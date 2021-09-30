@@ -99,7 +99,7 @@ docker = docker build \
 
 .PHONY: docker-circleci
 docker-circleci:
-	test -n "$$CIRCLECI" && $(docker) || true
+	test -n "$$BUILDER" && $(docker) || true
 
 .PHONY: docker
 docker: ## Build the docker image.
