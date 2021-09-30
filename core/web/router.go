@@ -33,14 +33,8 @@ import (
 	"github.com/unrolled/secure"
 )
 
-var prometheus *ginprom.Prometheus
-
 func init() {
 	gin.DebugPrintRouteFunc = printRoutes
-
-	// ensure metrics are regsitered once per instance to avoid registering
-	// metrics multiple times (panic)
-	prometheus = ginprom.New(ginprom.Namespace("service"))
 }
 
 func printRoutes(httpMethod, absolutePath, handlerName string, nuHandlers int) {
@@ -59,7 +53,7 @@ const (
 )
 
 // Router listens and responds to requests to the node for valid paths.
-func Router(app chainlink.Application) *gin.Engine {
+func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
 	engine := gin.New()
 	config := app.GetConfig()
 	secret, err := config.SessionSecret()
@@ -69,16 +63,20 @@ func Router(app chainlink.Application) *gin.Engine {
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())
 	cors := uiCorsHandler(config)
+	if prometheus != nil {
+		prometheus.Use(engine)
+	}
 
-	prometheus.Use(engine)
 	engine.Use(
 		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
 		loggerFunc(),
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
-		prometheus.Instrument(),
 	)
+	if prometheus != nil {
+		engine.Use(prometheus.Instrument())
+	}
 	engine.Use(helmet.Default())
 
 	api := engine.Group(

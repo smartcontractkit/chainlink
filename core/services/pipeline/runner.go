@@ -116,6 +116,7 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 
 func (r *runner) Start() error {
 	return r.StartOnce("PipelineRunner", func() error {
+		r.wgDone.Add(2)
 		go r.scheduleUnfinishedRuns()
 		go r.runReaperLoop()
 		return nil
@@ -138,7 +139,6 @@ func (r *runner) destroy() {
 }
 
 func (r *runner) runReaperLoop() {
-	r.wgDone.Add(1)
 	defer r.wgDone.Done()
 	defer r.destroy()
 
@@ -593,7 +593,6 @@ func (r *runner) runReaper() {
 // init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
 // We pick up those runs and resume execution.
 func (r *runner) scheduleUnfinishedRuns() {
-	r.wgDone.Add(1)
 	defer r.wgDone.Done()
 
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs
