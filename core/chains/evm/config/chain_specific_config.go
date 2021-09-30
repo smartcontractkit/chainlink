@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
@@ -58,8 +59,8 @@ type (
 		nonceAutoSync                              bool
 		ocrContractConfirmations                   uint16
 		rpcDefaultBatchSize                        uint32
-		// set true indicates its not the empty struct
-		set bool
+		// set true if fully configured
+		complete bool
 	}
 )
 
@@ -123,7 +124,7 @@ func setChainSpecificConfigDefaultSets() {
 		nonceAutoSync:                    true,
 		ocrContractConfirmations:         4,
 		rpcDefaultBatchSize:              100,
-		set:                              true,
+		complete:                         true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -283,12 +284,11 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
 	// OKExChain
+	// (stubbed so that the ChainType is autoset for known IDs)
 	okxMainnet := fallbackDefaultSet
 	okxMainnet.chainType = chains.ExChain
-	//TODO more?
 
 	okxTestnet := okxMainnet
-	//TODO more?
 
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
@@ -315,4 +315,12 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
 	chainSpecificConfigDefaultSets[65] = okxTestnet
 	chainSpecificConfigDefaultSets[66] = okxMainnet
+
+	// sanity check
+	for id, c := range chainSpecificConfigDefaultSets {
+		if !c.complete {
+			panic(fmt.Sprintf("chain %d configuration incomplete - "+
+				"start from fallbackDefaultSet instead of zero value", id))
+		}
+	}
 }
