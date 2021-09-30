@@ -61,12 +61,10 @@ var (
 type EthConfirmer struct {
 	utils.StartStopOnce
 
-	logger         logger.Logger
-	db             *gorm.DB
-	ethClient      eth.Client
-	chainID        big.Int
-	config         Config
-	keystore       KeyStore
+	logger    logger.Logger
+	db        *gorm.DB
+	ethClient eth.Client
+	ChainKeyStore
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
@@ -88,9 +86,11 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		logger,
 		db,
 		ethClient,
-		*ethClient.ChainID(),
-		config,
-		keystore,
+		ChainKeyStore{
+			*ethClient.ChainID(),
+			config,
+			keystore,
+		},
 		estimator,
 		resumeCallback,
 		keyStates,
@@ -856,7 +856,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas for Legacy tx", append(logFields, "bumpedGasPrice", bumpedGasPrice.String())...)
-			return NewLegacyAttempt(ec.config, ec.keystore, &ec.chainID, previousAttempt.EthTx, bumpedGasPrice, bumpedGasLimit)
+			return ec.NewLegacyAttempt(previousAttempt.EthTx, bumpedGasPrice, bumpedGasLimit)
 		}
 	case 0x2:
 		// BumpDynamicFee(original DynamicFee, gasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error)
@@ -867,7 +867,7 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 		if err == nil {
 			promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
 			ec.logger.Debugw("EthConfirmer: rebroadcast bumping gas for DynamicFee tx", append(logFields, "bumpedTipCap", bumpedFee.TipCap.String(), "bumpedFeeCap", bumpedFee.FeeCap.String())...)
-			return NewDynamicFeeAttempt(ec.config, ec.keystore, &ec.chainID, previousAttempt.EthTx, bumpedFee, bumpedGasLimit)
+			return ec.NewDynamicFeeAttempt(previousAttempt.EthTx, bumpedFee, bumpedGasLimit)
 		}
 	default:
 		err = errors.Errorf("invariant violation: Attempt %v had unrecognised transaction type %v"+
@@ -1228,7 +1228,7 @@ func (ec *EthConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			if overrideGasLimit != 0 {
 				etx.GasLimit = overrideGasLimit
 			}
-			attempt, err := NewLegacyAttempt(ec.config, ec.keystore, &ec.chainID, *etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
+			attempt, err := ec.NewLegacyAttempt(*etx, big.NewInt(int64(gasPriceWei)), etx.GasLimit)
 			if err != nil {
 				ec.logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue

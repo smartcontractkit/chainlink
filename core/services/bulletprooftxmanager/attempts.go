@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func NewDynamicFeeAttempt(cfg Config, ks KeyStore, chainID *big.Int, etx EthTx, fee gas.DynamicFee, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	if err = validateDynamicFeeGas(cfg, fee, gasLimit, etx); err != nil {
+func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint64) (attempt EthTxAttempt, err error) {
+	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -26,14 +26,14 @@ func NewDynamicFeeAttempt(cfg Config, ks KeyStore, chainID *big.Int, etx EthTx, 
 		etx.ToAddress,
 		etx.Value.ToInt(),
 		gasLimit,
-		chainID,
+		&c.chainID,
 		fee.TipCap,
 		fee.FeeCap,
 		etx.EncodedPayload,
 		al,
 	)
 	tx := types.NewTx(&d)
-	attempt, err = newSignedAttempt(ks, etx, chainID, tx)
+	attempt, err = c.newSignedAttempt(etx, tx)
 	if err != nil {
 		return attempt, err
 	}
@@ -97,8 +97,8 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 	}
 }
 
-func NewLegacyAttempt(cfg Config, ks KeyStore, chainID *big.Int, etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	if err = validateLegacyGas(cfg, gasPrice, gasLimit, etx); err != nil {
+func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
+	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -112,7 +112,7 @@ func NewLegacyAttempt(cfg Config, ks KeyStore, chainID *big.Int, etx EthTx, gasP
 	)
 
 	transaction := types.NewTx(&tx)
-	hash, signedTxBytes, err := SignTx(ks, etx.FromAddress, transaction, chainID, cfg.ChainType())
+	hash, signedTxBytes, err := c.SignTx(etx.FromAddress, transaction)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -145,8 +145,8 @@ func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx
 	return nil
 }
 
-func newSignedAttempt(ks KeyStore, etx EthTx, chainID *big.Int, tx *types.Transaction) (attempt EthTxAttempt, err error) {
-	hash, signedTxBytes, err := signTx(ks, etx.FromAddress, tx, chainID)
+func (c *ChainKeyStore) newSignedAttempt(etx EthTx, tx *types.Transaction) (attempt EthTxAttempt, err error) {
+	hash, signedTxBytes, err := c.signTx(etx.FromAddress, tx)
 	if err != nil {
 		return attempt, errors.Wrapf(err, "error using account %s to sign transaction %v", etx.FromAddress.String(), etx.ID)
 	}
@@ -170,8 +170,8 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	}
 }
 
-func signTx(keyStore KeyStore, address common.Address, tx *types.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
-	signedTx, err := keyStore.SignTx(address, tx, chainID)
+func (c *ChainKeyStore) signTx(address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
+	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
 	}
@@ -180,5 +180,4 @@ func signTx(keyStore KeyStore, address common.Address, tx *types.Transaction, ch
 		return common.Hash{}, nil, errors.Wrap(err, "signTx failed")
 	}
 	return signedTx.Hash(), rlp.Bytes(), nil
-
 }

@@ -30,7 +30,8 @@ func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
 	var n int64
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
-		a, err := bulletprooftxmanager.NewDynamicFeeAttempt(cfg, kst, big.NewInt(1), bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
+		cks := bulletprooftxmanager.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+		a, err := cks.NewDynamicFeeAttempt(bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.Nil(t, a.GasPrice)
@@ -70,7 +71,8 @@ func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
 					test.setCfg(gcfg)
 				}
 				cfg := evmtest.NewChainScopedConfig(t, gcfg)
-				_, err := bulletprooftxmanager.NewDynamicFeeAttempt(cfg, kst, big.NewInt(1), bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}, 100)
+				cks := bulletprooftxmanager.NewChainKeyStore(*big.NewInt(1), cfg, kst)
+				_, err := cks.NewDynamicFeeAttempt(bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, gas.DynamicFee{TipCap: test.tipcap, FeeCap: test.feecap}, 100)
 				if test.expectError == "" {
 					require.NoError(t, err)
 				} else {
@@ -92,10 +94,11 @@ func TestBulletproofTxManager_NewLegacyAttempt(t *testing.T) {
 	kst.Test(t)
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
+	cks := bulletprooftxmanager.NewChainKeyStore(*big.NewInt(1), cfg, kst)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var n int64
-		a, err := bulletprooftxmanager.NewLegacyAttempt(cfg, kst, big.NewInt(1), bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, big.NewInt(25), 100)
+		a, err := cks.NewLegacyAttempt(bulletprooftxmanager.EthTx{Nonce: &n, FromAddress: addr}, big.NewInt(25), 100)
 		require.NoError(t, err)
 		assert.Equal(t, 100, int(a.ChainSpecificGasLimit))
 		assert.NotNil(t, a.GasPrice)
@@ -105,7 +108,7 @@ func TestBulletproofTxManager_NewLegacyAttempt(t *testing.T) {
 	})
 
 	t.Run("verifies max gas price", func(t *testing.T) {
-		_, err := bulletprooftxmanager.NewLegacyAttempt(cfg, nil, big.NewInt(1), bulletprooftxmanager.EthTx{FromAddress: addr}, big.NewInt(100), 100)
+		_, err := cks.NewLegacyAttempt(bulletprooftxmanager.EthTx{FromAddress: addr}, big.NewInt(100), 100)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("specified gas price of 100 would exceed max configured gas price of 50 for key %s", addr.Hex()))
 	})

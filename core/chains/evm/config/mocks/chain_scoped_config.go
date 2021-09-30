@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
+	chains "github.com/smartcontractkit/chainlink/core/chains"
+
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
@@ -262,14 +264,14 @@ func (_m *ChainScopedConfig) ChainID() *big.Int {
 }
 
 // ChainType provides a mock function with given fields:
-func (_m *ChainScopedConfig) ChainType() types.ChainType {
+func (_m *ChainScopedConfig) ChainType() chains.ChainType {
 	ret := _m.Called()
 
-	var r0 types.ChainType
-	if rf, ok := ret.Get(0).(func() types.ChainType); ok {
+	var r0 chains.ChainType
+	if rf, ok := ret.Get(0).(func() chains.ChainType); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(types.ChainType)
+		r0 = ret.Get(0).(chains.ChainType)
 	}
 
 	return r0

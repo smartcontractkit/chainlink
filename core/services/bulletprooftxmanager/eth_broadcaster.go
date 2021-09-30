@@ -45,12 +45,10 @@ var errEthTxRemoved = errors.New("eth_tx removed")
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster struct {
-	logger         logger.Logger
-	db             *gorm.DB
-	ethClient      eth.Client
-	chainID        big.Int
-	config         Config
-	keystore       KeyStore
+	logger    logger.Logger
+	db        *gorm.DB
+	ethClient eth.Client
+	ChainKeyStore
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
@@ -80,12 +78,14 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
 	return &EthBroadcaster{
-		logger:           logger,
-		db:               db,
-		ethClient:        ethClient,
-		chainID:          *ethClient.ChainID(),
-		config:           config,
-		keystore:         keystore,
+		logger:    logger,
+		db:        db,
+		ethClient: ethClient,
+		ChainKeyStore: ChainKeyStore{
+			chainID:  *ethClient.ChainID(),
+			config:   config,
+			keystore: keystore,
+		},
 		estimator:        estimator,
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
@@ -255,7 +255,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			if err != nil {
 				return errors.Wrap(err, "failed to get dynamic gas fee")
 			}
-			a, err = NewDynamicFeeAttempt(eb.config, eb.keystore, &eb.chainID, *etx, fee, gasLimit)
+			a, err = eb.NewDynamicFeeAttempt(*etx, fee, gasLimit)
 			if err != nil {
 				return errors.Wrap(err, "processUnstartedEthTxs failed")
 			}
@@ -264,7 +264,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			if err != nil {
 				return errors.Wrap(err, "failed to estimate gas")
 			}
-			a, err = NewLegacyAttempt(eb.config, eb.keystore, &eb.chainID, *etx, gasPrice, gasLimit)
+			a, err = eb.NewLegacyAttempt(*etx, gasPrice, gasLimit)
 			if err != nil {
 				return errors.Wrap(err, "processUnstartedEthTxs failed")
 			}
@@ -544,7 +544,7 @@ func (eb *EthBroadcaster) tryAgainWithNewEstimation(sendError *eth.SendError, et
 }
 
 func (eb *EthBroadcaster) tryAgainWithNewGas(etx EthTx, attempt EthTxAttempt, initialBroadcastAt time.Time, newGasPrice *big.Int, newGasLimit uint64) error {
-	replacementAttempt, err := NewLegacyAttempt(eb.config, eb.keystore, &eb.chainID, etx, newGasPrice, newGasLimit)
+	replacementAttempt, err := eb.NewLegacyAttempt(etx, newGasPrice, newGasLimit)
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")
 	}

@@ -357,8 +357,18 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 	return etx, err
 }
 
-func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int, chainType chains.ChainType) (common.Hash, []byte, error) {
-	signedTx, err := keyStore.SignTx(address, tx, chainID)
+type ChainKeyStore struct {
+	chainID  big.Int
+	config   Config
+	keystore KeyStore
+}
+
+func NewChainKeyStore(chainID big.Int, config Config, keystore KeyStore) ChainKeyStore {
+	return ChainKeyStore{chainID, config, keystore}
+}
+
+func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction) (common.Hash, []byte, error) {
+	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
@@ -367,7 +377,7 @@ func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	var hash common.Hash
-	hash, err = signedTxHash(signedTx, chainType)
+	hash, err = signedTxHash(signedTx, c.config.ChainType())
 	if err != nil {
 		return hash, nil, err
 	}
