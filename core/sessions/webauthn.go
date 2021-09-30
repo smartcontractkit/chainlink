@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/duo-labs/webauthn.io/session"
 	"github.com/duo-labs/webauthn/protocol"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	sqlxTypes "github.com/smartcontractkit/sqlx/types"

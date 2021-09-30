@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/duo-labs/webauthn.io/session"
+	"github.com/duo-labs/webauthn/webauthn"
+	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	sqlxTypes "github.com/smartcontractkit/sqlx/types"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/duo-labs/webauthn.io/session"
-	"github.com/duo-labs/webauthn/webauthn"
 )
 
 // WebAuthnController manages registers new keys as well as authentication

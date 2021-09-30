@@ -6,15 +6,13 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/duo-labs/webauthn.io/session"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // User holds the credentials for API user.

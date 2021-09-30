@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -103,7 +104,7 @@ func (o *orm) DeleteUserSession(sessionID string) error {
 // token multiple times.
 func (o *orm) GetUserWebAuthn(user *User) ([]WebAuthn, error) {
 	var uwas []WebAuthn
-	err := o.db.Select(&uwas, "SELECT email, public_key_data FROM web_authns WHERE UPPER(email) = $1", strings.ToUpper(user.Email))
+	err := o.db.Select(&uwas, "SELECT email, public_key_data FROM web_authns WHERE LOWER(email) = $1", strings.ToLower(user.Email))
 	if err != nil {
 		return uwas, err
 	}
