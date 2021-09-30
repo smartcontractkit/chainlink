@@ -43,10 +43,10 @@ commands:
       - run:
           name: Docker login for ECR using temporary creds
           command: |
-            # If CIRCLECI is not defined (i.e. the user who submitted the PR is
+            # If BUILDER is not defined (i.e. the user who submitted the PR is
             # probably not on the chainlink team) short circuit this step and
             # succed
-            if [[ -z "$CIRCLECI" ]]; then
+            if [[ -z "$BUILDER" ]]; then
               exit 0
             fi
 
