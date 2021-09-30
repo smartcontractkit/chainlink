@@ -168,15 +168,22 @@ func (c *chainScopedConfig) validate() (err error) {
 	} else {
 		switch chainType {
 		case chains.Arbitrum:
-			//TODO extra validation
+			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
+					"must be %q", gasEst, chains.Optimism, "FixedPrice"))
+			}
 		case chains.ExChain:
-			//TODO extra validation
+
 		case chains.Optimism:
-			//TODO extra validation
+			gasEst := c.GasEstimatorMode()
+			switch gasEst {
+			case "Optimism", "Optimism2":
+			default:
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
+					"must be %q or %q", gasEst, chains.Optimism, "Optimism", "Optimism2"))
+			}
 		case chains.XDai:
-			//TODO extra validation
-		default:
-			//TODO standard-only validation
+
 		}
 	}
 
