@@ -9,6 +9,11 @@ import (
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -21,11 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	uuid "github.com/satori/go.uuid"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
@@ -190,7 +190,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
-		strategy := new(bptxmmocks.TxStrategy)
+		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
@@ -295,6 +295,13 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	})
 }
 
+func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
+	strategy := new(bptxmmocks.TxStrategy)
+	strategy.Test(t)
+	strategy.On("Simulate").Return(true)
+	return strategy
+}
+
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	etKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -317,7 +324,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, otherKey.Address.Address())
-		strategy := new(bptxmmocks.TxStrategy)
+		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
@@ -341,7 +348,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, db, 0, thisKey.Address.Address())
-		strategy := new(bptxmmocks.TxStrategy)
+		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 
@@ -364,7 +371,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 42, thisKey.Address.Address())
-		strategy := new(bptxmmocks.TxStrategy)
+		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
 

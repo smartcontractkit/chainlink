@@ -1073,6 +1073,20 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// FMSimulateTransactions provides a mock function with given fields:
+func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
 	ret := _m.Called()
@@ -2661,6 +2675,20 @@ func (_m *ChainScopedConfig) OCROutgoingMessageBufferSize() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// OCRSimulateTransactions provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRSimulateTransactions() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

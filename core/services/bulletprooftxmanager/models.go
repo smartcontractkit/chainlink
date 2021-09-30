@@ -140,6 +140,10 @@ type EthTx struct {
 	// AccessList is optional and only has an effect on DynamicFee transactions
 	// on chains that support it (e.g. Ethereum Mainnet after London hard fork)
 	AccessList NullableEIP2930AccessList
+
+	// Simulate if set to true will cause this eth_tx to be simulated before
+	// initial send and aborted on revert
+	Simulate bool
 }
 
 func (e EthTx) GetError() error {
