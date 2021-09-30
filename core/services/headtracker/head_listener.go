@@ -51,14 +51,12 @@ type HeadListener struct {
 	muLogger sync.RWMutex
 
 	chStop chan struct{}
-	wgDone *sync.WaitGroup
 }
 
 func NewHeadListener(l logger.Logger,
 	ethClient eth.Client,
 	config Config,
 	chStop chan struct{},
-	wgDone *sync.WaitGroup,
 	sleepers ...utils.Sleeper,
 ) *HeadListener {
 	if ethClient == nil {
@@ -77,7 +75,6 @@ func NewHeadListener(l logger.Logger,
 		sleeper:   sleeper,
 		log:       l,
 		chStop:    chStop,
-		wgDone:    wgDone,
 	}
 }
 
@@ -94,8 +91,8 @@ func (hl *HeadListener) logger() logger.Logger {
 	return hl.log
 }
 
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error) {
-	defer hl.wgDone.Done()
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error, done func()) {
+	defer done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
 			hl.logger().Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))

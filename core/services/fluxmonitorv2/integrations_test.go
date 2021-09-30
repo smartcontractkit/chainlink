@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -451,6 +452,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 			type k struct{ latestAnswer, updatedAt string }
 			expectedMeta := map[k]int{}
+			var expMetaMu sync.Mutex
 
 			reportPrice := atomic.NewInt64(100)
 			mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
@@ -462,7 +464,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 					require.NoError(t, json.Unmarshal(b, &m))
 					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 						key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
+						expMetaMu.Lock()
 						expectedMeta[key] = expectedMeta[key] + 1
+						expMetaMu.Unlock()
 					}
 				},
 			)
@@ -588,6 +592,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			reportPrice.Store(104)
 			assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
 
+			expMetaMu.Lock()
+			defer expMetaMu.Unlock()
 			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
 			assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
 			assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
