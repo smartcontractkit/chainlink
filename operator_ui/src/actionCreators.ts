@@ -126,7 +126,9 @@ function sendSignIn(data: Parameter<Sessions['createSession']>) {
                   )
 
                   if (navigator.credentials === undefined) {
-                    alert('Could not access credential subsystem in the browser. Must be using HTTPS or localhost.')
+                    alert(
+                      'Could not access credential subsystem in the browser. Must be using HTTPS or localhost.',
+                    )
                     dispatch(signInFailAction())
                     return
                   }
@@ -253,30 +255,40 @@ function sendBeginRegistration() {
     return
   }
 
-  return api.v2.webauthn.beginKeyRegistration({}).then((response) =>
-    completeKeyRegistration(response).then((credential: Credential | null) => {
-      if (credential === null) {
-        alert('Error, could not generate credential. User declined to enroll?')
-        return
-      }
+  return api.v2.webauthn
+    .beginKeyRegistration({})
+    .then((response) =>
+      completeKeyRegistration(response).then(
+        (credential: Credential | null) => {
+          if (credential === null) {
+            alert(
+              'Error, could not generate credential. User declined to enroll?',
+            )
+            return
+          }
 
-      const pkcredential = credential as PublicKeyCredential
-      const response = pkcredential.response as AuthenticatorAttestationResponse
+          const pkcredential = credential as PublicKeyCredential
+          const response = pkcredential.response as AuthenticatorAttestationResponse
 
-      const credentialStr = {
-        id: credential.id,
-        rawId: bufferEncode(pkcredential.rawId),
-        type: credential.type,
-        response: {
-          attestationObject: bufferEncode(response.attestationObject),
-          clientDataJSON: bufferEncode(response.clientDataJSON),
+          const credentialStr = {
+            id: credential.id,
+            rawId: bufferEncode(pkcredential.rawId),
+            type: credential.type,
+            response: {
+              attestationObject: bufferEncode(response.attestationObject),
+              clientDataJSON: bufferEncode(response.clientDataJSON),
+            },
+          }
+          return api.v2.webauthn.finishKeyRegistration(credentialStr)
         },
-      }
-      return api.v2.webauthn.finishKeyRegistration(credentialStr)
-    }),
-  ).catch(err => {
-    alert("Key registration error, ensure RPID and RPOrigin environment variables are set.\n" + err)
-  })
+      ),
+    )
+    .catch((err) => {
+      alert(
+        'Key registration error, ensure RPID and RPOrigin environment variables are set.\n' +
+          err,
+      )
+    })
 }
 
 const RECEIVE_CREATE_SUCCESS_ACTION = {

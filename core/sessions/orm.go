@@ -147,7 +147,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if len(uwas) == 0 {
 		logger.Infof("No MFA for user. Creating Session")
 		session := NewSession()
-		_, err := o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
+		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
 		return session.ID, err
 	}
 
@@ -157,14 +157,14 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// challenge in the response
 	if sr.WebAuthnData == "" {
 		logger.Warnf("Attempted login to MFA user. Generating challenge for user.")
-		options, err := BeginWebAuthnLogin(user, uwas, sr)
-		if err != nil {
+		options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
+		if webauthnError != nil {
 			logger.Errorf("Could not begin WebAuthn verification: %v", err)
 			return "", errors.New("MFA Error")
 		}
 
-		j, err := json.Marshal(options)
-		if err != nil {
+		j, jsonError := json.Marshal(options)
+		if jsonError != nil {
 			logger.Errorf("Could not serialize WebAuthn challenge: %v", err)
 			return "", errors.New("MFA Error")
 		}
