@@ -499,7 +499,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
-	engine := web.Router(app)
+	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
 }
 

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -40,6 +41,14 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
+
+var prometheus *ginprom.Prometheus
+
+func init() {
+	// ensure metrics are regsitered once per instance to avoid registering
+	// metrics multiple times (panic)
+	prometheus = ginprom.New(ginprom.Namespace("service"))
+}
 
 var (
 	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
@@ -192,7 +201,7 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
+	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 	var g errgroup.Group
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
