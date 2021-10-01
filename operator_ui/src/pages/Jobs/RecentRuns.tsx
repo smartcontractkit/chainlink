@@ -117,7 +117,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
   },
 )
 
-const TaskList: React.FC<{ job?: JobData['job'] }> = ({ _, job }) => {
+const TaskList: React.FC<{ job?: JobData['job'] }> = ({ job }) => {
   if (job) {
     try {
       return (
