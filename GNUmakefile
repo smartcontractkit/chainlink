@@ -88,7 +88,9 @@ presubmit:
 	gofmt -w ./core
 	go mod tidy
 
-docker = docker build \
+.PHONY: docker
+docker: ## Build the docker image.
+	docker build \
 		-f $(DOCKERFILE) \
 		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
@@ -96,14 +98,6 @@ docker = docker build \
 		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \
 		-t $(TAGGED_REPO) \
 		.
-
-.PHONY: docker-circleci
-docker-circleci:
-	test -n "$$BUILDER" && $(docker) || true
-
-.PHONY: docker
-docker: ## Build the docker image.
-	$(docker)
 
 .PHONY: dockerpush
 dockerpush: ## Push the docker image to ecr
