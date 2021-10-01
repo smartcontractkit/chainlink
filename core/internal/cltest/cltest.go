@@ -345,6 +345,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
 
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
@@ -498,7 +499,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
-	engine := web.Router(app)
+	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
 }
 

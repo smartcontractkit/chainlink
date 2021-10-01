@@ -459,7 +459,7 @@ contract VRF {
   ) internal pure returns (uint256[2] memory) {
     unchecked {
       // Note we are relying on the wrap around here
-      require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0, "points in sum must be distinct");
+      require((cp1Witness[0] % FIELD_SIZE) != (sp2Witness[0] % FIELD_SIZE), "points in sum must be distinct");
       require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
       require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);

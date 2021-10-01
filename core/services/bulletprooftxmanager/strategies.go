@@ -12,24 +12,37 @@ type TxStrategy interface {
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
 	PruneQueue(tx *gorm.DB) (n int64, err error)
+	// Simulate indicates whether this transaction can be safely simulated using eth_call
+	// Simulating transactions before send and aborting on revert can save gas
+	// BE CAREFUL - not all transaction types are safe to simulate, e.g. if
+	// they can call arbitrary user-specified code, because there could be a case where
+	// it would erroneously fail during simulation but would succeed for real
+	Simulate() bool
 }
 
 var _ TxStrategy = SendEveryStrategy{}
 
-func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32) (strategy TxStrategy) {
+func NewQueueingTxStrategy(subject uuid.UUID, queueSize uint32, simulate bool) (strategy TxStrategy) {
 	if queueSize > 0 {
-		strategy = NewDropOldestStrategy(subject, queueSize)
+		strategy = NewDropOldestStrategy(subject, queueSize, simulate)
 	} else {
-		strategy = SendEveryStrategy{}
+		strategy = SendEveryStrategy{simulate}
 	}
 	return
 }
 
+func NewSendEveryStrategy(simulate bool) TxStrategy {
+	return SendEveryStrategy{simulate}
+}
+
 // SendEveryStrategy will always send the tx
-type SendEveryStrategy struct{}
+type SendEveryStrategy struct {
+	simulate bool
+}
 
 func (SendEveryStrategy) Subject() uuid.NullUUID             { return uuid.NullUUID{} }
 func (SendEveryStrategy) PruneQueue(*gorm.DB) (int64, error) { return 0, nil }
+func (s SendEveryStrategy) Simulate() bool                   { return s.simulate }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -38,10 +51,11 @@ var _ TxStrategy = DropOldestStrategy{}
 type DropOldestStrategy struct {
 	subject   uuid.UUID
 	queueSize uint32
+	simulate  bool
 }
 
-func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32) DropOldestStrategy {
-	return DropOldestStrategy{subject, queueSize}
+func NewDropOldestStrategy(subject uuid.UUID, queueSize uint32, simulate bool) DropOldestStrategy {
+	return DropOldestStrategy{subject, queueSize, simulate}
 }
 
 func (s DropOldestStrategy) Subject() uuid.NullUUID {
@@ -62,4 +76,8 @@ id < (
 	) numbers
 )`, s.subject, s.subject, s.queueSize)
 	return res.RowsAffected, res.Error
+}
+
+func (s DropOldestStrategy) Simulate() bool {
+	return s.simulate
 }
