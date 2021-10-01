@@ -40,7 +40,7 @@ func NewReaper(lggr logger.Logger, db *gorm.DB, config ReaperConfig, chainID big
 		db,
 		config,
 		*utils.NewBig(&chainID),
-		lggr.With("id", "bptxm_reaper"),
+		lggr.Named("bptxm_reaper"),
 		atomic.NewInt64(-1),
 		make(chan struct{}, 1),
 		make(chan struct{}),

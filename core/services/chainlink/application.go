@@ -317,9 +317,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-// SetServiceLogger sets the Logger for a given service and stores the setting in the db
+// SetServiceLogger sets the Logger level for a given service and stores the setting in the db.
 func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
-	newL, err := app.logger.NewServiceLevelLogger(serviceName, level)
+	newL, err := app.logger.NamedLevel(serviceName, level)
 	if err != nil {
 		return err
 	}
