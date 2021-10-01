@@ -580,7 +580,10 @@ func dumpSchema(cfg config.GeneralConfig) (string, error) {
 	)
 
 	schema, err := cmd.Output()
-	return string(schema), err
+	if err != nil {
+		return "", fmt.Errorf("failed to dump schema: %v", err)
+	}
+	return string(schema), nil
 }
 
 func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
