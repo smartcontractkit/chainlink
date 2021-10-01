@@ -120,8 +120,9 @@ export const RecentRuns = withStyles(chartCardStyles)(
 const TaskList: React.FC<{ job?: JobData['job'] }> = ({ _, job }) => {
   if (job) {
     try {
-      return
+      return (
         <TaskListDag stratify={parseDot(`digraph {${job.dotDagSource}}`)} />
+      )
     } catch (error) {
       return <p>Failed to parse task graph.</p>
     }
