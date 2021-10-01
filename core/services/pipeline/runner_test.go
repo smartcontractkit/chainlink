@@ -326,8 +326,8 @@ decode_log -> decode_cbor;
 		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
-		require.Len(t, finalResults.Errors, 1)
-		assert.Nil(t, finalResults.Errors[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
@@ -364,8 +364,8 @@ decode_log -> decode_cbor;
 		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, "foo", finalResults.Values[0])
-		require.Len(t, finalResults.Errors, 1)
-		assert.Nil(t, finalResults.Errors[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
 	})
 }
 
