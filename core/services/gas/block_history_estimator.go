@@ -100,7 +100,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config C
 		nil,
 		nil,
 		sync.RWMutex{},
-		lggr.With("id", "block_history_estimator"),
+		lggr.Named("block_history_estimator"),
 	}
 
 	return b
