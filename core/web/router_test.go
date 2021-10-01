@@ -19,7 +19,7 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -33,7 +33,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -48,7 +48,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -80,7 +80,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -112,7 +112,7 @@ func TestSessions_RateLimited(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -140,7 +140,7 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
@@ -159,7 +159,7 @@ func TestRouter_GinHelmetHeaders(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	router := web.Router(app)
+	router := web.Router(app, nil)
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 	res, err := http.Get(ts.URL)
