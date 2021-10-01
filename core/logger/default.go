@@ -133,8 +133,8 @@ func Error(args ...interface{}) {
 	skipDefault.Error(args...)
 }
 
-func WarnIf(err error) {
-	skipDefault.WarnIf(err)
+func WarnIf(err error, msg string) {
+	skipDefault.WarnIf(err, msg)
 }
 
 func ErrorIf(err error, optionalMsg ...string) {
@@ -171,8 +171,8 @@ func Panic(args ...interface{}) {
 }
 
 // PanicIf logs the error if present.
-func PanicIf(err error) {
-	skipDefault.PanicIf(err)
+func PanicIf(err error, msg string) {
+	skipDefault.PanicIf(err, msg)
 }
 
 // Sync flushes any buffered log entries.

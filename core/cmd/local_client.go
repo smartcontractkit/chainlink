@@ -156,7 +156,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 }
 
 func loggedStop(app chainlink.Application) {
-	logger.WarnIf(app.Stop())
+	logger.WarnIf(app.Stop(), "Error stopping app")
 }
 
 func checkFilePermissions(rootDir string) error {

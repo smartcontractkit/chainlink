@@ -3,11 +3,11 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 	"reflect"
 	"runtime"
 
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -37,7 +37,7 @@ type Logger interface {
 	Warnf(format string, values ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	// WarnIf logs the error if present.
-	WarnIf(err error)
+	WarnIf(err error, msg string)
 
 	Error(args ...interface{})
 	Errorf(format string, values ...interface{})
@@ -52,7 +52,8 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 
 	Panic(args ...interface{})
-	PanicIf(err error)
+	Panicw(msg string, keysAndValues ...interface{})
+	PanicIf(err error, msg string)
 
 	Sync() error
 
@@ -127,18 +128,19 @@ func (l *zapLogger) withCallerSkip(skip int) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) WarnIf(err error) {
+func (l *zapLogger) WarnIf(err error, msg string) {
 	if err != nil {
-		l.withCallerSkip(1).Warn(err)
+		l.withCallerSkip(1).Warn(msg, "err", err)
 	}
 }
 
 func (l *zapLogger) ErrorIf(err error, optionalMsg ...string) {
 	if err != nil {
+		msg := "Error"
 		if len(optionalMsg) > 0 {
-			err = errors.Wrap(err, optionalMsg[0])
+			msg = optionalMsg[0]
 		}
-		l.withCallerSkip(1).Error(err)
+		l.withCallerSkip(1).Errorw(msg, "err", err)
 	}
 }
 
@@ -146,14 +148,13 @@ func (l *zapLogger) ErrorIfCalling(fn func() error) {
 	err := fn()
 	if err != nil {
 		fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
-		e := errors.Wrap(err, fnName)
-		l.withCallerSkip(1).Error(e)
+		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error calling %s", fnName), "err", err)
 	}
 }
 
-func (l *zapLogger) PanicIf(err error) {
+func (l *zapLogger) PanicIf(err error, msg string) {
 	if err != nil {
-		l.withCallerSkip(1).Panic(err)
+		l.withCallerSkip(1).Panicw(msg, "err", err)
 	}
 }
 

@@ -232,7 +232,7 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err)
+		logger.PanicIf(err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -252,7 +252,7 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 	server := httptest.NewServer(handler)
 
 	u, err := url.Parse(server.URL)
-	logger.PanicIf(err)
+	logger.PanicIf(err, "Failed to parse url")
 	u.Scheme = "ws"
 
 	return server, u.String(), func() {
