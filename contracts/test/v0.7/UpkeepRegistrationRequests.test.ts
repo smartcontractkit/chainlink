@@ -2,34 +2,38 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { evmRevert } from '../test-helpers/matchers'
 import { getUsers, Personas } from '../test-helpers/setup'
-import { ContractFactory, Contract, BigNumber, Signer } from 'ethers'
+import { BigNumber, Signer } from 'ethers'
+import { LinkToken__factory as LinkTokenFactory } from '../../typechain/factories/LinkToken__factory'
+import { KeeperRegistry__factory as KeeperRegistryFactory } from '../../typechain/factories/KeeperRegistry__factory'
+import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../typechain/factories/MockV3Aggregator__factory'
+import { UpkeepRegistrationRequests__factory as UpkeepRegistrationRequestsFactory } from '../../typechain/factories/UpkeepRegistrationRequests__factory'
+import { UpkeepMock__factory as UpkeepMockFactory } from '../../typechain/factories/UpkeepMock__factory'
+import { KeeperRegistry } from '../../typechain/KeeperRegistry'
+import { UpkeepRegistrationRequests } from '../../typechain/UpkeepRegistrationRequests'
+import { MockV3Aggregator } from '../../typechain/MockV3Aggregator'
+import { LinkToken } from '../../typechain/LinkToken'
+import { UpkeepMock } from '../../typechain/UpkeepMock'
 
-let linkTokenFactory: ContractFactory
-let mockV3AggregatorFactory: ContractFactory
-let keeperRegistryFactory: ContractFactory
-let upkeepRegistrationRequestsFactory: ContractFactory
-let upkeepMockFactory: ContractFactory
+let linkTokenFactory: LinkTokenFactory
+let mockV3AggregatorFactory: MockV3AggregatorFactory
+let keeperRegistryFactory: KeeperRegistryFactory
+let upkeepRegistrationRequestsFactory: UpkeepRegistrationRequestsFactory
+let upkeepMockFactory: UpkeepMockFactory
 
 let personas: Personas
 
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
-  )
-  mockV3AggregatorFactory = await ethers.getContractFactory(
-    'src/v0.6/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )
-  keeperRegistryFactory = await ethers.getContractFactory(
-    'src/v0.7/KeeperRegistry.sol:KeeperRegistry',
-  )
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  mockV3AggregatorFactory = (await ethers.getContractFactory(
+    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+  )) as unknown as MockV3AggregatorFactory
+  keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepRegistrationRequestsFactory = await ethers.getContractFactory(
-    'src/v0.7/UpkeepRegistrationRequests.sol:UpkeepRegistrationRequests',
+    'UpkeepRegistrationRequests',
   )
-  upkeepMockFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/UpkeepMock.sol:UpkeepMock',
-  )
+  upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
 })
 
 const errorMsgs = {
@@ -47,6 +51,7 @@ describe('UpkeepRegistrationRequests', () => {
   const executeGas = BigNumber.from(100000)
   const source = BigNumber.from(100)
   const paymentPremiumPPB = BigNumber.from(250000000)
+  const flatFeeMicroLink = BigNumber.from(0)
 
   const window_big = BigNumber.from(1000)
   const window_small = BigNumber.from(2)
@@ -70,12 +75,12 @@ describe('UpkeepRegistrationRequests', () => {
   let registrarOwner: Signer
   let stranger: Signer
 
-  let linkToken: Contract
-  let linkEthFeed: Contract
-  let gasPriceFeed: Contract
-  let registry: Contract
-  let mock: Contract
-  let registrar: Contract
+  let linkToken: LinkToken
+  let linkEthFeed: MockV3Aggregator
+  let gasPriceFeed: MockV3Aggregator
+  let registry: KeeperRegistry
+  let mock: UpkeepMock
+  let registrar: UpkeepRegistrationRequests
 
   beforeEach(async () => {
     owner = personas.Default
@@ -98,6 +103,7 @@ describe('UpkeepRegistrationRequests', () => {
         linkEthFeed.address,
         gasPriceFeed.address,
         paymentPremiumPPB,
+        flatFeeMicroLink,
         blockCountPerTurn,
         maxCheckGas,
         stalenessSeconds,
@@ -227,7 +233,7 @@ describe('UpkeepRegistrationRequests', () => {
       assert.equal(newupkeep.admin, await admin.getAddress())
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
-      assert.equal(newupkeep.executeGas, executeGas)
+      assert.equal(newupkeep.executeGas, executeGas.toNumber())
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
