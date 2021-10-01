@@ -17,11 +17,11 @@ import (
 type Logger interface {
 	// With creates a new logger with the given arguments
 	With(args ...interface{}) Logger
-	// Named creates a new logger sub-scoped for id.
+	// Named creates a new logger sub-scoped with name.
 	// Names are inherited and dot-separated.
-	//   a := l.Named("a") // id=a logger=a
-	//   b := a.Named("b") // id=b logger=a.b
-	Named(id string) Logger
+	//   a := l.Named("a") // logger=a
+	//   b := a.Named("b") // logger=a.b
+	Named(name string) Logger
 	// NamedLevel creates a new Named logger with logLevel.
 	NamedLevel(id string, logLevel string) (Logger, error)
 
@@ -114,11 +114,10 @@ func joinName(old, new string) string {
 	return old + "." + new
 }
 
-func (l *zapLogger) Named(id string) Logger {
+func (l *zapLogger) Named(name string) Logger {
 	newLogger := *l
-	newLogger.name = joinName(l.name, id)
-	newLogger.SugaredLogger = l.SugaredLogger.Named(id).With("id", id)
-	newLogger.fields = copyFields(l.fields, "id", id)
+	newLogger.name = joinName(l.name, name)
+	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	return &newLogger
 }
 
@@ -188,7 +187,7 @@ func CreateProductionLogger(dir string, jsonConsole bool, lvl zapcore.Level, toD
 	}
 }
 
-func (l *zapLogger) NamedLevel(id string, logLevel string) (Logger, error) {
+func (l *zapLogger) NamedLevel(name string, logLevel string) (Logger, error) {
 	var ll zapcore.Level
 	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
 		return nil, err
@@ -200,8 +199,7 @@ func (l *zapLogger) NamedLevel(id string, logLevel string) (Logger, error) {
 	}
 
 	newLogger := *l
-	newLogger.name = joinName(l.name, id)
-	newLogger.fields = copyFields(l.fields, "id", id)
-	newLogger.SugaredLogger = zl.Named(newLogger.name).Sugar().With(newLogger.fields...)
+	newLogger.name = joinName(l.name, name)
+	newLogger.SugaredLogger = zl.Named(newLogger.name).Sugar().With(l.fields...)
 	return &newLogger, nil
 }

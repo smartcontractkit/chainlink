@@ -69,10 +69,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 		sopts.SetConfig(config)
 	}
 
-	l := config.CreateProductionLogger().Named(t.Name())
-	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-
 	require.NoError(t, app.Start())
 
 	return app

@@ -376,7 +376,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if lggr == nil {
-		lggr = cfg.CreateProductionLogger()
+		lggr = cfg.CreateProductionLogger().Named(t.Name())
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
