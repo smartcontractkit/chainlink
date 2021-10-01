@@ -887,9 +887,11 @@ func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job
 }
 
 func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
 }
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
 }
 
