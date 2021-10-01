@@ -40,33 +40,35 @@ function getTaskStatus({
   return 'completed'
 }
 
-const addTaskStatus = (stratify: Stratify[]) => (
-  taskRun: JobRunV2['taskRuns'][0],
-  _index: number,
-  taskRuns: JobRunV2['taskRuns'],
-): PipelineTaskRun => {
-  return {
-    ...taskRun,
-    status: getTaskStatus({ taskRun, stratify, taskRuns }),
+const addTaskStatus =
+  (stratify: Stratify[]) =>
+  (
+    taskRun: JobRunV2['taskRuns'][0],
+    _index: number,
+    taskRuns: JobRunV2['taskRuns'],
+  ): PipelineTaskRun => {
+    return {
+      ...taskRun,
+      status: getTaskStatus({ taskRun, stratify, taskRuns }),
+    }
   }
-}
 
-export const transformPipelineJobRun = (jobSpecId: string) => (
-  jobRun: ApiResponse<JobRunV2>['data'],
-): PipelineJobRun => {
-  const stratify = parseDot(
-    `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
-  )
-  let taskRuns: PipelineTaskRun[] = []
-  if (jobRun.attributes.taskRuns != null) {
-    taskRuns = jobRun.attributes.taskRuns.map(addTaskStatus(stratify))
+export const transformPipelineJobRun =
+  (jobSpecId: string) =>
+  (jobRun: ApiResponse<JobRunV2>['data']): PipelineJobRun => {
+    const stratify = parseDot(
+      `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
+    )
+    let taskRuns: PipelineTaskRun[] = []
+    if (jobRun.attributes.taskRuns != null) {
+      taskRuns = jobRun.attributes.taskRuns.map(addTaskStatus(stratify))
+    }
+    return {
+      ...jobRun.attributes,
+      id: jobRun.id,
+      jobId: jobSpecId,
+      status: getJobStatus(jobRun.attributes),
+      taskRuns,
+      type: 'Pipeline job run',
+    }
   }
-  return {
-    ...jobRun.attributes,
-    id: jobRun.id,
-    jobId: jobSpecId,
-    status: getJobStatus(jobRun.attributes),
-    taskRuns,
-    type: 'Pipeline job run',
-  }
-}

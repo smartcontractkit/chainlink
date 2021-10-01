@@ -10,8 +10,6 @@
     "test": "hardhat test",
     "size": "hardhat size-contracts",
     "clean": "hardhat clean",
-    "prettier:run": "prettier --write \"**/*.sol\"",
-    "prettier:check": "prettier --check \"**/*.sol\"",
     "compile:native": "./scripts/native_solc_compile_all",
     "compile": "hardhat compile",
     "coverage": "hardhat coverage",
