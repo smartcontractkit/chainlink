@@ -49,18 +49,20 @@ const ownerPermsMask = os.FileMode(0700)
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
+	lggr := logger.Default.Named("boot")
 
 	err := cli.Config.Validate()
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
+	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
+
 	if cli.Config.Dev() {
-		logger.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
+		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
 	}
 	if cli.Config.EthereumDisabled() {
-		logger.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
+		lggr.Warn("Ethereum is disabled. Chainlink will only run services that can operate without an ethereum connection")
 	}
 
 	app, err := cli.AppFactory.NewApplication(cli.Config)
@@ -102,10 +104,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 			return cli.errorOut(err)
 		}
 		if !fexisted {
-			logger.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
+			lggr.Infow("New funding address created", "address", fkey.Address.Hex(), "evmChainID", ch.ID())
 		}
 		if !sexisted {
-			logger.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
+			lggr.Infow("New sending address created", "address", skey.Address.Hex(), "evmChainID", ch.ID())
 		}
 	}
 
@@ -114,18 +116,18 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "failed to ensure ocr key"))
 	}
 	if !didExist {
-		logger.Infof("Created OCR key with ID %s", ocrKey.ID())
+		lggr.Infof("Created OCR key with ID %s", ocrKey.ID())
 	}
 	p2pKey, didExist, err := app.GetKeyStore().P2P().EnsureKey()
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "failed to ensure p2p key"))
 	}
 	if !didExist {
-		logger.Infof("Created P2P key with ID %s", p2pKey.ID())
+		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
-		logger.Warn(e)
+		lggr.Warn(e)
 	}
 
 	var user sessions.User
@@ -139,7 +141,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
 
-	logger.Info("API exposed for user ", user.Email)
+	lggr.Info("API exposed for user ", user.Email)
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
@@ -149,12 +151,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	logger.Infof("Chainlink booted in %s", time.Since(static.InitTime))
+	lggr.Infof("Chainlink booted in %s", time.Since(static.InitTime))
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
 func loggedStop(app chainlink.Application) {
-	logger.WarnIf(app.Stop())
+	logger.WarnIf(app.Stop(), "Error stopping app")
 }
 
 func checkFilePermissions(rootDir string) error {
