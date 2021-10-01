@@ -27,6 +27,7 @@ workflows:
           filters:
             tags:
               only: /^v.*/
+
 commands:
   setup-aws-ecr:
     description: 'Install aws cli and login to public and private ECR'
@@ -42,6 +43,13 @@ commands:
       - run:
           name: Docker login for ECR using temporary creds
           command: |
+            # If BUILDER is not defined (i.e. the user who submitted the PR is
+            # probably not on the chainlink team) short circuit this step and
+            # succed
+            if [[ -z "$BUILDER" ]]; then
+              exit 0
+            fi
+
             # Get temporary credentials to access resoures available to specific role
             temporaryCredentials=$(
               aws sts assume-role \

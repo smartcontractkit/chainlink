@@ -48,7 +48,7 @@ type HeadTracker struct {
 	headListener *HeadListener
 	headSaver    *HeadSaver
 	chStop       chan struct{}
-	wgDone       *sync.WaitGroup
+	wgDone       sync.WaitGroup
 	utils.StartStopOnce
 }
 
@@ -63,7 +63,6 @@ func NewHeadTracker(
 	headBroadcaster httypes.HeadBroadcaster,
 	sleepers ...utils.Sleeper,
 ) *HeadTracker {
-	var wgDone sync.WaitGroup
 	chStop := make(chan struct{})
 
 	return &HeadTracker{
@@ -75,8 +74,7 @@ func NewHeadTracker(
 		backfillMB:      *utils.NewMailbox(1),
 		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
 		chStop:          chStop,
-		wgDone:          &wgDone,
-		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
+		headListener:    NewHeadListener(l, ethClient, config, chStop, sleepers...),
 		headSaver:       NewHeadSaver(orm, config),
 	}
 }
@@ -132,7 +130,7 @@ func (ht *HeadTracker) Start() error {
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead)
+		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.wgDone.Done)
 		go ht.backfiller()
 		go ht.headCallbackLoop()
 
