@@ -105,7 +105,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
-                      <TaskList job={job}/>
+                    <TaskList job={job} />
                   </Card>
                 </Grid>
               )}
@@ -117,15 +117,14 @@ export const RecentRuns = withStyles(chartCardStyles)(
   },
 )
 
-const TaskList: React.FC<{ job?: JobData['job'] }> = ({_, job}) => {
+const TaskList: React.FC<{ job?: JobData['job'] }> = ({ _, job }) => {
   if (job) {
     try {
-      return <TaskListDag
-          stratify={ parseDot(`digraph {${job.dotDagSource}}`) }
-      />
+      return
+        <TaskListDag stratify={parseDot(`digraph {${job.dotDagSource}}`)} />
     } catch (error) {
-      return <p>Failed to parse task graph.</p>;
+      return <p>Failed to parse task graph.</p>
     }
   }
-  return <p>No task grapth found.</p>;
+  return <p>No task grapth found.</p>
 }
