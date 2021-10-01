@@ -2,7 +2,7 @@ import { ApiResponse } from 'utils/json-api-client'
 import { JobRunV2 } from 'core/store/models'
 import { parseDot, Stratify } from './parseDot'
 import { PipelineJobRun, PipelineTaskRun } from './sharedTypes'
-import { getOcrJobStatus } from './utils'
+import { getJobStatus } from './utils'
 
 function getTaskStatus({
   taskRun: { dotId, finishedAt, error },
@@ -65,7 +65,7 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
     ...jobRun.attributes,
     id: jobRun.id,
     jobId: jobSpecId,
-    status: getOcrJobStatus(jobRun.attributes),
+    status: getJobStatus(jobRun.attributes),
     taskRuns,
     type: 'Pipeline job run',
   }

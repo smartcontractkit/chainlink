@@ -21,6 +21,7 @@ import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
 import { JobRunV2, Resource } from 'core/store/models'
+import { getJobStatus } from 'src/pages/Jobs/utils'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -120,7 +121,9 @@ const Activity = ({ classes, runs, count, pageSize }: Props) => {
               <TableCell scope="row" className={classes.cell}>
                 <div className={classes.content}>
                   <div className={classes.status}>
-                    <StatusIcon width={38}>{r.attributes.state}</StatusIcon>
+                    <StatusIcon width={38}>
+                      {getJobStatus(r.attributes)}
+                    </StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
                     <Grid container spacing={0}>
