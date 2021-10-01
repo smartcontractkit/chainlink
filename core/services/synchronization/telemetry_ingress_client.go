@@ -31,17 +31,15 @@ type TelemetryIngressClient interface {
 	Start() error
 	Close() error
 	Send(TelemPayload)
-	Unsafe_SetTelemClient(telemPb.TelemClient) bool
 }
 
 type NoopTelemetryIngressClient struct{}
 
-func (NoopTelemetryIngressClient) Start() error                                   { return nil }
-func (NoopTelemetryIngressClient) Close() error                                   { return nil }
-func (NoopTelemetryIngressClient) Send(TelemPayload)                              {}
-func (NoopTelemetryIngressClient) Healthy() error                                 { return nil }
-func (NoopTelemetryIngressClient) Ready() error                                   { return nil }
-func (NoopTelemetryIngressClient) Unsafe_SetTelemClient(telemPb.TelemClient) bool { return true }
+func (NoopTelemetryIngressClient) Start() error      { return nil }
+func (NoopTelemetryIngressClient) Close() error      { return nil }
+func (NoopTelemetryIngressClient) Send(TelemPayload) {}
+func (NoopTelemetryIngressClient) Healthy() error    { return nil }
+func (NoopTelemetryIngressClient) Ready() error      { return nil }
 
 type telemetryIngressClient struct {
 	utils.StartStopOnce
@@ -117,7 +115,9 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		// Initialize a new wsrpc client caller
 		// This is used to call RPC methods on the server
-		tc.telemClient = telemPb.NewTelemClient(conn)
+		if tc.telemClient == nil { // only preset for tests
+			tc.telemClient = telemPb.NewTelemClient(conn)
+		}
 
 		// Start handler for telemetry
 		tc.handleTelemetry()
@@ -195,19 +195,4 @@ func (tc *telemetryIngressClient) Send(payload TelemPayload) {
 	default:
 		tc.logBufferFullWithExpBackoff(payload)
 	}
-}
-
-// Unsafe_SetTelemClient sets the TelemClient on the service.
-//
-// We need to be able to inject a mock for the client to facilitate integration
-// tests.
-//
-// ONLY TO BE USED FOR TESTING.
-func (tc *telemetryIngressClient) Unsafe_SetTelemClient(client telemPb.TelemClient) bool {
-	if tc.telemClient == nil {
-		return false
-	}
-
-	tc.telemClient = client
-	return true
 }
