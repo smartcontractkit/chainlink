@@ -14,6 +14,7 @@ describe('components/Dashboards/Activity', () => {
         type: 'RUN',
         attributes: partialAsFull<JobRunV2>({
           createdAt: CREATED_AT,
+          errors: [],
           pipelineSpec: {
             jobID: '1',
             ID: 1,
@@ -34,6 +35,7 @@ describe('components/Dashboards/Activity', () => {
         type: 'RUN',
         attributes: partialAsFull<JobRunV2>({
           createdAt: CREATED_AT,
+          errors: [],
           pipelineSpec: {
             jobID: '1',
             ID: 1,
@@ -47,6 +49,7 @@ describe('components/Dashboards/Activity', () => {
         type: 'RUN',
         attributes: partialAsFull<JobRunV2>({
           createdAt: CREATED_AT,
+          errors: [],
           pipelineSpec: {
             jobID: '1',
             ID: 1,
