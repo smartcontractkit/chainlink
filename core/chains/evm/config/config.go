@@ -170,7 +170,7 @@ func (c *chainScopedConfig) validate() (err error) {
 		case chains.Arbitrum:
 			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
 				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
-					"must be %q", gasEst, chains.Optimism, "FixedPrice"))
+					"must be %q", gasEst, chains.Arbitrum, "FixedPrice"))
 			}
 		case chains.ExChain:
 
