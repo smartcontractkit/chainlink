@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -34,14 +33,9 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	// Wire up the telem ingress client
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
-	telemIngressClient := synchronization.NewTelemetryIngressClient(url, serverPubKeyHex, csaKeystore, false)
+	telemIngressClient := synchronization.NewTestTelemetryIngressClient(url, serverPubKeyHex, csaKeystore, false, telemClient)
 	require.NoError(t, telemIngressClient.Start())
 	defer telemIngressClient.Close()
-
-	// Swap in mocked telem client
-	for telemIngressClient.Unsafe_SetTelemClient(telemClient) == false {
-		time.Sleep(10 * time.Millisecond)
-	}
 
 	// Create the telemetry payload
 	telemetry := []byte("101010")
