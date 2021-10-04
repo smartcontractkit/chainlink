@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -465,21 +466,28 @@ func TestBulletproofTxManager_SignTx(t *testing.T) {
 
 	t.Run("returns correct hash for non-okex chains", func(t *testing.T) {
 		chainID := big.NewInt(1)
+		cfg := new(bptxmmocks.Config)
+		cfg.Test(t)
+		cfg.On("ChainType").Return(chains.ChainType(""))
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		hash, rawBytes, err := bulletprooftxmanager.SignTx(kst, addr, tx, chainID)
+		cks := bulletprooftxmanager.NewChainKeyStore(*chainID, cfg, kst)
+		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
 		require.Equal(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex())
 	})
-
 	t.Run("returns correct hash for okex chains", func(t *testing.T) {
-		chainID := big.NewInt(65)
+		chainID := big.NewInt(1)
+		cfg := new(bptxmmocks.Config)
+		cfg.Test(t)
+		cfg.On("ChainType").Return(chains.ExChain)
 		kst := new(ksmocks.Eth)
 		kst.Test(t)
 		kst.On("SignTx", to, tx, chainID).Return(tx, nil).Once()
-		hash, rawBytes, err := bulletprooftxmanager.SignTx(kst, addr, tx, chainID)
+		cks := bulletprooftxmanager.NewChainKeyStore(*chainID, cfg, kst)
+		hash, rawBytes, err := cks.SignTx(addr, tx)
 		require.NoError(t, err)
 		require.NotNil(t, rawBytes)
 		require.NotEqual(t, "0xdd68f554373fdea7ec6713a6e437e7646465d553a6aa0b43233093366cc87ef0", hash.Hex(), "expected okex chain hash to be different from non-okex-chain hash")

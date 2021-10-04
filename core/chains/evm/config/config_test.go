@@ -1,20 +1,23 @@
 package config_test
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -126,4 +129,75 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			assert.Equal(t, assets.NewLinkFromJuels(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
 		})
 	}
+}
+
+func Test_chainScopedConfig_Validate(t *testing.T) {
+	// Validate built-in
+	for id, _ := range evmconfig.ChainSpecificConfigDefaultSets() {
+		id := id
+		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(id), evmtypes.ChainCfg{}, nil, lggr, gcfg)
+			assert.NoError(t, cfg.Validate())
+		})
+	}
+
+	// Invalid Cases:
+
+	t.Run("arbitrum-estimator", func(t *testing.T) {
+		t.Run("custom", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
+				ChainType:        null.StringFrom(string(chains.Arbitrum)),
+				GasEstimatorMode: null.StringFrom("BlockHistory"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+		t.Run("mainnet", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
+				GasEstimatorMode: null.StringFrom("BlockHistory"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+		t.Run("testnet", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
+				GasEstimatorMode: null.StringFrom("Optimism"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+	})
+
+	t.Run("optimism-estimator", func(t *testing.T) {
+		t.Run("custom", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
+				ChainType:        null.StringFrom(string(chains.Optimism)),
+				GasEstimatorMode: null.StringFrom("BlockHistory"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+		t.Run("mainnet", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(10), evmtypes.ChainCfg{
+				GasEstimatorMode: null.StringFrom("FixedPrice"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+		t.Run("testnet", func(t *testing.T) {
+			gcfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.CreateTestLogger(zapcore.InfoLevel)
+			cfg := evmconfig.NewChainScopedConfig(big.NewInt(69), evmtypes.ChainCfg{
+				GasEstimatorMode: null.StringFrom("BlockHistory"),
+			}, nil, lggr, gcfg)
+			assert.Error(t, cfg.Validate())
+		})
+	})
 }

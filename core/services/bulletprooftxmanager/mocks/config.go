@@ -5,6 +5,8 @@ package mocks
 import (
 	big "math/big"
 
+	chains "github.com/smartcontractkit/chainlink/core/chains"
+
 	common "github.com/ethereum/go-ethereum/common"
 
 	mock "github.com/stretchr/testify/mock"
@@ -68,6 +70,20 @@ func (_m *Config) BlockHistoryEstimatorTransactionPercentile() uint16 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// ChainType provides a mock function with given fields:
+func (_m *Config) ChainType() chains.ChainType {
+	ret := _m.Called()
+
+	var r0 chains.ChainType
+	if rf, ok := ret.Get(0).(func() chains.ChainType); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(chains.ChainType)
 	}
 
 	return r0
