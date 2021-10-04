@@ -30,6 +30,7 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          url.URL                       `env:"BRIDGE_RESPONSE_URL"`
+	ChainType                                  string                        `env:"CHAIN_TYPE"`
 	ClientNodeURL                              string                        `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
 	ClobberNodesFromEnv                        bool                          `env:"CLOBBER_NODES_FROM_ENV" default:"true"`
 	DatabaseBackupDir                          string                        `env:"DATABASE_BACKUP_DIR" default:""`
@@ -107,7 +108,6 @@ type ConfigSchema struct {
 	KeeperRegistryCheckGasOverhead             uint64                        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead           uint64                        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                 time.Duration                 `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
-	Layer2Type                                 string                        `env:"LAYER_2_TYPE"`
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`

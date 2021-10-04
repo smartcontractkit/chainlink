@@ -69,10 +69,7 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 		sopts.SetConfig(config)
 	}
 
-	l := config.CreateProductionLogger().With("testname", t.Name())
-	sopts.FlagsAndDeps = append(sopts.FlagsAndDeps, l)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-
 	require.NoError(t, app.Start())
 
 	return app
@@ -488,12 +485,12 @@ func TestClient_AutoLogin(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
 	// Expire the session and then try again
 	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
-	err = client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
 
@@ -514,7 +511,7 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	err := client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.Error(t, err)
 }
 

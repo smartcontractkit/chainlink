@@ -67,7 +67,7 @@ func (a EIP55Address) Hex() string {
 // Format implements fmt.Formatter
 func (a EIP55Address) Format(s fmt.State, c rune) {
 	_, err := fmt.Fprint(s, a.String())
-	logger.ErrorIf(err, "failed when format EIP55Address to state")
+	logger.ErrorIf(err, "Error formatting EIP55Address to state")
 }
 
 // UnmarshalText parses a hash from plain text

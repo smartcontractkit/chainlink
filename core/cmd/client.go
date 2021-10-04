@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
@@ -40,6 +41,14 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 )
+
+var prometheus *ginprom.Prometheus
+
+func init() {
+	// ensure metrics are regsitered once per instance to avoid registering
+	// metrics multiple times (panic)
+	prometheus = ginprom.New(ginprom.Namespace("service"))
+}
 
 var (
 	// ErrorNoAPICredentialsAvailable is returned when not run from a terminal
@@ -192,7 +201,7 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
-	handler := web.Router(app.(*chainlink.ChainlinkApplication))
+	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 	var g errgroup.Group
 
 	if config.Port() == 0 && config.TLSPort() == 0 {
@@ -221,7 +230,7 @@ func runServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) err
 	logger.Infof("Listening and serving HTTP on port %d", port)
 	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServe()
-	logger.ErrorIf(err)
+	logger.ErrorIf(err, "Error starting server")
 	return err
 }
 
@@ -229,7 +238,7 @@ func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, wr
 	logger.Infof("Listening and serving HTTPS on port %d", port)
 	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServeTLS(certFile, keyFile)
-	logger.ErrorIf(err)
+	logger.ErrorIf(err, "Error starting TLS server")
 	return err
 }
 
