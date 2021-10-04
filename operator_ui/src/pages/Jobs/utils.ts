@@ -31,7 +31,7 @@ export function stringifyJobSpec({
   }
 }
 
-export function getOcrJobStatus({
+export function getJobStatus({
   finishedAt,
   errors,
 }: {

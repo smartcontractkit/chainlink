@@ -8,11 +8,11 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -49,12 +49,12 @@ type contractTrackerUni struct {
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
-	var chain evmtypes.Chain
+	var chain evmconfig.ChainScopedConfig
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
 		switch v := opt.(type) {
-		case evmtypes.Chain:
+		case evmconfig.ChainScopedConfig:
 			chain = v
 		case *offchainaggregator.OffchainAggregatorFilterer:
 			filterer = v
@@ -63,6 +63,9 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		default:
 			t.Fatalf("unrecognised option type %T", v)
 		}
+	}
+	if chain == nil {
+		chain = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
 	}
 	if filterer == nil {
 		filterer = mustNewFilterer(t, cltest.NewAddress())
@@ -104,7 +107,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
 
 	t.Run("on L2 chains, always returns 0", func(t *testing.T) {
-		uni := newContractTrackerUni(t, evmtest.ChainOptimismMainnet())
+		uni := newContractTrackerUni(t, evmtest.ChainOptimismMainnet(t))
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)
 

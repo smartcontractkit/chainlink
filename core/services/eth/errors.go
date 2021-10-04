@@ -212,9 +212,41 @@ type JsonError struct {
 
 func (err *JsonError) Error() string {
 	if err.Message == "" {
-		return fmt.Sprintf("json-rpc error %d", err.Code)
+		return fmt.Sprintf("json-rpc error { Code = %d, Data = '%v' }", err.Code, err.Data)
 	}
 	return err.Message
+}
+
+func (err *JsonError) String() string {
+	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
+}
+
+func ExtractRPCError(err error) *JsonError {
+	jErr, eErr := extractRPCError(err)
+	if eErr != nil {
+		return nil
+	}
+	return jErr
+}
+
+func extractRPCError(baseErr error) (*JsonError, error) {
+	if baseErr == nil {
+		return nil, errors.New("no error present")
+	}
+	cause := errors.Cause(baseErr)
+	jsonBytes, err := json.Marshal(cause)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to marshal err to json")
+	}
+	jErr := JsonError{}
+	err = json.Unmarshal(jsonBytes, &jErr)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to unmarshal json into jsonError struct (got: %v)", baseErr)
+	}
+	if jErr.Code == 0 {
+		return nil, errors.Errorf("not a RPCError because it does not have a code (got: %v)", baseErr)
+	}
+	return &jErr, nil
 }
 
 // ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
@@ -225,18 +257,9 @@ func (err *JsonError) Error() string {
 // rinkeby / ropsten (geth)
 // { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
 func ExtractRevertReasonFromRPCError(err error) (string, error) {
-	if err == nil {
-		return "", errors.New("no error present")
-	}
-	cause := errors.Cause(err)
-	jsonBytes, err := json.Marshal(cause)
-	if err != nil {
-		return "", errors.Wrap(err, "unable to marshal err to json")
-	}
-	jErr := JsonError{}
-	err = json.Unmarshal(jsonBytes, &jErr)
-	if err != nil {
-		return "", errors.Wrap(err, "unable to unmarshal json into jsonError struct")
+	jErr, eErr := extractRPCError(err)
+	if eErr != nil {
+		return "", eErr
 	}
 	dataStr, ok := jErr.Data.(string)
 	if !ok {

@@ -9,15 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-Support for OKEx/ExChain.
+#### Transaction Simulation (Gas Savings)
+
+Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction would revert, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert. 
+
+This can add a tiny bit of latency (upper bound 2s, generally much shorter under good conditions) and will add marginally more load to the eth client, since it adds an extra call for every transaction sent. However, it may help to save gas in some cases especially during periods of high demand by avoiding unnecessary reverts (due to outdated round etc).
+
+This option is EXPERIMENTAL and disabled by default.
+
+To enable for FM or OCR:
+
+`FM_SIMULATE_TRANSACTIONs=true`
+`OCR_SIMULATE_TRANSACTIONS=true`
+
+To enable in the pipeline, use the `simulate=true` option like so:
+
+```
+submit [type=ethtx to="0xDeadDeadDeadDeadDeadDeadDeadDead" data="0xDead" simulate=true]
+```
+
+Use at your own risk.
+
+#### Misc
+
+Add support for OKEx/ExChain.
 
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
-Chanlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
+Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
-#### Full EIP1559 Support
+#### Full EIP1559 Support (Gas Savings)
 
 Chainlink now includes experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
 
@@ -134,6 +157,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 `ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
 
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
 
 #### Removed env vars
 

@@ -83,6 +83,7 @@ type ConfigSchema struct {
 	ExplorerSecret                             string                        `env:"EXPLORER_SECRET"`
 	ExplorerURL                                *url.URL                      `env:"EXPLORER_URL"`
 	FMDefaultTransactionQueueDepth             uint32                        `env:"FM_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
+	FMSimulateTransactions                     bool                          `env:"FM_SIMULATE_TRANSACTIONS" default:"false"`
 	FeatureExternalInitiators                  bool                          `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureOffchainReporting                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	FeatureUICSAKeys                           bool                          `env:"FEATURE_UI_CSA_KEYS" default:"false"`
@@ -106,6 +107,7 @@ type ConfigSchema struct {
 	KeeperRegistryCheckGasOverhead             uint64                        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead           uint64                        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                 time.Duration                 `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
+	Layer2Type                                 string                        `env:"LAYER_2_TYPE"`
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
@@ -131,6 +133,7 @@ type ConfigSchema struct {
 	OCRObservationGracePeriod                  time.Duration                 `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
 	OCRObservationTimeout                      time.Duration                 `env:"OCR_OBSERVATION_TIMEOUT" default:"12s"`
 	OCROutgoingMessageBufferSize               int                           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCRSimulateTransactions                    bool                          `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
 	OCRTraceLogging                            bool                          `env:"OCR_TRACE_LOGGING" default:"false"`
 	OCRTransmitterAddress                      string                        `env:"OCR_TRANSMITTER_ADDRESS"`
 	ORMMaxIdleConns                            int                           `env:"ORM_MAX_IDLE_CONNS" default:"10"`

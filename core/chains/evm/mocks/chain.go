@@ -132,48 +132,6 @@ func (_m *Chain) ID() *big.Int {
 	return r0
 }
 
-// IsArbitrum provides a mock function with given fields:
-func (_m *Chain) IsArbitrum() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// IsL2 provides a mock function with given fields:
-func (_m *Chain) IsL2() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// IsOptimism provides a mock function with given fields:
-func (_m *Chain) IsOptimism() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // LogBroadcaster provides a mock function with given fields:
 func (_m *Chain) LogBroadcaster() log.Broadcaster {
 	ret := _m.Called()

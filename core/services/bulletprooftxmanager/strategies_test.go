@@ -27,10 +27,14 @@ func Test_DropOldestStrategy_Subject(t *testing.T) {
 	t.Parallel()
 
 	subject := uuid.NewV4()
-	s := bulletprooftxmanager.NewDropOldestStrategy(subject, 1)
+	s := bulletprooftxmanager.NewDropOldestStrategy(subject, 1, false)
 
 	assert.True(t, s.Subject().Valid)
 	assert.Equal(t, subject, s.Subject().UUID)
+	assert.False(t, s.Simulate())
+
+	s = bulletprooftxmanager.NewDropOldestStrategy(subject, 1, true)
+	assert.True(t, s.Simulate())
 }
 
 func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
@@ -63,7 +67,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	}
 
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
-		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2)
+		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2, false)
 
 		n, err := s.PruneQueue(db)
 		require.NoError(t, err)

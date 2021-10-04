@@ -163,7 +163,7 @@ func (pr *promReporter) reportHeadMetrics(ctx context.Context, head eth.Head) {
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
 	)
 
-	if err != nil {
+	if err != nil && ctx.Err() == nil {
 		logger.Errorw("Error reporting prometheus metrics", "err", err)
 	}
 }
