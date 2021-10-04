@@ -137,7 +137,7 @@ func (hr *headBroadcaster) executeCallbacks() {
 
 	hr.logger.Debugw("HeadBroadcaster initiating callbacks",
 		"headNum", head.Number,
-		"numCallbacks", len(hr.callbacks),
+		"numCallbacks", len(callbacks),
 	)
 
 	wg := sync.WaitGroup{}

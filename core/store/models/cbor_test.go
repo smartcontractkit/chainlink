@@ -99,7 +99,7 @@ func Test_ParseCBOR(t *testing.T) {
 			false,
 		},
 		{"empty object", `0xa0`, jsonMustUnmarshal(t, `{}`), false},
-		{"empty string", `0x`, JSON{}, false},
+		{"empty string", `0x`, jsonMustUnmarshal(t, `{}`), false},
 		{"invalid CBOR", `0xff`, JSON{}, true},
 	}
 
@@ -108,7 +108,7 @@ func Test_ParseCBOR(t *testing.T) {
 			b, err := hexutil.Decode(test.in)
 			assert.NoError(t, err)
 
-			json, err := ParseCBOR(b)
+			json, err := ParseDietCBOR(b)
 			if test.wantErrored {
 				assert.Error(t, err)
 			} else {
@@ -163,9 +163,9 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 			hexutil.MustDecode("0xbf636B65796576616C7565ff"),
 		},
 		{
-			"empty",
+			"empty input adds delimiters",
 			[]byte{},
-			[]byte{},
+			[]byte{0xbf, 0xff},
 		},
 	}
 

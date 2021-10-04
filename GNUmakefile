@@ -90,7 +90,7 @@ presubmit:
 
 .PHONY: docker
 docker: ## Build the docker image.
-		docker build \
+	docker build \
 		-f $(DOCKERFILE) \
 		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
