@@ -273,7 +273,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	if err != nil && strings.Contains(err.Error(), ErrViolatesForeignKeyConstraint.Error()) {
 		return
 	}
-	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
+	logger.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
 }
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {

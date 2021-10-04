@@ -1,10 +1,12 @@
 package config
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 )
 
 var (
@@ -24,6 +26,7 @@ type (
 		blockHistoryEstimatorBlockDelay            uint16
 		blockHistoryEstimatorBlockHistorySize      uint16
 		blockHistoryEstimatorTransactionPercentile uint16
+		chainType                                  chains.ChainType
 		eip1559DynamicFees                         bool
 		ethTxReaperInterval                        time.Duration
 		ethTxReaperThreshold                       time.Duration
@@ -44,7 +47,6 @@ type (
 		headTrackerHistoryDepth                    uint32
 		headTrackerMaxBufferSize                   uint32
 		headTrackerSamplingInterval                time.Duration
-		layer2Type                                 string
 		linkContractAddress                        string
 		logBackfillBatchSize                       uint32
 		maxGasPriceWei                             big.Int
@@ -57,8 +59,8 @@ type (
 		nonceAutoSync                              bool
 		ocrContractConfirmations                   uint16
 		rpcDefaultBatchSize                        uint32
-		// set true indicates its not the empty struct
-		set bool
+		// set true if fully configured
+		complete bool
 	}
 )
 
@@ -90,39 +92,39 @@ func setChainSpecificConfigDefaultSets() {
 		blockHistoryEstimatorBlockDelay:            1,
 		blockHistoryEstimatorBlockHistorySize:      16,
 		blockHistoryEstimatorTransactionPercentile: 60,
-		eip1559DynamicFees:                         false,
-		ethTxReaperInterval:                        1 * time.Hour,
-		ethTxReaperThreshold:                       168 * time.Hour,
-		ethTxResendAfterThreshold:                  1 * time.Minute,
-		finalityDepth:                              50,
-		gasBumpPercent:                             20,
-		gasBumpThreshold:                           3,
-		gasBumpTxDepth:                             10,
-		gasBumpWei:                                 *assets.GWei(5),
-		gasEstimatorMode:                           "BlockHistory",
-		gasLimitDefault:                            DefaultGasLimit,
-		gasLimitMultiplier:                         1.0,
-		gasLimitTransfer:                           21000,
-		gasPriceDefault:                            *DefaultGasPrice,
-		gasTipCapDefault:                           *DefaultGasTip,
-		gasTipCapMinimum:                           *big.NewInt(0),
-		headTrackerHistoryDepth:                    100,
-		headTrackerMaxBufferSize:                   3,
-		headTrackerSamplingInterval:                1 * time.Second,
-		layer2Type:                                 "",
-		linkContractAddress:                        "",
-		logBackfillBatchSize:                       100,
-		maxGasPriceWei:                             *assets.GWei(5000),
-		maxInFlightTransactions:                    16,
-		maxQueuedTransactions:                      250,
-		minGasPriceWei:                             *assets.GWei(1),
-		minIncomingConfirmations:                   3,
-		minRequiredOutgoingConfirmations:           12,
-		minimumContractPayment:                     DefaultMinimumContractPayment,
-		nonceAutoSync:                              true,
-		ocrContractConfirmations:                   4,
-		rpcDefaultBatchSize:                        100,
-		set:                                        true,
+		chainType:                        "",
+		eip1559DynamicFees:               false,
+		ethTxReaperInterval:              1 * time.Hour,
+		ethTxReaperThreshold:             168 * time.Hour,
+		ethTxResendAfterThreshold:        1 * time.Minute,
+		finalityDepth:                    50,
+		gasBumpPercent:                   20,
+		gasBumpThreshold:                 3,
+		gasBumpTxDepth:                   10,
+		gasBumpWei:                       *assets.GWei(5),
+		gasEstimatorMode:                 "BlockHistory",
+		gasLimitDefault:                  DefaultGasLimit,
+		gasLimitMultiplier:               1.0,
+		gasLimitTransfer:                 21000,
+		gasPriceDefault:                  *DefaultGasPrice,
+		gasTipCapDefault:                 *DefaultGasTip,
+		gasTipCapMinimum:                 *big.NewInt(0),
+		headTrackerHistoryDepth:          100,
+		headTrackerMaxBufferSize:         3,
+		headTrackerSamplingInterval:      1 * time.Second,
+		linkContractAddress:              "",
+		logBackfillBatchSize:             100,
+		maxGasPriceWei:                   *assets.GWei(5000),
+		maxInFlightTransactions:          16,
+		maxQueuedTransactions:            250,
+		minGasPriceWei:                   *assets.GWei(1),
+		minIncomingConfirmations:         3,
+		minRequiredOutgoingConfirmations: 12,
+		minimumContractPayment:           DefaultMinimumContractPayment,
+		nonceAutoSync:                    true,
+		ocrContractConfirmations:         4,
+		rpcDefaultBatchSize:              100,
+		complete:                         true,
 	}
 
 	mainnet := fallbackDefaultSet
@@ -149,6 +151,7 @@ func setChainSpecificConfigDefaultSets() {
 	// With xDai's current maximum of 19 validators then 40 blocks is the maximum possible re-org)
 	// The mainnet default of 50 blocks is ok here
 	xDaiMainnet := fallbackDefaultSet
+	xDaiMainnet.chainType = chains.XDai
 	xDaiMainnet.gasBumpThreshold = 3 // 15s delay since feeds update every minute in volatile situations
 	xDaiMainnet.gasPriceDefault = *assets.GWei(1)
 	xDaiMainnet.minGasPriceWei = *assets.GWei(1) // 1 Gwei is the minimum accepted by the validators (unless whitelisted)
@@ -201,6 +204,7 @@ func setChainSpecificConfigDefaultSets() {
 
 	// Arbitrum is an L2 chain. Pending proper L2 support, for now we rely on their sequencer
 	arbitrumMainnet := fallbackDefaultSet
+	arbitrumMainnet.chainType = chains.Arbitrum
 	arbitrumMainnet.gasBumpThreshold = 0 // Disable gas bumping on arbitrum
 	arbitrumMainnet.gasLimitDefault = 7000000
 	arbitrumMainnet.gasLimitTransfer = 800000            // estimating gas returns 695,344 so 800,000 should be safe with some buffer
@@ -208,7 +212,6 @@ func setChainSpecificConfigDefaultSets() {
 	arbitrumMainnet.maxGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.minGasPriceWei = *assets.GWei(1000)  // Fix the gas price
 	arbitrumMainnet.gasEstimatorMode = "FixedPrice"
-	arbitrumMainnet.layer2Type = "Arbitrum"
 	arbitrumMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on arbitrum
 	arbitrumMainnet.linkContractAddress = "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
 	arbitrumMainnet.ocrContractConfirmations = 1
@@ -219,13 +222,13 @@ func setChainSpecificConfigDefaultSets() {
 	optimismMainnet := fallbackDefaultSet
 	optimismMainnet.balanceMonitorBlockDelay = 0
 	optimismMainnet.blockHistoryEstimatorBlockHistorySize = 0 // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the block history estimator on optimism
+	optimismMainnet.chainType = chains.Optimism
 	optimismMainnet.ethTxResendAfterThreshold = 15 * time.Second
 	optimismMainnet.finalityDepth = 1    // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain this event would require special handling (new txm)
 	optimismMainnet.gasBumpThreshold = 0 // Never bump gas on optimism
 	optimismMainnet.gasEstimatorMode = "Optimism"
 	optimismMainnet.headTrackerHistoryDepth = 10
 	optimismMainnet.headTrackerSamplingInterval = 1 * time.Second
-	optimismMainnet.layer2Type = "Optimism"
 	optimismMainnet.linkContractAddress = "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
 	optimismMainnet.minIncomingConfirmations = 1
 	optimismMainnet.minRequiredOutgoingConfirmations = 0
@@ -280,6 +283,13 @@ func setChainSpecificConfigDefaultSets() {
 	harmonyTestnet := harmonyMainnet
 	harmonyTestnet.linkContractAddress = "0x8b12Ac23BFe11cAb03a634C1F117D64a7f2cFD3e"
 
+	// OKExChain
+	// (stubbed so that the ChainType is autoset for known IDs)
+	okxMainnet := fallbackDefaultSet
+	okxMainnet.chainType = chains.ExChain
+
+	okxTestnet := okxMainnet
+
 	chainSpecificConfigDefaultSets = make(map[int64]chainSpecificConfigDefaultSet)
 	chainSpecificConfigDefaultSets[1] = mainnet
 	chainSpecificConfigDefaultSets[3] = ropsten
@@ -303,4 +313,14 @@ func setChainSpecificConfigDefaultSets() {
 	chainSpecificConfigDefaultSets[43114] = avalancheMainnet
 	chainSpecificConfigDefaultSets[1666600000] = harmonyMainnet
 	chainSpecificConfigDefaultSets[1666700000] = harmonyTestnet
+	chainSpecificConfigDefaultSets[65] = okxTestnet
+	chainSpecificConfigDefaultSets[66] = okxMainnet
+
+	// sanity check
+	for id, c := range chainSpecificConfigDefaultSets {
+		if !c.complete {
+			panic(fmt.Sprintf("chain %d configuration incomplete - "+
+				"start from fallbackDefaultSet instead of zero value", id))
+		}
+	}
 }

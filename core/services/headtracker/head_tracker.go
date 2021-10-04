@@ -285,7 +285,6 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 	fetched := 0
 	ht.logger().Debugw("HeadTracker: starting backfill",
 		"blockNumber", head.Number,
-		"id", "head_tracker",
 		"n", head.Number-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
@@ -297,7 +296,6 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 			"fetched", fetched,
 			"blockNumber", head.Number,
 			"time", time.Since(mark),
-			"id", "head_tracker",
 			"n", head.Number-baseHeight,
 			"fromBlockHeight", baseHeight,
 			"toBlockHeight", head.Number-1,

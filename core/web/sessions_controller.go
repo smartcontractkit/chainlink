@@ -25,7 +25,7 @@ type SessionsController struct {
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
-	logger.Trace("Starting Session Creation")
+	logger.Tracef("Starting Session Creation")
 	if sc.Sessions == nil {
 		var err error
 		sc.Sessions, err = session.NewStore()

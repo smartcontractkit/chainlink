@@ -14,7 +14,7 @@ type ocrWrapper struct {
 
 func NewOCRWrapper(l Logger, trace bool, saveError func(string)) ocrtypes.Logger {
 	return &ocrWrapper{
-		internal:  l.withCallerSkip(1),
+		internal:  l.withCallerSkip(2),
 		trace:     trace,
 		saveError: saveError,
 	}

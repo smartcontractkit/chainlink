@@ -78,19 +78,18 @@ By default this will start on port 6688, where it exposes a [REST API](https://g
 Once your node has started, you can view your current jobs with:
 
 ```bash
-chainlink job_specs list # v1 jobs
-chainlink jobs list # v2 jobs
+chainlink jobs list
 ```
 
 View details of a specific job with:
 
 ```bash
-chainlink job_specs show "$JOB_ID # v1 jobs"
+chainlink job show [$JOB_ID]
 ```
 
 To find out more about the Chainlink CLI, you can always run `chainlink help`.
 
-Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs.chain.link/docs/adapters) and [Initiators](https://docs.chain.link/docs/initiators) to learn more about how to create Jobs and Runs.
+Check out the [doc](https://docs.chain.link/) pages on [Jobs](https://docs.chain.link/docs/jobs/) to learn more about how to create Jobs.
 
 ## Configure
 

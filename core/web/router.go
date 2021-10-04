@@ -400,7 +400,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 			}
 
 		}
-		defer logger.ErrorIfCalling(file.Close, "failed when close file")
+		defer logger.ErrorIfCalling(file.Close)
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})

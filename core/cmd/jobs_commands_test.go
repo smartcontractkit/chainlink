@@ -278,14 +278,36 @@ func TestClient_ListJobsV2(t *testing.T) {
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	createOutput := *r.Renders[0].(*cmd.JobPresenter)
 
-	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
+	require.Nil(t, client.ListJobs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[1].(*cmd.JobPresenters)
 	require.Equal(t, 1, len(jobs))
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
+}
+
+func TestClient_ShowJob(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, r := app.NewClientAndRenderer()
+
+	// Create the job
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+	createOutput := *r.Renders[0].(*cmd.JobPresenter)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{createOutput.ID})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.ShowJob(c))
+	job := *r.Renders[0].(*cmd.JobPresenter)
+	assert.Equal(t, createOutput.ID, job.ID)
 }
 
 func TestClient_CreateJobV2(t *testing.T) {
@@ -304,7 +326,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
 	requireJobsCount(t, app.JobORM(), 1)
@@ -330,7 +352,7 @@ func TestClient_DeleteJob(t *testing.T) {
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	require.NotEmpty(t, r.Renders)
 

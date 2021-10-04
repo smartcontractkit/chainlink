@@ -10,7 +10,7 @@ require (
 	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
 	github.com/duo-labs/webauthn.io v0.0.0-20200929144140-c031a3e0f95d
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
-	github.com/ethereum/go-ethereum v1.10.8
+	github.com/ethereum/go-ethereum v1.10.9
 	github.com/fatih/color v1.12.0
 	github.com/fxamacker/cbor/v2 v2.3.0
 	github.com/gin-contrib/cors v1.3.1
@@ -18,7 +18,6 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
-	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/gobuffalo/packr v1.30.1
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/securecookie v1.1.1
@@ -86,9 +85,6 @@ require (
 // If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
 // for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
 replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible
-
-// severed-websocket-1.10.8
-replace github.com/ethereum/go-ethereum => github.com/smartcontractkit/go-ethereum v1.10.9-0.20210909134823-a177d470d620
 
 // Use our fork that supports out-of-order migrations
 // https://github.com/pressly/goose/issues/262

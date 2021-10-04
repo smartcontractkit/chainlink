@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -113,8 +113,8 @@ func TestCBORParseTask(t *testing.T) {
 				"foo": nil,
 			}),
 			nil,
+			map[string]interface{}{},
 			nil,
-			pipeline.ErrBadInput,
 			"data",
 		},
 		{
@@ -140,14 +140,14 @@ func TestCBORParseTask(t *testing.T) {
 			result := task.Run(context.Background(), test.vars, test.inputs)
 
 			if test.expectedErrorCause != nil {
-				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
-				require.Nil(t, result.Value)
+				assert.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
+				assert.Nil(t, result.Value)
 				if test.expectedErrorContains != "" {
-					require.Contains(t, result.Error.Error(), test.expectedErrorContains)
+					assert.Contains(t, result.Error.Error(), test.expectedErrorContains)
 				}
 			} else {
-				require.NoError(t, result.Error)
-				require.Equal(t, test.expected, result.Value)
+				assert.NoError(t, result.Error)
+				assert.Equal(t, test.expected, result.Value)
 			}
 		})
 	}
