@@ -23,6 +23,7 @@ func TestConfigSchema(t *testing.T) {
 		"BlockHistoryEstimatorBlockHistorySize":      "BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE",
 		"BlockHistoryEstimatorTransactionPercentile": "BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE",
 		"BridgeResponseURL":                          "BRIDGE_RESPONSE_URL",
+		"ChainType":                                  "CHAIN_TYPE",
 		"ClientNodeURL":                              "CLIENT_NODE_URL",
 		"ClobberNodesFromEnv":                        "CLOBBER_NODES_FROM_ENV",
 		"DatabaseBackupDir":                          "DATABASE_BACKUP_DIR",

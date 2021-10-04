@@ -30,6 +30,7 @@ type ConfigSchema struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16                        `env:"BLOCK_HISTORY_ESTIMATOR_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          url.URL                       `env:"BRIDGE_RESPONSE_URL"`
+	ChainType                                  string                        `env:"CHAIN_TYPE"`
 	ClientNodeURL                              string                        `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
 	ClobberNodesFromEnv                        bool                          `env:"CLOBBER_NODES_FROM_ENV" default:"true"`
 	DatabaseBackupDir                          string                        `env:"DATABASE_BACKUP_DIR" default:""`

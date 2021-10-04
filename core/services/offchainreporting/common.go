@@ -10,7 +10,7 @@ func NewLocalConfig(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) 
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      spec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
-		SkipContractConfigConfirmations:        cfg.Layer2Type() != "",
+		SkipContractConfigConfirmations:        cfg.ChainType().IsL2(),
 		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval.Duration(),
 		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval.Duration(),
 		ContractTransmitterTransmitTimeout:     cfg.OCRContractTransmitterTransmitTimeout(),

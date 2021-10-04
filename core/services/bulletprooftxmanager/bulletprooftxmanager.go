@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -36,32 +36,17 @@ import (
 // Unless otherwise specified, these should support changing at runtime
 //go:generate mockery --recursive --name Config --output ./mocks/ --case=underscore --structname Config --filename config.go
 type Config interface {
-	BlockHistoryEstimatorBatchSize() uint32
-	BlockHistoryEstimatorBlockDelay() uint16
-	BlockHistoryEstimatorBlockHistorySize() uint16
-	BlockHistoryEstimatorTransactionPercentile() uint16
-	EvmEIP1559DynamicFees() bool
+	gas.Config
 	EthTxReaperInterval() time.Duration
 	EthTxReaperThreshold() time.Duration
 	EthTxResendAfterThreshold() time.Duration
-	EvmFinalityDepth() uint32
-	EvmGasBumpPercent() uint16
 	EvmGasBumpThreshold() uint64
 	EvmGasBumpTxDepth() uint16
-	EvmGasBumpWei() *big.Int
-	EvmGasFeeCap() *big.Int
 	EvmGasLimitDefault() uint64
-	EvmGasLimitMultiplier() float32
-	EvmGasPriceDefault() *big.Int
-	EvmGasTipCapDefault() *big.Int
-	EvmGasTipCapMinimum() *big.Int
-	EvmMaxGasPriceWei() *big.Int
 	EvmMaxInFlightTransactions() uint32
 	EvmMaxQueuedTransactions() uint64
-	EvmMinGasPriceWei() *big.Int
 	EvmNonceAutoSync() bool
 	EvmRPCDefaultBatchSize() uint32
-	GasEstimatorMode() string
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
 }
@@ -377,8 +362,18 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 	return etx, err
 }
 
-func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction, chainID *big.Int) (common.Hash, []byte, error) {
-	signedTx, err := keyStore.SignTx(address, tx, chainID)
+type ChainKeyStore struct {
+	chainID  big.Int
+	config   Config
+	keystore KeyStore
+}
+
+func NewChainKeyStore(chainID big.Int, config Config, keystore KeyStore) ChainKeyStore {
+	return ChainKeyStore{chainID, config, keystore}
+}
+
+func (c *ChainKeyStore) SignTx(address common.Address, tx *gethTypes.Transaction) (common.Hash, []byte, error) {
+	signedTx, err := c.keystore.SignTx(address, tx, &c.chainID)
 	if err != nil {
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
@@ -387,18 +382,18 @@ func SignTx(keyStore KeyStore, address common.Address, tx *gethTypes.Transaction
 		return common.Hash{}, nil, errors.Wrap(err, "SignTx failed")
 	}
 	var hash common.Hash
-	hash, err = signedTxHash(signedTx, chainID)
+	hash, err = signedTxHash(signedTx, c.config.ChainType())
 	if err != nil {
 		return hash, nil, err
 	}
 	return hash, rlp.Bytes(), nil
 }
 
-func signedTxHash(signedTx *gethTypes.Transaction, chainID *big.Int) (hash common.Hash, err error) {
-	if evmtypes.IsExChain(chainID) {
+func signedTxHash(signedTx *gethTypes.Transaction, chainType chains.ChainType) (hash common.Hash, err error) {
+	if chainType == chains.ExChain {
 		hash, err = exchainutils.Hash(signedTx)
 		if err != nil {
-			return hash, errors.Wrapf(err, "error getting signed tx hash from exchain (chain ID %s)", chainID.String())
+			return hash, errors.Wrap(err, "error getting signed tx hash from exchain")
 		}
 	} else {
 		hash = signedTx.Hash()

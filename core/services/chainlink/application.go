@@ -357,7 +357,7 @@ func (app *ChainlinkApplication) Start() error {
 		case <-sigs:
 		case <-app.shutdownSignal.Wait():
 		}
-		app.logger.ErrorIf(app.Stop())
+		app.logger.ErrorIf(app.Stop(), "Error stopping application")
 		app.Exiter(0)
 	}()
 

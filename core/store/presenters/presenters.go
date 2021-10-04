@@ -35,6 +35,7 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	ChainType                                  string          `json:"CHAIN_TYPE"`
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`

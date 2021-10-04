@@ -180,7 +180,7 @@ func NewFromJobSpec(
 	logger.ErrorIf(
 		err,
 		fmt.Sprintf(
-			"unable to create Flags contract instance, check address: %s",
+			"Error creating Flags contract instance, check address: %s",
 			cfg.FlagsContractAddress(),
 		),
 	)
