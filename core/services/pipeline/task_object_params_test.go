@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
