@@ -46,7 +46,7 @@ func TestVRFParseRandomnessRequestLog(t *testing.T) {
 	assert.Equal(t, rawLog, raw.Raw.Data)
 	nR, err := vrf.ParseRandomnessRequestLog(types.Log{
 		Data:   rawLog,
-		Topics: []common.Hash{{}, jobID},
+		Topics: []common.Hash{vrf.VRFRandomnessRequestLogTopic(), jobID},
 	})
 	require.NoError(t, err)
 	require.True(t, r.Equal(*nR),
