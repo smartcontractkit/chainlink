@@ -22,6 +22,7 @@ import (
 type CBORParseTask struct {
 	BaseTask `mapstructure:",squash"`
 	Data     string `json:"data"`
+	Mode     string `json:"mode"`
 }
 
 var _ Task = (*CBORParseTask)(nil)
@@ -38,21 +39,37 @@ func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 
 	var (
 		data BytesParam
+		mode StringParam
 	)
 	err = multierr.Combine(
 		errors.Wrap(ResolveParam(&data, From(VarExpr(t.Data, vars))), "data"),
+		errors.Wrap(ResolveParam(&mode, From(NonemptyString(t.Mode), "diet")), "mode"),
 	)
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	parsed, err := models.ParseCBOR([]byte(data))
-	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}
+	switch mode {
+	case "diet":
+		// NOTE: In diet mode, cbor_parse ASSUMES that the incoming CBOR is a
+		// map. In the case that data is entirely missing, we assume it was the
+		// empty map
+		parsed, err := models.ParseDietCBOR([]byte(data))
+		if err != nil {
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}
+		}
+		m, ok := parsed.Result.Value().(map[string]interface{})
+		if !ok {
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}
+		}
+		return Result{Value: m}
+	case "standard":
+		parsed, err := models.ParseStandardCBOR([]byte(data))
+		if err != nil {
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}
+		}
+		return Result{Value: parsed}
+	default:
+		return Result{Error: errors.Errorf("unrecognised mode: %s", mode)}
 	}
-	m, ok := parsed.Result.Value().(map[string]interface{})
-	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}
-	}
-	return Result{Value: m}
 }
