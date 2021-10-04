@@ -138,7 +138,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
 	err := os.MkdirAll(backup.outputParentDir, os.ModePerm)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("DatabaseBackup: Failed to create directories on the path: %s", backup.outputParentDir))
+		return nil, errors.Wrapf(err, "DatabaseBackup: Failed to create directories on the path: %s", backup.outputParentDir)
 	}
 	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
@@ -185,7 +185,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 			pgDumpArguments: args,
 		}
 		if ee, ok := err.(*exec.ExitError); ok {
-			return partialResult, errors.Wrap(err, fmt.Sprintf("pg_dump failed with output: %s", string(ee.Stderr)))
+			return partialResult, errors.Wrapf(err, "pg_dump failed with output: %s", string(ee.Stderr))
 		}
 		return partialResult, errors.Wrap(err, "pg_dump failed")
 	}
