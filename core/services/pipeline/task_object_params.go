@@ -47,7 +47,7 @@ func (o ObjectParam) MarshalJSON() ([]byte, error) {
 		return json.Marshal(o.SliceValue)
 	}
 	logger.Fatalf("Invalid type for ObjectParam %v", o.Type)
-	return nil, nil
+	panic(nil) // above does Exit
 }
 
 func (o ObjectParam) Marshal() (string, error) {
@@ -136,8 +136,8 @@ func MustNewObjectParam(val interface{}) *ObjectParam {
 	var value ObjectParam
 	err := value.UnmarshalPipelineParam(val)
 	if err != nil {
-		logger.Fatalf("Failed to init ObjectParam from %v, err", val, err)
-		panic(nil)
+		logger.Fatalf("Failed to init ObjectParam from %v, err: %v", val, err)
+		panic(nil) // above does Exit
 	}
 	return &value
 }

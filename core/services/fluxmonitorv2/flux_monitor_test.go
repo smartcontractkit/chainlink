@@ -952,7 +952,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	select {
 	case <-pollOccured:
 	case <-time.After(3 * time.Second):
-		t.Fatalf("Poll did not occur!")
+		t.Fatal("Poll did not occur!")
 	}
 
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
@@ -978,7 +978,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 	select {
 	case <-pollOccured:
 	case <-time.After(3 * time.Second):
-		t.Fatalf("Poll did not occur!")
+		t.Fatal("Poll did not occur!")
 	}
 
 	// ---------- Begin hibernation mode ------------
@@ -1002,14 +1002,14 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 
 	select {
 	case <-pollOccured:
-		t.Fatalf("Poll should not occur for next few seconds because we are in hibernation mode and all other tickers should be stopped")
+		t.Fatal("Poll should not occur for next few seconds because we are in hibernation mode and all other tickers should be stopped")
 	case <-time.After(2 * time.Second):
 	}
 
 	select {
 	case <-pollOccured:
 	case <-time.After(3 * time.Second):
-		t.Fatalf("Poll did not occur, though it should have via hibernation ticker")
+		t.Fatal("Poll did not occur, though it should have via hibernation ticker")
 	}
 
 	tm.AssertExpectations(t)
