@@ -202,12 +202,12 @@ func NewApp(client *Client) *cli.App {
 
 		{
 			Name:  "jobs",
-			Usage: "Commands for managing Jobs (V2)",
+			Usage: "Commands for managing Jobs",
 			Subcommands: []cli.Command{
 				{
 					Name:   "list",
-					Usage:  "List all V2 jobs",
-					Action: client.ListJobsV2,
+					Usage:  "List all jobs",
+					Action: client.ListJobs,
 					Flags: []cli.Flag{
 						cli.IntFlag{
 							Name:  "page",
@@ -216,18 +216,23 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:   "show",
+					Usage:  "Show a job",
+					Action: client.ShowJob,
+				},
+				{
 					Name:   "create",
-					Usage:  "Create a V2 job",
-					Action: client.CreateJobV2,
+					Usage:  "Create a job",
+					Action: client.CreateJob,
 				},
 				{
 					Name:   "delete",
-					Usage:  "Delete a V2 job",
+					Usage:  "Delete a job",
 					Action: client.DeleteJob,
 				},
 				{
 					Name:   "run",
-					Usage:  "Trigger a V2 job run",
+					Usage:  "Trigger a job run",
 					Action: client.TriggerPipelineRun,
 				},
 			},
@@ -475,7 +480,7 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name: "delete",
 							Usage: "Archive or delete VRF key from memory and the database, if present. " +
-								"Note that V2 jobs referencing the removed key will also be removed.",
+								"Note that jobs referencing the removed key will also be removed.",
 							Flags: []cli.Flag{
 								cli.StringFlag{Name: "publicKey, pk"},
 								cli.BoolFlag{
