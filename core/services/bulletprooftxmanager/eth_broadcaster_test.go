@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -298,6 +300,114 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		assert.Equal(t, bulletprooftxmanager.EthTxAttemptBroadcast, attempt.State)
 		require.Len(t, attempt.EthReceipts, 0)
 	})
+
+	ethClient.AssertExpectations(t)
+
+	t.Run("transaction simulation", func(t *testing.T) {
+		t.Run("when simulation succeeds, sends tx as normal", func(t *testing.T) {
+			ethTx := bulletprooftxmanager.EthTx{
+				FromAddress:    fromAddress,
+				ToAddress:      toAddress,
+				EncodedPayload: []byte{42, 0, 0},
+				Value:          assets.NewEthValue(442),
+				GasLimit:       gasLimit,
+				CreatedAt:      time.Unix(0, 0),
+				State:          bulletprooftxmanager.EthTxUnstarted,
+				Simulate:       true,
+			}
+			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				return tx.Nonce() == uint64(5) && tx.Value().Cmp(big.NewInt(442)) == 0
+			})).Return(nil).Once()
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				if fmt.Sprintf("%s", callarg["value"]) == "0x1ba" { // 442
+					assert.Equal(t, ethTx.FromAddress, callarg["from"])
+					assert.Equal(t, &ethTx.ToAddress, callarg["to"])
+					assert.Equal(t, hexutil.Uint64(ethTx.GasLimit), callarg["gas"])
+					assert.Nil(t, callarg["gasPrice"])
+					assert.Nil(t, callarg["maxFeePerGas"])
+					assert.Nil(t, callarg["maxPriorityFeePerGas"])
+					assert.Equal(t, (*hexutil.Big)(&ethTx.Value), callarg["value"])
+					assert.Equal(t, hexutil.Bytes(ethTx.EncodedPayload), callarg["data"])
+					return true
+				}
+				return false
+			}), "latest").Return(nil).Once()
+
+			require.NoError(t, db.Save(&ethTx).Error)
+
+			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+
+			// Check ethtx was sent
+			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
+			require.NoError(t, err)
+			assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, ethTx.State)
+
+			ethClient.AssertExpectations(t)
+		})
+		t.Run("with unknown error, sends tx as normal", func(t *testing.T) {
+			ethTx := bulletprooftxmanager.EthTx{
+				FromAddress:    fromAddress,
+				ToAddress:      toAddress,
+				EncodedPayload: []byte{42, 0, 0},
+				Value:          assets.NewEthValue(542),
+				GasLimit:       gasLimit,
+				CreatedAt:      time.Unix(0, 0),
+				State:          bulletprooftxmanager.EthTxUnstarted,
+				Simulate:       true,
+			}
+			ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				return tx.Nonce() == uint64(6) && tx.Value().Cmp(big.NewInt(542)) == 0
+			})).Return(nil).Once()
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				return fmt.Sprintf("%s", callarg["value"]) == "0x21e" // 542
+			}), "latest").Return(errors.New("this is not a revert, something unexpected went wrong")).Once()
+
+			require.NoError(t, db.Save(&ethTx).Error)
+
+			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+
+			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
+			require.NoError(t, err)
+			assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, ethTx.State)
+
+			ethClient.AssertExpectations(t)
+		})
+		t.Run("on revert, marks tx as fatally errored and does not send", func(t *testing.T) {
+			ethTx := bulletprooftxmanager.EthTx{
+				FromAddress:    fromAddress,
+				ToAddress:      toAddress,
+				EncodedPayload: []byte{42, 0, 0},
+				Value:          assets.NewEthValue(642),
+				GasLimit:       gasLimit,
+				CreatedAt:      time.Unix(0, 0),
+				State:          bulletprooftxmanager.EthTxUnstarted,
+				Simulate:       true,
+			}
+
+			jerr := eth.JsonError{
+				Code:    42,
+				Message: "oh no, it reverted",
+				Data:    []byte{42, 166, 34},
+			}
+			ethClient.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", mock.MatchedBy(func(callarg map[string]interface{}) bool {
+				return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
+			}), "latest").Return(&jerr).Once()
+
+			require.NoError(t, db.Save(&ethTx).Error)
+
+			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+
+			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
+			require.NoError(t, err)
+			assert.Equal(t, bulletprooftxmanager.EthTxFatalError, ethTx.State)
+			assert.True(t, ethTx.Error.Valid)
+			assert.Equal(t, "transaction reverted during simulation: json-rpc error { Code = 42, Message = 'oh no, it reverted', Data = 'KqYi' }", ethTx.Error.String)
+
+			ethClient.AssertExpectations(t)
+		})
+	})
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {

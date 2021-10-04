@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -26,12 +28,39 @@ func main() {
 	panicErr(err)
 	ec, err := ethclient.Dial("http://127.0.0.1:8545")
 	panicErr(err)
-	consumerAddress := "0x9E79d9A7F68D136ec4c1C0187B97c271CEa6008B"
+	consumerAddress := "0xf682e3491BeD0D71ef8B7144AC98c17A87fc301F"
 	consumer, err := vrf_consumer_v2.NewVRFConsumerV2(common.HexToAddress(consumerAddress), ec)
 	panicErr(err)
+
 	// keyhash of offchain VRF proving key
-	provingKey := "0x801b8899c3169bec9413ce6003a0117a2683b5d50db25c209b19a6bb9375890f"
-	_, err = consumer.TestRequestRandomness(user, common.HexToHash(provingKey), uint64(1), uint16(2), uint32(300000), uint32(3))
-	panicErr(err)
-	time.Sleep(2 * time.Second)
+	provingKey := "0x6ae4cabd964d1c04ad06518dfa47d8f0d17dcc0365d8e4de6ddabfdb1fdedf6e"
+	numReqs := 1024
+	var hashes []common.Hash
+	for i := 0; i < numReqs; i++ {
+		opts := user
+		// Note cannot rely on estimate gas here, costs will change as request start going through.
+		opts.GasLimit = 500000
+		tx, err := consumer.TestRequestRandomness(user, common.HexToHash(provingKey), uint64(1), uint16(2), uint32(300000), uint32(1))
+		panicErr(err)
+		fmt.Println(i, tx.Hash())
+		hashes = append(hashes, tx.Hash())
+	}
+	time.Sleep(20 * time.Second)
+	failed := 0
+	succeeded := 0
+	notfound := 0
+	for i := 0; i < numReqs; i++ {
+		re, err := ec.TransactionReceipt(context.Background(), hashes[i])
+		if err != nil {
+			notfound++
+			continue
+		}
+		fmt.Println(hashes[i], re.Status)
+		if re.Status == 0 {
+			failed++
+		} else {
+			succeeded++
+		}
+	}
+	fmt.Printf("not found %v failed %v succeeded %v\n", notfound, failed, succeeded)
 }

@@ -17,9 +17,9 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
     uint32 numWords;
     bytes32 keyHash;
   }
-  RequestConfig s_requestConfig;
-  uint256[] s_randomWords;
-  uint256 s_requestId;
+  RequestConfig public s_requestConfig;
+  uint256[] public s_randomWords;
+  uint256 public s_requestId;
 
   constructor(
     address vrfCoordinator,
