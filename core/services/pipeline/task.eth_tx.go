@@ -54,16 +54,16 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
-func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
-		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}
+		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
 	}
 	cfg := chain.Config()
 	txManager := chain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -85,7 +85,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		errors.Wrap(ResolveParam(&simulate, From(VarExpr(t.Simulate, vars), NonemptyString(t.Simulate), false)), "simulate"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	var minConfirmations uint64
@@ -115,19 +115,19 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		},
 	})
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}
+		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
 	}
 
 	err = decoder.Decode(txMetaMap)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}
+		return Result{Error: errors.Wrapf(ErrBadInput, "txMeta: %v", err)}, runInfo
 	}
 
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
 		logger.Error(err)
-		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}
+		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
 	}
 
 	// NOTE: This can be easily adjusted later to allow job specs to specify the details of which strategy they would like
@@ -150,12 +150,12 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 
 	_, err = txManager.CreateEthTransaction(t.db, newTx)
 	if err != nil {
-		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}
+		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
 	if minConfirmations > 0 {
-		return Result{Error: ErrPending}
+		return Result{}, pendingRunInfo()
 	}
 
-	return Result{Value: nil}
+	return Result{Value: nil}, runInfo
 }

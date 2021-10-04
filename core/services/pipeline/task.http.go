@@ -47,10 +47,10 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -66,12 +66,12 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 		errors.Wrap(ResolveParam(&allowUnrestrictedNetworkAccess, From(NonemptyString(t.AllowUnrestrictedNetworkAccess), !variableRegexp.MatchString(t.URL))), "allowUnrestrictedNetworkAccess"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	requestDataJSON, err := json.Marshal(requestData)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 	logger.Debugw("HTTP task: sending request",
 		"requestData", string(requestDataJSON),
@@ -80,9 +80,9 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
 
-	responseBytes, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}
 
 	logger.Debugw("HTTP task got response",
@@ -98,5 +98,5 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 	// If a binary response is required we might consider adding an adapter
 	// flag such as  "BinaryMode: true" which passes through raw binary as the
 	// value instead.
-	return Result{Value: string(responseBytes)}
+	return Result{Value: string(responseBytes)}, runInfo
 }
