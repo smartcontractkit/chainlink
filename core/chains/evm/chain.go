@@ -91,7 +91,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		headTracker = &headtracker.NullTracker{}
 	} else if opts.GenHeadTracker == nil {
-		headTrackerLogger, err2 := l.NewServiceLevelLogger(logger.HeadTracker, headTrackerLL)
+		headTrackerLogger, err2 := l.NamedLevel(logger.HeadTracker, headTrackerLL)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}

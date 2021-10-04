@@ -232,7 +232,7 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err)
+		logger.PanicIf(err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -252,7 +252,7 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 	server := httptest.NewServer(handler)
 
 	u, err := url.Parse(server.URL)
-	logger.PanicIf(err)
+	logger.PanicIf(err, "Failed to parse url")
 	u.Scheme = "ws"
 
 	return server, u.String(), func() {
@@ -376,7 +376,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if lggr == nil {
-		lggr = cfg.CreateProductionLogger()
+		lggr = cfg.CreateProductionLogger().Named(t.Name())
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
@@ -887,9 +887,11 @@ func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job
 }
 
 func WaitForPipelineError(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusErrored)
 }
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
 	return WaitForPipeline(t, nodeID, jobID, expectedPipelineRuns, expectedTaskRuns, jo, timeout, poll, pipeline.RunStatusCompleted)
 }
 

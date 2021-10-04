@@ -111,20 +111,18 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
-	loggerFields := []interface{}{
+	lgr := bm.logger.Named("balance_log").With(
 		"address", address.Hex(),
 		"ethBalance", ethBal.String(),
-		"weiBalance", ethBal.ToInt(),
-		"id", "balance_log",
-	}
+		"weiBalance", ethBal.ToInt())
 
 	if oldBal == nil {
-		bm.logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		lgr.Infof("ETH balance for %s: %s", address.Hex(), ethBal.String())
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		bm.logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		lgr.Infof("New ETH balance for %s: %s", address.Hex(), ethBal.String())
 	}
 }
 
