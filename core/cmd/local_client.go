@@ -30,7 +30,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/health"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -145,7 +144,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer loggedStop(app)
+	defer func() { lggr.WarnIf(app.Stop(), "Error stopping app") }()
 	err = logConfigVariables(cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
@@ -153,10 +152,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	lggr.Infof("Chainlink booted in %s", time.Since(static.InitTime))
 	return cli.errorOut(cli.Runner.Run(app))
-}
-
-func loggedStop(app chainlink.Application) {
-	logger.WarnIf(app.Stop(), "Error stopping app")
 }
 
 func checkFilePermissions(rootDir string) error {
