@@ -41,7 +41,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 		return
 	}
 
-	uwas, err := orm.GetUserWebAuthn(&user)
+	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return
@@ -74,7 +74,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 		return
 	}
 
-	uwas, err := orm.GetUserWebAuthn(&user)
+	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return

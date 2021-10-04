@@ -43,11 +43,21 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		return
 	}
 
-	// Populate our session store and context, required for successful WebAuthn
-	// authentication
-	sr.SessionStore = sc.Sessions
-	sr.RequestContext = c
-	sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
+	// Does this user have 2FA enabled?
+	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	if err != nil {
+		logger.Errorf("Error loading user WebAuthn data")
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		return
+	}
+
+	// If the user has registered MFA tokens, then populate our session store and context
+	// required for successful WebAuthn authentication
+	if len(userWebAuthnTokens) > 0 {
+		sr.SessionStore = sc.Sessions
+		sr.RequestContext = c
+		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
+	}
 
 	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {

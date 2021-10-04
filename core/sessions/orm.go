@@ -29,7 +29,7 @@ type ORM interface {
 	DeleteAuthToken(user *User) error
 	SetPassword(user *User, newPassword string) error
 	Sessions(offset, limit int) ([]Session, error)
-	GetUserWebAuthn(user *User) ([]WebAuthn, error)
+	GetUserWebAuthn(email string) ([]WebAuthn, error)
 	SaveWebAuthn(token *WebAuthn) error
 
 	FindExternalInitiator(eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
@@ -102,9 +102,9 @@ func (o *orm) DeleteUserSession(sessionID string) error {
 // tokens for the user. This list must be used when logging in (for obvious reasons) but
 // must also be used for registration to prevent the user from enrolling the same hardware
 // token multiple times.
-func (o *orm) GetUserWebAuthn(user *User) ([]WebAuthn, error) {
+func (o *orm) GetUserWebAuthn(email string) ([]WebAuthn, error) {
 	var uwas []WebAuthn
-	err := o.db.Select(&uwas, "SELECT email, public_key_data FROM web_authns WHERE LOWER(email) = $1", strings.ToLower(user.Email))
+	err := o.db.Select(&uwas, "SELECT email, public_key_data FROM web_authns WHERE LOWER(email) = $1", strings.ToLower(email))
 	if err != nil {
 		return uwas, err
 	}
@@ -132,19 +132,15 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		return "", errors.New("Invalid password")
 	}
 
-	// Mutate the user stucture and load all valid MFA tokens into it
-	uwas, err := o.GetUserWebAuthn(&user)
-
-	// There was an issue loading data from the persistent datastore.
-	// This means we don't know if a user has MFA enabled or not. Since we are
-	// unsure, we disallow session creation.
+	// Load all valid MFA tokens associated with user's email
+	uwas, err := o.GetUserWebAuthn(user.Email)
 	if err != nil {
+		// There was an error with the database query
 		logger.Errorf("Could not fetch user's MFA data: %v", err)
 		return "", errors.New("MFA Error")
 	}
 
-	// The database returned no errors but the user's WebAuthn structure is nil
-	// This means there is no MFA for the user and we allow normal authentication
+	// No webauthn tokens registered for the current user, so normal authentication is now complete
 	if len(uwas) == 0 {
 		logger.Infof("No MFA for user. Creating Session")
 		session := NewSession()
@@ -152,10 +148,9 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 		return session.ID, err
 	}
 
-	// Indicates the user gave us no WebAuthn data but their internal user
-	// structure contains WebAuthn data. We need them to pass WebAuthn
-	// before we can authenticate them so we will return a 401 with the
-	// challenge in the response
+	// Next check if this session request includes the required WebAuthn challenge data
+	// if not, return a 401 error for the frontend to prompt the user to provide this
+	// data in the next round trip request (tap key to include webauthn data on the login page)
 	if sr.WebAuthnData == "" {
 		logger.Warnf("Attempted login to MFA user. Generating challenge for user.")
 		options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
