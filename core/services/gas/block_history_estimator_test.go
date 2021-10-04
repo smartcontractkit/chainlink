@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -29,6 +30,7 @@ func newConfigWithEIP1559DynamicFeesEnabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
+	config.On("ChainType").Maybe().Return(chains.ChainType(""))
 	return config
 }
 
@@ -36,6 +38,7 @@ func newConfigWithEIP1559DynamicFeesDisabled(t *testing.T) *gumocks.Config {
 	config := new(gumocks.Config)
 	config.Test(t)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(false)
+	config.On("ChainType").Maybe().Return(chains.ChainType(""))
 	return config
 }
 
@@ -386,7 +389,6 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesDisabled(t)
 
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
-		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
@@ -686,7 +688,6 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 
 		config.On("BlockHistoryEstimatorTransactionPercentile").Return(uint16(35))
-		config.On("EvmMinGasPriceWei").Return(big.NewInt(1))
 
 		bhe := newBlockHistoryEstimator(ethClient, config)
 
