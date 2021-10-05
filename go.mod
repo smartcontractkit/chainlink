@@ -32,7 +32,7 @@ require (
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.4.1
+	github.com/mitchellh/mapstructure v1.4.2
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/okex/exchain-ethereum-compatible v1.0.2
 	github.com/olekukonko/tablewriter v0.0.5
