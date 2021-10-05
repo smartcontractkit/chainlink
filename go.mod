@@ -7,6 +7,8 @@ require (
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
+	github.com/duo-labs/webauthn v0.0.0-20210727191636-9f1b88ef44cc
+	github.com/duo-labs/webauthn.io v0.0.0-20200929144140-c031a3e0f95d
 	github.com/ethereum-optimism/go-optimistic-ethereum-utils v0.1.0
 	github.com/ethereum/go-ethereum v1.10.9
 	github.com/fatih/color v1.12.0

@@ -67,6 +67,7 @@ type Application interface {
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
 	NewBox() packr.Box
+	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetChainSet() evm.ChainSet
@@ -637,4 +638,23 @@ func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
 	return app.gormDB
+}
+
+// Returns the configuration to use for creating and authenticating
+// new WebAuthn credentials
+func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
+	rpid := app.Config.RPID()
+	rporigin := app.Config.RPOrigin()
+	if rpid == "" {
+		app.GetLogger().Errorf("RPID is not set, WebAuthn will likely not work as intended")
+	}
+
+	if rporigin == "" {
+		app.GetLogger().Errorf("RPOrigin is not set, WebAuthn will likely not work as intended")
+	}
+
+	return sessions.WebAuthnConfiguration{
+		RPID:     rpid,
+		RPOrigin: rporigin,
+	}
 }
