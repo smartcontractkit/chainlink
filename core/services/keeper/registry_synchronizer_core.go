@@ -20,17 +20,18 @@ var (
 )
 
 type RegistrySynchronizer struct {
-	chStop           chan struct{}
-	contract         *keeper_registry_wrapper.KeeperRegistry
-	interval         time.Duration
-	job              job.Job
-	jrm              job.ORM
-	logBroadcaster   log.Broadcaster
-	mailRoom         MailRoom
-	minConfirmations uint64
-	orm              ORM
-	logger           logger.Logger
-	wgDone           sync.WaitGroup
+	chStop              chan struct{}
+	contract            *keeper_registry_wrapper.KeeperRegistry
+	interval            time.Duration
+	job                 job.Job
+	jrm                 job.ORM
+	logBroadcaster      log.Broadcaster
+	mailRoom            MailRoom
+	minConfirmations    uint64
+	orm                 ORM
+	logger              logger.Logger
+	wgDone              sync.WaitGroup
+	syncUpkeepQueueSize uint32 //Represents the max number of upkeeps that can be synced in parallel
 	utils.StartStopOnce
 }
 
@@ -52,6 +53,7 @@ func NewRegistrySynchronizer(
 	syncInterval time.Duration,
 	minConfirmations uint64,
 	logger logger.Logger,
+	syncUpkeepQueueSize uint32,
 ) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
@@ -60,16 +62,17 @@ func NewRegistrySynchronizer(
 		mbUpkeepRegistered: utils.NewMailbox(50),
 	}
 	return &RegistrySynchronizer{
-		chStop:           make(chan struct{}),
-		contract:         contract,
-		interval:         syncInterval,
-		job:              job,
-		jrm:              jrm,
-		logBroadcaster:   logBroadcaster,
-		mailRoom:         mailRoom,
-		minConfirmations: minConfirmations,
-		orm:              orm,
-		logger:           logger,
+		chStop:              make(chan struct{}),
+		contract:            contract,
+		interval:            syncInterval,
+		job:                 job,
+		jrm:                 jrm,
+		logBroadcaster:      logBroadcaster,
+		mailRoom:            mailRoom,
+		minConfirmations:    minConfirmations,
+		orm:                 orm,
+		logger:              logger,
+		syncUpkeepQueueSize: syncUpkeepQueueSize,
 	}
 }
 
