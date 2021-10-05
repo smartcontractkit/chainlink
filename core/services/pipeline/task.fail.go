@@ -19,6 +19,6 @@ func (t *FailTask) Type() TaskType {
 	return TaskTypeFail
 }
 
-func (t *FailTask) Run(_ context.Context, vars Vars, _ []Result) (result Result) {
-	return Result{Error: errors.New(t.Msg)}
+func (t *FailTask) Run(_ context.Context, vars Vars, _ []Result) (Result, RunInfo) {
+	return Result{Error: errors.New(t.Msg)}, RunInfo{}
 }
