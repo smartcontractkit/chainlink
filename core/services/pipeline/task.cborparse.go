@@ -31,10 +31,10 @@ func (t *CBORParseTask) Type() TaskType {
 	return TaskTypeCBORParse
 }
 
-func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -46,7 +46,7 @@ func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		errors.Wrap(ResolveParam(&mode, From(NonemptyString(t.Mode), "diet")), "mode"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	switch mode {
@@ -56,20 +56,20 @@ func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		// empty map
 		parsed, err := models.ParseDietCBOR([]byte(data))
 		if err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
 		m, ok := parsed.Result.Value().(map[string]interface{})
 		if !ok {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: expected map[string]interface{}, got %T", parsed.Result.Value())}, runInfo
 		}
-		return Result{Value: m}
+		return Result{Value: m}, runInfo
 	case "standard":
 		parsed, err := models.ParseStandardCBOR([]byte(data))
 		if err != nil {
-			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}
+			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
-		return Result{Value: parsed}
+		return Result{Value: parsed}, runInfo
 	default:
-		return Result{Error: errors.Errorf("unrecognised mode: %s", mode)}
+		return Result{Error: errors.Errorf("unrecognised mode: %s", mode)}, runInfo
 	}
 }

@@ -5,10 +5,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -117,7 +117,9 @@ func TestETHABIDecodeTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
