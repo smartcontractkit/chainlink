@@ -155,6 +155,8 @@ type ConfigSchema struct {
 	Port                                       uint16                        `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                           models.Duration               `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                            int64                         `env:"REPLAY_FROM_BLOCK" default:"-1"`
+	RPID                                       string                        `env:"RPID"`
+	RPOrigin                                   string                        `env:"RPOrigin"`
 	RootDir                                    string                        `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies                              bool                          `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                             models.Duration               `env:"SESSION_TIMEOUT" default:"15m"`
