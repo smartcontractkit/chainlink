@@ -34,7 +34,7 @@ var (
 )
 
 var (
-	promCheckUpkeepExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromCheckUpkeepExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "keeper_check_upkeep_execution_time",
 		Help: "Time taken to fully execute the check upkeep logic",
 	},
@@ -211,7 +211,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		ex.logger.With("error", err).Errorw("failed executing run")
 		return
 	}
-
+	time.Sleep(time.Second)
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		}
 
 		elapsed := time.Since(start)
-		promCheckUpkeepExecutionTime.
+		PromCheckUpkeepExecutionTime.
 			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
 			Set(float64(elapsed))
 	}
