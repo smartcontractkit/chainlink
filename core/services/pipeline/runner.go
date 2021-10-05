@@ -382,7 +382,8 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
+	result, runInfo := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
+	loggerFields = append(loggerFields, "runInfo", runInfo)
 	loggerFields = append(loggerFields, "resultValue", result.Value)
 	loggerFields = append(loggerFields, "resultError", result.Error)
 	loggerFields = append(loggerFields, "resultType", fmt.Sprintf("%T", result.Value))
@@ -395,12 +396,17 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 
 	now := time.Now()
 
+	var finishedAt null.Time
+	if !runInfo.IsPending {
+		finishedAt = null.TimeFrom(now)
+	}
 	return TaskRunResult{
 		ID:         taskRun.task.Base().uuid,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
-		FinishedAt: null.TimeFrom(now),
+		FinishedAt: finishedAt,
+		runInfo:    runInfo,
 	}
 }
 

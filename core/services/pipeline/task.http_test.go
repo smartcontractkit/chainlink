@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -40,7 +41,9 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -168,7 +171,9 @@ func TestHTTPTask_Variables(t *testing.T) {
 			require.NoError(t, db.Create(&bridge).Error)
 
 			test.vars.Set("meta", test.meta)
-			result := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				if test.expectedErrorContains != "" {
@@ -211,20 +216,26 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 
 	task.URL = "$(url)"
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{"url": server.URL})
-	result = task.Run(context.Background(), vars, nil)
+	result, runInfo = task.Run(context.Background(), vars, nil)
+	assert.False(t, runInfo.IsPending)
+	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "Connections to local/private and multicast networks are disabled")
 	require.Nil(t, result.Value)
 
 	task.AllowUnrestrictedNetworkAccess = "true"
 
-	result = task.Run(context.Background(), vars, nil)
+	result, runInfo = task.Run(context.Background(), vars, nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 }
 
@@ -251,7 +262,10 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -278,7 +292,9 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetDependencies(config)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
