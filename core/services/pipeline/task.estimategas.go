@@ -43,7 +43,7 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
@@ -58,12 +58,12 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		errors.Wrap(ResolveParam(&multiplier, From(VarExpr(t.Multiplier, vars), NonemptyString(t.Multiplier), decimal.New(1, 0))), "multiplier"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, retryableRunInfo()
 	}
 	maximumGasLimit := chain.Config().EvmGasLimitDefault()
 	to := common.Address(toAddr)
@@ -76,19 +76,19 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 		// Fallback to the maximum conceivable gas limit
 		// if we're unable to call estimate gas for whatever reason.
 		logger.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", maximumGasLimit)
-		return Result{Value: maximumGasLimit}
+		return Result{Value: maximumGasLimit}, runInfo
 	}
 	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, retryableRunInfo()
 	}
 	gasLimitWithMultiplier := gasLimitDecimal.Mul(multiplier.Decimal()).Truncate(0).BigInt()
 	if !gasLimitWithMultiplier.IsUint64() {
-		return Result{Error: errors.New("Invalid multiplier")}
+		return Result{Error: errors.New("Invalid multiplier")}, retryableRunInfo()
 	}
 	gasLimitFinal := gasLimitWithMultiplier.Uint64()
 	if gasLimitFinal > maximumGasLimit {
 		gasLimitFinal = maximumGasLimit
 	}
-	return Result{Value: gasLimitFinal}
+	return Result{Value: gasLimitFinal}, runInfo
 }

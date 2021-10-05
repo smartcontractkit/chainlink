@@ -107,7 +107,7 @@ func (_m *Task) Outputs() []pipeline.Task {
 }
 
 // Run provides a mock function with given fields: ctx, vars, inputs
-func (_m *Task) Run(ctx context.Context, vars pipeline.Vars, inputs []pipeline.Result) pipeline.Result {
+func (_m *Task) Run(ctx context.Context, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
 	ret := _m.Called(ctx, vars, inputs)
 
 	var r0 pipeline.Result
@@ -117,7 +117,14 @@ func (_m *Task) Run(ctx context.Context, vars pipeline.Vars, inputs []pipeline.R
 		r0 = ret.Get(0).(pipeline.Result)
 	}
 
-	return r0
+	var r1 pipeline.RunInfo
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Vars, []pipeline.Result) pipeline.RunInfo); ok {
+		r1 = rf(ctx, vars, inputs)
+	} else {
+		r1 = ret.Get(1).(pipeline.RunInfo)
+	}
+
+	return r0, r1
 }
 
 // TaskMaxBackoff provides a mock function with given fields:
