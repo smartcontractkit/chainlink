@@ -50,6 +50,18 @@ var (
 		Name: "tx_manager_gas_bump_exceeds_limit",
 		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
 	}, []string{"evmChainID"})
+	promNumConfirmedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_confirmed_transactions",
+		Help: "Total number of confirmed transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
+	}, []string{"evmChainID"})
+	promNumSuccessfulTxs = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_successful_transactions",
+		Help: "Total number of successful transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
+	}, []string{"evmChainID"})
+	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_num_tx_reverted",
+		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -318,6 +330,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 		if err := ec.saveFetchedReceipts(receipts); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
+		promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(receipts)))
 	}
 	return nil
 }
@@ -409,9 +422,10 @@ func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTx
 
 		if receipt.Status == 0 {
 			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
-			// This is safe to increment here because we save the receipt immediately after
-			// and once its saved we do not fetch it again.
+			// This might increment more than once e.g. in case of re-orgs going back and forth we might re-fetch the same receipt
 			promRevertedTxCount.WithLabelValues(ec.chainID.String()).Add(1)
+		} else {
+			promNumSuccessfulTxs.WithLabelValues(ec.chainID.String()).Add(1)
 		}
 
 		receipts = append(receipts, *receipt)

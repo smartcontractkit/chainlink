@@ -26,8 +26,6 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
 )
@@ -60,13 +58,6 @@ type KeyStore interface {
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
-
-var (
-	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_tx_reverted",
-		Help: "Number of times a transaction reverted on-chain",
-	}, []string{"evmChainID"})
-)
 
 var _ TxManager = &BulletproofTxManager{}
 
