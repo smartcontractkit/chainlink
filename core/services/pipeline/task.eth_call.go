@@ -50,10 +50,10 @@ func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
 }
 
-func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -74,9 +74,9 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	} else if len(data) == 0 {
-		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}
+		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}, runInfo
 	}
 
 	call := ethereum.CallMsg{
@@ -90,7 +90,7 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, retryableRunInfo()
 	}
 
 	start := time.Now()
@@ -101,12 +101,12 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 			err = t.retrieveRevertReason(err)
 		}
 
-		return Result{Error: err}
+		return Result{Error: err}, retryableRunInfo()
 	}
 
 	promETHCallTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 
-	return Result{Value: resp}
+	return Result{Value: resp}, runInfo
 }
 
 func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
