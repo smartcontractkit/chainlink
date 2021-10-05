@@ -70,7 +70,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams)
+	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, ks)
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
@@ -174,7 +174,7 @@ func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	counts := getStartingResponseCounts(db, logger.Default)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams)
+	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))
