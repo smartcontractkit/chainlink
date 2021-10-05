@@ -76,7 +76,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
 	dborm := NewORM(db, *ethClient.ChainID())
-	lb := NewBroadcaster(dborm, ethClient, tc{}, logger.Default, nil)
+	lb := NewTestBroadcaster(dborm, ethClient, tc{}, logger.Default, nil)
 	lb.Start()
 	defer lb.Close()
 
@@ -155,6 +155,8 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	}
 	// Wait until the logpool has the 3 logs
 	gm.Eventually(func() bool {
+		lb.Pause()
+		defer lb.Resume()
 		return len(lb.logPool.logsByBlockHash[bh]) == len(addr1SentLogs)
 	}, 2*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 

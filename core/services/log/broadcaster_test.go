@@ -173,16 +173,17 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 		}
 	}
 
-	helper.start()
+	func() {
+		helper.start()
+		defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 
-	helper.lb.ReplayFromBlock(replayFrom)
+		helper.lb.ReplayFromBlock(replayFrom)
 
-	require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
-
-	helper.stop()
+		require.Eventually(t, func() bool { return backfillCount.Load() >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	helper.mockEth.assertExpectations(t)
@@ -227,12 +228,13 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 		require.Equal(t, blockHeight-int64(backfillDepth), fromBlock)
 	}
 
-	helper.start()
+	func() {
+		helper.start()
+		defer helper.stop()
 
-	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
-
-	helper.stop()
+		require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+		require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+	}()
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	helper.mockEth.assertExpectations(t)
@@ -410,11 +412,11 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	requireBroadcastCount(t, helper.db, 12)
 
-	requireEqualLogs(t, addr1SentLogs, listener1.received.uniqueLogs)
-	requireEqualLogs(t, addr1SentLogs, listener2.received.uniqueLogs)
+	requireEqualLogs(t, addr1SentLogs, listener1.received.getUniqueLogs())
+	requireEqualLogs(t, addr1SentLogs, listener2.received.getUniqueLogs())
 
-	requireEqualLogs(t, addr2SentLogs, listener3.received.uniqueLogs)
-	requireEqualLogs(t, addr2SentLogs, listener4.received.uniqueLogs)
+	requireEqualLogs(t, addr2SentLogs, listener3.received.getUniqueLogs())
+	requireEqualLogs(t, addr2SentLogs, listener4.received.getUniqueLogs())
 
 	helper.unsubscribeAll()
 	helper.stop()
@@ -468,24 +470,24 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 
 	requireEqualLogs(t,
 		addr1SentLogs,
-		listener1.received.uniqueLogs,
+		listener1.received.getUniqueLogs(),
 	)
 	requireEqualLogs(t,
 		[]types.Log{
 			addr1SentLogs[0],
 			addr1SentLogs[1],
 		},
-		listener2.received.uniqueLogs,
+		listener2.received.getUniqueLogs(),
 	)
 
 	// unique sends should be equal to sends overall
 	requireEqualLogs(t,
-		listener1.received.uniqueLogs,
-		listener1.received.logs,
+		listener1.received.getUniqueLogs(),
+		listener1.received.getLogs(),
 	)
 	requireEqualLogs(t,
-		listener2.received.uniqueLogs,
-		listener2.received.logs,
+		listener2.received.getUniqueLogs(),
+		listener2.received.getLogs(),
 	)
 
 	// the logs should have been received at much later heights
@@ -515,6 +517,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(1)
 	helper.start()
+	defer helper.stop()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
 	require.NoError(t, err)
@@ -568,7 +571,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 	// the new listener should still receive 2 of the 3 logs
 	requireBroadcastCount(t, helper.db, 8)
-	require.Equal(t, 2, len(listener3.received.uniqueLogs))
+	require.Equal(t, 2, len(listener3.received.getUniqueLogs()))
 
 	helper.register(listener4, contract1, 1)
 	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
@@ -584,9 +587,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	<-headsDone
 
 	// but this one should receive none
-	require.Equal(t, 0, len(listener4.received.uniqueLogs))
-
-	helper.stop()
+	require.Equal(t, 0, len(listener4.received.getUniqueLogs()))
 }
 
 func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
@@ -596,6 +597,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(4)
 	helper.start()
+	defer helper.stop()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
 	require.NoError(t, err)
@@ -649,7 +651,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	// the new listener should still receive 3 logs because of finality depth being higher than max NumConfirmations
 	requireBroadcastCount(t, helper.db, 9)
-	require.Equal(t, 3, len(listener3.received.uniqueLogs))
+	require.Equal(t, 3, len(listener3.received.getUniqueLogs()))
 
 	helper.register(listener4, contract1, 1)
 	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
@@ -665,9 +667,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	<-headsDone
 
 	// but this one should receive none
-	require.Equal(t, 0, len(listener4.received.uniqueLogs))
-
-	helper.stop()
+	require.Equal(t, 0, len(listener4.received.getUniqueLogs()))
 }
 
 func TestBroadcaster_FilterByTopicValues(t *testing.T) {
@@ -677,6 +677,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(3)
 	helper.start()
+	defer helper.stop()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
 	require.NoError(t, err)
@@ -751,13 +752,11 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	<-headsDone
 
-	require.Equal(t, 4, len(listener0.received.uniqueLogs))
-	require.Equal(t, 4, len(listener1.received.uniqueLogs))
-	require.Equal(t, 2, len(listener2.received.uniqueLogs))
-	require.Equal(t, 3, len(listener3.received.uniqueLogs))
-	require.Equal(t, 1, len(listener4.received.uniqueLogs))
-
-	helper.stop()
+	require.Equal(t, 4, len(listener0.received.getUniqueLogs()))
+	require.Equal(t, 4, len(listener1.received.getUniqueLogs()))
+	require.Equal(t, 2, len(listener2.received.getUniqueLogs()))
+	require.Equal(t, 3, len(listener3.received.getUniqueLogs()))
+	require.Equal(t, 1, len(listener4.received.getUniqueLogs()))
 }
 
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
@@ -863,13 +862,13 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 
 	requireEqualLogs(t,
 		addr1SentLogs,
-		listener1.received.uniqueLogs,
+		listener1.received.getUniqueLogs(),
 	)
 
 	// unique sends should be equal to sends overall
 	requireEqualLogs(t,
-		listener1.received.uniqueLogs,
-		listener1.received.logs,
+		listener1.received.getUniqueLogs(),
+		listener1.received.getLogs(),
 	)
 
 	helper.mockEth.assertExpectations(t)
@@ -931,13 +930,13 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	requireEqualLogs(t,
 		addr1SentLogs,
-		listener1.received.uniqueLogs,
+		listener1.received.getUniqueLogs(),
 	)
 
 	// unique sends should be equal to sends overall
 	requireEqualLogs(t,
-		listener1.received.uniqueLogs,
-		listener1.received.logs,
+		listener1.received.getUniqueLogs(),
+		listener1.received.getLogs(),
 	)
 
 	helper.mockEth.assertExpectations(t)
@@ -1367,7 +1366,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	chRawLogs <- blocks.LogOnBlockNum(0, contract.Address())
 	chRawLogs <- blocks.LogOnBlockNum(1, contract.Address())
 
-	require.Eventually(t, func() bool { return len(logListener.received.uniqueLogs) >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(logListener.received.getUniqueLogs()) >= 2 }, cltest.DefaultWaitTimeout, 10*time.Millisecond)
 	requireBroadcastCount(t, helper.db, 2)
 
 	helper.mockEth.ethClient.AssertExpectations(t)
