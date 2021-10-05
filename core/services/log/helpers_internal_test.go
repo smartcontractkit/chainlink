@@ -19,10 +19,16 @@ func (b *broadcaster) ExportedAppendLogChannel(ch1, ch2 <-chan types.Log) chan t
 
 // Pause pauses the eventLoop until Resume is called.
 func (b *broadcaster) Pause() {
-	b.testPause <- struct{}{}
+	select {
+	case b.testPause <- struct{}{}:
+	case <-b.chStop:
+	}
 }
 
 // Resume resumes the eventLoop after calling Pause.
 func (b *broadcaster) Resume() {
-	b.testResume <- struct{}{}
+	select {
+	case b.testResume <- struct{}{}:
+	case <-b.chStop:
+	}
 }

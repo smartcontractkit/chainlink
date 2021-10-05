@@ -363,7 +363,11 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		// testing only
 		case <-b.testPause:
-			<-b.testResume
+			select {
+			case <-b.testResume:
+			case <-b.chStop:
+				return false, nil
+			}
 		}
 	}
 }
