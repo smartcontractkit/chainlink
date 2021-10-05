@@ -34,7 +34,7 @@ var (
 )
 
 var (
-	PromCheckUpkeepExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	promCheckUpkeepExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "keeper_check_upkeep_execution_time",
 		Help: "Time taken to fully execute the check upkeep logic",
 	},
@@ -220,7 +220,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		}
 
 		elapsed := time.Since(start)
-		PromCheckUpkeepExecutionTime.
+		promCheckUpkeepExecutionTime.
 			WithLabelValues(strconv.Itoa(int(upkeep.UpkeepID))).
 			Set(float64(elapsed))
 	}
