@@ -165,12 +165,6 @@ func (s *scheduler) Run() {
 
 		s.waiting--
 
-		// TODO: this is temporary until task_bridge can return a proper pending result
-		if result.Result.Error == ErrPending {
-			result.Result = Result{}        // no output, no error
-			result.FinishedAt = null.Time{} // not finished
-		}
-
 		// retrieve previous attempt count
 		result.Attempts = s.results[result.Task.ID()].Attempts
 
@@ -183,7 +177,7 @@ func (s *scheduler) Run() {
 		s.results[result.Task.ID()] = result
 
 		// catch the pending state, we will keep the pipeline running until no more progress is made
-		if result.IsPending() {
+		if result.runInfo.IsPending {
 			s.pending = true
 
 			// skip output wrangling because this task isn't actually complete yet

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -137,7 +138,9 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -191,10 +194,12 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.True(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 
-	require.Error(t, result.Error)
-	require.Contains(t, result.Error.Error(), "pending")
+	require.NoError(t, result.Error)
+	require.Nil(t, result.Value)
 }
 
 func TestBridgeTask_Variables(t *testing.T) {
@@ -366,7 +371,9 @@ func TestBridgeTask_Variables(t *testing.T) {
 			bridge.URL = *feedWebURL
 			require.NoError(t, db.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				if test.expectedErrorContains != "" {
@@ -474,7 +481,9 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			bridge.URL = *(*models.WebURL)(feedURL)
 			require.NoError(t, db.Create(&bridge).Error)
 
-			result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
+			result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
 				require.Nil(t, result.Value)
@@ -524,7 +533,9 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -559,7 +570,9 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
@@ -577,7 +590,9 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	}
 	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
-	result := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
 	require.Nil(t, result.Value)
 	require.Error(t, result.Error)
 	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())
