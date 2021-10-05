@@ -220,8 +220,10 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitter
 func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.Job {
 	t.Helper()
 
+	id := uuid.NewV4()
 	var jb = job.Job{
-		ExternalJobID: uuid.NewV4(),
+		Name:          null.StringFrom(id.String()),
+		ExternalJobID: id,
 	}
 	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
 	require.NoError(t, err)
