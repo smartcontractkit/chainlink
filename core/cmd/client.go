@@ -230,7 +230,7 @@ func runServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) err
 	logger.Infof("Listening and serving HTTP on port %d", port)
 	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServe()
-	logger.ErrorIf(err)
+	logger.ErrorIf(err, "Error starting server")
 	return err
 }
 
@@ -238,7 +238,7 @@ func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, wr
 	logger.Infof("Listening and serving HTTPS on port %d", port)
 	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServeTLS(certFile, keyFile)
-	logger.ErrorIf(err)
+	logger.ErrorIf(err, "Error starting TLS server")
 	return err
 }
 

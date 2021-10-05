@@ -25,35 +25,34 @@ type Logger interface {
 	// NamedLevel creates a new Named logger with logLevel.
 	NamedLevel(id string, logLevel string) (Logger, error)
 
-	Info(args ...interface{})
-	Infof(format string, values ...interface{})
-	Infow(msg string, keysAndValues ...interface{})
-
 	Debug(args ...interface{})
-	Debugf(format string, values ...interface{})
-	Debugw(msg string, keysAndValues ...interface{})
-
+	Info(args ...interface{})
 	Warn(args ...interface{})
+	Error(args ...interface{})
+	Fatal(args ...interface{})
+	Panic(args ...interface{})
+
+	Debugf(format string, values ...interface{})
+	Infof(format string, values ...interface{})
 	Warnf(format string, values ...interface{})
+	Errorf(format string, values ...interface{})
+	Fatalf(format string, values ...interface{})
+
+	Debugw(msg string, keysAndValues ...interface{})
+	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
+	Errorw(msg string, keysAndValues ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
+	Panicw(msg string, keysAndValues ...interface{})
+
 	// WarnIf logs the error if present.
 	WarnIf(err error, msg string)
-
-	Error(args ...interface{})
-	Errorf(format string, values ...interface{})
-	Errorw(msg string, keysAndValues ...interface{})
 	// ErrorIf logs the error if present.
-	ErrorIf(err error, optionalMsg ...string)
+	ErrorIf(err error, msg string)
+	PanicIf(err error, msg string)
+
 	// ErrorIfCalling calls fn and logs any returned error along with func name.
 	ErrorIfCalling(fn func() error)
-
-	Fatal(values ...interface{})
-	Fatalf(format string, values ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
-
-	Panic(args ...interface{})
-	Panicw(msg string, keysAndValues ...interface{})
-	PanicIf(err error, msg string)
 
 	Sync() error
 
@@ -134,12 +133,8 @@ func (l *zapLogger) WarnIf(err error, msg string) {
 	}
 }
 
-func (l *zapLogger) ErrorIf(err error, optionalMsg ...string) {
+func (l *zapLogger) ErrorIf(err error, msg string) {
 	if err != nil {
-		msg := "Error"
-		if len(optionalMsg) > 0 {
-			msg = optionalMsg[0]
-		}
 		l.withCallerSkip(1).Errorw(msg, "err", err)
 	}
 }

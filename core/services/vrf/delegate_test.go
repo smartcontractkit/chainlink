@@ -338,16 +338,20 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 			reqID.Bytes()}, []byte{}, // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
+		Topics: []common.Hash{
+			VRFRandomnessRequestLogTopic(),
+			jb.ExternalIDEncodeStringToTopic(), // jobID
+		},
 		BlockNumber: 10,
 		TxHash:      txHash,
 	}, vuni.cid, nil))
 
 	// Wait until the log is present
 	waitForChannel(t, added, time.Second, "request not added to the queue")
-	assert.Equal(t, 1, len(listener.reqs))
-	// It should be confirmed at 10+6*(2^2)
-	assert.Equal(t, uint64(34), listener.reqs[0].confirmedAtBlock)
+	if assert.Equal(t, 1, len(listener.reqs)) {
+		// It should be confirmed at 10+6*(2^2)
+		assert.Equal(t, uint64(34), listener.reqs[0].confirmedAtBlock)
+	}
 }
 
 func TestDelegate_ValidLog(t *testing.T) {
@@ -380,7 +384,10 @@ func TestDelegate_ValidLog(t *testing.T) {
 					reqID1.Bytes()},                          // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
-				Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID STRING
+				Topics: []common.Hash{
+					VRFRandomnessRequestLogTopic(),
+					jb.ExternalIDEncodeStringToTopic(), // jobID STRING
+				},
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
@@ -397,7 +404,10 @@ func TestDelegate_ValidLog(t *testing.T) {
 					utils.NewHash().Bytes(),                  // fee
 					reqID2.Bytes()},                          // requestID
 					[]byte{}),
-				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
+				Topics: []common.Hash{
+					VRFRandomnessRequestLogTopic(),
+					jb.ExternalIDEncodeBytesToTopic(), // jobID BYTES
+				},
 				TxHash:      txHash,
 				BlockNumber: 10,
 				BlockHash:   bh,
@@ -499,7 +509,10 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			utils.NewHash().Bytes()...), // fee
 			utils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, thats why it lives in the Topics.
-		Topics:      []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID
+		Topics: []common.Hash{
+			VRFRandomnessRequestLogTopic(),
+			jb.ExternalIDEncodeBytesToTopic(), // jobID
+		},
 		Address:     common.Address{},
 		BlockNumber: 10,
 		TxHash:      common.Hash{},
@@ -561,7 +574,10 @@ func TestFulfilledCheck(t *testing.T) {
 				utils.NewHash().Bytes()},                 // requestID
 				[]byte{}),
 			// JobID is indexed, thats why it lives in the Topics.
-			Topics: []common.Hash{{}, jb.ExternalIDEncodeStringToTopic()}, // jobID STRING
+			Topics: []common.Hash{
+				VRFRandomnessRequestLogTopic(),
+				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
+			},
 			//TxHash:      utils.NewHash().Bytes(),
 			BlockNumber: 10,
 			//BlockHash:   utils.NewHash().Bytes(),
