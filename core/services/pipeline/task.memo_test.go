@@ -45,7 +45,7 @@ func TestMemoTask_Happy(t *testing.T) {
 			require.NoError(t, err)
 
 			task := pipeline.MemoTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
-			result := task.Run(context.Background(), vars, []pipeline.Result{{Value: test.input}})
+			result, _ := task.Run(context.Background(), vars, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
 			marshalledValue, err := result.Value.(pipeline.ObjectParam).Marshal()
 			require.NoError(t, err)

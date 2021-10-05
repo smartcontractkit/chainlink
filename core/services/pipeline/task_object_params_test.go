@@ -60,7 +60,6 @@ func TestObjectParam_UnmarshalPipelineParamValid(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			var value pipeline.ObjectParam
 			err := value.UnmarshalPipelineParam(test.input)
@@ -87,7 +86,6 @@ func TestObjectParam_Marshal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			marshalledValue, err := test.input.Marshal()
 			require.NoError(t, err)
