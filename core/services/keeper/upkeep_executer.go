@@ -211,7 +211,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 		ex.logger.With("error", err).Errorw("failed executing run")
 		return
 	}
-	time.Sleep(time.Second)
+
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
 		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
