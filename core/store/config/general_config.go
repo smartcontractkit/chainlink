@@ -107,6 +107,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
+	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
 	LogLevel() LogLevel
 	LogSQLMigrations() bool
@@ -666,6 +667,11 @@ func (c *generalConfig) KeeperMinimumRequiredConfirmations() uint64 {
 // an upkeep before it resumes checking that upkeep
 func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
+}
+
+// KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
+func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
+	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", ParseUint32).(uint32)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format

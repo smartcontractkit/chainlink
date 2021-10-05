@@ -81,6 +81,7 @@ type GeneralConfigOverrides struct {
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperMinimumRequiredConfirmations        null.Int
 	KeeperRegistrySyncInterval                *time.Duration
+	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LogLevel                                  *config.LogLevel
 	LogSQLStatements                          null.Bool
 	LogToDisk                                 null.Bool
@@ -370,6 +371,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncInterval() time.Duration {
 		return *c.Overrides.KeeperRegistrySyncInterval
 	}
 	return c.GeneralConfig.KeeperRegistrySyncInterval()
+}
+
+func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
+	if c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Valid {
+		return uint32(c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Int64)
+	}
+	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
 }
 
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
