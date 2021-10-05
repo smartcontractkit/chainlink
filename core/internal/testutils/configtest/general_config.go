@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -96,6 +98,7 @@ type GeneralConfigOverrides struct {
 	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
+	KeySpecific                               map[string]types.ChainCfg
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works

@@ -8,6 +8,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
@@ -24,7 +30,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
@@ -32,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
@@ -159,13 +163,43 @@ func TestIntegrationVRFV2(t *testing.T) {
 	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
-
-	gasPrice := decimal.NewFromBigInt(evmconfig.DefaultGasPrice, 0)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
-	require.NoError(t, app.Start())
+	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	keys, err := app.KeyStore.Eth().SendingKeys()
 
+	// Reconfigure the sim chain with a default gas price of 1 gwei,
+	// max gas limit of 2M and a key specific 10 gwei price.
+	// Keep the prices low so we can operate with small link balance subscriptions.
+	gasPriceInt := big.NewInt(1000000000)
+	gasPrice := decimal.NewFromBigInt(gasPriceInt, 0)
+	zero := models.MustMakeDuration(0 * time.Millisecond)
+	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
+	app.ChainSet.Configure(
+		big.NewInt(1337),
+		true,
+		types.ChainCfg{
+			GasEstimatorMode:                 null.StringFrom("FixedPrice"),
+			EvmGasPriceDefault:               utils.NewBig(gasPriceInt), // 1 gwei default
+			EvmHeadTrackerMaxBufferSize:      null.IntFrom(100),
+			EvmHeadTrackerSamplingInterval:   &zero, // Head sampling disabled
+			EthTxResendAfterThreshold:        &zero,
+			EvmFinalityDepth:                 null.IntFrom(15),
+			EthTxReaperThreshold:             &reaperThreshold,
+			MinIncomingConfirmations:         null.IntFrom(1),
+			MinRequiredOutgoingConfirmations: null.IntFrom(1),
+			MinimumContractPayment:           assets.NewLinkFromJuels(100),
+			EvmGasLimitDefault:               null.NewInt(2000000, true),
+			KeySpecific: map[string]types.ChainCfg{
+				keys[0].Address.String(): {
+					EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)),
+				},
+			},
+		},
+	)
+
+	require.NoError(t, app.Start())
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
 
@@ -177,6 +211,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		CoordinatorAddress: uni.rootContractAddress.String(),
 		Confirmations:      incomingConfs,
 		PublicKey:          vrfkey.PublicKey.String(),
+		FromAddress:        keys[0].Address.String(),
 		V2:                 true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
@@ -219,6 +254,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 	subStart, err := uni.rootContract.GetSubscription(nil, subId)
 	require.NoError(t, err)
+	t.Log(subStart)
 
 	// Make a request for random words.
 	// By requesting 500k callback with a configured eth gas limit default of 500k,
@@ -233,7 +269,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
 	require.Error(t, err)
 
-	for i := 0; i < requestedIncomingConfs; i++ {
+	for i := 0; i < 2*requestedIncomingConfs; i++ {
+		time.Sleep(1 * time.Second)
 		uni.backend.Commit()
 	}
 

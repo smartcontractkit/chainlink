@@ -408,7 +408,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant {
+  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc)
+    external
+    nonReentrant
+    returns (uint96)
+  {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
@@ -450,6 +454,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     s_subscriptions[rc.subId].balance -= payment;
     s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+    return payment;
   }
 
   // Get the amount of gas used for fulfillment

@@ -39,6 +39,8 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
+	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	MinRequiredOutgoingConfirmations() uint64
 }
 
 func NewDelegate(
@@ -94,7 +96,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			return []job.Service{&listenerV2{
+			return []job.Service{&listenerV3{
 				cfg:                chain.Config(),
 				l:                  l,
 				ethClient:          chain.Client(),

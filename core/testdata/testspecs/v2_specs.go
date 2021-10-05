@@ -142,6 +142,7 @@ type VRFSpecParams struct {
 	Name               string
 	CoordinatorAddress string
 	Confirmations      int
+	FromAddress        string
 	PublicKey          string
 	ObservationSource  string
 	V2                 bool
@@ -211,13 +212,15 @@ estimate_gas [type=estimategaslimit
               to="%s"
               multiplier="1.1"
               data="$(vrf.output)"]
-submit_tx  [type=ethtx to="%s"
-            data="$(vrf.output)"
-            gasLimit="$(estimate_gas)"
-            minConfirmations="0"
-            txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(vrf.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
-decode_log->vrf->estimate_gas->submit_tx
-`, coordinatorAddress, coordinatorAddress)
+simulate [type=ethcall
+          to="%s"
+		  gas="$(estimate_gas)"
+		  gasPrice="$(jobSpec.maxGasPrice)" 
+		  extractRevertReason=true
+		  contract="%s"
+		  data="$(vrf.output)"]
+decode_log->vrf->estimate_gas->simulate
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		publicKey = params.ObservationSource
@@ -227,6 +230,7 @@ externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
 name = "%s"
+fromAddress = "%s"
 coordinatorAddress = "%s"
 confirmations = %d
 publicKey = "%s"
@@ -234,6 +238,7 @@ observationSource = """
 %s
 """
 `
+	// TODO: default from address
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:              jobID,
 		Name:               name,
@@ -241,7 +246,7 @@ observationSource = """
 		Confirmations:      confirmations,
 		PublicKey:          publicKey,
 		ObservationSource:  observationSource,
-	}, toml: fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)}
+	}, toml: fmt.Sprintf(template, jobID, name, params.FromAddress, coordinatorAddress, confirmations, publicKey, observationSource)}
 }
 
 type OCRSpecParams struct {
