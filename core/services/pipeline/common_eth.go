@@ -24,7 +24,7 @@ var (
 	commaDelim      = []byte(",")
 )
 
-func parseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, indexedArgs abi.Arguments, _ error) {
+func ParseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, indexedArgs abi.Arguments, _ error) {
 	var argStrs [][]byte
 	if len(bytes.TrimSpace(theABI)) > 0 {
 		argStrs = bytes.Split(theABI, commaDelim)
@@ -51,32 +51,32 @@ func parseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 		}
 		switch len(argParts) {
 		case 0:
-			return nil, nil, errors.Errorf("bad ABI specification, empty argument: %v", theABI)
+			return nil, nil, errors.Errorf("bad ABI specification, empty argument: %s", theABI)
 
 		case 1:
-			return nil, nil, errors.Errorf("bad ABI specification, missing argument name: %v", theABI)
+			return nil, nil, errors.Errorf("bad ABI specification, missing argument name: %s", theABI)
 
 		case 2:
 			if isLog && bytes.Equal(argParts[1], indexedKeyword) {
-				return nil, nil, errors.Errorf("bad ABI specification, missing argument name: %v", theABI)
+				return nil, nil, errors.Errorf("bad ABI specification, missing argument name: %s", theABI)
 			}
 			typeStr = argParts[0]
 			argName = argParts[1]
 
 		case 3:
 			if !isLog {
-				return nil, nil, errors.Errorf("bad ABI specification, too many components in argument: %v", theABI)
+				return nil, nil, errors.Errorf("bad ABI specification, too many components in argument: %s", theABI)
 			} else if bytes.Equal(argParts[0], indexedKeyword) || bytes.Equal(argParts[2], indexedKeyword) {
-				return nil, nil, errors.Errorf("bad ABI specification, 'indexed' keyword must appear between argument type and name: %v", theABI)
+				return nil, nil, errors.Errorf("bad ABI specification, 'indexed' keyword must appear between argument type and name: %s", theABI)
 			} else if !bytes.Equal(argParts[1], indexedKeyword) {
-				return nil, nil, errors.Errorf("bad ABI specification, unknown keyword '%v' between argument type and name: %v", string(argParts[1]), theABI)
+				return nil, nil, errors.Errorf("bad ABI specification, unknown keyword '%v' between argument type and name: %s", string(argParts[1]), theABI)
 			}
 			typeStr = argParts[0]
 			argName = argParts[2]
 			indexed = true
 
 		default:
-			return nil, nil, errors.Errorf("bad ABI specification, too many components in argument: %v", theABI)
+			return nil, nil, errors.Errorf("bad ABI specification, too many components in argument: %s", theABI)
 		}
 		typ, err := abi.NewType(string(typeStr), "", nil)
 		if err != nil {
@@ -93,10 +93,10 @@ func parseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 func parseETHABIString(theABI []byte, isLog bool) (name string, args abi.Arguments, indexedArgs abi.Arguments, err error) {
 	matches := ethABIRegex.FindAllSubmatch(theABI, -1)
 	if len(matches) != 1 || len(matches[0]) != 3 {
-		return "", nil, nil, errors.Errorf("bad ABI specification: %v", theABI)
+		return "", nil, nil, errors.Errorf("bad ABI specification: %s", theABI)
 	}
 	name = string(bytes.TrimSpace(matches[0][1]))
-	args, indexedArgs, err = parseETHABIArgsString(matches[0][2], isLog)
+	args, indexedArgs, err = ParseETHABIArgsString(matches[0][2], isLog)
 	return name, args, indexedArgs, err
 }
 
@@ -191,9 +191,47 @@ func convertToETHABIType(val interface{}, abiType abi.Type) (interface{}, error)
 		return dest.Interface(), nil
 
 	case abi.TupleTy:
-		panic("not supported")
+		return convertToETHABITuple(abiType, srcVal)
+
 	}
 	return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to %v", srcVal.Type(), abiType)
+}
+
+func convertToETHABITuple(abiType abi.Type, srcVal reflect.Value) (interface{}, error) {
+	size := len(abiType.TupleElems)
+	if srcVal.Len() != size {
+		return nil, errors.Wrapf(ErrBadInput, "incorrect length: expected %v, got %v", size, srcVal.Len())
+	}
+
+	dest := reflect.New(abiType.TupleType).Elem()
+	switch srcVal.Type().Kind() {
+	case reflect.Map:
+		for i, fieldName := range abiType.TupleRawNames {
+			src := srcVal.MapIndex(reflect.ValueOf(fieldName))
+			elem, err := convertToETHABIType(src.Interface(), *abiType.TupleElems[i])
+			if err != nil {
+				return nil, err
+			}
+			dest.FieldByIndex([]int{i}).Set(reflect.ValueOf(elem))
+		}
+
+		return dest.Interface(), nil
+
+	case reflect.Slice, reflect.Array:
+		for i := range abiType.TupleRawNames {
+			src := srcVal.Index(i)
+			elem, err := convertToETHABIType(src.Interface(), *abiType.TupleElems[i])
+			if err != nil {
+				return nil, err
+			}
+			dest.FieldByIndex([]int{i}).Set(reflect.ValueOf(elem))
+		}
+
+		return dest.Interface(), nil
+
+	default:
+		return nil, errors.Wrapf(ErrBadInput, "cannot convert %v to tuple[%d]", srcVal.Type(), size)
+	}
 }
 
 func convertToETHABIBytes(destType reflect.Type, srcVal reflect.Value, length int) (interface{}, error) {

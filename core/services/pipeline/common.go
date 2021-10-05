@@ -315,6 +315,7 @@ const (
 	TaskTypeETHCall          TaskType = "ethcall"
 	TaskTypeETHTx            TaskType = "ethtx"
 	TaskTypeETHABIEncode     TaskType = "ethabiencode"
+	TaskTypeETHABIEncode2    TaskType = "ethabiencode2"
 	TaskTypeETHABIDecode     TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
 	TaskTypeMergeTask        TaskType = "merge"
@@ -382,6 +383,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIEncode:
 		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeETHABIEncode2:
+		task = &ETHABIEncodeTask2{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIDecode:
 		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHABIDecodeLog:
