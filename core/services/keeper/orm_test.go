@@ -47,7 +47,7 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 	}
 }
 
-func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
+func waitLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
 	t.Helper()
 
 	gomega.NewGomegaWithT(t).Eventually(func() int64 {
@@ -55,6 +55,12 @@ func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistra
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
 	}, time.Second*2, time.Millisecond*100).Should(gomega.Equal(height))
+}
+
+func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
+	err := db.Find(&upkeep).Error
+	require.NoError(t, err)
+	require.Equal(t, height, upkeep.LastRunBlockHeight)
 }
 
 func TestKeeperDB_Registries(t *testing.T) {
