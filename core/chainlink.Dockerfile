@@ -43,7 +43,7 @@ COPY packr packr
 RUN make chainlink-build
 
 # Final layer: ubuntu with chainlink binary
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive

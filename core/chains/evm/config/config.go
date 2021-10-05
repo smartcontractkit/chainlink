@@ -15,6 +15,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/config"
@@ -58,7 +59,7 @@ type ChainScopedOnlyConfig interface {
 	EvmRPCDefaultBatchSize() uint32
 	FlagsContractAddress() string
 	GasEstimatorMode() string
-	Layer2Type() string
+	ChainType() chains.ChainType
 	KeySpecificMaxGasPriceWei(addr gethcommon.Address) *big.Int
 	LinkContractAddress() string
 	MinIncomingConfirmations() uint32
@@ -84,6 +85,7 @@ type chainScopedConfig struct {
 	orm          *chainScopedConfigORM
 	persistedCfg evmtypes.ChainCfg
 	defaultSet   chainSpecificConfigDefaultSet
+	knownID      bool
 	id           *big.Int
 	persistMu    sync.RWMutex
 	onceMap      map[string]struct{}
@@ -97,7 +99,7 @@ func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.
 		logger.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)
 		defaultSet = fallbackDefaultSet
 	}
-	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
+	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, exists, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
 	return &css
 }
 
@@ -156,6 +158,33 @@ func (c *chainScopedConfig) validate() (err error) {
 	}
 	if ocrerr := ocr.SanityCheckLocalConfig(lc); ocrerr != nil {
 		err = multierr.Combine(err, ocrerr)
+	}
+
+	chainType := c.ChainType()
+	if !chainType.IsValid() {
+		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q unrecognised", chainType))
+	} else if c.knownID && c.defaultSet.chainType != chainType {
+		err = multierr.Combine(err, errors.Errorf("CHAIN_TYPE %q cannot be used with chain ID %d", chainType, c.ChainID()))
+	} else {
+		switch chainType {
+		case chains.Arbitrum:
+			if gasEst := c.GasEstimatorMode(); gasEst != "FixedPrice" {
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
+					"must be %q", gasEst, chains.Arbitrum, "FixedPrice"))
+			}
+		case chains.ExChain:
+
+		case chains.Optimism:
+			gasEst := c.GasEstimatorMode()
+			switch gasEst {
+			case "Optimism", "Optimism2":
+			default:
+				err = multierr.Combine(err, errors.Errorf("GAS_ESTIMATOR_MODE %q is not allowed with chain type %q - "+
+					"must be %q or %q", gasEst, chains.Optimism, "Optimism", "Optimism2"))
+			}
+		case chains.XDai:
+
+		}
 	}
 
 	return err
@@ -590,18 +619,18 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 	return c.EvmMaxGasPriceWei()
 }
 
-func (c *chainScopedConfig) Layer2Type() string {
-	val, ok := c.GeneralConfig.GlobalLayer2Type()
+func (c *chainScopedConfig) ChainType() chains.ChainType {
+	val, ok := c.GeneralConfig.GlobalChainType()
 	if ok {
-		c.logEnvOverrideOnce("Layer2Type", val)
-		return val
+		c.logEnvOverrideOnce("ChainType", val)
+		return chains.ChainType(val)
 	}
 
-	if c.persistedCfg.Layer2Type.Valid {
-		c.logPersistedOverrideOnce("Layer2Type", c.persistedCfg.Layer2Type.String)
-		return c.persistedCfg.Layer2Type.String
+	if c.persistedCfg.ChainType.Valid {
+		c.logPersistedOverrideOnce("ChainType", c.persistedCfg.ChainType.String)
+		return chains.ChainType(c.persistedCfg.ChainType.String)
 	}
-	return c.defaultSet.layer2Type
+	return c.defaultSet.chainType
 }
 
 // LinkContractAddress represents the address of the official LINK token

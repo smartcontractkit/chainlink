@@ -9,16 +9,17 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// ParseCBOR attempts to coerce the input byte array into valid CBOR
+// ParseDietCBOR attempts to coerce the input byte array into valid CBOR
 // and then coerces it into a JSON object.
-func ParseCBOR(b []byte) (JSON, error) {
-	if len(b) == 0 {
-		return JSON{}, nil
-	}
+// Assumes the input is "diet" CBOR which is like CBOR, except:
+// 1. It is guaranteed to always be a map
+// 2. It may or may not include the opening and closing markers "{}"
+func ParseDietCBOR(b []byte) (JSON, error) {
+	b = autoAddMapDelimiters(b)
 
 	var m map[interface{}]interface{}
 
-	if err := cbor.Unmarshal(autoAddMapDelimiters(b), &m); err != nil {
+	if err := cbor.Unmarshal(b, &m); err != nil {
 		return JSON{}, err
 	}
 
@@ -36,13 +37,23 @@ func ParseCBOR(b []byte) (JSON, error) {
 	return js, json.Unmarshal(jsb, &js)
 }
 
+// ParseStandardCBOR parses CBOR in "standards compliant" mode.
+// Literal values are passed through "as-is".
+// The input is not assumed to be a map.
+// Empty inputs will return nil.
+func ParseStandardCBOR(b []byte) (a interface{}, err error) {
+	if len(b) == 0 {
+		return nil, nil
+	}
+	if err = cbor.Unmarshal(b, &a); err != nil {
+		return nil, err
+	}
+	return
+}
+
 // Automatically add missing start map and end map to a CBOR encoded buffer
 func autoAddMapDelimiters(b []byte) []byte {
-	if len(b) < 2 {
-		return b
-	}
-
-	if (b[0] >> 5) != 5 {
+	if len(b) == 0 || (len(b) > 1 && (b[0]>>5) != 5) {
 		var buffer bytes.Buffer
 		buffer.Write([]byte{0xbf})
 		buffer.Write(b)
