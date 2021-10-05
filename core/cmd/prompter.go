@@ -82,7 +82,7 @@ func withTerminalResetter(f func()) {
 	go func() {
 		<-c
 		err := term.Restore(osSafeStdin, initialTermState)
-		logger.ErrorIf(err, "failed when restore terminal")
+		logger.ErrorIf(err, "Error restoring terminal")
 		os.Exit(1)
 	}()
 

@@ -35,6 +35,7 @@ type EnvPrinter struct {
 	BlockHistoryEstimatorBlockHistorySize      uint16          `json:"GAS_UPDATER_BLOCK_HISTORY_SIZE"`
 	BlockHistoryEstimatorTransactionPercentile uint16          `json:"GAS_UPDATER_TRANSACTION_PERCENTILE"`
 	BridgeResponseURL                          string          `json:"BRIDGE_RESPONSE_URL,omitempty"`
+	ChainType                                  string          `json:"CHAIN_TYPE"`
 	ClientNodeURL                              string          `json:"CLIENT_NODE_URL"`
 	DatabaseBackupFrequency                    time.Duration   `json:"DATABASE_BACKUP_FREQUENCY"`
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
@@ -65,7 +66,6 @@ type EnvPrinter struct {
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
-	Layer2Type                                 string          `json:"LAYER_2_TYPE"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
