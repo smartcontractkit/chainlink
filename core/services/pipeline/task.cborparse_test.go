@@ -137,7 +137,9 @@ func TestCBORParseTask(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			assert.False(t, runInfo.IsPending)
+			assert.False(t, runInfo.IsRetryable)
 
 			if test.expectedErrorCause != nil {
 				assert.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
