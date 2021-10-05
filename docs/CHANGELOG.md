@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Transaction Simulation (Gas Savings)
 
-Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction would revert, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert. 
+Chainlink now supports transaction simulation for certain types of job. When this is enabled, transactions will be simulated using `eth_call` before initial send. If the transaction would revert, the tx is marked as errored without being broadcast, potentially avoiding an expensive on-chain revert.
 
 This can add a tiny bit of latency (upper bound 2s, generally much shorter under good conditions) and will add marginally more load to the eth client, since it adds an extra call for every transaction sent. However, it may help to save gas in some cases especially during periods of high demand by avoiding unnecessary reverts (due to outdated round etc).
 
@@ -39,6 +39,8 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
 Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
+
+The Operator UI now supports MFA with hardware security keys. `RPID` and `RPOrigin` environment variables have been added.
 
 #### Full EIP1559 Support (Gas Savings)
 
@@ -175,7 +177,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 Chainlink now supports connecting to multiple different EVM chains simultaneously.
 
-This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only. 
+This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only.
 
 Extensive efforts have been made to make migration for existing nops as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
 
@@ -229,7 +231,7 @@ You can pin individual jobs to a particular chain by specifying the `evmChainID`
 
 ```toml
 type            = "keeper"
-evmChainID      = 3 
+evmChainID      = 3
 schemaVersion   = 1
 name            = "example keeper spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"

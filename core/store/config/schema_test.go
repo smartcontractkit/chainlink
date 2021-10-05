@@ -158,6 +158,8 @@ func TestConfigSchema(t *testing.T) {
 		"Port":                                       "CHAINLINK_PORT",
 		"ReaperExpiration":                           "REAPER_EXPIRATION",
 		"ReplayFromBlock":                            "REPLAY_FROM_BLOCK",
+		"RPID":                                       "localhost",
+		"RPOrigin":                                   "http://localhost:6688/",
 		"RootDir":                                    "ROOT",
 		"SecureCookies":                              "SECURE_COOKIES",
 		"SessionTimeout":                             "SESSION_TIMEOUT",
