@@ -13,11 +13,10 @@ import {
   ResourceActionType,
 } from './reducers/actions'
 
-export type GetNormalizedData<T extends AnyFunc> = ReturnType<
-  T
-> extends ThunkAction<any, any, any, UpsertAction<infer A>>
-  ? A
-  : never
+export type GetNormalizedData<T extends AnyFunc> =
+  ReturnType<T> extends ThunkAction<any, any, any, UpsertAction<infer A>>
+    ? A
+    : never
 
 type Errors =
   | jsonapi.AuthenticationError
@@ -33,15 +32,14 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const curryErrorHandler = (dispatch: Dispatch, type: string) => (
-  error: Error,
-) => {
-  if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut(dispatch)
-  } else {
-    dispatch(createErrorAction(error, type))
+const curryErrorHandler =
+  (dispatch: Dispatch, type: string) => (error: Error) => {
+    if (error instanceof jsonapi.AuthenticationError) {
+      sendSignOut(dispatch)
+    } else {
+      dispatch(createErrorAction(error, type))
+    }
   }
-}
 
 export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
@@ -146,7 +144,8 @@ function sendSignIn(data: Parameter<Sessions['createSession']>) {
                       }
 
                       const pkassertion = assertion as PublicKeyCredential
-                      const response = pkassertion.response as AuthenticatorAssertionResponse
+                      const response =
+                        pkassertion.response as AuthenticatorAssertionResponse
 
                       const authData = response.authenticatorData
                       const clientDataJSON = response.clientDataJSON
@@ -268,7 +267,8 @@ function sendBeginRegistration() {
           }
 
           const pkcredential = credential as PublicKeyCredential
-          const response = pkcredential.response as AuthenticatorAttestationResponse
+          const response =
+            pkcredential.response as AuthenticatorAttestationResponse
 
           const credentialStr = {
             id: credential.id,
@@ -487,7 +487,7 @@ interface UpsertAction<TNormalizedData> extends Action<string> {
 function request<
   TNormalizedData,
   TApiArgs extends Array<any>,
-  TApiResp extends Promise<any>
+  TApiResp extends Promise<any>,
 >(
   type: string, // CHECKME -- stricten this type when we can
   prefix: RestAction,
