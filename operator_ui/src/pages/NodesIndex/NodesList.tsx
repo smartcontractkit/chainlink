@@ -8,11 +8,11 @@ import {
   Typography,
 } from '@material-ui/core'
 import { NodeRow } from './NodeRow'
-import { NodeSpecV2 } from './NodesIndex'
+import { NodeResource } from './NodesIndex'
 
 interface Props {
-  nodes: NodeSpecV2[]
-  nodeFilter: (node: NodeSpecV2) => boolean
+  nodes: NodeResource[]
+  nodeFilter: (node: NodeResource) => boolean
 }
 
 const List = ({ nodes, nodeFilter }: Props) => {
