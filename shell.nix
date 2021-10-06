@@ -2,7 +2,7 @@
 
 pkgs.mkShell {
   nativeBuildInputs = with pkgs; [
-    go
+    go_1_17
 
     postgresql_13
     python3
