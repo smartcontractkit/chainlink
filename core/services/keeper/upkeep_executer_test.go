@@ -206,7 +206,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	head := newHead()
 	executer.OnNewLongestChain(context.TODO(), head)
 
-	g.Eventually(wasCalled.Load()).Should(gomega.Equal(true))
+	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
 }
