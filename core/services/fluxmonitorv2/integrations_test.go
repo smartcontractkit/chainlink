@@ -352,7 +352,7 @@ func submitAnswer(t *testing.T, p answerParams) {
 	select {
 	case <-srCh:
 	case <-time.After(5 * time.Second):
-		t.Fatalf("failed to complete submission to flux aggregator")
+		t.Fatal("failed to complete submission to flux aggregator")
 	}
 	checkSubmission(t, p, cb.Int64(), 0)
 }
@@ -365,7 +365,7 @@ func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSu
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()
 	case <-time.After(20 * pollTimerPeriod):
-		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
+		t.Fatal("chainlink failed to submit answer to FluxAggregator contract")
 		return 0, 0 // unreachable
 	}
 }
