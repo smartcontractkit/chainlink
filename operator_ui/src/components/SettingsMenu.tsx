@@ -1,11 +1,11 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
 
 import IconButton from '@material-ui/core/IconButton'
 import Menu from '@material-ui/core/Menu'
-import MenuItem from '@material-ui/core/MenuItem'
 import SettingsIcon from '@material-ui/icons/Settings'
 import { Theme, withStyles, WithStyles } from '@material-ui/core/styles'
+
+import { MenuItemLink } from 'components/MenuItemLink'
 
 const styles = (theme: Theme) => {
   return {
@@ -33,12 +33,6 @@ export const SettingsMenu = withStyles(styles)(({ classes }: Props) => {
     setAnchorEl(null)
   }
 
-  const renderLink = (to: string) => {
-    return function (itemProps: any) {
-      return <Link to={to} {...itemProps} />
-    }
-  }
-
   return (
     <React.Fragment>
       <IconButton disableRipple onClick={handleOpen}>
@@ -58,16 +52,12 @@ export const SettingsMenu = withStyles(styles)(({ classes }: Props) => {
           className: classes.menuList,
         }}
       >
-        <MenuItem button onClick={handleClose} component={renderLink('/keys')}>
+        <MenuItemLink onClick={handleClose} to="/keys">
           Key Management
-        </MenuItem>
-        <MenuItem
-          button
-          onClick={handleClose}
-          component={renderLink('/config')}
-        >
+        </MenuItemLink>
+        <MenuItemLink onClick={handleClose} to="/config">
           Configuration
-        </MenuItem>
+        </MenuItemLink>
       </Menu>
     </React.Fragment>
   )
