@@ -140,7 +140,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
-		big.NewInt(1000000000000000000),        // Minimum subscription balance 0.01 link
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()
@@ -414,7 +413,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.consumerContractAddress,
 		uni.rootContractAddress,
 	}, []*big.Int{
-		big.NewInt(1000000000000000000), // 1 link
+		assets.Ether(10), // 10 link
 		big.NewInt(0),                   // 0 link
 	})
 	subFunding := decimal.RequireFromString("1000000000000000000")
@@ -427,8 +426,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		big.NewInt(0),
-		big.NewInt(1000000000000000000),
+		assets.Ether(9),
+		assets.Ether(1),
 		big.NewInt(0),
 	})
 	subId, err := uni.consumerContract.SSubId(nil)
@@ -537,7 +536,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 		uni.nallory.From, // Oracle's own address should have nothing
 	}, []*big.Int{
-		big.NewInt(0),
+		assets.Ether(9),
 		subFunding.Sub(linkWeiCharged).BigInt(),
 		linkWeiCharged.BigInt(),
 	})
