@@ -110,8 +110,10 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
-		assert.Nil(t, results.Errors[0])
-		assert.Nil(t, results.Errors[1])
+		require.GreaterOrEqual(t, len(results.FatalErrors), 2)
+		assert.Nil(t, results.FatalErrors[0])
+		assert.Nil(t, results.FatalErrors[1])
+		require.GreaterOrEqual(t, len(results.AllErrors), 2)
 		assert.Equal(t, "6225.6", results.Values[0].(decimal.Decimal).String())
 		assert.Equal(t, "Hal Finney", results.Values[1].(string))
 
@@ -204,9 +206,9 @@ func TestRunner(t *testing.T) {
 		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 
-		assert.Len(t, results.Errors, 1)
+		assert.Len(t, results.FatalErrors, 1)
 		assert.Len(t, results.Values, 1)
-		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -251,8 +253,8 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
-		assert.Len(t, results.Errors, 1)
-		assert.Contains(t, results.Errors[0].Error(), pipeline.ErrTooManyErrors.Error())
+		assert.Len(t, results.FatalErrors, 1)
+		assert.Contains(t, results.FatalErrors[0].Error(), pipeline.ErrTooManyErrors.Error())
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -296,7 +298,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
-		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.FatalErrors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -617,7 +619,7 @@ ds1 -> ds1_parse;
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
-		assert.Nil(t, results.Errors[0])
+		assert.Nil(t, results.FatalErrors[0])
 
 		// Job specified task timeout should fail.
 		jbs = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
@@ -628,7 +630,7 @@ ds1 -> ds1_parse;
 
 		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
-		assert.NotNil(t, results.Errors[0])
+		assert.NotNil(t, results.FatalErrors[0])
 	})
 
 	t.Run("deleting jobs", func(t *testing.T) {
@@ -647,7 +649,7 @@ ds1 -> ds1_parse;
 		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
-		assert.Nil(t, results.Errors[0])
+		assert.Nil(t, results.FatalErrors[0])
 		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
 
 		// Delete the job
@@ -832,7 +834,7 @@ observationSource   = """
 		require.Empty(t, run.PipelineTaskRuns[2].Error)
 		require.Empty(t, run.PipelineTaskRuns[3].Error)
 		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{"123450000000000000000"}, Valid: true}, run.Outputs)
-		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.Errors)
+		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "", Valid: false}}}, run.FatalErrors)
 	})
 
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
@@ -868,7 +870,7 @@ observationSource   = """
 		assert.True(t, run.PipelineTaskRuns[2].Error.Valid)
 		assert.True(t, run.PipelineTaskRuns[3].Error.Valid)
 		require.Equal(t, pipeline.JSONSerializable{Val: []interface{}{interface{}(nil)}, Valid: true}, run.Outputs)
-		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.Errors)
+		require.Equal(t, pipeline.RunErrors{null.String{NullString: sql.NullString{String: "task inputs: too many errors", Valid: true}}}, run.FatalErrors)
 	})
 
 	// Delete the job
