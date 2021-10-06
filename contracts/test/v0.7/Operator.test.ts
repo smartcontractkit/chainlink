@@ -772,8 +772,9 @@ describe('Operator', () => {
         constants.HashZero,
       )
 
-      const ottSelector =
-        operatorFactory.interface.getSighash('onTokenTransfer')
+      const ottSelector = operatorFactory.interface.getSighash(
+        'onTokenTransfer',
+      )
       const header =
         '000000000000000000000000c5fdf4076b8f3a5357c5e395ab970b5b54098fef' + // to
         '0000000000000000000000000000000000000000000000000000000000000539' + // amount
@@ -841,8 +842,9 @@ describe('Operator', () => {
 
       describe('when called with a payload less than 2 EVM words + function selector', () => {
         it('throws an error', async () => {
-          const funcSelector =
-            operatorFactory.interface.getSighash('oracleRequest')
+          const funcSelector = operatorFactory.interface.getSighash(
+            'oracleRequest',
+          )
           const maliciousData =
             funcSelector +
             '0000000000000000000000000000000000000000000000000000000000000000000'
@@ -854,8 +856,9 @@ describe('Operator', () => {
 
       describe('when called with a payload between 3 and 9 EVM words', () => {
         it('throws an error', async () => {
-          const funcSelector =
-            operatorFactory.interface.getSighash('oracleRequest')
+          const funcSelector = operatorFactory.interface.getSighash(
+            'oracleRequest',
+          )
           const maliciousData =
             funcSelector +
             '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
@@ -950,8 +953,9 @@ describe('Operator', () => {
 
       describe('when called with a payload less than 2 EVM words + function selector', () => {
         it('throws an error', async () => {
-          const funcSelector =
-            operatorFactory.interface.getSighash('oracleRequest')
+          const funcSelector = operatorFactory.interface.getSighash(
+            'oracleRequest',
+          )
           const maliciousData =
             funcSelector +
             '0000000000000000000000000000000000000000000000000000000000000000000'
@@ -963,8 +967,9 @@ describe('Operator', () => {
 
       describe('when called with a payload between 3 and 9 EVM words', () => {
         it('throws an error', async () => {
-          const funcSelector =
-            operatorFactory.interface.getSighash('oracleRequest')
+          const funcSelector = operatorFactory.interface.getSighash(
+            'oracleRequest',
+          )
           const maliciousData =
             funcSelector +
             '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
@@ -2102,8 +2107,9 @@ describe('Operator', () => {
 
           describe('when called by an authorized node', () => {
             it('raises an error if the request ID does not exist', async () => {
-              request.requestId =
-                ethers.utils.formatBytes32String('DOESNOTEXIST')
+              request.requestId = ethers.utils.formatBytes32String(
+                'DOESNOTEXIST',
+              )
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
@@ -2606,8 +2612,9 @@ describe('Operator', () => {
 
           describe('when called by an authorized node', () => {
             it('raises an error if the request ID does not exist', async () => {
-              request.requestId =
-                ethers.utils.formatBytes32String('DOESNOTEXIST')
+              request.requestId = ethers.utils.formatBytes32String(
+                'DOESNOTEXIST',
+              )
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
@@ -3128,10 +3135,12 @@ describe('Operator', () => {
             await roles.defaultAccount.getAddress(),
           )
 
-          const accountDifference =
-            accountBalanceAfter.sub(accountBalanceBefore)
-          const operatorDifference =
-            operatorBalanceBefore.sub(operatorBalanceAfter)
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
+          const operatorDifference = operatorBalanceBefore.sub(
+            operatorBalanceAfter,
+          )
 
           bigNumEquals(operatorDifference, paid)
           bigNumEquals(accountDifference, paid)
@@ -3192,10 +3201,12 @@ describe('Operator', () => {
               await roles.defaultAccount.getAddress(),
             )
 
-            const accountDifference =
-              accountBalanceAfter.sub(accountBalanceBefore)
-            const operatorDifference =
-              operatorBalanceBefore.sub(operatorBalanceAfter)
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
 
             bigNumEquals(operatorDifference, paid)
             bigNumEquals(accountDifference, paid)
@@ -3298,10 +3309,12 @@ describe('Operator', () => {
               await roles.defaultAccount.getAddress(),
             )
 
-            const accountDifference =
-              accountBalanceAfter.sub(accountBalanceBefore)
-            const operatorDifference =
-              operatorBalanceBefore.sub(operatorBalanceAfter)
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
 
             bigNumEquals(operatorDifference, paid)
             bigNumEquals(accountDifference, paid)
@@ -3451,8 +3464,9 @@ describe('Operator', () => {
         const fakeRequest: RunRequest = {
           requestId: ethers.utils.formatBytes32String('1337'),
           payment: '0',
-          callbackFunc:
-            getterSetterFactory.interface.getSighash('requestedBytes32'),
+          callbackFunc: getterSetterFactory.interface.getSighash(
+            'requestedBytes32',
+          ),
           expiration: '999999999999',
 
           callbackAddr: '',
@@ -3576,8 +3590,9 @@ describe('Operator', () => {
         const fakeRequest: RunRequest = {
           requestId: ethers.utils.formatBytes32String('1337'),
           payment: '0',
-          callbackFunc:
-            getterSetterFactory.interface.getSighash('requestedBytes32'),
+          callbackFunc: getterSetterFactory.interface.getSighash(
+            'requestedBytes32',
+          ),
           expiration: '999999999999',
 
           callbackAddr: '',
