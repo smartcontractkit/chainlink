@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { connect } from 'react-redux'
-import * as models from 'core/store/models'
+import { Chain, Resource } from 'core/store/models'
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import { Redirect, useLocation } from 'react-router-dom'
 import Button from 'components/Button'
@@ -112,11 +112,11 @@ const styles = (theme: Theme) =>
     },
   })
 
-export type ChainSpecV2 = models.Resource<models.Chain>
+export type ChainResource = Resource<Chain>
 
 interface Props extends WithStyles<typeof styles> {
   chainId: string
-  chain?: ChainSpecV2
+  chain?: ChainResource
   deleteChain: Function
 }
 

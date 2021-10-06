@@ -9,7 +9,7 @@ import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
 import Content from 'components/Content'
 import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
-import { ChainSpecV2 } from './RegionalNav'
+import { ChainResource } from './RegionalNav'
 import { Field, Form, Formik } from 'formik'
 import { TextField } from 'formik-material-ui'
 import * as Yup from 'yup'
@@ -38,7 +38,7 @@ function apiCall({
   return api.v2.nodes.createNode(definition)
 }
 
-const NewChainNode = ({ chain }: { chain: ChainSpecV2 }) => {
+const NewChainNode = ({ chain }: { chain: ChainResource }) => {
   const dispatch = useDispatch()
 
   async function handleSubmit({

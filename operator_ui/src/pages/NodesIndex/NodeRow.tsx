@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { NodeSpecV2 } from './NodesIndex'
+import { NodeResource } from './NodesIndex'
 import { tableStyles } from 'components/Table'
 import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
@@ -10,7 +10,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 
 interface Props extends WithStyles<typeof tableStyles> {
-  node: NodeSpecV2
+  node: NodeResource
 }
 
 export const NodeRow = withStyles(tableStyles)(({ node, classes }: Props) => {

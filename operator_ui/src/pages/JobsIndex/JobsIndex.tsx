@@ -6,7 +6,8 @@ import Button from 'components/Button'
 import Content from 'components/Content'
 import { JobRow } from './JobRow'
 import Link from 'components/Link'
-import * as models from 'core/store/models'
+import { Resource, Job } from 'core/store/models'
+import { SearchTextField } from 'src/components/SearchTextField'
 import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
@@ -14,34 +15,22 @@ import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
-import SearchIcon from '@material-ui/icons/Search'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
+import CardHeader from '@material-ui/core/CardHeader'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import TextField from '@material-ui/core/TextField'
 
-interface Job<T> {
-  attributes: T
-  id: string
-  type: string
-}
+export type JobResource = Resource<Job>
 
-export type JobSpecV2 = Job<models.Job>
-
-function isOCRJobSpec(job: JobSpecV2) {
+function isOCRJobSpec(job: JobResource) {
   return job.attributes.type === 'offchainreporting'
 }
 
-function getCreatedAt(job: JobSpecV2) {
+function getCreatedAt(job: JobResource) {
   switch (job.attributes.type) {
     case 'offchainreporting':
       return job.attributes.offChainReportingOracleSpec.createdAt
@@ -88,7 +77,7 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const simpleJobFilter = (search: string) => (job: JobSpecV2) => {
+export const simpleJobFilter = (search: string) => (job: JobResource) => {
   if (search === '') {
     return true
   }
@@ -101,7 +90,7 @@ export const simpleJobFilter = (search: string) => (job: JobSpecV2) => {
 }
 
 // matchSimple does a simple match on the id, name and type.
-function matchSimple(job: JobSpecV2, term: string) {
+function matchSimple(job: JobResource, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [
@@ -116,10 +105,10 @@ function matchSimple(job: JobSpecV2, term: string) {
 /**
  * matchOCR determines whether the OCR job matches the search terms
  *
- * @param job {JobSpecV2} The V2 Job Spec
+ * @param job {JobResource} The V2 Job Spec
  * @param term {string} The search term
  */
-function matchOCR(job: JobSpecV2, term: string) {
+function matchOCR(job: JobResource, term: string) {
   const match = searchIncludes(term)
 
   const { offChainReportingOracleSpec } = job.attributes
@@ -135,7 +124,7 @@ function matchOCR(job: JobSpecV2, term: string) {
     'keyBundleID',
     'p2pPeerID',
     'transmitterAddress',
-  ] as Array<keyof models.Job['offChainReportingOracleSpec']>
+  ] as Array<keyof Job['offChainReportingOracleSpec']>
 
   if (offChainReportingOracleSpec) {
     searchableProperties.forEach((property) => {
@@ -146,14 +135,10 @@ function matchOCR(job: JobSpecV2, term: string) {
   return dataset.some(match)
 }
 
-const styles = (theme: Theme) =>
+const styles = () =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
-    },
-    search: {
-      marginBottom: theme.spacing.unit,
+    cardHeader: {
+      borderBottom: 0,
     },
   })
 
@@ -163,7 +148,7 @@ export const JobsIndex = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const [search, setSearch] = React.useState('')
-  const [jobs, setJobs] = React.useState<JobSpecV2[]>()
+  const [jobs, setJobs] = React.useState<JobResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
 
@@ -204,27 +189,13 @@ export const JobsIndex = ({
           <ErrorComponent />
           <LoadingPlaceholder />
           {!error && jobs && (
-            <Card className={classes.card}>
-              <CardContent>
-                <Grid
-                  container
-                  spacing={8}
-                  alignItems="flex-end"
-                  className={classes.search}
-                >
-                  <Grid item>
-                    <SearchIcon />
-                  </Grid>
-                  <Grid item>
-                    <TextField
-                      label="Search"
-                      value={search}
-                      name="search"
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </Grid>
-                </Grid>
+            <Card>
+              <CardHeader
+                title={<SearchTextField value={search} onChange={setSearch} />}
+                className={classes.cardHeader}
+              />
 
+              <CardContent>
                 <Table>
                   <TableHead>
                     <TableRow>
