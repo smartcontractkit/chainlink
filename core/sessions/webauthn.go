@@ -328,6 +328,5 @@ func (store *WebAuthnSessionStore) Set(key string, value interface{}, r *http.Re
 		return fmt.Errorf("error getting session %s", err)
 	}
 	session.Values[key] = value
-	session.Save(r, w)
-	return nil
+	return session.Save(r, w)
 }
