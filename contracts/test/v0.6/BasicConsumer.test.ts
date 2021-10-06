@@ -80,8 +80,7 @@ describe('BasicConsumer', () => {
         const request = decodeRunRequest(log)
         const expected = {
           path: ['USD'],
-          get:
-            'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
+          get: 'https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY',
         }
 
         assert.equal(toHex(specId), request.specId)

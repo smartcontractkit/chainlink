@@ -1,8 +1,8 @@
-name: Operator UI
+name: Prettier
 on: pull_request
 jobs:
-  operator-ui:
-    name: Operator UI Tests
+  prettier:
+    name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Setup node
@@ -27,5 +27,5 @@ jobs:
             ${{ runner.os }}-
       - name: Run yarn install
         run: yarn install --frozen-lockfile
-      - name: Run Operator UI tests
-        run: ./tools/ci/operator_ui_test
+      - name: Run prettier check
+        run: yarn prettier:check

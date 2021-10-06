@@ -26,6 +26,7 @@ import (
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
+const syncUpkeepQueueSize = 10
 
 var registryConfig = keeper_registry_wrapper.GetConfig{
 	PaymentPremiumPPB: 100,
@@ -79,7 +80,7 @@ func setupRegistrySync(t *testing.T) (
 	lbMock.On("IsConnected").Return(true).Maybe()
 
 	orm := keeper.NewORM(db, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default)
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default, syncUpkeepQueueSize)
 	return db, synchronizer, ethClient, lbMock, j
 }
 
