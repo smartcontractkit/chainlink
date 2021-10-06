@@ -5,6 +5,7 @@ import "./interfaces/AggregatorV3Interface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/KeeperCompatibleInterface.sol";
 import "./interfaces/KeeperRegistryInterface.sol";
+import "./interfaces/TypeAndVersionInterface.sol";
 import "./vendor/SafeMathChainlink.sol";
 import "./vendor/Address.sol";
 import "./vendor/Pausable.sol";
@@ -18,7 +19,14 @@ import "./ConfirmedOwner.sol";
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable, KeeperRegistryExecutableInterface {
+contract KeeperRegistry is
+  TypeAndVersionInterface,
+  ConfirmedOwner,
+  KeeperBase,
+  ReentrancyGuard,
+  Pausable,
+  KeeperRegistryExecutableInterface
+{
   using Address for address;
   using SafeMathChainlink for uint256;
   using SafeMath96 for uint96;
@@ -55,6 +63,13 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
 
   address private s_registrar;
 
+  /**
+   * @notice versions:
+   * - KeeperRegistry 1.1.0: added flatFeeMicroLink
+   * - KeeperRegistry 1.0.0: initial release
+   */
+  string public constant override typeAndVersion = "KeeperRegistry 1.1.0";
+
   struct Upkeep {
     address target;
     uint32 executeGas;
@@ -72,6 +87,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
 
   struct Config {
     uint32 paymentPremiumPPB;
+    uint32 flatFeeMicroLink; // min 0.000001 LINK, max 4294 LINK
     uint24 blockCountPerTurn;
     uint32 checkGasLimit;
     uint24 stalenessSeconds;
@@ -108,6 +124,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
     uint256 fallbackGasPrice,
     uint256 fallbackLinkPrice
   );
+  event FlatFeeSet(uint32 flatFeeMicroLink);
   event KeepersUpdated(address[] keepers, address[] payees);
   event PaymentWithdrawn(address indexed keeper, uint256 indexed amount, address indexed to, address payee);
   event PayeeshipTransferRequested(address indexed keeper, address indexed from, address indexed to);
@@ -120,6 +137,9 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
    * @param fastGasFeed address of the Fast Gas price feed
    * @param paymentPremiumPPB payment premium rate oracles receive on top of
    * being reimbursed for gas, measured in parts per billion
+   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps,
+   * priced in MicroLink; can be used in conjunction with or independently of
+   * paymentPremiumPPB
    * @param blockCountPerTurn number of blocks each oracle has during their turn to
    * perform upkeep before it will be the next keeper's turn to submit
    * @param checkGasLimit gas limit when checking for upkeep
@@ -135,6 +155,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
     address linkEthFeed,
     address fastGasFeed,
     uint32 paymentPremiumPPB,
+    uint32 flatFeeMicroLink,
     uint24 blockCountPerTurn,
     uint32 checkGasLimit,
     uint24 stalenessSeconds,
@@ -148,6 +169,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
 
     setConfig(
       paymentPremiumPPB,
+      flatFeeMicroLink,
       blockCountPerTurn,
       checkGasLimit,
       stalenessSeconds,
@@ -397,6 +419,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
    * @notice updates the configuration of the registry
    * @param paymentPremiumPPB payment premium rate oracles receive on top of
    * being reimbursed for gas, measured in parts per billion
+   * @param flatFeeMicroLink flat fee paid to oracles for performing upkeeps
    * @param blockCountPerTurn number of blocks an oracle should wait before
    * checking for upkeep
    * @param checkGasLimit gas limit when checking for upkeep
@@ -407,6 +430,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
    */
   function setConfig(
     uint32 paymentPremiumPPB,
+    uint32 flatFeeMicroLink,
     uint24 blockCountPerTurn,
     uint32 checkGasLimit,
     uint24 stalenessSeconds,
@@ -416,6 +440,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
   ) public onlyOwner {
     s_config = Config({
       paymentPremiumPPB: paymentPremiumPPB,
+      flatFeeMicroLink: flatFeeMicroLink,
       blockCountPerTurn: blockCountPerTurn,
       checkGasLimit: checkGasLimit,
       stalenessSeconds: stalenessSeconds,
@@ -433,6 +458,7 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
       fallbackGasPrice,
       fallbackLinkPrice
     );
+    emit FlatFeeSet(flatFeeMicroLink);
   }
 
   /**
@@ -582,6 +608,14 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
   }
 
   /**
+   * @notice getFlatFee gets the flat rate fee charged to customers when performing upkeep,
+   * in units of of micro LINK
+   */
+  function getFlatFee() external view returns (uint32) {
+    return s_config.flatFeeMicroLink;
+  }
+
+  /**
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    */
   function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
@@ -633,9 +667,10 @@ contract KeeperRegistry is ConfirmedOwner, KeeperBase, ReentrancyGuard, Pausable
     uint256 gasWei,
     uint256 linkEth
   ) private view returns (uint96 payment) {
+    Config memory config = s_config;
     uint256 weiForGas = gasWei.mul(gasLimit.add(REGISTRY_GAS_OVERHEAD));
-    uint256 premium = PPB_BASE.add(s_config.paymentPremiumPPB);
-    uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth);
+    uint256 premium = PPB_BASE.add(config.paymentPremiumPPB);
+    uint256 total = weiForGas.mul(1e9).mul(premium).div(linkEth).add(uint256(config.flatFeeMicroLink).mul(1e12));
     require(total <= LINK_TOTAL_SUPPLY, "payment greater than all LINK");
     return uint96(total); // LINK_TOTAL_SUPPLY < UINT96_MAX
   }
