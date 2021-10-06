@@ -42,15 +42,16 @@ type master struct {
 	vrf *vrf
 }
 
-func New(db *gorm.DB, scryptParams utils.ScryptParams) Master {
-	return newMaster(db, scryptParams)
+func New(db *gorm.DB, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
+	return newMaster(db, scryptParams, lggr.Named("KeyStore"))
 }
 
-func newMaster(db *gorm.DB, scryptParams utils.ScryptParams) *master {
+func newMaster(db *gorm.DB, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
 	km := &keyManager{
 		orm:          NewORM(db),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
+		logger:       lggr,
 	}
 
 	return &master{
@@ -171,6 +172,7 @@ type keyManager struct {
 	keyStates    keyStates
 	lock         *sync.RWMutex
 	password     string
+	logger       logger.Logger
 }
 
 func (km *keyManager) Unlock(password string) error {
@@ -191,6 +193,7 @@ func (km *keyManager) Unlock(password string) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt encrypted key ring")
 	}
+	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
 	ks, err := km.orm.loadKeyStates()
