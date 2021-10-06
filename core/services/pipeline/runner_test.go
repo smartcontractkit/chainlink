@@ -103,13 +103,14 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	finalResults := trrs.FinalResult()
 	require.Len(t, finalResults.Values, 3)
-	require.Len(t, finalResults.Errors, 3)
+	require.Len(t, finalResults.AllErrors, 12)
+	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.Nil(t, finalResults.Errors[0])
+	assert.Nil(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.Nil(t, finalResults.Errors[1])
+	assert.Nil(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.Nil(t, finalResults.Errors[2])
+	assert.Nil(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -325,8 +326,8 @@ decode_log -> decode_cbor;
 		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
-		require.Len(t, finalResults.Errors, 1)
-		assert.Nil(t, finalResults.Errors[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
@@ -363,8 +364,8 @@ decode_log -> decode_cbor;
 		finalResults := trrs.FinalResult()
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, "foo", finalResults.Values[0])
-		require.Len(t, finalResults.Errors, 1)
-		assert.Nil(t, finalResults.Errors[0])
+		require.Len(t, finalResults.FatalErrors, 1)
+		assert.Nil(t, finalResults.FatalErrors[0])
 	})
 }
 
@@ -418,6 +419,36 @@ answer1 [type=median                      index=0];
 	}
 }
 
+func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(db)
+	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
+
+	spec := pipeline.Spec{DotDagSource: `
+fail_but_i_dont_care [type=fail]
+succeed1             [type=memo value=10]
+succeed2             [type=memo value=11]
+final                [type=mean]
+
+fail_but_i_dont_care -> final;
+succeed1 -> final;
+succeed2 -> final;
+`}
+	vars := pipeline.NewVarsFrom(nil)
+
+	_, finalResult, err := r.ExecuteAndInsertFinishedRun(context.Background(), spec, vars, logger.Default, false)
+	require.NoError(t, err)
+	assert.True(t, finalResult.HasErrors())
+	assert.False(t, finalResult.HasFatalErrors())
+	require.Len(t, finalResult.Values, 1)
+	assert.Equal(t, "10.5", finalResult.Values[0].(decimal.Decimal).String())
+}
+
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
@@ -434,7 +465,7 @@ a->b2->c;`,
 	}, pipeline.NewVarsFrom(input), logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasErrors())
+	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
 
 	// a = 4
 	// (b1 = 8) + (b2 = 12)
@@ -460,7 +491,7 @@ a->b2;`,
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
 	result := trrs.FinalResult()
-	assert.Equal(t, false, result.HasErrors())
+	assert.Equal(t, false, result.HasFatalErrors())
 
 	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
@@ -487,8 +518,8 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
-	assert.Equal(t, true, trrs.FinalResult().HasErrors())
-	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().Errors[0])
+	assert.Equal(t, true, trrs.FinalResult().HasFatalErrors())
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().FatalErrors[0])
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
@@ -598,14 +629,14 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Equal(t, false, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
-	require.Len(t, run.Errors, 3)
+	require.Len(t, run.FatalErrors, 3)
 	outputs := run.Outputs.Val.([]interface{})
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
-	assert.True(t, run.Errors[0].IsZero())
+	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
-	assert.True(t, run.Errors[1].IsZero())
+	assert.True(t, run.FatalErrors[1].IsZero())
 	assert.Equal(t, "bar-index-2", outputs[2].(string))
-	assert.True(t, run.Errors[2].IsZero())
+	assert.True(t, run.FatalErrors[2].IsZero())
 
 	var errorResults []pipeline.TaskRun
 	for _, trr := range run.PipelineTaskRuns {
@@ -713,14 +744,14 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Equal(t, false, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
-	require.Len(t, run.Errors, 3)
+	require.Len(t, run.FatalErrors, 3)
 	outputs := run.Outputs.Val.([]interface{})
 	assert.Equal(t, "9650000000000000000000", outputs[0].(decimal.Decimal).String())
-	assert.True(t, run.Errors[0].IsZero())
+	assert.True(t, run.FatalErrors[0].IsZero())
 	assert.Equal(t, "foo-index-1", outputs[1].(string))
-	assert.True(t, run.Errors[1].IsZero())
+	assert.True(t, run.FatalErrors[1].IsZero())
 	assert.Equal(t, "bar-index-2", outputs[2].(string))
-	assert.True(t, run.Errors[2].IsZero())
+	assert.True(t, run.FatalErrors[2].IsZero())
 
 	var errorResults []pipeline.TaskRun
 	for _, trr := range run.PipelineTaskRuns {

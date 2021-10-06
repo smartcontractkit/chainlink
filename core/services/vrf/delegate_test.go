@@ -456,7 +456,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		runs, err := vuni.prm.GetAllRuns()
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
-		assert.False(t, runs[0].Errors.HasError())
+		assert.False(t, runs[0].FatalErrors.HasError())
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 

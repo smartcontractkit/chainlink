@@ -709,7 +709,7 @@ observationSource = """
 			for i := 0; i < 4; i++ {
 				// Want at least 2 runs so we see all the metadata.
 				pr := cltest.WaitForPipelineComplete(t, i, jids[i],
-					2, 0, apps[i].JobORM(), time.Minute, time.Second)
+					2, 7, apps[i].JobORM(), time.Minute, time.Second)
 				jb, err := pr[0].Outputs.MarshalJSON()
 				require.NoError(t, err)
 				assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb)
