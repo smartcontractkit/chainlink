@@ -100,7 +100,7 @@
     "fetch-mock": "^9.0.0",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.3.2",
-    "jest": "^26.6.3",
+    "jest": "^27.2.4",
     "jest-silent-reporter": "^0.5.0",
     "mock-local-storage": "^1.1.11",
     "react-hot-loader": "^4.12.19",
