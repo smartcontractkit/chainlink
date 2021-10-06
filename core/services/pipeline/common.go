@@ -124,13 +124,24 @@ func (result Result) ErrorDB() null.String {
 
 // FinalResult is the result of a Run
 type FinalResult struct {
-	Values []interface{}
-	Errors []error
+	Values      []interface{}
+	AllErrors   []error
+	FatalErrors []error
+}
+
+// HasFatalErrors returns true if the final result has any errors
+func (result FinalResult) HasFatalErrors() bool {
+	for _, err := range result.FatalErrors {
+		if err != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // HasErrors returns true if the final result has any errors
 func (result FinalResult) HasErrors() bool {
-	for _, err := range result.Errors {
+	for _, err := range result.AllErrors {
 		if err != nil {
 			return true
 		}
@@ -140,10 +151,10 @@ func (result FinalResult) HasErrors() bool {
 
 // SingularResult returns a single result if the FinalResult only has one set of outputs/errors
 func (result FinalResult) SingularResult() (Result, error) {
-	if len(result.Errors) != 1 || len(result.Values) != 1 {
+	if len(result.FatalErrors) != 1 || len(result.Values) != 1 {
 		return Result{}, errors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
 	}
-	return Result{Error: result.Errors[0], Value: result.Values[0]}, nil
+	return Result{Error: result.FatalErrors[0], Value: result.Values[0]}, nil
 }
 
 // TaskRunResult describes the result of a task run, suitable for database
@@ -182,9 +193,10 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
 	})
 	for _, trr := range trrs {
+		fr.AllErrors = append(fr.AllErrors, trr.Result.Error)
 		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
-			fr.Errors = append(fr.Errors, trr.Result.Error)
+			fr.FatalErrors = append(fr.FatalErrors, trr.Result.Error)
 			found = true
 		}
 	}
@@ -309,6 +321,8 @@ const (
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
+	TaskTypeMemo  TaskType = "memo"
+	TaskTypeFail  TaskType = "fail"
 )
 
 var (
@@ -350,6 +364,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeJSONParse:
 		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMemo:
+		task = &MemoTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeDivide:
@@ -372,6 +388,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeCBORParse:
 		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeFail:
+		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
