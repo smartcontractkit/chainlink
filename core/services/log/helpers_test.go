@@ -178,13 +178,17 @@ func newReceived(logs []types.Log) *received {
 func (rec *received) getLogs() []types.Log {
 	rec.Lock()
 	defer rec.Unlock()
-	return rec.logs
+	r := make([]types.Log, len(rec.logs))
+	copy(r, rec.logs)
+	return r
 }
 
 func (rec *received) getUniqueLogs() []types.Log {
 	rec.Lock()
 	defer rec.Unlock()
-	return rec.uniqueLogs
+	r := make([]types.Log, len(rec.uniqueLogs))
+	copy(r, rec.uniqueLogs)
+	return r
 }
 
 func (rec *received) logsOnBlocks() []logOnBlock {
@@ -207,7 +211,7 @@ type simpleLogListener struct {
 	t                   *testing.T
 	db                  *gorm.DB
 	jobID               int32
-	skipMarkingConsumed bool
+	skipMarkingConsumed atomic.Bool
 }
 
 func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogListener {
@@ -234,7 +238,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 }
 
 func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
-	listener.skipMarkingConsumed = skip
+	listener.skipMarkingConsumed.Store(skip)
 }
 
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
@@ -286,7 +290,7 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broad
 	t.Helper()
 	consumed, err := listener.WasAlreadyConsumed(listener.db, lb)
 	require.NoError(t, err)
-	if !consumed && !listener.skipMarkingConsumed {
+	if !consumed && !listener.skipMarkingConsumed.Load() {
 
 		err = listener.MarkConsumed(listener.db, lb)
 		require.NoError(t, err)

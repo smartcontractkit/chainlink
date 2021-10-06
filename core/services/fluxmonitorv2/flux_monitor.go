@@ -508,7 +508,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 		fm.markLogAsConsumed(broadcast, decodedLog, started)
 	case *flags_wrapper.FlagsFlagLowered:
 		// Only reactivate if it is hibernating
-		if fm.pollManager.cfg.IsHibernating {
+		if fm.pollManager.isHibernating.Load() {
 			fm.pollManager.Awaken(fm.initialRoundState())
 			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
 		}
@@ -804,7 +804,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 	}()
 
-	if pollReq != PollRequestTypeHibernation && fm.pollManager.cfg.IsHibernating {
+	if pollReq != PollRequestTypeHibernation && fm.pollManager.isHibernating.Load() {
 		l.Warnw("FluxMonitor: Skipping poll because a ticker fired while hibernating")
 		return
 	}
