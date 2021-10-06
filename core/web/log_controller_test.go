@@ -69,10 +69,6 @@ func TestLogController_GetLogConfig(t *testing.T) {
 func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
-
 	sqlTrue := true
 	sqlFalse := false
 	cases := []testCase{
@@ -162,7 +158,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			svcName:  strings.Join([]string{logger.HeadTracker, logger.FluxMonitor, logger.Keeper}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning", "infa"}, ","),
 
-			expectedErrorCode: http.StatusInternalServerError,
+			expectedErrorCode: http.StatusBadRequest,
 		},
 		{
 			Description: "Set incorrect service names",
@@ -171,57 +167,64 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			svcName:  strings.Join([]string{logger.HeadTracker, "FLUX-MONITOR", "SHKEEPER"}, ","),
 			svcLevel: strings.Join([]string{"debug", "warning", "info"}, ","),
 
-			expectedErrorCode: http.StatusInternalServerError,
+			expectedErrorCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, tc := range cases {
-		request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
+		tc := tc
+		t.Run(tc.Description, func(t *testing.T) {
+			app := cltest.NewApplicationEVMDisabled(t)
+			require.NoError(t, app.Start())
+			client := app.NewHTTPClient()
 
-		if tc.svcName != "" {
-			svcs := strings.Split(tc.svcName, ",")
-			lvls := strings.Split(tc.svcLevel, ",")
+			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 
-			serviceLogLevel := make([][2]string, len(svcs))
+			if tc.svcName != "" {
+				svcs := strings.Split(tc.svcName, ",")
+				lvls := strings.Split(tc.svcLevel, ",")
 
-			for i, p := range svcs {
-				serviceLogLevel[i][0] = p
-				serviceLogLevel[i][1] = lvls[i]
+				serviceLogLevel := make([][2]string, len(svcs))
+
+				for i, p := range svcs {
+					serviceLogLevel[i][0] = p
+					serviceLogLevel[i][1] = lvls[i]
+				}
+				request.ServiceLogLevel = serviceLogLevel
 			}
-			request.ServiceLogLevel = serviceLogLevel
-		}
 
-		requestData, _ := json.Marshal(request)
-		buf := bytes.NewBuffer(requestData)
+			requestData, _ := json.Marshal(request)
+			buf := bytes.NewBuffer(requestData)
 
-		resp, cleanup := client.Patch("/v2/log", buf)
-		defer cleanup()
+			resp, cleanup := client.Patch("/v2/log", buf)
+			defer cleanup()
 
-		svcLogConfig := presenters.ServiceLogConfigResource{}
-		if tc.expectedErrorCode != 0 {
-			cltest.AssertServerResponse(t, resp, tc.expectedErrorCode)
-		} else {
-			cltest.AssertServerResponse(t, resp, http.StatusOK)
-			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
+			svcLogConfig := presenters.ServiceLogConfigResource{}
+			if tc.expectedErrorCode != 0 {
+				cltest.AssertServerResponse(t, resp, tc.expectedErrorCode)
+			} else {
+				cltest.AssertServerResponse(t, resp, http.StatusOK)
+				require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
 
-			for i, svcName := range svcLogConfig.ServiceName {
+				for i, svcName := range svcLogConfig.ServiceName {
 
-				if svcName == "Global" {
-					assert.Equal(t, tc.expectedLogLevel.String(), svcLogConfig.LogLevel[i])
-				}
+					if svcName == "Global" {
+						assert.Equal(t, tc.expectedLogLevel.String(), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == "IsSqlEnabled" {
-					assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
-				}
+					if svcName == "IsSqlEnabled" {
+						assert.Equal(t, strconv.FormatBool(tc.expectedLogSQL), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == logger.HeadTracker {
-					assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
-				}
+					if svcName == logger.HeadTracker {
+						assert.Equal(t, tc.expectedSvcLevel[logger.HeadTracker].String(), svcLogConfig.LogLevel[i])
+					}
 
-				if svcName == logger.FluxMonitor {
-					assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
+					if svcName == logger.FluxMonitor {
+						assert.Equal(t, tc.expectedSvcLevel[logger.FluxMonitor].String(), svcLogConfig.LogLevel[i])
+					}
 				}
 			}
-		}
+		})
 	}
 }

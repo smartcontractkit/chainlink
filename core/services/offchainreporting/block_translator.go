@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
@@ -15,10 +16,10 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(cfg Config, client eth.Client) BlockTranslator {
+func NewBlockTranslator(cfg Config, client eth.Client, logger logger.Logger) BlockTranslator {
 	switch cfg.ChainType() {
 	case chains.Arbitrum:
-		return NewArbitrumBlockTranslator(client)
+		return NewArbitrumBlockTranslator(client, logger)
 	case chains.Optimism:
 		return newOptimismBlockTranslator()
 

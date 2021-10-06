@@ -71,9 +71,10 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 
 	}
 	if opts.Config != nil {
-		opts.Logger = opts.Config.CreateProductionLogger().Named(t.Name())
+		opts.Logger = logger.CreateTestLogger(t)
+		opts.Logger.SetLogLevel(opts.Config.LogLevel())
 	} else {
-		opts.Logger = logger.Default.Named(t.Name())
+		opts.Logger = logger.CreateTestLogger(t)
 	}
 
 	opts.Config = testopts.GeneralConfig
@@ -176,6 +177,8 @@ func ChainArbitrumMainnet(t *testing.T) evmconfig.ChainScopedConfig { return sco
 func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 421611) }
 
 func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
+	lggr := logger.CreateTestLogger(t)
+	lggr.SetLogLevel(zapcore.DebugLevel)
 	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
-		logger.CreateTestLogger(zapcore.DebugLevel), configtest.NewTestGeneralConfig(t))
+		lggr, configtest.NewTestGeneralConfig(t))
 }

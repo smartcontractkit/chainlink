@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
 )
@@ -35,6 +36,7 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
+		logger.SetLogger(logger.CreateProductionLogger(client.Config))
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{

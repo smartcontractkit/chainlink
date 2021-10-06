@@ -1,15 +1,17 @@
-package logger
+package colortest
 
 import (
 	"testing"
 
-	"github.com/fatih/color"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPrettyConsole_Write(t *testing.T) {
-	color.NoColor = false
+func init() {
+	logger.SetColor(true)
+}
 
+func TestPrettyConsole_Write(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
@@ -40,7 +42,7 @@ func TestPrettyConsole_Write(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := &testReader{}
-			pc := PrettyConsole{tr}
+			pc := logger.PrettyConsole{tr}
 			_, err := pc.Write([]byte(tt.input))
 
 			if tt.wantError {

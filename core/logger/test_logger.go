@@ -8,9 +8,7 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/fatih/color"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // MemorySink implements zap.Sink by writing all messages to a buffer.
@@ -59,30 +57,29 @@ func MemoryLogTestingOnly() *MemorySink {
 
 // CreateTestLogger creates a logger that directs output to PrettyConsole
 // configured for test output, and to the buffer testMemoryLog.
-func CreateTestLogger(lvl zapcore.Level) Logger {
-	_ = MemoryLogTestingOnly() // Make sure memory log is created
-	color.NoColor = false
-	config := zap.NewProductionConfig()
-	config.Level.SetLevel(lvl)
-	config.OutputPaths = []string{"pretty://console", "memory://"}
-	zl, err := config.Build()
+// t is optional.
+func CreateTestLogger(t T) Logger {
+	l, err := newZapLogger(newTestConfig())
 	if err != nil {
-		log.Fatal(err)
+		if t == nil {
+			log.Fatal(err)
+		}
+		t.Fatal(err)
 	}
-	return &zapLogger{SugaredLogger: zl.Sugar()}
+	if t == nil {
+		return l
+	}
+	return l.Named(t.Name())
 }
 
-// CreateMemoryTestLogger creates a logger that only directs output to the
-// buffer testMemoryLog.
-func CreateMemoryTestLogger(lvl zapcore.Level) Logger {
+func newTestConfig() zap.Config {
 	_ = MemoryLogTestingOnly() // Make sure memory log is created
-	color.NoColor = true
 	config := zap.NewProductionConfig()
-	config.Level.SetLevel(lvl)
-	config.OutputPaths = []string{"memory://"}
-	zl, err := config.Build()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return &zapLogger{SugaredLogger: zl.Sugar()}
+	config.OutputPaths = []string{"pretty://console", "memory://"}
+	return config
+}
+
+type T interface {
+	Name() string
+	Fatal(...interface{})
 }

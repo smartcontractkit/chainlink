@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +24,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewGormDB(t)
 	cfg.SetDB(db)
-	logger := cfg.CreateProductionLogger()
+	logger := logger.CreateTestLogger(t)
+	logger.SetLogLevel(cfg.LogLevel())
 
 	sub := new(mocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)

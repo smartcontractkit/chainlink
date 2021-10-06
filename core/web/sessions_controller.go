@@ -24,7 +24,7 @@ type SessionsController struct {
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
-	logger.Tracef("Starting Session Creation")
+	logger.Debugf("TRACE: Starting Session Creation")
 	if sc.Sessions == nil {
 		sc.Sessions = clsessions.NewWebAuthnSessionStore()
 	}

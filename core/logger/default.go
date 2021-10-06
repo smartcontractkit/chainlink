@@ -26,14 +26,15 @@ func init() {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
 
-	zl, err := zap.NewProduction()
+	l, err := newZapLogger(zap.NewProductionConfig())
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(&zapLogger{SugaredLogger: zl.Sugar()})
+	SetLogger(l)
 }
 
-// SetLogger sets the internal logger to the given input.
+// SetLogger sets the Default logger to newLogger. Not safe for concurrent use,
+// so must be called from init() or the main goroutine during initialization.
 //
 // DEPRECATED this method is deprecated because it leads to race conditions.
 // Instead, you should fork the logger.Default instance to create a new logger
@@ -85,11 +86,6 @@ func Infof(format string, values ...interface{}) {
 // Debugf formats and then logs the message.
 func Debugf(format string, values ...interface{}) {
 	skipDefault.Debugf(format, values...)
-}
-
-// Tracef is a shim stand-in for when we have real trace-level logging support
-func Tracef(format string, values ...interface{}) {
-	skipDefault.Debug("TRACE: " + fmt.Sprintf(format, values...))
 }
 
 // Warnf formats and then logs the message as Warn.

@@ -107,6 +107,7 @@ func NewOCRContractTracker(
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
+	logger = logger.Named("OCRContractTracker")
 	return &OCRContractTracker{
 		utils.StartStopOnce{},
 		ethClient,
@@ -118,7 +119,7 @@ func NewOCRContractTracker(
 		logger,
 		db,
 		gdb,
-		NewBlockTranslator(cfg, ethClient),
+		NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
 		nil,
