@@ -33,9 +33,8 @@ const styles = () => {
 interface Props extends WithStyles<typeof styles> {}
 
 export const CSAKeys = withStyles(styles)(({ classes }: Props) => {
-  const [csaKeys, setCSAKeys] = React.useState<
-    jsonapi.ApiResponse<models.CSAKey[]>['data']
-  >()
+  const [csaKeys, setCSAKeys] =
+    React.useState<jsonapi.ApiResponse<models.CSAKey[]>['data']>()
   const { error, setError } = useErrorHandler()
   const [isFetching, setIsFetching] = React.useState<boolean>(true)
   const { isLoading } = useLoadingPlaceholder(!error && !csaKeys)

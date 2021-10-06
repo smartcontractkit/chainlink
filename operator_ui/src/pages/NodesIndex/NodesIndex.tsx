@@ -85,9 +85,10 @@ export const NodesIndex = ({
     getNodes().then(setNodes).catch(setError)
   }, [setError])
 
-  const nodeFilter = React.useMemo(() => simpleNodeFilter(search.trim()), [
-    search,
-  ])
+  const nodeFilter = React.useMemo(
+    () => simpleNodeFilter(search.trim()),
+    [search],
+  )
 
   return (
     <Content>

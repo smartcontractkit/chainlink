@@ -13,11 +13,10 @@ import {
   ResourceActionType,
 } from './reducers/actions'
 
-export type GetNormalizedData<T extends AnyFunc> = ReturnType<
-  T
-> extends ThunkAction<any, any, any, UpsertAction<infer A>>
-  ? A
-  : never
+export type GetNormalizedData<T extends AnyFunc> =
+  ReturnType<T> extends ThunkAction<any, any, any, UpsertAction<infer A>>
+    ? A
+    : never
 
 type Errors =
   | jsonapi.AuthenticationError
@@ -33,15 +32,14 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const curryErrorHandler = (dispatch: Dispatch, type: string) => (
-  error: Error,
-) => {
-  if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut(dispatch)
-  } else {
-    dispatch(createErrorAction(error, type))
+const curryErrorHandler =
+  (dispatch: Dispatch, type: string) => (error: Error) => {
+    if (error instanceof jsonapi.AuthenticationError) {
+      sendSignOut(dispatch)
+    } else {
+      dispatch(createErrorAction(error, type))
+    }
   }
-}
 
 export const notifySuccess = (component: React.ReactNode, props: object) => {
   return {
@@ -489,7 +487,7 @@ interface UpsertAction<TNormalizedData> extends Action<string> {
 function request<
   TNormalizedData,
   TApiArgs extends Array<any>,
-  TApiResp extends Promise<any>
+  TApiResp extends Promise<any>,
 >(
   type: string, // CHECKME -- stricten this type when we can
   prefix: RestAction,

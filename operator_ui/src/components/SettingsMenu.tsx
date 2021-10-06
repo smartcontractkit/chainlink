@@ -33,9 +33,8 @@ export const SettingsMenu = withStyles(styles)(({ classes }: Props) => {
     setAnchorEl(null)
   }
 
-  const renderLink = (to: string) => (itemProps: any) => (
+  const renderLink = (to: string) => (itemProps: any) =>
     <Link to={to} {...itemProps} />
-  )
 
   return (
     <React.Fragment>

@@ -40,7 +40,7 @@ declare module '@material-ui/core/styles/createTypography' {
 const mainTheme: ThemeOptions = {
   props: {
     MuiGrid: {
-      spacing: ((spacing.unit * 3) as any) as Required<
+      spacing: (spacing.unit * 3) as any as Required<
         Required<Required<ThemeOptions>['props']>['MuiGrid']
       >['spacing'],
     },

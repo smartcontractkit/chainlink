@@ -39,9 +39,9 @@ before(async () => {
 
   linkTokenFactory = await ethers.getContractFactory('LinkToken')
   // need full path because there are two contracts with name MockV3Aggregator
-  mockV3AggregatorFactory = ((await ethers.getContractFactory(
+  mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )) as unknown) as MockV3AggregatorFactory
+  )) as unknown as MockV3AggregatorFactory
   keeperRegistryFactory = await ethers.getContractFactory('KeeperRegistry')
   upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
   upkeepReverterFactory = await ethers.getContractFactory('UpkeepReverter')
