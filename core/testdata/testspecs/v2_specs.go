@@ -242,7 +242,6 @@ observationSource = """
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
 
-	// TODO: default from address
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:              jobID,
 		Name:               name,

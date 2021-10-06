@@ -25,7 +25,6 @@ describe('VRFCoordinatorV2', () => {
     stalenessSeconds: number
     gasAfterPaymentCalculation: number
     weiPerUnitLink: BigNumber
-    // minimumSubscriptionBalance: BigNumber
   }
   let c: config
 
@@ -87,7 +86,6 @@ describe('VRFCoordinatorV2', () => {
       gasAfterPaymentCalculation:
         21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
       weiPerUnitLink: BigNumber.from('10000000000000000'),
-      // minimumSubscriptionBalance: BigNumber.from('100000000000000000'), // 0.1 link
     }
     await vrfCoordinatorV2
       .connect(owner)
@@ -98,7 +96,6 @@ describe('VRFCoordinatorV2', () => {
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
         c.weiPerUnitLink,
-        // c.minimumSubscriptionBalance,
       )
   })
 
@@ -154,7 +151,6 @@ describe('VRFCoordinatorV2', () => {
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
-            // c.minimumSubscriptionBalance,
             c.weiPerUnitLink,
           ),
       ).to.be.revertedWith('Only callable by owner')
@@ -178,7 +174,6 @@ describe('VRFCoordinatorV2', () => {
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
-            // c.minimumSubscriptionBalance,
             c.weiPerUnitLink,
           ),
       ).to.be.revertedWith('InvalidRequestConfirmations(201, 201, 200)')
@@ -194,7 +189,6 @@ describe('VRFCoordinatorV2', () => {
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
-            // c.minimumSubscriptionBalance,
             0,
           ),
       ).to.be.revertedWith('InvalidLinkWeiPrice(0)')
@@ -207,7 +201,6 @@ describe('VRFCoordinatorV2', () => {
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
-            // c.minimumSubscriptionBalance,
             -1,
           ),
       ).to.be.revertedWith('InvalidLinkWeiPrice(-1)')
@@ -492,35 +485,37 @@ describe('VRFCoordinatorV2', () => {
     })
     it('cannot cancel with pending req', async function () {
       await linkToken
-          .connect(subOwner)
-          .transferAndCall(
-              vrfCoordinatorV2.address,
-              BigNumber.from('1000'),
-              ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
-          )
+        .connect(subOwner)
+        .transferAndCall(
+          vrfCoordinatorV2.address,
+          BigNumber.from('1000'),
+          ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
+        )
       await vrfCoordinatorV2.connect(subOwner).addConsumer(subId, randomAddress)
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]
       await vrfCoordinatorV2.registerProvingKey(subOwnerAddress, testKey)
       await vrfCoordinatorV2.connect(owner).reg
       const kh = await vrfCoordinatorV2.hashOfKey(testKey)
       await vrfCoordinatorV2.connect(consumer).requestRandomWords(
-          kh, // keyhash
-          subId, // subId
-          1, // minReqConf
-          1000000, // callbackGasLimit
-          1, // numWords
+        kh, // keyhash
+        subId, // subId
+        1, // minReqConf
+        1000000, // callbackGasLimit
+        1, // numWords
       )
       // Should revert with outstanding requests
-      await expect(vrfCoordinatorV2
+      await expect(
+        vrfCoordinatorV2
           .connect(subOwner)
-          .cancelSubscription(subId, randomAddress)).to.be.revertedWith('PendingRequestExists()')
+          .cancelSubscription(subId, randomAddress),
+      ).to.be.revertedWith('PendingRequestExists()')
       // However the owner is able to cancel
       // funds go to the sub owner.
-      await expect(vrfCoordinatorV2
-          .connect(owner)
-          .ownerCancelSubscription(subId))
-          .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
-          .withArgs(subId, subOwnerAddress, BigNumber.from('1000'))
+      await expect(
+        vrfCoordinatorV2.connect(owner).ownerCancelSubscription(subId),
+      )
+        .to.emit(vrfCoordinatorV2, 'SubscriptionCanceled')
+        .withArgs(subId, subOwnerAddress, BigNumber.from('1000'))
     })
   })
 
@@ -729,17 +724,6 @@ describe('VRFCoordinatorV2', () => {
         ),
       ).to.be.revertedWith(`InvalidRequestConfirmations(0, 1, 200)`)
     })
-    // it('below minimum balance', async function () {
-    //   await expect(
-    //     vrfCoordinatorV2.connect(consumer).requestRandomWords(
-    //       kh, // keyhash
-    //       subId, // subId
-    //       1, // minReqConf
-    //       1000, // callbackGasLimit
-    //       1, // numWords
-    //     ),
-    //   ).to.be.revertedWith(`InsufficientBalance()`)
-    // })
     it('gas limit too high', async function () {
       await linkToken.connect(subOwner).transferAndCall(
         vrfCoordinatorV2.address,

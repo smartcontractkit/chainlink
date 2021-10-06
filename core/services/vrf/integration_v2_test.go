@@ -216,9 +216,9 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
-	key3, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	require.NoError(t, err)
-	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
+	//key3, err := app.KeyStore.Eth().Create(big.NewInt(1337))
+	//require.NoError(t, err)
+	//sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
 
 	gasPrice := decimal.NewFromBigInt(big.NewInt(10000000000), 0) // Default is 10 gwei
 	configureSimChain(app, map[string]types.ChainCfg{
@@ -226,16 +226,13 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)), // 10 gwei
 		},
 		key2.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(100000000000)), // 100 gwei
-		},
-		key3.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(1000000000000)), // 1000 gwei
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(200000000000)), // 200 gwei
 		},
 	}, gasPrice.BigInt())
 
 	var jbs []job.Job
 	// Create separate jobs for each gas lane and register their keys
-	for i, key := range []ethkey.KeyV2{key1, key2, key3} {
+	for i, key := range []ethkey.KeyV2{key1, key2} {
 		vrfkey, err := app.GetKeyStore().VRF().Create()
 		require.NoError(t, err)
 
@@ -258,15 +255,18 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		registerProvingKeyHelper(t, uni, vrfkey)
 		jbs = append(jbs, jb)
 	}
-	time.Sleep(2 * time.Second) // wait for jobs to start?
+	// Wait until all jobs are active and listening for logs
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		jbs := app.JobSpawner().ActiveJobs()
+		return len(jbs) == 2
+	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
+	// To avoid confirming
+	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
+	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
+	// job is fully up and running and not add it to the active jobs list before then)
+	time.Sleep(2 * time.Second)
 
-	// Create and fund 3 subscriptions/consumers each with 10 link
-	//c1 := deployAndFundConsumer(t, uni, 1)
-	//c2 := deployAndFundConsumer(t, uni, 1)
-	//c3 := deployAndFundConsumer(t, uni, 1)
-
-	// From c1, send 6 requests to the low keyhash
-	// We'd expect around 600k to fulfill x 10 gwei / 0.01 link/eth = 0.6 link per req
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,
 		subFunding.BigInt())
@@ -280,23 +280,32 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		_, err := uni.consumerContract.TestRequestRandomness(uni.carol, jbs[0].VRFSpec.PublicKey.MustHash(), uint64(1), uint16(2), uint32(300000), uint32(20))
 		require.NoError(t, err)
 	}
+	// Send 2 requests to the 1k gwei keyhash, should remain queued until
+	// a significant topup (like 45 link)
+	for i := 0; i < 2; i++ {
+		_, err := uni.consumerContract.TestRequestRandomness(uni.carol, jbs[1].VRFSpec.PublicKey.MustHash(), uint64(1), uint16(2), uint32(300000), uint32(20))
+		require.NoError(t, err)
+	}
 	// Confirm all those requests
 	for i := 0; i < 3; i++ {
 		uni.backend.Commit()
 	}
-	// Now we should see ONLY 2 requests go through with no new blocks
-	// since we only have 2 requests worth of link
+	// Now we should see ONLY 2 requests enqueued to the bptxm
+	// since we only have 2 requests worth of link at the max keyhash
+	// gas price.
 	var runs []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
-		uni.backend.Commit()
 		return len(runs) == 2
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	// As we send new blocks, we should observe the fulfllments goes through the balance
+	// be reduced.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
+		uni.backend.Commit()
 		return len(runs) == 2
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 	sub, err = uni.rootContract.GetSubscription(nil, uint64(1))
@@ -319,7 +328,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
 		return len(runs) == 4
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	// One more time for the final tx
 	_, err = uni.consumerContract.TopUpSubscription(uni.carol, assets.Ether(1))
 	require.NoError(t, err)
@@ -329,7 +338,18 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
 		return len(runs) == 5
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
+
+	// Send a huge topup and observe the high max gwei go through.
+	_, err = uni.consumerContract.TopUpSubscription(uni.carol, assets.Ether(7))
+	require.NoError(t, err)
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		runs, err = app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		uni.backend.Commit()
+		return len(runs) == 7
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 }
 
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
@@ -414,7 +434,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		uni.rootContractAddress,
 	}, []*big.Int{
 		assets.Ether(10), // 10 link
-		big.NewInt(0),                   // 0 link
+		big.NewInt(0),    // 0 link
 	})
 	subFunding := decimal.RequireFromString("1000000000000000000")
 	_, err = uni.consumerContract.TestCreateSubscriptionAndFund(uni.carol,

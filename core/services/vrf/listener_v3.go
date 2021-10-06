@@ -203,7 +203,7 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
 					GROUP BY from_address = ?`, fromAddress).Scan(&reservedLink).Error
 	if err != nil {
-		l.Errorw("VRFListenerV2", "err", err)
+		l.Errorw("VRFListenerV2: could not get reserved link", "err", err)
 		return startBalance, err
 	}
 
@@ -220,17 +220,24 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 }
 
 func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
-	startBalance, err1 := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
+	var err1 error
+	startBalance, err1 = MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
 	if err1 != nil {
 		return
 	}
+	logger.Infow("VRFListenerV2: processing requests",
+		"sub", lsn.reqs[0].req.SubId,
+		"maxGasPrice", maxGasPrice.String(),
+		"reqs", len(reqs),
+		"startBalance", startBalance.String(),
+	)
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
 	for _, req := range reqs {
 		// This check to see if the log was consumed needs to be in the same
 		// goroutine as the mark consumed to avoid processing duplicates.
 		if !lsn.shouldProcessLog(req.lb) {
-			return
+			continue
 		}
 		// Check if the vrf req has already been fulfilled
 		// If so we just mark it completed
@@ -245,6 +252,8 @@ func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBa
 			processed[req.req.RequestId.String()] = struct{}{}
 			continue
 		}
+		// Run the pipeline to determine the max link that could be billed at maxGasPrice.
+		// The ethcall will error if there is currently insufficient balance onchain.
 		bi, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPrice, req)
 		if err != nil {
 			continue
@@ -277,11 +286,13 @@ func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBa
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
 			})
-			// TODO: maybe save the eth tx id somewhere to link it
 			return err
 		})
 		if err != nil {
-			// TODO: log error
+			lsn.l.Errorw("VRFListenerV2: error enqueuing fulfillment, requeuing request",
+				"err", err,
+				"reqID", req.req.RequestId,
+				"txHash", req.req.Raw.TxHash)
 			continue
 		}
 		// If we successfully enqueued for the bptxm, subtract that balance
@@ -302,7 +313,9 @@ func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBa
 	lsn.l.Infow("VRFListenerV2: finished processing for sub",
 		"sub", reqs[0].req.SubId,
 		"total reqs", len(reqs),
-		"total processed", len(processed))
+		"total processed", len(processed),
+		"total remaining", len(toKeep))
+
 }
 
 // Here we use the pipeline to parse the log, generate a vrf response
@@ -336,7 +349,7 @@ func (lsn *listenerV3) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	}
 	// The call task will fail if there are insufficient funds
 	if run.Errors.HasError() {
-		logger.Warn("VRFListenerV2: simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
+		logger.Warnw("VRFListenerV2: simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
 		return maxLink, run, payload, gaslimit, errors.New("run errored")
 	}
 	if len(trrs.FinalResult().Values) != 1 {
@@ -364,7 +377,7 @@ func (lsn *listenerV3) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 
 func (lsn *listenerV3) runRequestHandler() {
 	// TODO: Probably would have to be a configuration parameter per job so chains could have faster ones
-	tick := time.NewTicker(2 * time.Second)
+	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
 	for {
 		select {
