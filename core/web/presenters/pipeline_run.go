@@ -15,8 +15,12 @@ import (
 // Corresponds with models.d.ts PipelineRun
 type PipelineRunResource struct {
 	JAID
-	Outputs      []*string                 `json:"outputs"`
+	Outputs []*string `json:"outputs"`
+	// XXX: Here for backwards compatibility, can be removed later
+	// Deprecated: Errors
 	Errors       []*string                 `json:"errors"`
+	AllErrors    []*string                 `json:"allErrors"`
+	FatalErrors  []*string                 `json:"fatalErrors"`
 	Inputs       pipeline.JSONSerializable `json:"inputs"`
 	TaskRuns     []PipelineTaskRunResource `json:"taskRuns"`
 	CreatedAt    time.Time                 `json:"createdAt"`
@@ -68,20 +72,31 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 			}
 		}
 	}
-	var errors []*string
-	for _, err := range pr.Errors {
+	var fatalErrors []*string
+	for _, err := range pr.FatalErrors {
 		if err.Valid {
 			s := err.String
-			errors = append(errors, &s)
+			fatalErrors = append(fatalErrors, &s)
 		} else {
-			errors = append(errors, nil)
+			fatalErrors = append(fatalErrors, nil)
+		}
+	}
+	var allErrors []*string
+	for _, err := range pr.AllErrors {
+		if err.Valid {
+			s := err.String
+			allErrors = append(allErrors, &s)
+		} else {
+			allErrors = append(allErrors, nil)
 		}
 	}
 
 	return PipelineRunResource{
 		JAID:         NewJAIDInt64(pr.ID),
 		Outputs:      outputs,
-		Errors:       errors,
+		Errors:       fatalErrors,
+		AllErrors:    allErrors,
+		FatalErrors:  fatalErrors,
 		Inputs:       pr.Inputs,
 		TaskRuns:     trs,
 		CreatedAt:    pr.CreatedAt,

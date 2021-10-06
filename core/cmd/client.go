@@ -89,6 +89,8 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
+	globalLogger := cfg.CreateProductionLogger()
+
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
@@ -100,7 +102,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		return nil, err
 	}
-	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg))
+	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), globalLogger)
 	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM
@@ -114,9 +116,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		version, err = verORM.FindLatestNodeVersion()
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
+				globalLogger.Debugf("Failed to find any node version in the DB: %w", err)
 			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				globalLogger.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
 			} else {
 				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
 			}
@@ -126,7 +128,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 			versionString = version.Version
 		}
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 
@@ -146,9 +148,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err = verORM.UpsertNodeVersion(version); err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
-
-	// Init service loggers
-	globalLogger := cfg.CreateProductionLogger()
 
 	if cfg.ClobberNodesFromEnv() {
 		if err = evm.ClobberNodesFromEnv(gormDB, cfg); err != nil {

@@ -121,6 +121,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	logger.Debugw("Found user", "user", user)
 
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.

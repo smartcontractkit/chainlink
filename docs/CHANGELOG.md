@@ -59,6 +59,8 @@ Chainlink now supports more than one primary eth node per chain. Requests are ro
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
+Non fatal errors to a pipeline run are preserved including any run that succeeds but has more than one fatal error.
+
 Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
 The Operator UI now supports login MFA with hardware security keys. `MFA_RPID` and `MFA_RPORIGIN` environment variables have been added to the config and are required if using the new MFA feature.
