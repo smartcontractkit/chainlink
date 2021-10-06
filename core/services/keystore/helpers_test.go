@@ -3,10 +3,12 @@ package keystore
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
@@ -18,7 +20,7 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 type ExportedEncryptedKeyRing = encryptedKeyRing
 
 func ExposedNewMaster(db *gorm.DB) *master {
-	return newMaster(db, utils.FastScryptParams)
+	return newMaster(db, utils.FastScryptParams, logger.Default)
 }
 
 func (m *master) ExportedSave() error {

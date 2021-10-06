@@ -2,10 +2,12 @@ package keystore
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -124,6 +126,45 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 		rawKeys.VRF = append(rawKeys.VRF, vrfKey.Raw())
 	}
 	return rawKeys
+}
+
+func (kr *keyRing) logPubKeys(lggr logger.Logger) {
+	lggr = lggr.Named("KeyRing")
+	var csaIDs []string
+	for _, CSAKey := range kr.CSA {
+		csaIDs = append(csaIDs, CSAKey.ID())
+	}
+	var ethIDs []string
+	for _, ETHKey := range kr.Eth {
+		ethIDs = append(ethIDs, ETHKey.ID())
+	}
+	var ocrIDs []string
+	for _, OCRKey := range kr.OCR {
+		ocrIDs = append(ocrIDs, OCRKey.ID())
+	}
+	var p2pIDs []string
+	for _, P2PKey := range kr.P2P {
+		p2pIDs = append(p2pIDs, P2PKey.ID())
+	}
+	var vrfIDs []string
+	for _, VRFKey := range kr.VRF {
+		vrfIDs = append(vrfIDs, VRFKey.ID())
+	}
+	if len(csaIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d CSA keys", len(csaIDs)), "keys", csaIDs)
+	}
+	if len(ethIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d ETH keys", len(ethIDs)), "keys", ethIDs)
+	}
+	if len(ocrIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d OCR keys", len(ocrIDs)), "keys", ocrIDs)
+	}
+	if len(p2pIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d P2P keys", len(p2pIDs)), "keys", p2pIDs)
+	}
+	if len(vrfIDs) > 0 {
+		lggr.Infow(fmt.Sprintf("Unlocked %d VRF keys", len(vrfIDs)), "keys", vrfIDs)
+	}
 }
 
 // rawKeyRing is an intermediate struct for encrypting / decrypting keyRing

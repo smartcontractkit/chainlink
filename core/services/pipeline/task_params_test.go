@@ -25,6 +25,7 @@ func TestStringParam_UnmarshalPipelineParam(t *testing.T) {
 		{"string", "foo bar baz", pipeline.StringParam("foo bar baz"), nil},
 		{"[]byte", []byte("foo bar baz"), pipeline.StringParam("foo bar baz"), nil},
 		{"int", 12345, pipeline.StringParam(""), pipeline.ErrBadInput},
+		{"object", pipeline.MustNewObjectParam(`boz bar bap`), pipeline.StringParam("boz bar bap"), nil},
 	}
 
 	for _, test := range tests {
@@ -204,6 +205,7 @@ func TestBoolParam_UnmarshalPipelineParam(t *testing.T) {
 		{"bool true", true, pipeline.BoolParam(true), nil},
 		{"bool false", false, pipeline.BoolParam(false), nil},
 		{"int", int8(123), pipeline.BoolParam(false), pipeline.ErrBadInput},
+		{"object", pipeline.MustNewObjectParam(true), pipeline.BoolParam(true), nil},
 	}
 
 	for _, test := range tests {
@@ -235,6 +237,7 @@ func TestDecimalParam_UnmarshalPipelineParam(t *testing.T) {
 		{"float32", float32(123.45), pipeline.DecimalParam(d), nil},
 		{"float64", float64(123.45), pipeline.DecimalParam(d), nil},
 		{"bool", false, pipeline.DecimalParam(dNull), pipeline.ErrBadInput},
+		{"object", pipeline.MustNewObjectParam(123.45), pipeline.DecimalParam(d), nil},
 	}
 
 	for _, test := range tests {
