@@ -17,6 +17,7 @@ type PipelineRunResource struct {
 	JAID
 	Outputs []*string `json:"outputs"`
 	// XXX: Here for backwards compatibility, can be removed later
+	// Deprecated: Errors
 	Errors       []*string                 `json:"errors"`
 	AllErrors    []*string                 `json:"allErrors"`
 	FatalErrors  []*string                 `json:"fatalErrors"`
