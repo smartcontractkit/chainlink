@@ -898,16 +898,13 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, expectedPipe
 func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration, state pipeline.RunStatus) []pipeline.Run {
 	t.Helper()
 
-	var actualRuns uint
 	var pr []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		actualRuns = 0
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		require.NoError(t, err)
 
 		var matched []pipeline.Run
 		for _, pr := range prs {
-			actualRuns++
 			if pr.State != state {
 				continue
 			}
@@ -926,13 +923,13 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 		return false
 	}, timeout, poll).Should(
 		gomega.BeTrue(),
-		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d, got %d`,
+		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d`,
 			expectedPipelineRuns,
 			state,
 			nodeID,
 			jobID,
-			actualRuns,
-		))
+		),
+	)
 	return pr
 }
 
