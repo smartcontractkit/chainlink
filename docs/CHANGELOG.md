@@ -40,7 +40,7 @@ Add CRUD functionality for EVM Chains and Nodes through Operator UI.
 
 Chainlink now supports configuring max gas price on a per-key basis (allows implementation of keeper "lanes").
 
-The Operator UI now supports MFA with hardware security keys. `RPID` and `RPOrigin` environment variables have been added.
+The Operator UI now supports login MFA with hardware security keys. `MFA_RPID` and `MFA_RPORIGIN` environment variables have been added to the config and are required if using the new MFA feature.
 
 #### Full EIP1559 Support (Gas Savings)
 
