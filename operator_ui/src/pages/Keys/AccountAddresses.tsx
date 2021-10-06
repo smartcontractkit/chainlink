@@ -30,8 +30,9 @@ const styles = () =>
 
 export const AccountAddresses = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [accountBalances, setAccountBalances] =
-      React.useState<jsonapi.ApiResponse<presenters.AccountBalance[]>['data']>()
+    const [accountBalances, setAccountBalances] = React.useState<
+      jsonapi.ApiResponse<presenters.AccountBalance[]>['data']
+    >()
     const { error, ErrorComponent, setError } = useErrorHandler()
     const { isLoading, LoadingPlaceholder } = useLoadingPlaceholder(
       !error && !accountBalances,

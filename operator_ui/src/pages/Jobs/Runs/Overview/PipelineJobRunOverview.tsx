@@ -12,8 +12,13 @@ export const PipelineJobRunOverview = ({
 }) => (
   <Card>
     {augmentOcrTasksList({ jobRun }).map((node, index) => {
-      const { error, status, type, output, ...customAttributes } =
-        node.attributes
+      const {
+        error,
+        status,
+        type,
+        output,
+        ...customAttributes
+      } = node.attributes
       return (
         <React.Fragment key={node.id}>
           {index > 0 && <Divider />}
