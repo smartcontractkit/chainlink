@@ -342,11 +342,31 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
+	response, cleanup = client.Get("/v2/jobs/" + ocrJobSpecFromFile.ExternalJobID.String())
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	ocrJob = presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJob)
+	assert.NoError(t, err)
+
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
+
 	response, cleanup = client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID2))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	ereJob := presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
+	assert.NoError(t, err)
+
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
+
+	response, cleanup = client.Get("/v2/jobs/" + ereJobSpecFromFile.ExternalJobID.String())
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	ereJob = presenters.JobResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
 	assert.NoError(t, err)
 
