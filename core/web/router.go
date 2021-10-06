@@ -183,7 +183,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 		config.UnAuthenticatedRateLimitPeriod().Duration(),
 		config.UnAuthenticatedRateLimit(),
 	))
-	sc := SessionsController{app}
+	sc := SessionsController{app, nil}
 	unauth.POST("/sessions", sc.Create)
 	auth := r.Group("/", RequireAuth(app.SessionORM(), AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
@@ -208,6 +208,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/user/password", uc.UpdatePassword)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
+
+		wa := WebAuthnController{app, nil}
+		authv2.GET("/enroll_webauthn", wa.BeginRegistration)
+		authv2.POST("/enroll_webauthn", wa.FinishRegistration)
 
 		eia := ExternalInitiatorsController{app}
 		authv2.GET("/external_initiators", paginatedRequest(eia.Index))

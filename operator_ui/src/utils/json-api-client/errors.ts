@@ -17,7 +17,7 @@ export class AuthenticationError extends Error {
     this.errors = [
       {
         status: response.status,
-        detail: response.statusText,
+        detail: response,
       },
     ]
   }
