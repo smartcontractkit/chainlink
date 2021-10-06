@@ -141,10 +141,10 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 		}
 	} else {
 		// Simply finish the run, no need to do any sort of locking
-		if run.Outputs.Val == nil || len(run.Errors) == 0 {
-			return false, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
+		if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
+			return false, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
 		}
-		sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, errors= :errors, outputs = :outputs WHERE id = :id`
+		sql := `UPDATE pipeline_runs SET state = :state, finished_at = :finished_at, all_errors= :all_errors, fatal_errors= :fatal_errors, outputs = :outputs WHERE id = :id`
 		if _, err = sqlx.NamedExec(tx, sql, run); err != nil {
 			return false, errors.Wrap(err, "StoreRun")
 		}
@@ -233,8 +233,8 @@ func (o *orm) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTask
 	if run.FinishedAt.IsZero() {
 		return 0, errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || len(run.Errors) == 0 {
-		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
+	if run.Outputs.Val == nil || len(run.FatalErrors) == 0 {
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.FatalErrors)
 	}
 	if len(run.PipelineTaskRuns) == 0 && (saveSuccessfulTaskRuns || run.HasErrors()) {
 		return 0, errors.New("must provide task run results")
@@ -243,8 +243,8 @@ func (o *orm) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTask
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err = postgres.SqlxTransaction(ctx, db, func(tx *sqlx.Tx) error {
-		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, errors, inputs, outputs, created_at, finished_at, state)
-		VALUES (:pipeline_spec_id, :meta, :errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING *;`
 
 		query, args, e := tx.BindNamed(sql, run)

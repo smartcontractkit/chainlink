@@ -5,23 +5,29 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 // SessionsController manages session requests.
 type SessionsController struct {
-	App chainlink.Application
+	App      chainlink.Application
+	Sessions *clsessions.WebAuthnSessionStore
 }
 
 // Create creates a session ID for the given user credentials, and returns it
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
+	logger.Tracef("Starting Session Creation")
+	if sc.Sessions == nil {
+		sc.Sessions = clsessions.NewWebAuthnSessionStore()
+	}
 
 	session := sessions.Default(c)
 	var sr clsessions.SessionRequest
@@ -30,11 +36,28 @@ func (sc *SessionsController) Create(c *gin.Context) {
 		return
 	}
 
+	// Does this user have 2FA enabled?
+	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
+	if err != nil {
+		logger.Errorf("Error loading user WebAuthn data: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		return
+	}
+
+	// If the user has registered MFA tokens, then populate our session store and context
+	// required for successful WebAuthn authentication
+	if len(userWebAuthnTokens) > 0 {
+		sr.SessionStore = sc.Sessions
+		sr.RequestContext = c
+		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
+	}
+
 	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
 	}
+
 	if err := saveSessionID(session, sid); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, multierr.Append(errors.New("unable to save session id"), err))
 		return

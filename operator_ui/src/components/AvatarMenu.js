@@ -13,7 +13,7 @@ import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
 import face from 'images/face.svg'
-import { submitSignOut } from 'actionCreators'
+import { beginRegistration, submitSignOut } from 'actionCreators'
 
 const styles = (theme) => {
   return {
@@ -61,6 +61,11 @@ const AvatarMenu = ({ classes, submitSignOut }) => {
     setOpenState(false)
   }
 
+  const handleRegisterMFA = () => {
+    beginRegistration()
+    setOpenState(false)
+  }
+
   return (
     <React.Fragment>
       <Fab
@@ -89,6 +94,14 @@ const AvatarMenu = ({ classes, submitSignOut }) => {
             <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
+                  <MenuItem
+                    onClick={handleRegisterMFA}
+                    className={classes.menuItem}
+                  >
+                    <Typography variant="body1" className={classes.link}>
+                      Register MFA Token
+                    </Typography>
+                  </MenuItem>
                   <MenuItem onClick={handleLogOut} className={classes.menuItem}>
                     <Typography variant="body1" className={classes.link}>
                       Log out

@@ -128,6 +128,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
 		assert.False(t, runs[0].HasErrors())
+		assert.False(t, runs[0].HasFatalErrors())
 		waitLastRunHeight(t, db, upkeep, 20)
 
 		ethMock.AssertExpectations(t)
@@ -206,7 +207,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	head := newHead()
 	executer.OnNewLongestChain(context.TODO(), head)
 
-	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
+	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, bulletprooftxmanager.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
 }

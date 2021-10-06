@@ -54,10 +54,11 @@ func mustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	t.Helper()
 
 	run := pipeline.Run{
-		State:      pipeline.RunStatusRunning,
-		Outputs:    pipeline.JSONSerializable{},
-		Errors:     pipeline.RunErrors{},
-		FinishedAt: null.Time{},
+		State:       pipeline.RunStatusRunning,
+		Outputs:     pipeline.JSONSerializable{},
+		AllErrors:   pipeline.RunErrors{},
+		FatalErrors: pipeline.RunErrors{},
+		FinishedAt:  null.Time{},
 	}
 	require.NoError(t, db.Create(&run).Error)
 	return run
@@ -97,7 +98,6 @@ answer2 [type=bridge name=election_winner index=1];
 	run := &pipeline.Run{
 		PipelineSpecID: specID,
 		State:          pipeline.RunStatusRunning,
-		Errors:         nil,
 		Outputs:        pipeline.JSONSerializable{},
 		CreatedAt:      time.Now(),
 	}
