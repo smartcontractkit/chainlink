@@ -90,7 +90,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		postgres.SetLogging(cc.App.GetDB(), *request.SqlEnabled)
+		postgres.SetLogAllQueries(cc.App.GetDB(), *request.SqlEnabled)
 	}
 	svcs = append(svcs, "IsSqlEnabled")
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
