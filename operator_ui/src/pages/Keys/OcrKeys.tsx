@@ -36,8 +36,9 @@ const KEY_TYPE = 'Off-Chain Reporting'
 
 export const OcrKeys = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [ocrKeys, setOcrKeys] =
-      React.useState<jsonapi.ApiResponse<models.OcrKey[]>['data']>()
+    const [ocrKeys, setOcrKeys] = React.useState<
+      jsonapi.ApiResponse<models.OcrKey[]>['data']
+    >()
     const { error, ErrorComponent, setError } = useErrorHandler()
     const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !ocrKeys)
     const dispatch = useDispatch()

@@ -7,8 +7,8 @@ export function fetchWithTimeout(
 ): Promise<Response> {
   return Promise.race([
     fetch(url, options),
-    new Promise((_, reject) =>
+    (new Promise((_, reject) =>
       setTimeout(() => reject(new Error('timeout')), timeout),
-    ) as any as Response,
+    ) as any) as Response,
   ])
 }

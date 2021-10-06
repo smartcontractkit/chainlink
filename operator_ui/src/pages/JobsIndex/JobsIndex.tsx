@@ -160,10 +160,9 @@ export const JobsIndex = ({
     getJobs().then(setJobs).catch(setError)
   }, [setError])
 
-  const jobFilter = React.useMemo(
-    () => simpleJobFilter(search.trim()),
-    [search],
-  )
+  const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
+    search,
+  ])
 
   return (
     <Content>

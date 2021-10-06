@@ -51,7 +51,7 @@ const fetchRuns = async (
   const response = await v2.runs.getAllJobRuns({ page: 1, size })
 
   return {
-    runs: response.data as unknown as Resource<JobRunV2>[],
+    runs: (response.data as unknown) as Resource<JobRunV2>[],
     count: response.meta.count,
   }
 }

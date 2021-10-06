@@ -155,8 +155,14 @@ function generateKeeperDefinition(
 function generateCronDefinition(
   attrs: ApiResponse<CronJob>['data']['attributes'],
 ) {
-  const { cronSpec, pipelineSpec, name, schemaVersion, type, externalJobID } =
-    attrs
+  const {
+    cronSpec,
+    pipelineSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+  } = attrs
   const { schedule } = cronSpec
 
   return stringifyJobSpec({
@@ -190,8 +196,14 @@ function generateWebhookDefinition(
 function generateVRFDefinition(
   attrs: ApiResponse<VRFJob>['data']['attributes'],
 ) {
-  const { vrfSpec, name, schemaVersion, type, externalJobID, pipelineSpec } =
-    attrs
+  const {
+    vrfSpec,
+    name,
+    schemaVersion,
+    type,
+    externalJobID,
+    pipelineSpec,
+  } = attrs
   const { coordinatorAddress, confirmations, publicKey } = vrfSpec
 
   return stringifyJobSpec({
