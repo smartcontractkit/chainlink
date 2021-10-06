@@ -223,14 +223,13 @@ decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
-		publicKey = params.ObservationSource
+		observationSource = params.ObservationSource
 	}
 	template := `
 externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
 name = "%s"
-fromAddress = "%s"
 coordinatorAddress = "%s"
 confirmations = %d
 publicKey = "%s"
@@ -238,6 +237,11 @@ observationSource = """
 %s
 """
 `
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)
+	if params.FromAddress != "" {
+		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
+	}
+
 	// TODO: default from address
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:              jobID,
@@ -246,7 +250,7 @@ observationSource = """
 		Confirmations:      confirmations,
 		PublicKey:          publicKey,
 		ObservationSource:  observationSource,
-	}, toml: fmt.Sprintf(template, jobID, name, params.FromAddress, coordinatorAddress, confirmations, publicKey, observationSource)}
+	}, toml: toml}
 }
 
 type OCRSpecParams struct {

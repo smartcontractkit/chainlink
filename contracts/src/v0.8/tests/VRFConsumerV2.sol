@@ -33,6 +33,12 @@ contract VRFConsumerV2 is VRFConsumerBaseV2 {
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
   }
 
+  function topUpSubscription(uint96 amount) external {
+    require(s_subId != 0, "sub not set");
+    // Approve the link transfer.
+    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
+  }
+
   function updateSubscription(address[] memory consumers) external {
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {

@@ -34,6 +34,7 @@ const (
 		2*2100 - // cold read oracle address and oracle balance
 		4800 + // request delete refund, note pre-london fork was 15k
 		21000 + // base cost of the transaction
+		// TODO: whyd this drop when we return the payment?
 		6874 - 8401 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
@@ -219,18 +220,11 @@ func (lsn *listenerV2) runHeadListener(unsubscribe func()) {
 		case <-lsn.newHead:
 			toProcess := lsn.extractConfirmedLogs()
 			for _, r := range toProcess {
-				// TODO: Instead of immediately processing when the log is confirmed
-				// This should
 				lsn.ProcessV2VRFRequest(r.req, r.lb)
 			}
 			lsn.pruneConfirmedRequestCounts()
 		}
 	}
-}
-
-// Periodically run this
-func (lsn *listenerV2) processV2VRFRequests() {
-
 }
 
 func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
