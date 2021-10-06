@@ -70,6 +70,6 @@ func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, gorm
 	return db, gormDB, nil
 }
 
-func SetLogging(db *gorm.DB, enabled bool) {
-	db.Logger = logger.NewGormWrapper(logger.Default, enabled, time.Second)
+func SetLogAllQueries(db *gorm.DB, enabled bool) {
+	db.Logger.(*logger.GormWrapper).LogAllQueries(enabled)
 }

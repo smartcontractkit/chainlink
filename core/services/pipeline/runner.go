@@ -330,19 +330,24 @@ func (r *runner) run(
 	// Update run errors/outputs
 	if run.FinishedAt.Valid {
 		var errors []null.String
+		var fatalErrors []null.String
 		var outputs []interface{}
 		for _, result := range run.PipelineTaskRuns {
+			if result.Error.Valid {
+				errors = append(errors, result.Error)
+			}
 			// skip non-terminal results
 			if len(result.task.Outputs()) != 0 {
 				continue
 			}
-			errors = append(errors, result.Error)
+			fatalErrors = append(fatalErrors, result.Error)
 			outputs = append(outputs, result.Output.Val)
 		}
-		run.Errors = errors
+		run.AllErrors = errors
+		run.FatalErrors = fatalErrors
 		run.Outputs = JSONSerializable{Val: outputs, Valid: true}
 
-		if run.HasErrors() {
+		if run.HasFatalErrors() {
 			run.State = RunStatusErrored
 			PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Inc()
 		} else {
@@ -508,7 +513,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			restart, err = r.orm.StoreRun(postgres.UnwrapGormDB(r.orm.DB()), run)
 			if err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
-					run.PipelineSpec.ID, run.State, run.Outputs, run.Errors, run.FinishedAt)
+					run.PipelineSpec.ID, run.State, run.Outputs, run.FatalErrors, run.FinishedAt)
 			}
 
 			if restart {
@@ -567,7 +572,8 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 	runID, err := r.InsertFinishedRun(postgres.UnwrapGorm(db), Run{
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
-		Errors:         RunErrors{null.String{}},
+		AllErrors:      RunErrors{null.String{}},
+		FatalErrors:    RunErrors{null.String{}},
 		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}, Valid: true},
 		CreatedAt:      t,
 		FinishedAt:     null.TimeFrom(t),

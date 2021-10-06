@@ -689,7 +689,6 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 func Test_Service_CancelJobProposal(t *testing.T) {
 	var (
 		externalJobID = uuid.NewV4()
-		ctx           = context.Background()
 		jp            = &feeds.JobProposal{
 			ID:             1,
 			ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
@@ -711,7 +710,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "success",
 			beforeFn: func(svc *TestService) {
-				ctx = mockTransactWithContext(ctx, svc.txm)
+				ctx := mockTransactWithContext(context.Background(), svc.txm)
 
 				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
@@ -733,7 +732,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "must be an approved job proposal",
 			beforeFn: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(&feeds.JobProposal{
+				svc.orm.On("GetJobProposal", context.Background(), jp.ID).Return(&feeds.JobProposal{
 					ID:             1,
 					ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
 					RemoteUUID:     externalJobID,
@@ -746,7 +745,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "rpc client not connected",
 			beforeFn: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.orm.On("GetJobProposal", context.Background(), jp.ID).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(nil, errors.New("not connected"))
 			},
 			wantErr: "fms rpc client: not connected",
@@ -762,7 +761,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 
 			tc.beforeFn(svc)
 
-			err := svc.CancelJobProposal(ctx, jp.ID)
+			err := svc.CancelJobProposal(context.Background(), jp.ID)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
