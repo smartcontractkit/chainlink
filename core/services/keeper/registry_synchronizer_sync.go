@@ -12,9 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-// syncUpkeepQueueSize represents the max number of upkeeps that can be synced in parallel
-const syncUpkeepQueueSize = 10
-
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	rs.logger.Debugf("fullSyncing registry %s", contractAddress.Hex())
@@ -76,7 +73,7 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, end int64) {
 	wg := sync.WaitGroup{}
 	wg.Add(int(end - start))
-	chSyncUpkeepQueue := make(chan struct{}, syncUpkeepQueueSize)
+	chSyncUpkeepQueue := make(chan struct{}, rs.syncUpkeepQueueSize)
 
 	done := func() { <-chSyncUpkeepQueue; wg.Done() }
 	for upkeepID := start; upkeepID < end; upkeepID++ {
