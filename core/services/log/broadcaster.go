@@ -88,6 +88,9 @@ type (
 		highestSavedHead      *eth.Head
 		lastSeenHeadNumber    atomic.Int64
 		logger                logger.Logger
+
+		// used for testing only
+		testPause, testResume chan struct{}
 	}
 
 	Config interface {
@@ -357,6 +360,14 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		case <-b.chStop:
 			return false, nil
+
+		// testing only
+		case <-b.testPause:
+			select {
+			case <-b.testResume:
+			case <-b.chStop:
+				return false, nil
+			}
 		}
 	}
 }

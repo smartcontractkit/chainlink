@@ -53,7 +53,7 @@ export interface ApiResponse<T extends AttributesObject | null>
  * If T is a single attribute object, then the api response is a single resource object, otherwise null.
  */
 export interface PaginatedApiResponse<
-  T extends AttributesObject
+  T extends AttributesObject,
 > extends JsonApiResponse<
     T extends Array<infer U> ? ResourceObject<U>[] : ResourceObject<T>,
     ErrorsObject[],

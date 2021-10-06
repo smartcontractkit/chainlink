@@ -3,8 +3,10 @@ package keeper_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -17,8 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 )
 
-var checkData = common.Hex2Bytes("ABC123")
-var executeGas = uint64(10_000)
+var (
+	checkData  = common.Hex2Bytes("ABC123")
+	executeGas = uint64(10_000)
+)
 
 func setupKeeperDB(t *testing.T) (
 	*gorm.DB,
@@ -41,6 +45,16 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 		RegistryID: registry.ID,
 		CheckData:  checkData,
 	}
+}
+
+func waitLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
+	t.Helper()
+
+	gomega.NewGomegaWithT(t).Eventually(func() int64 {
+		err := db.Find(&upkeep).Error
+		require.NoError(t, err)
+		return upkeep.LastRunBlockHeight
+	}, time.Second*2, time.Millisecond*100).Should(gomega.Equal(height))
 }
 
 func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
