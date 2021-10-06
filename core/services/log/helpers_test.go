@@ -44,10 +44,9 @@ type broadcasterHelper struct {
 	config       evmconfig.ChainScopedConfig
 
 	// each received channel corresponds to one eth subscription
-	chchRawLogs     chan chan<- types.Log
-	getLogPoolCount func() int
-	toUnsubscribe   []func()
-	pipelineHelper  cltest.JobPipelineV2TestHelper
+	chchRawLogs    chan chan<- types.Log
+	toUnsubscribe  []func()
+	pipelineHelper cltest.JobPipelineV2TestHelper
 }
 
 func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *broadcasterHelper {
@@ -85,14 +84,13 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, kst)
 
 	return &broadcasterHelper{
-		t:               t,
-		lb:              lb,
-		db:              db,
-		globalConfig:    globalConfig,
-		config:          config,
-		pipelineHelper:  pipelineHelper,
-		getLogPoolCount: lb.ExportedGetPoolCount(),
-		toUnsubscribe:   make([]func(), 0),
+		t:              t,
+		lb:             lb,
+		db:             db,
+		globalConfig:   globalConfig,
+		config:         config,
+		pipelineHelper: pipelineHelper,
+		toUnsubscribe:  make([]func(), 0),
 	}
 }
 
@@ -177,7 +175,21 @@ func newReceived(logs []types.Log) *received {
 	return &rec
 }
 
+func (rec *received) getLogs() []types.Log {
+	rec.Lock()
+	defer rec.Unlock()
+	return rec.logs
+}
+
+func (rec *received) getUniqueLogs() []types.Log {
+	rec.Lock()
+	defer rec.Unlock()
+	return rec.uniqueLogs
+}
+
 func (rec *received) logsOnBlocks() []logOnBlock {
+	rec.Lock()
+	defer rec.Unlock()
 	var blocks []logOnBlock
 	for _, broadcast := range rec.broadcasts {
 		blocks = append(blocks, logOnBlock{
@@ -246,12 +258,12 @@ func (listener *simpleLogListener) JobID() int32 {
 }
 
 func (listener *simpleLogListener) getUniqueLogs() []types.Log {
-	return listener.received.uniqueLogs
+	return listener.received.getUniqueLogs()
 }
 
 func (listener *simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
 	var blockNums []uint64
-	for _, uniqueLog := range listener.received.uniqueLogs {
+	for _, uniqueLog := range listener.received.getUniqueLogs() {
 		blockNums = append(blockNums, uniqueLog.BlockNumber)
 	}
 	return blockNums
@@ -260,16 +272,14 @@ func (listener *simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
 func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
 	require.Eventually(t, func() bool {
-		received.Lock()
-		defer received.Unlock()
-		return len(received.uniqueLogs) == len(expectedState.uniqueLogs)
-	}, 5*time.Second, 10*time.Millisecond, "len(received.logs): %v is not equal len(expectedState.logs): %v", len(received.logs), len(expectedState.logs))
+		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
+	}, 5*time.Second, 10*time.Millisecond, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
-	for i := range expectedState.uniqueLogs {
-		require.Equal(t, expectedState.uniqueLogs[i], received.uniqueLogs[i])
+	defer received.Unlock()
+	for i, ul := range expectedState.getUniqueLogs() {
+		require.Equal(t, ul, received.uniqueLogs[i])
 	}
-	received.Unlock()
 }
 
 func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broadcast) bool {

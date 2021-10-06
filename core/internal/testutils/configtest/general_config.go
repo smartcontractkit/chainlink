@@ -52,6 +52,7 @@ type GeneralConfigOverrides struct {
 	EthereumDisabled                          null.Bool
 	FeatureExternalInitiators                 null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
+	GlobalChainType                           null.String
 	GlobalEthTxReaperThreshold                *time.Duration
 	GlobalEthTxResendAfterThreshold           *time.Duration
 	GlobalEvmEIP1559DynamicFees               null.Bool
@@ -74,13 +75,13 @@ type GeneralConfigOverrides struct {
 	GlobalEvmRPCDefaultBatchSize              null.Int
 	GlobalFlagsContractAddress                null.String
 	GlobalGasEstimatorMode                    null.String
-	GlobalLayer2Type                          null.String
 	GlobalMinIncomingConfirmations            null.Int
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
 	KeeperMaximumGracePeriod                  null.Int
 	KeeperMinimumRequiredConfirmations        null.Int
 	KeeperRegistrySyncInterval                *time.Duration
+	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LogLevel                                  *config.LogLevel
 	LogSQLStatements                          null.Bool
 	LogToDisk                                 null.Bool
@@ -372,6 +373,13 @@ func (c *TestGeneralConfig) KeeperRegistrySyncInterval() time.Duration {
 	return c.GeneralConfig.KeeperRegistrySyncInterval()
 }
 
+func (c *TestGeneralConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
+	if c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Valid {
+		return uint32(c.Overrides.KeeperRegistrySyncUpkeepQueueSize.Int64)
+	}
+	return c.GeneralConfig.KeeperRegistrySyncUpkeepQueueSize()
+}
+
 func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 	if c.Overrides.BlockBackfillDepth.Valid {
 		return uint64(c.Overrides.BlockBackfillDepth.Int64)
@@ -435,11 +443,11 @@ func (c *TestGeneralConfig) GlobalGasEstimatorMode() (string, bool) {
 	return c.GeneralConfig.GlobalGasEstimatorMode()
 }
 
-func (c *TestGeneralConfig) GlobalLayer2Type() (string, bool) {
-	if c.Overrides.GlobalLayer2Type.Valid {
-		return c.Overrides.GlobalLayer2Type.String, true
+func (c *TestGeneralConfig) GlobalChainType() (string, bool) {
+	if c.Overrides.GlobalChainType.Valid {
+		return c.Overrides.GlobalChainType.String, true
 	}
-	return c.GeneralConfig.GlobalLayer2Type()
+	return c.GeneralConfig.GlobalChainType()
 }
 
 func (c *TestGeneralConfig) GlobalEvmNonceAutoSync() (bool, bool) {

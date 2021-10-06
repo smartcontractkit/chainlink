@@ -49,13 +49,13 @@ type contractTrackerUni struct {
 }
 
 func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrackerUni) {
-	var chain evmconfig.ChainScopedConfig
+	var cfg evmconfig.ChainScopedConfig
 	var filterer *offchainaggregator.OffchainAggregatorFilterer
 	var contract *offchain_aggregator_wrapper.OffchainAggregator
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case evmconfig.ChainScopedConfig:
-			chain = v
+			cfg = v
 		case *offchainaggregator.OffchainAggregatorFilterer:
 			filterer = v
 		case *offchain_aggregator_wrapper.OffchainAggregator:
@@ -64,8 +64,8 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 			t.Fatalf("unrecognised option type %T", v)
 		}
 	}
-	if chain == nil {
-		chain = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
+	if cfg == nil {
+		cfg = evmtest.NewChainScopedConfig(t, configtest.NewTestGeneralConfig(t))
 	}
 	if filterer == nil {
 		filterer = mustNewFilterer(t, cltest.NewAddress())
@@ -89,7 +89,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		logger.Default,
 		db,
 		uni.db,
-		chain,
+		cfg,
 		uni.hb,
 	)
 

@@ -373,6 +373,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 			spec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/multiword-response-spec.toml"))
 			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
+			spec = strings.ReplaceAll(spec, "example", "example 1") // make the name unique
 			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
@@ -411,6 +412,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			// Do a single word request
 			singleWordSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec-cbor.toml"))
 			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
+			singleWordSpec = strings.ReplaceAll(singleWordSpec, "example", "example 2") // make the name unique
 			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
@@ -521,6 +523,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 }
 
 func TestIntegration_OCR(t *testing.T) {
+	const bootstrapNodePort = 19999
 	tests := []struct {
 		name    string
 		eip1559 bool
@@ -532,13 +535,12 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			g := gomega.NewGomegaWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, 19999, fmt.Sprintf("bootstrap_%v", test.eip1559), b)
+			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v", test.eip1559), b)
 
 			var (
 				oracles      []confighelper.OracleIdentityExtra
@@ -547,7 +549,8 @@ func TestIntegration_OCR(t *testing.T) {
 				apps         []*cltest.TestApplication
 			)
 			for i := 0; i < 4; i++ {
-				app, peerID, transmitter, key, cfg := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b)
+				port := bootstrapNodePort + 1 + i
+				app, peerID, transmitter, key, cfg := setupNode(t, owner, port, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b)
 				// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
 				// we'll flood it with messages and slow things down. 5s is about how long it takes the
 				// bootstrap node to come up.
@@ -672,7 +675,7 @@ name               = "web oracle spec"
 contractAddress    = "%s"
 isBootstrapPeer    = false
 p2pBootstrapPeers  = [
-    "/ip4/127.0.0.1/tcp/19999/p2p/%s"
+    "/ip4/127.0.0.1/tcp/%d/p2p/%s"
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
@@ -695,7 +698,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, bootstrapNodePort, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 				require.NoError(t, err)
@@ -703,21 +706,15 @@ observationSource = """
 			}
 
 			// Assert that all the OCR jobs get a run with valid values eventually.
-			var wg sync.WaitGroup
 			for i := 0; i < 4; i++ {
-				ic := i
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					// Want at least 2 runs so we see all the metadata.
-					pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].JobORM(), 1*time.Minute, 1*time.Second)
-					jb, err := pr[0].Outputs.MarshalJSON()
-					require.NoError(t, err)
-					assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
-					require.NoError(t, err)
-				}()
+				// Want at least 2 runs so we see all the metadata.
+				pr := cltest.WaitForPipelineComplete(t, i, jids[i],
+					2, 0, apps[i].JobORM(), time.Minute, time.Second)
+				jb, err := pr[0].Outputs.MarshalJSON()
+				require.NoError(t, err)
+				assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb)
+				require.NoError(t, err)
 			}
-			wg.Wait()
 
 			// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
 			g.Eventually(func() string {
@@ -741,6 +738,8 @@ observationSource = """
 					require.Len(t, j.JobSpecErrors, ignore)
 				}
 			}
+			metaLock.Lock()
+			defer metaLock.Unlock()
 			assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 		})
 	}

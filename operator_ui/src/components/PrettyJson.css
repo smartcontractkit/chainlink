@@ -7,6 +7,7 @@
   color: #d4d4d4;
   text-align: left;
   margin: 0;
+  overflow: auto;
 }
 
 .json-selected {

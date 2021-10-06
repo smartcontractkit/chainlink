@@ -74,7 +74,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
-	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth())
+	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth(), false)
 
 	orm := NewORM(d.db, chain.TxManager(), chain.Config(), strategy)
 
@@ -92,6 +92,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.Config().KeeperRegistrySyncInterval(),
 		chain.Config().KeeperMinimumRequiredConfirmations(),
 		svcLogger.Named("RegistrySynchronizer"),
+		chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,

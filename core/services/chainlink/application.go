@@ -317,9 +317,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-// SetServiceLogger sets the Logger for a given service and stores the setting in the db
+// SetServiceLogger sets the Logger level for a given service and stores the setting in the db.
 func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
-	newL, err := app.logger.NewServiceLevelLogger(serviceName, level)
+	newL, err := app.logger.NamedLevel(serviceName, level)
 	if err != nil {
 		return err
 	}
@@ -357,7 +357,7 @@ func (app *ChainlinkApplication) Start() error {
 		case <-sigs:
 		case <-app.shutdownSignal.Wait():
 		}
-		app.logger.ErrorIf(app.Stop())
+		app.logger.ErrorIf(app.Stop(), "Error stopping application")
 		app.Exiter(0)
 	}()
 
@@ -430,14 +430,16 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 			app.logger.Debug("Stopping SessionReaper...")
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
-			app.logger.Debug("Closing Store...")
-			merr = multierr.Append(merr, app.sqlxDB.Close())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
 			if app.FeedsService != nil {
 				app.logger.Debug("Closing Feeds Service...")
 				merr = multierr.Append(merr, app.FeedsService.Close())
 			}
+
+			// DB should pretty much always be closed last
+			app.logger.Debug("Closing DB...")
+			merr = multierr.Append(merr, app.sqlxDB.Close())
 
 			app.logger.Info("Exited all services")
 

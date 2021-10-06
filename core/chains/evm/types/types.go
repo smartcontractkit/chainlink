@@ -65,7 +65,7 @@ type ChainCfg struct {
 	EvmRPCDefaultBatchSize                null.Int
 	FlagsContractAddress                  null.String
 	GasEstimatorMode                      null.String
-	Layer2Type                            null.String
+	ChainType                             null.String
 	MinIncomingConfirmations              null.Int
 	MinRequiredOutgoingConfirmations      null.Int
 	MinimumContractPayment                *assets.Link
@@ -96,10 +96,6 @@ type Chain struct {
 
 func (Chain) TableName() string {
 	return "evm_chains"
-}
-
-func IsExChain(id *big.Int) bool {
-	return id.Cmp(big.NewInt(65)) == 0 || id.Cmp(big.NewInt(66)) == 0
 }
 
 type Node struct {

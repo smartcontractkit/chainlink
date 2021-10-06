@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
+	chains "github.com/smartcontractkit/chainlink/core/chains"
+
 	common "github.com/ethereum/go-ethereum/common"
 
 	context "context"
@@ -256,6 +258,20 @@ func (_m *ChainScopedConfig) ChainID() *big.Int {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
+	}
+
+	return r0
+}
+
+// ChainType provides a mock function with given fields:
+func (_m *ChainScopedConfig) ChainType() chains.ChainType {
+	ret := _m.Called()
+
+	var r0 chains.ChainType
+	if rf, ok := ret.Get(0).(func() chains.ChainType); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(chains.ChainType)
 	}
 
 	return r0
@@ -1057,6 +1073,20 @@ func (_m *ChainScopedConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return r0
 }
 
+// FMSimulateTransactions provides a mock function with given fields:
+func (_m *ChainScopedConfig) FMSimulateTransactions() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // FeatureExternalInitiators provides a mock function with given fields:
 func (_m *ChainScopedConfig) FeatureExternalInitiators() bool {
 	ret := _m.Called()
@@ -1283,6 +1313,27 @@ func (_m *ChainScopedConfig) GlobalBlockHistoryEstimatorTransactionPercentile() 
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalChainType provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalChainType() (string, bool) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	var r1 bool
@@ -1895,6 +1946,27 @@ func (_m *ChainScopedConfig) GlobalGasEstimatorMode() (string, bool) {
 	return r0, r1
 }
 
+// GlobalLayer2Type provides a mock function with given fields:
+func (_m *ChainScopedConfig) GlobalLayer2Type() (string, bool) {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
 // GlobalLinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalLinkContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -2270,6 +2342,20 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *big
 	return r0
 }
 
+// Layer2Type provides a mock function with given fields:
+func (_m *ChainScopedConfig) Layer2Type() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // LinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) LinkContractAddress() string {
 	ret := _m.Called()
@@ -2624,6 +2710,20 @@ func (_m *ChainScopedConfig) OCROutgoingMessageBufferSize() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// OCRSimulateTransactions provides a mock function with given fields:
+func (_m *ChainScopedConfig) OCRSimulateTransactions() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

@@ -65,7 +65,7 @@ func CreateTestLogger(lvl zapcore.Level) Logger {
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(lvl)
 	config.OutputPaths = []string{"pretty://console", "memory://"}
-	zl, err := config.Build(zap.AddCallerSkip(1))
+	zl, err := config.Build()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func CreateMemoryTestLogger(lvl zapcore.Level) Logger {
 	config := zap.NewProductionConfig()
 	config.Level.SetLevel(lvl)
 	config.OutputPaths = []string{"memory://"}
-	zl, err := config.Build(zap.AddCallerSkip(1))
+	zl, err := config.Build()
 	if err != nil {
 		log.Fatal(err)
 	}

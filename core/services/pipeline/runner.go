@@ -116,6 +116,7 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 
 func (r *runner) Start() error {
 	return r.StartOnce("PipelineRunner", func() error {
+		r.wgDone.Add(2)
 		go r.scheduleUnfinishedRuns()
 		go r.runReaperLoop()
 		return nil
@@ -138,7 +139,6 @@ func (r *runner) destroy() {
 }
 
 func (r *runner) runReaperLoop() {
-	r.wgDone.Add(1)
 	defer r.wgDone.Done()
 	defer r.destroy()
 
@@ -382,7 +382,8 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
+	result, runInfo := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
+	loggerFields = append(loggerFields, "runInfo", runInfo)
 	loggerFields = append(loggerFields, "resultValue", result.Value)
 	loggerFields = append(loggerFields, "resultError", result.Error)
 	loggerFields = append(loggerFields, "resultType", fmt.Sprintf("%T", result.Value))
@@ -395,12 +396,17 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 
 	now := time.Now()
 
+	var finishedAt null.Time
+	if !runInfo.IsPending {
+		finishedAt = null.TimeFrom(now)
+	}
 	return TaskRunResult{
 		ID:         taskRun.task.Base().uuid,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
-		FinishedAt: null.TimeFrom(now),
+		FinishedAt: finishedAt,
+		runInfo:    runInfo,
 	}
 }
 
@@ -593,7 +599,6 @@ func (r *runner) runReaper() {
 // init task: Searches the database for runs stuck in the 'running' state while the node was previously killed.
 // We pick up those runs and resume execution.
 func (r *runner) scheduleUnfinishedRuns() {
-	r.wgDone.Add(1)
 	defer r.wgDone.Done()
 
 	// limit using a createdAt < now() @ start of run to prevent executing new jobs

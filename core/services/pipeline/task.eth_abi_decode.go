@@ -23,10 +23,10 @@ func (t *ETHABIDecodeTask) Type() TaskType {
 	return TaskTypeETHABIDecode
 }
 
-func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) Result {
+func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -38,19 +38,19 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) Re
 		errors.Wrap(ResolveParam(&theABI, From(NonemptyString(t.ABI))), "abi"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	args, _, err := parseETHABIArgsString([]byte(theABI), false)
 	if err != nil {
-		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}
+		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
 
 	out := make(map[string]interface{})
 	if len(data) > 0 {
 		if err := args.UnpackIntoMap(out, []byte(data)); err != nil {
-			return Result{Error: err}
+			return Result{Error: err}, runInfo
 		}
 	}
-	return Result{Value: out}
+	return Result{Value: out}, runInfo
 }

@@ -12,7 +12,8 @@ import (
 var (
 	// Default logger for use throughout the project.
 	// All the package-level functions are calling Default.
-	Default Logger
+	Default     Logger
+	skipDefault Logger // Default.withCallerSkip(1) for helper funcs
 )
 
 func init() {
@@ -52,125 +53,111 @@ func SetLogger(newLogger Logger) {
 		}(Default)
 	}
 	Default = newLogger
+	skipDefault = Default.withCallerSkip(1)
 }
 
 // Infow logs an info message and any additional given information.
 func Infow(msg string, keysAndValues ...interface{}) {
-	Default.Infow(msg, keysAndValues...)
+	skipDefault.Infow(msg, keysAndValues...)
 }
 
 // Debugw logs a debug message and any additional given information.
 func Debugw(msg string, keysAndValues ...interface{}) {
-	Default.Debugw(msg, keysAndValues...)
+	skipDefault.Debugw(msg, keysAndValues...)
 }
 
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
-	Default.Warnw(msg, keysAndValues...)
+	skipDefault.Warnw(msg, keysAndValues...)
 }
 
 // Errorw logs an error message, any additional given information, and includes
 // stack trace.
 func Errorw(msg string, keysAndValues ...interface{}) {
-	Default.Errorw(msg, keysAndValues...)
-}
-
-// Logs and returns a new error
-func NewErrorw(msg string, keysAndValues ...interface{}) error {
-	Default.Errorw(msg, keysAndValues...)
-	return errors.New(msg)
+	skipDefault.Errorw(msg, keysAndValues...)
 }
 
 // Infof formats and then logs the message.
 func Infof(format string, values ...interface{}) {
-	Default.Infof(format, values...)
+	skipDefault.Infof(format, values...)
 }
 
 // Debugf formats and then logs the message.
 func Debugf(format string, values ...interface{}) {
-	Default.Debugf(format, values...)
+	skipDefault.Debugf(format, values...)
 }
 
 // Tracef is a shim stand-in for when we have real trace-level logging support
 func Tracef(format string, values ...interface{}) {
-	Default.Debug("TRACE: " + fmt.Sprintf(format, values...))
+	skipDefault.Debug("TRACE: " + fmt.Sprintf(format, values...))
 }
 
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
-	Default.Warnf(format, values...)
+	skipDefault.Warnf(format, values...)
 }
 
 // Panicf formats and then logs the message before panicking.
 func Panicf(format string, values ...interface{}) {
-	Default.Panic(fmt.Sprintf(format, values...))
+	skipDefault.Panic(fmt.Sprintf(format, values...))
 }
 
 // Info logs an info message.
 func Info(args ...interface{}) {
-	Default.Info(args...)
+	skipDefault.Info(args...)
 }
 
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
-	Default.Debug(args...)
-}
-
-// Trace is a shim stand-in for when we have real trace-level logging support
-func Trace(args ...interface{}) {
-	Default.Debug(append([]interface{}{"TRACE: "}, args...))
+	skipDefault.Debug(args...)
 }
 
 // Warn logs a message at the warn level.
 func Warn(args ...interface{}) {
-	Default.Warn(args...)
+	skipDefault.Warn(args...)
 }
 
 // Error logs an error message.
 func Error(args ...interface{}) {
-	Default.Error(args...)
+	skipDefault.Error(args...)
 }
 
-func WarnIf(err error) {
-	Default.WarnIf(err)
+func ErrorIf(err error, msg string) {
+	skipDefault.ErrorIf(err, msg)
 }
 
-func ErrorIf(err error, optionalMsg ...string) {
-	Default.ErrorIf(err, optionalMsg...)
-}
-
-func ErrorIfCalling(f func() error, optionalMsg ...string) {
-	Default.ErrorIfCalling(f, optionalMsg...)
+func ErrorIfCalling(f func() error) {
+	skipDefault.ErrorIfCalling(f)
 }
 
 // Fatal logs a fatal message then exits the application.
 func Fatal(args ...interface{}) {
-	Default.Fatal(args...)
+	skipDefault.Fatal(args...)
 }
 
 // Errorf logs a message at the error level using Sprintf.
 func Errorf(format string, values ...interface{}) {
-	Error(fmt.Sprintf(format, values...))
+	skipDefault.Error(fmt.Sprintf(format, values...))
 }
 
 // Fatalf logs a message at the fatal level using Sprintf.
 func Fatalf(format string, values ...interface{}) {
-	Fatal(fmt.Sprintf(format, values...))
+	skipDefault.Fatal(fmt.Sprintf(format, values...))
 }
 
 // Fatalw logs a message and exits the application
 func Fatalw(msg string, keysAndValues ...interface{}) {
-	Default.Fatalw(msg, keysAndValues...)
+	skipDefault.Fatalw(msg, keysAndValues...)
 }
 
 // Panic logs a panic message then panics.
 func Panic(args ...interface{}) {
-	Default.Panic(args...)
+	skipDefault.Panic(args...)
 }
 
 // PanicIf logs the error if present.
-func PanicIf(err error) {
-	Default.PanicIf(err)
+func PanicIf(err error, msg string) {
+	skipDefault.PanicIf(err, msg)
 }
 
 // Sync flushes any buffered log entries.

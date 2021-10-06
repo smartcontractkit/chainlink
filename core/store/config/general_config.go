@@ -19,8 +19,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -33,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // this permission grants read / write accccess to file owners only
@@ -83,6 +84,7 @@ type GeneralOnlyConfig interface {
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
+	FMSimulateTransactions() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	FeatureExternalInitiators() bool
@@ -105,6 +107,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
+	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
 	LogLevel() LogLevel
 	LogSQLMigrations() bool
@@ -126,6 +129,7 @@ type GeneralOnlyConfig interface {
 	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
+	OCRSimulateTransactions() bool
 	OCRTraceLogging() bool
 	OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	ORMMaxIdleConns() int
@@ -215,7 +219,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalLayer2Type() (string, bool)
+	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -318,6 +322,9 @@ func (c *generalConfig) Validate() error {
 		if _, err := url.Parse(me); err != nil {
 			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
+	}
+	if ct, set := c.GlobalChainType(); set && !chains.ChainType(ct).IsValid() {
+		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 	return nil
 }
@@ -513,6 +520,12 @@ func (c *generalConfig) FMDefaultTransactionQueueDepth() uint32 {
 	return c.viper.GetUint32(EnvVarName("FMDefaultTransactionQueueDepth"))
 }
 
+// FMSimulateTransactions enables using eth_call transaction simulation before
+// sending when set to true
+func (c *generalConfig) FMSimulateTransactions() bool {
+	return c.viper.GetBool(EnvVarName("FMSimulateTransactions"))
+}
+
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c *generalConfig) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
@@ -656,6 +669,11 @@ func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
 
+// KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
+func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
+	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", ParseUint32).(uint32)
+}
+
 // JSONConsole when set to true causes logging to be made in JSON format
 // If set to false, logs in console format
 func (c *generalConfig) JSONConsole() bool {
@@ -761,6 +779,12 @@ func (c *generalConfig) OCRNewStreamTimeout() time.Duration {
 
 func (c *generalConfig) OCROutgoingMessageBufferSize() int {
 	return int(c.getWithFallback("OCRIncomingMessageBufferSize", ParseUint16).(uint16))
+}
+
+// OCRSimulateTransactions enables using eth_call transaction simulation before
+// sending when set to true
+func (c *generalConfig) OCRSimulateTransactions() bool {
+	return c.viper.GetBool(EnvVarName("OCRSimulateTransactions"))
 }
 
 // OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The
@@ -1449,8 +1473,8 @@ func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalLayer2Type() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
+func (*generalConfig) GlobalChainType() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("ChainType"), ParseString)
 	if val == nil {
 		return "", false
 	}
