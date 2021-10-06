@@ -54,14 +54,14 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 func (jc *JobsController) Show(c *gin.Context) {
 	var err error
 	jobSpec := job.Job{}
-	if externalJobID, err := uuid.FromString(c.Param("ID")); err == nil {
+	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
 		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(c.Request.Context(), externalJobID)
-	} else if err := jobSpec.SetID(c.Param("ID")); err == nil {
+	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
 		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
 	} else {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, pErr)
 		return
 	}
 	if err != nil {
