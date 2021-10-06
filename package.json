@@ -20,6 +20,7 @@
   },
   "scripts": {
     "preinstall": "node -e \"if(process.env.npm_execpath.indexOf('yarn') === -1) throw new Error('Please use yarn to install dependencies\\n\\n')\"",
+    "lint": "eslint --ext js,jsx,ts,tsx .",
     "prettier:check": "yarn prettier . --check --ignore-unknown",
     "prettier:write": "yarn prettier . --write --ignore-unknown",
     "setup": "wsrun -me -t setup",
