@@ -34,10 +34,10 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
+func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}
+		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
 	var (
@@ -51,13 +51,13 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		errors.Wrap(ResolveParam(&lax, From(NonemptyString(t.Lax), false)), "lax"),
 	)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	var decoded interface{}
 	err = json.Unmarshal([]byte(data), &decoded)
 	if err != nil {
-		return Result{Error: err}
+		return Result{Error: err}, runInfo
 	}
 
 	for _, part := range path {
@@ -69,19 +69,19 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 				decoded = nil
 				break
 			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
+				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 
 		case []interface{}:
 			bigindex, ok := big.NewInt(0).SetString(part, 10)
 			if !ok {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}
+				return Result{Error: errors.Wrapf(ErrKeypathNotFound, "JSONParse task error: %v is not a valid array index", part)}, runInfo
 			} else if !bigindex.IsInt64() {
 				if bool(lax) {
 					decoded = nil
 					break
 				}
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
+				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 			index := int(bigindex.Int64())
 			if index < 0 {
@@ -93,13 +93,13 @@ func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 				decoded = nil
 				break
 			} else if !exists {
-				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
+				return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 			}
 			decoded = d[index]
 
 		default:
-			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}
+			return Result{Error: errors.Wrapf(ErrKeypathNotFound, `could not resolve path ["%v"] in %s`, strings.Join(path, `","`), data)}, runInfo
 		}
 	}
-	return Result{Value: decoded}
+	return Result{Value: decoded}, runInfo
 }

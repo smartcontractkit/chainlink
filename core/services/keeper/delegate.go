@@ -92,6 +92,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.Config().KeeperRegistrySyncInterval(),
 		chain.Config().KeeperMinimumRequiredConfirmations(),
 		svcLogger.Named("RegistrySynchronizer"),
+		chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,

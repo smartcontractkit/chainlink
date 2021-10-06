@@ -4,12 +4,9 @@ import (
 	"context"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
-
-type Chain interface {
-	Layer2Type() string
-}
 
 // BlockTranslator converts emitted block numbers (from block.number) into a
 // block number range suitable for query in FilterLogs
@@ -18,14 +15,18 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(chain Chain, client eth.Client) BlockTranslator {
-	switch chain.Layer2Type() {
-	case "Arbitrum":
+func NewBlockTranslator(cfg Config, client eth.Client) BlockTranslator {
+	switch cfg.ChainType() {
+	case chains.Arbitrum:
 		return NewArbitrumBlockTranslator(client)
-	case "Optimism":
+	case chains.Optimism:
 		return newOptimismBlockTranslator()
+
+	case chains.XDai, chains.ExChain:
+		fallthrough
+	default:
+		return &l1BlockTranslator{}
 	}
-	return &l1BlockTranslator{}
 }
 
 type l1BlockTranslator struct{}

@@ -97,6 +97,10 @@ NOTE: AccessLists are part of the 0x2 transaction type spec and Chainlink also i
 
 Avalanche AP4 defaults have been added (you can remove manually set ENV vars controlling gas pricing).
 
+#### New env vars
+
+`CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`.
+
 ### Changed
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
@@ -129,6 +133,10 @@ This only applies to EAs using the `X-Chainlink-Pending` header to signal that t
 ### Removed
 
 - `belt/` and `evm-test-helpers/` removed from the codebase.
+
+#### Deprecated env vars
+
+`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
 
 ### Fixed
 

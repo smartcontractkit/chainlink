@@ -19,4 +19,5 @@ type Config interface {
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
+	KeeperRegistrySyncUpkeepQueueSize() uint32
 }

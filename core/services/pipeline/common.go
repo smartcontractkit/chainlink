@@ -33,7 +33,7 @@ type (
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, inputs []Result) Result
+		Run(ctx context.Context, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task
@@ -73,6 +73,34 @@ var (
 const (
 	InputTaskKey = "input"
 )
+
+// RunInfo contains additional information about the finished TaskRun
+type RunInfo struct {
+	IsRetryable bool
+	IsPending   bool
+}
+
+// retryableMeta should be returned if the error is non-deterministic; i.e. a
+// repeated attempt sometime later _might_ succeed where the current attempt
+// failed
+func retryableRunInfo() RunInfo {
+	return RunInfo{IsRetryable: true}
+}
+
+func pendingRunInfo() RunInfo {
+	return RunInfo{IsPending: true}
+}
+
+func isRetryableHTTPError(statusCode int, err error) bool {
+	if statusCode >= 400 && statusCode < 500 {
+		// Client errors are not likely to succeed by resubmitting the exact same information again
+		return false
+	} else if statusCode >= 500 {
+		// Remote errors _might_ work on a retry
+		return true
+	}
+	return err != nil
+}
 
 // Result is the result of a TaskRun
 type Result struct {
@@ -130,6 +158,8 @@ type TaskRunResult struct {
 	Attempts   uint
 	CreatedAt  time.Time
 	FinishedAt null.Time
+	// runInfo is never persisted
+	runInfo RunInfo
 }
 
 func (result *TaskRunResult) IsPending() bool {

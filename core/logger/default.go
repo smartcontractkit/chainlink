@@ -77,12 +77,6 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	skipDefault.Errorw(msg, keysAndValues...)
 }
 
-// Logs and returns a new error
-func NewErrorw(msg string, keysAndValues ...interface{}) error {
-	skipDefault.Errorw(msg, keysAndValues...)
-	return errors.New(msg)
-}
-
 // Infof formats and then logs the message.
 func Infof(format string, values ...interface{}) {
 	skipDefault.Infof(format, values...)
@@ -118,11 +112,6 @@ func Debug(args ...interface{}) {
 	skipDefault.Debug(args...)
 }
 
-// Trace is a shim stand-in for when we have real trace-level logging support
-func Trace(args ...interface{}) {
-	skipDefault.Debug(append([]interface{}{"TRACE: "}, args...))
-}
-
 // Warn logs a message at the warn level.
 func Warn(args ...interface{}) {
 	skipDefault.Warn(args...)
@@ -133,12 +122,8 @@ func Error(args ...interface{}) {
 	skipDefault.Error(args...)
 }
 
-func WarnIf(err error, msg string) {
-	skipDefault.WarnIf(err, msg)
-}
-
-func ErrorIf(err error, optionalMsg ...string) {
-	skipDefault.ErrorIf(err, optionalMsg...)
+func ErrorIf(err error, msg string) {
+	skipDefault.ErrorIf(err, msg)
 }
 
 func ErrorIfCalling(f func() error) {

@@ -44,9 +44,8 @@ const KEY_TYPE = 'P2P'
 
 export const P2PKeys = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [p2pKeys, setP2Keys] = React.useState<
-      jsonapi.ApiResponse<models.P2PKey[]>['data']
-    >()
+    const [p2pKeys, setP2Keys] =
+      React.useState<jsonapi.ApiResponse<models.P2PKey[]>['data']>()
     const { error, ErrorComponent, setError } = useErrorHandler()
     const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !p2pKeys)
     const dispatch = useDispatch()

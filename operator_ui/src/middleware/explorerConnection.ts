@@ -10,37 +10,36 @@ import { Actions } from 'reducers/actions'
 export function createExplorerConnectionMiddleware(
   cookie?: string,
 ): Middleware {
-  const explorerConnectionMiddleware: Middleware = (store) => (next) => (
-    action: Actions,
-  ) => {
-    // dispatch original action right away
-    next(action)
+  const explorerConnectionMiddleware: Middleware =
+    (store) => (next) => (action: Actions) => {
+      // dispatch original action right away
+      next(action)
 
-    // DEV NOTE:
-    // `document` can't be accessed in the NodeJS build environment of the parent closure.
-    const initCookie: string = cookie || (document && document.cookie) || ''
-    const state: AppState = store.getState()
+      // DEV NOTE:
+      // `document` can't be accessed in the NodeJS build environment of the parent closure.
+      const initCookie: string = cookie || (document && document.cookie) || ''
+      const state: AppState = store.getState()
 
-    if (
-      action.type === 'MATCH_ROUTE' &&
-      state.notifications.currentUrl !== '/signin'
-    ) {
-      const cookies = parse(initCookie)
+      if (
+        action.type === 'MATCH_ROUTE' &&
+        state.notifications.currentUrl !== '/signin'
+      ) {
+        const cookies = parse(initCookie)
 
-      if (cookies.explorer) {
-        try {
-          const json = JSON.parse(cookies.explorer)
+        if (cookies.explorer) {
+          try {
+            const json = JSON.parse(cookies.explorer)
 
-          if (json.status === 'error') {
-            const msg = formatMsg(json.url)
-            next({ type: 'NOTIFY_ERROR_MSG', msg })
+            if (json.status === 'error') {
+              const msg = formatMsg(json.url)
+              next({ type: 'NOTIFY_ERROR_MSG', msg })
+            }
+          } catch {
+            next({ type: 'NOTIFY_ERROR_MSG', msg: 'Invalid explorer status' })
           }
-        } catch {
-          next({ type: 'NOTIFY_ERROR_MSG', msg: 'Invalid explorer status' })
         }
       }
     }
-  }
 
   return explorerConnectionMiddleware
 }

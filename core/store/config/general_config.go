@@ -19,8 +19,7 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -33,6 +32,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // this permission grants read / write accccess to file owners only
@@ -106,6 +107,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
+	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
 	LogLevel() LogLevel
 	LogSQLMigrations() bool
@@ -217,7 +219,7 @@ type GlobalConfig interface {
 	GlobalEvmRPCDefaultBatchSize() (uint32, bool)
 	GlobalFlagsContractAddress() (string, bool)
 	GlobalGasEstimatorMode() (string, bool)
-	GlobalLayer2Type() (string, bool)
+	GlobalChainType() (string, bool)
 	GlobalLinkContractAddress() (string, bool)
 	GlobalMinIncomingConfirmations() (uint32, bool)
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
@@ -320,6 +322,9 @@ func (c *generalConfig) Validate() error {
 		if _, err := url.Parse(me); err != nil {
 			return errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
+	}
+	if ct, set := c.GlobalChainType(); set && !chains.ChainType(ct).IsValid() {
+		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 	return nil
 }
@@ -662,6 +667,11 @@ func (c *generalConfig) KeeperMinimumRequiredConfirmations() uint64 {
 // an upkeep before it resumes checking that upkeep
 func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
+}
+
+// KeeperRegistrySyncUpkeepQueueSize represents the maximum number of upkeeps that can be synced in parallel
+func (c *generalConfig) KeeperRegistrySyncUpkeepQueueSize() uint32 {
+	return c.getWithFallback("KeeperRegistrySyncUpkeepQueueSize", ParseUint32).(uint32)
 }
 
 // JSONConsole when set to true causes logging to be made in JSON format
@@ -1463,8 +1473,8 @@ func (*generalConfig) GlobalGasEstimatorMode() (string, bool) {
 	}
 	return val.(string), ok
 }
-func (*generalConfig) GlobalLayer2Type() (string, bool) {
-	val, ok := lookupEnv(EnvVarName("Layer2Type"), ParseString)
+func (*generalConfig) GlobalChainType() (string, bool) {
+	val, ok := lookupEnv(EnvVarName("ChainType"), ParseString)
 	if val == nil {
 		return "", false
 	}
