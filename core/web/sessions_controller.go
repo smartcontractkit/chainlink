@@ -5,20 +5,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
-
-	"github.com/duo-labs/webauthn.io/session"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 // SessionsController manages session requests.
 type SessionsController struct {
 	App      chainlink.Application
-	Sessions *session.Store
+	Sessions *clsessions.WebAuthnSessionStore
 }
 
 // Create creates a session ID for the given user credentials, and returns it
@@ -28,7 +27,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	logger.Tracef("Starting Session Creation")
 	if sc.Sessions == nil {
 		var err error
-		sc.Sessions, err = session.NewStore()
+		sc.Sessions, err = clsessions.NewWebAuthnSessionStore()
 		if err != nil {
 			logger.Errorf("Could not create a session store for MFA authentication")
 			jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))

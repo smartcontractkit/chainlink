@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/duo-labs/webauthn.io/session"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -66,7 +65,7 @@ type SessionRequest struct {
 	Password       string `json:"password"`
 	WebAuthnData   string `json:"webauthndata"`
 	WebAuthnConfig WebAuthnConfiguration
-	SessionStore   *session.Store
+	SessionStore   *WebAuthnSessionStore
 	RequestContext *gin.Context
 }
 

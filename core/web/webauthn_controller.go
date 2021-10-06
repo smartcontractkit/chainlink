@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/duo-labs/webauthn.io/session"
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/gin-gonic/gin"
 
@@ -21,12 +20,12 @@ import (
 // with those keys
 type WebAuthnController struct {
 	App      chainlink.Application
-	Sessions *session.Store
+	Sessions *sessions.WebAuthnSessionStore
 }
 
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	if c.Sessions == nil {
-		sessionStore, err := session.NewStore()
+		sessionStore, err := sessions.NewWebAuthnSessionStore()
 		if err != nil {
 			jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
 			return
