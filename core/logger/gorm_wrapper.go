@@ -6,39 +6,44 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
-var _ gormlogger.Interface = &gormWrapper{}
+var _ gormlogger.Interface = &GormWrapper{}
 
-type gormWrapper struct {
+type GormWrapper struct {
 	Logger
-	logAllQueries bool
+	logAllQueries *atomic.Bool
 	slowThreshold time.Duration
 }
 
+func (o *GormWrapper) LogAllQueries(b bool) {
+	o.logAllQueries.Store(b)
+}
+
 // Noop
-func (o *gormWrapper) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
+func (o *GormWrapper) LogMode(level gormlogger.LogLevel) gormlogger.Interface {
 	return o
 }
 
-func (o *gormWrapper) Info(ctx context.Context, s string, i ...interface{}) {
+func (o *GormWrapper) Info(ctx context.Context, s string, i ...interface{}) {
 	o.Logger.Infow(fmt.Sprintf(s, i...))
 }
 
-func (o *gormWrapper) Warn(ctx context.Context, s string, i ...interface{}) {
+func (o *GormWrapper) Warn(ctx context.Context, s string, i ...interface{}) {
 	o.Logger.Warnw(fmt.Sprintf(s, i...))
 }
 
-func (o *gormWrapper) Error(ctx context.Context, s string, i ...interface{}) {
+func (o *GormWrapper) Error(ctx context.Context, s string, i ...interface{}) {
 	o.Logger.Errorw(fmt.Sprintf(s, i...))
 }
 
 // This is called at the end of every gorm v2 query.
 // We always log the sql queries for errors and slow queries (warns).
 // Need to set LOG_SQL=true to enable all queries.
-func (o *gormWrapper) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
+func (o *GormWrapper) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
 	elapsed := time.Since(begin)
 	switch {
 	case ctx.Err() != nil:
@@ -66,7 +71,7 @@ func (o *gormWrapper) Trace(ctx context.Context, begin time.Time, fc func() (str
 		} else {
 			o.Logger.Warnw(fmt.Sprintf("SQL query took longer than %s", o.slowThreshold), "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
-	case o.logAllQueries:
+	case o.logAllQueries.Load():
 		sql, rows := fc()
 		if rows == -1 {
 			o.Logger.Debugw("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
@@ -76,6 +81,6 @@ func (o *gormWrapper) Trace(ctx context.Context, begin time.Time, fc func() (str
 	}
 }
 
-func NewGormWrapper(logger Logger, logAllQueries bool, slowThreshold time.Duration) *gormWrapper {
-	return &gormWrapper{logger.withCallerSkip(2), logAllQueries, slowThreshold}
+func NewGormWrapper(logger Logger, logAllQueries bool, slowThreshold time.Duration) *GormWrapper {
+	return &GormWrapper{logger.withCallerSkip(2), atomic.NewBool(logAllQueries), slowThreshold}
 }
