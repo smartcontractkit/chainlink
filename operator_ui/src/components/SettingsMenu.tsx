@@ -33,8 +33,9 @@ export const SettingsMenu = withStyles(styles)(({ classes }: Props) => {
     setAnchorEl(null)
   }
 
-  const renderLink = (to: string) => (itemProps: any) =>
+  const renderLink = (to: string) => (itemProps: any) => (
     <Link to={to} {...itemProps} />
+  )
 
   return (
     <React.Fragment>
@@ -43,7 +44,7 @@ export const SettingsMenu = withStyles(styles)(({ classes }: Props) => {
       </IconButton>
 
       <Menu
-        id="account-menu"
+        id="settings-menu"
         anchorEl={anchorEl}
         getContentAnchorEl={null}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
