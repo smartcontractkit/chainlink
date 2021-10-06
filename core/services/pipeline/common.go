@@ -233,6 +233,7 @@ const (
 	TaskTypeETHABIEncode    TaskType = "ethabiencode"
 	TaskTypeETHABIDecode    TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
+	TaskTypeMergeTask       TaskType = "merge"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"

@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
@@ -53,6 +54,8 @@ func isRestrictedIP(ip net.IP) bool {
 	return false
 }
 
+var ErrDisallowedIP = errors.New("disallowed IP")
+
 // restrictedDialContext wraps the Dialer such that after successful connection,
 // we check the IP.
 // If the resolved IP is restricted, close the connection and return an error.
@@ -70,7 +73,7 @@ func restrictedDialContext(ctx context.Context, network, address string) (net.Co
 
 		if isRestrictedIP(a.IP) {
 			defer logger.ErrorIfCalling(con.Close)
-			return nil, fmt.Errorf("disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons. If you really want to allow this, consider using the httpgetwithunrestrictednetworkaccess or httppostwithunrestrictednetworkaccess adapter instead", a.IP.String())
+			return nil, errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String())
 		}
 	}
 	return con, err

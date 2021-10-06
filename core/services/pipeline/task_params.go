@@ -467,6 +467,7 @@ func (a *AddressParam) UnmarshalPipelineParam(val interface{}) error {
 	return nil
 }
 
+// MapParam accepts maps or JSON-encoded strings
 type MapParam map[string]interface{}
 
 func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
@@ -498,6 +499,10 @@ func (m *MapParam) UnmarshalPipelineParam(val interface{}) error {
 	default:
 		return ErrBadInput
 	}
+}
+
+func (m MapParam) Map() map[string]interface{} {
+	return (map[string]interface{})(m)
 }
 
 type SliceParam []interface{}

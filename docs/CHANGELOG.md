@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.15] - .................
+
+
+### Added
+
+#### `merge` task type
+
+A new task type has been added, called `merge`. It can be used to merge two maps/JSON values together. Merge direction is from right to left such that `right` will clobber values of `left`. If no `left` is provided, it uses the input of the previous task. Example usage as such:
+
+
+```
+decode_log   [type=ethabidecodelog ...]
+merge        [type=merge right=<{"foo": 42}>];
+
+decode_log -> merge;
+```
+
+Or, to reverse merge direction:
+
+```
+decode_log   [type=ethabidecodelog ...]
+merge        [type=merge left=<{"foo": 42}> right="$(decode_log)"];
+
+decode_log -> merge;
+```
+
 
 ## [0.10.14] - 2021-09-06
 
