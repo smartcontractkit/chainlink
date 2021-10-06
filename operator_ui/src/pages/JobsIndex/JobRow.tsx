@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { JobSpecV2 } from './JobsIndex'
+import { JobResource } from './JobsIndex'
 import { tableStyles } from 'components/Table'
 import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
@@ -10,7 +10,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 
 interface Props extends WithStyles<typeof tableStyles> {
-  job: JobSpecV2
+  job: JobResource
 }
 
 export const JobRow = withStyles(tableStyles)(({ job, classes }: Props) => {

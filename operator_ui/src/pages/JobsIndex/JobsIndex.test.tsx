@@ -14,7 +14,7 @@ import {
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import JobsIndex, { simpleJobFilter, JobSpecV2 } from './JobsIndex'
+import JobsIndex, { simpleJobFilter, JobResource } from './JobsIndex'
 import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/jobs'
 
 describe('pages/JobsIndex/JobsIndex', () => {
@@ -95,7 +95,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
   describe('simpleJobFilter', () => {
     it('filters by name', () => {
-      const jobs: JobSpecV2[] = [
+      const jobs: JobResource[] = [
         fluxMonitorJobResource({ name: 'FM Job' }),
         ocrJobResource({ name: 'OCR Job' }),
       ]
@@ -106,7 +106,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
     })
 
     it('filters by type', () => {
-      const jobs: JobSpecV2[] = [
+      const jobs: JobResource[] = [
         fluxMonitorJobResource({}),
         fluxMonitorJobResource({}),
         ocrJobResource({}),
@@ -116,7 +116,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
     })
 
     it('filters by ID', () => {
-      const jobs: JobSpecV2[] = [
+      const jobs: JobResource[] = [
         fluxMonitorJobResource({ id: 'id-3a' }),
         ocrJobResource({ id: 'id-3b' }),
       ]
@@ -129,7 +129,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
     })
 
     it('filters by job type', () => {
-      const jobs: JobSpecV2[] = [
+      const jobs: JobResource[] = [
         ocrJobResource({ id: '1' }),
         fluxMonitorJobResource({ id: '2' }),
       ]

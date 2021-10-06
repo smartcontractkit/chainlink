@@ -1,9 +1,9 @@
 import React from 'react'
 import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
 import { v2 } from 'api'
-import { NodeSpecV2 } from '../NodesIndex/NodesIndex'
+import { NodeResource } from '../NodesIndex/NodesIndex'
 import RegionalNav from './RegionalNav'
-import { ChainSpecV2 } from '../ChainsIndex/ChainsIndex'
+import { ChainResource } from '../ChainsIndex/ChainsIndex'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
 import NewChainNode from './NewChainNode'
@@ -16,8 +16,8 @@ interface RouteParams {
 export const ChainsShow = () => {
   const { chainId } = useParams<RouteParams>()
   const { path } = useRouteMatch()
-  const [chain, setChain] = React.useState<ChainSpecV2>()
-  const [nodes, setNodes] = React.useState<NodeSpecV2[]>([])
+  const [chain, setChain] = React.useState<ChainResource>()
+  const [nodes, setNodes] = React.useState<NodeResource[]>([])
 
   const getNodes = async () => {
     const nodes = await v2.nodes.getNodes()
@@ -35,7 +35,7 @@ export const ChainsShow = () => {
   React.useEffect(() => {
     Promise.all([v2.chains.getChains()])
       .then(([v2Chains]) =>
-        v2Chains.data.find((chain: ChainSpecV2) => chain.id === chainId),
+        v2Chains.data.find((chain: ChainResource) => chain.id === chainId),
       )
       .then(setChain)
   }, [chainId])
