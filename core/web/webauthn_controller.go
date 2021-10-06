@@ -19,18 +19,13 @@ import (
 // WebAuthnController manages registers new keys as well as authentication
 // with those keys
 type WebAuthnController struct {
-	App      chainlink.Application
-	Sessions *sessions.WebAuthnSessionStore
+	App                          chainlink.Application
+	InProgressRegistrationsStore *sessions.WebAuthnSessionStore
 }
 
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
-	if c.Sessions == nil {
-		sessionStore, err := sessions.NewWebAuthnSessionStore()
-		if err != nil {
-			jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
-			return
-		}
-		c.Sessions = sessionStore
+	if c.InProgressRegistrationsStore == nil {
+		c.InProgressRegistrationsStore = sessions.NewWebAuthnSessionStore()
 	}
 
 	orm := c.App.SessionORM()
@@ -48,8 +43,9 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
+	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
+		logger.Errorf("error in BeginWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
 		return
 	}
@@ -61,7 +57,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	// This should never be nil at this stage (if it registration will surely fail)
-	if c.Sessions == nil {
+	if c.InProgressRegistrationsStore == nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("Registration was unsuccessful"))
 		return
 	}
@@ -69,20 +65,23 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
 	user, err := orm.FindUser()
 	if err != nil {
+		logger.Errorf("error finding user: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
+		logger.Errorf("error in GetUserWebAuthn: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return
 	}
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.Sessions, ctx, webAuthnConfig)
+	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
+		logger.Errorf("error in FinishWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("Registration was unsuccessful"))
 		return
 	}

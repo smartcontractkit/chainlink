@@ -26,13 +26,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
 	logger.Tracef("Starting Session Creation")
 	if sc.Sessions == nil {
-		var err error
-		sc.Sessions, err = clsessions.NewWebAuthnSessionStore()
-		if err != nil {
-			logger.Errorf("Could not create a session store for MFA authentication")
-			jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
-			return
-		}
+		sc.Sessions = clsessions.NewWebAuthnSessionStore()
 	}
 
 	session := sessions.Default(c)
@@ -45,7 +39,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	// Does this user have 2FA enabled?
 	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
 	if err != nil {
-		logger.Errorf("Error loading user WebAuthn data")
+		logger.Errorf("Error loading user WebAuthn data: %s", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
 		return
 	}

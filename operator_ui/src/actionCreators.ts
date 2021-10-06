@@ -285,7 +285,7 @@ function sendBeginRegistration() {
     )
     .catch((err) => {
       alert(
-        'Key registration error, ensure RPID and RPOrigin environment variables are set.\n' +
+        'Key registration error, ensure MFA_RPID and MFA_RPORIGIN environment variables are set.\n' +
           err,
       )
     })
