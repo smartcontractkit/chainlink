@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // User holds the credentials for API user.
@@ -60,8 +61,12 @@ func NewUser(email, plainPwd string) (User, error) {
 // SessionRequest encapsulates the fields needed to generate a new SessionID,
 // including the hashed password.
 type SessionRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email          string `json:"email"`
+	Password       string `json:"password"`
+	WebAuthnData   string `json:"webauthndata"`
+	WebAuthnConfig WebAuthnConfiguration
+	SessionStore   *WebAuthnSessionStore
+	RequestContext *gin.Context
 }
 
 // Session holds the unique id for the authenticated session.

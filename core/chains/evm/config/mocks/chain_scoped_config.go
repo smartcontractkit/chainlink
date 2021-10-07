@@ -1946,27 +1946,6 @@ func (_m *ChainScopedConfig) GlobalGasEstimatorMode() (string, bool) {
 	return r0, r1
 }
 
-// GlobalLayer2Type provides a mock function with given fields:
-func (_m *ChainScopedConfig) GlobalLayer2Type() (string, bool) {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	var r1 bool
-	if rf, ok := ret.Get(1).(func() bool); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Get(1).(bool)
-	}
-
-	return r0, r1
-}
-
 // GlobalLinkContractAddress provides a mock function with given fields:
 func (_m *ChainScopedConfig) GlobalLinkContractAddress() (string, bool) {
 	ret := _m.Called()
@@ -2337,20 +2316,6 @@ func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *big
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
-	}
-
-	return r0
-}
-
-// Layer2Type provides a mock function with given fields:
-func (_m *ChainScopedConfig) Layer2Type() string {
-	ret := _m.Called()
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -3090,6 +3055,34 @@ func (_m *ChainScopedConfig) Port() uint16 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint16)
+	}
+
+	return r0
+}
+
+// RPID provides a mock function with given fields:
+func (_m *ChainScopedConfig) RPID() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// RPOrigin provides a mock function with given fields:
+func (_m *ChainScopedConfig) RPOrigin() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
