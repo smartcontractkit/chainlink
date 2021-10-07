@@ -290,8 +290,8 @@ declare module 'core/store/models' {
       idleTimerPeriod: string
       pollTimerDisabled: false
       pollTimerPeriod: string
-      drumbeatEnabled:     boolean
-      drumbeatSchedule?:    string
+      drumbeatEnabled: boolean
+      drumbeatSchedule?: string
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
@@ -381,7 +381,7 @@ declare module 'core/store/models' {
     vrfSpec: {
       confirmations: number
       publicKey: string
-      coordinatorAddress: common.Address,
+      coordinatorAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
     }
@@ -402,9 +402,9 @@ declare module 'core/store/models' {
     | VRFJob
 
   export type Chain = {
-    config: Record<string, JSONPrimitive>,
-    enabled: boolean,
-    createdAt: time.Time,
+    config: Record<string, JSONPrimitive>
+    enabled: boolean
+    createdAt: time.Time
     updatedAt: time.Time
   }
 
@@ -434,13 +434,23 @@ declare module 'core/store/models' {
 
   // We really need to change the API for this. It not only returns levels but
   // true/false for IsSQLEnabled
-  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error' | "true" | "false"
-  export type LogServiceName = 'Global' | 'IsSqlEnabled' | 'header_tracker' | 'fluxmonitor'
+  export type LogConfigLevel =
+    | 'debug'
+    | 'info'
+    | 'warn'
+    | 'error'
+    | 'true'
+    | 'false'
+  export type LogServiceName =
+    | 'Global'
+    | 'IsSqlEnabled'
+    | 'header_tracker'
+    | 'fluxmonitor'
 
   export interface LogConfig {
     // Stupidly this also returns boolean strings
-    logLevel: LogConfigLevel[] ;
-    serviceName: string[];
+    logLevel: LogConfigLevel[]
+    serviceName: string[]
   }
 
   export interface LogConfigRequest {
