@@ -168,14 +168,15 @@ export const JobProposalScreen = () => {
                   {proposal.attributes.spec}
                 </SyntaxHighlighter>
 
-                {proposal.attributes.status === 'pending' && (
-                  <Button
-                    variant="contained"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    Edit job spec
-                  </Button>
-                )}
+                {proposal.attributes.status === 'pending' ||
+                  (proposal.attributes.status === 'cancelled' && (
+                    <Button
+                      variant="contained"
+                      onClick={() => setIsEditing(true)}
+                    >
+                      Edit job spec
+                    </Button>
+                  ))}
               </CardContent>
             </Card>
           )}

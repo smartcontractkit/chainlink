@@ -315,11 +315,15 @@ func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
 	jp, err := s.orm.GetJobProposal(ctx, id)
 	if err != nil {
-		return errors.Wrap(err, "job proposal does not exist")
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Wrap(err, "job proposal does not exist")
+		}
+
+		return errors.Wrap(err, "database error")
 	}
 
-	if jp.Status != JobProposalStatusPending {
-		return errors.New("must be a pending job proposal")
+	if !jp.CanEditSpec() {
+		return errors.New("must be a pending or cancelled job proposal")
 	}
 
 	// Update the spec
