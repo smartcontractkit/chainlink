@@ -63,7 +63,7 @@ func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink s
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	ks := keystore.New(db, utils.FastScryptParams)
+	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
 	require.NoError(t, ks.Unlock("blah"))
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)

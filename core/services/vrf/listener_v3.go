@@ -347,7 +347,7 @@ func (lsn *listenerV3) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 		return maxLink, run, payload, gaslimit, err
 	}
 	// The call task will fail if there are insufficient funds
-	if run.Errors.HasError() {
+	if run.AllErrors.HasError() {
 		logger.Warnw("VRFListenerV2: simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
 		return maxLink, run, payload, gaslimit, errors.New("run errored")
 	}
@@ -493,7 +493,7 @@ func (lsn *listenerV3) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
-	lsn.l.ErrorIf(errors.Wrapf(err, "VRFListenerV2: unable to mark log %v as consumed", lb.String()))
+	lsn.l.ErrorIf(err, fmt.Sprintf("VRFListenerV2: unable to mark log %v as consumed", lb.String()))
 }
 
 // Close complies with job.Service

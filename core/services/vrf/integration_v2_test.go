@@ -209,16 +209,13 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	require.NoError(t, app.Start())
 
-	// Lets create 3 gas lanes
+	// Lets create 2 gas lanes
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key1.Address.Address(), 10)
 	key2, err := app.KeyStore.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
-	//key3, err := app.KeyStore.Eth().Create(big.NewInt(1337))
-	//require.NoError(t, err)
-	//sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
 
 	gasPrice := decimal.NewFromBigInt(big.NewInt(10000000000), 0) // Default is 10 gwei
 	configureSimChain(app, map[string]types.ChainCfg{
