@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -75,7 +76,7 @@ func NewHeadTracker(
 		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
 		chStop:          chStop,
 		headListener:    NewHeadListener(l, ethClient, config, chStop, sleepers...),
-		headSaver:       NewHeadSaver(orm, config),
+		headSaver:       NewHeadSaver(l, orm, config),
 	}
 }
 
@@ -89,15 +90,15 @@ func (ht *HeadTracker) SetLogLevel(lvl zapcore.Level) {
 func (ht *HeadTracker) Start() error {
 	return ht.StartOnce("HeadTracker", func() error {
 		ht.log.Debugf("Starting HeadTracker with chain id: %v", ht.headSaver.orm.chainID.ToInt().Int64())
-		highestSeenHead, err := ht.headSaver.SetHighestSeenHeadFromDB()
+		latestChain, err := ht.headSaver.LoadFromDB(context.Background())
 		if err != nil {
 			return err
 		}
-		if highestSeenHead != nil {
+		if latestChain != nil {
 			ht.log.Debugw(
-				fmt.Sprintf("Tracking logs from last block %v with hash %s", presenters.FriendlyBigInt(highestSeenHead.ToInt()), highestSeenHead.Hash.Hex()),
-				"blockNumber", highestSeenHead.Number,
-				"blockHash", highestSeenHead.Hash,
+				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", presenters.FriendlyBigInt(latestChain.ToInt()), latestChain.Hash.Hex()),
+				"blockNumber", latestChain.Number,
+				"blockHash", latestChain.Hash,
 			)
 		}
 
@@ -156,12 +157,15 @@ func (ht *HeadTracker) Save(ctx context.Context, h eth.Head) error {
 	return ht.headSaver.Save(ctx, h)
 }
 
-func (ht *HeadTracker) HighestSeenHead() *eth.Head {
-	return ht.headSaver.HighestSeenHead()
+func (ht *HeadTracker) Chain(hash common.Hash) *eth.Head {
+	return ht.headSaver.Chain(hash)
+}
+func (ht *HeadTracker) LatestChain() *eth.Head {
+	return ht.headSaver.LatestChain()
 }
 
-func (ht *HeadTracker) HighestSeenHeadFromDB() (*eth.Head, error) {
-	return ht.headSaver.HighestSeenHeadFromDB()
+func (ht *HeadTracker) HighestSeenHeadFromDB(ctx context.Context) (*eth.Head, error) {
+	return ht.headSaver.orm.LatestHead(ctx)
 }
 
 // Connected returns whether or not this HeadTracker is connected.
@@ -296,14 +300,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 	defer cancel()
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		var existingHead *eth.Head
-		existingHead, err = ht.headSaver.HeadByHash(ctx, head.ParentHash)
-
-		if ctx.Err() != nil {
-			break
-		} else if err != nil {
-			return errors.Wrap(err, "HeadByHash failed")
-		}
+		existingHead := ht.headSaver.Chain(head.ParentHash)
 		if existingHead != nil {
 			head = *existingHead
 			continue
@@ -329,7 +326,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head,
 	} else if head == nil {
 		return eth.Head{}, errors.New("got nil head")
 	}
-	err = ht.headSaver.IdempotentInsertHead(ctx, *head)
+	err = ht.headSaver.Save(ctx, *head)
 	if ctx.Err() != nil {
 		return eth.Head{}, nil
 	} else if err != nil {
@@ -339,7 +336,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head,
 }
 
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
-	prevHead := ht.HighestSeenHead()
+	prevHead := ht.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
@@ -357,15 +354,13 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.WithLabelValues(ht.chainID.String()).Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, uint(ht.config.EvmFinalityDepth()))
-		if ctx.Err() != nil {
-			return nil
-		} else if err != nil {
-			return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
+		headWithChain := ht.headSaver.Chain(head.Hash)
+		if headWithChain == nil {
+			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
 
-		ht.backfillMB.Deliver(headWithChain)
-		ht.callbackMB.Deliver(headWithChain)
+		ht.backfillMB.Deliver(*headWithChain)
+		ht.callbackMB.Deliver(*headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {
@@ -398,7 +393,7 @@ var _ httypes.Tracker = &NullTracker{}
 
 type NullTracker struct{}
 
-func (n *NullTracker) HighestSeenHeadFromDB() (*eth.Head, error) {
+func (n *NullTracker) HighestSeenHeadFromDB(context.Context) (*eth.Head, error) {
 	return nil, nil
 }
 func (*NullTracker) Start() error   { return nil }

@@ -28,6 +28,7 @@ var (
 	}, []string{"evmChainID"})
 )
 
+//go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	EvmFinalityDepth() uint32

@@ -9,7 +9,7 @@ import (
 )
 
 type Tracker interface {
-	HighestSeenHeadFromDB() (*eth.Head, error)
+	HighestSeenHeadFromDB(context.Context) (*eth.Head, error)
 	Start() error
 	Stop() error
 	SetLogLevel(lvl zapcore.Level)
