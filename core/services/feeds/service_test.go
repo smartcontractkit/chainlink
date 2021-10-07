@@ -791,27 +791,93 @@ func Test_Service_IsJobManaged(t *testing.T) {
 
 func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 	var (
-		ctx = context.Background()
-		jp  = &feeds.JobProposal{
-			ID:         1,
-			RemoteUUID: uuid.NewV4(),
-			Status:     feeds.JobProposalStatusPending,
-			Spec:       "spec",
-		}
+		ctx         = context.Background()
+		proposalID  = int64(1)
 		updatedSpec = "updated spec"
 	)
 
-	svc := setupTestService(t)
+	testCases := []struct {
+		name       string
+		before     func(svc *TestService)
+		proposalID int64
+		wantErr    string
+	}{
+		{
+			name: "success",
+			before: func(svc *TestService) {
+				jp := &feeds.JobProposal{
+					ID:         proposalID,
+					RemoteUUID: uuid.NewV4(),
+					Status:     feeds.JobProposalStatusPending,
+					Spec:       "spec",
+				}
 
-	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
-	svc.orm.On("UpdateJobProposalSpec",
-		mock.MatchedBy(func(ctx context.Context) bool { return true }),
-		jp.ID,
-		updatedSpec,
-	).Return(nil)
+				svc.orm.
+					On("GetJobProposal", ctx, proposalID).
+					Return(jp, nil)
+				svc.orm.On("UpdateJobProposalSpec",
+					mock.MatchedBy(func(ctx context.Context) bool { return true }),
+					proposalID,
+					updatedSpec,
+				).Return(nil)
+			},
+			proposalID: proposalID,
+		},
+		{
+			name: "does not exist",
+			before: func(svc *TestService) {
+				svc.orm.
+					On("GetJobProposal", ctx, proposalID).
+					Return(nil, sql.ErrNoRows)
+			},
+			wantErr: "job proposal does not exist: sql: no rows in result set",
+		},
+		{
+			name: "other get errors",
+			before: func(svc *TestService) {
+				svc.orm.
+					On("GetJobProposal", ctx, proposalID).
+					Return(nil, errors.New("other db error"))
+			},
+			wantErr: "database error: other db error",
+		},
+		{
+			name: "cannot edit",
+			before: func(svc *TestService) {
+				jp := &feeds.JobProposal{
+					ID:         1,
+					RemoteUUID: uuid.NewV4(),
+					Status:     feeds.JobProposalStatusApproved,
+					Spec:       "spec",
+				}
 
-	err := svc.UpdateJobProposalSpec(ctx, jp.ID, updatedSpec)
-	require.NoError(t, err)
+				svc.orm.
+					On("GetJobProposal", ctx, proposalID).
+					Return(jp, nil)
+			},
+			wantErr: "must be a pending or cancelled job proposal",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t)
+
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			err := svc.UpdateJobProposalSpec(ctx, proposalID, updatedSpec)
+			if tc.wantErr != "" {
+				assert.EqualError(t, err, tc.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func Test_Service_StartStop(t *testing.T) {
