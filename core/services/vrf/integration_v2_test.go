@@ -481,7 +481,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
@@ -738,6 +738,7 @@ func TestFulfillmentCost(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start())
+	defer app.Stop()
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
