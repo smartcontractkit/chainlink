@@ -65,6 +65,8 @@ Chainlink now supports configuring max gas price on a per-key basis (allows impl
 
 The Operator UI now supports login MFA with hardware security keys. `MFA_RPID` and `MFA_RPORIGIN` environment variables have been added to the config and are required if using the new MFA feature.
 
+Keys and Configuration navigation links have been moved into a settings dropdown to make space for multichain navigation links.
+
 #### Full EIP1559 Support (Gas Savings)
 
 Chainlink now includes experimental support for submitting transactions using type 0x2 (EIP-1559) envelope.
