@@ -91,7 +91,6 @@ func main() {
 			uint32(60*60*24),                       // stalenessSeconds
 			uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 			big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
-			big.NewInt(1000000000000000000),        // Minimum subscription balance 0.01 link
 		)
 		panicErr(err)
 	case "coordinator-register-key":

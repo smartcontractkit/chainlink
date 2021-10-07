@@ -194,7 +194,6 @@ func (lsn *listenerV3) processPendingVRFRequests() {
 	lsn.pruneConfirmedRequestCounts()
 }
 
-// TODO: Unit test this
 func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
 	var reservedLink string
 	err := db.Raw(`SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 

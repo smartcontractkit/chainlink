@@ -226,7 +226,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)), // 10 gwei
 		},
 		key2.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(200000000000)), // 200 gwei
+			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(100000000000)), // 100 gwei
 		},
 	}, gasPrice.BigInt())
 
@@ -280,9 +280,9 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		_, err := uni.consumerContract.TestRequestRandomness(uni.carol, jbs[0].VRFSpec.PublicKey.MustHash(), uint64(1), uint16(2), uint32(300000), uint32(20))
 		require.NoError(t, err)
 	}
-	// Send 2 requests to the 1k gwei keyhash, should remain queued until
-	// a significant topup (like 45 link)
-	for i := 0; i < 2; i++ {
+	// Send a requests to the high gas price max keyhash, should remain queued until
+	// a significant topup
+	for i := 0; i < 1; i++ {
 		_, err := uni.consumerContract.TestRequestRandomness(uni.carol, jbs[1].VRFSpec.PublicKey.MustHash(), uint64(1), uint16(2), uint32(300000), uint32(20))
 		require.NoError(t, err)
 	}
@@ -348,7 +348,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
-		return len(runs) == 7
+		return len(runs) == 6
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 }
 
@@ -572,6 +572,8 @@ func TestMaliciousConsumer(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)
+	config.Overrides.GlobalEvmMaxGasPriceWei = big.NewInt(1000000000)  // 1 gwei
+	config.Overrides.GlobalEvmGasPriceDefault = big.NewInt(1000000000) // 1 gwei
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	require.NoError(t, app.Start())
@@ -628,9 +630,10 @@ func TestMaliciousConsumer(t *testing.T) {
 		// before the job spawner has started the vrf services, which is fine
 		// the lb will backfill the logs. However we need to
 		// keep blocks coming in for the lb to send the backfilled logs.
+		t.Log("attempts", attempts)
 		uni.backend.Commit()
 		return len(attempts) == 1 && attempts[0].EthTx.State == bulletprooftxmanager.EthTxConfirmed
-	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
+	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
 	ch, err := app.GetChainSet().Default()

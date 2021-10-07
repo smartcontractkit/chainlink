@@ -99,7 +99,7 @@ describe('VRFCoordinatorV2', () => {
       )
   })
 
-  it('has a limited public interface', async () => {
+  it('has a limited public interface [ @skip-coverage ]', async () => {
     publicAbi(vrfCoordinatorV2, [
       // Public constants
       'MAX_CONSUMERS',
