@@ -492,7 +492,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 			rf = append(rf, rfIterator.Event)
 		}
 		return len(rf) == 1
-	}, 5*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
+	}, 10*time.Second, 500*time.Millisecond).Should(gomega.BeTrue())
 	assert.True(t, rf[0].Success, "expected callback to succeed")
 	fulfillReceipt, err := uni.backend.TransactionReceipt(context.Background(), rf[0].Raw.TxHash)
 	require.NoError(t, err)

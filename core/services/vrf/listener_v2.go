@@ -27,15 +27,14 @@ import (
 )
 
 const (
-	// Gas to be used
-	GasAfterPaymentCalculation = 5000 + // subID balance update
-		2100 + // cold subscription balance read
-		20000 + // first time oracle balance update, note first time will be 20k, but 5k subsequently
-		2*2100 - // cold read oracle address and oracle balance
-		4800 + // request delete refund, note pre-london fork was 15k
+	// Gas used after computing the payment
+	GasAfterPaymentCalculation =
 		21000 + // base cost of the transaction
-		// TODO: whyd this drop when we return the payment?
-		6874 - 8401 // Static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		2100 + 5000 + // cold subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+		2*2100 + 20000 + // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
+		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
+		- 1527 // TODO: What are we missing? We'd expect some static costs
+		// of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 var (
