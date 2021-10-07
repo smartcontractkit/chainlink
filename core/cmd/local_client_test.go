@@ -35,6 +35,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	debug := config.LogLevel{Level: zapcore.DebugLevel}
 	cfg.Overrides.LogLevel = &debug
+	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewGormDB(t)
 	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
 	keyStore := cltest.NewKeyStore(t, db)

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Log to Disk
+
+This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
+
 ### Added
 
 #### `merge` task type
