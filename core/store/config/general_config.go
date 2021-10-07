@@ -157,6 +157,8 @@ type GeneralOnlyConfig interface {
 	ReaperExpiration() models.Duration
 	ReplayFromBlock() int64
 	RootDir() string
+	RPID() string
+	RPOrigin() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
@@ -1091,6 +1093,17 @@ func (c *generalConfig) ReplayFromBlock() int64 {
 // keep its files.
 func (c *generalConfig) RootDir() string {
 	return c.getWithFallback("RootDir", ParseHomeDir).(string)
+}
+
+// Fetch the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
+func (c *generalConfig) RPID() string {
+	return c.viper.GetString(EnvVarName("RPID"))
+}
+
+// Fetch the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
+// the origin URL where WebAuthn requests initiate (http://localhost:6688/)
+func (c *generalConfig) RPOrigin() string {
+	return c.viper.GetString(EnvVarName("RPOrigin"))
 }
 
 // SecureCookies allows toggling of the secure cookies HTTP flag

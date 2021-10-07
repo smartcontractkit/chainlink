@@ -280,7 +280,9 @@ func TestClient_ListJobsV2(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
-	createOutput := *r.Renders[0].(*cmd.JobPresenter)
+	require.Len(t, r.Renders, 1)
+	createOutput, ok := r.Renders[0].(*cmd.JobPresenter)
+	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
 
 	require.Nil(t, client.ListJobs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[1].(*cmd.JobPresenters)
@@ -299,7 +301,9 @@ func TestClient_ShowJob(t *testing.T) {
 	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
-	createOutput := *r.Renders[0].(*cmd.JobPresenter)
+	require.Len(t, r.Renders, 1)
+	createOutput, ok := r.Renders[0].(*cmd.JobPresenter)
+	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{createOutput.ID})

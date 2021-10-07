@@ -277,6 +277,20 @@ func (_m *Application) GetLogger() logger.Logger {
 	return r0
 }
 
+// GetWebAuthnConfiguration provides a mock function with given fields:
+func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
+	ret := _m.Called()
+
+	var r0 sessions.WebAuthnConfiguration
+	if rf, ok := ret.Get(0).(func() sessions.WebAuthnConfiguration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(sessions.WebAuthnConfiguration)
+	}
+
+	return r0
+}
+
 // JobORM provides a mock function with given fields:
 func (_m *Application) JobORM() job.ORM {
 	ret := _m.Called()

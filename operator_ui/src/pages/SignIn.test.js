@@ -65,6 +65,14 @@ describe('pages/SignIn', () => {
 
     await syncFetch(wrapper)
 
+    // Wait a tiny bit for events to propagate through the UI
+    await sleep(1)
+    function sleep(ms) {
+      return new Promise((resolve) => {
+        setTimeout(resolve, ms)
+      })
+    }
+
     const newState = store.getState()
     expect(newState.notifications).toEqual({
       errors: ['Your email or password is incorrect. Please try again'],
