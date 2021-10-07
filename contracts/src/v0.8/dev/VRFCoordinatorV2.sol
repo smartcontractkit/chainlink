@@ -345,9 +345,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return s_requestCommitments[requestId];
   }
 
-  function computeRequestId(bytes32 keyHash, address sender, uint64 subId, uint64 nonce) private pure returns (uint256, uint256) {
-      uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
-      return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
+  function computeRequestId(
+    bytes32 keyHash,
+    address sender,
+    uint64 subId,
+    uint64 nonce
+  ) private pure returns (uint256, uint256) {
+    uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
+    return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
   }
 
   /**
@@ -427,11 +432,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc)
-    external
-    nonReentrant
-    returns (uint96)
-  {
+  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
@@ -659,20 +660,22 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionCanceled(subId, to, balance);
   }
 
-  function pendingRequestExists(uint64 subId)
-    private
-    returns (bool)
-  {
-      Subscription memory sub = s_subscriptions[subId];
-      for (uint256 i = 0; i < sub.consumers.length; i++) {
-        for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-           (uint256 reqId,) = computeRequestId(s_provingKeyHashes[j], sub.consumers[i], subId, s_consumers[sub.consumers[i]][subId]);
-           if (s_requestCommitments[reqId] != 0) {
-             return true;
-           }
+  function pendingRequestExists(uint64 subId) private returns (bool) {
+    Subscription memory sub = s_subscriptions[subId];
+    for (uint256 i = 0; i < sub.consumers.length; i++) {
+      for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
+        (uint256 reqId, ) = computeRequestId(
+          s_provingKeyHashes[j],
+          sub.consumers[i],
+          subId,
+          s_consumers[sub.consumers[i]][subId]
+        );
+        if (s_requestCommitments[reqId] != 0) {
+          return true;
         }
       }
-      return false;
+    }
+    return false;
   }
 
   modifier onlySubOwner(uint64 subId) {
