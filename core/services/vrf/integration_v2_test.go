@@ -134,9 +134,12 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 
 	// Set the configuration on the coordinator.
 	_, err = coordinatorContract.SetConfig(neil,
-		uint16(1),    // minRequestConfirmations
-		uint32(1000), // 0.0001 link flat fee
-		uint32(1000000),
+		uint16(1),                              // minRequestConfirmations
+		uint32(1000000),                        // gas limit
+		uint32(1000),                           // 0.001 link flat fee
+		uint32(100),                            // 0.0001 link flat fee
+		uint32(10),                             // 0.00001 link flat fee
+		uint16(1056),                           // 00000100 00100000 // bound1=10^3, bound2=10^6
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
@@ -162,20 +165,6 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 		carol:                            carol,
 		nallory:                          nallory,
 	}
-}
-
-func deployAndFundConsumer(t *testing.T, uni coordinatorV2Universe, link int64) *vrf_consumer_v2.VRFConsumerV2 {
-	// Deploy consumer it has 10 LINK
-	consumerContractAddress, _, _, err :=
-		vrf_consumer_v2.DeployVRFConsumerV2(
-			uni.carol, uni.backend, uni.linkContractAddress, uni.linkContractAddress)
-	require.NoError(t, err, "failed to deploy VRFConsumer contract to simulated ethereum blockchain")
-	_, err = uni.linkContract.Transfer(uni.sergey, consumerContractAddress, assets.Ether(link)) // Actually, LINK
-	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
-	uni.backend.Commit()
-	consumer, err := vrf_consumer_v2.NewVRFConsumerV2(consumerContractAddress, uni.backend)
-	require.NoError(t, err)
-	return consumer
 }
 
 // Send eth from prefunded account.
@@ -386,10 +375,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
-	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
+	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
 	keys, err := app.KeyStore.Eth().SendingKeys()
 
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
@@ -488,6 +477,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 		require.NoError(t, err2, "failed to logs")
+		uni.backend.Commit()
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)
 		}
@@ -529,8 +519,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	)
 	t.Log("end balance", end)
 	linkWeiCharged := start.Sub(end)
-	// Remove flat fee of 0.0001 to get fee for just gas.
-	linkCharged := linkWeiCharged.Sub(decimal.RequireFromString("100000000000000")).Div(wei)
+	// Remove flat fee of 0.001 to get fee for just gas.
+	linkCharged := linkWeiCharged.Sub(decimal.RequireFromString("1000000000000000")).Div(wei)
 	t.Logf("subscription charged %s with gas prices of %s gwei and %s ETH per LINK\n", linkCharged, gasPrice.Div(gwei), weiPerUnitLink.Div(wei))
 	expected := decimal.RequireFromString(strconv.Itoa(int(fulfillReceipt.GasUsed))).Mul(gasPrice).Div(weiPerUnitLink)
 	t.Logf("expected sub charge gas use %v %v off by %v", fulfillReceipt.GasUsed, expected, expected.Sub(linkCharged))
@@ -782,7 +772,7 @@ func TestFulfillmentCost(t *testing.T) {
 		"fulfillRandomWords", proof, rc)
 	t.Log("estimate", estimate)
 	// Establish very rough bounds on fulfillment cost
-	assert.Greater(t, estimate, uint64(130000))
+	assert.Greater(t, estimate, uint64(120000))
 	assert.Less(t, estimate, uint64(500000))
 }
 

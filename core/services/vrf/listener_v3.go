@@ -37,11 +37,10 @@ var (
 const (
 	// Gas used after computing the payment
 	GasAfterPaymentCalculation = 21000 + // base cost of the transaction
-		2100 + 5000 + // cold subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+		100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
 		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
 		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
-		-1527 // TODO: What are we missing? We'd expect some positive static costs
-	// of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+		4605 // Ppositive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 )
 
 type pendingRequest struct {
