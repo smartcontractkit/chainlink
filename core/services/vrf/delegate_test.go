@@ -70,7 +70,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams)
+	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, ks)
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
@@ -174,7 +174,7 @@ func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	counts := getStartingResponseCounts(db, logger.Default)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams)
+	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))
@@ -456,7 +456,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		runs, err := vuni.prm.GetAllRuns()
 		require.NoError(t, err)
 		require.Equal(t, i+1, len(runs))
-		assert.False(t, runs[0].Errors.HasError())
+		assert.False(t, runs[0].FatalErrors.HasError())
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
 

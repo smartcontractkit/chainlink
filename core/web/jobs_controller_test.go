@@ -12,9 +12,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-
 	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -22,9 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -342,11 +342,31 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
+	response, cleanup = client.Get("/v2/jobs/" + ocrJobSpecFromFile.ExternalJobID.String())
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	ocrJob = presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJob)
+	assert.NoError(t, err)
+
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
+
 	response, cleanup = client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID2))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	ereJob := presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
+	assert.NoError(t, err)
+
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
+
+	response, cleanup = client.Get("/v2/jobs/" + ereJobSpecFromFile.ExternalJobID.String())
+	t.Cleanup(cleanup)
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	ereJob = presenters.JobResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
 	assert.NoError(t, err)
 

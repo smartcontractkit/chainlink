@@ -429,6 +429,11 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 
 // Preload PipelineSpec.JobID for each Run
 func (o *orm) preloadJobIDs(runs []pipeline.Run) error {
+	// Abort early if there are no runs
+	if len(runs) == 0 {
+		return nil
+	}
+
 	db := postgres.UnwrapGormDB(o.db)
 
 	ids := make([]int32, 0, len(runs))

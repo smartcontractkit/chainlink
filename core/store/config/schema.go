@@ -113,7 +113,7 @@ type ConfigSchema struct {
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogSQLStatements                           bool                          `env:"LOG_SQL" default:"false"`
-	LogToDisk                                  bool                          `env:"LOG_TO_DISK" default:"true"`
+	LogToDisk                                  bool                          `env:"LOG_TO_DISK" default:"false"`
 	MigrateDatabase                            bool                          `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations                   uint32                        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations           uint64                        `env:"MIN_OUTGOING_CONFIRMATIONS"`
@@ -156,6 +156,8 @@ type ConfigSchema struct {
 	Port                                       uint16                        `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                           models.Duration               `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                            int64                         `env:"REPLAY_FROM_BLOCK" default:"-1"`
+	RPID                                       string                        `env:"MFA_RPID"`
+	RPOrigin                                   string                        `env:"MFA_RPORIGIN"`
 	RootDir                                    string                        `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies                              bool                          `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                             models.Duration               `env:"SESSION_TIMEOUT" default:"15m"`

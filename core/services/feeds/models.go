@@ -67,3 +67,8 @@ type JobProposal struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }
+
+func (jp *JobProposal) CanEditSpec() bool {
+	return jp.Status == JobProposalStatusPending ||
+		jp.Status == JobProposalStatusCancelled
+}

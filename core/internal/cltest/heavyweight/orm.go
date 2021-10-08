@@ -49,7 +49,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		assert.NoError(t, db.Close())
 		os.RemoveAll(gcfg.RootDir())
 	})
-	postgres.SetLogging(gormDB, gcfg.LogSQLMigrations())
+	postgres.SetLogAllQueries(gormDB, gcfg.LogSQLMigrations())
 	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
 		require.NoError(t, migrations.Migrate(db.DB))
@@ -65,7 +65,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		_, err = db.Exec(string(fixturesSQL))
 		require.NoError(t, err)
 	}
-	postgres.SetLogging(gormDB, gcfg.LogSQLStatements())
+	postgres.SetLogAllQueries(gormDB, gcfg.LogSQLStatements())
 
 	return gcfg, db, gormDB
 }

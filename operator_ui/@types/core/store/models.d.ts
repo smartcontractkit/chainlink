@@ -178,6 +178,7 @@ declare module 'core/store/models' {
   export interface SessionRequest {
     email: string
     password: string
+    webauthndata: string
   }
   //#endregion user.go
   //#region bulk.go
@@ -289,8 +290,8 @@ declare module 'core/store/models' {
       idleTimerPeriod: string
       pollTimerDisabled: false
       pollTimerPeriod: string
-      drumbeatEnabled:     boolean
-      drumbeatSchedule?:    string
+      drumbeatEnabled: boolean
+      drumbeatSchedule?: string
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
@@ -380,7 +381,7 @@ declare module 'core/store/models' {
     vrfSpec: {
       confirmations: number
       publicKey: string
-      coordinatorAddress: common.Address,
+      coordinatorAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
     }
@@ -401,9 +402,9 @@ declare module 'core/store/models' {
     | VRFJob
 
   export type Chain = {
-    config: Record<string, JSONPrimitive>,
-    enabled: boolean,
-    createdAt: time.Time,
+    config: Record<string, JSONPrimitive>
+    enabled: boolean
+    createdAt: time.Time
     updatedAt: time.Time
   }
 
@@ -433,13 +434,23 @@ declare module 'core/store/models' {
 
   // We really need to change the API for this. It not only returns levels but
   // true/false for IsSQLEnabled
-  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error' | "true" | "false"
-  export type LogServiceName = 'Global' | 'IsSqlEnabled' | 'header_tracker' | 'fluxmonitor'
+  export type LogConfigLevel =
+    | 'debug'
+    | 'info'
+    | 'warn'
+    | 'error'
+    | 'true'
+    | 'false'
+  export type LogServiceName =
+    | 'Global'
+    | 'IsSqlEnabled'
+    | 'header_tracker'
+    | 'fluxmonitor'
 
   export interface LogConfig {
     // Stupidly this also returns boolean strings
-    logLevel: LogConfigLevel[] ;
-    serviceName: string[];
+    logLevel: LogConfigLevel[]
+    serviceName: string[]
   }
 
   export interface LogConfigRequest {
@@ -488,6 +499,44 @@ declare module 'core/store/models' {
     proposedAt: time.Time
   }
 
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+   export interface BeginWebAuthnRegistrationV2Request {
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface BeginWebAuthnRegistrationV2 {
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2Request {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
+  }
+
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface FinishWebAuthnRegistrationV2 {
+    id: string
+    rawId: string
+    type: string
+    response: {
+      attestationObject: string
+      clientDataJSON: string
+    }
+  }
+
   export interface UpdateJobProposalSpecRequest {
     spec: string
   }
@@ -505,4 +554,3 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
-

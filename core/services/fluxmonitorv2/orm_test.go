@@ -112,7 +112,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				PipelineSpec:   *jb.PipelineSpec,
 				CreatedAt:      time.Now(),
 				FinishedAt:     null.TimeFrom(f),
-				Errors:         pipeline.RunErrors{null.String{}},
+				AllErrors:      pipeline.RunErrors{null.String{}},
+				FatalErrors:    pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}, Valid: true},
 				PipelineTaskRuns: []pipeline.TaskRun{
 					{

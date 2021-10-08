@@ -3,32 +3,29 @@ import React from 'react'
 import { v2 } from 'api'
 import Content from 'components/Content'
 import NodesList from './NodesList'
-import * as models from 'core/store/models'
+import { Resource, Node } from 'core/store/models'
+import { SearchTextField } from 'src/components/SearchTextField'
 import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
-import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
-import SearchIcon from '@material-ui/icons/Search'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
-import TextField from '@material-ui/core/TextField'
+import CardHeader from '@material-ui/core/CardHeader'
+import Grid from '@material-ui/core/Grid'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 
-export type NodeSpecV2 = models.Resource<models.Node>
+export type NodeResource = Resource<Node>
 
 async function getNodes() {
   return Promise.all([v2.nodes.getNodes()]).then(([v2Nodes]) => {
-    const nodesByDate = v2Nodes.data.sort((a: NodeSpecV2, b: NodeSpecV2) => {
-      const nodeA = new Date(a.attributes.createdAt).getTime()
-      const nodeB = new Date(b.attributes.createdAt).getTime()
-      return nodeA > nodeB ? -1 : 1
-    })
+    const nodesByDate = v2Nodes.data.sort(
+      (a: NodeResource, b: NodeResource) => {
+        const nodeA = new Date(a.attributes.createdAt).getTime()
+        const nodeB = new Date(b.attributes.createdAt).getTime()
+        return nodeA > nodeB ? -1 : 1
+      },
+    )
 
     return nodesByDate
   })
@@ -42,7 +39,7 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const simpleNodeFilter = (search: string) => (node: NodeSpecV2) => {
+export const simpleNodeFilter = (search: string) => (node: NodeResource) => {
   if (search === '') {
     return true
   }
@@ -51,7 +48,7 @@ export const simpleNodeFilter = (search: string) => (node: NodeSpecV2) => {
 }
 
 // matchSimple does a simple match on the id, name, and EVM chain ID
-function matchSimple(node: NodeSpecV2, term: string) {
+function matchSimple(node: NodeResource, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [
@@ -63,14 +60,10 @@ function matchSimple(node: NodeSpecV2, term: string) {
   return dataset.some(match)
 }
 
-const styles = (theme: Theme) =>
+const styles = () =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
-    },
-    search: {
-      marginBottom: theme.spacing.unit,
+    cardHeader: {
+      borderBottom: 0,
     },
   })
 
@@ -80,7 +73,7 @@ export const NodesIndex = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const [search, setSearch] = React.useState('')
-  const [nodes, setNodes] = React.useState<NodeSpecV2[]>()
+  const [nodes, setNodes] = React.useState<NodeResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !nodes)
 
@@ -108,27 +101,13 @@ export const NodesIndex = ({
           <ErrorComponent />
           <LoadingPlaceholder />
           {!error && nodes && (
-            <Card className={classes.card}>
-              <CardContent>
-                <Grid
-                  container
-                  spacing={8}
-                  alignItems="flex-end"
-                  className={classes.search}
-                >
-                  <Grid item>
-                    <SearchIcon />
-                  </Grid>
-                  <Grid item>
-                    <TextField
-                      label="Search"
-                      value={search}
-                      name="search"
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </Grid>
-                </Grid>
+            <Card>
+              <CardHeader
+                title={<SearchTextField value={search} onChange={setSearch} />}
+                className={classes.cardHeader}
+              />
 
+              <CardContent>
                 <NodesList nodes={nodes} nodeFilter={nodeFilter} />
               </CardContent>
             </Card>

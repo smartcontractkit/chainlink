@@ -36,7 +36,6 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			key := cltest.MustGenerateRandomKey(t)
@@ -91,7 +90,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				cu.backend.Commit()
 				return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 			}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
-			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].Errors)
+			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
 			assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 

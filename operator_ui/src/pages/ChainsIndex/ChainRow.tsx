@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { ChainSpecV2 } from './ChainsIndex'
+import { ChainResource } from './ChainsIndex'
 import { tableStyles } from 'components/Table'
 import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
@@ -10,7 +10,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 
 interface Props extends WithStyles<typeof tableStyles> {
-  chain: ChainSpecV2
+  chain: ChainResource
 }
 
 export const ChainRow = withStyles(tableStyles)(({ chain, classes }: Props) => {

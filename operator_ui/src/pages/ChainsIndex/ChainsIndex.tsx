@@ -5,35 +5,30 @@ import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
-import * as models from 'core/store/models'
+import { Resource, Chain } from 'core/store/models'
+import { SearchTextField } from 'src/components/SearchTextField'
 import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
+import CardHeader from '@material-ui/core/CardHeader'
 import CardContent from '@material-ui/core/CardContent'
-import SearchIcon from '@material-ui/icons/Search'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
+import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import TextField from '@material-ui/core/TextField'
 
-export type ChainSpecV2 = models.Resource<models.Chain>
+export type ChainResource = Resource<Chain>
 
 async function getChains() {
   return Promise.all([v2.chains.getChains()]).then(([v2Chains]) => {
     const chainsByDate = v2Chains.data.sort(
-      (a: ChainSpecV2, b: ChainSpecV2) => {
+      (a: ChainResource, b: ChainResource) => {
         const chainA = new Date(a.attributes.createdAt).getTime()
         const chainB = new Date(b.attributes.createdAt).getTime()
         return chainA > chainB ? -1 : 1
@@ -52,7 +47,7 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const simpleChainFilter = (search: string) => (chain: ChainSpecV2) => {
+export const simpleChainFilter = (search: string) => (chain: ChainResource) => {
   if (search === '') {
     return true
   }
@@ -61,7 +56,7 @@ export const simpleChainFilter = (search: string) => (chain: ChainSpecV2) => {
 }
 
 // matchSimple does a simple match on the id
-function matchSimple(chain: ChainSpecV2, term: string) {
+function matchSimple(chain: ChainResource, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [chain.id]
@@ -69,14 +64,10 @@ function matchSimple(chain: ChainSpecV2, term: string) {
   return dataset.some(match)
 }
 
-const styles = (theme: Theme) =>
+const styles = () =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
-    },
-    search: {
-      marginBottom: theme.spacing.unit,
+    cardHeader: {
+      borderBottom: 0,
     },
   })
 
@@ -86,7 +77,7 @@ export const ChainsIndex = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const [search, setSearch] = React.useState('')
-  const [chains, setChains] = React.useState<ChainSpecV2[]>()
+  const [chains, setChains] = React.useState<ChainResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !chains)
 
@@ -128,27 +119,12 @@ export const ChainsIndex = ({
           <ErrorComponent />
           <LoadingPlaceholder />
           {!error && chains && (
-            <Card className={classes.card}>
+            <Card>
+              <CardHeader
+                title={<SearchTextField value={search} onChange={setSearch} />}
+                className={classes.cardHeader}
+              />
               <CardContent>
-                <Grid
-                  container
-                  spacing={8}
-                  alignItems="flex-end"
-                  className={classes.search}
-                >
-                  <Grid item>
-                    <SearchIcon />
-                  </Grid>
-                  <Grid item>
-                    <TextField
-                      label="Search"
-                      value={search}
-                      name="search"
-                      onChange={(event) => setSearch(event.target.value)}
-                    />
-                  </Grid>
-                </Grid>
-
                 <Table>
                   <TableHead>
                     <TableRow>
