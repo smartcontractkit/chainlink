@@ -223,8 +223,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer uni.Cleanup()
 
 		log := new(log_mocks.Broadcast)
-
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
+		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+
+		logCancelOracleRequest := operator_wrapper.OperatorCancelOracleRequest{RequestId: uni.spec.ExternalIDEncodeStringToTopic()}
+		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{{}, {}},
 		})
