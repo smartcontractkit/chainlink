@@ -96,7 +96,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			return []job.Service{&listenerV3{
+			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
 				l:                  l,
 				ethClient:          chain.Client(),

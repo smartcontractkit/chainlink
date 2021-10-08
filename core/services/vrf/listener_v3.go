@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	heaps "github.com/theodesp/go-heaps"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -28,11 +30,27 @@ import (
 )
 
 var (
-	_ log.Listener = &listenerV3{}
-	_ job.Service  = &listenerV3{}
+	_ log.Listener = &listenerV2{}
+	_ job.Service  = &listenerV2{}
 )
 
-type listenerV3 struct {
+const (
+	// Gas used after computing the payment
+	GasAfterPaymentCalculation = 21000 + // base cost of the transaction
+		2100 + 5000 + // cold subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+		2*2100 + 20000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
+		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
+		-1527 // TODO: What are we missing? We'd expect some positive static costs
+	// of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+)
+
+type pendingRequest struct {
+	confirmedAtBlock uint64
+	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+	lb               log.Broadcast
+}
+
+type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
 	l              logger.Logger
@@ -68,7 +86,7 @@ type listenerV3 struct {
 	blockNumberToReqID *pairing.PairHeap
 }
 
-func (lsn *listenerV3) Start() error {
+func (lsn *listenerV2) Start() error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
 		// Take the larger of the global vs specific.
 		// Note that the v2 vrf requests specify their own confirmation requirements.
@@ -104,20 +122,20 @@ func (lsn *listenerV3) Start() error {
 
 // Returns all the confirmed logs from
 // the pending queue by subscription
-func (lsn *listenerV3) getConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
+func (lsn *listenerV2) getConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
 	var toProcess = make(map[uint64][]pendingRequest)
 	for i := 0; i < len(lsn.reqs); i++ {
-		if lsn.reqs[i].confirmedAtBlock <= latestHead {
-			toProcess[lsn.reqs[i].req.SubId] = append(toProcess[lsn.reqs[i].req.SubId], lsn.reqs[i])
+		if r := lsn.reqs[i]; r.confirmedAtBlock <= latestHead {
+			toProcess[r.req.SubId] = append(toProcess[r.req.SubId], r)
 		}
 	}
 	return toProcess
 }
 
 // TODO: on second thought, I think it is more efficient to use the HB
-func (lsn *listenerV3) getLatestHead() uint64 {
+func (lsn *listenerV2) getLatestHead() uint64 {
 	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
@@ -128,7 +146,7 @@ func (lsn *listenerV3) getLatestHead() uint64 {
 
 // Remove all entries 10000 blocks or older
 // to avoid a memory leak.
-func (lsn *listenerV3) pruneConfirmedRequestCounts() {
+func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
 	min := lsn.blockNumberToReqID.FindMin()
@@ -158,7 +176,7 @@ func (lsn *listenerV3) pruneConfirmedRequestCounts() {
 // 2) the max gas price provides a very large buffer most of the time.
 // Its easier to optimistically assume it will go though and in the rare case of a reversion
 // we simply retry TODO: follow up where if we see a fulfillment revert, return log to the queue.
-func (lsn *listenerV3) processPendingVRFRequests() {
+func (lsn *listenerV2) processPendingVRFRequests() {
 	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
 	if err != nil {
 		logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
@@ -175,12 +193,12 @@ func (lsn *listenerV3) processPendingVRFRequests() {
 	for subID, reqs := range confirmed {
 		sub, err := lsn.coordinator.GetSubscription(nil, subID)
 		if err != nil {
-			logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
+			logger.Errorw("VRFListenerV2: unable to read subscription balance", "err", err)
 			return
 		}
 		keys, err := lsn.gethks.SendingKeys()
 		if err != nil {
-			logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
+			logger.Errorw("VRFListenerV2: unable to read sending keys", "err", err)
 			continue
 		}
 		fromAddress := keys[0].Address
@@ -218,7 +236,25 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 	return startBalance, nil
 }
 
-func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
+type fulfilledReqV2 struct {
+	blockNumber uint64
+	reqID       string
+}
+
+func (a fulfilledReqV2) Compare(b heaps.Item) int {
+	a1 := a
+	a2 := b.(fulfilledReqV2)
+	switch {
+	case a1.blockNumber > a2.blockNumber:
+		return 1
+	case a1.blockNumber < a2.blockNumber:
+		return -1
+	default:
+		return 0
+	}
+}
+
+func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
 	var err1 error
 	startBalance, err1 = MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
 	if err1 != nil {
@@ -300,13 +336,13 @@ func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBa
 		processed[req.req.RequestId.String()] = struct{}{}
 	}
 	// Remove all the confirmed logs
-	lsn.reqsMu.Lock()
 	var toKeep []pendingRequest
 	for _, req := range reqs {
 		if _, ok := processed[req.req.RequestId.String()]; !ok {
 			toKeep = append(toKeep, req)
 		}
 	}
+	lsn.reqsMu.Lock()
 	lsn.reqs = toKeep
 	lsn.reqsMu.Unlock()
 	lsn.l.Infow("VRFListenerV2: finished processing for sub",
@@ -319,7 +355,7 @@ func (lsn *listenerV3) processRequestsPerSub(fromAddress common.Address, startBa
 
 // Here we use the pipeline to parse the log, generate a vrf response
 // then simulate the transaction at the max gas price to determine its maximum link cost.
-func (lsn *listenerV3) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendingRequest) (*big.Int, pipeline.Run, string, uint64, error) {
+func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendingRequest) (*big.Int, pipeline.Run, string, uint64, error) {
 	var (
 		maxLink  *big.Int
 		payload  string
@@ -374,7 +410,7 @@ func (lsn *listenerV3) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	return maxLink, run, payload, gaslimit, nil
 }
 
-func (lsn *listenerV3) runRequestHandler() {
+func (lsn *listenerV2) runRequestHandler() {
 	// TODO: Probably would have to be a configuration parameter per job so chains could have faster ones
 	tick := time.NewTicker(5 * time.Second)
 	defer tick.Stop()
@@ -389,7 +425,7 @@ func (lsn *listenerV3) runRequestHandler() {
 	}
 }
 
-func (lsn *listenerV3) runLogListener(unsubscribes []func(), minConfs uint32) {
+func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.l.Infow("VRFListenerV2: listening for run requests",
 		"minConfs", minConfs)
 	for {
@@ -417,7 +453,7 @@ func (lsn *listenerV3) runLogListener(unsubscribes []func(), minConfs uint32) {
 	}
 }
 
-func (lsn *listenerV3) shouldProcessLog(lb log.Broadcast) bool {
+func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
@@ -429,7 +465,7 @@ func (lsn *listenerV3) shouldProcessLog(lb log.Broadcast) bool {
 	return !consumed
 }
 
-func (lsn *listenerV3) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, minConfs uint32) uint64 {
+func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, minConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestId.String()])
@@ -451,7 +487,7 @@ func (lsn *listenerV3) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 	return req.Raw.BlockNumber + newConfs
 }
 
-func (lsn *listenerV3) handleLog(lb log.Broadcast, minConfs uint32) {
+func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled); ok {
 		lsn.l.Infow("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		if !lsn.shouldProcessLog(lb) {
@@ -489,7 +525,7 @@ func (lsn *listenerV3) handleLog(lb log.Broadcast, minConfs uint32) {
 	lsn.reqsMu.Unlock()
 }
 
-func (lsn *listenerV3) markLogAsConsumed(lb log.Broadcast) {
+func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
@@ -497,7 +533,7 @@ func (lsn *listenerV3) markLogAsConsumed(lb log.Broadcast) {
 }
 
 // Close complies with job.Service
-func (lsn *listenerV3) Close() error {
+func (lsn *listenerV2) Close() error {
 	return lsn.StopOnce("VRFListenerV2", func() error {
 		close(lsn.chStop)
 		<-lsn.waitOnStop
@@ -505,7 +541,7 @@ func (lsn *listenerV3) Close() error {
 	})
 }
 
-func (lsn *listenerV3) HandleLog(lb log.Broadcast) {
+func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
 		logger.Error("VRFListenerV2: log mailbox is over capacity - dropped the oldest log")
@@ -513,6 +549,6 @@ func (lsn *listenerV3) HandleLog(lb log.Broadcast) {
 }
 
 // Job complies with log.Listener
-func (lsn *listenerV3) JobID() int32 {
+func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
 }

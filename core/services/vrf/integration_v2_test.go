@@ -207,7 +207,6 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
-	require.NoError(t, app.Start())
 
 	// Lets create 2 gas lanes
 	key1, err := app.KeyStore.Eth().Create(big.NewInt(1337))
@@ -226,6 +225,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(100000000000)), // 100 gwei
 		},
 	}, gasPrice.BigInt())
+	require.NoError(t, app.Start())
 
 	var jbs []job.Job
 	// Create separate jobs for each gas lane and register their keys
@@ -393,7 +393,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	keys, err := app.KeyStore.Eth().SendingKeys()
 
 	// Reconfigure the sim chain with a default gas price of 1 gwei,
-	// max gas limit of 2M and a key specific 10 gwei price.
+	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := decimal.NewFromBigInt(big.NewInt(1000000000), 0)
 	configureSimChain(app, map[string]types.ChainCfg{
