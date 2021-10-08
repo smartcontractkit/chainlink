@@ -135,4 +135,11 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		ks.Delete(key.ID())
 		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 1)
 	})
+
+	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
+		exportedKey := `{"publicKey":"fcc1fdebde28322dde17233fe7bd6dcde447d60d5cc1de518962deed102eea35","peerID":"p2p_12D3KooWSq2UZgSXvhGLG5uuAAmz1JNjxHMJViJB39aorvbbYo8p","crypto":{"cipher":"aes-128-ctr","ciphertext":"adb2dff72148a8cd467f6f06a03869e7cedf180cf2a4decdb86875b2e1cf3e58c4bd2b721ecdaa88a0825fa9abfc309bf32dbb35a5c0b6cb01ac89a956d78e0550eff351","cipherparams":{"iv":"6cc4381766a4efc39f762b2b8d09dfba"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ff5055ae4cdcdc2d0404307d578262e2caeb0210f82db3a0ecbdba727c6f5259"},"mac":"d37e4f1dea98d85960ef3205099fc71741715ae56a3b1a8f9215a78de9b95595"}}`
+		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
+		require.NoError(t, err)
+		require.Equal(t, "12D3KooWSq2UZgSXvhGLG5uuAAmz1JNjxHMJViJB39aorvbbYo8p", importedKey.ID())
+	})
 }
