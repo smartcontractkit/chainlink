@@ -307,6 +307,8 @@ func getInProgressEthTx(db *gorm.DB, fromAddress gethCommon.Address) (*EthTx, er
 	err := db.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "getInProgressEthTx failed while fetching EthTxAttempts")
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != EthTxAttemptInProgress {
 		return nil, errors.Errorf("invariant violation: expected in_progress transaction %v to have exactly one unsent attempt. "+
