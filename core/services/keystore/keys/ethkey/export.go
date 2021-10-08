@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-const keyTypeIdentifier = "Eth"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
 	var export EncryptedEthKeyExport
@@ -30,21 +29,17 @@ type EncryptedEthKeyExport struct {
 }
 
 func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	cryptoJSON, err := keystore.EncryptDataV3(
-		key.Raw(),
-		[]byte(adulteratedPassword(password)),
-		scryptParams.N,
-		scryptParams.P,
-	)
+	// DEV: uuid is derived directly from the address, since it is not stored internally
+	id, err := uuid.FromBytes(key.Address.Bytes()[:16])
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
+		return nil, errors.Wrapf(err, "could not generate ethkey UUID")
 	}
-	encryptedOCRKExport := EncryptedEthKeyExport{
-		KeyType: keyTypeIdentifier,
-		Address: key.Address,
-		Crypto:  cryptoJSON,
+	dKey := &keystore.Key{
+		Id:         id,
+		Address:    key.Address.Address(),
+		PrivateKey: key.privateKey,
 	}
-	return json.Marshal(encryptedOCRKExport)
+	return keystore.EncryptKey(dKey, password, scryptParams.N, scryptParams.P)
 }
 
 func adulteratedPassword(password string) string {

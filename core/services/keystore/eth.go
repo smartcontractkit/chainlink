@@ -170,10 +170,11 @@ func (ks *eth) Import(keyJSON []byte, password string) (ethkey.KeyV2, error) {
 	if ks.isLocked() {
 		return ethkey.KeyV2{}, ErrLocked
 	}
-	key, err := ethkey.FromEncryptedJSON(keyJSON, password)
+	dKey, err := keystore.DecryptKey(keyJSON, password)
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "EthKeyStore#ImportKey failed to decrypt key")
 	}
+	key := ethkey.FromPrivateKey(dKey.PrivateKey)
 	if _, found := ks.keyRing.Eth[key.ID()]; found {
 		return ethkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
 	}
