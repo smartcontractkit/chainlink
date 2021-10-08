@@ -11,7 +11,7 @@ jobs:
     name: Core Tests
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.41
+      image: smartcontract/builder:1.0.42
       credentials:
         username: ${{ secrets.DOCKER_READONLY_USERNAME }}
         password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
@@ -87,7 +87,7 @@ jobs:
     name: Prepublish NPM
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.41
+      image: smartcontract/builder:1.0.42
       credentials:
         username: ${{ secrets.DOCKER_READONLY_USERNAME }}
         password: ${{ secrets.DOCKER_READONLY_PASSWORD }}

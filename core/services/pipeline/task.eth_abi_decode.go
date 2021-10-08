@@ -41,7 +41,7 @@ func (t *ETHABIDecodeTask) Run(_ context.Context, vars Vars, inputs []Result) (r
 		return Result{Error: err}, runInfo
 	}
 
-	args, _, err := parseETHABIArgsString([]byte(theABI), false)
+	args, _, err := ParseETHABIArgsString([]byte(theABI), false)
 	if err != nil {
 		return Result{Error: errors.Wrap(ErrBadInput, err.Error())}, runInfo
 	}
