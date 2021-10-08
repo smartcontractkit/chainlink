@@ -151,7 +151,8 @@ func (hb *headBroadcaster) executeCallbacks() {
 			defer cancel()
 			trackable.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
-			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed), "callbackType", reflect.TypeOf(callback), "blockNumber", head.Number, "time", elapsed)
+			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
+				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.Number, "time", elapsed)
 		}(callback)
 	}
 
