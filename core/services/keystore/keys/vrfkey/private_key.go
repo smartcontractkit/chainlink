@@ -76,15 +76,6 @@ func (k *PrivateKey) GoString() string {
 	return k.String()
 }
 
-// passwordPrefix is added to the beginning of the passwords for
-// EncryptedVRFKey's, so that VRF keys can't casually be used as ethereum
-// keys, and vice-versa. If you want to do that, DON'T.
-var passwordPrefix = "don't mix VRF and Ethereum keys!"
-
-func adulteratedPasswordV1(auth string) string {
-	return passwordPrefix + auth
-}
-
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
 func Decrypt(e EncryptedVRFKey, auth string) (*PrivateKey, error) {
 	// NOTE: We do this shuffle to an anonymous struct
@@ -105,7 +96,7 @@ func Decrypt(e EncryptedVRFKey, auth string) (*PrivateKey, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "while marshaling key for decryption")
 	}
-	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPasswordV1(auth))
+	gethKey, err := keystore.DecryptKey(keyJSON, adulteratedPassword(auth))
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not decrypt key %s",
 			e.PublicKey.String())
