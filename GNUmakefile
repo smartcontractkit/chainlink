@@ -3,7 +3,6 @@
 ENVIRONMENT ?= release
 
 GOPATH ?= $(HOME)/go
-BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
@@ -92,7 +91,6 @@ presubmit:
 docker: ## Build the docker image.
 	docker build \
 		-f $(DOCKERFILE) \
-		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \
