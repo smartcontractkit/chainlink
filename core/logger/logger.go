@@ -200,16 +200,17 @@ type Config interface {
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
 func CreateProductionLogger(c Config) Logger {
-	l, err := newZapLogger(newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk()))
+	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
+	cfg.Level.SetLevel(c.LogLevel())
+	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	l.SetLogLevel(c.LogLevel())
 	return l
 }
 
-// SetColor explicitly sets the global color.NoColor option.
+// InitColor explicitly sets the global color.NoColor option.
 // Not safe for concurrent use. Only to be called from init().
-func SetColor(c bool) {
+func InitColor(c bool) {
 	color.NoColor = !c
 }

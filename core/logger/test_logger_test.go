@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	SetColor(false)
+	InitColor(false)
 }
 
 func TestTestLogger(t *testing.T) {

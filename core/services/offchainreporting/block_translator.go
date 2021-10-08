@@ -16,10 +16,10 @@ type BlockTranslator interface {
 }
 
 // NewBlockTranslator returns the block translator for the given chain
-func NewBlockTranslator(cfg Config, client eth.Client, logger logger.Logger) BlockTranslator {
+func NewBlockTranslator(cfg Config, client eth.Client, lggr logger.Logger) BlockTranslator {
 	switch cfg.ChainType() {
 	case chains.Arbitrum:
-		return NewArbitrumBlockTranslator(client, logger)
+		return NewArbitrumBlockTranslator(client, lggr)
 	case chains.Optimism:
 		return newOptimismBlockTranslator()
 

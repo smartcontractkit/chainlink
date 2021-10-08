@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	logger.SetColor(true)
+	logger.InitColor(true)
 }
 
 func TestPrettyConsole_Write(t *testing.T) {

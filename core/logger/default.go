@@ -30,17 +30,16 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	SetLogger(l)
+	InitLogger(l)
 }
 
-// SetLogger sets the Default logger to newLogger. Not safe for concurrent use,
+// InitLogger sets the Default logger to newLogger. Not safe for concurrent use,
 // so must be called from init() or the main goroutine during initialization.
 //
-// DEPRECATED this method is deprecated because it leads to race conditions.
-// Instead, you should fork the logger.Default instance to create a new logger
-// for your module.
-// Eg: logger.Default.Named("<my-package-name>")
-func SetLogger(newLogger Logger) {
+// You probably don't want to use this. Instead, you should fork the
+// logger.Default instance to create a new logger:
+// Eg: logger.Default.Named("<my-service-name>")
+func InitLogger(newLogger Logger) {
 	if Default != nil {
 		defer func(l Logger) {
 			if err := l.Sync(); err != nil {

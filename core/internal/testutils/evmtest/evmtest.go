@@ -70,11 +70,9 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 
 	}
+	opts.Logger = logger.CreateTestLogger(t)
 	if opts.Config != nil {
-		opts.Logger = logger.CreateTestLogger(t)
 		opts.Logger.SetLogLevel(opts.Config.LogLevel())
-	} else {
-		opts.Logger = logger.CreateTestLogger(t)
 	}
 
 	opts.Config = testopts.GeneralConfig

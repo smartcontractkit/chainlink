@@ -55,8 +55,8 @@ func MemoryLogTestingOnly() *MemorySink {
 	return testMemoryLog
 }
 
-// CreateTestLogger creates a logger that directs output to PrettyConsole
-// configured for test output, and to the buffer testMemoryLog.
+// CreateTestLogger creates an info level logger that directs output to
+// PrettyConsole configured for test output, and to the buffer testMemoryLog.
 // t is optional.
 func CreateTestLogger(t T) Logger {
 	l, err := newZapLogger(newTestConfig())

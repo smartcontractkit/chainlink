@@ -127,10 +127,10 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
-	logger.SetColor(true)
+	logger.InitColor(true)
 	lggr := logger.CreateTestLogger(nil)
 	lggr.SetLogLevel(logLevelFromEnv())
-	logger.SetLogger(lggr)
+	logger.InitLogger(lggr)
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1

@@ -28,10 +28,10 @@ type ArbitrumBlockTranslator struct {
 }
 
 // NewArbitrumBlockTranslator returns a concrete ArbitrumBlockTranslator
-func NewArbitrumBlockTranslator(ethClient eth.Client, logger logger.Logger) *ArbitrumBlockTranslator {
+func NewArbitrumBlockTranslator(ethClient eth.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
 	return &ArbitrumBlockTranslator{
 		ethClient,
-		logger.Named("ArbitrumBlockTranslator"),
+		lggr.Named("ArbitrumBlockTranslator"),
 		make(map[int64]int64),
 		sync.RWMutex{},
 		utils.KeyedMutex{},

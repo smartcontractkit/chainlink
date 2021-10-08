@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -123,7 +122,6 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gcfg := configtest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
@@ -139,7 +137,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(id), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 			assert.NoError(t, cfg.Validate())
 		})
@@ -151,7 +148,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
 				ChainType:        null.StringFrom(string(chains.Arbitrum)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
@@ -161,7 +157,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("mainnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(42161), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
@@ -170,7 +165,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("testnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(421611), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("Optimism"),
 			}, nil, lggr, gcfg)
@@ -182,7 +176,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("custom", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{
 				ChainType:        null.StringFrom(string(chains.Optimism)),
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
@@ -192,7 +185,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("mainnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(10), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("FixedPrice"),
 			}, nil, lggr, gcfg)
@@ -201,7 +193,6 @@ func Test_chainScopedConfig_Validate(t *testing.T) {
 		t.Run("testnet", func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
 			lggr := logger.CreateTestLogger(t)
-			lggr.SetLogLevel(zapcore.InfoLevel)
 			cfg := evmconfig.NewChainScopedConfig(big.NewInt(69), evmtypes.ChainCfg{
 				GasEstimatorMode: null.StringFrom("BlockHistory"),
 			}, nil, lggr, gcfg)
