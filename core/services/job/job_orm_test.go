@@ -446,7 +446,7 @@ func mustInsertPipelineRun(t *testing.T, db *gorm.DB, j job.Job) pipeline.Run {
 		PipelineSpecID: j.PipelineSpecID,
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{Valid: false},
-		Errors:         pipeline.RunErrors{},
+		AllErrors:      pipeline.RunErrors{},
 		FinishedAt:     null.Time{},
 	}
 	require.NoError(t, db.Create(&run).Error)
