@@ -12,32 +12,45 @@ func init() {
 	InitColor(false)
 }
 
-func TestTestLogger(t *testing.T) {
+func TestLogger(t *testing.T) {
 	lgr := CreateTestLogger(t)
-	lgr.SetLogLevel(zapcore.DebugLevel)
+	requireContains := func(cs ...string) {
+		t.Helper()
+		logs := MemoryLogTestingOnly().String()
+		for _, c := range cs {
+			require.Contains(t, logs, c)
+		}
+	}
+	requireNotContains := func(ns ...string) {
+		t.Helper()
+		logs := MemoryLogTestingOnly().String()
+		for _, n := range ns {
+			require.NotContains(t, logs, n)
+		}
+	}
 
 	const (
-		testName    = "TestTestLogger"
+		testName    = "TestLogger"
 		testMessage = "Test message"
 	)
 	lgr.Warn(testMessage)
-	// [WARN]  Test message		logger/test_logger_test.go:23    logger=TestTestLogger
-	require.Contains(t, MemoryLogTestingOnly().String(), "[WARN]")
-	require.Contains(t, MemoryLogTestingOnly().String(), testMessage)
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("logger=%s", testName))
+	// [WARN]  Test message		logger/test_logger_test.go:23    logger=TestLogger
+	requireContains("[WARN]", testMessage, fmt.Sprintf("logger=%s", testName))
 
 	const (
 		serviceName    = "ServiceName"
 		serviceMessage = "Service message"
 		key, value     = "key", "value"
+		omittedMessage = "Don't log me"
 	)
-	srvLgr := lgr.Named(serviceName)
-	srvLgr.Infow(serviceMessage, key, value)
-	// [INFO]  Service message		logger/test_logger_test.go:35    key=value logger=TestTestLogger.ServiceName
-	require.Contains(t, MemoryLogTestingOnly().String(), "[INFO]")
-	require.Contains(t, MemoryLogTestingOnly().String(), serviceMessage)
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("%s=%s", key, value))
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("logger=%s.%s", testName, serviceName))
+	srvLgr, err := lgr.Named(serviceName).NewRootLogger(zapcore.DebugLevel)
+	require.NoError(t, err)
+	srvLgr.Debugw(serviceMessage, key, value)
+	// [DEBUG]  Service message		logger/test_logger_test.go:35    key=value logger=TestLogger.ServiceName
+	requireContains("[DEBUG]", serviceMessage, fmt.Sprintf("%s=%s", key, value),
+		fmt.Sprintf("logger=%s.%s", testName, serviceName))
+	lgr.Debugw(omittedMessage) // omitted since still Info level
+	requireNotContains(omittedMessage)
 
 	const (
 		workerName           = "WorkerName"
@@ -46,12 +59,8 @@ func TestTestLogger(t *testing.T) {
 		resultKey, resultVal = "result", "success"
 	)
 	wrkLgr := srvLgr.Named(workerName).With(idKey, workerId)
-	wrkLgr.Debugw(workerMessage, resultKey, resultVal)
-	// [DEBUG]	Did some work		logger/test_logger_test.go:49    logger=TestTestLogger.ServiceName.WorkerName result=success workerId=42
-	require.Contains(t, MemoryLogTestingOnly().String(), "[DEBUG]")
-	require.Contains(t, MemoryLogTestingOnly().String(), workerMessage)
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("%s=%s", idKey, workerId))
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("%s=%s", resultKey, resultVal))
-	require.Contains(t, MemoryLogTestingOnly().String(), fmt.Sprintf("logger=%s.%s.%s", testName, serviceName, workerName))
-
+	wrkLgr.Infow(workerMessage, resultKey, resultVal)
+	// [INFO]	Did some work		logger/test_logger_test.go:49    logger=TestLogger.ServiceName.WorkerName result=success workerId=42
+	requireContains("[INFO]", workerMessage, fmt.Sprintf("%s=%s", idKey, workerId),
+		fmt.Sprintf("%s=%s", resultKey, resultVal), fmt.Sprintf("logger=%s.%s.%s", testName, serviceName, workerName))
 }

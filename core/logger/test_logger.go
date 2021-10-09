@@ -38,13 +38,18 @@ func (s *MemorySink) String() string {
 	return s.b.String()
 }
 
-var testMemoryLog *MemorySink
+func (s *MemorySink) Reset() {
+	s.m.Lock()
+	defer s.m.Unlock()
+	s.b.Reset()
+}
+
+var testMemoryLog MemorySink
 var createSinkOnce sync.Once
 
 func registerMemorySink() {
-	testMemoryLog = &MemorySink{m: sync.Mutex{}, b: bytes.Buffer{}}
 	if err := zap.RegisterSink("memory", func(*url.URL) (zap.Sink, error) {
-		return PrettyConsole{Sink: testMemoryLog}, nil
+		return PrettyConsole{Sink: &testMemoryLog}, nil
 	}); err != nil {
 		panic(err)
 	}
@@ -52,7 +57,7 @@ func registerMemorySink() {
 
 func MemoryLogTestingOnly() *MemorySink {
 	createSinkOnce.Do(registerMemorySink)
-	return testMemoryLog
+	return &testMemoryLog
 }
 
 // CreateTestLogger creates an info level logger that directs output to
