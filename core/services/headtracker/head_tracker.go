@@ -116,7 +116,7 @@ func (ht *HeadTracker) Start() error {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
-			ht.log.Debug("got nil initial head")
+			ht.log.Debug("Got nil initial head")
 		}
 
 		ht.wgDone.Add(3)
@@ -139,7 +139,7 @@ func (ht *HeadTracker) getInitialHead() (*eth.Head, error) {
 	if head != nil {
 		loggerFields = append(loggerFields, "blockNumber", head.Number, "blockHash", head.Hash)
 	}
-	ht.log.Debugw("got initial current block", loggerFields...)
+	ht.log.Debugw("Got initial current block", loggerFields...)
 	return head, nil
 }
 
@@ -240,7 +240,7 @@ func (ht *HeadTracker) backfiller() {
 					ctx, cancel := eth.DefaultQueryCtx()
 					err := ht.Backfill(ctx, h, uint(ht.config.EvmFinalityDepth()))
 					if err != nil {
-						ht.log.Warnw("unexpected error while backfilling heads", "err", err)
+						ht.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
 						cancel()
 						break
@@ -273,7 +273,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 	}
 	mark := time.Now()
 	fetched := 0
-	ht.log.Debugw("starting backfill",
+	ht.log.Debugw("Starting backfill",
 		"blockNumber", head.Number,
 		"n", head.Number-baseHeight,
 		"fromBlockHeight", baseHeight,
@@ -282,7 +282,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 		if ctxParent.Err() != nil {
 			return
 		}
-		ht.log.Debugw("finished backfill",
+		ht.log.Debugw("Finished backfill",
 			"fetched", fetched,
 			"blockNumber", head.Number,
 			"time", time.Since(mark),
@@ -320,7 +320,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 }
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
-	ht.log.Debugw("fetching head", "blockHeight", n)
+	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
 		return eth.Head{}, nil
@@ -370,15 +370,15 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 	}
 	if head.Number == prevHead.Number {
 		if head.Hash != prevHead.Hash {
-			ht.log.Debugw("got duplicate head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Hash.Hex())
+			ht.log.Debugw("Got duplicate head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Hash.Hex())
 		} else {
-			ht.log.Debugw("head already in the database", "gotHead", head.Hash.Hex())
+			ht.log.Debugw("Head already in the database", "gotHead", head.Hash.Hex())
 		}
 	} else {
-		ht.log.Debugw("got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
+		ht.log.Debugw("Got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
 		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.WithLabelValues(ht.chainID.String()).Inc()
-			ht.log.Errorf("got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
+			ht.log.Errorf("Got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}
 	}
 	return nil
