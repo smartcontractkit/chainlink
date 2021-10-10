@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
@@ -99,25 +99,25 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 		name                           string
 		chainID                        int64
 		expectedGasLimitDefault        uint64
-		expectedMinimumContractPayment int64
+		expectedMinimumContractPayment string
 	}{
-		{"default", 0, 500000, 10000000000000},
-		{"mainnet", 1, 500000, 100000000000000000},
-		{"kovan", 42, 500000, 100000000000000000},
+		{"default", 0, 500000, "0.00001"},
+		{"mainnet", 1, 500000, "0.1"},
+		{"kovan", 42, 500000, "0.1"},
 
-		{"optimism", 10, 500000, 10000000000000},
-		{"optimism", 69, 500000, 10000000000000},
-		{"optimism", 420, 500000, 10000000000000},
+		{"optimism", 10, 500000, "0.00001"},
+		{"optimism", 69, 500000, "0.00001"},
+		{"optimism", 420, 500000, "0.00001"},
 
-		{"bscMainnet", 56, 500000, 10000000000000},
-		{"hecoMainnet", 128, 500000, 10000000000000},
-		{"fantomMainnet", 250, 500000, 10000000000000},
-		{"fantomTestnet", 4002, 500000, 10000000000000},
-		{"polygonMatic", 800001, 500000, 10000000000000},
-		{"harmonyMainnet", 1666600000, 500000, 10000000000000},
-		{"harmonyTestnet", 1666700000, 500000, 10000000000000},
+		{"bscMainnet", 56, 500000, "0.00001"},
+		{"hecoMainnet", 128, 500000, "0.00001"},
+		{"fantomMainnet", 250, 500000, "0.00001"},
+		{"fantomTestnet", 4002, 500000, "0.00001"},
+		{"polygonMatic", 800001, 500000, "0.00001"},
+		{"harmonyMainnet", 1666600000, 500000, "0.00001"},
+		{"harmonyTestnet", 1666700000, 500000, "0.00001"},
 
-		{"xDai", 100, 500000, 10000000000000},
+		{"xDai", 100, 500000, "0.00001"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -126,14 +126,14 @@ func TestChainScopedConfig_Profiles(t *testing.T) {
 			config := evmconfig.NewChainScopedConfig(big.NewInt(tt.chainID), evmtypes.ChainCfg{}, nil, lggr, gcfg)
 
 			assert.Equal(t, tt.expectedGasLimitDefault, config.EvmGasLimitDefault())
-			assert.Equal(t, assets.NewLinkFromJuels(tt.expectedMinimumContractPayment).String(), config.MinimumContractPayment().String())
+			assert.Equal(t, tt.expectedMinimumContractPayment, strings.TrimRight(config.MinimumContractPayment().Link(), "0"))
 		})
 	}
 }
 
 func Test_chainScopedConfig_Validate(t *testing.T) {
 	// Validate built-in
-	for id, _ := range evmconfig.ChainSpecificConfigDefaultSets() {
+	for id := range evmconfig.ChainSpecificConfigDefaultSets() {
 		id := id
 		t.Run(fmt.Sprintf("chainID-%d", id), func(t *testing.T) {
 			gcfg := cltest.NewTestGeneralConfig(t)
