@@ -70,6 +70,10 @@ var (
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
 	}, []string{"evmChainID"})
+	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "tx_manager_tx_attempt_count",
+		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -364,6 +368,8 @@ func (ec *EthConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCom
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt) (receipts []Receipt, err error) {
+	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
+
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
