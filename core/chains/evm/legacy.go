@@ -22,6 +22,9 @@ type LegacyEthNodeConfig interface {
 
 func ClobberNodesFromEnv(db *gorm.DB, config LegacyEthNodeConfig) error {
 	ethChainID := utils.NewBig(config.DefaultChainID())
+	if ethChainID == nil {
+		return errors.New("ETH_CHAIN_ID must be specified (or set CLOBBER_NODES_FROM_ENV=false)")
+	}
 	logger.Infof("CLOBBER_NODES_FROM_ENV is on, upserting chain %s and replacing primary/send-only nodes. It is recommended to set CLOBBER_NODES_FROM_ENV=false on subsequent runs and use the API to administer chains/nodes instead", ethChainID.String())
 
 	if err := db.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (?, NOW(), NOW()) ON CONFLICT DO NOTHING;", ethChainID.String()).Error; err != nil {
@@ -34,6 +37,9 @@ func ClobberNodesFromEnv(db *gorm.DB, config LegacyEthNodeConfig) error {
 
 	stmt := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at) VALUES (?,?,?,?,?,NOW(),NOW())`
 	primaryWS := config.EthereumURL()
+	if primaryWS == "" {
+		return errors.New("ETH_URL must be specified (or set CLOBBER_NODES_FROM_ENV=false)")
+	}
 	var primaryHTTP null.String
 	if config.EthereumHTTPURL() != nil {
 		primaryHTTP = null.StringFrom(config.EthereumHTTPURL().String())

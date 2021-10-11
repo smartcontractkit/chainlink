@@ -162,6 +162,8 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
 
+`ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are not required (and do nothing) if `CLOBBER_NODES_FROM_ENV=false`. If `CLOBBER_NODES_FROM_ENV=true` (the default) these env vars must be explicitly set. This is most likely safe, since almost all node operators set these values explicitly anyway (and we don't even recommend running an eth node on the same box as the CL node).
+
 #### Async support in external adapters
 
 External Adapters making async callbacks can now error job runs. This required a slight change to format, the correct way to callback from an asynchronous EA is using the following JSON:
