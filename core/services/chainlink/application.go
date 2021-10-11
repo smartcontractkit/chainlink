@@ -228,7 +228,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				externalInitiatorManager),
 			job.Cron: cron.NewDelegate(
-				pipelineRunner),
+				pipelineRunner,
+				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
