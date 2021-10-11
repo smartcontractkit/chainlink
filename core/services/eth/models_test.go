@@ -119,6 +119,9 @@ func TestHead_ChainLength(t *testing.T) {
 	}
 
 	assert.Equal(t, uint32(3), head.ChainLength())
+
+	var head2 *eth.Head
+	assert.Equal(t, uint32(0), head2.ChainLength())
 }
 
 func TestModels_HexToFunctionSelector(t *testing.T) {

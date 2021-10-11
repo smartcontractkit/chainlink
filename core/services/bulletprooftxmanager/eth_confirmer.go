@@ -34,6 +34,14 @@ const (
 	// processHeadTimeout represents a sanity limit on how long ProcessHead
 	// should take to complete
 	processHeadTimeout = 10 * time.Minute
+
+	// logAfterNConsecutiveBlocksChainTooShort logs a warning if we go at least
+	// this many consecutive blocks with a re-org protection chain that is too
+	// short
+	//
+	// we don't log every time because on startup it can be lower, only if it
+	// persists does it indicate a serious problem
+	logAfterNConsecutiveBlocksChainTooShort = 10
 )
 
 var (
@@ -86,16 +94,18 @@ type EthConfirmer struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	wg        sync.WaitGroup
+
+	nConsecutiveBlocksChainTooShort int
 }
 
 // NewEthConfirmer instantiates a new eth confirmer
 func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, logger logger.Logger) *EthConfirmer {
+	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback, lggr logger.Logger) *EthConfirmer {
 
 	context, cancel := context.WithCancel(context.Background())
 	return &EthConfirmer{
 		utils.StartStopOnce{},
-		logger,
+		lggr,
 		db,
 		ethClient,
 		ChainKeyStore{
@@ -110,6 +120,7 @@ func NewEthConfirmer(db *gorm.DB, ethClient eth.Client, config Config, keystore 
 		context,
 		cancel,
 		sync.WaitGroup{},
+		0,
 	}
 }
 
@@ -1082,8 +1093,19 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *EthTxAttempt, broadcastAt 
 // re-org'd out and will be rebroadcast.
 func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head eth.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
-		logger.Debugw("EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. This is normal shortly after application boot and should die down. If this happens a lot, it could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, heads table being truncated too early, remote node out of sync, or some other problem",
-			"chainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth())
+		logArgs := []interface{}{
+			"chainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
+		}
+		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
+			warnMsg := "EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			ec.logger.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		} else {
+			logMsg := "EthConfirmer: chain length supplied for re-org detection was shorter than EvmFinalityDepth"
+			ec.logger.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
+		}
+		ec.nConsecutiveBlocksChainTooShort++
+	} else {
+		ec.nConsecutiveBlocksChainTooShort = 0
 	}
 	etxs, err := findTransactionsConfirmedInBlockRange(ec.db, head.Number, head.EarliestInChain().Number, ec.chainID)
 	if err != nil {

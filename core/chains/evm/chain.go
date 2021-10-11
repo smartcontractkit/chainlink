@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -118,7 +119,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
+	highestSeenHead, err := headTracker.HighestSeenHeadFromDB(context.Background())
 	if err != nil {
 		return nil, err
 	}
