@@ -14,7 +14,7 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
 		err := db.Exec("DELETE FROM encrypted_key_rings").Error

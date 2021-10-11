@@ -77,7 +77,7 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 	rawConfig := configtest.NewTestGeneralConfig(t)
 	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
 	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	partialResult, err := periodicBackup.runBackup("")

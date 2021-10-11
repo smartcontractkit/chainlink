@@ -72,7 +72,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 
 	orm := log.NewORM(db, cltest.FixtureChainID)
-	lb := log.NewBroadcaster(orm, ethClient, config, logger.Default, highestSeenHead)
+	lb := log.NewBroadcaster(orm, ethClient, config, logger.TestLogger(t), highestSeenHead)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,

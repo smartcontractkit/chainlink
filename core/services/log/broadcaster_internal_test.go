@@ -76,7 +76,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
 	dborm := NewORM(db, *ethClient.ChainID())
-	lb := NewTestBroadcaster(dborm, ethClient, tc{}, logger.Default, nil)
+	lb := NewTestBroadcaster(dborm, ethClient, tc{}, logger.TestLogger(t), nil)
 	lb.Start()
 	defer lb.Close()
 

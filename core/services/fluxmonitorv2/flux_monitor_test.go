@@ -177,6 +177,8 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 
 	tm.flags = options.flags
 
+	lggr := logger.TestLogger(t)
+
 	pollManager, err := fluxmonitorv2.NewPollManager(
 		fluxmonitorv2.PollManagerConfig{
 			PollTickerInterval:      time.Minute,
@@ -190,7 +192,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
-		logger.Default,
+		lggr,
 	)
 	require.NoError(t, err)
 
@@ -212,7 +214,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		options.flags,
 		tm.fluxAggregator,
 		tm.logBroadcaster,
-		logger.Default,
+		lggr,
 	)
 	require.NoError(t, err)
 
