@@ -11,7 +11,7 @@
 /core/services/job @spooktheducks @connorwstein @archseer
 /core/services/keeper @RyanRHall @samsondav
 /core/services/keystore @RyanRHall
-/core/services/log @PiotrTrzpil @spooktheducks
+/core/services/log @PiotrTrzpil @spooktheducks @jmank88
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pipeline @spooktheducks @connorwstein @archseer
@@ -36,3 +36,4 @@
 # Misc
 /core/store @archseer @samsondav
 /core/chains @samsondav
+/core/logger @jmank88

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -91,7 +93,11 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		headTracker = &headtracker.NullTracker{}
 	} else if opts.GenHeadTracker == nil {
-		headTrackerLogger, err2 := l.NamedLevel(logger.HeadTracker, headTrackerLL)
+		var ll zapcore.Level
+		if err2 := ll.UnmarshalText([]byte(headTrackerLL)); err2 != nil {
+			return nil, err2
+		}
+		headTrackerLogger, err2 := l.NewRootLogger(ll)
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
@@ -113,7 +119,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headBroadcaster.Subscribe(txm)
 
 	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headTracker.HighestSeenHeadFromDB()
+	highestSeenHead, err := headTracker.HighestSeenHeadFromDB(context.Background())
 	if err != nil {
 		return nil, err
 	}

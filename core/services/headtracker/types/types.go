@@ -3,16 +3,16 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"go.uber.org/zap/zapcore"
 )
 
 type Tracker interface {
-	HighestSeenHeadFromDB() (*eth.Head, error)
+	HighestSeenHeadFromDB(context.Context) (*eth.Head, error)
 	Start() error
 	Stop() error
-	SetLogger(logger logger.Logger)
+	SetLogLevel(lvl zapcore.Level)
 	Ready() error
 	Healthy() error
 }

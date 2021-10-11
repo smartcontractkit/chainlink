@@ -13,7 +13,6 @@ import (
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
 )
 
@@ -355,13 +355,6 @@ func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error)
 	return c.GeneralConfig.OCRTransmitterAddress()
 }
 
-// CreateProductionLogger returns a custom logger for the config's root
-// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
-// false, the logger will only log to stdout.
-func (c *TestGeneralConfig) CreateProductionLogger() logger.Logger {
-	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
-}
-
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {
 	if c.Overrides.DefaultHTTPTimeout != nil {
 		return models.MustMakeDuration(*c.Overrides.DefaultHTTPTimeout)
@@ -418,9 +411,9 @@ func (c *TestGeneralConfig) AllowOrigins() string {
 	return c.GeneralConfig.AllowOrigins()
 }
 
-func (c *TestGeneralConfig) LogLevel() config.LogLevel {
+func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	if c.Overrides.LogLevel != nil {
-		return *c.Overrides.LogLevel
+		return c.Overrides.LogLevel.Level
 	}
 	return c.GeneralConfig.LogLevel()
 }

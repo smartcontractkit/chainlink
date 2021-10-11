@@ -28,6 +28,7 @@ var (
 	}, []string{"evmChainID"})
 )
 
+//go:generate mockery --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	EvmFinalityDepth() uint32
@@ -47,8 +48,7 @@ type HeadListener struct {
 	receivesHeads    atomic.Bool
 	sleeper          utils.Sleeper
 
-	log      logger.Logger
-	muLogger sync.RWMutex
+	log logger.Logger
 
 	chStop chan struct{}
 }
@@ -73,29 +73,16 @@ func NewHeadListener(l logger.Logger,
 		ethClient: ethClient,
 		chainID:   *ethClient.ChainID(),
 		sleeper:   sleeper,
-		log:       l,
+		log:       l.Named("listener"),
 		chStop:    chStop,
 	}
-}
-
-// SetLogger sets and reconfigures the log for the head tracker service
-func (hl *HeadListener) SetLogger(logger logger.Logger) {
-	hl.muLogger.Lock()
-	defer hl.muLogger.Unlock()
-	hl.log = logger
-}
-
-func (hl *HeadListener) logger() logger.Logger {
-	hl.muLogger.RLock()
-	defer hl.muLogger.RUnlock()
-	return hl.log
 }
 
 func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error, done func()) {
 	defer done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
+			hl.log.Warn(errors.Wrap(err, "HeadListener failed when unsubscribe from head"))
 		}
 	}()
 
@@ -110,7 +97,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.logger().Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			hl.log.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			hl.headers = nil
 			continue
 		} else {
@@ -138,7 +125,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 				return errors.New("HeadTracker: headers prematurely closed")
 			}
 			if blockHeader == nil {
-				hl.logger().Error("HeadTracker: got nil block header")
+				hl.log.Error("got nil block header")
 				continue
 			}
 			blockHeader.EVMChainID = utils.NewBig(&hl.chainID)
@@ -159,7 +146,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 
 		case <-t.C:
 			// We haven't received a head on the channel for a long time, log a warning
-			hl.logger().Warn(fmt.Sprintf("HeadTracker: have not received a head for %v", noHeadsAlarmDuration))
+			hl.log.Warn(fmt.Sprintf("have not received a head for %v", noHeadsAlarmDuration))
 			hl.receivesHeads.Store(false)
 		}
 	}
@@ -171,11 +158,11 @@ func (hl *HeadListener) subscribe() bool {
 	hl.sleeper.Reset()
 	for {
 		if err := hl.unsubscribeFromHead(); err != nil {
-			hl.logger().Error("failed when unsubscribe from head", err)
+			hl.log.Error("failed when unsubscribe from head", err)
 			return false
 		}
 
-		hl.logger().Infof("HeadListener: Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
+		hl.log.Infof("Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
@@ -183,9 +170,9 @@ func (hl *HeadListener) subscribe() bool {
 			err := hl.subscribeToHead()
 			if err != nil {
 				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
-				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
+				hl.log.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
 			} else {
-				hl.logger().Infof("HeadListener: Subscribed to heads on chain %s", hl.chainID.String())
+				hl.log.Infof("Subscribed to heads on chain %s", hl.chainID.String())
 				return true
 			}
 		}

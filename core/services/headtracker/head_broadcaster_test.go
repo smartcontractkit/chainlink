@@ -2,17 +2,21 @@ package headtracker_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/headtracker"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
@@ -20,10 +24,13 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
+	var d time.Duration = 0
+	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewGormDB(t)
 	cfg.SetDB(db)
-	logger := cfg.CreateProductionLogger()
+	logger := logger.CreateTestLogger(t)
+	logger.SetLogLevel(cfg.LogLevel())
 
 	sub := new(mocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -55,7 +62,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	assert.Equal(t, (*eth.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := eth.Head{Number: 1}
+	h := eth.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash()}
 	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
@@ -66,7 +73,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &eth.Head{Number: 2}
+	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -87,11 +88,17 @@ func (h *Head) HashAtHeight(blockNum int64) common.Hash {
 
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h *Head) ChainLength() uint32 {
+	if h == nil {
+		return 0
+	}
 	l := uint32(1)
 
 	for {
 		if h.Parent != nil {
 			l++
+			if h == h.Parent {
+				panic("circular reference detected")
+			}
 			h = h.Parent
 		} else {
 			break
@@ -107,6 +114,9 @@ func (h *Head) ChainHashes() []common.Hash {
 	for {
 		hashes = append(hashes, h.Hash)
 		if h.Parent != nil {
+			if h == h.Parent {
+				panic("circular reference detected")
+			}
 			h = h.Parent
 		} else {
 			break
@@ -115,9 +125,28 @@ func (h *Head) ChainHashes() []common.Hash {
 	return hashes
 }
 
-// String returns a string representation of this number.
-func (h *Head) String() string {
-	return h.ToInt().String()
+func (h *Head) ChainString() string {
+	var sb strings.Builder
+
+	for {
+		sb.WriteString(h.String())
+		if h.Parent != nil {
+			if h == h.Parent {
+				panic("circular reference detected")
+			}
+			sb.WriteString("->")
+			h = h.Parent
+		} else {
+			break
+		}
+	}
+	sb.WriteString("->nil")
+	return sb.String()
+}
+
+// String returns a string representation of this head
+func (h Head) String() string {
+	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
 }
 
 // ToInt return the height as a *big.Int. Also handles nil by returning nil.

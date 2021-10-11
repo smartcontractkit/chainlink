@@ -27,7 +27,7 @@ pkgs.mkShell {
     # gofuzz
   ];
   LD_LIBRARY_PATH="${stdenv.cc.cc.lib}/lib64:$LD_LIBRARY_PATH";
-  GOROOT="${pkgs.go}/share/go";
+  GOROOT="${pkgs.go_1_17}/share/go";
 
   PGDATA="db";
 }

@@ -127,8 +127,10 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
-	lvl := logLevelFromEnv()
-	logger.SetLogger(logger.CreateTestLogger(lvl))
+	logger.InitColor(true)
+	lggr := logger.CreateTestLogger(nil)
+	lggr.SetLogLevel(logLevelFromEnv())
+	logger.InitLogger(lggr)
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -376,7 +378,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if lggr == nil {
-		lggr = cfg.CreateProductionLogger().Named(t.Name())
+		lggr = logger.CreateTestLogger(t)
+		lggr.SetLogLevel(cfg.LogLevel())
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
