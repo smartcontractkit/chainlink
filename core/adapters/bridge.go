@@ -43,11 +43,7 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store, _ *keystore
 }
 
 func (ba *Bridge) handleNewRun(input models.RunInput, store *store.Store) models.RunOutput {
-	data, err := models.MergeExceptResult(input.Data(), ba.Params)
-	if err != nil {
-		return models.NewRunOutputError(baRunResultError("handling data param", err))
-	}
-	input = input.CloneWithData(data)
+	input = input.CloneWithData(input.Data())
 
 	responseURL := store.Config.BridgeResponseURL()
 	if *responseURL != *zeroURL {

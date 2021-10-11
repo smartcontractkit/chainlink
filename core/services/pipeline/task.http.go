@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //
@@ -82,6 +83,9 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) Result {
 
 	responseBytes, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
+		if errors.Cause(err) == utils.ErrDisallowedIP {
+			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")
+		}
 		return Result{Error: err}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/tidwall/gjson"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gopkg.in/guregu/null.v4"
 )
@@ -67,6 +68,7 @@ func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress:          ethkey.EIP55AddressFromAddress(initr.InitiatorParams.Address),
 			MinIncomingConfirmations: clnull.Uint32From(10),
+			Requesters:               requesterWhitelist,
 			CreatedAt:                js.CreatedAt,
 			UpdatedAt:                js.UpdatedAt,
 		},
@@ -138,7 +140,21 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				"type": pipeline.TaskTypeJSONParse.String(),
 			}
 			if ts.Params.Get("path").Exists() {
-				attrs["path"] = ts.Params.Get("path").String()
+
+				path := ts.Params.Get("path")
+				pathString := path.String()
+
+				if path.IsArray() {
+					var pathSegments []string
+					path.ForEach(func(key, value gjson.Result) bool {
+						pathSegments = append(pathSegments, value.String())
+						return true
+					})
+
+					pathString = strings.Join(pathSegments, ",")
+				}
+
+				attrs["path"] = pathString
 			} else {
 				return "", nil, errors.New("no path param on jsonparse task")
 			}
@@ -204,22 +220,38 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			foundEthTx = true
 		default:
 			// assume it's a bridge task
-			encodedValue, err := encodeTemplate(ts.Params.Bytes())
+
+			encodedValue1, err := encodeTemplate(ts.Params.Bytes())
 			if err != nil {
 				return "", nil, err
 			}
+			template1 := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+			i++
+			replacements["\""+template1+"\""] = encodedValue1
+
+			attrs1 := map[string]string{
+				"type":  "merge",
+				"right": template1,
+				//"data": <{ "value": $(multiply) }>,
+			}
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("merge_%d", i), attrs1)
+			dg.AddNode(n)
+			if last != nil {
+				dg.SetEdge(dg.NewEdge(last, n))
+			}
+			last = n
 			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+
 			attrs := map[string]string{
 				"type":        pipeline.TaskTypeBridge.String(),
 				"name":        ts.Type.String(),
 				"requestData": template,
 			}
-			replacements["\""+template+"\""] = encodedValue
+			replacements["\""+template+"\""] = fmt.Sprintf("{ \"data\": $(%v) }", last.DOTID())
 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_to_bridge_%d", i), attrs)
 			i++
 		}
-
 		if n != nil {
 			dg.AddNode(n)
 			if last != nil {

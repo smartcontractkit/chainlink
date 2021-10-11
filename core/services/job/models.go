@@ -108,6 +108,7 @@ type JobDirectRequestFlat struct {
 	ExternalJobID            uuid.UUID           `toml:"externalJobID"`
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+	Requesters               []string            `toml:"requesters"`
 	Type                     Type
 	SchemaVersion            uint32
 	Name                     null.String
@@ -255,6 +256,7 @@ type DirectRequestSpec struct {
 	ID                       int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations clnull.Uint32       `toml:"minIncomingConfirmations"`
+	Requesters               []string            `toml:"requesters"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`
 }

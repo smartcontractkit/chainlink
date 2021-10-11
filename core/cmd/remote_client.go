@@ -281,6 +281,7 @@ func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, j *job.
 			ExternalJobID:            jobSpec.ExternalJobID,
 			ContractAddress:          jobSpec.DirectRequestSpec.ContractAddress,
 			MinIncomingConfirmations: jobSpec.DirectRequestSpec.MinIncomingConfirmations,
+			Requesters:               jobSpec.DirectRequestSpec.Requesters,
 			Type:                     jobSpec.Type,
 			SchemaVersion:            1,
 			Name:                     jobSpec.Name,
