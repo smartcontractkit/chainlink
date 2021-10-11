@@ -260,6 +260,13 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 	})
+
+	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
+		exportedKey := `{"address":"0dd359b4f22a30e44b2fd744b679971941865820","crypto":{"cipher":"aes-128-ctr","ciphertext":"b30af964a3b3f37894e599446b4cf2314bbfcd1062e6b35b620d3d20bd9965cc","cipherparams":{"iv":"58a8d75629cc1945da7cf8c24520d1dc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c352887e9d427d8a6a1869082619b73fac4566082a99f6e367d126f11b434f28"},"mac":"fd76a588210e0bf73d01332091e0e83a4584ee2df31eaec0e27f9a1b94f024b4"},"id":"a5ee0802-1d7b-45b6-aeb8-ea8a3351e715","version":3}`
+		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password, &cltest.FixtureChainID)
+		require.NoError(t, err)
+		require.Equal(t, "0x0dd359b4f22a30E44b2fD744B679971941865820", importedKey.ID())
+	})
 }
 
 func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
