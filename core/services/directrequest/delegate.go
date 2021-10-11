@@ -175,7 +175,7 @@ func (l *listener) Close() error {
 func (l *listener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
+		logger.Error("DirectRequest: HandleLog: ignoring nil value")
 		return
 	}
 
@@ -188,10 +188,10 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 	case *operator_wrapper.OperatorCancelOracleRequest:
 		wasOverCapacity := l.mbOracleCancelRequests.Deliver(lb)
 		if wasOverCapacity {
-			l.logger.Error("DirectRequest: CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
+			logger.Error("DirectRequest: CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
 	default:
-		l.logger.Warnf("DirectRequest: unexpected log type %T", log)
+		logger.Warnf("DirectRequest: unexpected log type %T", log)
 	}
 }
 
@@ -345,14 +345,12 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, &run, *l.logger, true, func(tx *gorm.DB) error {
-		l.markLogConsumed(tx, lb)
-		return nil
-	})
+	_, err := l.pipelineRunner.Run(ctx, &run, *logger.Default, true)
+	l.markLogConsumed(nil, lb)
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		l.logger.Errorw("DirectRequest: failed executing run", "err", err)
+		logger.Errorw("DirectRequest: failed executing run", "err", err)
 	}
 }
 

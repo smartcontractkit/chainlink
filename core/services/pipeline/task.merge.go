@@ -23,10 +23,10 @@ func (t *MergeTask) Type() TaskType {
 	return TaskTypeMerge
 }
 
-func (t *MergeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *MergeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
-		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
+		return Result{Error: errors.Wrap(err, "task inputs")}
 	}
 
 	var (
@@ -38,7 +38,7 @@ func (t *MergeTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		errors.Wrap(ResolveParam(&rMap, From(VarExpr(t.Right, vars), NonemptyString(t.Right))), "right-side"),
 	)
 	if err != nil {
-		return Result{Error: err}, runInfo
+		return Result{Error: err}
 	}
 
 	// clobber lMap with rMap values
@@ -47,5 +47,5 @@ func (t *MergeTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		lMap[key] = value
 	}
 
-	return Result{Value: lMap.Map()}, runInfo
+	return Result{Value: lMap.Map()}
 }
