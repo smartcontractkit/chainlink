@@ -1,4 +1,4 @@
-FROM smartcontract/builder:1.0.41
+FROM golang:1.17-buster
 
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
@@ -7,5 +7,3 @@ WORKDIR ${SRCROOT}
 ADD go.* ./
 RUN go mod download
 RUN mkdir -p tools/bin
-
-ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${SRCROOT}/tools/bin
