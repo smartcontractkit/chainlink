@@ -13,7 +13,7 @@ func init() {
 }
 
 func TestLogger(t *testing.T) {
-	lgr := CreateTestLogger(t)
+	lgr := TestLogger(t)
 	requireContains := func(cs ...string) {
 		t.Helper()
 		logs := MemoryLogTestingOnly().String()

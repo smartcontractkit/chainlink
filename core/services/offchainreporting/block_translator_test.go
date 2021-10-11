@@ -15,7 +15,7 @@ import (
 func Test_BlockTranslator(t *testing.T) {
 	ethClient := cltest.NewEthClientMock(t)
 	ctx := context.Background()
-	lggr := logger.CreateTestLogger(t)
+	lggr := logger.TestLogger(t)
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {
 		bt := offchainreporting.NewBlockTranslator(evmtest.ChainEthMainnet(t), ethClient, lggr)

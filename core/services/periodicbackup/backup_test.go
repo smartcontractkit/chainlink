@@ -17,7 +17,7 @@ import (
 func TestPeriodicBackup_RunBackup(t *testing.T) {
 	rawConfig := configtest.NewTestGeneralConfig(t)
 	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup("0.9.9")
@@ -37,7 +37,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	rawConfig := configtest.NewTestGeneralConfig(t)
 	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeLite)
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup("0.9.9")
@@ -57,7 +57,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	rawConfig := configtest.NewTestGeneralConfig(t)
 	backupConfig := newTestConfig(time.Minute, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
 	result, err := periodicBackup.runBackup("unset")
@@ -88,7 +88,7 @@ func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
 	rawConfig := configtest.NewTestGeneralConfig(t)
 	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(), "", config.DatabaseBackupModeFull)
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 	assert.True(t, periodicBackup.frequencyIsTooSmall())
 }
 
@@ -97,7 +97,7 @@ func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
 	backupConfig := newTestConfig(time.Second, nil, rawConfig.DatabaseURL(), os.TempDir(),
 		filepath.Join(os.TempDir(), "alternative"), config.DatabaseBackupModeFull)
 
-	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
+	periodicBackup := NewDatabaseBackup(backupConfig, logger.TestLogger(t)).(*databaseBackup)
 
 	result, err := periodicBackup.runBackup("0.9.9")
 	require.NoError(t, err, "error not nil for backup")

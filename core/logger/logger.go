@@ -203,10 +203,10 @@ type Config interface {
 	LogLevel() zapcore.Level
 }
 
-// CreateProductionLogger returns a custom logger for the config's root
+// ProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func CreateProductionLogger(c Config) Logger {
+func ProductionLogger(c Config) Logger {
 	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
 	cfg.Level.SetLevel(c.LogLevel())
 	l, err := newZapLogger(cfg)

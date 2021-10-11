@@ -35,7 +35,7 @@ type TestChainOpts struct {
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
 	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{},
-		nil, logger.CreateTestLogger(t), cfg)
+		nil, logger.TestLogger(t), cfg)
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -69,7 +69,7 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 		}
 
 	}
-	opts.Logger = logger.CreateTestLogger(t)
+	opts.Logger = logger.TestLogger(t)
 	opts.Config = testopts.GeneralConfig
 
 	chains := []evmtypes.Chain{
@@ -171,5 +171,5 @@ func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return sco
 
 func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
 	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
-		logger.CreateTestLogger(t), configtest.NewTestGeneralConfig(t))
+		logger.TestLogger(t), configtest.NewTestGeneralConfig(t))
 }

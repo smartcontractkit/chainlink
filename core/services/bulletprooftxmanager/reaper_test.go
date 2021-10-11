@@ -15,7 +15,7 @@ import (
 )
 
 func newReaperWithChainID(t *testing.T, db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig, cid big.Int) *bulletprooftxmanager.Reaper {
-	return bulletprooftxmanager.NewReaper(logger.CreateTestLogger(t), db, cfg, cid)
+	return bulletprooftxmanager.NewReaper(logger.TestLogger(t), db, cfg, cid)
 }
 
 func newReaper(t *testing.T, db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooftxmanager.Reaper {

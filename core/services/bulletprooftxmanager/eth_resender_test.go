@@ -80,7 +80,7 @@ func Test_EthResender_Start(t *testing.T) {
 	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(1)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	lggr := logger.CreateTestLogger(t)
+	lggr := logger.TestLogger(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)

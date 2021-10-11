@@ -24,7 +24,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 	t.Parallel()
 
 	blocks := generateDeterministicL2Blocks()
-	lggr := logger.CreateTestLogger(t)
+	lggr := logger.TestLogger(t)
 
 	t.Run("returns range of current to nil if target is above current block number", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
@@ -215,7 +215,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 	t.Parallel()
 
-	lggr := logger.CreateTestLogger(t)
+	lggr := logger.TestLogger(t)
 
 	t.Run("falls back to whole range on error", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)

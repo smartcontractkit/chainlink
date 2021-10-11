@@ -988,7 +988,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	lggr := logger.CreateTestLogger(t)
+	lggr := logger.TestLogger(t)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
 		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)

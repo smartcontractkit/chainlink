@@ -126,7 +126,7 @@ func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	logger.InitColor(true)
-	lggr := logger.CreateTestLogger(nil)
+	lggr := logger.TestLogger(nil)
 	logger.InitLogger(lggr)
 
 	// Seed the random number generator, otherwise separate modules will take
@@ -195,13 +195,13 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config), nil, logger.CreateTestLogger(t))
+		keyStates, gas.NewFixedPriceEstimator(config), nil, logger.TestLogger(t))
 }
 
 func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
-		gas.NewFixedPriceEstimator(config), fn, logger.CreateTestLogger(t))
+		gas.NewFixedPriceEstimator(config), fn, logger.TestLogger(t))
 	return ec
 }
 
@@ -369,7 +369,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if lggr == nil {
-		lggr = logger.CreateTestLogger(t)
+		lggr = logger.TestLogger(t)
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
@@ -606,7 +606,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
-	keystore := keystore.New(db, utils.FastScryptParams, logger.CreateTestLogger(t))
+	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
 }

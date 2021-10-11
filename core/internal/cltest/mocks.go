@@ -469,7 +469,7 @@ func NewChainSetMockWithOneChain(t testing.TB, ethClient eth.Client, cfg evmconf
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
-	ch.On("Logger").Return(logger.CreateTestLogger(t))
+	ch.On("Logger").Return(logger.TestLogger(t))
 	ch.On("ID").Return(cfg.ChainID())
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
