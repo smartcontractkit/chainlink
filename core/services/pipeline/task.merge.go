@@ -20,7 +20,7 @@ type MergeTask struct {
 var _ Task = (*MergeTask)(nil)
 
 func (t *MergeTask) Type() TaskType {
-	return TaskTypeMergeTask
+	return TaskTypeMerge
 }
 
 func (t *MergeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
