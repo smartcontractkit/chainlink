@@ -58,7 +58,6 @@ type GeneralOnlyConfig interface {
 	CertFile() string
 	ClientNodeURL() string
 	ClobberNodesFromEnv() bool
-	CreateProductionLogger() logger.Logger
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -109,7 +108,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncInterval() time.Duration
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
-	LogLevel() LogLevel
+	LogLevel() zapcore.Level
 	LogSQLMigrations() bool
 	LogSQLStatements() bool
 	LogToDisk() bool
@@ -164,7 +163,7 @@ type GeneralOnlyConfig interface {
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
-	SetLogLevel(ctx context.Context, value string) error
+	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
 	SetDialect(dialects.DialectName)
 	StatsPusherLogging() bool
@@ -831,14 +830,14 @@ func (c *generalConfig) ORMMaxIdleConns() int {
 }
 
 // LogLevel represents the maximum level of log messages to output.
-func (c *generalConfig) LogLevel() LogLevel {
+func (c *generalConfig) LogLevel() zapcore.Level {
 	// FIXME: This is confusing, everywhere else the env var overrides the DB value but this is the reverse
 	if c.ORM != nil {
 		var value LogLevel
 		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
 		} else if err == nil {
-			return value
+			return value.Level
 		}
 	}
 	if c.viper.IsSet(EnvVarName("LogLevel")) {
@@ -846,24 +845,19 @@ func (c *generalConfig) LogLevel() LogLevel {
 		ll, err := ParseLogLevel(str)
 		if err != nil {
 			logger.Errorf("error parsing log level: %s, falling back to %s", str, DefaultLogLevel)
-			return DefaultLogLevel
+			return DefaultLogLevel.Level
 		}
-		return ll.(LogLevel)
+		return ll.(LogLevel).Level
 	}
-	return DefaultLogLevel
+	return DefaultLogLevel.Level
 }
 
 // SetLogLevel saves a runtime value for the default logger level
-func (c *generalConfig) SetLogLevel(ctx context.Context, value string) error {
+func (c *generalConfig) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
 	if c.ORM == nil {
 		return errors.New("SetLogLevel: No runtime store installed")
 	}
-	var ll LogLevel
-	err := ll.Set(value)
-	if err != nil {
-		return err
-	}
-	return c.ORM.SetConfigStrValue(ctx, "LogLevel", ll.String())
+	return c.ORM.SetConfigStrValue(ctx, "LogLevel", lvl.String())
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -1171,13 +1165,6 @@ func (c *generalConfig) CertFile() string {
 		return filepath.Join(c.TLSDir(), "server.crt")
 	}
 	return c.TLSCertPath()
-}
-
-// CreateProductionLogger returns a custom logger for the config's root
-// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
-// false, the logger will only log to stdout.
-func (c *generalConfig) CreateProductionLogger() logger.Logger {
-	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
 // SessionSecret returns a sequence of bytes to be used as a private key for

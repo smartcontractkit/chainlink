@@ -20,6 +20,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
@@ -63,6 +64,7 @@ type Application interface {
 	GetHealthChecker() health.Checker
 	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
+	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
@@ -86,7 +88,7 @@ type Application interface {
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	SetServiceLogger(ctx context.Context, service string, level string) error
+	SetServiceLogLevel(ctx context.Context, service string, level zapcore.Level) error
 
 	// Feeds
 	GetFeedsService() feeds.Service
@@ -318,18 +320,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-// SetServiceLogger sets the Logger level for a given service and stores the setting in the db.
-func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceName string, level string) error {
-	newL, err := app.logger.NamedLevel(serviceName, level)
-	if err != nil {
+func (app *ChainlinkApplication) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
+	if err := app.Config.SetLogLevel(ctx, lvl); err != nil {
 		return err
 	}
+	app.logger.SetLogLevel(lvl)
+	return nil
+}
 
+// SetServiceLogLevel sets the Logger level for a given service and stores the setting in the db.
+func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
 	// TODO: Implement other service loggers
 	switch serviceName {
 	case logger.HeadTracker:
 		for _, c := range app.ChainSet.Chains() {
-			c.HeadTracker().SetLogger(newL)
+			c.HeadTracker().SetLogLevel(level)
 		}
 	case logger.FluxMonitor:
 		// TODO: Set FMv2?
@@ -338,7 +343,7 @@ func (app *ChainlinkApplication) SetServiceLogger(ctx context.Context, serviceNa
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level)
+	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also

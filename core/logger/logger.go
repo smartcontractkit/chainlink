@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"runtime"
 
+	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -15,15 +16,20 @@ import (
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
 type Logger interface {
-	// With creates a new logger with the given arguments
+	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
-	// Named creates a new logger sub-scoped with name.
+	// Named creates a new Logger sub-scoped with name.
 	// Names are inherited and dot-separated.
 	//   a := l.Named("a") // logger=a
 	//   b := a.Named("b") // logger=a.b
 	Named(name string) Logger
-	// NamedLevel creates a new Named logger with logLevel.
-	NamedLevel(id string, logLevel string) (Logger, error)
+
+	// NewRootLogger creates a new root Logger with an independent log level
+	// unaffected by upstream calls to SetLogLevel.
+	NewRootLogger(lvl zapcore.Level) (Logger, error)
+
+	// SetLogLevel changes the log level for this and all connected Loggers.
+	SetLogLevel(zapcore.Level)
 
 	Debug(args ...interface{})
 	Info(args ...interface{})
@@ -65,11 +71,21 @@ var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	dir         string
-	jsonConsole bool
-	toDisk      bool
-	name        string
-	fields      []interface{}
+	config zap.Config
+	name   string
+	fields []interface{}
+}
+
+func newZapLogger(cfg zap.Config) (Logger, error) {
+	zl, err := cfg.Build()
+	if err != nil {
+		return nil, err
+	}
+	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar()}, nil
+}
+
+func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
+	l.config.Level.SetLevel(lvl)
 }
 
 // Constants for service names for package specific logging configuration
@@ -85,11 +101,6 @@ func GetLogServices() []string {
 		FluxMonitor,
 		Keeper,
 	}
-}
-
-func (l *zapLogger) Write(b []byte) (int, error) {
-	l.Info(string(b))
-	return len(b), nil
 }
 
 func (l *zapLogger) With(args ...interface{}) Logger {
@@ -119,6 +130,17 @@ func (l *zapLogger) Named(name string) Logger {
 	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	return &newLogger
+}
+
+func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
+	newLogger := *l
+	newLogger.config.Level = zap.NewAtomicLevelAt(lvl)
+	zl, err := newLogger.config.Build()
+	if err != nil {
+		return nil, err
+	}
+	newLogger.SugaredLogger = zl.Named(l.name).Sugar().With(l.fields...)
+	return &newLogger, nil
 }
 
 func (l *zapLogger) withCallerSkip(skip int) Logger {
@@ -153,8 +175,8 @@ func (l *zapLogger) PanicIf(err error, msg string) {
 	}
 }
 
-// initLogConfig builds a zap.Config for a logger
-func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) zap.Config {
+// newProductionConfig returns a new production zap.Config.
+func newProductionConfig(dir string, jsonConsole bool, toDisk bool) zap.Config {
 	config := zap.NewProductionConfig()
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
@@ -164,38 +186,31 @@ func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool)
 		config.OutputPaths = append(config.OutputPaths, destination)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
-	config.Level.SetLevel(lvl)
 	return config
 }
 
-// CreateProductionLogger returns a log config for the passed directory
-// with the given LogLevel and customizes stdout for pretty printing.
-func CreateProductionLogger(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) Logger {
-	zl, err := initLogConfig(dir, jsonConsole, lvl, toDisk).Build()
+type Config interface {
+	RootDir() string
+	JSONConsole() bool
+	LogToDisk() bool
+	LogLevel() zapcore.Level
+}
+
+// CreateProductionLogger returns a custom logger for the config's root
+// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
+// false, the logger will only log to stdout.
+func CreateProductionLogger(c Config) Logger {
+	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
+	cfg.Level.SetLevel(c.LogLevel())
+	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &zapLogger{
-		SugaredLogger: zl.Sugar(),
-		dir:           dir,
-		jsonConsole:   jsonConsole,
-		toDisk:        toDisk,
-	}
+	return l
 }
 
-func (l *zapLogger) NamedLevel(name string, logLevel string) (Logger, error) {
-	var ll zapcore.Level
-	if err := ll.UnmarshalText([]byte(logLevel)); err != nil {
-		return nil, err
-	}
-
-	zl, err := initLogConfig(l.dir, l.jsonConsole, ll, l.toDisk).Build()
-	if err != nil {
-		return nil, err
-	}
-
-	newLogger := *l
-	newLogger.name = joinName(l.name, name)
-	newLogger.SugaredLogger = zl.Named(newLogger.name).Sugar().With(l.fields...)
-	return &newLogger, nil
+// InitColor explicitly sets the global color.NoColor option.
+// Not safe for concurrent use. Only to be called from init().
+func InitColor(c bool) {
+	color.NoColor = !c
 }

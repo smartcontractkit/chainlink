@@ -20,6 +20,7 @@ import (
 // relatively expensive
 type ArbitrumBlockTranslator struct {
 	ethClient eth.Client
+	lggr      logger.Logger
 	// l2->l1 cache
 	cache   map[int64]int64
 	cacheMu sync.RWMutex
@@ -27,9 +28,10 @@ type ArbitrumBlockTranslator struct {
 }
 
 // NewArbitrumBlockTranslator returns a concrete ArbitrumBlockTranslator
-func NewArbitrumBlockTranslator(ethClient eth.Client) *ArbitrumBlockTranslator {
+func NewArbitrumBlockTranslator(ethClient eth.Client, lggr logger.Logger) *ArbitrumBlockTranslator {
 	return &ArbitrumBlockTranslator{
 		ethClient,
+		lggr.Named("ArbitrumBlockTranslator"),
 		make(map[int64]int64),
 		sync.RWMutex{},
 		utils.KeyedMutex{},
@@ -41,7 +43,7 @@ func (a *ArbitrumBlockTranslator) NumberToQueryRange(ctx context.Context, change
 	var err error
 	fromBlock, toBlock, err = a.BinarySearch(ctx, int64(changedInL1Block))
 	if err != nil {
-		logger.Warnw("ArbitrumBlockTranslator: failed to binary search L2->L1, falling back to slow scan over entire chain", "err", err)
+		a.lggr.Warnw("Failed to binary search L2->L1, falling back to slow scan over entire chain", "err", err)
 		return big.NewInt(0), nil
 	}
 
@@ -61,7 +63,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 	var n int
 	defer func() {
 		duration := time.Since(mark)
-		logger.Debugw(fmt.Sprintf("ArbitrumBlockTranslator#binarySearch completed in %s with %d total lookups", duration, n), "finishedIn", duration, "err", err, "nLookups", n)
+		a.lggr.Debugw(fmt.Sprintf("BinarySearch completed in %s with %d total lookups", duration, n), "finishedIn", duration, "err", err, "nLookups", n)
 	}()
 	var h *eth.Head
 
@@ -99,7 +101,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 			// NOTE: This case shouldn't ever happen but we ought to handle it in the least broken way possible
 			if targetL1 > currentL1 {
 				// real upper must always be nil, we can skip the upper limit part of the binary search
-				logger.Debugf("ArbitrumBlockTranslator#BinarySearch target of %d is above current L1 block number of %d, using nil for upper bound", targetL1, currentL1)
+				a.lggr.Debugf("BinarySearch target of %d is above current L1 block number of %d, using nil for upper bound", targetL1, currentL1)
 				return big.NewInt(currentL2), nil, nil
 			} else if targetL1 == currentL1 {
 				// NOTE: If the latest seen L2 block corresponds to the target L1
@@ -111,7 +113,7 @@ func (a *ArbitrumBlockTranslator) BinarySearch(ctx context.Context, targetL1 int
 		}
 	}
 
-	logger.Tracef("ArbitrumBlockTranslator#BinarySearch starting search for L2 range wrapping L1 block number %d between bounds [%d, %d]", targetL1, l2lower, l2upper)
+	a.lggr.Debugf("TRACE: BinarySearch starting search for L2 range wrapping L1 block number %d between bounds [%d, %d]", targetL1, l2lower, l2upper)
 
 	var exactMatch bool
 

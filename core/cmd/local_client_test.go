@@ -61,14 +61,10 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 		Runner:                 runner,
 	}
 
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
-	c := cli.NewContext(nil, set, nil)
-
 	// Start RunNode in a goroutine, it will block until we resume the runner
 	go func() {
-		assert.NoError(t, client.RunNode(c))
+		assert.NoError(t, cmd.NewApp(&client).
+			Run([]string{"", "node", "start", "-debug", "-password", "../internal/fixtures/correct_password.txt"}))
 	}()
 
 	// Unlock the runner to the client can begin shutdown
@@ -284,9 +280,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
-			previousLogger := logger.Default
-			logger.SetLogger(config.CreateProductionLogger())
-			defer logger.SetLogger(previousLogger)
+			logger.CreateProductionLogger(config).Sync()
 			filepath := filepath.Join(config.RootDir(), "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)

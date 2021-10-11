@@ -7,8 +7,9 @@ import (
 
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
