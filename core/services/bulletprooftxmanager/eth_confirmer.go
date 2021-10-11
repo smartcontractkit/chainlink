@@ -324,6 +324,8 @@ func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address,
 }
 
 func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
+	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
+
 	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)
@@ -368,8 +370,6 @@ func (ec *EthConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCom
 // Note this function will increment promRevertedTxCount upon receiving
 // a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *EthConfirmer) batchFetchReceipts(ctx context.Context, attempts []EthTxAttempt) (receipts []Receipt, err error) {
-	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
-
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
