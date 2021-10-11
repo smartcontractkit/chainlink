@@ -56,7 +56,7 @@ func init() {
 func NewGormDB(t *testing.T) *gorm.DB {
 	sqlDB := NewSqlDB(t)
 	logAllQueries := os.Getenv("LOG_SQL") == "true"
-	newLogger := logger.NewGormWrapper(logger.Default, logAllQueries, 0)
+	newLogger := logger.NewGormWrapper(logger.CreateTestLogger(t), logAllQueries, 0)
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{
 		Conn: sqlDB,
 		DSN:  uuid.NewV4().String(),

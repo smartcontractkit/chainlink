@@ -14,12 +14,12 @@ import (
 	"gorm.io/gorm"
 )
 
-func newReaperWithChainID(db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig, cid big.Int) *bulletprooftxmanager.Reaper {
-	return bulletprooftxmanager.NewReaper(logger.Default, db, cfg, cid)
+func newReaperWithChainID(t *testing.T, db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig, cid big.Int) *bulletprooftxmanager.Reaper {
+	return bulletprooftxmanager.NewReaper(logger.CreateTestLogger(t), db, cfg, cid)
 }
 
-func newReaper(db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooftxmanager.Reaper {
-	return newReaperWithChainID(db, cfg, cltest.FixtureChainID)
+func newReaper(t *testing.T, db *gorm.DB, cfg bulletprooftxmanager.ReaperConfig) *bulletprooftxmanager.Reaper {
+	return newReaperWithChainID(t, db, cfg, cltest.FixtureChainID)
 }
 
 func TestReaper_ReapEthTxes(t *testing.T) {
@@ -38,7 +38,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(db, config)
+		r := newReaper(t, db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -54,7 +54,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(db, config)
+		r := newReaper(t, db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -68,7 +68,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaperWithChainID(db, config, *big.NewInt(42))
+		r := newReaperWithChainID(t, db, config, *big.NewInt(42))
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -82,7 +82,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(db, config)
+		r := newReaper(t, db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
@@ -110,7 +110,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
-		r := newReaper(db, config)
+		r := newReaper(t, db, config)
 
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)

@@ -5,6 +5,7 @@ package logger
 import (
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"runtime"
 
@@ -12,6 +13,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+var envLvl = zapcore.InfoLevel
+
+func init() {
+	_ = envLvl.Set(os.Getenv("LOG_LEVEL"))
+}
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.

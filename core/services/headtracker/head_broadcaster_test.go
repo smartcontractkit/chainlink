@@ -30,7 +30,6 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	cfg.SetDB(db)
 	logger := logger.CreateTestLogger(t)
-	logger.SetLogLevel(cfg.LogLevel())
 
 	sub := new(mocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)

@@ -26,7 +26,6 @@ func TestChainScopedConfig(t *testing.T) {
 	chainID := big.NewInt(rand.Int63())
 	gcfg := configtest.NewTestGeneralConfig(t)
 	lggr := logger.CreateTestLogger(t).With("evmChainID", chainID.String())
-	lggr.SetLogLevel(gcfg.LogLevel())
 	cfg := evmconfig.NewChainScopedConfig(chainID, evmtypes.ChainCfg{
 		KeySpecific: make(map[string]evmtypes.ChainCfg),
 	}, orm, lggr, gcfg)

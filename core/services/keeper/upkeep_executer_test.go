@@ -66,7 +66,6 @@ func setup(t *testing.T) (
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(db, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	lggr := logger.CreateTestLogger(t)
-	lggr.SetLogLevel(cfg.LogLevel())
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start()

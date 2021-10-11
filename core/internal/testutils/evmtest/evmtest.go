@@ -17,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -36,7 +34,8 @@ type TestChainOpts struct {
 }
 
 func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.ChainScopedConfig {
-	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{}, nil, logger.Default, cfg)
+	return evmconfig.NewChainScopedConfig(big.NewInt(0), evmtypes.ChainCfg{},
+		nil, logger.CreateTestLogger(t), cfg)
 }
 
 // NewChainSet returns a simple chain collection with one chain and
@@ -71,10 +70,6 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 
 	}
 	opts.Logger = logger.CreateTestLogger(t)
-	if opts.Config != nil {
-		opts.Logger.SetLogLevel(opts.Config.LogLevel())
-	}
-
 	opts.Config = testopts.GeneralConfig
 
 	chains := []evmtypes.Chain{
@@ -175,8 +170,6 @@ func ChainArbitrumMainnet(t *testing.T) evmconfig.ChainScopedConfig { return sco
 func ChainArbitrumRinkeby(t *testing.T) evmconfig.ChainScopedConfig { return scopedConfig(t, 421611) }
 
 func scopedConfig(t *testing.T, chainID int64) evmconfig.ChainScopedConfig {
-	lggr := logger.CreateTestLogger(t)
-	lggr.SetLogLevel(zapcore.DebugLevel)
 	return evmconfig.NewChainScopedConfig(big.NewInt(chainID), evmtypes.ChainCfg{}, nil,
-		lggr, configtest.NewTestGeneralConfig(t))
+		logger.CreateTestLogger(t), configtest.NewTestGeneralConfig(t))
 }

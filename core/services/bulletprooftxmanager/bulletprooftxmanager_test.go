@@ -186,7 +186,8 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, logger.Default)
+	lggr := logger.CreateTestLogger(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
 		subject := uuid.NewV4()
@@ -318,7 +319,8 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, logger.Default)
+	lggr := logger.CreateTestLogger(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -413,8 +415,8 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
-
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, logger.Default)
+	lggr := logger.CreateTestLogger(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, logger.CreateTestLogger(t))
 
 	head := cltest.Head(42)
 	// It should not hang or panic
