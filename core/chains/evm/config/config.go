@@ -697,21 +697,6 @@ func (c *chainScopedConfig) MinimumContractPayment() *assets.Link {
 		c.logEnvOverrideOnce("MinimumContractPayment", val)
 		return val
 	}
-	// TODO: Remove when implementing
-	// https://app.clubhouse.io/chainlinklabs/story/8096/fully-deprecate-minimum-contract-payment
-	valLegacy, set := lookupEnv("MINIMUM_CONTRACT_PAYMENT", config.ParseString)
-	if set {
-		c.logEnvOverrideOnce("MINIMUM_CONTRACT_PAYMENT", valLegacy)
-		logger.Warn("MINIMUM_CONTRACT_PAYMENT is deprecated, please use MINIMUM_CONTRACT_PAYMENT_LINK_JUELS instead (or simply remove to use the default)")
-		str := valLegacy.(string)
-		value, ok := new(assets.Link).SetString(str, 10)
-		if ok {
-			return value
-		}
-		logger.Errorw(
-			"Invalid value provided for MINIMUM_CONTRACT_PAYMENT, falling back to default.",
-			"value", str)
-	}
 	if c.persistedCfg.MinimumContractPayment != nil {
 		c.logPersistedOverrideOnce("MinimumContractPayment", c.persistedCfg.MinimumContractPayment)
 		return c.persistedCfg.MinimumContractPayment
