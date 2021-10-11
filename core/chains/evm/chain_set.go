@@ -108,8 +108,7 @@ func (cll *chainSet) Default() (Chain, error) {
 // Requires a lock on chainsMu
 func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 	// preload nodes
-	// TODO: replace with math.MaxInt once we make go 1.17 mandatory
-	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt16)
+	nodes, _, err := cll.orm.NodesForChain(dbchain.ID, 0, math.MaxInt)
 	if err != nil {
 		return err
 	}
