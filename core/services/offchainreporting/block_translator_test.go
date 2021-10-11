@@ -15,9 +15,10 @@ import (
 func Test_BlockTranslator(t *testing.T) {
 	ethClient := cltest.NewEthClientMock(t)
 	ctx := context.Background()
+	lggr := logger.CreateTestLogger(t)
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(evmtest.ChainEthMainnet(t), ethClient, logger.Default)
+		bt := offchainreporting.NewBlockTranslator(evmtest.ChainEthMainnet(t), ethClient, lggr)
 
 		from, to := bt.NumberToQueryRange(ctx, 42)
 
@@ -26,22 +27,22 @@ func Test_BlockTranslator(t *testing.T) {
 	})
 
 	t.Run("for optimism, returns an initial block number and nil", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(evmtest.ChainOptimismMainnet(t), ethClient, logger.Default)
+		bt := offchainreporting.NewBlockTranslator(evmtest.ChainOptimismMainnet(t), ethClient, lggr)
 		from, to := bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 
-		bt = offchainreporting.NewBlockTranslator(evmtest.ChainOptimismKovan(t), ethClient, logger.Default)
+		bt = offchainreporting.NewBlockTranslator(evmtest.ChainOptimismKovan(t), ethClient, lggr)
 		from, to = bt.NumberToQueryRange(ctx, 42)
 		assert.Equal(t, big.NewInt(0), from)
 		assert.Equal(t, (*big.Int)(nil), to)
 	})
 
 	t.Run("for arbitrum, returns the ArbitrumBlockTranslator", func(t *testing.T) {
-		bt := offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumMainnet(t), ethClient, logger.Default)
+		bt := offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumMainnet(t), ethClient, lggr)
 		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
 
-		bt = offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(t), ethClient, logger.Default)
+		bt = offchainreporting.NewBlockTranslator(evmtest.ChainArbitrumRinkeby(t), ethClient, lggr)
 		assert.IsType(t, &offchainreporting.ArbitrumBlockTranslator{}, bt)
 	})
 

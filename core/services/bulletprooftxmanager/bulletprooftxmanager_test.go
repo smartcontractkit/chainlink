@@ -416,7 +416,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	lggr := logger.CreateTestLogger(t)
-	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, logger.CreateTestLogger(t))
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, kst, eventBroadcaster, lggr)
 
 	head := cltest.Head(42)
 	// It should not hang or panic
