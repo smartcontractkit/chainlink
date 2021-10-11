@@ -123,12 +123,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 maxGasLimit;
     // Re-entrancy protection.
     bool reentrancyLock;
-    // Flat fee charged per fulfillment in millionths of link
-    // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeLinkPPMTier1;
-    uint32 fulfillmentFlatFeeLinkPPMTier2;
-    uint32 fulfillmentFlatFeeLinkPPMTier3;
-    uint16 boundConfig; // E.g. 00000100 00100000 means tier1 is up to 10^3 and tier2 is up to 10^6
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
@@ -137,17 +131,28 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 gasAfterPaymentCalculation;
   }
   int256 internal s_fallbackWeiPerUnitLink;
-  Config private s_config;
+  Config public s_config;
+  FeeConfig public s_feeConfig;
+  struct FeeConfig {
+    // Flat fee charged per fulfillment in millionths of link
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeLinkPPMTier1;
+    uint32 fulfillmentFlatFeeLinkPPMTier2;
+    uint32 fulfillmentFlatFeeLinkPPMTier3;
+    uint32 fulfillmentFlatFeeLinkPPMTier4;
+    uint32 fulfillmentFlatFeeLinkPPMTier5;
+    uint24 reqsForTier2;
+    uint24 reqsForTier3;
+    uint24 reqsForTier4;
+    uint24 reqsForTier5;
+  }
   event ConfigSet(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
-    uint32 fulfillmentFlatFeeLinkPPMTier1,
-    uint32 fulfillmentFlatFeeLinkPPMTier2,
-    uint32 fulfillmentFlatFeeLinkPPMTier3,
-    uint16 boundConfig,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackWeiPerUnitLink
+    int256 fallbackWeiPerUnitLink,
+    FeeConfig feeConfig
   );
 
   constructor(
@@ -208,13 +213,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function setConfig(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
-    uint32 fulfillmentFlatFeeLinkPPMTier1,
-    uint32 fulfillmentFlatFeeLinkPPMTier2,
-    uint32 fulfillmentFlatFeeLinkPPMTier3,
-    uint16 boundConfig,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    int256 fallbackWeiPerUnitLink
+    int256 fallbackWeiPerUnitLink,
+    FeeConfig memory feeConfig
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -229,57 +231,19 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
-      fulfillmentFlatFeeLinkPPMTier1: fulfillmentFlatFeeLinkPPMTier1,
-      fulfillmentFlatFeeLinkPPMTier2: fulfillmentFlatFeeLinkPPMTier2,
-      fulfillmentFlatFeeLinkPPMTier3: fulfillmentFlatFeeLinkPPMTier3,
-      boundConfig: boundConfig,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
       reentrancyLock: false
     });
+    s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
       maxGasLimit,
-      fulfillmentFlatFeeLinkPPMTier1,
-      fulfillmentFlatFeeLinkPPMTier2,
-      fulfillmentFlatFeeLinkPPMTier3,
-      boundConfig,
       stalenessSeconds,
       gasAfterPaymentCalculation,
-      fallbackWeiPerUnitLink
-    );
-  }
-
-  /**
-   * @notice read the current configuration of the coordinator.
-   */
-  function getConfig()
-    external
-    view
-    returns (
-      uint16 minimumRequestConfirmations,
-      uint32 maxGasLimit,
-      uint32 fulfillmentFlatFeeLinkPPMTier1,
-      uint32 fulfillmentFlatFeeLinkPPMTier2,
-      uint32 fulfillmentFlatFeeLinkPPMTier3,
-      uint16 boundConfig,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation,
-      int256 fallbackWeiPerUnitLink
-    )
-  {
-    Config memory config = s_config;
-    return (
-      config.minimumRequestConfirmations,
-      config.maxGasLimit,
-      config.fulfillmentFlatFeeLinkPPMTier1,
-      config.fulfillmentFlatFeeLinkPPMTier2,
-      config.fulfillmentFlatFeeLinkPPMTier3,
-      config.boundConfig,
-      config.stalenessSeconds,
-      config.gasAfterPaymentCalculation,
-      s_fallbackWeiPerUnitLink
+      fallbackWeiPerUnitLink,
+      s_feeConfig
     );
   }
 
@@ -461,32 +425,22 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
-  // Assumes only one bit is set
-  // Will return first set bit if more than 1 set
-  // and revert if 0 set.
-  function getSetBit(uint8 b) private pure returns (uint32) {
-    for (uint8 i = 0; i < 8; i++) {
-      if ((b & 1) == 1) {
-        return i;
-      }
-      b = b / 2;
-    }
-    revert();
-  }
-
   // Select the fee tier based on the request count
   function getFeeTier(uint64 reqCount) public view returns (uint32) {
-    uint64 bound1 = uint64(10**(getSetBit(uint8(s_config.boundConfig / 256)) + 1)); // Shift by 8 bits then take lower order bits
-    uint64 bound2 = uint64(10**(getSetBit(uint8(s_config.boundConfig)) + 1)); // Just take lower order bits
-    if (0 <= reqCount && reqCount <= bound1) {
-      return s_config.fulfillmentFlatFeeLinkPPMTier1;
+    FeeConfig memory fc = s_feeConfig;
+    if (0 <= reqCount && reqCount <= fc.reqsForTier2) {
+      return fc.fulfillmentFlatFeeLinkPPMTier1;
     }
-    if (bound1 <= reqCount && reqCount <= bound2) {
-      return s_config.fulfillmentFlatFeeLinkPPMTier2;
+    if (fc.reqsForTier2 < reqCount && reqCount <= fc.reqsForTier3) {
+      return fc.fulfillmentFlatFeeLinkPPMTier2;
     }
-    if (reqCount > bound2) {
-      return s_config.fulfillmentFlatFeeLinkPPMTier3;
+    if (fc.reqsForTier3 < reqCount && reqCount <= fc.reqsForTier4) {
+      return fc.fulfillmentFlatFeeLinkPPMTier3;
     }
+    if (fc.reqsForTier4 < reqCount && reqCount <= fc.reqsForTier5) {
+      return fc.fulfillmentFlatFeeLinkPPMTier4;
+    }
+    return fc.fulfillmentFlatFeeLinkPPMTier5;
   }
 
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {

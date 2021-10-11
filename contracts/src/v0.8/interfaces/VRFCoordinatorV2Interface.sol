@@ -1,35 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
+import "../dev/VRFCoordinatorV2.sol";
 
 interface VRFCoordinatorV2Interface {
-  /**
-   * @notice Returns the global config that applies to all VRF requests.
-   * @return minimumRequestBlockConfirmations - A minimum number of confirmation
-   * blocks on VRF requests before oracles should respond.
-   * @return fulfillmentFlatFeeLinkPPM - The charge per request on top of the gas fees.
-   * Its flat fee specified in millionths of LINK.
-   * @return maxGasLimit - The maximum gas limit supported for a fulfillRandomWords callback.
-   * @return stalenessSeconds - How long we wait until we consider the ETH/LINK price
-   * (used for converting gas costs to LINK) is stale and use `fallbackWeiPerUnitLink`
-   * @return gasAfterPaymentCalculation - How much gas is used outside of the payment calculation,
-   * i.e. the gas overhead of actually making the payment to oracles.
-   * @return minimumSubscriptionBalance - The minimum subscription balance required to make a request. Its set to be about 300%
-   * of the cost of a single request to handle in ETH/LINK price between request and fulfillment time.
-   * @return fallbackWeiPerUnitLink - fallback ETH/LINK price in the case of a stale feed.
-   */
-  function getConfig()
-    external
-    view
-    returns (
-      uint16 minimumRequestBlockConfirmations,
-      uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation,
-      uint96 minimumSubscriptionBalance,
-      int256 fallbackWeiPerUnitLink
-    );
-
   /**
    * @notice Request a set of random words.
    * @param keyHash - Corresponds to a particular oracle job which uses
@@ -118,18 +91,6 @@ interface VRFCoordinatorV2Interface {
    * @param consumer - Consumer to remove from the subscription
    */
   function removeConsumer(uint64 subId, address consumer) external;
-
-  /**
-   * @notice Withdraw funds from a VRF subscription
-   * @param subId - ID of the subscription
-   * @param to - Where to send the withdrawn LINK to
-   * @param amount - How much to withdraw in juels
-   */
-  function defundSubscription(
-    uint64 subId,
-    address to,
-    uint96 amount
-  ) external;
 
   /**
    * @notice Cancel a subscription

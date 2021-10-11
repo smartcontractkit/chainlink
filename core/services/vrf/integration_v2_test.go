@@ -136,13 +136,20 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2) coordinatorV2Un
 	_, err = coordinatorContract.SetConfig(neil,
 		uint16(1),                              // minRequestConfirmations
 		uint32(1000000),                        // gas limit
-		uint32(1000),                           // 0.001 link flat fee
-		uint32(100),                            // 0.0001 link flat fee
-		uint32(10),                             // 0.00001 link flat fee
-		uint16(1056),                           // 00000100 00100000 // bound1=10^3, bound2=10^6
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
+		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
+			FulfillmentFlatFeeLinkPPMTier1: uint32(1000),
+			FulfillmentFlatFeeLinkPPMTier2: uint32(1000),
+			FulfillmentFlatFeeLinkPPMTier3: uint32(100),
+			FulfillmentFlatFeeLinkPPMTier4: uint32(10),
+			FulfillmentFlatFeeLinkPPMTier5: uint32(1),
+			ReqsForTier2:                   big.NewInt(10),
+			ReqsForTier3:                   big.NewInt(20),
+			ReqsForTier4:                   big.NewInt(30),
+			ReqsForTier5:                   big.NewInt(40),
+		},
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
 	backend.Commit()

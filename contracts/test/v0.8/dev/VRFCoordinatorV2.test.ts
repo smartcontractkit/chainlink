@@ -20,10 +20,6 @@ describe('VRFCoordinatorV2', () => {
   const linkEth = BigNumber.from(300000000)
   type config = {
     minimumRequestBlockConfirmations: number
-    fulfillmentFlatFeePPMTier1: number
-    fulfillmentFlatFeePPMTier2: number
-    fulfillmentFlatFeePPMTier3: number
-    boundConfig: number
     maxGasLimit: number
     stalenessSeconds: number
     gasAfterPaymentCalculation: number
@@ -83,28 +79,25 @@ describe('VRFCoordinatorV2', () => {
     ) // 1 link
     c = {
       minimumRequestBlockConfirmations: 1,
-      fulfillmentFlatFeePPMTier1: 0,
-      fulfillmentFlatFeePPMTier2: 0,
-      fulfillmentFlatFeePPMTier3: 0,
-      boundConfig: 0,
       maxGasLimit: 1000000,
       stalenessSeconds: 86400,
       gasAfterPaymentCalculation:
         21000 + 5000 + 2100 + 20000 + 2 * 2100 - 15000 + 7315,
       weiPerUnitLink: BigNumber.from('10000000000000000'),
     }
+    // Note if you try and use an object, ethers
+    // confuses that with an override object and will error.
+    // It appears that only arrays work for struct args.
+    const fc = [0, 0, 0, 0, 0, 0, 0, 0, 0]
     await vrfCoordinatorV2
       .connect(owner)
       .setConfig(
         c.minimumRequestBlockConfirmations,
-        c.fulfillmentFlatFeePPMTier1,
-        c.fulfillmentFlatFeePPMTier2,
-        c.fulfillmentFlatFeePPMTier3,
-        c.boundConfig,
         c.maxGasLimit,
         c.stalenessSeconds,
         c.gasAfterPaymentCalculation,
         c.weiPerUnitLink,
+        fc,
       )
   })
 
@@ -118,7 +111,8 @@ describe('VRFCoordinatorV2', () => {
       'acceptOwnership',
       'transferOwnership',
       'owner',
-      'getConfig',
+      's_feeConfig',
+      's_config',
       'setConfig',
       'recoverFunds',
       'ownerCancelSubscription',
@@ -158,27 +152,21 @@ describe('VRFCoordinatorV2', () => {
           .connect(subOwner)
           .setConfig(
             c.minimumRequestBlockConfirmations,
-            c.fulfillmentFlatFeePPMTier1,
-            c.fulfillmentFlatFeePPMTier2,
-            c.fulfillmentFlatFeePPMTier3,
-            c.boundConfig,
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
             c.weiPerUnitLink,
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
       ).to.be.revertedWith('Only callable by owner')
       // Anyone can read the config.
-      const resp = await vrfCoordinatorV2.connect(random).getConfig()
+      const resp = await vrfCoordinatorV2.connect(random).s_config()
+      console.log('config', resp)
       assert(resp[0] == c.minimumRequestBlockConfirmations)
-      assert(resp[1] == c.fulfillmentFlatFeePPMTier1)
-      assert(resp[2] == c.fulfillmentFlatFeePPMTier2)
-      assert(resp[3] == c.fulfillmentFlatFeePPMTier3)
-      assert(resp[4] == c.boundConfig)
-      assert(resp[5] == c.maxGasLimit)
-      assert(resp[6] == c.stalenessSeconds)
-      assert(resp[7].toString() == c.gasAfterPaymentCalculation.toString())
-      assert(resp[8].toString() == c.weiPerUnitLink.toString())
+      assert(resp[1] == c.maxGasLimit)
+      assert(resp[2] == false) // locked
+      assert(resp[3] == c.stalenessSeconds)
+      assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString())
     })
 
     it('max req confs', async function () {
@@ -187,14 +175,11 @@ describe('VRFCoordinatorV2', () => {
           .connect(owner)
           .setConfig(
             201,
-            c.fulfillmentFlatFeePPMTier1,
-            c.fulfillmentFlatFeePPMTier2,
-            c.fulfillmentFlatFeePPMTier3,
-            c.boundConfig,
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
             c.weiPerUnitLink,
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
       ).to.be.revertedWith('InvalidRequestConfirmations(201, 201, 200)')
     })
@@ -205,14 +190,11 @@ describe('VRFCoordinatorV2', () => {
           .connect(owner)
           .setConfig(
             c.minimumRequestBlockConfirmations,
-            c.fulfillmentFlatFeePPMTier1,
-            c.fulfillmentFlatFeePPMTier2,
-            c.fulfillmentFlatFeePPMTier3,
-            c.boundConfig,
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
             0,
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
       ).to.be.revertedWith('InvalidLinkWeiPrice(0)')
       await expect(
@@ -220,14 +202,11 @@ describe('VRFCoordinatorV2', () => {
           .connect(owner)
           .setConfig(
             c.minimumRequestBlockConfirmations,
-            c.fulfillmentFlatFeePPMTier1,
-            c.fulfillmentFlatFeePPMTier2,
-            c.fulfillmentFlatFeePPMTier3,
-            c.boundConfig,
             c.maxGasLimit,
             c.stalenessSeconds,
             c.gasAfterPaymentCalculation,
             -1,
+            [0, 0, 0, 0, 0, 0, 0, 0, 0],
           ),
       ).to.be.revertedWith('InvalidLinkWeiPrice(-1)')
     })
@@ -1122,38 +1101,39 @@ describe('VRFCoordinatorV2', () => {
   describe('#getFeeTier', async function () {
     beforeEach(async () => {
       await expect(
-        vrfCoordinatorV2.connect(owner).setConfig(
-          c.minimumRequestBlockConfirmations,
-          1000, // 0.001 link flat fee
-          100, // 0.0001 link flat fee
-          10, // 0.00001 link flat fee
-          1056, // 00000100 00100000 // bound1=10^3=1000, bound2=10^6=1000000
-          c.maxGasLimit,
-          c.stalenessSeconds,
-          c.gasAfterPaymentCalculation,
-          10,
-        ),
+        vrfCoordinatorV2
+          .connect(owner)
+          .setConfig(
+            c.minimumRequestBlockConfirmations,
+            c.maxGasLimit,
+            c.stalenessSeconds,
+            c.gasAfterPaymentCalculation,
+            c.weiPerUnitLink,
+            [10000, 1000, 100, 10, 1, 10, 20, 30, 40],
+          ),
       )
     })
     it('tier1', async function () {
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(0)) == 1000)
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(542)) == 1000)
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(999)) == 1000)
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(1000)) == 1000)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(0)) == 10000)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(5)) == 10000)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(10)) == 10000)
     })
     it('tier2', async function () {
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(1001)) == 100)
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(102931)) == 100)
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(999999)) == 100)
-      assert(
-        (await vrfCoordinatorV2.connect(random).getFeeTier(1000000)) == 100,
-      )
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(11)) == 1000)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(12)) == 1000)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(20)) == 1000)
     })
     it('tier3', async function () {
-      assert((await vrfCoordinatorV2.connect(random).getFeeTier(1000001)) == 10)
-      assert(
-        (await vrfCoordinatorV2.connect(random).getFeeTier(4000000000)) == 10,
-      )
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(21)) == 100)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(30)) == 100)
+    })
+    it('tier4', async function () {
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(31)) == 10)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(40)) == 10)
+    })
+    it('tier5', async function () {
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(41)) == 1)
+      assert((await vrfCoordinatorV2.connect(random).getFeeTier(123102)) == 1)
     })
   })
 
