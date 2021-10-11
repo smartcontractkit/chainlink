@@ -57,7 +57,7 @@ type GeneralOnlyConfig interface {
 	BridgeResponseURL() *url.URL
 	CertFile() string
 	ClientNodeURL() string
-	ClobberNodesFromEnv() bool
+	UseLegacyEthEnvVars() bool
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -322,15 +322,15 @@ func (c *generalConfig) Validate() error {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
 	}
 
-	if !c.ClobberNodesFromEnv() {
+	if !c.UseLegacyEthEnvVars() {
 		if c.EthereumURL() != "" {
-			logger.Warn("ETH_URL has no effect when CLOBBER_NODES_FROM_ENV=false")
+			logger.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 		if c.EthereumHTTPURL() != nil {
-			logger.Warn("ETH_HTTP_URL has no effect when CLOBBER_NODES_FROM_ENV=false")
+			logger.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 		if len(c.EthereumSecondaryURLs()) > 0 {
-			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when CLOBBER_NODES_FROM_ENV=false")
+			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
 	return nil
@@ -1556,8 +1556,8 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return val.(*big.Int), ok
 }
 
-// ClobberNodesFromEnv will upsert a new chain using the DefaultChainID and
+// UseLegacyEthEnvVars will upsert a new chain using the DefaultChainID and
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
-func (c *generalConfig) ClobberNodesFromEnv() bool {
-	return c.viper.GetBool(EnvVarName("ClobberNodesFromEnv"))
+func (c *generalConfig) UseLegacyEthEnvVars() bool {
+	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
 }

@@ -291,8 +291,8 @@ func (_m *ChainScopedConfig) ClientNodeURL() string {
 	return r0
 }
 
-// ClobberNodesFromEnv provides a mock function with given fields:
-func (_m *ChainScopedConfig) ClobberNodesFromEnv() bool {
+// UseLegacyEthEnvVars provides a mock function with given fields:
+func (_m *ChainScopedConfig) UseLegacyEthEnvVars() bool {
 	ret := _m.Called()
 
 	var r0 bool

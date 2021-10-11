@@ -32,7 +32,7 @@ type ConfigSchema struct {
 	BridgeResponseURL                          url.URL                       `env:"BRIDGE_RESPONSE_URL"`
 	ChainType                                  string                        `env:"CHAIN_TYPE"`
 	ClientNodeURL                              string                        `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	ClobberNodesFromEnv                        bool                          `env:"CLOBBER_NODES_FROM_ENV" default:"true"`
+	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 	DatabaseBackupDir                          string                        `env:"DATABASE_BACKUP_DIR" default:""`
 	DatabaseBackupFrequency                    time.Duration                 `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                         string                        `env:"DATABASE_BACKUP_MODE" default:"none"`
