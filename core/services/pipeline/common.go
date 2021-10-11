@@ -233,7 +233,7 @@ const (
 	TaskTypeETHABIEncode    TaskType = "ethabiencode"
 	TaskTypeETHABIDecode    TaskType = "ethabidecode"
 	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
-	TaskTypeMergeTask       TaskType = "merge"
+	TaskTypeMerge           TaskType = "merge"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -295,6 +295,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeCBORParse:
 		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeMerge:
+		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
