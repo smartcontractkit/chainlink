@@ -55,7 +55,7 @@ chainlink-build:
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(GOFLAGS) -o chainlink-migration-linux ./core/
-	#GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(GOFLAGS) -o chainlink-migration-mac ./core/
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(GOFLAGS) -o chainlink-migration-mac ./core/
 	# cp chainlink $(GOBIN)/chainlink
 
 .PHONY: operator-ui

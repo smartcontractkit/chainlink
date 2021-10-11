@@ -19,7 +19,7 @@ import (
 )
 
 // MigrateJobSpec - Does not support mixed initiator types.
-func MigrateJobSpec(js models.JobSpec) (job.Job, error) {
+func MigrateJobSpec(js models.JobSpec, requestersMap map[string]string) (job.Job, error) {
 	var jb job.Job
 	if len(js.Initiators) == 0 {
 		return jb, errors.New("initiator required to migrate job")
@@ -29,7 +29,7 @@ func MigrateJobSpec(js models.JobSpec) (job.Job, error) {
 	case models.InitiatorCron:
 		return migrateCronJob(js)
 	case models.InitiatorRunLog:
-		return migrateRunLogJob(js)
+		return migrateRunLogJob(js, requestersMap)
 	default:
 		return jb, errors.Wrapf(errors.New("Invalid initiator type"), "%v", v1JobType)
 	}
@@ -60,15 +60,26 @@ func migrateCronJob(js models.JobSpec) (job.Job, error) {
 	return jb, nil
 }
 
-func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
+func migrateRunLogJob(js models.JobSpec, requestersMap map[string]string) (job.Job, error) {
 	var jb job.Job
 	initr := js.Initiators[0]
+
+	var requesters []string
+	reqString, ok := requestersMap[initr.JobSpecID.UUID().String()]
+	if ok {
+		addresses := strings.Split(reqString, ",")
+		for _, address := range addresses {
+			if address != "" {
+				requesters = append(requesters, address)
+			}
+		}
+	}
 	jb = job.Job{
 		Name: null.StringFrom(js.Name),
 		DirectRequestSpec: &job.DirectRequestSpec{
 			ContractAddress:          ethkey.EIP55AddressFromAddress(initr.InitiatorParams.Address),
 			MinIncomingConfirmations: clnull.Uint32From(10),
-			Requesters:               requesterWhitelist,
+			Requesters:               requesters,
 			CreatedAt:                js.CreatedAt,
 			UpdatedAt:                js.UpdatedAt,
 		},

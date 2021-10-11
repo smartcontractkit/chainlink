@@ -248,7 +248,29 @@ func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, j *job.
 		return s, nil, cli.errorOut(errors.New("Must pass in JSON or filepath"))
 	}
 
-	buf, err := getBufferFromJSON(c.Args().First())
+	requestersMap := make(map[string]string, 0)
+
+	if c.Args().Get(1) != "" {
+		requestersPath := c.Args().Get(1)
+		file, err := fromFile(requestersPath)
+		if err != nil {
+			return s, nil, cli.errorOut(errors.Errorf("Failed to read requesters from file: %v", requestersPath))
+		}
+		lines := strings.Split(file.String(), "\n")
+		for _, line := range lines {
+
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" {
+				parts := strings.Split(trimmed, " | ")
+				requestersMap[parts[0]] = parts[1]
+			}
+
+		}
+	}
+
+	jobSpecPath := c.Args().Get(0)
+
+	buf, err := getBufferFromJSON(jobSpecPath)
 	if err != nil {
 		return s, nil, cli.errorOut(err)
 	}
@@ -260,7 +282,7 @@ func (cli *Client) MigrateJobSpecForResult(c *clipkg.Context) (s string, j *job.
 
 	js := models.NewJobFromRequest(jsr)
 
-	jobSpec, err := MigrateJobSpec(js)
+	jobSpec, err := MigrateJobSpec(js, requestersMap)
 	if err != nil {
 		return s, nil, cli.errorOut(err)
 	}

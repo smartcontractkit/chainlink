@@ -30,6 +30,7 @@ type JobSpecRequest struct {
 
 // InitiatorRequest represents a schema for incoming initiator requests as used by the API.
 type InitiatorRequest struct {
+	JobSpecId       JobID  `json:"jobSpecId"`
 	Type            string `json:"type"`
 	InitiatorParams `json:"params,omitempty"`
 }
@@ -340,10 +341,10 @@ func (t Topics) Value() (driver.Value, error) {
 // parameters in a InitiatorRequest
 func NewInitiatorFromRequest(
 	initr InitiatorRequest,
-	jobSpec JobSpec,
+	_ JobSpec,
 ) Initiator {
 	ret := Initiator{
-		JobSpecID: jobSpec.ID,
+		JobSpecID: initr.JobSpecId,
 		// Type must be downcast to comply with Initiator
 		// deserialization logic. Ideally, Initiator.Type should be its
 		// own type (InitiatorType) that handles deserialization
