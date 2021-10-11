@@ -242,9 +242,10 @@ func (listener *simpleLogListener) SkipMarkingConsumed(skip bool) {
 }
 
 func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
+	lggr := logger.TestLogger(listener.t)
 	listener.received.Lock()
 	defer listener.received.Unlock()
-	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+	lggr.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
 	listener.received.broadcasts = append(listener.received.broadcasts, lb)
@@ -253,7 +254,7 @@ func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	if !consumed {
 		listener.received.uniqueLogs = append(listener.received.uniqueLogs, lb.RawLog())
 	} else {
-		logger.Warnf("Listener %v: Log was already consumed!", listener.name)
+		lggr.Warnf("Listener %v: Log was already consumed!", listener.name)
 	}
 }
 
