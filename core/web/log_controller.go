@@ -6,11 +6,12 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	"go.uber.org/zap/zapcore"
 )
 
 // LogController manages the logger config
@@ -55,6 +56,7 @@ func (cc *LogController) Get(c *gin.Context) {
 
 // Patch sets a log level and enables sql logging for the logger
 func (cc *LogController) Patch(c *gin.Context) {
+	ctx := c.Request.Context()
 	request := &LogPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -77,7 +79,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		if err = cc.App.GetConfig().SetLogLevel(c.Request.Context(), ll.String()); err != nil {
+		if err := cc.App.SetLogLevel(ctx, ll); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -86,7 +88,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
+		if err := cc.App.GetConfig().SetLogSQLStatements(ctx, *request.SqlEnabled); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -101,7 +103,14 @@ func (cc *LogController) Patch(c *gin.Context) {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]
 
-			if err := cc.App.SetServiceLogger(c.Request.Context(), svcName, svcLvl); err != nil {
+			var lvl zapcore.Level
+			err := lvl.UnmarshalText([]byte(svcLvl))
+			if err != nil {
+				jsonAPIError(c, http.StatusBadRequest, err)
+				return
+			}
+
+			if err := cc.App.SetServiceLogLevel(ctx, svcName, lvl); err != nil {
 				jsonAPIError(c, http.StatusInternalServerError, err)
 				return
 			}
@@ -112,9 +121,6 @@ func (cc *LogController) Patch(c *gin.Context) {
 			lvls = append(lvls, ll)
 		}
 	}
-
-	// Set default logger with new configurations
-	logger.SetLogger(cc.App.GetConfig().CreateProductionLogger())
 
 	response := &presenters.ServiceLogConfigResource{
 		JAID: presenters.JAID{

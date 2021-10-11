@@ -89,7 +89,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	globalLogger := cfg.CreateProductionLogger()
+	globalLogger := logger.CreateProductionLogger(cfg)
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()
@@ -196,7 +196,7 @@ type ChainlinkRunner struct{}
 func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	config := app.GetConfig()
 	mode := gin.ReleaseMode
-	if config.Dev() && config.LogLevel().Level < zapcore.InfoLevel {
+	if config.Dev() && config.LogLevel() < zapcore.InfoLevel {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -37,7 +38,9 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
-	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, nil, db, cc)
+	lggr := logger.CreateTestLogger(t)
+	lggr.SetLogLevel(cfg.LogLevel())
+	delegate := directrequest.NewDelegate(lggr, runner, nil, db, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -77,7 +80,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	keyStore := cltest.NewKeyStore(t, db)
 	jobORM := job.NewORM(db, cc, orm, keyStore)
 
-	delegate := directrequest.NewDelegate(cfg.CreateProductionLogger(), runner, orm, db, cc)
+	lggr := logger.CreateTestLogger(t)
+	lggr.SetLogLevel(cfg.LogLevel())
+	delegate := directrequest.NewDelegate(lggr, runner, orm, db, cc)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	spec.ExternalJobID = uuid.NewV4()

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -64,7 +65,9 @@ func setup(t *testing.T) (
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(db, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
-	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), cfg.CreateProductionLogger(), ch.Config())
+	lggr := logger.CreateTestLogger(t)
+	lggr.SetLogLevel(cfg.LogLevel())
+	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })

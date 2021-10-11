@@ -108,85 +108,85 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(config config.GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
 	explorerURL := ""
-	if config.ExplorerURL() != nil {
-		explorerURL = config.ExplorerURL().String()
+	if cfg.ExplorerURL() != nil {
+		explorerURL = cfg.ExplorerURL().String()
 	}
-	p2pBootstrapPeers, _ := config.P2PBootstrapPeers()
+	p2pBootstrapPeers, _ := cfg.P2PBootstrapPeers()
 	ethereumHTTPURL := ""
-	if config.EthereumHTTPURL() != nil {
-		ethereumHTTPURL = config.EthereumHTTPURL().String()
+	if cfg.EthereumHTTPURL() != nil {
+		ethereumHTTPURL = cfg.EthereumHTTPURL().String()
 	}
 	telemetryIngressURL := ""
-	if config.TelemetryIngressURL() != nil {
-		telemetryIngressURL = config.TelemetryIngressURL().String()
+	if cfg.TelemetryIngressURL() != nil {
+		telemetryIngressURL = cfg.TelemetryIngressURL().String()
 	}
 	return ConfigPrinter{
 		EnvPrinter: EnvPrinter{
-			AllowOrigins:                          config.AllowOrigins(),
-			BlockBackfillDepth:                    config.BlockBackfillDepth(),
-			BridgeResponseURL:                     config.BridgeResponseURL().String(),
-			ClientNodeURL:                         config.ClientNodeURL(),
-			DatabaseBackupFrequency:               config.DatabaseBackupFrequency(),
-			DatabaseBackupMode:                    string(config.DatabaseBackupMode()),
-			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
-			DatabaseTimeout:                       config.DatabaseTimeout(),
-			DefaultChainID:                        config.DefaultChainID().String(),
-			DefaultHTTPLimit:                      config.DefaultHTTPLimit(),
-			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
-			Dev:                                   config.Dev(),
-			EthereumDisabled:                      config.EthereumDisabled(),
+			AllowOrigins:                          cfg.AllowOrigins(),
+			BlockBackfillDepth:                    cfg.BlockBackfillDepth(),
+			BridgeResponseURL:                     cfg.BridgeResponseURL().String(),
+			ClientNodeURL:                         cfg.ClientNodeURL(),
+			DatabaseBackupFrequency:               cfg.DatabaseBackupFrequency(),
+			DatabaseBackupMode:                    string(cfg.DatabaseBackupMode()),
+			DatabaseMaximumTxDuration:             cfg.DatabaseMaximumTxDuration(),
+			DatabaseTimeout:                       cfg.DatabaseTimeout(),
+			DefaultChainID:                        cfg.DefaultChainID().String(),
+			DefaultHTTPLimit:                      cfg.DefaultHTTPLimit(),
+			DefaultHTTPTimeout:                    cfg.DefaultHTTPTimeout(),
+			Dev:                                   cfg.Dev(),
+			EthereumDisabled:                      cfg.EthereumDisabled(),
 			EthereumHTTPURL:                       ethereumHTTPURL,
-			EthereumSecondaryURLs:                 mapToStringA(config.EthereumSecondaryURLs()),
-			EthereumURL:                           config.EthereumURL(),
+			EthereumSecondaryURLs:                 mapToStringA(cfg.EthereumSecondaryURLs()),
+			EthereumURL:                           cfg.EthereumURL(),
 			ExplorerURL:                           explorerURL,
-			FMDefaultTransactionQueueDepth:        config.FMDefaultTransactionQueueDepth(),
-			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
-			FeatureOffchainReporting:              config.FeatureOffchainReporting(),
-			InsecureFastScrypt:                    config.InsecureFastScrypt(),
-			JSONConsole:                           config.JSONConsole(),
-			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
-			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
-			KeeperDefaultTransactionQueueDepth:    config.KeeperDefaultTransactionQueueDepth(),
-			KeeperGasPriceBufferPercent:           config.KeeperGasPriceBufferPercent(),
-			KeeperGasTipCapBufferPercent:          config.KeeperGasTipCapBufferPercent(),
-			LogLevel:                              config.LogLevel(),
-			LogSQLMigrations:                      config.LogSQLMigrations(),
-			LogSQLStatements:                      config.LogSQLStatements(),
-			LogToDisk:                             config.LogToDisk(),
-			OCRBootstrapCheckInterval:             config.OCRBootstrapCheckInterval(),
-			OCRContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
-			OCRDHTLookupInterval:                  config.OCRDHTLookupInterval(),
-			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
-			OCRDefaultTransactionQueueDepth:       config.OCRDefaultTransactionQueueDepth(),
-			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
-			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
-			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
-			OCRTraceLogging:                       config.OCRTraceLogging(),
+			FMDefaultTransactionQueueDepth:        cfg.FMDefaultTransactionQueueDepth(),
+			FeatureExternalInitiators:             cfg.FeatureExternalInitiators(),
+			FeatureOffchainReporting:              cfg.FeatureOffchainReporting(),
+			InsecureFastScrypt:                    cfg.InsecureFastScrypt(),
+			JSONConsole:                           cfg.JSONConsole(),
+			JobPipelineReaperInterval:             cfg.JobPipelineReaperInterval(),
+			JobPipelineReaperThreshold:            cfg.JobPipelineReaperThreshold(),
+			KeeperDefaultTransactionQueueDepth:    cfg.KeeperDefaultTransactionQueueDepth(),
+			KeeperGasPriceBufferPercent:           cfg.KeeperGasPriceBufferPercent(),
+			KeeperGasTipCapBufferPercent:          cfg.KeeperGasTipCapBufferPercent(),
+			LogLevel:                              config.LogLevel{Level: cfg.LogLevel()},
+			LogSQLMigrations:                      cfg.LogSQLMigrations(),
+			LogSQLStatements:                      cfg.LogSQLStatements(),
+			LogToDisk:                             cfg.LogToDisk(),
+			OCRBootstrapCheckInterval:             cfg.OCRBootstrapCheckInterval(),
+			OCRContractTransmitterTransmitTimeout: cfg.OCRContractTransmitterTransmitTimeout(),
+			OCRDHTLookupInterval:                  cfg.OCRDHTLookupInterval(),
+			OCRDatabaseTimeout:                    cfg.OCRDatabaseTimeout(),
+			OCRDefaultTransactionQueueDepth:       cfg.OCRDefaultTransactionQueueDepth(),
+			OCRIncomingMessageBufferSize:          cfg.OCRIncomingMessageBufferSize(),
+			OCRNewStreamTimeout:                   cfg.OCRNewStreamTimeout(),
+			OCROutgoingMessageBufferSize:          cfg.OCROutgoingMessageBufferSize(),
+			OCRTraceLogging:                       cfg.OCRTraceLogging(),
 			P2PBootstrapPeers:                     p2pBootstrapPeers,
-			P2PListenIP:                           config.P2PListenIP().String(),
-			P2PListenPort:                         config.P2PListenPortRaw(),
-			P2PNetworkingStack:                    config.P2PNetworkingStackRaw(),
-			P2PPeerID:                             config.P2PPeerIDRaw(),
-			P2PV2AnnounceAddresses:                config.P2PV2AnnounceAddressesRaw(),
-			P2PV2Bootstrappers:                    config.P2PV2BootstrappersRaw(),
-			P2PV2DeltaDial:                        config.P2PV2DeltaDial(),
-			P2PV2DeltaReconcile:                   config.P2PV2DeltaReconcile(),
-			P2PV2ListenAddresses:                  config.P2PV2ListenAddresses(),
-			Port:                                  config.Port(),
-			ReaperExpiration:                      config.ReaperExpiration(),
-			ReplayFromBlock:                       config.ReplayFromBlock(),
-			RootDir:                               config.RootDir(),
-			SecureCookies:                         config.SecureCookies(),
-			SessionTimeout:                        config.SessionTimeout(),
-			TLSHost:                               config.TLSHost(),
-			TLSPort:                               config.TLSPort(),
-			TLSRedirect:                           config.TLSRedirect(),
-			TelemetryIngressLogging:               config.TelemetryIngressLogging(),
-			TelemetryIngressServerPubKey:          config.TelemetryIngressServerPubKey(),
+			P2PListenIP:                           cfg.P2PListenIP().String(),
+			P2PListenPort:                         cfg.P2PListenPortRaw(),
+			P2PNetworkingStack:                    cfg.P2PNetworkingStackRaw(),
+			P2PPeerID:                             cfg.P2PPeerIDRaw(),
+			P2PV2AnnounceAddresses:                cfg.P2PV2AnnounceAddressesRaw(),
+			P2PV2Bootstrappers:                    cfg.P2PV2BootstrappersRaw(),
+			P2PV2DeltaDial:                        cfg.P2PV2DeltaDial(),
+			P2PV2DeltaReconcile:                   cfg.P2PV2DeltaReconcile(),
+			P2PV2ListenAddresses:                  cfg.P2PV2ListenAddresses(),
+			Port:                                  cfg.Port(),
+			ReaperExpiration:                      cfg.ReaperExpiration(),
+			ReplayFromBlock:                       cfg.ReplayFromBlock(),
+			RootDir:                               cfg.RootDir(),
+			SecureCookies:                         cfg.SecureCookies(),
+			SessionTimeout:                        cfg.SessionTimeout(),
+			TLSHost:                               cfg.TLSHost(),
+			TLSPort:                               cfg.TLSPort(),
+			TLSRedirect:                           cfg.TLSRedirect(),
+			TelemetryIngressLogging:               cfg.TelemetryIngressLogging(),
+			TelemetryIngressServerPubKey:          cfg.TelemetryIngressServerPubKey(),
 			TelemetryIngressURL:                   telemetryIngressURL,
-			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
+			TriggerFallbackDBPollInterval:         cfg.TriggerFallbackDBPollInterval(),
 		},
 	}, nil
 }

@@ -47,7 +47,6 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	lggr := logger.Default.Named("boot")
 
 	err := cli.Config.Validate()
@@ -256,7 +255,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		}
 	}
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -358,7 +356,6 @@ func (cli *Client) Status(c *clipkg.Context) error {
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
@@ -409,7 +406,6 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 
 // MigrateDatabase migrates the database
 func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cfg := cli.Config
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
@@ -435,7 +431,6 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
@@ -450,7 +445,6 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
@@ -467,7 +461,6 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := newConnection(cli.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
@@ -481,7 +474,6 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 
 // CreateMigration displays the database migration status
 func (cli *Client) CreateMigration(c *clipkg.Context) error {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
@@ -623,7 +615,6 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
@@ -652,7 +643,6 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 	dbURL := cli.Config.DatabaseURL()
 
-	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		DSN: dbURL.String(),
 	}), &gorm.Config{})
