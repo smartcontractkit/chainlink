@@ -12,8 +12,9 @@ func init() {
 	InitColor(false)
 }
 
-func TestLogger(t *testing.T) {
-	lgr := CreateTestLogger(t)
+func TestTestLogger(t *testing.T) {
+	lgr := TestLogger(t)
+	lgr.SetLogLevel(zapcore.InfoLevel)
 	requireContains := func(cs ...string) {
 		t.Helper()
 		logs := MemoryLogTestingOnly().String()
@@ -30,7 +31,7 @@ func TestLogger(t *testing.T) {
 	}
 
 	const (
-		testName    = "TestLogger"
+		testName    = "TestTestLogger"
 		testMessage = "Test message"
 	)
 	lgr.Warn(testMessage)

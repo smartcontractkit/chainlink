@@ -89,7 +89,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	globalLogger := logger.CreateProductionLogger(cfg)
+	globalLogger := logger.ProductionLogger(cfg)
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()

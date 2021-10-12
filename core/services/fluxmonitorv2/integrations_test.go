@@ -408,7 +408,7 @@ func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result f
 
 func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
 	t.Helper()
-	logger.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
+	logger.TestLogger(t).Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
 	g := gomega.NewGomegaWithT(t)
 	g.Eventually(func() bool {
@@ -528,7 +528,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, submissionReceived)
 
-			logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+			lggr := logger.TestLogger(t)
+			lggr.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
 			assert.Equal(t, reportPrice.Load(), answer,
 				"failed to report correct price to contract")
@@ -556,12 +557,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
 			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 5)
 
-			logger.Info("Updating price to 103")
+			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
 			reportPrice.Store(103)
 			receiptBlock, answer = awaitSubmission(t, submissionReceived)
 
-			logger.Infof("Detected submission: %v in block %v", answer, receiptBlock)
+			lggr.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
 			assert.Equal(t, reportPrice.Load(), answer,
 				"failed to report correct price to contract")

@@ -17,7 +17,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 type configOverriderUni struct {
@@ -26,8 +25,7 @@ type configOverriderUni struct {
 }
 
 func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsContract *mocks.Flags) (uni configOverriderUni) {
-	var testLogger = logger.CreateTestLogger(t)
-	testLogger.SetLogLevel(zapcore.DebugLevel)
+	var testLogger = logger.TestLogger(t)
 	contractAddress := cltest.NewEIP55Address()
 
 	flags := &offchainreporting.ContractFlags{FlagsInterface: flagsContract}
@@ -142,8 +140,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("Errors if flags contract is missing", func(t *testing.T) {
-		var testLogger = logger.CreateTestLogger(t)
-		testLogger.SetLogLevel(zapcore.DebugLevel)
+		var testLogger = logger.TestLogger(t)
 		contractAddress := cltest.NewEIP55Address()
 		flags := &offchainreporting.ContractFlags{FlagsInterface: nil}
 		_, err := offchainreporting.NewConfigOverriderImpl(
@@ -157,8 +154,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("DeltaC should be stable per address", func(t *testing.T) {
-		var testLogger = logger.CreateTestLogger(t)
-		testLogger.SetLogLevel(zapcore.DebugLevel)
+		var testLogger = logger.TestLogger(t)
 		flagsContract := new(mocks.Flags)
 		flagsContract.Test(t)
 		flagsContract.On("GetFlags", mock.Anything, mock.Anything).
