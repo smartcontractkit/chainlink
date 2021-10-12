@@ -59,7 +59,7 @@ func NewEthResender(lggr logger.Logger, db *gorm.DB, ethClient eth.Client, pollI
 }
 
 func (er *EthResender) Start() {
-	er.logger.Infof("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
+	er.logger.Debugf("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 

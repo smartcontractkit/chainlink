@@ -158,6 +158,10 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 `CHAIN_TYPE` - Configure the type of chain (if not standard). `Arbitrum`, `ExChain`, `Optimism`, or `XDai`. Replaces `LAYER_2_TYPE`.
 
+`USE_LEGACY_ETH_ENV_VARS` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using ETH_CHAIN_ID and upsert nodes corresponding to the given ETH_URL/ETH_HTTP_URL/ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
+
+NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are not required (and do nothing) if `USE_LEGACY_ETH_ENV_VARS=false`. If `USE_LEGACY_ETH_ENV_VARS=true` (the default) these env vars must be explicitly set. This is most likely safe, since almost all node operators set these values explicitly anyway (and we don't even recommend running an eth node on the same box as the CL node).
+
 ### Changed
 
 Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
@@ -201,7 +205,6 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 ## [v1.0.0]
 
-
 ### Added
 
 - `chainlink node db status` will now display a table of applied and pending migrations.
@@ -213,10 +216,6 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 - When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
 
 #### New env vars
-
-`CLOBBER_NODES_FROM_ENV` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using ETH_CHAIN_ID and upsert nodes corresponding to the given ETH_URL/ETH_HTTP_URL/ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
-
-`EVM_DISABLED` - If set to true, will prevent any chains from being loaded at all, and any jobs that interact with the EVM cannot be created/loaded/run. Distinct from `ETHEREUM_DISABLED` which continue to work as before and will load chains, but will not connect to any nodes and still allows you to create jobs. This is a new recommended setting (replacing `ETH_DISABLED`) for jobs that don't need the EVM at all, e.g. Cron jobs on DYDX.
 
 `BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
 
@@ -266,11 +265,11 @@ chainlink nodes delete 'my-send-only-backup-kovan-node'
 chainlink chains evm delete 42
 ```
 
-###### CLOBBER_NODES_FROM_ENV
+###### USE_LEGACY_ETH_ENV_VARS
 
 The old way of specifying chains using environment variables is still supported but discouraged. It works as follows:
 
-If you specify `CLOBBER_NODES_FROM_ENV` (default: true) then the values of `ETH_CHAIN_ID`, `ETH_URL`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This environment variable is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to run with `CLOBBER_NODES_FROM_ENV=false` and use the API commands exclusively to administer chains and nodes.
+If you specify `USE_LEGACY_ETH_ENV_VARS` (default: true) then the values of `ETH_CHAIN_ID`, `ETH_URL`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This environment variable is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to run with `USE_LEGACY_ETH_ENV_VARS=false` and use the API commands exclusively to administer chains and nodes.
 
 ##### Jobs/tasks
 

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -51,10 +52,14 @@ type chainSet struct {
 
 func (cll *chainSet) Start() (err error) {
 	chains := cll.Chains()
-	for _, c := range chains {
+	evmChainIDs := make([]*big.Int, len(chains))
+	for i, c := range chains {
 		err = multierr.Combine(err, c.Start())
+		evmChainIDs[i] = c.ID()
 	}
-	cll.logger.Infof("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String())
+	if err == nil {
+		cll.logger.Infow(fmt.Sprintf("EVM: Started %d chains, default chain ID is %s", len(chains), cll.defaultID.String()), "evmChainIDs", evmChainIDs)
+	}
 	return
 }
 func (cll *chainSet) Close() (err error) {
@@ -253,16 +258,23 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 	if err := checkOpts(&opts); err != nil {
 		return nil, err
 	}
-	opts.Logger.Infof("EVM ChainSet has default chain id: %v and number of chains: %v", opts.Config.DefaultChainID(), len(dbchains))
+	lggr := opts.Logger.Named("EVM")
+	defaultChainID := opts.Config.DefaultChainID()
+	if defaultChainID == nil && len(dbchains) >= 1 {
+		defaultChainID = dbchains[0].ID.ToInt()
+		if len(dbchains) > 1 {
+			lggr.Debugf("Multiple chains present but ETH_CHAIN_ID was not specified, falling back to default chain: %s", defaultChainID.String())
+		}
+	}
 	var err error
-	cll := &chainSet{opts.Config.DefaultChainID(), make(map[string]*chain), sync.RWMutex{}, opts.Logger, opts.ORM, opts}
+	cll := &chainSet{defaultChainID, make(map[string]*chain), sync.RWMutex{}, lggr, opts.ORM, opts}
 	for i := range dbchains {
 		cid := dbchains[i].ID.String()
-		opts.Logger.Infof("EVM: Loading chain %s", cid)
+		lggr.Infow(fmt.Sprintf("EVM: Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
 			if errors.Cause(err2) == ErrNoPrimaryNode {
-				opts.Logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+				lggr.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
 			} else {
 				err = multierr.Combine(err, err2)
 			}

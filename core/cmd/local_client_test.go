@@ -84,7 +84,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
 	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
 	assert.Contains(t, logs, "ETH_CHAIN_ID: 0\\n")
-	assert.Contains(t, logs, "ETH_URL: ws://")
 	assert.Contains(t, logs, "JSON_CONSOLE: false")
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
 	assert.Contains(t, logs, "LOG_TO_DISK: true")

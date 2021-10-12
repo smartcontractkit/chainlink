@@ -162,7 +162,7 @@ func (hl *HeadListener) subscribe() bool {
 			return false
 		}
 
-		hl.log.Infof("Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
+		hl.log.Debugf("Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
@@ -172,7 +172,7 @@ func (hl *HeadListener) subscribe() bool {
 				promEthConnectionErrors.WithLabelValues(hl.chainID.String()).Inc()
 				hl.log.Warnw(fmt.Sprintf("Failed to subscribe to heads on chain %s", hl.chainID.String()), "err", err)
 			} else {
-				hl.log.Infof("Subscribed to heads on chain %s", hl.chainID.String())
+				hl.log.Debugf("Subscribed to heads on chain %s", hl.chainID.String())
 				return true
 			}
 		}
