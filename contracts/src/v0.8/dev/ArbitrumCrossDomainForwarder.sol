@@ -61,5 +61,5 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
     // 2. Make the external call
     (bool success, bytes memory res) = target.delegatecall(data);
     require(success, string(abi.encode("xDomain delegatecall failed:", res)));
-  }  
+  }
 }

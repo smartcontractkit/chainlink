@@ -70,7 +70,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
     // 3. Make the external call
     (bool success, bytes memory res) = target.delegatecall(data);
     require(success, string(abi.encode("xDomain delegatecall failed:", res)));
-  }  
+  }
 
   /**
    * @notice This is always the address of the OVM_L2CrossDomainMessenger contract
