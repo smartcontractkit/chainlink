@@ -47,7 +47,7 @@ func (u userFindSuccesser) FindUser() (sessions.User, error) {
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
-	user := cltest.MustRandomUser()
+	user := cltest.MustRandomUser(t)
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)

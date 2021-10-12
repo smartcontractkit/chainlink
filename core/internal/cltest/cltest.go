@@ -577,10 +577,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
-		CookieAuthenticator:            MockCookieAuthenticator{},
+		CookieAuthenticator:            MockCookieAuthenticator{t: ta.t},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
@@ -594,7 +594,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
@@ -1087,12 +1087,12 @@ func DecodeSessionCookie(value string) (string, error) {
 	return value, nil
 }
 
-func MustGenerateSessionCookie(value string) *http.Cookie {
+func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
@@ -1226,10 +1226,10 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	}
 }
 
-func MustParseURL(input string) *url.URL {
+func MustParseURL(t *testing.T, input string) *url.URL {
 	u, err := url.Parse(input)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return u
 }
