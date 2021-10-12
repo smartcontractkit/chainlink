@@ -53,7 +53,7 @@ func (nc *NodesController) Create(c *gin.Context) {
 		return
 	}
 
-	node, err := nc.App.EVMORM().CreateNode(request)
+	node, err := nc.App.GetChainSet().AddNode(c.Request.Context(), request)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

@@ -10,56 +10,120 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
+	utils.StartStopOnce
+
 	nodes           []Node
 	sendonlys       []SendOnlyNode
 	chainID         *big.Int
 	roundRobinCount atomic.Uint32
 	logger          logger.Logger
+
+	nodesMu sync.RWMutex
 }
 
 func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
-	return &Pool{nodes, sendonlys, chainID, atomic.Uint32{}, logger}
+	return &Pool{utils.StartStopOnce{}, nodes, sendonlys, chainID, atomic.Uint32{}, logger, sync.RWMutex{}}
 }
 
-func (p *Pool) Dial(ctx context.Context) (err error) {
-	for _, n := range p.nodes {
-		err = multierr.Combine(err, n.Dial(ctx))
+func (p *Pool) AddNode(ctx context.Context, n Node) (err error) {
+	if n.ChainID() == nil || (n.ChainID().Cmp(p.chainID) != 0) {
+		return errors.Errorf("cannot add node with chain ID %s to pool with chain ID %s", n.ChainID().String(), p.chainID.String())
 	}
-	for _, s := range p.sendonlys {
-		err = multierr.Combine(err, s.Dial(ctx))
-	}
-	if err != nil {
-		return err
-	}
-	return p.verifyChainIDs(ctx)
-}
+	ok := p.IfStarted(func() {
+		if err = n.Dial(ctx); err != nil {
+			err = errors.Wrap(err, "AddNode: failed to dial node")
+			return
+		}
 
-func (p *Pool) verifyChainIDs(ctx context.Context) (err error) {
-	if p.chainID == nil {
-		return nil
-	}
-	for _, n := range p.nodes {
-		err = multierr.Combine(err, n.Verify(ctx, p.chainID))
-	}
-	for _, s := range p.sendonlys {
-		err = multierr.Combine(err, s.Verify(ctx, p.chainID))
+		p.nodesMu.Lock()
+		defer p.nodesMu.Unlock()
+		if p.hasNodeWithName(n.Name()) {
+			n.Close()
+			err = errors.Errorf("node already exists with name %s", n.Name())
+			return
+		}
+		p.nodes = append(p.nodes, n)
+	})
+	if !ok {
+		return errors.New("cannot add node; pool is not started")
 	}
 	return err
 }
 
-func (p *Pool) Close() {
-	for _, n := range p.nodes {
-		n.Close()
+func (p *Pool) AddSendOnlyNode(ctx context.Context, n SendOnlyNode) (err error) {
+	if n.ChainID() == nil || (n.ChainID().Cmp(p.chainID) != 0) {
+		return errors.Errorf("cannot add send only node with chain ID %s to pool with chain ID %s", n.ChainID().String(), p.chainID.String())
 	}
+	ok := p.IfStarted(func() {
+		if err = n.Dial(ctx); err != nil {
+			err = errors.Wrap(err, "AddNode: failed to dial node")
+			return
+		}
+
+		p.nodesMu.Lock()
+		defer p.nodesMu.Unlock()
+		if p.hasNodeWithName(n.Name()) {
+			err = errors.Errorf("node already exists with name %s", n.Name())
+			return
+		}
+		p.sendonlys = append(p.sendonlys, n)
+	})
+	if !ok {
+		return errors.New("cannot add send only node; pool is not started")
+	}
+	return err
+}
+
+func (p *Pool) hasNodeWithName(s string) bool {
+	for _, n := range p.nodes {
+		if s == n.Name() {
+			return true
+		}
+	}
+	for _, n := range p.sendonlys {
+		if s == n.Name() {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Pool) Dial(ctx context.Context) (err error) {
+	return p.StartOnce("Pool", func() (merr error) {
+		p.nodesMu.Lock()
+		defer p.nodesMu.Unlock()
+
+		for _, n := range p.nodes {
+			err = multierr.Combine(err, n.Dial(ctx))
+		}
+		for _, s := range p.sendonlys {
+			err = multierr.Combine(err, s.Dial(ctx))
+		}
+		return err
+	})
+}
+
+func (p *Pool) Close() error {
+	return p.StopOnce("Pool", func() (merr error) {
+		p.nodesMu.Lock()
+		defer p.nodesMu.Unlock()
+
+		for _, n := range p.nodes {
+			n.Close()
+		}
+		return nil
+	})
 }
 
 func (p *Pool) ChainID() *big.Int {
@@ -67,6 +131,9 @@ func (p *Pool) ChainID() *big.Int {
 }
 
 func (p *Pool) getRoundRobin() Node {
+	p.nodesMu.RLock()
+	defer p.nodesMu.RUnlock()
+
 	nNodes := len(p.nodes)
 	if nNodes == 0 {
 		return &erroringNode{errMsg: fmt.Sprintf("no nodes available for chain %s", p.chainID.String())}
@@ -91,6 +158,9 @@ func (p *Pool) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
+
+	p.nodesMu.RLock()
+	defer p.nodesMu.RUnlock()
 
 	main := p.getRoundRobin()
 	var all []SendOnlyNode

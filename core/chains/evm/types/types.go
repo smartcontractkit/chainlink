@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -34,7 +35,7 @@ type ORM interface {
 	UpdateChain(id utils.Big, enabled bool, config ChainCfg) (Chain, error)
 	DeleteChain(id utils.Big) error
 	Chains(offset, limit int) ([]Chain, int, error)
-	CreateNode(data NewNode) (Node, error)
+	CreateNode(ctx context.Context, data NewNode, callback func(n Node) error) (Node, error)
 	DeleteNode(id int64) error
 	Nodes(offset, limit int) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int) ([]Node, int, error)

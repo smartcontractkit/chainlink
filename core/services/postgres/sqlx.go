@@ -51,6 +51,12 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	return UnwrapGormDB(db)
 }
 
+func SqlxTransactionDefaultCtx(q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	ctx, cancel := DefaultQueryCtx()
+	defer cancel()
+	return SqlxTransaction(ctx, q, fc, txOpts...)
+}
+
 func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:

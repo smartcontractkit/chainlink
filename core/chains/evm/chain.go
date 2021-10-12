@@ -333,7 +333,7 @@ func newPrimary(lggr logger.Logger, n types.Node) (eth.Node, error) {
 		httpuri = u
 	}
 
-	return eth.NewNode(lggr, *wsuri, httpuri, n.Name), nil
+	return eth.NewNode(lggr, *wsuri, httpuri, n.Name, n.EVMChainID.ToInt()), nil
 }
 
 func newSendOnly(lggr logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
@@ -348,5 +348,5 @@ func newSendOnly(lggr logger.Logger, n types.Node) (eth.SendOnlyNode, error) {
 		return nil, errors.Wrap(err, "invalid http uri")
 	}
 
-	return eth.NewSendOnlyNode(lggr, *httpuri, n.Name), nil
+	return eth.NewSendOnlyNode(lggr, *httpuri, n.Name, n.EVMChainID.ToInt()), nil
 }

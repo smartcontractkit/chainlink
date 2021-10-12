@@ -171,3 +171,11 @@ func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 func (nc *NullClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error) {
 	return nil, nil
 }
+
+func (nc *NullClient) AddNodeToPool(ctx context.Context, n Node) error {
+	return nil
+}
+
+func (nc *NullClient) AddSendOnlyNodeToPool(ctx context.Context, n SendOnlyNode) error {
+	return nil
+}

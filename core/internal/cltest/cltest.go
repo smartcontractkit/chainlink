@@ -1678,3 +1678,9 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	require.NoError(t, err)
 	return states[0]
 }
+
+func MustURL(t *testing.T, s string) *url.URL {
+	u, err := url.Parse(s)
+	require.NoError(t, err)
+	return u
+}

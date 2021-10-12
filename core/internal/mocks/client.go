@@ -27,6 +27,34 @@ type Client struct {
 	mock.Mock
 }
 
+// AddNodeToPool provides a mock function with given fields: ctx, n
+func (_m *Client) AddNodeToPool(ctx context.Context, n eth.Node) error {
+	ret := _m.Called(ctx, n)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, eth.Node) error); ok {
+		r0 = rf(ctx, n)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// AddSendOnlyNodeToPool provides a mock function with given fields: ctx, n
+func (_m *Client) AddSendOnlyNodeToPool(ctx context.Context, n eth.SendOnlyNode) error {
+	ret := _m.Called(ctx, n)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, eth.SendOnlyNode) error); ok {
+		r0 = rf(ctx, n)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BalanceAt provides a mock function with given fields: ctx, account, blockNumber
 func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	ret := _m.Called(ctx, account, blockNumber)

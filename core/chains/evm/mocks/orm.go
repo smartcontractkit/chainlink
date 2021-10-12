@@ -102,20 +102,20 @@ func (_m *ORM) CreateChain(id utils.Big, config types.ChainCfg) (types.Chain, er
 	return r0, r1
 }
 
-// CreateNode provides a mock function with given fields: data
-func (_m *ORM) CreateNode(data types.NewNode) (types.Node, error) {
-	ret := _m.Called(data)
+// CreateNode provides a mock function with given fields: data, callback
+func (_m *ORM) CreateNode(data types.NewNode, callback func(types.Node) error) (types.Node, error) {
+	ret := _m.Called(data, callback)
 
 	var r0 types.Node
-	if rf, ok := ret.Get(0).(func(types.NewNode) types.Node); ok {
-		r0 = rf(data)
+	if rf, ok := ret.Get(0).(func(types.NewNode, func(types.Node) error) types.Node); ok {
+		r0 = rf(data, callback)
 	} else {
 		r0 = ret.Get(0).(types.Node)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(types.NewNode) error); ok {
-		r1 = rf(data)
+	if rf, ok := ret.Get(1).(func(types.NewNode, func(types.Node) error) error); ok {
+		r1 = rf(data, callback)
 	} else {
 		r1 = ret.Error(1)
 	}

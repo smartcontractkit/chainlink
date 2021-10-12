@@ -1,12 +1,14 @@
 package evm
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -69,16 +71,22 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 	return
 }
 
-func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
+func (o *orm) CreateNode(ctx context.Context, data types.NewNode, callback func(node types.Node) error) (node types.Node, err error) {
 	sql := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
 	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
 	RETURNING *;`
-	stmt, err := o.db.PrepareNamed(sql)
-	if err != nil {
-		return node, err
-	}
-	err = stmt.Get(&node, data)
-	return node, err
+
+	err = postgres.SqlxTransaction(ctx, o.db, func(tx *sqlx.Tx) error {
+		stmt, err := tx.PrepareNamed(sql)
+		if err != nil {
+			return err
+		}
+		if err := stmt.Get(&node, data); err != nil {
+			return err
+		}
+		return callback(node)
+	})
+	return
 }
 
 func (o *orm) DeleteNode(id int64) error {

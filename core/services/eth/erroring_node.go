@@ -102,3 +102,11 @@ func (e *erroringNode) EthSubscribe(ctx context.Context, channel interface{}, ar
 func (e *erroringNode) String() string {
 	return "<erroring node>"
 }
+
+func (e *erroringNode) Name() string {
+	return e.String()
+}
+
+func (e *erroringNode) ChainID() *big.Int {
+	return nil
+}

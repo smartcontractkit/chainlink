@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
 	evm "github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -30,6 +31,27 @@ func (_m *ChainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*big.Int, types.ChainCfg) error); ok {
 		r1 = rf(id, config)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// AddNode provides a mock function with given fields: ctx, newNode
+func (_m *ChainSet) AddNode(ctx context.Context, newNode types.NewNode) (types.Node, error) {
+	ret := _m.Called(ctx, newNode)
+
+	var r0 types.Node
+	if rf, ok := ret.Get(0).(func(context.Context, types.NewNode) types.Node); ok {
+		r0 = rf(ctx, newNode)
+	} else {
+		r0 = ret.Get(0).(types.Node)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, types.NewNode) error); ok {
+		r1 = rf(ctx, newNode)
 	} else {
 		r1 = ret.Error(1)
 	}

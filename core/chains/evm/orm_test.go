@@ -1,9 +1,11 @@
 package evm_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -62,15 +64,25 @@ func Test_EVMORM_CreateNode(t *testing.T) {
 		HTTPURL:    null.StringFrom("http://localhost:8546"),
 		SendOnly:   false,
 	}
-	node, err := orm.CreateNode(params)
-	require.NoError(t, err)
-	require.Equal(t, params.EVMChainID, node.EVMChainID)
-	require.Equal(t, params.WSURL, node.WSURL)
-	require.Equal(t, params.HTTPURL, node.HTTPURL)
-	require.Equal(t, params.SendOnly, node.SendOnly)
 
-	nodes, count, err := orm.Nodes(0, 25)
-	require.NoError(t, err)
-	require.Equal(t, initialCount+1, count)
-	require.Equal(t, nodes[initialCount], node)
+	t.Run("with successful callback", func(t *testing.T) {
+		var called bool
+		f := func(n types.Node) error {
+			assert.Equal(t, "Test node", n.Name)
+			called = true
+			return nil
+		}
+		node, err := orm.CreateNode(context.Background(), params, f)
+		require.NoError(t, err)
+		assert.True(t, called)
+		require.Equal(t, params.EVMChainID, node.EVMChainID)
+		require.Equal(t, params.WSURL, node.WSURL)
+		require.Equal(t, params.HTTPURL, node.HTTPURL)
+		require.Equal(t, params.SendOnly, node.SendOnly)
+
+		nodes, count, err := orm.Nodes(0, 25)
+		require.NoError(t, err)
+		require.Equal(t, initialCount+1, count)
+		require.Equal(t, nodes[initialCount], node)
+	})
 }

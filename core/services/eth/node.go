@@ -19,7 +19,6 @@ import (
 type Node interface {
 	Dial(ctx context.Context) error
 	Close()
-	Verify(ctx context.Context, expectedChainID *big.Int) (err error)
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -41,6 +40,8 @@ type Node interface {
 	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
 
 	String() string
+	Name() string
+	ChainID() *big.Int
 }
 
 type rawclient struct {
@@ -52,16 +53,18 @@ type rawclient struct {
 // Node represents one ethereum node.
 // It must have a ws url and may have a http url
 type node struct {
-	ws     rawclient
-	http   *rawclient
-	log    logger.Logger
-	name   string
-	dialed bool
+	ws      rawclient
+	http    *rawclient
+	log     logger.Logger
+	name    string
+	dialed  bool
+	chainID *big.Int
 }
 
-func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
+func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, chainID *big.Int) Node {
 	n := new(node)
 	n.name = name
+	n.chainID = chainID
 	n.log = lggr.With(
 		"nodeName", name,
 		"nodeTier", "primary",
@@ -105,6 +108,10 @@ func (n *node) Dial(ctx context.Context) error {
 		}
 		n.http.rpc = rpc
 		n.http.geth = ethclient.NewClient(rpc)
+	}
+
+	if err := n.verify(ctx); err != nil {
+		return err
 	}
 
 	return nil
@@ -388,8 +395,21 @@ func (n node) String() string {
 	return s
 }
 
-// Verify checks that all connections to eth nodes match the given chain ID
-func (n node) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
+func (n node) Name() string {
+	return n.name
+}
+
+func (n node) ChainID() *big.Int {
+	return n.chainID
+}
+
+// verify checks that all connections to eth nodes match the given chain ID
+func (n node) verify(ctx context.Context) (err error) {
+	expectedChainID := n.chainID
+	if expectedChainID == nil {
+		n.log.Debugf("skipping verify for %s, chain ID was nil", n.String())
+		return nil
+	}
 	var chainID *big.Int
 	if chainID, err = n.ws.geth.ChainID(ctx); err != nil {
 		return errors.Wrapf(err, "failed to verify chain ID for node %s", n.name)

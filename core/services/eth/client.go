@@ -27,6 +27,8 @@ type Client interface {
 	Dial(ctx context.Context) error
 	Close()
 	ChainID() *big.Int
+	AddNodeToPool(ctx context.Context, n Node) error
+	AddSendOnlyNodeToPool(ctx context.Context, n SendOnlyNode) error
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
@@ -88,7 +90,6 @@ type client struct {
 	logger  logger.Logger
 	pool    *Pool
 	chainID *big.Int
-	mocked  bool
 }
 
 var _ Client = (*client)(nil)
@@ -104,12 +105,16 @@ func NewClientWithNodes(logger logger.Logger, primaryNodes []Node, sendOnlyNodes
 	}, nil
 }
 
+func (client *client) AddNodeToPool(ctx context.Context, n Node) error {
+	return client.pool.AddNode(ctx, n)
+}
+func (client *client) AddSendOnlyNodeToPool(ctx context.Context, n SendOnlyNode) error {
+	return client.pool.AddSendOnlyNode(ctx, n)
+}
+
 // Dial opens websocket connections if necessary and sanity-checks that tthe
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
-	if client.mocked {
-		return nil
-	}
 	if err := client.pool.Dial(ctx); err != nil {
 		return errors.Wrap(err, "failed to dial pool")
 	}

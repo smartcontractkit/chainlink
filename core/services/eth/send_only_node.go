@@ -16,28 +16,31 @@ import (
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
 	Dial(context.Context) error
-	Verify(ctx context.Context, expectedChainID *big.Int) (err error)
 
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
 	String() string
+	Name() string
+	ChainID() *big.Int
 }
 
 // It only supports sending transactions
 // It must a http(s) url
 type sendOnlyNode struct {
-	uri    url.URL
-	rpc    *rpc.Client
-	geth   *ethclient.Client
-	log    logger.Logger
-	dialed bool
-	name   string
+	uri     url.URL
+	rpc     *rpc.Client
+	geth    *ethclient.Client
+	log     logger.Logger
+	dialed  bool
+	name    string
+	chainID *big.Int
 }
 
-func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string) SendOnlyNode {
+func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string, chainID *big.Int) SendOnlyNode {
 	s := new(sendOnlyNode)
 	s.name = name
+	s.chainID = chainID
 	s.log = lggr.With(
 		"nodeName", name,
 		"nodeTier", "sendonly",
@@ -76,14 +79,6 @@ func (s sendOnlyNode) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 	)
 	return s.wrap(s.rpc.BatchCallContext(ctx, b))
 }
-
-func (s sendOnlyNode) ChainID(ctx context.Context) (chainID *big.Int, err error) {
-	s.log.Debugw("eth.Client#ChainID(...)")
-	chainID, err = s.geth.ChainID(ctx)
-	err = s.wrap(err)
-	return
-}
-
 func (s sendOnlyNode) wrap(err error) error {
 	return wrap(err, fmt.Sprintf("sendonly http (%s)", s.uri.String()))
 }
@@ -92,8 +87,21 @@ func (s sendOnlyNode) String() string {
 	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.String())
 }
 
-func (s sendOnlyNode) Verify(ctx context.Context, expectedChainID *big.Int) (err error) {
-	if chainID, err := s.ChainID(ctx); err != nil {
+func (s sendOnlyNode) Name() string {
+	return s.name
+}
+
+func (s sendOnlyNode) ChainID() *big.Int {
+	return s.chainID
+}
+
+func (s sendOnlyNode) verify(ctx context.Context) (err error) {
+	expectedChainID := s.chainID
+	if expectedChainID == nil {
+		s.log.Debugf("skipping verify for %s, chain ID was nil", s.String())
+		return nil
+	}
+	if chainID, err := s.geth.ChainID(ctx); err != nil {
 		return errors.Wrap(err, "failed to verify chain ID")
 	} else if chainID.Cmp(expectedChainID) != 0 {
 		return errors.Errorf(

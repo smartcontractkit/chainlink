@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"math"
 	"math/big"
 	"sync"
@@ -32,6 +33,7 @@ type ChainSet interface {
 	service.Service
 	Get(id *big.Int) (Chain, error)
 	Add(id *big.Int, config types.ChainCfg) (types.Chain, error)
+	AddNode(ctx context.Context, newNode types.NewNode) (types.Node, error)
 	Remove(id *big.Int) error
 	Default() (Chain, error)
 	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
@@ -117,7 +119,7 @@ func (cll *chainSet) initializeChain(dbchain *types.Chain) error {
 	cid := dbchain.ID.String()
 	chain, err := newChain(*dbchain, cll.opts)
 	if errors.Cause(err) == ErrNoPrimaryNode || len(dbchain.Nodes) == 0 {
-		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+		cll.logger.Warnf("EVM: No primary node found for chain %s; this chain will not be started", cid)
 		return nil
 	} else if err != nil {
 		return err
@@ -144,6 +146,28 @@ func (cll *chainSet) Add(id *big.Int, config types.ChainCfg) (types.Chain, error
 		return types.Chain{}, err
 	}
 	return dbchain, cll.initializeChain(&dbchain)
+}
+
+func (cll *chainSet) AddNode(ctx context.Context, newNode types.NewNode) (types.Node, error) {
+	ch, err := cll.Get(newNode.EVMChainID.ToInt())
+	if err != nil {
+		return types.Node{}, errors.Wrap(err, "cannot add node")
+	}
+
+	return cll.orm.CreateNode(ctx, newNode, func(n types.Node) error {
+		if n.SendOnly {
+			sendOnly, err := newSendOnly(cll.logger, n)
+			if err != nil {
+				return errors.Wrap(err, "could not create new send only node")
+			}
+			return ch.Client().AddSendOnlyNodeToPool(ctx, sendOnly)
+		}
+		primary, err := newPrimary(cll.logger, n)
+		if err != nil {
+			return errors.Wrap(err, "could not create primary node")
+		}
+		return ch.Client().AddNodeToPool(ctx, primary)
+	})
 }
 
 func (cll *chainSet) Remove(id *big.Int) error {
@@ -262,7 +286,7 @@ func NewChainSet(opts ChainSetOpts, dbchains []types.Chain) (ChainSet, error) {
 		chain, err2 := newChain(dbchains[i], opts)
 		if err2 != nil {
 			if errors.Cause(err2) == ErrNoPrimaryNode {
-				opts.Logger.Warnf("EVM: No primary node found for chain %s; this chain will be ignored", cid)
+				opts.Logger.Warnf("EVM: No primary node found for chain %s; this chain cannot be loaded", cid)
 			} else {
 				err = multierr.Combine(err, err2)
 			}

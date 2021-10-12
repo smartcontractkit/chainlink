@@ -1,6 +1,7 @@
 package evmtest
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -147,7 +148,7 @@ func (mo *MockORM) Chains(offset int, limit int) ([]evmtypes.Chain, int, error) 
 	panic("not implemented")
 }
 
-func (mo *MockORM) CreateNode(data evmtypes.NewNode) (evmtypes.Node, error) {
+func (mo *MockORM) CreateNode(ctx context.Context, data evmtypes.NewNode, f func(evmtypes.Node) error) (evmtypes.Node, error) {
 	panic("not implemented")
 }
 

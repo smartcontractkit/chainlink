@@ -459,6 +459,13 @@ func (c *SimulatedBackendClient) SuggestGasTipCap(ctx context.Context) (tipCap *
 	return nil, nil
 }
 
+func (c *SimulatedBackendClient) AddNodeToPool(ctx context.Context, n eth.Node) error {
+	return errors.New("adding node to pool is not supported for SimulatedBackendClient")
+}
+func (c *SimulatedBackendClient) AddSendOnlyNodeToPool(ctx context.Context, n eth.SendOnlyNode) error {
+	return errors.New("adding send only node to pool is not supported for SimulatedBackendClient")
+}
+
 // Mine forces the simulated backend to produce a new block every 2 seconds
 func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
