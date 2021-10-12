@@ -12,7 +12,7 @@ import (
 
 func Test_CSAKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.CSA()
 	reset := func() {

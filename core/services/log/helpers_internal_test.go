@@ -7,8 +7,8 @@ import (
 )
 
 // NewTestBroadcaster creates a broadcaster with Pause/Resume enabled.
-func NewTestBroadcaster(orm ORM, ethClient eth.Client, config Config, logger logger.Logger, highestSavedHead *eth.Head) *broadcaster {
-	b := NewBroadcaster(orm, ethClient, config, logger, highestSavedHead)
+func NewTestBroadcaster(orm ORM, ethClient eth.Client, config Config, lggr logger.Logger, highestSavedHead *eth.Head) *broadcaster {
+	b := NewBroadcaster(orm, ethClient, config, lggr, highestSavedHead)
 	b.testPause, b.testResume = make(chan struct{}), make(chan struct{})
 	return b
 }

@@ -80,11 +80,12 @@ func Test_EthResender_Start(t *testing.T) {
 	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(1)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	lggr := logger.TestLogger(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-		er := bulletprooftxmanager.NewEthResender(logger.Default, db, ethClient, 100*time.Millisecond, evmcfg)
+		er := bulletprooftxmanager.NewEthResender(lggr, db, ethClient, 100*time.Millisecond, evmcfg)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, fromAddress, originalBroadcastAt)

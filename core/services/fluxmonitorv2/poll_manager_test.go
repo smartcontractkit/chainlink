@@ -24,7 +24,7 @@ func newPollManager(t *testing.T) *fluxmonitorv2.PollManager {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     false,
 		HibernationPollPeriod: 24 * time.Hour,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 	return pm
 }
@@ -91,7 +91,7 @@ func TestPollManager_PollTicker(t *testing.T) {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 24 * time.Hour,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{})
@@ -113,7 +113,7 @@ func TestPollManager_IdleTimer(t *testing.T) {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     false,
 		HibernationPollPeriod: 24 * time.Hour,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
@@ -137,7 +137,7 @@ func TestPollManager_RoundTimer(t *testing.T) {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 24 * time.Hour,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
@@ -162,7 +162,7 @@ func TestPollManager_RetryTimer(t *testing.T) {
 		HibernationPollPeriod:   24 * time.Hour,
 		MinRetryBackoffDuration: 200 * time.Microsecond,
 		MaxRetryBackoffDuration: 1 * time.Minute,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
@@ -206,7 +206,7 @@ func TestPollManager_HibernationTimer(t *testing.T) {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 1 * time.Second,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 
 	pm.Start(true, flux_aggregator_wrapper.OracleRoundState{
@@ -229,7 +229,7 @@ func TestPollManager_HibernationOnStartThenAwaken(t *testing.T) {
 		IdleTimerPeriod:       idleTickerDefaultDuration,
 		IdleTimerDisabled:     false,
 		HibernationPollPeriod: 24 * time.Hour,
-	}, logger.Default)
+	}, logger.TestLogger(t))
 	require.NoError(t, err)
 	t.Cleanup(pm.Stop)
 
@@ -340,7 +340,7 @@ func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
 				PollTickerDisabled:    tc.pollTickerDisabled,
 				IdleTimerPeriod:       idleTickerDefaultDuration,
 				IdleTimerDisabled:     tc.idleTimerDisabled,
-			}, logger.Default)
+			}, logger.TestLogger(t))
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.want, pm.ShouldPerformInitialPoll())
