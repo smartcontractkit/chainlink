@@ -880,11 +880,12 @@ decode_log [
 	times=100000000
 	type=multiply
 	];
-	encode_data_3 [
+	encode_data_4 [
 	abi="(uint256 value)"
+	data=<{ "value": $(multiply_1) }>
 	type=ethabiencode
 	];
-	encode_tx_3 [
+	encode_tx_4 [
 	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
 	data=<{
 "requestId":          $(decode_log.requestId),
@@ -892,13 +893,13 @@ decode_log [
 "callbackAddress":    $(decode_log.callbackAddr),
 "callbackFunctionId": $(decode_log.callbackFunctionId),
 "expiration":         $(decode_log.cancelExpiration),
-"data":               $(encode_data)
+"data":               $(encode_data_4)
 }
 >
 	type=ethabiencode
 	];
-	send_tx_3 [
-	data="$(encode_tx_3)"
+	send_tx_4 [
+	data="$(encode_tx_4)"
 	to="0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
 	type=ethtx
 	];
@@ -907,9 +908,9 @@ decode_log [
 	decode_log -> merge_1;
 	merge_1 -> send_to_bridge_1;
 	send_to_bridge_1 -> multiply_1;
-	multiply_1 -> encode_data_3;
-	encode_data_3 -> encode_tx_3;
-	encode_tx_3 -> send_tx_3;
+	multiply_1 -> encode_data_4;
+	encode_data_4 -> encode_tx_4;
+	encode_tx_4 -> send_tx_4;
 	"""
 requesters = ["0x22DE85B0cD5B3684865ECfEedfBAF12777cd0Ff8", "0x22DE85B0cD5B3684865ECfEedfBAF12777cd0Ff8"]
 `, j.ExternalJobID), toml)

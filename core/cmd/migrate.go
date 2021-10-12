@@ -185,11 +185,16 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			// Do nothing. This is implicit in FMv2 / DR
 		case adapters.TaskTypeEthTx:
 			if tpe == job.DirectRequest {
+
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				i++
 				attrs := map[string]string{
 					"type": "ethabiencode",
 					"abi":  "(uint256 value)",
-					//"data": <{ "value": $(multiply) }>,
+					"data": template, //<{ "value": $(multiply) }>,
 				}
+				replacements["\""+template+"\""] = fmt.Sprintf(`{ "value": $(%v) }`, last.DOTID())
+
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_data_%d", i), attrs)
 				dg.AddNode(n)
 				if last != nil {
@@ -205,15 +210,15 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					"abi":  "fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)",
 					"data": template,
 				}
-				replacements["\""+template+"\""] = `{
+				replacements["\""+template+"\""] = fmt.Sprintf(`{
 "requestId":          $(decode_log.requestId),
 "payment":            $(decode_log.payment),
 "callbackAddress":    $(decode_log.callbackAddr),
 "callbackFunctionId": $(decode_log.callbackFunctionId),
 "expiration":         $(decode_log.cancelExpiration),
-"data":               $(encode_data)
+"data":               $(%v)
 }
-`
+`, last.DOTID())
 
 				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs)
 				dg.AddNode(n)
