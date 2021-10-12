@@ -20,7 +20,7 @@ func Test_OptimismEstimator(t *testing.T) {
 
 	config := new(mocks.Config)
 	client := new(mocks.OptimismRPCClient)
-	o := gas.NewOptimismEstimator(logger.Default, config, client)
+	o := gas.NewOptimismEstimator(logger.TestLogger(t), config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint64 = 80000
@@ -38,6 +38,7 @@ func Test_OptimismEstimator(t *testing.T) {
 		})
 
 		require.NoError(t, o.Start())
+		t.Cleanup(func() { require.NoError(t, o.Close()) })
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15000000), gasPrice)
@@ -52,11 +53,12 @@ func Test_OptimismEstimator(t *testing.T) {
 	t.Run("calling GetLegacyGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.OptimismRPCClient)
-		o = gas.NewOptimismEstimator(logger.Default, config, client)
+		o := gas.NewOptimismEstimator(logger.TestLogger(t), config, client)
 
 		client.On("Call", mock.Anything, "rollup_gasPrices").Return(errors.New("kaboom"))
 
 		require.NoError(t, o.Start())
+		t.Cleanup(func() { require.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(calldata, gasLimit)
 		assert.EqualError(t, err, "failed to estimate optimism gas; gas prices not set")
@@ -78,7 +80,7 @@ func Test_Optimism2Estimator(t *testing.T) {
 
 	config := new(mocks.Config)
 	client := new(mocks.OptimismRPCClient)
-	o := gas.NewOptimism2Estimator(logger.Default, config, client)
+	o := gas.NewOptimism2Estimator(logger.TestLogger(t), config, client)
 
 	calldata := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
 	var gasLimit uint64 = 80000
@@ -95,6 +97,7 @@ func Test_Optimism2Estimator(t *testing.T) {
 		})
 
 		require.NoError(t, o.Start())
+		t.Cleanup(func() { require.NoError(t, o.Close()) })
 		gasPrice, chainSpecificGasLimit, err := o.GetLegacyGas(calldata, gasLimit)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(42), gasPrice)
@@ -109,11 +112,12 @@ func Test_Optimism2Estimator(t *testing.T) {
 	t.Run("calling EstimateGas on started estimator if initial call failed returns error", func(t *testing.T) {
 		config := new(mocks.Config)
 		client := new(mocks.OptimismRPCClient)
-		o = gas.NewOptimism2Estimator(logger.Default, config, client)
+		o := gas.NewOptimism2Estimator(logger.TestLogger(t), config, client)
 
 		client.On("Call", mock.Anything, "eth_gasPrice").Return(errors.New("kaboom"))
 
 		require.NoError(t, o.Start())
+		t.Cleanup(func() { require.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(calldata, gasLimit)
 		assert.EqualError(t, err, "failed to estimate optimism gas; gas price not set")

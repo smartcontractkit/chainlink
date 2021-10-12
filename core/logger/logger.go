@@ -5,6 +5,7 @@ package logger
 import (
 	"fmt"
 	"log"
+	"os"
 	"reflect"
 	"runtime"
 
@@ -12,6 +13,12 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+var envLvl = zapcore.InfoLevel
+
+func init() {
+	_ = envLvl.Set(os.Getenv("LOG_LEVEL"))
+}
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
@@ -196,10 +203,10 @@ type Config interface {
 	LogLevel() zapcore.Level
 }
 
-// CreateProductionLogger returns a custom logger for the config's root
+// ProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
-func CreateProductionLogger(c Config) Logger {
+func ProductionLogger(c Config) Logger {
 	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
 	cfg.Level.SetLevel(c.LogLevel())
 	l, err := newZapLogger(cfg)
