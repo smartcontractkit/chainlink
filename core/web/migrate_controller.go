@@ -275,7 +275,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 	if tpe == job.DirectRequest {
 		attrs := map[string]string{
 			"type":   "ethabidecodelog",
-			"abi":    "OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes32 data)",
+			"abi":    "OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)",
 			"data":   "$(jobRun.logData)",
 			"topics": "$(jobRun.logTopics)",
 		}
@@ -283,12 +283,14 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		dg.AddNode(n)
 		last = n
 
-		/*
-		   decode_log   [type=ethabidecodelog
-		                 abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes32 data)"
-		                 data="$(jobRun.logData)"
-		                 topics="$(jobRun.logTopics)"]
-		*/
+		attrs2 := map[string]string{
+			"type": "cborparse",
+			"data": "$(decode_log.data)",
+			"mode": "diet",
+		}
+		n2 := pipeline.NewGraphNode(dg.NewNode(), "decode_cbor", attrs2)
+		dg.AddNode(n2)
+		last = n2
 	}
 
 	for i, ts := range js.Tasks {
@@ -315,6 +317,9 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_%d", i), attrs)
 
 		case adapters.TaskTypeJSONParse:
+			//TODO:----------------------------------
+			//TODO: add merge
+
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeJSONParse.String(),
 			}
@@ -340,6 +345,9 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs)
 
 		case adapters.TaskTypeMultiply:
+			//TODO:----------------------------------
+			//TODO: add merge
+
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeMultiply.String(),
 			}

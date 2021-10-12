@@ -9,6 +9,33 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
+// ParseCBOR attempts to coerce the input byte array into valid CBOR
+// and then coerces it into a JSON object.
+func ParseCBOR(b []byte) (JSON, error) {
+	if len(b) == 0 {
+		return JSON{}, nil
+	}
+
+	var m map[interface{}]interface{}
+
+	if err := cbor.Unmarshal(autoAddMapDelimiters(b), &m); err != nil {
+		return JSON{}, err
+	}
+
+	coerced, err := CoerceInterfaceMapToStringMap(m)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	jsb, err := json.Marshal(coerced)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	var js JSON
+	return js, json.Unmarshal(jsb, &js)
+}
+
 // ParseDietCBOR attempts to coerce the input byte array into valid CBOR
 // and then coerces it into a JSON object.
 // Assumes the input is "diet" CBOR which is like CBOR, except:
