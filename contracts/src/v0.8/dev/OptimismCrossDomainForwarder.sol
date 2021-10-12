@@ -60,7 +60,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @inheritdoc ForwarderInterface
    */
   function forwardDelegate(address target, bytes memory data) external override {
-    // 1. The call MUST come from the L1 Messenger
+    // 1. The delegatecall MUST come from the L1 Messenger
     require(msg.sender == OVM_CROSS_DOMAIN_MESSENGER, "Sender is not the L2 messenger");
     // 2. The L1 Messenger's caller MUST be the L1 Owner
     require(

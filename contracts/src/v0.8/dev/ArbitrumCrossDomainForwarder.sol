@@ -56,9 +56,9 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @inheritdoc ForwarderInterface
    */
   function forwardDelegate(address target, bytes memory data) external override {
-    // 1. The call MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
+    // 1. The delegatecall MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
-    // 2. Make the external call
+    // 2. Make the external delegatecall
     (bool success, bytes memory res) = target.delegatecall(data);
     require(success, string(abi.encode("xDomain delegatecall failed:", res)));
   }
