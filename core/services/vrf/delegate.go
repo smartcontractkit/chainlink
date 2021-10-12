@@ -93,15 +93,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	)
-	lv1 := l.Named("VRFListener")
-	lv2 := l.Named("VRFListenerV2")
+	lV1 := l.Named("VRFListener")
+	lV2 := l.Named("VRFListenerV2")
 
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
-				l:                  lv1,
+				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
 				headBroadcaster:    chain.HeadBroadcaster(),
@@ -119,7 +119,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV2(d.db, lv1),
+				respCount:          GetStartingResponseCountsV2(d.db, lV2),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -127,7 +127,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.Service{&listenerV1{
 				cfg:             chain.Config(),
-				l:               lv2,
+				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
 				db:              d.db,
@@ -146,7 +146,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, lv2),
+				respCount:          getStartingResponseCounts(d.db, lV1),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
