@@ -223,7 +223,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				chainSet),
+				chainSet,
+				globalLogger),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
