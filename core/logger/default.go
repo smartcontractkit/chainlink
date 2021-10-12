@@ -150,11 +150,6 @@ func Panic(args ...interface{}) {
 	skipDefault.Panic(args...)
 }
 
-// PanicIf logs the error if present.
-func PanicIf(err error, msg string) {
-	skipDefault.PanicIf(err, msg)
-}
-
 // Sync flushes any buffered log entries.
 func Sync() error {
 	return Default.Sync()

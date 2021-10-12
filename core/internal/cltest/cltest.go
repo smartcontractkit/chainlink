@@ -218,14 +218,16 @@ type TestApplication struct {
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
+func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptest.Server, string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
+	lggr := logger.TestLogger(t)
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err, "Failed to upgrade WS connection")
+		lggr.PanicIf(err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -243,14 +245,13 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 		}
 	})
 	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
 
 	u, err := url.Parse(server.URL)
-	logger.PanicIf(err, "Failed to parse url")
+	lggr.PanicIf(err, "Failed to parse url")
 	u.Scheme = "ws"
 
-	return server, u.String(), func() {
-		server.Close()
-	}
+	return server, u.String()
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
