@@ -226,7 +226,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				chainSet),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
-				externalInitiatorManager),
+				externalInitiatorManager,
+				globalLogger),
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
 				globalLogger),

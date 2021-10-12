@@ -49,7 +49,7 @@ func NewDelegate(
 	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
-		logger,
+		logger.Named("DirectRequest"),
 		pipelineRunner,
 		pipelineORM,
 		db,
@@ -88,7 +88,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 
 	svcLogger := d.logger.
-		Named("DirectRequest").
 		With(
 			"contract", concreteSpec.ContractAddress.Address().String(),
 			"jobName", jb.PipelineSpec.JobName,
