@@ -57,7 +57,7 @@ type GeneralOnlyConfig interface {
 	BridgeResponseURL() *url.URL
 	CertFile() string
 	ClientNodeURL() string
-	ClobberNodesFromEnv() bool
+	UseLegacyEthEnvVars() bool
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
@@ -320,6 +320,18 @@ func (c *generalConfig) Validate() error {
 	}
 	if ct, set := c.GlobalChainType(); set && !chains.ChainType(ct).IsValid() {
 		return errors.Errorf("CHAIN_TYPE is invalid: %s", ct)
+	}
+
+	if !c.UseLegacyEthEnvVars() {
+		if c.EthereumURL() != "" {
+			logger.Warn("ETH_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+		}
+		if c.EthereumHTTPURL() != nil {
+			logger.Warn("ETH_HTTP_URL has no effect when USE_LEGACY_ETH_ENV_VARS=false")
+		}
+		if len(c.EthereumSecondaryURLs()) > 0 {
+			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
+		}
 	}
 	return nil
 }
@@ -1061,7 +1073,20 @@ func (c *generalConfig) Port() uint16 {
 
 // DefaultChainID represents the chain ID which jobs will use if one is not explicitly specified
 func (c *generalConfig) DefaultChainID() *big.Int {
-	return c.getWithFallback("DefaultChainID", ParseBigInt).(*big.Int)
+	str := c.viper.GetString(EnvVarName("DefaultChainID"))
+	if str != "" {
+		v, err := ParseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Ignoring invalid value provided for ETH_CHAIN_ID",
+				"value", str,
+				"error", err)
+			return nil
+		}
+		return v.(*big.Int)
+
+	}
+	return nil
 }
 
 func (c *generalConfig) HTTPServerWriteTimeout() time.Duration {
@@ -1531,8 +1556,8 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 	return val.(*big.Int), ok
 }
 
-// ClobberNodesFromEnv will upsert a new chain using the DefaultChainID and
+// UseLegacyEthEnvVars will upsert a new chain using the DefaultChainID and
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
-func (c *generalConfig) ClobberNodesFromEnv() bool {
-	return c.viper.GetBool(EnvVarName("ClobberNodesFromEnv"))
+func (c *generalConfig) UseLegacyEthEnvVars() bool {
+	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
 }

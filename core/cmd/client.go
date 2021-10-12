@@ -149,8 +149,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
 
-	if cfg.ClobberNodesFromEnv() {
-		if err = evm.ClobberNodesFromEnv(gormDB, cfg); err != nil {
+	if cfg.UseLegacyEthEnvVars() {
+		if err = evm.ClobberDBFromEnv(gormDB, cfg); err != nil {
 			return nil, err
 		}
 	}

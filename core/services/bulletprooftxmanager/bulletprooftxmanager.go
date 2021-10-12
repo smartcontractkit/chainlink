@@ -142,7 +142,7 @@ func (b *BulletproofTxManager) Start() (merr error) {
 		if len(keyStates) > 0 {
 			b.logger.Debugw(fmt.Sprintf("BulletproofTxManager: booting with %d keys", len(keyStates)), "keys", keyStates)
 		} else {
-			b.logger.Warnf("BulletproofTxManager: chain %s does not have any eth keys", b.chainID.String())
+			b.logger.Warnf("BulletproofTxManager: chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
