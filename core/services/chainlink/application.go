@@ -178,12 +178,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, explorerClient, telemetryIngressClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
 		subservices = append(subservices, databaseBackup)
 	} else {
-		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
@@ -262,9 +262,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			concretePW,
 			monitoringEndpointGen,
 			chainSet,
+			globalLogger,
 		)
 	} else {
-		logger.Debug("Off-chain reporting disabled")
+		globalLogger.Debug("Off-chain reporting disabled")
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
@@ -280,7 +281,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var feedsService feeds.Service
 	chain, err := chainSet.Default()
 	if err != nil {
-		logger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
 		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
 	}

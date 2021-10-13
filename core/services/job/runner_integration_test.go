@@ -356,6 +356,7 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -395,6 +396,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -450,6 +452,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -487,6 +490,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -518,6 +522,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -551,6 +556,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
