@@ -357,8 +357,8 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		if err != nil {
 			return err
 		}
-		if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-			return errors.Wrapf(err, "DirectRequest: unable to mark log consumed: %v", lb.String())
+		if err2 := l.logBroadcaster.MarkConsumed(tx, lb); err2 != nil {
+			return errors.Wrapf(err2, "DirectRequest: unable to mark log consumed: %v", lb.String())
 		}
 		return nil
 	})
