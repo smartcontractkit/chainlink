@@ -327,8 +327,6 @@ const (
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	var ethClient eth.Client = &eth.NullClient{}
-
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	shutdownSignal := gracefulpanic.NewSignal()
 
@@ -341,6 +339,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
 
+	var ethClient eth.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
@@ -371,6 +370,9 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	}
 	if lggr == nil {
 		lggr = logger.TestLogger(t)
+	}
+	if ethClient == nil {
+		ethClient = eth.NewNullClient(nil, lggr)
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
