@@ -146,7 +146,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc)
+		vuni.cc,
+		logger.TestLogger(t))
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
