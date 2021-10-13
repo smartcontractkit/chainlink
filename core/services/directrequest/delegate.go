@@ -242,7 +242,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			logger.Debugw("DirectRequestListener: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.job.ExternalJobID)
-			l.markLogConsumed(nil, lb)
+			l.markLogConsumed(lb)
 			return
 		}
 
@@ -295,7 +295,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
-		l.markLogConsumed(nil, lb)
+		l.markLogConsumed(lb)
 		return
 	}
 
@@ -312,7 +312,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			l.markLogConsumed(nil, lb)
+			l.markLogConsumed(lb)
 			return
 		}
 	}
@@ -357,7 +357,10 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		if err != nil {
 			return err
 		}
-		return l.logBroadcaster.MarkConsumed(tx, lb)
+		if err := l.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+			return errors.Wrapf(err, "DirectRequest: unable to mark log consumed: %v", lb.String())
+		}
+		return nil
 	})
 	if ctx.Err() != nil {
 		return
@@ -384,15 +387,13 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	if loaded {
 		close(runCloserChannelIf.(chan struct{}))
 	}
-	l.markLogConsumed(nil, lb)
+	l.markLogConsumed(lb)
 }
 
-func (l *listener) markLogConsumed(db *gorm.DB, lb log.Broadcast) {
-	if db == nil {
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		db = l.db.WithContext(ctx)
-	}
+func (l *listener) markLogConsumed(lb log.Broadcast) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	db := l.db.WithContext(ctx)
 	if err := l.logBroadcaster.MarkConsumed(db, lb); err != nil {
 		logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
 	}

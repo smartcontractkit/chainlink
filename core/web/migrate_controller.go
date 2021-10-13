@@ -377,16 +377,14 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					dg.SetEdge(dg.NewEdge(last, n))
 				}
 				last = n
-			}
-			if tpe == job.DirectRequest {
 
-				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
-				attrs := map[string]string{
+				template1 := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				attrs1 := map[string]string{
 					"type": "ethabiencode",
 					"abi":  "fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)",
-					"data": template,
+					"data": template1,
 				}
-				replacements["\""+template+"\""] = fmt.Sprintf(`{
+				replacements["\""+template1+"\""] = fmt.Sprintf(`{
 "requestId":          $(decode_log.requestId),
 "payment":            $(decode_log.payment),
 "callbackAddress":    $(decode_log.callbackAddr),
@@ -396,7 +394,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 }
 `, last.DOTID())
 
-				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs)
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("encode_tx_%d", i), attrs1)
 				dg.AddNode(n)
 				if last != nil {
 					dg.SetEdge(dg.NewEdge(last, n))
