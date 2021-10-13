@@ -247,6 +247,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			db,
 			chainSet,
+			globalLogger,
 		)
 	}
 
