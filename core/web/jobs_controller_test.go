@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -90,6 +90,34 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			assert.Contains(t, string(b), tc.expectedErr.Error())
 		})
 	}
+}
+
+func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
+	app, client := setupJobsControllerTests(t)
+	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	n := 10
+
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			body, err := json.Marshal(web.CreateJobRequest{
+				TOML: fmt.Sprintf(testspecs.DirectRequestSpecNoExternalJobID, i),
+			})
+			require.NoError(t, err)
+
+			t.Logf("POSTing %d", i)
+			r, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+			defer cleanup()
+			require.Equal(t, http.StatusOK, r.StatusCode)
+		}(i)
+	}
+	wg.Wait()
+	cltest.AssertCount(t, app.GetDB(), job.DirectRequestSpec{}, int64(n))
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {
@@ -451,21 +479,23 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFileDB job.Job
+	var jb job.Job
 	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
+	err = tree.Unmarshal(&jb)
 	require.NoError(t, err)
 	var ocrSpec job.OffchainReportingOracleSpec
 	err = tree.Unmarshal(&ocrSpec)
 	require.NoError(t, err)
-	ocrJobSpecFromFileDB.OffchainreportingOracleSpec = &ocrSpec
-	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
-	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
-
-	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	jb.OffchainreportingOracleSpec = &ocrSpec
+	jb.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
+	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
-	jb2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return app, client, ocrJobSpecFromFileDB, jb.ID, ereJobSpecFromFileDB, jb2.ID
+	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	require.NoError(t, err)
+	err = app.AddJobV2(context.Background(), &erejb)
+	require.NoError(t, err)
+
+	return app, client, jb, jb.ID, erejb, erejb.ID
 }

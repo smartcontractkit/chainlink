@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
@@ -89,7 +90,9 @@ func mustInsertConfirmedEthTx(t *testing.T, db *gorm.DB, nonce int64, fromAddres
 func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
@@ -137,8 +140,10 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
+	sqlxdb := postgres.UnwrapGormDB(db)
+
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	state := cltest.MustGetStateForKey(t, ethKeyStore, key)
@@ -506,7 +511,9 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -566,7 +573,9 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -624,8 +633,9 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
+	sqlxdb := postgres.UnwrapGormDB(db)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -655,7 +665,9 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -914,7 +926,9 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -972,7 +986,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -1248,8 +1264,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
+	sqlxdb := postgres.UnwrapGormDB(db)
+
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(500)
@@ -1907,8 +1925,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
+	sqlxdb := postgres.UnwrapGormDB(db)
+
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -2046,7 +2066,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -2225,7 +2247,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	config := newTestChainScopedConfig(t)
@@ -2332,7 +2356,9 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	sqlxdb := postgres.UnwrapGormDB(db)
+
+	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	state := cltest.MustGetStateForKey(t, ethKeyStore, key)

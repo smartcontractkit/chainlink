@@ -7,12 +7,14 @@ import (
 	"sync"
 	"time"
 
-	heaps "github.com/theodesp/go-heaps"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	heaps "github.com/theodesp/go-heaps"
+	"github.com/theodesp/go-heaps/pairing"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -25,8 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/theodesp/go-heaps/pairing"
-	"gorm.io/gorm"
 )
 
 var (
@@ -312,15 +312,14 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = postgres.NewGormTransactionManager(lsn.db).Transact(func(ctx context.Context) error {
-			tx := postgres.TxFromContext(ctx, lsn.db)
-			if _, err = lsn.pipelineRunner.InsertFinishedRun(postgres.UnwrapGorm(tx), run, true); err != nil {
+		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(func(tx postgres.Queryer) error {
+			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err != nil {
 				return err
 			}
-			if err = lsn.logBroadcaster.MarkConsumed(tx, req.lb); err != nil {
+			if err = lsn.logBroadcaster.MarkConsumed(req.lb, postgres.WithQueryer(tx)); err != nil {
 				return err
 			}
-			_, err = lsn.txm.CreateEthTransaction(tx, bulletprooftxmanager.NewTx{
+			_, err = lsn.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 				FromAddress:    fromAddress,
 				ToAddress:      lsn.coordinator.Address(),
 				EncodedPayload: hexutil.MustDecode(payload),
@@ -331,7 +330,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
-			})
+			}, postgres.WithQueryer(tx))
 			return err
 		})
 		if err != nil {
@@ -467,9 +466,7 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
 		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
@@ -545,9 +542,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 }
 
 func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	err := lsn.logBroadcaster.MarkConsumed(lb)
 	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 

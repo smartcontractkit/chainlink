@@ -179,5 +179,8 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 		jobLggr.Errorw("Error running pipeline for webhook job", "error", err)
 		return 0, err
 	}
+	if run.ID == 0 {
+		panic("expected run to have non-zero id")
+	}
 	return run.ID, nil
 }

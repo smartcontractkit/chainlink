@@ -3,8 +3,8 @@ package keystore
 import (
 	"testing"
 
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -19,7 +19,7 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 
 type ExportedEncryptedKeyRing = encryptedKeyRing
 
-func ExposedNewMaster(t *testing.T, db *gorm.DB) *master {
+func ExposedNewMaster(t *testing.T, db *sqlx.DB) *master {
 	return newMaster(db, utils.FastScryptParams, logger.TestLogger(t))
 }
 

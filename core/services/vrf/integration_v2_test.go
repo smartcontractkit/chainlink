@@ -243,7 +243,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		jb, err := vrf.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
 		require.NoError(t, err)
-		jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
+		err = app.JobSpawner().CreateJob(&jb)
 		require.NoError(t, err)
 		registerProvingKeyHelper(t, uni, vrfkey)
 		jbs = append(jbs, jb)
@@ -415,7 +415,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
+	err = app.JobSpawner().CreateJob(&jb)
 	require.NoError(t, err)
 
 	registerProvingKeyHelper(t, uni, vrfkey)
@@ -589,7 +589,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
-	jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
+	err = app.JobSpawner().CreateJob(&jb)
 	require.NoError(t, err)
 	time.Sleep(1 * time.Second)
 
