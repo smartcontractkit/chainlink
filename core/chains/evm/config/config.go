@@ -340,7 +340,7 @@ func (c *chainScopedConfig) EvmGasLimitDefault() uint64 {
 		return val
 	}
 	if c.persistedCfg.EvmGasLimitDefault.Valid {
-		c.logPersistedOverrideOnce("EvmGasLimitDefault", c.persistedCfg.EvmGasLimitDefault)
+		c.logPersistedOverrideOnce("EvmGasLimitDefault", c.persistedCfg.EvmGasLimitDefault.Int64)
 		return uint64(c.persistedCfg.EvmGasLimitDefault.Int64)
 	}
 	return c.defaultSet.gasLimitDefault

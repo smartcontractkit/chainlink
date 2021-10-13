@@ -13,12 +13,6 @@ import (
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-
-	// We've specified a later version in go.mod than is currently used by gorm
-	// to get this fix in https://github.com/jackc/pgx/pull/975.
-	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
-	// bumps their version to 4.12, we can remove this.
-	_ "github.com/jackc/pgx/v4"
 )
 
 type Config struct {

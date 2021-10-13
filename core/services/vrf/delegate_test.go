@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -69,11 +70,12 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db)
+	sqlxdb := postgres.UnwrapGormDB(db)
+	prm := pipeline.NewORM(sqlxdb)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(sqlxdb, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks, lggr)
+	jrm := job.NewORM(sqlxdb, cc, prm, ks, lggr)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
@@ -152,7 +154,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	jb, err = vuni.jrm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
@@ -175,10 +177,11 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
+	sqlxdb := postgres.UnwrapGormDB(db)
 	lggr := logger.TestLogger(t)
 	counts := getStartingResponseCounts(db, lggr)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(sqlxdb, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))
@@ -438,7 +441,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
-		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
+		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
@@ -546,7 +549,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
-	err = vuni.prm.DB().Find(&ethTxes).Error
+	err = vuni.prm.DB().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }

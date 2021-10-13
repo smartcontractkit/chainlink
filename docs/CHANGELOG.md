@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Log to Disk
-
-This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
 ### Added
 
@@ -174,12 +171,18 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 
 ### Fixed
 
-Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+- Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+- Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
+
 
 ### Changed
 
 - Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
 - Added WebAuthn support for the Operator UI and corresponding support in the Go backend
+
+#### Log to Disk
+
+This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
 #### Async support in external adapters
 

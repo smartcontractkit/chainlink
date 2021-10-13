@@ -17,7 +17,7 @@ import (
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	orm := bulletprooftxmanager.NewORM(postgres.UnwrapGormDB(db))
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 

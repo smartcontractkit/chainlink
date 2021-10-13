@@ -7,36 +7,38 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore --structname ORM --filename orm.go
 
 type ORM interface {
 	FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
-	WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID int32) (bool, error)
-	MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error
+	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...postgres.QOpt) (bool, error)
+	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error
 }
 
 type orm struct {
-	db         *gorm.DB
+	db         *sqlx.DB
 	evmChainID utils.Big
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, evmChainID big.Int) *orm {
+func NewORM(db *sqlx.DB, evmChainID big.Int) *orm {
 	return &orm{db, *utils.NewBig(&evmChainID)}
 }
 
-func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex uint, jobID int32) (consumed bool, err error) {
-	q := `
-        SELECT consumed FROM log_broadcasts
-        WHERE block_hash = ?
-        AND log_index = ?
-        AND job_id = ?
-		AND evm_chain_id = ?
+func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...postgres.QOpt) (consumed bool, err error) {
+	query := `
+		SELECT consumed FROM log_broadcasts
+		WHERE block_hash = $1
+		AND log_index = $2
+		AND job_id = $3
+		AND evm_chain_id = $4
     `
 	args := []interface{}{
 		blockHash,
@@ -44,8 +46,8 @@ func (o *orm) WasBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, logIndex 
 		jobID,
 		o.evmChainID,
 	}
-
-	err = tx.Raw(q, args...).Row().Scan(&consumed)
+	q := postgres.NewQ(o.db, qopts...)
+	err = q.QueryRowx(query, args...).Scan(&consumed)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -56,25 +58,29 @@ func (o *orm) FindConsumedLogs(fromBlockNum int64, toBlockNum int64) ([]LogBroad
 	var broadcasts []LogBroadcast
 	query := `
 		SELECT block_hash, log_index, job_id FROM log_broadcasts
-		WHERE block_number >= ?
-		AND block_number <= ?
-		AND evm_chain_id = ?
+		WHERE block_number >= $1
+		AND block_number <= $2
+		AND evm_chain_id = $3
 		AND consumed = true
 	`
-	err := o.db.Raw(query, fromBlockNum, toBlockNum, o.evmChainID).Find(&broadcasts).Error
+	err := o.db.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
 	if err != nil {
 		return make([]LogBroadcast, 0), err
 	}
 	return broadcasts, err
 }
 
-func (o *orm) MarkBroadcastConsumed(tx *gorm.DB, blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32) error {
-	query := tx.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, consumed, evm_chain_id) VALUES (?, ?, ?, ?, NOW(), true, ?)
-    `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
-	if query.Error != nil {
-		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
-	} else if query.RowsAffected == 0 {
+func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
+	q := postgres.NewQ(o.db, qopts...)
+	res, err := q.Exec(`INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, consumed, evm_chain_id) VALUES ($1, $2, $3, $4, NOW(), true, $5)`, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
+	if err != nil {
+		return errors.Wrap(err, "while marking log broadcast as consumed")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "MarkBroadcastConsumed failed")
+	}
+	if rowsAffected == 0 {
 		return errors.Errorf("cannot mark log broadcast as consumed: does not exist")
 	}
 	return nil

@@ -3,8 +3,6 @@ package fluxmonitorv2
 import (
 	"math/big"
 
-	"gorm.io/gorm"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -17,7 +15,7 @@ var FluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI
 
 // ContractSubmitter defines an interface to submit an eth tx.
 type ContractSubmitter interface {
-	Submit(db *gorm.DB, roundID *big.Int, submission *big.Int) error
+	Submit(roundID *big.Int, submission *big.Int) error
 }
 
 // FluxAggregatorContractSubmitter submits the polled answer in an eth tx.
@@ -45,7 +43,7 @@ func NewFluxAggregatorContractSubmitter(
 
 // Submit submits the answer by writing a EthTx for the bulletprooftxmanager to
 // pick up
-func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, submission *big.Int) error {
+func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *big.Int) error {
 	fromAddress, err := c.keyStore.GetRoundRobinAddress()
 	if err != nil {
 		return err
@@ -57,7 +55,7 @@ func (c *FluxAggregatorContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, 
 	}
 
 	return errors.Wrap(
-		c.orm.CreateEthTransaction(db, fromAddress, c.Address(), payload, c.gasLimit),
+		c.orm.CreateEthTransaction(fromAddress, c.Address(), payload, c.gasLimit),
 		"failed to send Eth transaction",
 	)
 }

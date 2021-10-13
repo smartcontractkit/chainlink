@@ -5,8 +5,6 @@ package mocks
 import (
 	big "math/big"
 
-	gorm "gorm.io/gorm"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -15,13 +13,13 @@ type ContractSubmitter struct {
 	mock.Mock
 }
 
-// Submit provides a mock function with given fields: db, roundID, submission
-func (_m *ContractSubmitter) Submit(db *gorm.DB, roundID *big.Int, submission *big.Int) error {
-	ret := _m.Called(db, roundID, submission)
+// Submit provides a mock function with given fields: roundID, submission
+func (_m *ContractSubmitter) Submit(roundID *big.Int, submission *big.Int) error {
+	ret := _m.Called(roundID, submission)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, *big.Int, *big.Int) error); ok {
-		r0 = rf(db, roundID, submission)
+	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int) error); ok {
+		r0 = rf(roundID, submission)
 	} else {
 		r0 = ret.Error(0)
 	}

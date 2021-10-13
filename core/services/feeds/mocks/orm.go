@@ -8,6 +8,8 @@ import (
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 	mock "github.com/stretchr/testify/mock"
 
+	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -16,13 +18,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// ApproveJobProposal provides a mock function with given fields: ctx, id, externalJobID, status
-func (_m *ORM) ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status feeds.JobProposalStatus) error {
-	ret := _m.Called(ctx, id, externalJobID, status)
+// ApproveJobProposal provides a mock function with given fields: id, externalJobID, status, qopts
+func (_m *ORM) ApproveJobProposal(id int64, externalJobID uuid.UUID, status feeds.JobProposalStatus, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id, externalJobID, status)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, uuid.UUID, feeds.JobProposalStatus) error); ok {
-		r0 = rf(ctx, id, externalJobID, status)
+	if rf, ok := ret.Get(0).(func(int64, uuid.UUID, feeds.JobProposalStatus, ...postgres.QOpt) error); ok {
+		r0 = rf(id, externalJobID, status, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -30,13 +39,20 @@ func (_m *ORM) ApproveJobProposal(ctx context.Context, id int64, externalJobID u
 	return r0
 }
 
-// CancelJobProposal provides a mock function with given fields: ctx, id
-func (_m *ORM) CancelJobProposal(ctx context.Context, id int64) error {
-	ret := _m.Called(ctx, id)
+// CancelJobProposal provides a mock function with given fields: id, qopts
+func (_m *ORM) CancelJobProposal(id int64, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(int64, ...postgres.QOpt) error); ok {
+		r0 = rf(id, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -278,13 +294,20 @@ func (_m *ORM) UpdateJobProposalSpec(ctx context.Context, id int64, spec string)
 	return r0
 }
 
-// UpdateJobProposalStatus provides a mock function with given fields: ctx, id, status
-func (_m *ORM) UpdateJobProposalStatus(ctx context.Context, id int64, status feeds.JobProposalStatus) error {
-	ret := _m.Called(ctx, id, status)
+// UpdateJobProposalStatus provides a mock function with given fields: id, status, qopts
+func (_m *ORM) UpdateJobProposalStatus(id int64, status feeds.JobProposalStatus, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id, status)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, feeds.JobProposalStatus) error); ok {
-		r0 = rf(ctx, id, status)
+	if rf, ok := ret.Get(0).(func(int64, feeds.JobProposalStatus, ...postgres.QOpt) error); ok {
+		r0 = rf(id, status, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
