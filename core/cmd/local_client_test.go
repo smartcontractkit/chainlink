@@ -57,7 +57,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	client := cmd.Client{
 		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
 	}
 
@@ -128,7 +128,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-			apiPrompt := &cltest.MockAPIInitializer{}
+			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -174,7 +174,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	apiPrompt := &cltest.MockAPIInitializer{}
+	apiPrompt := cltest.NewMockAPIInitializer(t)
 	client := cmd.Client{
 		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -236,7 +236,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			prompter := new(cmdMocks.Prompter)
 			prompter.On("IsTerminal").Return(false).Once().Maybe()
 
-			apiPrompt := &cltest.MockAPIInitializer{}
+			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -322,7 +322,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	client := cmd.Client{
 		Config:                 config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
 	}
 
@@ -390,7 +390,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			client := cmd.Client{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
-				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
 			}
 

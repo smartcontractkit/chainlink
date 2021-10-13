@@ -247,7 +247,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// set up user
-	mockUser := cltest.MustRandomUser()
+	mockUser := cltest.MustRandomUser(t)
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))

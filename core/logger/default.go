@@ -145,16 +145,6 @@ func Fatalw(msg string, keysAndValues ...interface{}) {
 	skipDefault.Fatalw(msg, keysAndValues...)
 }
 
-// Panic logs a panic message then panics.
-func Panic(args ...interface{}) {
-	skipDefault.Panic(args...)
-}
-
-// PanicIf logs the error if present.
-func PanicIf(err error, msg string) {
-	skipDefault.PanicIf(err, msg)
-}
-
 // Sync flushes any buffered log entries.
 func Sync() error {
 	return Default.Sync()

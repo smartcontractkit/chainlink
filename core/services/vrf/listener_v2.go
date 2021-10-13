@@ -227,7 +227,7 @@ func (lsn *listenerV2) runHeadListener(unsubscribe func()) {
 }
 
 func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
-	lsn.l.Infow("VRFListenerV2: listening for run requests",
+	lsn.l.Infow("Listening for run requests",
 		"minConfs", minConfs)
 	for {
 		select {
@@ -259,7 +259,7 @@ func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
 	defer cancel()
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
@@ -278,7 +278,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestId.String()] > 0 {
-		lsn.l.Warnw("VRFListenerV2: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
@@ -307,7 +307,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -330,23 +330,23 @@ func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
-	lsn.l.ErrorIf(err, fmt.Sprintf("VRFListenerV2: unable to mark log %v as consumed", lb.String()))
+	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
 func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, lb log.Broadcast) {
 	// Check if the vrf req has already been fulfilled
 	callback, err := lsn.coordinator.GetCommitment(nil, req.RequestId)
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId, "callback", callback)
+		lsn.l.Infow("Request already fulfilled", "txHash", req.Raw.TxHash, "subID", req.SubId, "callback", callback)
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
-	lsn.l.Infow("VRFListenerV2: received log request",
+	lsn.l.Infow("Received log request",
 		"log", lb.String(),
 		"reqID", req.RequestId.String(),
 		"txHash", req.Raw.TxHash,
@@ -373,11 +373,11 @@ func (lsn *listenerV2) ProcessV2VRFRequest(req *vrf_coordinator_v2.VRFCoordinato
 	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-			logger.Errorw("VRFListenerV2: failed mark consumed", "err", err)
+			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
-		logger.Errorw("VRFListenerV2: failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run", "err", err)
 	}
 }
 
@@ -393,7 +393,7 @@ func (lsn *listenerV2) Close() error {
 func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListenerV2: log mailbox is over capacity - dropped the oldest log")
+		lsn.l.Error("Log mailbox is over capacity - dropped the oldest log")
 	}
 }
 

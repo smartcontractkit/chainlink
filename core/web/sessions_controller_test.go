@@ -122,7 +122,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cookie := cltest.MustGenerateSessionCookie(test.sessionID)
+			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
 			request, err := http.NewRequest("DELETE", config.ClientNodeURL()+"/sessions", nil)
 			assert.NoError(t, err)
 			request.AddCookie(cookie)
@@ -150,7 +150,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	correctSession := sessions.NewSession()
 	require.NoError(t, app.GetDB().Save(&correctSession).Error)
-	cookie := cltest.MustGenerateSessionCookie(correctSession.ID)
+	cookie := cltest.MustGenerateSessionCookie(t, correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
