@@ -62,7 +62,7 @@ RUN apt-get update && apt-get install -y ca-certificates wget gnupg lsb-release
 RUN wget --quiet -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
  && wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
  && echo "deb http://apt.postgresql.org/pub/repos/apt/ `lsb_release -cs`-pgdg main" |tee /etc/apt/sources.list.d/pgdg.list \
- && apt-get update && apt-get install -y postgresql-client-13 \
+ && apt-get update && apt-get install -y postgresql-client-14 \
  && apt-get clean all
 
 COPY --from=1 /go/bin/chainlink /usr/local/bin/

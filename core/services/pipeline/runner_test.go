@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -275,6 +277,89 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_PipelineRunner_CBORParse(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
+
+	t.Run("diet mode, empty CBOR", func(t *testing.T) {
+		s := `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=diet]
+
+decode_log -> decode_cbor;
+`
+		d, err := pipeline.Parse(s)
+		require.NoError(t, err)
+
+		spec := pipeline.Spec{DotDagSource: s}
+		global := make(map[string]interface{})
+		jobRun := make(map[string]interface{})
+		global["jobRun"] = jobRun
+		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef28000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000")
+		jobRun["logTopics"] = []common.Hash{
+			common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+			common.HexToHash("0x3963386131316165393962363463373161663333376235643831633737353230"),
+		}
+		vars := pipeline.NewVarsFrom(global)
+
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+		require.NoError(t, err)
+		require.Len(t, trrs, len(d.Tasks))
+
+		finalResults := trrs.FinalResult()
+		require.Len(t, finalResults.Values, 1)
+		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
+		require.Len(t, finalResults.Errors, 1)
+		assert.Nil(t, finalResults.Errors[0])
+	})
+
+	t.Run("standard mode, string value", func(t *testing.T) {
+		s := `
+decode_log  [type="ethabidecodelog"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"
+             abi="OracleRequest(address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes cborPayload)"]
+
+decode_cbor [type="cborparse"
+             data="$(decode_log.cborPayload)"
+			 mode=standard]
+
+decode_log -> decode_cbor;
+`
+		d, err := pipeline.Parse(s)
+		require.NoError(t, err)
+
+		spec := pipeline.Spec{DotDagSource: s}
+		global := make(map[string]interface{})
+		jobRun := make(map[string]interface{})
+		global["jobRun"] = jobRun
+		jobRun["logData"] = hexutil.MustDecode("0x0000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d17a526ff5d8f916fa2f4a218f6ce0a6e410a0d7823f8238979f8579c2145fd6f0000000000000000000000000000000000000000000000000de0b6b3a76400000000000000000000000000009c26cc46f57667cba75556014c8e0d5ed7c5b83d64ef935700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000006148ef2800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000463666F6F00000000000000000000000000000000000000000000000000000000")
+		jobRun["logTopics"] = []common.Hash{
+			common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
+			common.HexToHash("0x3963386131316165393962363463373161663333376235643831633737353230"),
+		}
+		vars := pipeline.NewVarsFrom(global)
+
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
+		require.NoError(t, err)
+		require.Len(t, trrs, len(d.Tasks))
+
+		finalResults := trrs.FinalResult()
+		require.Len(t, finalResults.Values, 1)
+		assert.Equal(t, "foo", finalResults.Values[0])
+		require.Len(t, finalResults.Errors, 1)
+		assert.Nil(t, finalResults.Errors[0])
+	})
 }
 
 func Test_PipelineRunner_HandleFaults(t *testing.T) {

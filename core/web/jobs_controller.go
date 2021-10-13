@@ -89,6 +89,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
+		return
 	}
 
 	var jb job.Job
@@ -114,6 +115,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jb, err = webhook.ValidatedWebhookSpec(request.TOML, jc.App.GetExternalInitiatorManager())
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType))
+		return
 	}
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

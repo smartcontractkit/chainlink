@@ -698,31 +698,6 @@ type Configuration struct {
 	DeletedAt *gorm.DeletedAt
 }
 
-// Merge returns a new map with all keys merged from left to right
-// On conflicting keys, rightmost inputs will clobber leftmost inputs
-func Merge(inputs ...JSON) (JSON, error) {
-	output := make(map[string]interface{})
-
-	for _, input := range inputs {
-		switch v := input.Result.Value().(type) {
-		case map[string]interface{}:
-			for key, value := range v {
-				output[key] = value
-			}
-		case nil:
-		default:
-			return JSON{}, errors.New("can only merge JSON objects")
-		}
-	}
-
-	bytes, err := json.Marshal(output)
-	if err != nil {
-		return JSON{}, err
-	}
-
-	return JSON{Result: gjson.ParseBytes(bytes)}, nil
-}
-
 // MergeExceptResult does a merge, but will never clobber the field called "result"
 // On conflicting keys, rightmost inputs will clobber leftmost inputs EXCEPT if the field is named "result", in which case the leftmost result wins
 // This is needed to work around idiosyncrasies in the V1 job pipeline where "result" has special meaning
@@ -739,6 +714,31 @@ func MergeExceptResult(inputs ...JSON) (JSON, error) {
 						continue
 					}
 				}
+				output[key] = value
+			}
+		case nil:
+		default:
+			return JSON{}, errors.New("can only merge JSON objects")
+		}
+	}
+
+	bytes, err := json.Marshal(output)
+	if err != nil {
+		return JSON{}, err
+	}
+
+	return JSON{Result: gjson.ParseBytes(bytes)}, nil
+}
+
+// Merge returns a new map with all keys merged from left to right
+// On conflicting keys, rightmost inputs will clobber leftmost inputs
+func Merge(inputs ...JSON) (JSON, error) {
+	output := make(map[string]interface{})
+
+	for _, input := range inputs {
+		switch v := input.Result.Value().(type) {
+		case map[string]interface{}:
+			for key, value := range v {
 				output[key] = value
 			}
 		case nil:
