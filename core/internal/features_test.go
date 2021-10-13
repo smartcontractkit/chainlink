@@ -2145,13 +2145,14 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	httpAwaiter.AwaitOrFail(t)
 
-	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 4, jobORM, 5*time.Second, 300*time.Millisecond)
 	require.Len(t, runs, 1)
 	run := runs[0]
-	require.Len(t, run.PipelineTaskRuns, 3)
+	require.Len(t, run.PipelineTaskRuns, 4)
 	require.Empty(t, run.PipelineTaskRuns[0].Error)
 	require.Empty(t, run.PipelineTaskRuns[1].Error)
 	require.Empty(t, run.PipelineTaskRuns[2].Error)
+	require.Empty(t, run.PipelineTaskRuns[3].Error)
 }
 
 func TestIntegration_BlockHistoryEstimator(t *testing.T) {

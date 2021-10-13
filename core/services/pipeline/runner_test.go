@@ -280,9 +280,10 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 }
 
 func Test_PipelineRunner_CBORParse(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	t.Run("diet mode, empty CBOR", func(t *testing.T) {
 		s := `
@@ -311,7 +312,7 @@ decode_log -> decode_cbor;
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.Default)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
@@ -349,7 +350,7 @@ decode_log -> decode_cbor;
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.Default)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 

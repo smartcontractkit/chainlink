@@ -344,13 +344,25 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"logData":        request.Raw.Data,
 		},
 	})
-	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, &run, *logger.Default, true)
-	l.markLogConsumed(nil, lb)
+	run, trrs, err := l.pipelineRunner.ExecuteRun(ctx, *l.job.PipelineSpec, vars, *logger.Default)
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		logger.Errorw("DirectRequest: failed executing run", "err", err)
+		logger.Errorw("DirectRequest failed to create run", "err", err)
+	}
+	ctx, cancel = context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	defer cancel()
+	err = postgres.GormTransaction(ctx, l.db, func(tx *gorm.DB) error {
+		_, err = l.pipelineRunner.InsertFinishedRun(tx, run, trrs, true)
+		if err != nil {
+			return err
+		}
+		return l.logBroadcaster.MarkConsumed(tx, lb)
+	})
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
+		logger.Errorw("DirectRequest failed to create run", "err", err)
 	}
 }
 
