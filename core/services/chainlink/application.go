@@ -283,7 +283,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
+		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger)
 	}
 
 	app := &ChainlinkApplication{
