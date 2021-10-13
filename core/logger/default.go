@@ -117,10 +117,6 @@ func Error(args ...interface{}) {
 	skipDefault.Error(args...)
 }
 
-func ErrorIf(err error, msg string) {
-	skipDefault.ErrorIf(err, msg)
-}
-
 func ErrorIfCalling(f func() error) {
 	skipDefault.ErrorIfCalling(f)
 }

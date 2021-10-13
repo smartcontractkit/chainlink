@@ -77,7 +77,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	orm := pipeline.NewORM(db)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(db, cc, orm, keyStore)
+	jobORM := job.NewORM(db, cc, orm, keyStore, logger.TestLogger(t))
 
 	lggr := logger.TestLogger(t)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, db, cc)
