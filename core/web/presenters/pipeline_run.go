@@ -33,7 +33,8 @@ func (r PipelineRunResource) GetName() string {
 	return "pipelineRun"
 }
 
-func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
+func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunResource {
+	lggr = lggr.Named("PipelineRunResource")
 	var trs []PipelineTaskRunResource
 	for i := range pr.PipelineTaskRuns {
 		trs = append(trs, NewPipelineTaskRunResource(pr.PipelineTaskRuns[i]))
@@ -44,7 +45,7 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 	if pr.Outputs.Valid {
 		outs, ok := pr.Outputs.Val.([]interface{})
 		if !ok {
-			logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
+			lggr.Errorw(fmt.Sprintf("Unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
 		} else if pr.Outputs.Valid && pr.Outputs.Val != nil {
 			for _, out := range outs {
 				switch v := out.(type) {
@@ -67,7 +68,7 @@ func NewPipelineRunResource(pr pipeline.Run) PipelineRunResource {
 				case nil:
 					outputs = append(outputs, nil)
 				default:
-					logger.Default.Errorw(fmt.Sprintf("PipelineRunResource: unable to process output type %T", out), "out", out)
+					lggr.Errorw(fmt.Sprintf("Unable to process output type %T", out), "out", out)
 				}
 			}
 		}
@@ -141,11 +142,11 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 	}
 }
 
-func NewPipelineRunResources(prs []pipeline.Run) []PipelineRunResource {
+func NewPipelineRunResources(prs []pipeline.Run, lggr logger.Logger) []PipelineRunResource {
 	var out []PipelineRunResource
 
 	for _, pr := range prs {
-		out = append(out, NewPipelineRunResource(pr))
+		out = append(out, NewPipelineRunResource(pr, lggr))
 	}
 
 	return out

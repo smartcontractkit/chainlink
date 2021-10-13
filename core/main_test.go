@@ -20,7 +20,7 @@ func ExampleRun() {
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
 		Config:                 tc,
 		AppFactory:             cmd.ChainlinkAppFactory{},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cmd.ChainlinkRunner{},
 		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},

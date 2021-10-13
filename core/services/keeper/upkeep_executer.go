@@ -81,7 +81,7 @@ func NewUpkeepExecuter(
 		config:          config,
 		orm:             orm,
 		pr:              pr,
-		logger:          logger,
+		logger:          logger.Named("UpkeepExecuter"),
 	}
 }
 

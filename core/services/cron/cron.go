@@ -24,8 +24,9 @@ type Cron struct {
 func NewCronFromJobSpec(
 	jobSpec job.Job,
 	pipelineRunner pipeline.Runner,
+	logger logger.Logger,
 ) (*Cron, error) {
-	cronLogger := logger.Default.With(
+	cronLogger := logger.Named("Cron").With(
 		"jobID", jobSpec.ID,
 		"schedule", jobSpec.CronSpec.CronSchedule,
 	)
@@ -41,7 +42,7 @@ func NewCronFromJobSpec(
 
 // Start implements the job.Service interface.
 func (cr *Cron) Start() error {
-	cr.logger.Debug("Cron: Starting")
+	cr.logger.Debug("Starting")
 
 	_, err := cr.cronRunner.AddFunc(cr.jobSpec.CronSpec.CronSchedule, cr.runPipeline)
 	if err != nil {
@@ -55,7 +56,7 @@ func (cr *Cron) Start() error {
 // Close implements the job.Service interface. It stops this job from
 // running and cleans up resources.
 func (cr *Cron) Close() error {
-	cr.logger.Debug("Cron: Closing")
+	cr.logger.Debug("Closing")
 	cr.cronRunner.Stop()
 	return nil
 }

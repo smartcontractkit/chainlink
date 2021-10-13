@@ -52,14 +52,14 @@ func NewEthResender(lggr logger.Logger, db *gorm.DB, ethClient eth.Client, pollI
 		*ethClient.ChainID(),
 		pollInterval,
 		config,
-		lggr,
+		lggr.Named("EthResender"),
 		make(chan struct{}),
 		make(chan struct{}),
 	}
 }
 
 func (er *EthResender) Start() {
-	er.logger.Debugf("EthResender: Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
+	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.config.EthTxResendAfterThreshold())
 	go er.runLoop()
 }
 
@@ -72,7 +72,7 @@ func (er *EthResender) runLoop() {
 	defer close(er.chDone)
 
 	if err := er.resendUnconfirmed(); err != nil {
-		er.logger.Warnw("EthResender: failed to resend unconfirmed transactions", "err", err)
+		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
 	ticker := time.NewTicker(utils.WithJitter(er.interval))
@@ -83,7 +83,7 @@ func (er *EthResender) runLoop() {
 			return
 		case <-ticker.C:
 			if err := er.resendUnconfirmed(); err != nil {
-				er.logger.Warnw("EthResender: failed to resend unconfirmed transactions", "err", err)
+				er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 			}
 		}
 	}
@@ -103,7 +103,7 @@ func (er *EthResender) resendUnconfirmed() error {
 		return nil
 	}
 
-	er.logger.Infow(fmt.Sprintf("EthResender: re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
+	er.logger.Infow(fmt.Sprintf("Re-sending %d unconfirmed transactions that were last sent over %s ago. These transactions are taking longer than usual to be mined. %s", len(attempts), ageThreshold, static.EthNodeConnectivityProblemLabel), "n", len(attempts))
 
 	reqs := make([]rpc.BatchElem, len(attempts))
 	ethTxIDs := make([]int64, len(attempts))
@@ -128,7 +128,7 @@ func (er *EthResender) resendUnconfirmed() error {
 			j = len(reqs)
 		}
 
-		er.logger.Debugw(fmt.Sprintf("EthResender: batch resending transactions %v thru %v", i, j))
+		er.logger.Debugw(fmt.Sprintf("Batch resending transactions %v thru %v", i, j))
 
 		ctx, cancel := eth.DefaultQueryCtx()
 		if err := er.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
@@ -188,5 +188,5 @@ func logResendResult(lggr logger.Logger, reqs []rpc.BatchElem) {
 			nFatal++
 		}
 	}
-	logger.Debugw("EthResender: completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
+	lggr.Debugw("Completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
 }

@@ -218,14 +218,16 @@ type TestApplication struct {
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
+func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptest.Server, string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
+	lggr := logger.TestLogger(t)
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err, "Failed to upgrade WS connection")
+		lggr.PanicIf(err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -243,14 +245,13 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 		}
 	})
 	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
 
 	u, err := url.Parse(server.URL)
-	logger.PanicIf(err, "Failed to parse url")
+	lggr.PanicIf(err, "Failed to parse url")
 	u.Scheme = "ws"
 
-	return server, u.String(), func() {
-		server.Close()
-	}
+	return server, u.String()
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
@@ -576,10 +577,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
-		CookieAuthenticator:            MockCookieAuthenticator{},
+		CookieAuthenticator:            MockCookieAuthenticator{t: ta.t},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
@@ -593,7 +594,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
@@ -1086,12 +1087,12 @@ func DecodeSessionCookie(value string) (string, error) {
 	return value, nil
 }
 
-func MustGenerateSessionCookie(value string) *http.Cookie {
+func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
@@ -1225,10 +1226,10 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	}
 }
 
-func MustParseURL(input string) *url.URL {
+func MustParseURL(t *testing.T, input string) *url.URL {
 	u, err := url.Parse(input)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return u
 }
