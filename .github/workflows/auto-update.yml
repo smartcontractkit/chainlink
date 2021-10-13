@@ -1,26 +1,16 @@
 on:
-    # Run on every push on every branch
-    push:
-        branches-ignore:
-            # Ignore branches automatically created by github-rebase
-            - rebase-pull-request**
-            - cherry-pick-rebase-pull-request**
-    # Run when pull requests get labeled
-    pull_request:
-        types: [labeled]
+  push:
+    branches:
+      - develop
 
 jobs:
-    auto-rebase:
-        name: AutoRebase
-        runs-on: ubuntu-latest
-        steps:
-            - uses: smartcontractkit/AutoRebase@v0.1
-              with:
-                  # We can't use the built-in secrets.GITHUB_TOKEN yet because of this limitation:
-                  # https://github.community/t5/GitHub-Actions/Triggering-a-new-workflow-from-another-workflow/td-p/31676
-                  # In the meantime, use a token granting write access on the repo:
-                  # - a GitHub App token
-                  #   See https://github.com/marketplace/actions/github-app-token.
-                  # - a personal access token
-                  #   See https://help.github.com/en/articles/creating-a-personal-access-token-for-the-command-line.
-                  github_token: ${{ secrets.AUTOREBASE_TOKEN }}
+  autoupdate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Automatically update PR
+        uses: smartcontractkit/update-pr-branch@master
+        with:
+          token: ${{ secrets.AUTOREBASE_TOKEN }}
+          base: 'develop'
+          required_approval_count: 1
+          require_passed_checks: false
