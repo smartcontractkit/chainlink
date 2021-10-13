@@ -216,7 +216,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 }
 
 func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
-	lsn.l.Infow("VRFListener: listening for run requests",
+	lsn.l.Infow("Listening for run requests",
 		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
 		"minConfs", minConfs)
 	for {
@@ -245,7 +245,7 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 }
 
 func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
-	lsn.l.Infow("VRFListener: log received", lb.String(), lb.DecodedLog())
+	lsn.l.Infow("Log received", lb.String(), lb.DecodedLog())
 	if v, ok := lb.DecodedLog().(*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled); ok {
 		if !lsn.shouldProcessLog(lb) {
 			return
@@ -263,7 +263,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	req, err := lsn.coordinator.ParseRandomnessRequest(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("VRFListener: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -287,7 +287,7 @@ func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
 	defer cancel()
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
@@ -299,7 +299,7 @@ func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
 	defer cancel()
 
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
-	lsn.l.ErrorIf(err, fmt.Sprintf("VRFListener: unable to mark log %v as consumed", lb.String()))
+	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
 func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest, minConfs uint32) uint64 {
@@ -314,7 +314,7 @@ func (lsn *listenerV1) getConfirmedAt(req *solidity_vrf_coordinator_interface.VR
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestID] > 0 {
-		lsn.l.Warnw("VRFListener: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
@@ -343,16 +343,16 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	// so we don't process the request.
 	callback, err := lsn.coordinator.Callbacks(nil, req.RequestID)
 	if err != nil {
-		lsn.l.Errorw("VRFListener: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
+		lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.Raw.TxHash)
 	} else if utils.IsEmpty(callback.SeedAndBlockNum[:]) {
 		// If seedAndBlockNumber is zero then the response has been fulfilled
 		// and we should skip it
-		lsn.l.Infow("VRFListener: request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
+		lsn.l.Infow("Request already fulfilled", "txHash", req.Raw.TxHash, "reqID", req.RequestID)
 		lsn.markLogAsConsumed(lb)
 		return
 	}
 
-	lsn.l.Infow("VRFListener: received log request",
+	lsn.l.Infow("Received log request",
 		"log", lb.String(),
 		"reqID", hex.EncodeToString(req.RequestID[:]),
 		"keyHash", hex.EncodeToString(req.KeyHash[:]),
@@ -382,11 +382,11 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
 		// Always mark consumed regardless of whether the proof failed or not.
 		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
-			logger.Errorw("VRFListener: failed mark consumed", "err", err)
+			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
 	}); err != nil {
-		logger.Errorw("VRFListener: failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run", "err", err)
 	}
 }
 
@@ -403,7 +403,7 @@ func (lsn *listenerV1) Close() error {
 func (lsn *listenerV1) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListener: l mailbox is over capacity - dropped the oldest l")
+		lsn.l.Error("l mailbox is over capacity - dropped the oldest l")
 	}
 }
 
