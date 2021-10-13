@@ -196,10 +196,10 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 }
 
 func (l *listener) processOracleRequests() {
+	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
 		case <-l.chStop:
-			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleRequests.Notify():
 			l.handleReceivedLogs(l.mbOracleRequests)
@@ -208,10 +208,10 @@ func (l *listener) processOracleRequests() {
 }
 
 func (l *listener) processCancelOracleRequests() {
+	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
 		case <-l.chStop:
-			l.shutdownWaitGroup.Done()
 			return
 		case <-l.mbOracleCancelRequests.Notify():
 			l.handleReceivedLogs(l.mbOracleCancelRequests)
