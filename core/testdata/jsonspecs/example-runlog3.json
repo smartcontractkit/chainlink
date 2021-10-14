@@ -1,0 +1,25 @@
+{
+  "initiators": [
+    {
+      "type": "RunLog",
+      "params": { "address": "0x51DE85B0cD5B3684865ECfEedfBAF12777cd0Ff8" }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "my_bridge",
+      "params": { "foo": "bar" }
+    },
+    {
+      "type": "JSONParse",
+      "params": { "path": [ "data", "result" ] }
+    },
+    {
+      "type": "Multiply",
+      "params": { "times": 100 }
+    },
+    { "type": "EthUint256" },
+    { "type": "EthTx" }
+  ],
+  "minPayment": "1000000000000000000"
+}
