@@ -353,7 +353,6 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			if last != nil {
 				dg.SetEdge(dg.NewEdge(last, n2))
 			}
-			last = n2
 
 			attrs2 := map[string]string{
 				"type": pipeline.TaskTypeJSONParse.String(),
@@ -361,6 +360,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				"data": fmt.Sprintf("$(%v)", last.DOTID()),
 			}
 
+			last = n2
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs2)
 		case adapters.TaskTypeMultiply:
 
@@ -383,13 +383,14 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			if last != nil {
 				dg.SetEdge(dg.NewEdge(last, n2))
 			}
-			last = n2
 
 			attrs2 := map[string]string{
 				"type":  pipeline.TaskTypeMultiply.String(),
 				"times": "$(merge_multiply.times)",
-				"input": fmt.Sprintf("$(%v)", last.DOTID()),
+				"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
 			}
+
+			last = n2
 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs2)
 

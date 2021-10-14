@@ -118,7 +118,7 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	type=merge
 	];
 	jsonparse_1 [
-	data="$(merge_jsonparse)"
+	data="$(send_to_bridge_1)"
 	path="$(merge_jsonparse.path)"
 	type=jsonparse
 	];
@@ -128,7 +128,7 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	type=merge
 	];
 	multiply_2 [
-	input="$(merge_multiply)"
+	input="$(jsonparse_1)"
 	times="$(merge_multiply.times)"
 	type=multiply
 	];
