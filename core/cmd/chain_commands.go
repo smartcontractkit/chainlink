@@ -38,10 +38,10 @@ func (p *ChainPresenter) ToRow() []string {
 
 // RenderTable implements TableRenderer
 // Just renders a single row
-func (ps ChainPresenter) RenderTable(rt RendererTable) error {
+func (p ChainPresenter) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Enabled", "Config", "Created", "Updated"}
 	rows := [][]string{}
-	rows = append(rows, ps.ToRow())
+	rows = append(rows, p.ToRow())
 
 	renderList(headers, rows, rt.Writer)
 

@@ -32,10 +32,10 @@ func (p *NodePresenter) ToRow() []string {
 }
 
 // RenderTable implements TableRenderer
-func (ps NodePresenter) RenderTable(rt RendererTable) error {
+func (p NodePresenter) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
 	rows := [][]string{}
-	rows = append(rows, ps.ToRow())
+	rows = append(rows, p.ToRow())
 	renderList(headers, rows, rt.Writer)
 
 	return nil
