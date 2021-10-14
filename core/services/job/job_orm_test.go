@@ -23,7 +23,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -41,8 +40,7 @@ func TestORM(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer orm.Close()
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
@@ -76,28 +74,16 @@ func TestORM(t *testing.T) {
 		assert.NotEqual(t, uuid.UUID{}, returnedSpec.ExternalJobID)
 	})
 
-	dbURL := config.DatabaseURL()
-	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
-	require.NoError(t, err)
-	d, err := db2.DB()
-	require.NoError(t, err)
-	defer d.Close()
-
-	orm2 := job.NewORM(db2, cc, pipeline.NewORM(db2), keyStore)
-	defer orm2.Close()
-
 	t.Run("it deletes jobs from the DB", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		var dbSpecs []job.Job
-		err = db.Find(&dbSpecs).Error
+		err := db.Find(&dbSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, dbSpecs, 2)
 
-		err := orm.DeleteJob(ctx, dbSpec.ID)
+		err = orm.DeleteJob(ctx, dbSpec.ID)
 		require.NoError(t, err)
 
 		err = db.Find(&dbSpecs).Error
@@ -179,8 +165,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer orm.Close()
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -281,8 +266,7 @@ func Test_FindJob(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer orm.Close()
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
@@ -334,8 +318,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer orm.Close()
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
@@ -392,8 +375,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer orm.Close()
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)

@@ -97,11 +97,6 @@ func Panicf(format string, values ...interface{}) {
 	skipDefault.Panic(fmt.Sprintf(format, values...))
 }
 
-// Info logs an info message.
-func Info(args ...interface{}) {
-	skipDefault.Info(args...)
-}
-
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
 	skipDefault.Debug(args...)
@@ -115,10 +110,6 @@ func Warn(args ...interface{}) {
 // Error logs an error message.
 func Error(args ...interface{}) {
 	skipDefault.Error(args...)
-}
-
-func ErrorIf(err error, msg string) {
-	skipDefault.ErrorIf(err, msg)
 }
 
 func ErrorIfCalling(f func() error) {

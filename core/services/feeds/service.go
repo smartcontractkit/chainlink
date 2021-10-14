@@ -60,6 +60,7 @@ type service struct {
 	txm         postgres.TransactionManager
 	connMgr     ConnectionsManager
 	chainSet    evm.ChainSet
+	lggr        logger.Logger
 }
 
 // NewService constructs a new feeds service
@@ -73,7 +74,9 @@ func NewService(
 	ethKeyStore keystore.Eth,
 	cfg Config,
 	chainSet evm.ChainSet,
+	lggr logger.Logger,
 ) *service {
+	lggr = lggr.Named("Feeds")
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
@@ -83,8 +86,9 @@ func NewService(
 		csaKeyStore: csaKeyStore,
 		ethKeyStore: ethKeyStore,
 		cfg:         cfg,
-		connMgr:     newConnectionsManager(),
+		connMgr:     newConnectionsManager(lggr),
 		chainSet:    chainSet,
+		lggr:        lggr,
 	}
 
 	return svc
@@ -201,10 +205,10 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 		return err
 	}
 
-	logger.Infof("Restarting connection")
+	s.lggr.Infof("Restarting connection")
 
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
-		logger.Info("[Feeds] Feeds Manager not connected, attempting to connect")
+		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
 
 	// Establish a new connection
@@ -522,7 +526,7 @@ func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
 			// Sync the node's information with FMS once connected
 			err := s.SyncNodeInfo(mgr.ID)
 			if err != nil {
-				logger.Infof("[Feeds] Error syncing node info: %v", err)
+				s.lggr.Infof("Error syncing node info: %v", err)
 			}
 		},
 	})
