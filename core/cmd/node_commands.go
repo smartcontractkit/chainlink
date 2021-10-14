@@ -31,6 +31,16 @@ func (p *NodePresenter) ToRow() []string {
 	return row
 }
 
+// RenderTable implements TableRenderer
+func (ps NodePresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Name", "Chain ID", "Websocket URL", "Created", "Updated"}
+	rows := [][]string{}
+	rows = append(rows, ps.ToRow())
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
 type NodePresenters []NodePresenter
 
 // RenderTable implements TableRenderer
@@ -57,7 +67,7 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 	name := c.String("name")
 	t := c.String("type")
 	ws := c.String("ws-url")
-	httpURL := c.String("http-url")
+	httpURLStr := c.String("http-url")
 	chainID := c.Int64("chain-id")
 
 	if name == "" {
@@ -72,8 +82,9 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 	if t == "primary" && ws == "" {
 		return cli.errorOut(errors.New("missing --ws-url"))
 	}
-	if httpURL == "" {
-		return cli.errorOut(errors.New("missing --http-url"))
+	var httpURL = null.NewString(httpURLStr, true)
+	if httpURLStr == "" {
+		httpURL = null.NewString(httpURLStr, false)
 	}
 
 	var wsURL null.String
@@ -85,7 +96,7 @@ func (cli *Client) CreateNode(c *cli.Context) (err error) {
 		Name:       name,
 		EVMChainID: *utils.NewBigI(chainID),
 		WSURL:      wsURL,
-		HTTPURL:    null.StringFrom(httpURL),
+		HTTPURL:    httpURL,
 		SendOnly:   t == "sendonly",
 	}
 
