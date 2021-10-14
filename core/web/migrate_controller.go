@@ -290,6 +290,9 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		}
 		n2 := pipeline.NewGraphNode(dg.NewNode(), "decode_cbor", attrs2)
 		dg.AddNode(n2)
+		if last != nil {
+			dg.SetEdge(dg.NewEdge(last, n2))
+		}
 		last = n2
 	}
 
@@ -320,6 +323,17 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			//TODO:----------------------------------
 			//TODO: add merge
 
+			/*
+				merge_1 [
+				        right=<{"path":"......"}>
+				        left="$(cborparse)"
+				        type=merge
+				        ];
+
+				        jsonparse [
+				        path="$(merge_1.path)"
+				        ];
+			*/
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeJSONParse.String(),
 			}

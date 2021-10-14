@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
 
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -22,6 +25,163 @@ import (
 	"github.com/tidwall/gjson"
 	"gopkg.in/guregu/null.v4"
 )
+
+func TestMigrateController_MigrateRunLog(t *testing.T) {
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ETH_DISABLED", true)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	t.Cleanup(cleanup)
+	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
+
+	// Create the v1 job
+	resp, cleanup := client.Post("/v2/specs", strings.NewReader(`
+{
+  "name": "QDT Price Prediction",
+  "initiators": [
+    {
+      "id": 2,
+      "jobSpecId": "3f6c38d0-a080-424a-b18e-a3ef05099ea1",
+      "type": "runlog",
+      "params": {
+        "address": "0xfe8f390ffd3c74870367121ce251c744d3dc01ed",
+			  "requesters": ["0xfe8F390fFD3c74870367121cE251C744d3DC01Ed","0xae8F390fFD3c74870367121cE251C744d3DC01Ed"]
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "testbridge",
+      "params": {
+        "endpoint": "price"
+      }
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "multiply",
+      "params": {
+        "times": 100000000
+      }
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "ethuint256"
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "ethtx"
+    }
+  ]
+}
+`))
+	assert.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var jobV1 presenters.JobSpec
+	cltest.ParseJSONAPIResponse(t, resp, &jobV1)
+
+	expectedDotSpec := `decode_log [
+	abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+	data="$(jobRun.logData)"
+	topics="$(jobRun.logTopics)"
+	type=ethabidecodelog
+	];
+	decode_cbor [
+	data="$(decode_log.data)"
+	mode=diet
+	type=cborparse
+	];
+	merge_1 [
+	right=<{"endpoint":"price"}>
+	type=merge
+	];
+	send_to_bridge_1 [
+	name=testbridge
+	requestData=<{ "data": $(merge_1) }>
+	type=bridge
+	];
+	multiply_1 [
+	times=100000000
+	type=multiply
+	];
+	encode_data_4 [
+	abi="(uint256 value)"
+	data=<{ "value": $(multiply_1) }>
+	type=ethabiencode
+	];
+	encode_tx_4 [
+	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
+	data=<{
+"requestId":          $(decode_log.requestId),
+"payment":            $(decode_log.payment),
+"callbackAddress":    $(decode_log.callbackAddr),
+"callbackFunctionId": $(decode_log.callbackFunctionId),
+"expiration":         $(decode_log.cancelExpiration),
+"data":               $(encode_data_4)
+}
+>
+	type=ethabiencode
+	];
+	send_tx_4 [
+	data="$(encode_tx_4)"
+	to="0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
+	type=ethtx
+	];
+	
+	// Edge definitions.
+	decode_log -> decode_cbor;
+	decode_cbor -> merge_1;
+	merge_1 -> send_to_bridge_1;
+	send_to_bridge_1 -> multiply_1;
+	multiply_1 -> encode_data_4;
+	encode_data_4 -> encode_tx_4;
+	encode_tx_4 -> send_tx_4;
+	`
+
+	// Migrate it
+	resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	assert.Equal(t, 200, resp.StatusCode)
+	var createdJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
+
+	expectedRequesters := models.AddressCollection(make([]common.Address, 0))
+	expectedRequesters = append(expectedRequesters, common.HexToAddress("0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"))
+	expectedRequesters = append(expectedRequesters, common.HexToAddress("0xae8F390fFD3c74870367121cE251C744d3DC01Ed"))
+	contractAddress, _ := ethkey.NewEIP55Address("0xfe8F390fFD3c74870367121cE251C744d3DC01Ed")
+	// v2 job migrated should be identical to v1.
+	assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+	assert.Equal(t, job.DirectRequest.String(), createdJobV2.Type.String())
+	assert.Equal(t, createdJobV2.Name, jobV1.Name)
+	require.NotNil(t, createdJobV2.DirectRequestSpec)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.ContractAddress, contractAddress)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.MinContractPayment, jobV1.MinPayment)
+	assert.Equal(t, createdJobV2.DirectRequestSpec.MinIncomingConfirmations, clnull.Uint32From(10))
+	assert.Equal(t, createdJobV2.DirectRequestSpec.Requesters, expectedRequesters)
+	assert.Equal(t, expectedDotSpec, createdJobV2.PipelineSpec.DotDAGSource)
+
+	// v1 FM job should be archived
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	assert.Equal(t, 404, resp.StatusCode)
+	errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+	require.NotNil(t, errs)
+	require.Len(t, errs.Errors, 1)
+	require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+	// v2 job read should be identical to created.
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+	assert.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var migratedJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+}
 
 func TestMigrateController_Migrate(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
