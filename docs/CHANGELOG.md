@@ -13,6 +13,8 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 
 ### Added
 
+The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
+
 #### `merge` task type
 
 A new task type has been added, called `merge`. It can be used to merge two maps/JSON values together. Merge direction is from right to left such that `right` will clobber values of `left`. If no `left` is provided, it uses the input of the previous task. Example usage as such:
