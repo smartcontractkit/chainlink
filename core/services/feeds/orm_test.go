@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -541,7 +542,7 @@ func createJob(t *testing.T, db *gorm.DB, externalJobID uuid.UUID) *job.Job {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore)
+	orm := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
 	defer orm.Close()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
