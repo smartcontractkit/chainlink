@@ -55,6 +55,7 @@ type orm struct {
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
+	lggr        logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
@@ -64,12 +65,14 @@ func NewORM(
 	chainSet evm.ChainSet,
 	pipelineORM pipeline.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
+	lggr logger.Logger,
 ) *orm {
 	return &orm{
 		db:          db,
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
+		lggr:        lggr.Named("ORM"),
 	}
 }
 
@@ -273,7 +276,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	if err != nil && strings.Contains(err.Error(), ErrViolatesForeignKeyConstraint.Error()) {
 		return
 	}
-	logger.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
+	o.lggr.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
 }
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {

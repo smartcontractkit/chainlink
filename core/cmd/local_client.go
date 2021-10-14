@@ -47,13 +47,12 @@ const ownerPermsMask = os.FileMode(0700)
 
 // RunNode starts the Chainlink core.
 func (cli *Client) RunNode(c *clipkg.Context) error {
-	lggr := logger.Default.Named("boot")
-
 	err := cli.Config.Validate()
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
+	lggr := logger.ProductionLogger(cli.Config).Named("boot")
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
 	if cli.Config.Dev() {
@@ -627,12 +626,12 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	orm := app.SessionORM()
 	user, err := orm.FindUser()
 	if err == nil {
-		logger.Info("No such API user ", user.Email)
+		app.GetLogger().Info("No such API user ", user.Email)
 		return err
 	}
 	err = orm.DeleteUser()
 	if err == nil {
-		logger.Info("Deleted API user ", user.Email)
+		app.GetLogger().Info("Deleted API user ", user.Email)
 	}
 	return err
 }

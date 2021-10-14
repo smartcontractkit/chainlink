@@ -6,12 +6,12 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -92,7 +92,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
 	orm := fluxmonitorv2.NewORM(db, nil, nil)
 
 	address := cltest.NewAddress()
