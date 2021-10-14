@@ -20,7 +20,7 @@ jobs:
       LOG_LEVEL: debug
     services:
       postgres:
-        image: postgres
+        image: postgres:13
         credentials:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}

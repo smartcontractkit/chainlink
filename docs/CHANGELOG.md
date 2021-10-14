@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.15]
+
+**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+
+### Fixed
+
+- Prevent release from clobbering newer databases
+
 ## [0.10.14] - 2021-09-06
 
 ### Added

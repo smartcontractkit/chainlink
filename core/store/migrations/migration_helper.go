@@ -361,6 +361,9 @@ func runMigrationNoDDL(db *gorm.DB, migration *Migration, options *Options) erro
 }
 
 func (g *Gormigrate) createMigrationTableIfNotExists() error {
+	if g.db.Migrator().HasTable("goose_migrations") {
+		return errors.New("a newer version of chainlink has already migrated this database; it is not safe to run this release")
+	}
 	if g.db.Migrator().HasTable(g.options.TableName) {
 		return nil
 	}
