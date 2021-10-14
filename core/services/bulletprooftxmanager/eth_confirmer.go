@@ -673,8 +673,10 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	threshold := int64(ec.config.EvmGasBumpThreshold())
 	bumpDepth := int64(ec.config.EvmGasBumpTxDepth())
 	maxInFlightTransactions := ec.config.EvmMaxInFlightTransactions()
-	etxs, err := FindEthTxsRequiringRebroadcast(ec.db, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.logger, ec.chainID)
-	if err != nil {
+	etxs, err := FindEthTxsRequiringRebroadcast(ctx, ec.db, address, blockHeight, threshold, bumpDepth, maxInFlightTransactions, ec.logger, ec.chainID)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
 	for _, etx := range etxs {
@@ -702,8 +704,10 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ec.db, address, ec.chainID)
-	if err != nil {
+	attempts, err := getInProgressEthTxAttempts(ctx, ec.db, address, ec.chainID)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
@@ -717,10 +721,7 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 	return nil
 }
 
-func getInProgressEthTxAttempts(db *gorm.DB, address gethCommon.Address, chainID big.Int) ([]EthTxAttempt, error) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
+func getInProgressEthTxAttempts(ctx context.Context, db *gorm.DB, address gethCommon.Address, chainID big.Int) ([]EthTxAttempt, error) {
 	var attempts []EthTxAttempt
 	err := db.
 		WithContext(ctx).
@@ -733,11 +734,13 @@ func getInProgressEthTxAttempts(db *gorm.DB, address gethCommon.Address, chainID
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, l logger.Logger, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringRebroadcast(ctx context.Context, db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, l logger.Logger, chainID big.Int) (etxs []EthTx, err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
-	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(db, address, chainID)
-	if err != nil {
+	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx, db, address, chainID)
+	if ctx.Err() != nil {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -745,8 +748,10 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 		l.Infow(fmt.Sprintf("EthConfirmer: Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
 	}
 
-	etxBumps, err := FindEthTxsRequiringGasBump(db, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
-	if err != nil {
+	etxBumps, err := FindEthTxsRequiringGasBump(ctx, db, address, blockNum, gasBumpThreshold, bumpDepth, chainID)
+	if ctx.Err() != nil {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -793,8 +798,9 @@ func FindEthTxsRequiringRebroadcast(db *gorm.DB, address gethCommon.Address, blo
 // FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
-func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address gethCommon.Address, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, db *gorm.DB, address gethCommon.Address, chainID big.Int) (etxs []EthTx, err error) {
 	err = db.
+		WithContext(ctx).
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
@@ -806,7 +812,6 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 	err = errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes having insufficient eth")
 
 	return
-
 }
 
 // FindEthTxsRequiringGasBump returns transactions that have all
@@ -814,11 +819,12 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // limited by limit pending transactions
 //
 // It also returns eth_txes that are unconfirmed with no eth_tx_attempts
-func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringGasBump(ctx context.Context, db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []EthTx, err error) {
 	if gasBumpThreshold == 0 {
 		return
 	}
 	q := db.
+		WithContext(ctx).
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC")
 		}).
