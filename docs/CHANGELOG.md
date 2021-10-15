@@ -5,8 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.15] - .................
-
+## [0.10.16] - .................
 
 ### Added
 
@@ -31,6 +30,13 @@ merge        [type=merge left=<{"foo": 42}> right="$(decode_log)"];
 decode_log -> merge;
 ```
 
+## [0.10.15] - 2021-10-15
+
+**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+
+### Fixed
+
+- Prevent release from clobbering databases that have previously been upgraded
 
 ## [0.10.14] - 2021-09-06
 
