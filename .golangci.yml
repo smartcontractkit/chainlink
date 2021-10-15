@@ -25,7 +25,6 @@ linters-settings:
       - G104
       - G204
       - G304
-      - G404
   govet:
     # report about shadowed variables
     check-shadowing: true
@@ -75,3 +74,9 @@ linters-settings:
       # - name: confusing-results
       - name: bool-literal-in-expr
       - name: atomic
+issues:
+  exclude-rules:
+    - path: _test\.go
+      text: "^G404:"
+      linters:
+        - gosec
