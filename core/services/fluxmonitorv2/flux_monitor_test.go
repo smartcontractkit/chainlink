@@ -906,7 +906,9 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+
 	db, nodeAddr := setupFullDBWithKey(t, t.Name())
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	const (
 		roundZero = uint32(0)
