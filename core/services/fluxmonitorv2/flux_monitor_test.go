@@ -911,9 +911,9 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 // 63 bytes is max and chainlink_test_ takes up 15
 func dbName(s string) string {
 	if len(s) <= 47 {
-		return strings.ToLower(s)
+		return strings.ReplaceAll(strings.ToLower(s), "/", "")
 	}
-	return strings.ToLower(s[len(s)-47:])
+	return strings.ReplaceAll(strings.ToLower(s[len(s)-47:]), "/", "")
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
