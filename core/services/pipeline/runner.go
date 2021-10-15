@@ -596,8 +596,13 @@ func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string,
 }
 
 func (r *runner) runReaper() {
-	err := r.orm.DeleteRunsOlderThan(r.config.JobPipelineReaperThreshold())
-	if err != nil {
+	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	defer cancel()
+
+	err := r.orm.DeleteRunsOlderThan(ctx, r.config.JobPipelineReaperThreshold())
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
 		logger.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
@@ -613,15 +618,23 @@ func (r *runner) scheduleUnfinishedRuns() {
 	// immediately run reaper so we don't consider runs that are too old
 	r.runReaper()
 
-	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
+	ctx, cancel := utils.CombinedContext(context.Background(), r.chStop)
+	defer cancel()
+
+	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
 		go func() {
-			if _, err := r.Run(context.TODO(), &run, logger.Default, false, nil); err != nil {
+			_, err := r.Run(ctx, &run, logger.Default, false, nil)
+			if ctx.Err() != nil {
+				return
+			} else if err != nil {
 				logger.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()
 		return nil
 	})
-	if err != nil {
+	if ctx.Err() != nil {
+		return
+	} else if err != nil {
 		logger.Errorw("Pipeline run init job failed", "error", err)
 	}
 }
