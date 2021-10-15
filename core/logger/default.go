@@ -97,11 +97,6 @@ func Panicf(format string, values ...interface{}) {
 	skipDefault.Panic(fmt.Sprintf(format, values...))
 }
 
-// Info logs an info message.
-func Info(args ...interface{}) {
-	skipDefault.Info(args...)
-}
-
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
 	skipDefault.Debug(args...)
@@ -115,10 +110,6 @@ func Warn(args ...interface{}) {
 // Error logs an error message.
 func Error(args ...interface{}) {
 	skipDefault.Error(args...)
-}
-
-func ErrorIf(err error, msg string) {
-	skipDefault.ErrorIf(err, msg)
 }
 
 func ErrorIfCalling(f func() error) {
@@ -143,16 +134,6 @@ func Fatalf(format string, values ...interface{}) {
 // Fatalw logs a message and exits the application
 func Fatalw(msg string, keysAndValues ...interface{}) {
 	skipDefault.Fatalw(msg, keysAndValues...)
-}
-
-// Panic logs a panic message then panics.
-func Panic(args ...interface{}) {
-	skipDefault.Panic(args...)
-}
-
-// PanicIf logs the error if present.
-func PanicIf(err error, msg string) {
-	skipDefault.PanicIf(err, msg)
 }
 
 // Sync flushes any buffered log entries.

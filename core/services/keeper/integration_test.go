@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -178,7 +179,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			runs, err := app.PipelineORM().GetAllRuns()
 			require.NoError(t, err)
 			require.Equal(t, 3, len(runs))
-			prr := webpresenters.NewPipelineRunResource(runs[0])
+			prr := webpresenters.NewPipelineRunResource(runs[0], logger.TestLogger(t))
 			require.Equal(t, 1, len(prr.Outputs))
 			require.Nil(t, prr.Outputs[0])
 		})

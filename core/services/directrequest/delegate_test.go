@@ -38,8 +38,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
-	lggr := logger.CreateTestLogger(t)
-	lggr.SetLogLevel(cfg.LogLevel())
+	lggr := logger.TestLogger(t)
 	delegate := directrequest.NewDelegate(lggr, runner, nil, db, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
@@ -78,10 +77,9 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	orm := pipeline.NewORM(db)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(db, cc, orm, keyStore)
+	jobORM := job.NewORM(db, cc, orm, keyStore, logger.TestLogger(t))
 
-	lggr := logger.CreateTestLogger(t)
-	lggr.SetLogLevel(cfg.LogLevel())
+	lggr := logger.TestLogger(t)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, db, cc)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)

@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -219,7 +220,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore)
+		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t))
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -247,7 +248,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// set up user
-	mockUser := cltest.MustRandomUser()
+	mockUser := cltest.MustRandomUser(t)
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))

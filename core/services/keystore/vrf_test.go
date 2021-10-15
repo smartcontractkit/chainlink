@@ -13,7 +13,7 @@ import (
 
 func Test_VRFKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.VRF()
 	reset := func() {

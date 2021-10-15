@@ -22,7 +22,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ethKeyStore := keyStore.Eth()
@@ -192,7 +192,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 
 func Test_EthKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()

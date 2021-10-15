@@ -178,7 +178,7 @@ func (ht *HeadTracker) headCallbackLoop() {
 
 	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
 	if samplingInterval > 0 {
-		ht.log.Infof("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
+		ht.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
 		debounceHead := time.NewTicker(samplingInterval)
 		defer debounceHead.Stop()
 		for {

@@ -32,7 +32,7 @@ type ConfigSchema struct {
 	BridgeResponseURL                          url.URL                       `env:"BRIDGE_RESPONSE_URL"`
 	ChainType                                  string                        `env:"CHAIN_TYPE"`
 	ClientNodeURL                              string                        `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	ClobberNodesFromEnv                        bool                          `env:"CLOBBER_NODES_FROM_ENV" default:"true"`
+	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 	DatabaseBackupDir                          string                        `env:"DATABASE_BACKUP_DIR" default:""`
 	DatabaseBackupFrequency                    time.Duration                 `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                         string                        `env:"DATABASE_BACKUP_MODE" default:"none"`
@@ -42,7 +42,7 @@ type ConfigSchema struct {
 	DatabaseMaximumTxDuration                  time.Duration                 `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DatabaseTimeout                            models.Duration               `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                                string                        `env:"DATABASE_URL"`
-	DefaultChainID                             big.Int                       `env:"ETH_CHAIN_ID" default:"1"`
+	DefaultChainID                             *big.Int                      `env:"ETH_CHAIN_ID"`
 	DefaultHTTPAllowUnrestrictedNetworkAccess  bool                          `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
 	DefaultHTTPLimit                           int64                         `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout                         models.Duration               `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
@@ -56,7 +56,7 @@ type ConfigSchema struct {
 	EthereumHTTPURL                            string                        `env:"ETH_HTTP_URL"`
 	EthereumSecondaryURL                       string                        `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                      string                        `env:"ETH_SECONDARY_URLS" default:""`
-	EthereumURL                                string                        `env:"ETH_URL" default:"ws://localhost:8546"`
+	EthereumURL                                string                        `env:"ETH_URL"`
 	EvmDefaultBatchSize                        uint32                        `env:"ETH_DEFAULT_BATCH_SIZE"`
 	EvmEIP1559DynamicFees                      bool                          `env:"EVM_EIP1559_DYNAMIC_FEES"`
 	EvmFinalityDepth                           uint32                        `env:"ETH_FINALITY_DEPTH"`

@@ -29,8 +29,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewGormDB(t)
 	cfg.SetDB(db)
-	logger := logger.CreateTestLogger(t)
-	logger.SetLogLevel(cfg.LogLevel())
+	logger := logger.TestLogger(t)
 
 	sub := new(mocks.Subscription)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)

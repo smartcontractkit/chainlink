@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"reflect"
 	"sync"
 	"testing"
@@ -74,7 +73,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
-	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
@@ -128,14 +126,13 @@ func init() {
 	gin.SetMode(gin.TestMode)
 	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
 	logger.InitColor(true)
-	lggr := logger.CreateTestLogger(nil)
-	lggr.SetLogLevel(logLevelFromEnv())
+	lggr := logger.TestLogger(nil)
 	logger.InitLogger(lggr)
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
 	seed := time.Now().UTC().UnixNano()
-	logger.Debugf("Using seed: %v", seed)
+	lggr.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
 
 	// Also seed the local source
@@ -155,14 +152,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func logLevelFromEnv() zapcore.Level {
-	lvl := zapcore.ErrorLevel
-	if env := os.Getenv("LOG_LEVEL"); env != "" {
-		_ = lvl.Set(env)
-	}
-	return lvl
 }
 
 func NewRandomInt64() int64 {
@@ -190,7 +179,7 @@ type JobPipelineV2TestHelper struct {
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	prm := pipeline.NewORM(db)
-	jrm := job.NewORM(db, cc, prm, keyStore)
+	jrm := job.NewORM(db, cc, prm, keyStore, logger.TestLogger(t))
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF())
 	return JobPipelineV2TestHelper{
 		prm,
@@ -205,12 +194,14 @@ func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
-	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster, keyStates, gas.NewFixedPriceEstimator(config), nil, logger.Default)
+	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
+		keyStates, gas.NewFixedPriceEstimator(config), nil, logger.TestLogger(t))
 }
 
 func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates, gas.NewFixedPriceEstimator(config), fn, logger.Default)
+	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
+		gas.NewFixedPriceEstimator(config), fn, logger.TestLogger(t))
 	return ec
 }
 
@@ -227,14 +218,16 @@ type TestApplication struct {
 }
 
 // NewWSServer returns a  new wsserver
-func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, string, func()) {
+func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptest.Server, string) {
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
 
+	lggr := logger.TestLogger(t)
+
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		logger.PanicIf(err, "Failed to upgrade WS connection")
+		lggr.PanicIf(err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -252,14 +245,13 @@ func NewWSServer(msg string, callback func(data []byte)) (*httptest.Server, stri
 		}
 	})
 	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
 
 	u, err := url.Parse(server.URL)
-	logger.PanicIf(err, "Failed to parse url")
+	lggr.PanicIf(err, "Failed to parse url")
 	u.Scheme = "ws"
 
-	return server, u.String(), func() {
-		server.Close()
-	}
+	return server, u.String()
 }
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
@@ -335,8 +327,6 @@ const (
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
-	var ethClient eth.Client = &eth.NullClient{}
-
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	shutdownSignal := gracefulpanic.NewSignal()
 
@@ -349,6 +339,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
 
+	var ethClient eth.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
@@ -378,8 +369,10 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		}
 	}
 	if lggr == nil {
-		lggr = logger.CreateTestLogger(t)
-		lggr.SetLogLevel(cfg.LogLevel())
+		lggr = logger.TestLogger(t)
+	}
+	if ethClient == nil {
+		ethClient = eth.NewNullClient(nil, lggr)
 	}
 	cfg.SetDB(db)
 	if chainORM == nil {
@@ -586,10 +579,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Config, sessionID),
-		CookieAuthenticator:            MockCookieAuthenticator{},
+		CookieAuthenticator:            MockCookieAuthenticator{t: ta.t},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
@@ -603,7 +596,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
-		FallbackAPIInitializer:         &MockAPIInitializer{},
+		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
@@ -616,7 +609,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
-	keystore := keystore.New(db, utils.FastScryptParams, logger.Default)
+	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
 }
@@ -1096,12 +1089,12 @@ func DecodeSessionCookie(value string) (string, error) {
 	return value, nil
 }
 
-func MustGenerateSessionCookie(value string) *http.Cookie {
+func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
 	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
 }
@@ -1235,10 +1228,10 @@ func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams
 	}
 }
 
-func MustParseURL(input string) *url.URL {
+func MustParseURL(t *testing.T, input string) *url.URL {
 	u, err := url.Parse(input)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return u
 }

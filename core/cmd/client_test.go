@@ -170,7 +170,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := sessions.NewORM(db, time.Minute)
 
-	initialUser := cltest.MustRandomUser()
+	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
 
 	mock := &cltest.MockCountingPrompter{}

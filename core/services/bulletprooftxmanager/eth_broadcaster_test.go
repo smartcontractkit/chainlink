@@ -436,7 +436,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		[]ethkey.State{keyState},
 		estimator,
 		nil,
-		logger.Default,
+		logger.TestLogger(t),
 	)
 
 	etx := bulletprooftxmanager.EthTx{

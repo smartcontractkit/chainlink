@@ -366,11 +366,11 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustRandomUser() sessions.User {
+func MustRandomUser(t testing.TB) sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
 	r, err := sessions.NewUser(email, Password)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return r
 }
@@ -384,7 +384,12 @@ func MustNewUser(t *testing.T, email, password string) sessions.User {
 }
 
 type MockAPIInitializer struct {
+	t     testing.TB
 	Count int
+}
+
+func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
+	return &MockAPIInitializer{t: t}
 }
 
 func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
@@ -392,7 +397,7 @@ func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error)
 		return user, err
 	}
 	m.Count++
-	user := MustRandomUser()
+	user := MustRandomUser(m.t)
 	return user, orm.CreateUser(&user)
 }
 
@@ -401,16 +406,17 @@ func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) 
 }
 
 type MockCookieAuthenticator struct {
+	t         testing.TB
 	SessionID string
 	Error     error
 }
 
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(m.SessionID), m.Error
+	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
 func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Cookie, error) {
-	return MustGenerateSessionCookie(m.SessionID), m.Error
+	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
 type MockSessionRequestBuilder struct {
@@ -469,7 +475,7 @@ func NewChainSetMockWithOneChain(t testing.TB, ethClient eth.Client, cfg evmconf
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
-	ch.On("Logger").Return(logger.Default)
+	ch.On("Logger").Return(logger.TestLogger(t))
 	ch.On("ID").Return(cfg.ChainID())
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)

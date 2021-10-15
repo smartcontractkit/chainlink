@@ -89,7 +89,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	globalLogger := logger.CreateProductionLogger(cfg)
+	globalLogger := logger.ProductionLogger(cfg)
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()
@@ -149,8 +149,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
 
-	if cfg.ClobberNodesFromEnv() {
-		if err = evm.ClobberNodesFromEnv(gormDB, cfg); err != nil {
+	if cfg.UseLegacyEthEnvVars() {
+		if err = evm.ClobberDBFromEnv(gormDB, cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -167,7 +167,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
 	if err != nil {
-		logger.Fatal(err)
+		globalLogger.Fatal(err)
 	}
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -207,14 +207,17 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		log.Fatal("You must specify at least one port to listen on")
 	}
 
+	server := server{handler: handler, lggr: app.GetLogger()}
+
 	if config.Port() != 0 {
-		g.Go(func() error { return runServer(handler, config.Port(), config.HTTPServerWriteTimeout()) })
+		g.Go(func() error {
+			return server.run(config.Port(), config.HTTPServerWriteTimeout())
+		})
 	}
 
 	if config.TLSPort() != 0 {
 		g.Go(func() error {
-			return runServerTLS(
-				handler,
+			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
 				config.KeyFile(),
@@ -225,19 +228,24 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	return g.Wait()
 }
 
-func runServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) error {
-	logger.Infof("Listening and serving HTTP on port %d", port)
-	server := createServer(handler, port, writeTimeout)
+type server struct {
+	handler *gin.Engine
+	lggr    logger.Logger
+}
+
+func (s *server) run(port uint16, writeTimeout time.Duration) error {
+	s.lggr.Infof("Listening and serving HTTP on port %d", port)
+	server := createServer(s.handler, port, writeTimeout)
 	err := server.ListenAndServe()
-	logger.ErrorIf(err, "Error starting server")
+	s.lggr.ErrorIf(err, "Error starting server")
 	return err
 }
 
-func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
-	logger.Infof("Listening and serving HTTPS on port %d", port)
-	server := createServer(handler, port, writeTimeout)
+func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
+	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
+	server := createServer(s.handler, port, writeTimeout)
 	err := server.ListenAndServeTLS(certFile, keyFile)
-	logger.ErrorIf(err, "Error starting TLS server")
+	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return err
 }
 

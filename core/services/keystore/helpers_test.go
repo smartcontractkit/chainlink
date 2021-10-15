@@ -19,8 +19,8 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 
 type ExportedEncryptedKeyRing = encryptedKeyRing
 
-func ExposedNewMaster(db *gorm.DB) *master {
-	return newMaster(db, utils.FastScryptParams, logger.Default)
+func ExposedNewMaster(t *testing.T, db *gorm.DB) *master {
+	return newMaster(db, utils.FastScryptParams, logger.TestLogger(t))
 }
 
 func (m *master) ExportedSave() error {

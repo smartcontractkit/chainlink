@@ -12,7 +12,7 @@ import (
 
 func Test_OCRKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
+	keyStore := keystore.ExposedNewMaster(t, db)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.OCR()
 	reset := func() {

@@ -59,7 +59,6 @@ var (
 	threshold         = float64(0.5)
 	absoluteThreshold = float64(0.01)
 	idleTimerPeriod   = time.Minute
-	defaultLogger     = logger.Default
 	pipelineSpec      = pipeline.Spec{
 		ID: 1,
 		DotDagSource: `
@@ -178,6 +177,8 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 
 	tm.flags = options.flags
 
+	lggr := logger.TestLogger(t)
+
 	pollManager, err := fluxmonitorv2.NewPollManager(
 		fluxmonitorv2.PollManagerConfig{
 			PollTickerInterval:      time.Minute,
@@ -191,7 +192,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 			MinRetryBackoffDuration: 1 * time.Minute,
 			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
-		logger.Default,
+		lggr,
 	)
 	require.NoError(t, err)
 
@@ -213,7 +214,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		options.flags,
 		tm.fluxAggregator,
 		tm.logBroadcaster,
-		logger.Default,
+		lggr,
 	)
 	require.NoError(t, err)
 
@@ -451,7 +452,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 								"name":          "",
 							},
 						},
-					), defaultLogger).
+					), mock.Anything).
 					Return(pipeline.Run{}, pipeline.TaskRunResults{
 						{
 							Result: pipeline.Result{
@@ -588,7 +589,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    1,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -624,7 +625,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -659,7 +660,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+		On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 		Return(pipeline.Run{}, pipeline.TaskRunResults{
 			{
 				Result: pipeline.Result{
@@ -1514,7 +1515,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1638,7 +1639,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1731,7 +1732,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
+			On("ExecuteRun", context.Background(), pipelineSpec, mock.Anything, mock.Anything).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
@@ -1907,7 +1908,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 						"name":          "",
 					},
 				},
-			), defaultLogger).
+			), mock.Anything).
 			Return(pipeline.Run{}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{

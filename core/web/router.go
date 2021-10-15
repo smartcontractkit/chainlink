@@ -58,7 +58,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	config := app.GetConfig()
 	secret, err := config.SessionSecret()
 	if err != nil {
-		logger.Panic(err)
+		app.GetLogger().Panic(err)
 	}
 	sessionStore := sessions.NewCookieStore(secret)
 	sessionStore.Options(config.SessionOptions())

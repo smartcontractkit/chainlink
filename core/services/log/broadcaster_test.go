@@ -268,11 +268,12 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 
 	var backfillCount atomic.Int64
 
+	lggr := logger.TestLogger(t)
 	backfillStart := lastStoredBlockHeight - numConfirmations - int64(blockBackfillDepth)
 	// the first backfill should start from before the last stored head
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
-		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 
 		if times <= 7 {
 			require.Equal(t, backfillStart+batchSize*times, fromBlock)
@@ -340,9 +341,10 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 	var backfillCount atomic.Int64
 
+	lggr := logger.TestLogger(t)
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
 		times := backfillCount.Inc() - 1
-		logger.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
+		lggr.Warnf("Log Batch: --------- times %v - %v, %v", times, fromBlock, toBlock)
 	}
 
 	listener := helper.newLogListenerWithJob("initial")
@@ -1186,21 +1188,22 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			// Send initial logs
 			chRawLogs1 := <-helper.chchRawLogs
+			lggr := logger.TestLogger(t)
 			cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock:    test.blockHeight1,
 				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
 				Blocks:        blocks,
 				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
-					logger.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
+					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
-						logger.Warnf("  ** not exists")
+						lggr.Warnf("  ** not exists")
 						return
 					} else if !batchContains(test.batch1, uint(head.Number)) {
-						logger.Warnf("  ** not batchContains %v %v", head.Number, test.batch1)
+						lggr.Warnf("  ** not batchContains %v %v", head.Number, test.batch1)
 						return
 					}
-					logger.Warnf("  ** yup!")
+					lggr.Warnf("  ** yup!")
 					select {
 					case chRawLogs1 <- logsA[uint(head.Number)]:
 					case <-time.After(5 * time.Second):
@@ -1305,7 +1308,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch3 := make(chan types.Log)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	lb := log.NewBroadcaster(nil, ethClient, nil, logger.Default, nil)
+	lb := log.NewBroadcaster(nil, ethClient, nil, logger.TestLogger(t), nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 

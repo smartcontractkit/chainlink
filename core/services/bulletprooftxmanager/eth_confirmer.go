@@ -70,6 +70,10 @@ var (
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
 	}, []string{"evmChainID"})
+	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "tx_manager_tx_attempt_count",
+		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
+	}, []string{"evmChainID"})
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -320,6 +324,8 @@ func (ec *EthConfirmer) separateLikelyConfirmedAttempts(from gethCommon.Address,
 }
 
 func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []EthTxAttempt, blockNum int64) error {
+	promTxAttemptCount.WithLabelValues(ec.chainID.String()).Set(float64(len(attempts)))
+
 	batchSize := int(ec.config.EvmRPCDefaultBatchSize())
 	if batchSize == 0 {
 		batchSize = len(attempts)

@@ -80,7 +80,7 @@ func setupRegistrySync(t *testing.T) (
 	lbMock.On("IsConnected").Return(true).Maybe()
 
 	orm := keeper.NewORM(db, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.Default, syncUpkeepQueueSize)
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, jpv2.Jrm, lbMock, syncInterval, 1, logger.TestLogger(t), syncUpkeepQueueSize)
 	return db, synchronizer, ethClient, lbMock, j
 }
 

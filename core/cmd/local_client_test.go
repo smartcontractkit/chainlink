@@ -57,7 +57,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	client := cmd.Client{
 		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
 	}
 
@@ -84,7 +84,6 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
 	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
 	assert.Contains(t, logs, "ETH_CHAIN_ID: 0\\n")
-	assert.Contains(t, logs, "ETH_URL: ws://")
 	assert.Contains(t, logs, "JSON_CONSOLE: false")
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
 	assert.Contains(t, logs, "LOG_TO_DISK: true")
@@ -129,7 +128,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-			apiPrompt := &cltest.MockAPIInitializer{}
+			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -175,7 +174,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
-	apiPrompt := &cltest.MockAPIInitializer{}
+	apiPrompt := cltest.NewMockAPIInitializer(t)
 	client := cmd.Client{
 		Config:                 cfg,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -237,7 +236,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			prompter := new(cmdMocks.Prompter)
 			prompter.On("IsTerminal").Return(false).Once().Maybe()
 
-			apiPrompt := &cltest.MockAPIInitializer{}
+			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
@@ -280,7 +279,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
-			logger.CreateProductionLogger(config).Sync()
+			logger.ProductionLogger(config).Sync()
 			filepath := filepath.Join(config.RootDir(), "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
@@ -323,7 +322,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	client := cmd.Client{
 		Config:                 config,
 		AppFactory:             cltest.InstanceAppFactory{App: app},
-		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
 	}
 
@@ -391,7 +390,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			client := cmd.Client{
 				Config:                 config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
-				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
 			}
 

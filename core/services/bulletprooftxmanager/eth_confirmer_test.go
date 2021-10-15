@@ -988,8 +988,10 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
+	lggr := logger.TestLogger(t)
+
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -999,7 +1001,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("returns nothing when the transaction is in_progress", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1010,7 +1012,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1027,7 +1029,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Save(&attempt1_2).Error)
 
 	t.Run("returns nothing when the transaction is unconfirmed with an attempt that is recent", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1040,7 +1042,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Save(&attempt2_1).Error)
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -1058,14 +1060,14 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("does nothing if the transaction is from a different address than the one given", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, otherAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, otherAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
 	})
 
 	t.Run("returns the transaction if it is unconfirmed and has no attempts (note that this is an invariant violation, but we handle it anyway)", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1)
@@ -1073,7 +1075,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("returns nothing for different chain id", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, *big.NewInt(42))
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, *big.NewInt(42))
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 0)
@@ -1092,7 +1094,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Save(&attemptOther1).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -1101,7 +1103,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("returns nothing if threshold is zero", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, 0, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, 0, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 0)
@@ -1115,13 +1117,13 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		// etxWithoutAttempts (nonce 5)
 		// etx3 (nonce 6) - ready for bump
 		// etx4 (nonce 7) - ready for bump
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 4, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 4, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1) // returns etxWithoutAttempts only - eligible for gas bumping because it technically doesn't have any attempts withing gasBumpThreshold blocks
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
 
-		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 5, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 5, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
@@ -1129,7 +1131,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, etx3.ID, etxs[1].ID)
 
 		// Zero limit disables it
-		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 0, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err = bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 0, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2) // includes etxWithoutAttempts, etx3 and etx4
@@ -1148,7 +1150,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		aOther.BroadcastBeforeBlockNum = &oldEnough
 		require.NoError(t, db.Save(&aOther).Error)
 
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 6, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 6, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 3) // includes etxWithoutAttempts, etx3 and etx4
@@ -1163,7 +1165,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Save(&attempt3_2).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with two attempts that are older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 3)
@@ -1178,7 +1180,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	require.NoError(t, db.Save(&attempt3_3).Error)
 
 	t.Run("does not return the transaction if it has some older but one newer attempt", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -1216,7 +1218,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	nonce++
 
 	t.Run("returns unique attempts requiring resubmission due to insufficient eth, ordered by nonce asc", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 0, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 4)
@@ -1231,7 +1233,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	t.Run("applies limit", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 2, logger.Default, cltest.FixtureChainID)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(db, fromAddress, currentHead, gasBumpThreshold, 10, 2, lggr, cltest.FixtureChainID)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)

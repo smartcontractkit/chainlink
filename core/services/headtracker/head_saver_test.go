@@ -21,7 +21,7 @@ func Test_HeadSaver_addHeads(t *testing.T) {
 	cfg := new(htmocks.Config)
 	cfg.Test(t)
 	cfg.On("EvmFinalityDepth").Return(uint32(1))
-	hs := headtracker.NewHeadSaver(logger.Default, nil, cfg)
+	hs := headtracker.NewHeadSaver(logger.TestLogger(t), nil, cfg)
 
 	var heads []*eth.Head
 	var parentHash common.Hash

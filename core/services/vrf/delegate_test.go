@@ -65,14 +65,16 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	ec := new(eth_mocks.Client)
 	ec.Test(t)
 	ec.On("ChainID").Return(big.NewInt(0))
-	hb := headtracker.NewHeadBroadcaster(logger.Default)
+	lggr := logger.TestLogger(t)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks)
+	jrm := job.NewORM(db, cc, prm, ks, logger.TestLogger(t))
+	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err := ks.Eth().Create(big.NewInt(0))
@@ -145,7 +147,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc)
+		vuni.cc,
+		logger.TestLogger(t))
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
@@ -172,9 +175,10 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	counts := getStartingResponseCounts(db, logger.Default)
+	lggr := logger.TestLogger(t)
+	counts := getStartingResponseCounts(db, lggr)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))
@@ -236,7 +240,7 @@ func TestStartingCounts(t *testing.T) {
 		},
 	}
 	require.NoError(t, db.Create(&txes).Error)
-	counts = getStartingResponseCounts(db, logger.Default)
+	counts = getStartingResponseCounts(db, logger.TestLogger(t))
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
