@@ -5,10 +5,12 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	uuid "github.com/satori/go.uuid"
 )
 
-// Version the version of application
+// Version is the version of application
+// Must be either "unset" or valid semver
 var Version = "unset"
 
 // Sha string "unset"
@@ -31,6 +33,16 @@ const (
 func init() {
 	InitTime = time.Now()
 	InstanceUUID = uuid.NewV4()
+
+	checkVersion()
+}
+
+func checkVersion() {
+	if Version == "unset" {
+		return
+	} else if _, err := semver.NewVersion(Version); err != nil {
+		panic(fmt.Sprintf("Version invalid: %q is not valid semver", Version))
+	}
 }
 
 func buildPrettyVersion() string {

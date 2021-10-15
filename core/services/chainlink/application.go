@@ -46,7 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -140,6 +139,7 @@ type ApplicationOpts struct {
 	ChainSet                 evm.ChainSet
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
+	Version                  string
 }
 
 // NewApplication initializes a new store if one is not already
@@ -272,9 +272,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)
-	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
-		postgres.MustSQLDB(db)),
-	)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
@@ -283,7 +280,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger)
+		feedsService = feeds.NewService(feedsORM, jobORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
