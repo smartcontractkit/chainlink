@@ -102,6 +102,9 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
+		ctx, cancel := utils.CombinedContext(context.Background(), ht.chStop)
+		defer cancel()
+
 		// NOTE: Always try to start the head tracker off with whatever the
 		// latest head is, without waiting for the subscription to send us one.
 		//
@@ -113,7 +116,7 @@ func (ht *HeadTracker) Start() error {
 		if err != nil {
 			return err
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+			if err := ht.handleNewHead(ctx, *initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -313,7 +316,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 			return errors.Wrap(err, "fetchAndSaveHead failed")
 		}
 	}
-	return nil
+	return
 }
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
