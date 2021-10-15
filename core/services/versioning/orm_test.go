@@ -65,11 +65,13 @@ func Test_Version_CheckVersion(t *testing.T) {
 	err := orm.UpsertNodeVersion(NewNodeVersion("9.9.8"))
 	require.NoError(t, err)
 
-	// invalid semver does not return error
+	// invalid app version semver returns error
 	err = CheckVersion(db, lggr, "unset")
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `Application version "unset" is not valid semver`)
 	err = CheckVersion(db, lggr, "some old bollocks")
-	require.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `Application version "some old bollocks" is not valid semver`)
 
 	// lower version returns error
 	err = CheckVersion(db, lggr, "9.9.7")

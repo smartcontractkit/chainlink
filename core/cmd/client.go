@@ -133,8 +133,10 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 
 	// Check before migration so we don't do anything destructive to the
 	// database if this app version is too old
-	if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
-		return nil, errors.Wrap(err, "CheckVersion")
+	if static.Version != "unset" {
+		if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
+			return nil, errors.Wrap(err, "CheckVersion")
+		}
 	}
 
 	// Migrate the database

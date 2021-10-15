@@ -84,9 +84,12 @@ func CheckVersion(q postgres.Queryer, lggr logger.Logger, appVersion string) err
 	appv, apperr := semver.NewVersion(appVersion)
 	if dberr != nil {
 		lggr.Warnf("Database version %q is not valid semver; skipping version check", dbVersion)
-	} else if apperr != nil {
-		lggr.Warnf("Application version %q is not valid semver; skipping version check", appVersion)
-	} else if dbv.GreaterThan(appv) {
+		return nil
+	}
+	if apperr != nil {
+		return errors.Errorf("Application version %q is not valid semver", appVersion)
+	}
+	if dbv.GreaterThan(appv) {
 		return errors.Errorf("Application version (%s) is older than database version (%s). Only Chainlink %s or later can be run on this database", appv, dbv, dbv)
 	}
 	return nil
