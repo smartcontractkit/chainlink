@@ -2,10 +2,12 @@ package fluxmonitorv2_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -294,7 +296,7 @@ func setupStoreWithKey(t *testing.T) (*gorm.DB, common.Address) {
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*gorm.DB, common.Address) {
-	_, _, db := heavyweight.FullTestDB(t, name, true, false)
+	_, _, db := heavyweight.FullTestDB(t, name, true, true)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -905,9 +907,17 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	tm.AssertExpectations(t)
 }
 
-func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+// chainlink_test_TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped
+// 63 bytes is max and chainlink_test_ takes up 15
+func dbName(s string) string {
+	if len(s) <= 47 {
+		return strings.ToLower(s)
+	}
+	return strings.ToLower(s[len(s)-47:])
+}
 
-	db, nodeAddr := setupFullDBWithKey(t, t.Name())
+func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
+	db, nodeAddr := setupFullDBWithKey(t, dbName(t.Name()))
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	const (
