@@ -57,7 +57,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	gasLimit := uint64(242)
 
 	t.Run("no eth_txes at all", func(t *testing.T) {
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 	})
 
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		}
 		require.NoError(t, db.Save(&etx).Error)
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 	})
 
 	t.Run("existing eth_txes with broadcast_at or error", func(t *testing.T) {
@@ -105,7 +105,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, db.Save(&etxUnconfirmed).Error)
 		require.NoError(t, db.Save(&etxWithError).Error)
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 	})
 
 	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
@@ -180,7 +180,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, db.Save(&earlierEthTx).Error)
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check earlierEthTx and it's attempt
 		// This was the earlier one sent so it has the lower nonce
@@ -272,7 +272,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 		require.NoError(t, db.Save(&eipTxWithoutAl).Error)
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check eipTxWithAl and it's attempt
 		// This was the earlier one sent so it has the lower nonce
@@ -335,7 +335,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, db.Save(&ethTx).Error)
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 			// Check ethtx was sent
 			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
@@ -364,7 +364,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, db.Save(&ethTx).Error)
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
 			require.NoError(t, err)
@@ -395,7 +395,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 			require.NoError(t, db.Save(&ethTx).Error)
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 			ethTx, err := cltest.FindEthTxWithAttempts(db, ethTx.ID)
 			require.NoError(t, err)
@@ -463,7 +463,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		close(chBlock)
 	}()
 
-	err := eb.ProcessUnstartedEthTxs(keyState)
+	err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 	require.NoError(t, err)
 
 	estimator.AssertExpectations(t)
@@ -500,7 +500,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 	require.NoError(t, db.Save(&tx).Error)
 
 	// Do the thing
-	require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+	require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 	ethClient.AssertExpectations(t)
 }
 
@@ -650,7 +650,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, inProgressEthTx.ID)
@@ -684,7 +684,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("exceeds block gas limit")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, inProgressEthTx.ID)
@@ -718,7 +718,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, inProgressEthTx.ID)
@@ -751,7 +751,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("nonce too low")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, inProgressEthTx.ID)
@@ -785,7 +785,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(keyState)
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), failedToReachNodeError.Error())
 
@@ -830,7 +830,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(errors.New("known transaction: a1313bd99a81fb4d8ad1d2e90b67c6b3fa77545c990d6251444b83b70b6f8980")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, inProgressEthTx.ID)
@@ -895,7 +895,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		ethClient.AssertExpectations(t)
 
@@ -940,7 +940,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				return tx.Nonce() == localNextNonce
 			})).Return(errors.New(fatalErrorExample)).Once()
 
-			require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+			require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 			// Check it was saved correctly with its attempt
 			etx, err = cltest.FindEthTxWithAttempts(db, etx.ID)
@@ -986,7 +986,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return tx.Nonce() == localNextNonce
 				})).Return(errors.New(fatalErrorExample)).Once()
 
-				err := eb.ProcessUnstartedEthTxs(keyState)
+				err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "something exploded in the callback")
 			})
@@ -1006,7 +1006,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					return tx.Nonce() == localNextNonce
 				})).Return(errors.New(fatalErrorExample)).Once()
 
-				require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+				require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 			})
 
 		})
@@ -1034,7 +1034,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(errors.New(tooExpensiveError)).Once()
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved with no attempt and a fatal error
 		etx, err = cltest.FindEthTxWithAttempts(db, etx.ID)
@@ -1076,7 +1076,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(retryableErrorExample)).Once()
 
 		// Do the thing
-		err = eb.ProcessUnstartedEthTxs(keyState)
+		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: %s", etx.ID, retryableErrorExample))
 
@@ -1099,7 +1099,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(nil).Once()
 
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err = cltest.FindEthTxWithAttempts(db, etx.ID)
@@ -1149,7 +1149,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		ethClient.AssertExpectations(t)
 
@@ -1184,7 +1184,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
-		err = eb.ProcessUnstartedEthTxs(keyState)
+		err = eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: context deadline exceeded", etxUnfinished.ID))
 
@@ -1215,7 +1215,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(keyState))
+		require.NoError(t, eb.ProcessUnstartedEthTxs(context.Background(), keyState))
 
 		// Check it was saved correctly with its attempt
 		etx, err := cltest.FindEthTxWithAttempts(db, etxUnfinished.ID)
@@ -1259,7 +1259,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})).Return(errors.New(underpricedError)).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(keyState)
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20000000000 is equal to original gas price of 20000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
 
@@ -1286,7 +1286,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(errors.New(insufficientEthError)).Once()
 
-		err := eb.ProcessUnstartedEthTxs(keyState)
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.EqualError(t, err, "processUnstartedEthTxs failed: insufficient funds for transfer")
 
 		// Check it was saved correctly with its attempt
@@ -1328,7 +1328,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		})).Return(errors.New(underpricedError)).Once()
 
-		err := eb.ProcessUnstartedEthTxs(keyState)
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "bumping gas on initial send is not supported for EIP-1559 transactions")
 
@@ -1375,7 +1375,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			})).Return(&tx, errors.New("could not sign transaction")).Once()
 
 		// Do the thing
-		err := eb.ProcessUnstartedEthTxs(keyState)
+		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "could not sign transaction")
 
