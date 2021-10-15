@@ -2,6 +2,7 @@ package fluxmonitorv2_test
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"math/big"
 	"testing"
 	"time"
@@ -285,6 +286,15 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupStoreWithKey(t *testing.T) (*gorm.DB, common.Address) {
 	db := pgtest.NewGormDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+
+	return db, nodeAddr
+}
+
+// setupStoreWithKey setups a new store and adds a key to the keystore
+func setupFullDBWithKey(t *testing.T, name string) (*gorm.DB, common.Address) {
+	_, _, db := heavyweight.FullTestDB(t, name, true, false)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -896,9 +906,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
-
-	db, nodeAddr := setupStoreWithKey(t)
-	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	db, nodeAddr := setupFullDBWithKey(t, t.Name())
 
 	const (
 		roundZero = uint32(0)
