@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -106,7 +105,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db)
+	verORM := versioning.NewORM(db, globalLogger)
 
 	// Set up periodic backup
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
@@ -132,6 +131,12 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 
+	// Check before migration so we don't do anything destructive to the
+	// database if this app version is too old
+	if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
+		return nil, errors.Wrap(err, "CheckVersion")
+	}
+
 	// Migrate the database
 	if cfg.MigrateDatabase() {
 		if err = migrate.Migrate(db.DB); err != nil {
@@ -139,14 +144,12 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	// Determine node version
-	nodeVersion := static.Version
-	if nodeVersion == "unset" {
-		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
-	}
-	version := versioning.NewNodeVersion(nodeVersion)
-	if err = verORM.UpsertNodeVersion(version); err != nil {
-		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
+	// Update to latest version
+	if static.Version != "unset" {
+		version := versioning.NewNodeVersion(static.Version)
+		if err = verORM.UpsertNodeVersion(version); err != nil {
+			return nil, errors.Wrap(err, "UpsertNodeVersion")
+		}
 	}
 
 	if cfg.UseLegacyEthEnvVars() {
@@ -180,6 +183,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   globalLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
+		Version:                  static.Version,
 	})
 }
 
