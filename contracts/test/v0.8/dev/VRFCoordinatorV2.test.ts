@@ -113,6 +113,7 @@ describe('VRFCoordinatorV2', () => {
       'owner',
       's_feeConfig',
       's_config',
+      's_fallbackWeiPerUnitLink',
       'setConfig',
       'recoverFunds',
       'ownerCancelSubscription',

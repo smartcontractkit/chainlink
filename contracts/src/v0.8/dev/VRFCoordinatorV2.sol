@@ -66,7 +66,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
   event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
-  event SubscriptionDefunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
   event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
@@ -130,7 +129,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
   }
-  int256 internal s_fallbackWeiPerUnitLink;
+  int256 public s_fallbackWeiPerUnitLink;
   Config public s_config;
   FeeConfig public s_feeConfig;
   struct FeeConfig {
