@@ -39,7 +39,9 @@ func (orm *ORM) IdempotentInsertHead(ctx context.Context, h eth.Head) error {
 			DoNothing: true,
 		}).Create(&h).Error
 
-	if err != nil && err.Error() == "sql: no rows in result set" {
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil && err.Error() == "sql: no rows in result set" {
 		return nil
 	}
 	return err

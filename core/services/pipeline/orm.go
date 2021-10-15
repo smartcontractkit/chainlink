@@ -26,10 +26,10 @@ type ORM interface {
 	StoreRun(db postgres.Queryer, run *Run) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
 	InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (runID int64, err error)
-	DeleteRunsOlderThan(threshold time.Duration) error
+	DeleteRunsOlderThan(context.Context, time.Duration) error
 	FindRun(id int64) (Run, error)
 	GetAllRuns() ([]Run, error)
-	GetUnfinishedRuns(now time.Time, fn func(run Run) error) error
+	GetUnfinishedRuns(context.Context, time.Time, func(run Run) error) error
 	DB() *gorm.DB
 }
 
@@ -274,14 +274,12 @@ func (o *orm) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTask
 	return run.ID, err
 }
 
-func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
-	err := o.db.Exec(
-		`DELETE FROM pipeline_runs WHERE finished_at < ?`, time.Now().Add(-threshold),
-	).Error
-	if err != nil {
-		return err
-	}
-	return nil
+func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
+	return o.db.
+		WithContext(ctx).
+		Exec(
+			`DELETE FROM pipeline_runs WHERE finished_at < ?`, time.Now().Add(-threshold),
+		).Error
 }
 
 func (o *orm) FindRun(id int64) (Run, error) {
@@ -306,11 +304,12 @@ func (o *orm) GetAllRuns() ([]Run, error) {
 	return runs, err
 }
 
-func (o *orm) GetUnfinishedRuns(now time.Time, fn func(run Run) error) error {
+func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run Run) error) error {
 	return postgres.Batch(func(offset, limit uint) (count uint, err error) {
 		var runs []Run
 
 		err = o.db.
+			WithContext(ctx).
 			Preload("PipelineSpec").
 			Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
 				return db.
@@ -322,7 +321,9 @@ func (o *orm) GetUnfinishedRuns(now time.Time, fn func(run Run) error) error {
 			Offset(int(offset)).
 			Find(&runs).Error
 
-		if err != nil {
+		if ctx.Err() != nil {
+			return 0, nil
+		} else if err != nil {
 			return 0, err
 		}
 
