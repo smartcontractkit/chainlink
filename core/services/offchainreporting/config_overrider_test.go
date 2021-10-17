@@ -205,7 +205,7 @@ func (t *FakeTicker) SimulateTick() {
 	t.ticks <- time.Now()
 }
 
-func (t FakeTicker) Ticks() <-chan time.Time {
+func (t *FakeTicker) Ticks() <-chan time.Time {
 	return t.ticks
 }
 
