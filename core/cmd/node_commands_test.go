@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"strconv"
 	"testing"
@@ -21,6 +22,15 @@ func mustInsertChain(t *testing.T, orm types.ORM) types.Chain {
 	chain, err := orm.CreateChain(*id, config)
 	require.NoError(t, err)
 	return chain
+}
+
+func assertTableRenders(t *testing.T, r *cltest.RendererMock) {
+	// Should be no error rendering any of the responses as tables
+	b := bytes.NewBuffer([]byte{})
+	tb := cmd.RendererTable{b}
+	for _, rn := range r.Renders {
+		require.NoError(t, tb.Render(rn))
+	}
 }
 
 func TestClient_IndexNodes(t *testing.T) {
@@ -54,13 +64,14 @@ func TestClient_IndexNodes(t *testing.T) {
 	assert.Equal(t, params.EVMChainID, n.EVMChainID)
 	assert.Equal(t, params.WSURL, n.WSURL)
 	assert.Equal(t, params.HTTPURL, n.HTTPURL)
+	assertTableRenders(t, r)
 }
 
 func TestClient_CreateNode(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
 	_, initialNodesCount, err := orm.Nodes(0, 25)
@@ -104,13 +115,15 @@ func TestClient_CreateNode(t *testing.T) {
 	assert.Equal(t, null.String{}, n.WSURL)
 	assert.Equal(t, null.StringFrom("http://"), n.HTTPURL)
 	assert.Equal(t, chain.ID, n.EVMChainID)
+
+	assertTableRenders(t, r)
 }
 
 func TestClient_RemoveNode(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Nodes(0, 25)
@@ -141,4 +154,5 @@ func TestClient_RemoveNode(t *testing.T) {
 	chains, _, err = orm.Nodes(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
+	assertTableRenders(t, r)
 }

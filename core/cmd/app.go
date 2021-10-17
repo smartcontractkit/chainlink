@@ -774,11 +774,15 @@ func NewApp(client *Client) *cli.App {
 						},
 						cli.StringFlag{
 							Name:  "http-url",
-							Usage: "HTTP URL",
+							Usage: "HTTP URL, optional",
 						},
 						cli.Int64Flag{
 							Name:  "chain-id",
 							Usage: "chain ID",
+						},
+						cli.StringFlag{
+							Name:  "type",
+							Usage: "primary|secondary",
 						},
 					},
 				},

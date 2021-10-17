@@ -40,6 +40,7 @@ func TestClient_IndexChains(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 	c := chains[initialCount]
 	assert.Equal(t, chain.ID.ToInt().String(), c.ID)
+	assertTableRenders(t, r)
 }
 
 func TestClient_CreateChain(t *testing.T) {
@@ -52,7 +53,7 @@ func TestClient_CreateChain(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Chains(0, 25)
@@ -71,6 +72,7 @@ func TestClient_CreateChain(t *testing.T) {
 	require.Len(t, chains, initialCount+1)
 	ch := chains[initialCount]
 	assert.Equal(t, int64(99), ch.ID.ToInt().Int64())
+	assertTableRenders(t, r)
 }
 
 func TestClient_RemoveChain(t *testing.T) {
@@ -83,7 +85,7 @@ func TestClient_RemoveChain(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
 	_, initialCount, err := orm.Chains(0, 25)
@@ -106,6 +108,7 @@ func TestClient_RemoveChain(t *testing.T) {
 	chains, _, err = orm.Chains(0, 25)
 	require.NoError(t, err)
 	require.Len(t, chains, initialCount)
+	assertTableRenders(t, r)
 }
 
 func TestClient_ConfigureChain(t *testing.T) {
@@ -118,7 +121,7 @@ func TestClient_ConfigureChain(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	orm := app.EVMORM()
 
@@ -151,4 +154,5 @@ func TestClient_ConfigureChain(t *testing.T) {
 	assert.Equal(t, null.IntFrom(int64(9)), ch.Cfg.BlockHistoryEstimatorBlockDelay) // this key was changed
 	assert.Equal(t, null.IntFrom(int64(5)), ch.Cfg.EvmFinalityDepth)                // this key was unchanged
 	assert.Equal(t, null.Int{}, ch.Cfg.EvmGasBumpPercent)                           // this key was unset
+	assertTableRenders(t, r)
 }

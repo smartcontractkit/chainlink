@@ -291,20 +291,6 @@ func (_m *ChainScopedConfig) ClientNodeURL() string {
 	return r0
 }
 
-// UseLegacyEthEnvVars provides a mock function with given fields:
-func (_m *ChainScopedConfig) UseLegacyEthEnvVars() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // Configure provides a mock function with given fields: _a0
 func (_m *ChainScopedConfig) Configure(_a0 types.ChainCfg) error {
 	ret := _m.Called(_a0)
@@ -3424,6 +3410,20 @@ func (_m *ChainScopedConfig) UnAuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// UseLegacyEthEnvVars provides a mock function with given fields:
+func (_m *ChainScopedConfig) UseLegacyEthEnvVars() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

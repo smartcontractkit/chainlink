@@ -158,7 +158,7 @@ func (l *zapLogger) withCallerSkip(skip int) Logger {
 
 func (l *zapLogger) WarnIf(err error, msg string) {
 	if err != nil {
-		l.withCallerSkip(1).Warn(msg, "err", err)
+		l.withCallerSkip(1).Warnw(msg, "err", err)
 	}
 }
 
