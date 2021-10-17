@@ -77,7 +77,7 @@ func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error
 
 	dbname := fmt.Sprintf("%s_%s", parsed.Path[1:], postfix)
 	if len(dbname) > 62 {
-		return "", errors.New("dbname too long, max is 63 bytes. Try a shorter postfix")
+		return "", fmt.Errorf("dbname %v too long, max is 63 bytes. Try a shorter postfix", dbname)
 	}
 	// Cannot drop test database if we are connected to it, so we must connect
 	// to a different one. 'postgres' should be present on all postgres installations

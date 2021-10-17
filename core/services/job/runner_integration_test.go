@@ -58,8 +58,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer jobORM.Close()
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	runner.Start()
 	defer runner.Close()
@@ -356,6 +355,7 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -395,6 +395,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -450,6 +451,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -487,6 +489,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -518,6 +521,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -551,6 +555,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			logger.TestLogger(t),
 		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -806,7 +811,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
+		jobORM := job.NewTestORM(t, app.GetDB(), cc, pipelineORM, app.KeyStore)
 
 		// Trigger v2/resume
 		select {
@@ -841,7 +846,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
+		jobORM := job.NewTestORM(t, app.GetDB(), cc, pipelineORM, app.KeyStore)
 
 		// Trigger v2/resume
 		select {

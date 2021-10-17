@@ -77,7 +77,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	}
 	var client eth.Client
 	if cfg.EthereumDisabled() {
-		client = &eth.NullClient{CID: chainID}
+		client = eth.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
 		client, err2 = newEthClientFromChain(l, dbchain)

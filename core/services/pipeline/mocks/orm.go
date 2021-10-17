@@ -90,13 +90,13 @@ func (_m *ORM) DeleteRun(id int64) error {
 	return r0
 }
 
-// DeleteRunsOlderThan provides a mock function with given fields: threshold
-func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
-	ret := _m.Called(threshold)
+// DeleteRunsOlderThan provides a mock function with given fields: _a0, _a1
+func (_m *ORM) DeleteRunsOlderThan(_a0 context.Context, _a1 time.Duration) error {
+	ret := _m.Called(_a0, _a1)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(time.Duration) error); ok {
-		r0 = rf(threshold)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration) error); ok {
+		r0 = rf(_a0, _a1)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -148,13 +148,13 @@ func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
 	return r0, r1
 }
 
-// GetUnfinishedRuns provides a mock function with given fields: now, fn
-func (_m *ORM) GetUnfinishedRuns(now time.Time, fn func(pipeline.Run) error) error {
-	ret := _m.Called(now, fn)
+// GetUnfinishedRuns provides a mock function with given fields: _a0, _a1, _a2
+func (_m *ORM) GetUnfinishedRuns(_a0 context.Context, _a1 time.Time, _a2 func(pipeline.Run) error) error {
+	ret := _m.Called(_a0, _a1, _a2)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(time.Time, func(pipeline.Run) error) error); ok {
-		r0 = rf(now, fn)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, func(pipeline.Run) error) error); ok {
+		r0 = rf(_a0, _a1, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}

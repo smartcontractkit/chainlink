@@ -24,4 +24,4 @@ jobs:
         if: contains(steps.changedfiles.outputs.files_updated, 'CHANGELOG') != true && contains(steps.changedfiles.outputs.files_created, 'CHANGELOG') != true
         with:
           msg: "I see that you haven't updated any CHANGELOG files. Would it make sense to do so?"
-          check_for_duplicate_msg: false
+          check_for_duplicate_msg: true
