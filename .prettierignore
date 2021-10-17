@@ -33,3 +33,4 @@ venv/
 
 *.md
 .github/workflows/*.yml
+.golangci.yml
