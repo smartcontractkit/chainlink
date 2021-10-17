@@ -47,8 +47,9 @@ type Big big.Int
 // NewBig constructs a Big from *big.Int.
 func NewBig(i *big.Int) *Big {
 	if i != nil {
-		b := Big(*i)
-		return &b
+		var b big.Int
+		b.Set(i)
+		return (*Big)(&b)
 	}
 	return nil
 }
