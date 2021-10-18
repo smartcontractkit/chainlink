@@ -311,6 +311,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.PATCH("/log", lgc.Patch)
 
 		chc := ChainsController{app}
+		authv2.GET("/chains/:ID", chc.Show)
 		authv2.GET("/chains/evm", paginatedRequest(chc.Index))
 		authv2.POST("/chains/evm", chc.Create)
 		authv2.GET("/chains/evm/:ID", chc.Show)
