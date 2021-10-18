@@ -32,7 +32,7 @@ func Test_ChainsController_Create(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	resp, cleanup := controller.client.Post("/v2/chains", bytes.NewReader(body))
+	resp, cleanup := controller.client.Post("/v2/chains/evm", bytes.NewReader(body))
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
