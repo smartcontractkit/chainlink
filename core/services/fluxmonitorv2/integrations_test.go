@@ -456,8 +456,11 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			})
 
-			type k struct{ latestAnswer, updatedAt string }
-			expectedMeta := map[k]int{}
+			type v struct {
+				count     int
+				updatedAt string
+			}
+			expectedMeta := map[string]v{}
 			var expMetaMu sync.Mutex
 
 			reportPrice := atomic.NewInt64(100)
@@ -469,9 +472,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
 					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-						key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
+						k := m.Meta.LatestAnswer.String()
 						expMetaMu.Lock()
-						expectedMeta[key] = expectedMeta[key] + 1
+						curr := expectedMeta[k]
+						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.String()}
 						expMetaMu.Unlock()
 					}
 				},
@@ -595,8 +599,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			expMetaMu.Lock()
 			defer expMetaMu.Unlock()
 			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
-			assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
-			assert.Greater(t, expectedMeta[k{"103", "90"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["100"].count, 0, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["103"].count, 0, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["103"].updatedAt, expectedMeta["100"].updatedAt)
 		})
 	}
 }
