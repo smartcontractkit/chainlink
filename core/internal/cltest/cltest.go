@@ -397,7 +397,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		},
 	})
 	if err != nil {
-		logger.Fatal(err)
+		lggr.Fatal(err)
 	}
 
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -1389,7 +1389,8 @@ type SimulateIncomingHeadsArgs struct {
 
 func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
 	t.Helper()
-	logger.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
+	lggr := logger.TestLogger(t)
+	lggr.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
 
 	if args.BackfillDepth == 0 {
 		t.Fatal("BackfillDepth must be > 0")
@@ -1419,7 +1420,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func()
 			default:
 				_, exists := heads[current]
 				if !exists {
-					logger.Fatalf("Head %v does not exist", current)
+					lggr.Fatalf("Head %v does not exist", current)
 				}
 
 				for _, ht := range args.HeadTrackables {
