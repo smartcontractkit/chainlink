@@ -106,11 +106,6 @@ func ErrorIfCalling(f func() error) {
 	skipDefault.ErrorIfCalling(f)
 }
 
-// Fatal logs a fatal message then exits the application.
-func Fatal(args ...interface{}) {
-	skipDefault.Fatal(args...)
-}
-
 // Errorf logs a message at the error level using Sprintf.
 func Errorf(format string, values ...interface{}) {
 	skipDefault.Error(fmt.Sprintf(format, values...))
