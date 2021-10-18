@@ -253,7 +253,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,

@@ -385,7 +385,8 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -395,7 +396,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
-			logger.TestLogger(t),
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -441,7 +442,8 @@ ds1 -> ds1_parse;
 
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -451,7 +453,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
-			logger.TestLogger(t),
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -479,7 +481,8 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -489,7 +492,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
-			logger.TestLogger(t),
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -511,7 +514,8 @@ ds1 -> ds1_parse;
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -521,7 +525,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
-			logger.TestLogger(t),
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -544,7 +548,8 @@ ds1 -> ds1_parse;
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
@@ -555,7 +560,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
-			logger.TestLogger(t),
+			lggr,
 		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
