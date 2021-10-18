@@ -57,7 +57,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
+	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	runner.Start()
