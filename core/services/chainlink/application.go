@@ -3,7 +3,6 @@ package chainlink
 import (
 	"bytes"
 	"context"
-	stderr "errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -420,11 +419,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			var merr error
 			defer func() {
 				if lerr := app.logger.Sync(); lerr != nil {
-					if stderr.Unwrap(lerr).Error() != os.ErrInvalid.Error() &&
-						stderr.Unwrap(lerr).Error() != "inappropriate ioctl for device" &&
-						stderr.Unwrap(lerr).Error() != "bad file descriptor" {
-						merr = multierr.Append(merr, lerr)
-					}
+					merr = multierr.Append(merr, lerr)
 				}
 			}()
 			app.logger.Info("Gracefully exiting...")
