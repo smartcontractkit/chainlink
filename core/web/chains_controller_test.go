@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -39,7 +40,6 @@ func Test_ChainsController_Create(t *testing.T) {
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
 	chainSet := controller.app.GetChainSet()
-
 	dbChain, err := chainSet.ORM().Chain(newChainId)
 	require.NoError(t, err)
 
@@ -52,6 +52,52 @@ func Test_ChainsController_Create(t *testing.T) {
 	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
 	assert.Equal(t, resource.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
 	assert.Equal(t, resource.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
+}
+
+func Test_ChainsController_Show(t *testing.T) {
+	t.Parallel()
+
+	controller := setupChainsControllerTest(t)
+
+	newChainId := *utils.NewBigI(4)
+	newChainConfig := types.ChainCfg{
+		BlockHistoryEstimatorBlockDelay:       null.IntFrom(23),
+		BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
+		EvmEIP1559DynamicFees:                 null.BoolFrom(true),
+		MinIncomingConfirmations:              null.IntFrom(12),
+	}
+	dbChain, err := controller.app.GetChainSet().Add(newChainId.ToInt(), newChainConfig)
+	require.NoError(t, err)
+
+	resp, cleanup := controller.client.Get(
+		fmt.Sprintf("/v2/chains/evm/%s", newChainId.String()),
+	)
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	resp2, cleanup := controller.client.Get(
+		fmt.Sprintf("/v2/chains/%s", newChainId.String()),
+	)
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	resource1 := presenters.ChainResource{}
+	resource2 := presenters.ChainResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
+	require.NoError(t, err)
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp2), &resource2)
+	require.NoError(t, err)
+
+	assert.Equal(t, resource1.ID, dbChain.ID.String())
+	assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
+	assert.Equal(t, resource1.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
+	assert.Equal(t, resource2.ID, dbChain.ID.String())
+	assert.Equal(t, resource2.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, resource2.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, resource2.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
+	assert.Equal(t, resource2.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
 }
 
 type TestChainsController struct {
