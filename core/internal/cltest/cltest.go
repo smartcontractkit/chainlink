@@ -287,11 +287,11 @@ func NewApplication(t testing.TB, flagsAndDeps ...interface{}) *TestApplication 
 
 // NewApplicationWithKey creates a new TestApplication along with a new config
 // It uses the native keystore and will load any keys that are in the database
-func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestApplication {
+func NewApplicationWithKey(t *testing.T) *TestApplication {
 	t.Helper()
 
 	config := NewTestGeneralConfig(t)
-	return NewApplicationWithConfigAndKey(t, config, flagsAndDeps...)
+	return NewApplicationWithConfigAndKey(t, config)
 }
 
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
@@ -328,11 +328,14 @@ const (
 func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
 	t.Helper()
 
+	lggr := logger.TestLogger(t)
+
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	shutdownSignal := gracefulpanic.NewSignal()
 
 	url := cfg.DatabaseURL()
 	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+		Logger:           lggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
@@ -345,7 +348,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
 	var chainORM evmtypes.ORM
-	var lggr logger.Logger
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
@@ -359,8 +361,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
 		case postgres.EventBroadcaster:
 			eventBroadcaster = dep
-		case logger.Logger:
-			lggr = dep
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
@@ -368,9 +368,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 			}
 
 		}
-	}
-	if lggr == nil {
-		lggr = logger.TestLogger(t)
 	}
 	if ethClient == nil {
 		ethClient = eth.NewNullClient(nil, lggr)

@@ -60,6 +60,7 @@ var (
 type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
+	lggr                           logger.Logger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -77,6 +78,13 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
+}
+
+func (cli *Client) Logger() logger.Logger {
+	if cli.lggr == nil {
+		cli.lggr = logger.ProductionLogger(cli.Config)
+	}
+	return cli.lggr
 }
 
 // AppFactory implements the NewApplication method.
@@ -142,6 +150,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
+		Logger:           globalLogger,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
