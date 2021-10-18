@@ -843,6 +843,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Because drumbeat ticker may fire at the same time on multiple nodes, we wait a short random duration
 	// after getting a recommended round id, to avoid starting multiple rounds in case of chains with instant tx confirmation
 	if pollReq == PollRequestTypeDrumbeat && fm.pollManager.cfg.DrumbeatEnabled && fm.pollManager.cfg.DrumbeatRandomDelay > 0 {
+		// #nosec
 		delay := time.Duration(mrand.Int63n(int64(fm.pollManager.cfg.DrumbeatRandomDelay)))
 		l.Infof("waiting %v (of max: %v) before continuing...", delay, fm.pollManager.cfg.DrumbeatRandomDelay)
 		time.Sleep(delay)

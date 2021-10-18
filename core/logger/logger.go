@@ -3,6 +3,7 @@
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -67,6 +68,8 @@ type Logger interface {
 	// ErrorIfCalling calls fn and logs any returned error along with func name.
 	ErrorIfCalling(fn func() error)
 
+	// Sync flushes any buffered log entries.
+	// Some insignificant errors are suppressed.
 	Sync() error
 
 	// withCallerSkip creates a new logger with the number of callers skipped by
@@ -180,6 +183,25 @@ func (l *zapLogger) PanicIf(err error, msg string) {
 	if err != nil {
 		l.withCallerSkip(1).Panicw(msg, "err", err)
 	}
+}
+
+func (l *zapLogger) Sync() error {
+	err := l.SugaredLogger.Sync()
+	if err == nil {
+		return nil
+	}
+	var msg string
+	if uw := errors.Unwrap(err); uw != nil {
+		msg = uw.Error()
+	} else {
+		msg = err.Error()
+	}
+	switch msg {
+	case os.ErrInvalid.Error(), "bad file descriptor",
+		"inappropriate ioctl for device":
+		return nil
+	}
+	return err
 }
 
 // newProductionConfig returns a new production zap.Config.
