@@ -40,6 +40,8 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
+	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	MinRequiredOutgoingConfirmations() uint64
 }
 
 func NewDelegate(
@@ -104,7 +106,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
-				headBroadcaster:    chain.HeadBroadcaster(),
 				db:                 d.db,
 				abi:                abiV2,
 				coordinator:        coordinatorV2,
@@ -118,7 +119,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
 				respCount:          GetStartingResponseCountsV2(d.db, lV2),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},

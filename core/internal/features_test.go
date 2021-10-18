@@ -399,7 +399,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			empty := big.NewInt(0)
 			assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
 
-			stopBlocks := finiteTicker(100*time.Millisecond, func() {
+			stopBlocks := utils.FiniteTicker(100*time.Millisecond, func() {
 				triggerAllKeys(t, app)
 				b.Commit()
 			})
@@ -576,7 +576,7 @@ func TestIntegration_OCR(t *testing.T) {
 				})
 			}
 
-			stopBlocks := finiteTicker(time.Second, func() {
+			stopBlocks := utils.FiniteTicker(time.Second, func() {
 				b.Commit()
 			})
 			defer stopBlocks()
@@ -877,26 +877,4 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
-}
-
-func finiteTicker(period time.Duration, onTick func()) func() {
-	tick := time.NewTicker(period)
-	chStop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-tick.C:
-				onTick()
-			case <-chStop:
-				return
-			}
-		}
-	}()
-
-	// NOTE: tick.Stop does not close the ticker channel,
-	// so we still need another way of returning (chStop).
-	return func() {
-		tick.Stop()
-		close(chStop)
-	}
 }
