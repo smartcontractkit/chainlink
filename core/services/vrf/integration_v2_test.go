@@ -476,6 +476,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// the lb will backfill the logs. However we need to
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
+		//r, err := uni.backend.TransactionReceipt(context.Background(), tx.Hash())
+		//require.NoError(t, err)
+		//t.Log("receipt", r.Status)
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
