@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -43,12 +42,8 @@ func InitLogger(newLogger Logger) {
 	if Default != nil {
 		defer func(l Logger) {
 			if err := l.Sync(); err != nil {
-				if errors.Unwrap(err).Error() != os.ErrInvalid.Error() &&
-					errors.Unwrap(err).Error() != "inappropriate ioctl for device" &&
-					errors.Unwrap(err).Error() != "bad file descriptor" {
-					// logger.Sync() will return 'invalid argument' error when closing file
-					log.Fatalf("failed to sync logger %+v", err)
-				}
+				// logger.Sync() will return 'invalid argument' error when closing file
+				log.Fatalf("failed to sync logger %+v", err)
 			}
 		}(Default)
 	}
