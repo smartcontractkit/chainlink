@@ -21,8 +21,10 @@ func Test_ChainsController_Create(t *testing.T) {
 
 	controller := setupChainsControllerTest(t)
 
+	newChainId := *utils.NewBigI(42)
+
 	body, err := json.Marshal(web.CreateChainRequest{
-		ID: utils.Big{},
+		ID: newChainId,
 		Config: types.ChainCfg{
 			BlockHistoryEstimatorBlockDelay:       null.IntFrom(1),
 			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(12),
@@ -38,21 +40,18 @@ func Test_ChainsController_Create(t *testing.T) {
 
 	chainSet := controller.app.GetChainSet()
 
-	chains := chainSet.Chains()
-	require.Len(t, chains, 1)
-
-	chain := chains[0]
+	dbChain, err := chainSet.ORM().Chain(newChainId)
+	require.NoError(t, err)
 
 	resource := presenters.ChainResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
 	require.NoError(t, err)
 
-	assert.Equal(t, resource.ID, chain.ID().String())
-	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockDelay, chain.Config().BlockHistoryEstimatorBlockDelay())
-	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockHistorySize, chain.Config().BlockHistoryEstimatorBlockHistorySize())
-	assert.Equal(t, resource.Config.EvmEIP1559DynamicFees, chain.Config().EvmEIP1559DynamicFees())
-	assert.Equal(t, resource.Config.MinIncomingConfirmations, chain.Config().MinIncomingConfirmations())
-
+	assert.Equal(t, resource.ID, dbChain.ID.String())
+	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, resource.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, resource.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
+	assert.Equal(t, resource.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
 }
 
 type TestChainsController struct {

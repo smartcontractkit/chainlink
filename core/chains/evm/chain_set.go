@@ -245,7 +245,7 @@ func LoadChainSet(opts ChainSetOpts) (ChainSet, error) {
 	}
 	if opts.Config.EVMDisabled() {
 		opts.Logger.Info("EVM is disabled, no chains will be loaded")
-		return &chainSet{orm: opts.ORM, logger: opts.Logger}, nil
+		return &chainSet{orm: opts.ORM, logger: opts.Logger, opts: opts}, nil
 	}
 	dbchains, err := opts.ORM.EnabledChainsWithNodes()
 	if err != nil {
