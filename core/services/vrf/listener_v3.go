@@ -108,11 +108,11 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runRequestHandler()
 		})
 		return nil

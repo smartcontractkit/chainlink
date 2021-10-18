@@ -264,7 +264,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(fm.logger, func() {
 			fm.consume()
 		})
 

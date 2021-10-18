@@ -103,7 +103,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		if p.PeerID == "" {
 			return errors.Wrap(err, "could not get peer ID")
 		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}
