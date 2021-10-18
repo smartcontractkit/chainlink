@@ -365,7 +365,7 @@ func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSu
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()
-	case <-time.After(20 * pollTimerPeriod):
+	case <-time.After(50 * pollTimerPeriod):
 		t.Fatal("chainlink failed to submit answer to FluxAggregator contract")
 		return 0, 0 // unreachable
 	}

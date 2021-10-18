@@ -735,7 +735,6 @@ func TestFulfillmentCost(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
 	require.NoError(t, app.Start())
-	defer app.Stop()
 
 	vrfkey, err := app.GetKeyStore().VRF().Create()
 	require.NoError(t, err)
