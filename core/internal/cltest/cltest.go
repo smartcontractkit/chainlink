@@ -995,7 +995,7 @@ func Head(val interface{}) *eth.Head {
 	case *big.Int:
 		h = eth.NewHead(t, utils.NewHash(), utils.NewHash(), time, utils.NewBig(&FixtureChainID))
 	default:
-		logger.Panicf("Could not convert %v of type %T to Head", val, val)
+		panic(fmt.Sprintf("Could not convert %v of type %T to Head", val, val))
 	}
 	return &h
 }
