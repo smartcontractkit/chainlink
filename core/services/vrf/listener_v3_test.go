@@ -63,26 +63,27 @@ func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink s
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	ks := keystore.New(db, utils.FastScryptParams, logger.Default)
+	lggr := logger.TestLogger(t)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	require.NoError(t, ks.Unlock("blah"))
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000")
-	start, err := MaybeSubtractReservedLink(logger.Default, db, k.Address.Address(), big.NewInt(100000))
+	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000))
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
 	addConfirmedEthTx(t, db, k.Address.Address(), "10000")
-	start, err = MaybeSubtractReservedLink(logger.Default, db, k.Address.Address(), big.NewInt(100000))
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000))
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// Another unstarted should
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000")
-	start, err = MaybeSubtractReservedLink(logger.Default, db, k.Address.Address(), big.NewInt(100000))
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000))
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 }
