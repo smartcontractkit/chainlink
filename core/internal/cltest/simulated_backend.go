@@ -406,7 +406,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	}
 
 	err = c.b.SendTransaction(ctx, tx)
-	c.b.Commit()
 	return err
 }
 

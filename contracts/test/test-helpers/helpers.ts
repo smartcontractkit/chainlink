@@ -1,5 +1,5 @@
 import { Contract, ContractTransaction } from 'ethers'
-import type { providers } from 'ethers'
+import { providers } from 'ethers'
 import { assert } from 'chai'
 import { ethers } from 'hardhat'
 import cbor from 'cbor'
