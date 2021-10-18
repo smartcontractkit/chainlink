@@ -123,6 +123,7 @@ type ChainlinkApplication struct {
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
 	gormDB                   *gorm.DB
+	advisoryLock             postgres.Locker
 
 	started     bool
 	startStopMu sync.Mutex
@@ -139,6 +140,7 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
+	AdvisoryLock             postgres.Locker
 }
 
 // NewApplication initializes a new store if one is not already
@@ -307,6 +309,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sqlxDB: opts.SqlxDB,
 		gormDB: opts.GormDB,
 
+		advisoryLock: opts.AdvisoryLock,
+
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
@@ -438,6 +442,13 @@ func (app *ChainlinkApplication) stop() (err error) {
 			if app.FeedsService != nil {
 				app.logger.Debug("Closing Feeds Service...")
 				merr = multierr.Append(merr, app.FeedsService.Close())
+			}
+
+			// Clean up the advisory lock if present
+			if app.advisoryLock != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
 			}
 
 			// DB should pretty much always be closed last

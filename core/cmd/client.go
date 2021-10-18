@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -86,6 +87,53 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
+func logRetry(count int) {
+	if count == 1 {
+		logger.Infow("Could not get lock, retrying...", "failCount", count)
+	} else if count%1000 == 0 || count&(count-1) == 0 {
+		logger.Infow("Still waiting for lock...", "failCount", count)
+	}
+}
+
+// Try to immediately acquire an advisory lock. The lock will be released on application stop.
+func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+	lockID := int64(1027321974924625846)
+	lockRetryInterval := time.Second
+
+	initCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	lock, err := postgres.NewLock(initCtx, lockID, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ticker := time.NewTicker(lockRetryInterval)
+	defer ticker.Stop()
+	retryCount := 0
+	for {
+		lockCtx, cancel := context.WithTimeout(ctx, timeout)
+		gotLock, err := lock.Lock(lockCtx)
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		if gotLock {
+			break
+		}
+
+		select {
+		case <-ticker.C:
+			retryCount++
+			logRetry(retryCount)
+			continue
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
+		}
+	}
+
+	return &lock, nil
+}
+
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
 	globalLogger := logger.ProductionLogger(cfg)
@@ -101,6 +149,15 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		return nil, err
 	}
+
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	advisoryLock, err := AdvisoryLock(ctx, db.DB, time.Second)
+	if err != nil {
+		return nil, errors.Wrap(err, "error acquiring lock")
+	}
+
 	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), globalLogger)
 	cfg.SetDB(gormDB)
 
@@ -186,6 +243,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		Logger:                   globalLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
+		AdvisoryLock:             advisoryLock,
 	})
 }
 
