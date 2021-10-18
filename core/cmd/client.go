@@ -217,7 +217,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
+		cfg.DatabaseListenerMaxReconnectDuration(), globalLogger)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           globalLogger,
