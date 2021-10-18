@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "../dev/VRFCoordinatorV2.sol";
 
 interface VRFCoordinatorV2Interface {
   /**
@@ -20,7 +19,7 @@ interface VRFCoordinatorV2Interface {
    * may be slightly less than this amount because of gas used calling the function
    * (argument decoding etc.), so you may need to request slightly more than you expect
    * to have inside fulfillRandomWords. The acceptable range is
-   * [5000, maxGasLimit].
+   * [0, maxGasLimit]
    * @param numWords - The number of uint256 random values you'd like to receive
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.

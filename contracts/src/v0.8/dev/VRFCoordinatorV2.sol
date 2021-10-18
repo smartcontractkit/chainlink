@@ -58,7 +58,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     private s_subscriptions;
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
-  // this contract through onTokenTransfer, defundSubscription, cancelSubscription and oracleWithdraw.
+  // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
