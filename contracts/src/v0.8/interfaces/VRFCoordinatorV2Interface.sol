@@ -3,13 +3,27 @@ pragma solidity ^0.8.0;
 
 interface VRFCoordinatorV2Interface {
   /**
+   * @notice Get configuration relevant for making requests
+   * @return minimumRequestConfirmations global min for request confirmations
+   * @return maxGasLimit global max for request gas limit
+   * @return s_provingKeyHashes list of registered key hashes
+   */
+  function getRequestConfig()
+    external
+    view
+    returns (
+      uint16,
+      uint32,
+      bytes32[] memory
+    );
+
+  /**
    * @notice Request a set of random words.
    * @param keyHash - Corresponds to a particular oracle job which uses
    * that key for generating the VRF proof. Different keyHash's have different gas price
    * ceilings, so you can select a specific one to bound your maximum per request cost.
    * @param subId  - The ID of the VRF subscription. Must be funded
-   * with at least minimumSubscriptionBalance (see getConfig) LINK
-   * before making a request.
+   * with the minimum subscription balance required for the selected keyHash.
    * @param minimumRequestConfirmations - How many blocks you'd like the
    * oracle to wait before responding to the request. See SECURITY CONSIDERATIONS
    * for why you may want to request more. The acceptable range is
@@ -50,14 +64,16 @@ interface VRFCoordinatorV2Interface {
    * @notice Get a VRF subscription.
    * @param subId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
-   * @return owner - Owner of the subscription
-   * @return consumers - List of consumer address which are able to use this subscription.
+   * @return reqCount - number of requests for this subscription, determines fee tier.
+   * @return owner - owner of the subscription.
+   * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(uint64 subId)
     external
     view
     returns (
       uint96 balance,
+      uint64 reqCount,
       address owner,
       address[] memory consumers
     );

@@ -56,7 +56,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subId */ /* subscription */
     private s_subscriptions;
-  uint64 private s_currentSubId;
+  // We make the sub count public so that its possible to
+  // get all the current subscriptions via getSubscription.
+  uint64 public s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
@@ -98,7 +100,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
   mapping(bytes32 => address) /* keyHash */ /* oracle */
     private s_provingKeys;
-  bytes32[] public s_provingKeyHashes;
+  bytes32[] private s_provingKeyHashes;
   mapping(address => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */
@@ -109,13 +111,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 indexed keyHash,
     uint256 requestId,
     uint256 preSeed,
-    uint64 subId,
+    uint64 indexed subId,
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
     address indexed sender
   );
-  event RandomWordsFulfilled(uint256 indexed requestId, uint256[] output, bool success);
+  event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool success);
 
   struct Config {
     uint16 minimumRequestConfirmations;
@@ -202,13 +204,22 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /**
-   * @notice Returns the serviceAgreements key associated with this public key
-   * @param publicKey the key to return the address for
+   * @notice Returns the proving key hash key associated with this public key
+   * @param publicKey the key to return the hash of
    */
   function hashOfKey(uint256[2] memory publicKey) public pure returns (bytes32) {
     return keccak256(abi.encode(publicKey));
   }
 
+  /**
+   * @notice Sets the configuration of the vrfv2 coordinator
+   * @param minimumRequestConfirmations global min for request confirmations
+   * @param maxGasLimit global max for request gas limit
+   * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
+   * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
+   * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
+   * @param feeConfig fee tier configuration
+   */
   function setConfig(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
@@ -246,8 +257,24 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     );
   }
 
-  // A protective measure, the owner can cancel anyone's subscription,
-  // sending the link directly to the subscription owner.
+  // See interface docstring.
+  function getRequestConfig()
+    external
+    view
+    returns (
+      uint16,
+      uint32,
+      bytes32[] memory
+    )
+  {
+    return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
+  }
+
+  /**
+   * @notice Owner cancel subscription, sends remaining link directly to the subscription owner.
+   * @param subId subscription id
+   * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
+   */
   function ownerCancelSubscription(uint64 subId) external onlyOwner {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -255,6 +282,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
   }
 
+  /**
+   * @notice Recover link sent with transfer instead of transferAndCall.
+   * @param to address to send link to
+   */
   function recoverFunds(address to) external onlyOwner {
     uint256 externalBalance = LINK.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
@@ -269,15 +300,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // If the balances are equal, nothing to be done.
   }
 
-  // Want to ensure these arguments can fit inside of 2 words
-  // so in the worst case where the consuming contract has to read all of them
-  // from storage, it only has to read 2 words.
+  // See interface docstring.
   function requestRandomWords(
-    bytes32 keyHash, // Corresponds to a particular offchain job which uses that key for the proofs
+    bytes32 keyHash,
     uint64 subId,
     uint16 requestConfirmations,
     uint32 callbackGasLimit,
-    uint32 numWords // Desired number of random words
+    uint32 numWords
   ) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[subId].owner == address(0)) {
@@ -333,6 +362,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return requestId;
   }
 
+  /**
+   * @notice Get request commitment
+   * @param requestId id of request
+   * @dev used to determine if a request is fulfilled or not
+   */
   function getCommitment(uint256 requestId) external view returns (bytes32) {
     return s_requestCommitments[requestId];
   }
@@ -424,7 +458,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
-  // Select the fee tier based on the request count
+  /*
+   * @notice Compute fee based on the request count
+   * @param reqCount number of requests
+   * @return feePPM fee in LINK PPM
+   */
   function getFeeTier(uint64 reqCount) public view returns (uint32) {
     FeeConfig memory fc = s_feeConfig;
     if (0 <= reqCount && reqCount <= fc.reqsForTier2) {
@@ -442,6 +480,13 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return fc.fulfillmentFlatFeeLinkPPMTier5;
   }
 
+  /*
+   * @notice Fulfill a randomness request
+   * @param proof contains the proof and randomness
+   * @param rc request commitment pre-image, committed to at request time
+   * @return payment amount billed to the subscription
+   * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
+   */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
@@ -462,7 +507,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
-    emit RandomWordsFulfilled(requestId, randomWords, success);
     s_config.reentrancyLock = false;
 
     // Increment the req count for fee tier selection.
@@ -486,6 +530,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     s_subscriptions[rc.subId].balance -= payment;
     s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+    // Include payment in the event for tracking costs.
+    emit RandomWordsFulfilled(requestId, randomness, payment, success);
     return payment;
   }
 
@@ -524,6 +570,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return weiPerUnitLink;
   }
 
+  /*
+   * @notice Oracle withdraw LINK earned through fulfilling requests
+   * @param recipient where to send the funds
+   * @param amount amount to withdraw
+   */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
@@ -550,21 +601,21 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    address owner = s_subscriptionConfigs[subId].owner;
-    if (owner != sender) {
-      revert MustBeSubOwner(owner);
-    }
+    // We do not check that the msg.sender is the subscription owner,
+    // anyone can fund a subscription.
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += uint96(amount);
     s_totalBalance += uint96(amount);
     emit SubscriptionFunded(subId, oldBalance, oldBalance + amount);
   }
 
+  // See interface docstring.
   function getSubscription(uint64 subId)
     external
     view
     returns (
       uint96 balance,
+      uint64 reqCount,
       address owner,
       address[] memory consumers
     )
@@ -572,9 +623,15 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    return (s_subscriptions[subId].balance, s_subscriptionConfigs[subId].owner, s_subscriptionConfigs[subId].consumers);
+    return (
+      s_subscriptions[subId].balance,
+      s_subscriptions[subId].reqCount,
+      s_subscriptionConfigs[subId].owner,
+      s_subscriptionConfigs[subId].consumers
+    );
   }
 
+  // See interface docstring.
   function createSubscription() external nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
@@ -590,6 +647,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return currentSubId;
   }
 
+  // See interface docstring.
   function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
@@ -598,6 +656,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
+  // See interface docstring.
   function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -611,6 +670,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
   }
 
+  // See interface docstring.
   function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
@@ -632,6 +692,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
+  // See interface docstring.
   function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
@@ -676,9 +737,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionCanceled(subId, to, balance);
   }
 
-  // Check to see if there exists a request commitment consumers
-  // for all consumers and keyhashes for a given sub.
-  // Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
+  /*
+   * @noticeCheck to see if there exists a request commitment consumers
+   * for all consumers and keyhashes for a given sub.
+   * @param subId where to send the funds
+   * @return exits true if outstanding requests
+   * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
+   * @dev Used to disable subscription canceling while outstanding request are present.
+   */
   function pendingRequestExists(uint64 subId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
