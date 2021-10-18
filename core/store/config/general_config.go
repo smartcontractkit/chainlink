@@ -697,7 +697,6 @@ func (c *generalConfig) ExplorerURL() *url.URL {
 		return t
 	default:
 		panic(fmt.Sprintf("invariant: ExplorerURL returned as type %T", rval))
-		return nil
 	}
 }
 
@@ -721,7 +720,6 @@ func (c *generalConfig) TelemetryIngressURL() *url.URL {
 		return t
 	default:
 		panic(fmt.Sprintf("invariant: TelemetryIngressURL returned as type %T", rval))
-		return nil
 	}
 }
 
