@@ -1,31 +1,29 @@
 import { ethers } from 'hardhat'
 import { assert } from 'chai'
-import { BigNumber, Contract, ContractFactory } from 'ethers'
+import { Contract, ContractFactory } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { publicAbi } from '../../test-helpers/helpers'
+import {
+  impersonateAs,
+  publicAbi,
+  toArbitrumL2AliasAddress,
+} from '../../test-helpers/helpers'
 
 let owner: SignerWithAddress
 // let stranger: SignerWithAddress
 let l1OwnerAddress: string
-let crossdomainMessengerAddress: string
+let crossdomainMessenger: SignerWithAddress
 let forwarderFactory: ContractFactory
 let forwarder: Contract
-
-function applyL1ToL2Alias(l1Address: string): string {
-  return ethers.utils.getAddress(
-    BigNumber.from(l1Address)
-      .add('0x1111000000000000000000000000000000001111')
-      .toHexString()
-      .replace('0x01', '0x'),
-  )
-}
 
 before(async () => {
   const accounts = await ethers.getSigners()
   owner = accounts[0]
   // stranger = accounts[1]
   l1OwnerAddress = owner.address
-  crossdomainMessengerAddress = applyL1ToL2Alias(l1OwnerAddress) // TODO: util function
+  crossdomainMessenger = await impersonateAs(
+    toArbitrumL2AliasAddress(l1OwnerAddress),
+  )
+
   forwarderFactory = await ethers.getContractFactory(
     'src/v0.8/dev/ArbitrumCrossDomainForwarder.sol:ArbitrumCrossDomainForwarder',
     owner,
@@ -66,10 +64,8 @@ describe('ArbitrumCrossDomainForwarder', () => {
 
     it('should set the crossdomain messenger correctly', async () => {
       const response = await forwarder.crossDomainMessenger()
-      assert.equal(response, crossdomainMessengerAddress)
+      assert.equal(response, crossdomainMessenger.address)
     })
-
-    // TODO: test l1 Owner
   })
 
   //   TODO: test forward()

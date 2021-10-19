@@ -1,7 +1,8 @@
-import { Contract, ContractTransaction } from 'ethers'
+import { BigNumber, Contract, ContractTransaction } from 'ethers'
 import type { providers } from 'ethers'
 import { assert } from 'chai'
-import { ethers } from 'hardhat'
+import hre, { ethers } from 'hardhat'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import cbor from 'cbor'
 
 /**
@@ -234,4 +235,24 @@ export function publicAbi(contract: Contract, expectedPublic: string[]) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+}
+
+export function toArbitrumL2AliasAddress(l1Address: string): string {
+  return ethers.utils.getAddress(
+    BigNumber.from(l1Address)
+      .add('0x1111000000000000000000000000000000001111')
+      .toHexString()
+      .replace('0x01', '0x'),
+  )
+}
+
+export async function impersonateAs(
+  address: string,
+): Promise<SignerWithAddress> {
+  await hre.network.provider.request({
+    method: 'hardhat_impersonateAccount',
+    params: [address],
+  })
+  const impersonated = await ethers.getSigner(address)
+  return impersonated
 }
