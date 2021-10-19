@@ -26,6 +26,9 @@ type EthTxMeta struct {
 	JobID         int32
 	RequestID     common.Hash
 	RequestTxHash common.Hash
+	// Used for the VRFv2 - max link this tx will bill
+	// should it get bumped
+	MaxLink string
 }
 
 func (EthTxMeta) GormDataType() string {

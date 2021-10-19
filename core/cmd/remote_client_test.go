@@ -474,7 +474,7 @@ func TestClient_AutoLogin(t *testing.T) {
 
 	app := startNewApplication(t)
 
-	user := cltest.MustRandomUser()
+	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{
@@ -500,7 +500,7 @@ func TestClient_AutoLogin_AuthFails(t *testing.T) {
 
 	app := startNewApplication(t)
 
-	user := cltest.MustRandomUser()
+	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
 
 	sr := sessions.SessionRequest{

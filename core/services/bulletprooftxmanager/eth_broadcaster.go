@@ -62,9 +62,8 @@ type EthBroadcaster struct {
 	// Each key has its own trigger
 	triggers map[gethCommon.Address]chan struct{}
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	wg        sync.WaitGroup
+	chStop chan struct{}
+	wg     sync.WaitGroup
 
 	utils.StartStopOnce
 }
@@ -75,10 +74,9 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
 	logger logger.Logger) *EthBroadcaster {
 
-	ctx, cancel := context.WithCancel(context.Background())
 	triggers := make(map[gethCommon.Address]chan struct{})
 	return &EthBroadcaster{
-		logger:    logger,
+		logger:    logger.Named("EthBroadcaster"),
 		db:        db,
 		ethClient: ethClient,
 		ChainKeyStore: ChainKeyStore{
@@ -90,8 +88,7 @@ func NewEthBroadcaster(db *gorm.DB, ethClient eth.Client, config Config, keystor
 		eventBroadcaster: eventBroadcaster,
 		keyStates:        keyStates,
 		triggers:         triggers,
-		ctx:              ctx,
-		ctxCancel:        cancel,
+		chStop:           make(chan struct{}),
 		wg:               sync.WaitGroup{},
 	}
 }
@@ -104,8 +101,13 @@ func (eb *EthBroadcaster) Start() error {
 		}
 
 		if eb.config.EvmNonceAutoSync() {
+			ctx, cancel := utils.CombinedContext(context.Background(), eb.chStop)
+			defer cancel()
+
 			syncer := NewNonceSyncer(eb.db, eb.ethClient)
-			if err := syncer.SyncAll(eb.ctx, eb.keyStates); err != nil {
+			if ctx.Err() != nil {
+				return nil
+			} else if err := syncer.SyncAll(ctx, eb.keyStates); err != nil {
 				return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
 			}
 		}
@@ -130,7 +132,7 @@ func (eb *EthBroadcaster) Close() error {
 			eb.ethTxInsertListener.Close()
 		}
 
-		eb.ctxCancel()
+		close(eb.chStop)
 		eb.wg.Wait()
 
 		return nil
@@ -153,7 +155,7 @@ func (eb *EthBroadcaster) Trigger(addr gethCommon.Address) {
 	})
 
 	if !ok {
-		eb.logger.Debugf("EthBroadcaster: unstarted; ignoring trigger for %s", addr.Hex())
+		eb.logger.Debugf("Unstarted; ignoring trigger for %s", addr.Hex())
 	}
 }
 
@@ -163,29 +165,32 @@ func (eb *EthBroadcaster) ethTxInsertTriggerer() {
 		select {
 		case ev, ok := <-eb.ethTxInsertListener.Events():
 			if !ok {
-				eb.logger.Debug("EthBroadcaster: ethTxInsertListener channel closed, exiting trigger loop")
+				eb.logger.Debug("ethTxInsertListener channel closed, exiting trigger loop")
 				return
 			}
 			hexAddr := ev.Payload
 			address := gethCommon.HexToAddress(hexAddr)
 			eb.Trigger(address)
-		case <-eb.ctx.Done():
+		case <-eb.chStop:
 			return
 		}
 	}
 }
 
 func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{}) {
+	ctx, cancel := utils.CombinedContext(context.Background(), eb.chStop)
+	defer cancel()
+
 	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
-		if err := eb.ProcessUnstartedEthTxs(k); err != nil {
+		if err := eb.ProcessUnstartedEthTxs(ctx, k); err != nil {
 			eb.logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
 		}
 
 		select {
-		case <-eb.ctx.Done():
+		case <-ctx.Done():
 			// NOTE: See: https://godoc.org/time#Timer.Stop for an explanation of this pattern
 			if !pollDBTimer.Stop() {
 				<-pollDBTimer.C
@@ -204,24 +209,27 @@ func (eb *EthBroadcaster) monitorEthTxs(k ethkey.State, triggerCh chan struct{})
 	}
 }
 
-func (eb *EthBroadcaster) ProcessUnstartedEthTxs(keyState ethkey.State) error {
-	return eb.processUnstartedEthTxs(keyState.Address.Address())
+func (eb *EthBroadcaster) ProcessUnstartedEthTxs(ctx context.Context, keyState ethkey.State) error {
+	return eb.processUnstartedEthTxs(ctx, keyState.Address.Address())
 }
 
 // NOTE: This MUST NOT be run concurrently for the same address or it could
 // result in undefined state or deadlocks.
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
-func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address) error {
+func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddress gethCommon.Address) error {
 	var n uint
 	mark := time.Now()
 	defer func() {
 		if n > 0 {
-			eb.logger.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
+			eb.logger.Debugw("Finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
 		}
 	}()
 
-	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
+	err := eb.handleAnyInProgressEthTx(ctx, fromAddress)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
 	for {
@@ -236,7 +244,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 				if err != nil {
 					return errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
-				eb.logger.Warnw(fmt.Sprintf(`EthBroadcaster: transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
+				eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, static.EvmMaxInFlightTransactionsWarningLabel), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
 				time.Sleep(InFlightTransactionRecheckInterval)
 				continue
 			}
@@ -271,7 +279,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		}
 
 		if err := eb.saveInProgressTransaction(etx, &a); errors.Is(err, errEthTxRemoved) {
-			eb.logger.Debugw("EthBroadcaster: eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
+			eb.logger.Debugw("eth_tx removed", "etxID", etx.ID, "subject", etx.Subject)
 			continue
 		} else if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
@@ -285,9 +293,11 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
-func (eb *EthBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Address) error {
-	etx, err := getInProgressEthTx(eb.db, fromAddress)
-	if err != nil {
+func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) error {
+	etx, err := getInProgressEthTx(ctx, eb.db, fromAddress)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "handleAnyInProgressEthTx failed")
 	}
 	if etx != nil {
@@ -302,10 +312,14 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Addres
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func getInProgressEthTx(db *gorm.DB, fromAddress gethCommon.Address) (*EthTx, error) {
+func getInProgressEthTx(ctx context.Context, db *gorm.DB, fromAddress gethCommon.Address) (*EthTx, error) {
 	etx := &EthTx{}
-	err := db.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := db.WithContext(ctx).
+		Preload("EthTxAttempts").
+		First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
+	if ctx.Err() != nil {
+		return nil, nil
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "getInProgressEthTx failed while fetching EthTxAttempts")
@@ -334,20 +348,20 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		defer cancel()
 		if b, err := simulateTransaction(simulationCtx, eb.ethClient, attempt, etx); err != nil {
 			if jErr := eth.ExtractRPCError(err); jErr != nil {
-				eb.logger.Errorw("BulletproofTxManager: Transaction reverted during simulation", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
+				eb.logger.Errorw("Transaction reverted during simulation", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "rpcErr", jErr.String(), "returnValue", b.String())
 				etx.Error = null.StringFrom(fmt.Sprintf("transaction reverted during simulation: %s", jErr.String()))
 				return eb.saveFatallyErroredTransaction(&etx)
 			}
-			logger.Warnw("BulletproofTxManager: Transaction simulation failed, will attempt to send anyway", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "returnValue", b.String())
+			eb.logger.Warnw("Transaction simulation failed, will attempt to send anyway", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "returnValue", b.String())
 		} else {
-			logger.Debugw("BulletproofTxManager: Transaction simulation succeeded", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "returnValue", b.String())
+			eb.logger.Debugw("Transaction simulation succeeded", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "returnValue", b.String())
 		}
 	}
 
 	sendError := sendTransaction(parentCtx, eb.ethClient, attempt, etx, eb.logger)
 
 	if sendError.IsTooExpensive() {
-		eb.logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+		eb.logger.Errorw("Transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
 			"ethTxID", etx.ID,
 			"err", sendError,
 			"gasPrice", attempt.GasPrice,
@@ -360,7 +374,7 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 	}
 
 	if sendError.Fatal() {
-		eb.logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
+		eb.logger.Errorw("Fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = null.StringFrom(sendError.Error())
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return eb.saveFatallyErroredTransaction(&etx)
@@ -419,12 +433,12 @@ func (eb *EthBroadcaster) handleInProgressEthTx(etx EthTx, attempt EthTxAttempt,
 		// success (even though the transaction will never confirm) and hand
 		// off to the ethConfirmer to bump gas periodically until we _can_ get
 		// it in
-		eb.logger.Infow("EthBroadcaster: Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
+		eb.logger.Infow("Transaction temporarily underpriced", "ethTxID", etx.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
 	}
 
 	if sendError.IsInsufficientEth() {
-		eb.logger.Errorw(fmt.Sprintf("EthBroadcaster: tx 0x%x with type 0x%d was rejected due to insufficient eth. "+
+		eb.logger.Errorw(fmt.Sprintf("Tx 0x%x with type 0x%d was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.Hash, attempt.TxType, sendError.Error(), etx.FromAddress,

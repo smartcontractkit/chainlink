@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/proto"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	verMocks "github.com/smartcontractkit/chainlink/core/services/versioning/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 
@@ -64,7 +64,6 @@ type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
 	jobORM      *jobmocks.ORM
-	verORM      *verMocks.ORM
 	connMgr     *mocks.ConnectionsManager
 	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
@@ -79,7 +78,6 @@ func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
 		jobORM      = &jobmocks.ORM{}
-		verORM      = &verMocks.ORM{}
 		connMgr     = &mocks.ConnectionsManager{}
 		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
@@ -93,7 +91,6 @@ func setupTestService(t *testing.T) *TestService {
 		mock.AssertExpectationsForObjects(t,
 			orm,
 			jobORM,
-			verORM,
 			connMgr,
 			txm,
 			spawner,
@@ -107,14 +104,13 @@ func setupTestService(t *testing.T) *TestService {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
-	svc := feeds.NewService(orm, jobORM, verORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc)
+	svc := feeds.NewService(orm, jobORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc, logger.TestLogger(t), "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
 		jobORM:      jobORM,
-		verORM:      verORM,
 		connMgr:     connMgr,
 		txm:         txm,
 		spawner:     spawner,
@@ -390,7 +386,6 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
 	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
-	svc.verORM.On("FindLatestNodeVersion").Return(nodeVersion, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{

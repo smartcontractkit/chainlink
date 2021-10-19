@@ -28,6 +28,7 @@ type Delegate struct {
 	porm pipeline.ORM
 	ks   keystore.Master
 	cc   evm.ChainSet
+	lggr logger.Logger
 }
 
 //go:generate mockery --name GethKeyStore --output mocks/ --case=underscore
@@ -39,6 +40,8 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
+	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
+	MinRequiredOutgoingConfirmations() uint64
 }
 
 func NewDelegate(
@@ -46,13 +49,15 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	chainSet evm.ChainSet) *Delegate {
+	chainSet evm.ChainSet,
+	lggr logger.Logger) *Delegate {
 	return &Delegate{
 		db:   db,
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
 		cc:   chainSet,
+		lggr: lggr,
 	}
 }
 
@@ -85,21 +90,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	}
 	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
 	abiV2 := eth.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	l := logger.Default.With(
+	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
 	)
+	lV1 := l.Named("VRFListener")
+	lV2 := l.Named("VRFListenerV2")
 
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
-				l:                  l,
+				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
-				headBroadcaster:    chain.HeadBroadcaster(),
 				db:                 d.db,
 				abi:                abiV2,
 				coordinator:        coordinatorV2,
@@ -113,8 +119,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV2(d.db, l),
+				respCount:          GetStartingResponseCountsV2(d.db, lV2),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -122,7 +127,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		if _, ok := task.(*pipeline.VRFTask); ok {
 			return []job.Service{&listenerV1{
 				cfg:             chain.Config(),
-				l:               l,
+				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
 				db:              d.db,
@@ -141,7 +146,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, l),
+				respCount:          getStartingResponseCounts(d.db, lV1),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -164,7 +169,7 @@ func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64
 		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("VRFListener: unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous fulfillments", "err", err)
 		return respCounts
 	}
 	for _, c := range counts {
@@ -173,7 +178,7 @@ func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64
 		// Remove the 0x prefix
 		b, err := hex.DecodeString(req[2:])
 		if err != nil {
-			l.Errorw("VRFListener: unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
 		var reqID [32]byte
@@ -197,7 +202,7 @@ func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64
 		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("VRFListenerV2: unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous fulfillments", "err", err)
 		return respCounts
 	}
 	for _, c := range counts {
@@ -206,7 +211,7 @@ func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64
 		// Remove the 0x prefix
 		b, err := hex.DecodeString(req[2:])
 		if err != nil {
-			l.Errorw("VRFListenerV2: unable to read fulfillment", "err", err, "reqID", c.RequestID)
+			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
 		var reqID [32]byte

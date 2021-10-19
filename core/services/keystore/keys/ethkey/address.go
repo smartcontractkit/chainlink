@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -66,8 +65,7 @@ func (a EIP55Address) Hex() string {
 
 // Format implements fmt.Formatter
 func (a EIP55Address) Format(s fmt.State, c rune) {
-	_, err := fmt.Fprint(s, a.String())
-	logger.ErrorIf(err, "Error formatting EIP55Address to state")
+	_, _ = fmt.Fprint(s, a.String())
 }
 
 // UnmarshalText parses a hash from plain text

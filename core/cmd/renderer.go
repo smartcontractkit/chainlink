@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -116,7 +115,7 @@ func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
 		item := cpT.FieldByIndex([]int{index})
 		schemaItem, ok := schemaT.FieldByName(item.Name)
 		if !ok {
-			logger.Panicf("Field %s missing from store.Schema", item.Name)
+			panic(fmt.Sprintf("Field %s missing from store.Schema", item.Name))
 		}
 		envName, ok := schemaItem.Tag.Lookup("env")
 		if !ok {

@@ -149,6 +149,7 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
 
@@ -177,8 +178,7 @@ func NewFromJobSpec(
 	)
 
 	flags, err := NewFlags(cfg.FlagsContractAddress(), ethClient)
-	logger.ErrorIf(
-		err,
+	lggr.ErrorIf(err,
 		fmt.Sprintf(
 			"Error creating Flags contract instance, check address: %s",
 			cfg.FlagsContractAddress(),
@@ -203,7 +203,7 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
-	fmLogger := logger.Default.With(
+	fmLogger := lggr.With(
 		"jobID", jobSpec.ID,
 		"contract", fmSpec.ContractAddress.Hex(),
 	)
@@ -264,7 +264,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(fm.logger, func() {
 			fm.consume()
 		})
 
@@ -521,7 +521,7 @@ func (fm *FluxMonitor) markLogAsConsumed(broadcast log.Broadcast, decodedLog int
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	if err := fm.logBroadcaster.MarkConsumed(fm.db.WithContext(ctx), broadcast); err != nil {
-		fm.logger.Errorw("FluxMonitor: failed to mark log as consumed",
+		fm.logger.Errorw("Failed to mark log as consumed",
 			"err", err, "logType", fmt.Sprintf("%T", decodedLog), "log", broadcast.String(), "elapsed", time.Since(started))
 	}
 }
@@ -574,7 +574,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	defer func() {
 		if markConsumed {
 			if err := fm.logBroadcaster.MarkConsumed(fm.db, lb); err != nil {
-				fm.logger.Errorw("FluxMonitor: failed to mark log consumed", "err", err, "log", lb.String())
+				fm.logger.Errorw("Failed to mark log consumed", "err", err, "log", lb.String())
 			}
 		}
 	}()
@@ -799,18 +799,18 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	defer func() {
 		if markConsumed && broadcast != nil {
 			if err := fm.logBroadcaster.MarkConsumed(fm.db, broadcast); err != nil {
-				l.Errorw("FluxMonitor: failed to mark log consumed", "err", err, "log", broadcast.String())
+				l.Errorw("Failed to mark log consumed", "err", err, "log", broadcast.String())
 			}
 		}
 	}()
 
 	if pollReq != PollRequestTypeHibernation && fm.pollManager.isHibernating.Load() {
-		l.Warnw("FluxMonitor: Skipping poll because a ticker fired while hibernating")
+		l.Warnw("Skipping poll because a ticker fired while hibernating")
 		return
 	}
 
 	if !fm.logBroadcaster.IsConnected() {
-		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
+		l.Warnw("LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return
 	}
 
@@ -843,6 +843,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	// Because drumbeat ticker may fire at the same time on multiple nodes, we wait a short random duration
 	// after getting a recommended round id, to avoid starting multiple rounds in case of chains with instant tx confirmation
 	if pollReq == PollRequestTypeDrumbeat && fm.pollManager.cfg.DrumbeatEnabled && fm.pollManager.cfg.DrumbeatRandomDelay > 0 {
+		// #nosec
 		delay := time.Duration(mrand.Int63n(int64(fm.pollManager.cfg.DrumbeatRandomDelay)))
 		l.Infof("waiting %v (of max: %v) before continuing...", delay, fm.pollManager.cfg.DrumbeatRandomDelay)
 		time.Sleep(delay)
@@ -943,7 +944,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 	answer, err := utils.ToDecimal(result.Value)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
+		l.Errorw(fmt.Sprintf("error executing new run for job ID %v name %v", fm.spec.JobID, fm.spec.JobName), "err", err)
 		return
 	}
 

@@ -3,7 +3,6 @@ package chainlink
 import (
 	"bytes"
 	"context"
-	stderr "errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -46,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -125,6 +123,7 @@ type ChainlinkApplication struct {
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
 	gormDB                   *gorm.DB
+	advisoryLock             postgres.Locker
 
 	started     bool
 	startStopMu sync.Mutex
@@ -140,6 +139,8 @@ type ApplicationOpts struct {
 	ChainSet                 evm.ChainSet
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
+	Version                  string
+	AdvisoryLock             postgres.Locker
 }
 
 // NewApplication initializes a new store if one is not already
@@ -178,12 +179,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, explorerClient, telemetryIngressClient)
 
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone && cfg.DatabaseBackupFrequency() > 0 {
-		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
+		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", cfg.DatabaseBackupFrequency())
 
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
 		subservices = append(subservices, databaseBackup)
 	} else {
-		logger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
+		globalLogger.Info("DatabaseBackup: periodic database backups are disabled. To enable automatic backups, set DATABASE_BACKUP_MODE=lite or DATABASE_BACKUP_MODE=full")
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
@@ -194,8 +195,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db)
 		bridgeORM      = bridges.NewORM(opts.SqlxDB)
 		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
-		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF())
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
 		bptxmORM       = bulletprooftxmanager.NewORM(opts.SqlxDB)
 	)
 
@@ -223,12 +224,15 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				chainSet),
+				chainSet,
+				globalLogger),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
-				externalInitiatorManager),
+				externalInitiatorManager,
+				globalLogger),
 			job.Cron: cron.NewDelegate(
-				pipelineRunner),
+				pipelineRunner,
+				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
@@ -244,11 +248,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			db,
 			chainSet,
+			globalLogger,
 		)
 	}
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
+		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
@@ -258,27 +263,25 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			concretePW,
 			monitoringEndpointGen,
 			chainSet,
+			globalLogger,
 		)
 	} else {
-		logger.Debug("Off-chain reporting disabled")
+		globalLogger.Debug("Off-chain reporting disabled")
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)
-	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
-		postgres.MustSQLDB(db)),
-	)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
 	var feedsService feeds.Service
 	chain, err := chainSet.Default()
 	if err != nil {
-		logger.Warnw("Unable to load feeds service; no default chain available", "err", err)
+		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, verORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet)
+		feedsService = feeds.NewService(feedsORM, jobORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
@@ -305,6 +308,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		sqlxDB: opts.SqlxDB,
 		gormDB: opts.GormDB,
+
+		advisoryLock: opts.AdvisoryLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -418,11 +423,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 			var merr error
 			defer func() {
 				if lerr := app.logger.Sync(); lerr != nil {
-					if stderr.Unwrap(lerr).Error() != os.ErrInvalid.Error() &&
-						stderr.Unwrap(lerr).Error() != "inappropriate ioctl for device" &&
-						stderr.Unwrap(lerr).Error() != "bad file descriptor" {
-						merr = multierr.Append(merr, lerr)
-					}
+					merr = multierr.Append(merr, lerr)
 				}
 			}()
 			app.logger.Info("Gracefully exiting...")
@@ -441,6 +442,13 @@ func (app *ChainlinkApplication) stop() (err error) {
 			if app.FeedsService != nil {
 				app.logger.Debug("Closing Feeds Service...")
 				merr = multierr.Append(merr, app.FeedsService.Close())
+			}
+
+			// Clean up the advisory lock if present
+			if app.advisoryLock != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
 			}
 
 			// DB should pretty much always be closed last

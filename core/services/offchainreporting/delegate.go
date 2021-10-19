@@ -61,6 +61,7 @@ type Delegate struct {
 	peerWrapper           *SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
+	lggr                  logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -75,6 +76,7 @@ func NewDelegate(
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
+	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -84,6 +86,7 @@ func NewDelegate(
 		peerWrapper,
 		monitoringEndpointGen,
 		chainSet,
+		lggr.Named("OCR"),
 	}
 }
 
@@ -132,7 +135,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		chain.Client(),
 		chain.LogBroadcaster(),
 		jobSpec.ID,
-		logger.Default,
+		d.lggr,
 		d.db,
 		ocrdb,
 		chain.Config(),
@@ -170,7 +173,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	}
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
-	loggerWith := logger.Default.With(
+	loggerWith := d.lggr.With(
 		"contractAddress", concreteSpec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
@@ -183,7 +186,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
-	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
+	loggerWith.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
 	if concreteSpec.IsBootstrapPeer {
 		var bootstrapper *ocr.BootstrapNode

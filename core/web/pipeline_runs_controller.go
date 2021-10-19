@@ -57,7 +57,8 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 		return
 	}
 
-	paginatedResponse(c, "pipelineRun", size, page, presenters.NewPipelineRunResources(pipelineRuns), count, err)
+	res := presenters.NewPipelineRunResources(pipelineRuns, prc.App.GetLogger())
+	paginatedResponse(c, "pipelineRun", size, page, res, count, err)
 }
 
 // Show returns a specified pipeline run.
@@ -77,7 +78,8 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
+	res := presenters.NewPipelineRunResource(pipelineRun, prc.App.GetLogger())
+	jsonAPIResponse(c, res, "pipelineRun")
 }
 
 // Create triggers a pipeline run for a job.
@@ -90,7 +92,8 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		jsonAPIResponse(c, presenters.NewPipelineRunResource(pipelineRun), "pipelineRun")
+		res := presenters.NewPipelineRunResource(pipelineRun, prc.App.GetLogger())
+		jsonAPIResponse(c, res, "pipelineRun")
 	}
 
 	bodyBytes, err := ioutil.ReadAll(c.Request.Body)

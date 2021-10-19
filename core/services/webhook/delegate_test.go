@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -45,7 +46,7 @@ func TestWebhookDelegate(t *testing.T) {
 		}
 		runner    = new(pipelinemocks.Runner)
 		eiManager = new(webhookmocks.ExternalInitiatorManager)
-		delegate  = webhook.NewDelegate(runner, eiManager)
+		delegate  = webhook.NewDelegate(runner, eiManager, logger.TestLogger(t))
 	)
 
 	services, err := delegate.ServicesForSpec(*spec)

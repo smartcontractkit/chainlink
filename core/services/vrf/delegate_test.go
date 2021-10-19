@@ -73,8 +73,9 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks)
-	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF())
+	jrm := job.NewORM(db, cc, prm, ks, lggr)
+	t.Cleanup(func() { jrm.Close() })
+	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
 	_, err := ks.Eth().Create(big.NewInt(0))
 	require.NoError(t, err)
@@ -146,7 +147,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc)
+		vuni.cc,
+		logger.TestLogger(t))
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)

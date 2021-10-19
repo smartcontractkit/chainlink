@@ -1,5 +1,5 @@
-import { BigNumber, Contract, ContractTransaction } from 'ethers'
-import type { providers } from 'ethers'
+import { Contract, ContractTransaction } from 'ethers'
+import { providers } from 'ethers'
 import { assert } from 'chai'
 import hre, { ethers } from 'hardhat'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'

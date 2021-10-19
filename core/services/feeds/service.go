@@ -5,6 +5,7 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -52,7 +52,6 @@ type service struct {
 
 	orm         ORM
 	jobORM      job.ORM
-	verORM      versioning.ORM
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
 	jobSpawner  job.Spawner
@@ -60,31 +59,36 @@ type service struct {
 	txm         postgres.TransactionManager
 	connMgr     ConnectionsManager
 	chainSet    evm.ChainSet
+	lggr        logger.Logger
+	version     string
 }
 
 // NewService constructs a new feeds service
 func NewService(
 	orm ORM,
 	jobORM job.ORM,
-	verORM versioning.ORM,
 	txm postgres.TransactionManager,
 	jobSpawner job.Spawner,
 	csaKeyStore keystore.CSA,
 	ethKeyStore keystore.Eth,
 	cfg Config,
 	chainSet evm.ChainSet,
+	lggr logger.Logger,
+	version string,
 ) *service {
+	lggr = lggr.Named("Feeds")
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
-		verORM:      verORM,
 		txm:         txm,
 		jobSpawner:  jobSpawner,
 		csaKeyStore: csaKeyStore,
 		ethKeyStore: ethKeyStore,
 		cfg:         cfg,
-		connMgr:     newConnectionsManager(),
+		connMgr:     newConnectionsManager(lggr),
 		chainSet:    chainSet,
+		lggr:        lggr,
+		version:     version,
 	}
 
 	return svc
@@ -149,11 +153,6 @@ func (s *service) SyncNodeInfo(id int64) error {
 		addresses = append(addresses, k.Address.String())
 	}
 
-	nodeVer, err := s.verORM.FindLatestNodeVersion()
-	if err != nil {
-		return errors.Wrap(err, "could not get latest node verion")
-	}
-
 	// Make the remote call to FMS
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
@@ -174,7 +173,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 		AccountAddresses:   addresses,
 		IsBootstrapPeer:    mgr.IsOCRBootstrapPeer,
 		BootstrapMultiaddr: mgr.OCRBootstrapPeerMultiaddr.ValueOrZero(),
-		Version:            nodeVer.Version,
+		Version:            s.version,
 	})
 	if err != nil {
 		return err
@@ -201,10 +200,10 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 		return err
 	}
 
-	logger.Infof("Restarting connection")
+	s.lggr.Infof("Restarting connection")
 
 	if err = s.connMgr.Disconnect(mgr.ID); err != nil {
-		logger.Info("[Feeds] Feeds Manager not connected, attempting to connect")
+		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
 
 	// Establish a new connection
@@ -522,7 +521,7 @@ func (s *service) connectFeedManager(mgr FeedsManager, privkey []byte) {
 			// Sync the node's information with FMS once connected
 			err := s.SyncNodeInfo(mgr.ID)
 			if err != nil {
-				logger.Infof("[Feeds] Error syncing node info: %v", err)
+				s.lggr.Infof("Error syncing node info: %v", err)
 			}
 		},
 	})
