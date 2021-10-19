@@ -49,14 +49,6 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 
 ## [0.10.14] - 2021-09-06
 
-**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
-
-### Fixed
-
-- Prevent release from clobbering databases that have previously been upgraded
-
-## [0.10.14] - 2021-09-06
-
 ### Added
 
 - FMv2 spec now contains DrumbeatRandomDelay parameter that can be used to introduce variation between round of submits of different oracles, if drumbeat ticker is enabled.
