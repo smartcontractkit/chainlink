@@ -316,7 +316,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/chains/evm/:ID", chc.Show)
 		authv2.PATCH("/chains/evm/:ID", chc.Update)
 		authv2.DELETE("/chains/evm/:ID", chc.Delete)
-		authv2.GET("/chains/:ID", chc.Show)
 
 		nc := NodesController{app}
 		authv2.GET("/nodes", paginatedRequest(nc.Index))

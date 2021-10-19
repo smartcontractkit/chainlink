@@ -121,18 +121,9 @@ func Test_ChainsController_Show(t *testing.T) {
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
-			resp2, cleanup := controller.client.Get(
-				fmt.Sprintf("/v2/chains/%s", newHexChainId),
-			)
-			t.Cleanup(cleanup)
-			require.Equal(t, tc.wantStatusCode, resp2.StatusCode)
-
 			if tc.want != nil {
 				resource1 := presenters.ChainResource{}
-				resource2 := presenters.ChainResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
-				require.NoError(t, err)
-				err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp2), &resource2)
 				require.NoError(t, err)
 
 				assert.Equal(t, resource1.ID, dbChain.ID.String())
@@ -140,11 +131,6 @@ func Test_ChainsController_Show(t *testing.T) {
 				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
 				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
 				assert.Equal(t, resource1.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
-				assert.Equal(t, resource2.ID, dbChain.ID.String())
-				assert.Equal(t, resource2.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
-				assert.Equal(t, resource2.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
-				assert.Equal(t, resource2.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
-				assert.Equal(t, resource2.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
 			}
 		})
 	}
