@@ -15,6 +15,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -60,7 +61,6 @@ var (
 type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
-	lggr                           logger.Logger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -71,6 +71,9 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+
+	lggr     logger.Logger
+	lggrOnce sync.Once
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -81,9 +84,9 @@ func (cli *Client) errorOut(err error) error {
 }
 
 func (cli *Client) Logger() logger.Logger {
-	if cli.lggr == nil {
+	cli.lggrOnce.Do(func() {
 		cli.lggr = logger.ProductionLogger(cli.Config)
-	}
+	})
 	return cli.lggr
 }
 
