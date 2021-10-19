@@ -1,4 +1,4 @@
-import { Contract, ContractTransaction } from 'ethers'
+import { BigNumber, Contract, ContractTransaction } from 'ethers'
 import { providers } from 'ethers'
 import { assert } from 'chai'
 import hre, { ethers } from 'hardhat'
@@ -237,6 +237,11 @@ export function publicAbi(contract: Contract, expectedPublic: string[]) {
   }
 }
 
+/**
+ * Converts an L1 address to an Arbitrum L2 address
+ *
+ * @param l1Address Address on L1
+ */
 export function toArbitrumL2AliasAddress(l1Address: string): string {
   return ethers.utils.getAddress(
     BigNumber.from(l1Address)
@@ -246,6 +251,11 @@ export function toArbitrumL2AliasAddress(l1Address: string): string {
   )
 }
 
+/**
+ * Lets you impersonate and sign transactions from any account.
+ *
+ * @param address Address to impersonate
+ */
 export async function impersonateAs(
   address: string,
 ): Promise<SignerWithAddress> {
@@ -253,6 +263,5 @@ export async function impersonateAs(
     method: 'hardhat_impersonateAccount',
     params: [address],
   })
-  const impersonated = await ethers.getSigner(address)
-  return impersonated
+  return await ethers.getSigner(address)
 }
