@@ -37,7 +37,7 @@ func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pi
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
 	return r, orm
 }
 
@@ -427,7 +427,8 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil)
+	lggr := logger.TestLogger(t)
+	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
 
 	spec := pipeline.Spec{DotDagSource: `
 fail_but_i_dont_care [type=fail]
@@ -441,7 +442,7 @@ succeed2 -> final;
 `}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, finalResult, err := r.ExecuteAndInsertFinishedRun(context.Background(), spec, vars, logger.TestLogger(t), false)
+	_, finalResult, err := r.ExecuteAndInsertFinishedRun(context.Background(), spec, vars, lggr, false)
 	require.NoError(t, err)
 	assert.True(t, finalResult.HasErrors())
 	assert.False(t, finalResult.HasFatalErrors())

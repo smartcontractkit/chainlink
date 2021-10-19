@@ -12,15 +12,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
@@ -58,6 +58,7 @@ type runner struct {
 	ethKeyStore     ETHKeyStore
 	vrfKeyStore     VRFKeyStore
 	runReaperWorker utils.SleeperTask
+	lggr            logger.Logger
 
 	// test helper
 	runFinished func(*Run)
@@ -97,7 +98,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore) *runner {
+func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger) *runner {
 	r := &runner{
 		orm:         orm,
 		config:      config,
@@ -107,6 +108,7 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 		chStop:      make(chan struct{}),
 		wgDone:      sync.WaitGroup{},
 		runFinished: func(*Run) {},
+		lggr:        lggr.Named("PipelineRunner"),
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -134,7 +136,7 @@ func (r *runner) Close() error {
 func (r *runner) destroy() {
 	err := r.runReaperWorker.Stop()
 	if err != nil {
-		logger.Error(err)
+		r.lggr.Error(err)
 	}
 }
 
@@ -271,7 +273,7 @@ func (r *runner) run(
 		go func(taskRun *memoryTaskRun) {
 			defer func() {
 				if err := recover(); err != nil {
-					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+					l.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
 
 					t := time.Now()
 					scheduler.report(todo, TaskRunResult{
@@ -555,8 +557,8 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 	if start {
 		// start the runner again
 		go func() {
-			if _, err := r.Run(context.Background(), &run, logger.Default, false, nil); err != nil {
-				logger.Errorw("Resume", "err", err)
+			if _, err := r.Run(context.Background(), &run, r.lggr, false, nil); err != nil {
+				r.lggr.Errorw("Resume", "err", err)
 			}
 		}()
 	}
@@ -603,7 +605,7 @@ func (r *runner) runReaper() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		logger.Errorw("Pipeline run reaper failed", "error", err)
+		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
 	}
 }
 
@@ -623,11 +625,11 @@ func (r *runner) scheduleUnfinishedRuns() {
 
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
 		go func() {
-			_, err := r.Run(ctx, &run, logger.Default, false, nil)
+			_, err := r.Run(ctx, &run, r.lggr, false, nil)
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				logger.Errorw("Pipeline run init job resumption failed", "error", err)
+				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()
 		return nil
@@ -635,6 +637,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		logger.Errorw("Pipeline run init job failed", "error", err)
+		r.lggr.Errorw("Pipeline run init job failed", "error", err)
 	}
 }

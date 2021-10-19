@@ -38,6 +38,7 @@ type (
 		ctx           context.Context
 		ctxCancel     context.CancelFunc
 		chDone        chan struct{}
+		lggr          logger.Logger
 	}
 )
 
@@ -47,7 +48,7 @@ func (P2PPeer) TableName() string {
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
-func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID p2pkey.PeerID) (*Pstorewrapper, error) {
+func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Pstorewrapper{
@@ -59,6 +60,7 @@ func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID p2pkey
 		ctx,
 		cancel,
 		make(chan struct{}),
+		lggr.Named("PeerStore"),
 	}, nil
 }
 
@@ -68,7 +70,7 @@ func (p *Pstorewrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not start peerstore wrapper")
 		}
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(p.lggr, func() {
 			p.dbLoop()
 		})
 		return nil
@@ -85,7 +87,7 @@ func (p *Pstorewrapper) dbLoop() {
 			return
 		case <-ticker.C:
 			if err := p.WriteToDB(); err != nil {
-				logger.Errorw("Error writing peerstore to DB", "err", err)
+				p.lggr.Errorw("Error writing peerstore to DB", "err", err)
 			}
 		}
 	}
@@ -123,7 +125,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
-	defer logger.ErrorIfCalling(rows.Close)
+	defer p.lggr.ErrorIfCalling(rows.Close)
 
 	peers = make([]P2PPeer, 0)
 
