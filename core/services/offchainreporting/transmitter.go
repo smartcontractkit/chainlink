@@ -10,7 +10,7 @@ import (
 )
 
 type txManager interface {
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type transmitter struct {
@@ -34,7 +34,14 @@ func NewTransmitter(txm txManager, db *gorm.DB, fromAddress common.Address, gasL
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
 	db := t.db.WithContext(ctx)
-	_, err := t.txm.CreateEthTransaction(db, t.fromAddress, toAddress, payload, t.gasLimit, nil, t.strategy)
+	_, err := t.txm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+		FromAddress:    t.fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       t.gasLimit,
+		Meta:           nil,
+		Strategy:       t.strategy,
+	})
 	return errors.Wrap(err, "Skipped OCR transmission")
 }
 

@@ -10,6 +10,6 @@ func (rs *RegistrySynchronizer) ExportedProcessLogs() {
 	rs.processLogs()
 }
 
-func (executer *UpkeepExecuter) ExportedConstructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
-	return executer.constructCheckUpkeepCallMsg(upkeep)
+func (ex *UpkeepExecuter) ExportedConstructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
+	return ex.constructCheckUpkeepCallMsg(upkeep)
 }

@@ -1,7 +1,6 @@
 /* eslint-env jest */
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { jsonApiJobSpecs } from 'factories/jsonApiJobSpecs'
 import {
   directRequestResource,
   jsonApiJobSpecsV2,
@@ -15,24 +14,11 @@ import {
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import JobsIndex, { simpleJobFilter, CombinedJobs } from './JobsIndex'
-import { partialAsFull } from 'test-helpers/partialAsFull'
-import { Initiator, InitiatorType } from 'core/store/models'
-import { INDEX_ENDPOINT as JSON_ENDPOINT } from 'api/v2/specs'
+import JobsIndex, { simpleJobFilter, JobSpecV2 } from './JobsIndex'
 import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/jobs'
 
 describe('pages/JobsIndex/JobsIndex', () => {
   it('renders the list of jobs', async () => {
-    global.fetch.getOnce(
-      globPath(JSON_ENDPOINT),
-      jsonApiJobSpecs([
-        {
-          id: 'JsonId',
-          createdAt: new Date().toISOString(),
-        },
-      ]),
-    )
-
     global.fetch.getOnce(
       globPath(OCR_ENDPOINT),
       jsonApiJobSpecsV2([
@@ -71,11 +57,6 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     await syncFetch(wrapper)
 
-    // V1 Job
-    expect(wrapper.text()).toContain('JsonId')
-    expect(wrapper.text()).toContain('web')
-    expect(wrapper.text()).toContain('just now')
-
     // OCR V2 Job
     expect(wrapper.text()).toContain('1000000')
 
@@ -90,28 +71,6 @@ describe('pages/JobsIndex/JobsIndex', () => {
   })
 
   it('allows searching', async () => {
-    global.fetch.getOnce(
-      globPath(JSON_ENDPOINT),
-      jsonApiJobSpecs([
-        {
-          initiators: [
-            partialAsFull<Initiator>({ type: 'web' as InitiatorType.WEB }),
-          ],
-        },
-        {
-          initiators: [
-            partialAsFull<Initiator>({ type: 'cron' as InitiatorType.CRON }),
-          ],
-        },
-        {
-          initiators: [
-            partialAsFull<Initiator>({
-              type: 'run_log' as InitiatorType.RUN_LOG,
-            }),
-          ],
-        },
-      ]),
-    )
     global.fetch.getOnce(
       globPath(OCR_ENDPOINT),
       jsonApiJobSpecsV2([
@@ -130,116 +89,51 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     await syncFetch(wrapper)
 
-    // Expect to have 5 jobs (3 V1 Jobs, 2 V2 Jobs)
-    expect(wrapper.find('tbody').children().length).toEqual(5)
-
-    wrapper
-      .find('input[name="search"]')
-      .simulate('change', { target: { value: 'web   ' } }) // Tests trimming whitespace as well
-
-    expect(wrapper.find('tbody').children().length).toEqual(1)
+    // Expect to have 2 jobs
+    expect(wrapper.find('tbody').children().length).toEqual(2)
   })
 
   describe('simpleJobFilter', () => {
     it('filters by name', () => {
-      let jobs: CombinedJobs[] = jsonApiJobSpecs([
-        {
-          name: 'Coinmarketcap job',
-        },
-        {
-          name: 'Kaiko job',
-        },
-        {
-          name: 'Coinapi job',
-        },
-      ]).data
-
-      jobs = jobs.concat([
+      const jobs: JobSpecV2[] = [
         fluxMonitorJobResource({ name: 'FM Job' }),
         ocrJobResource({ name: 'OCR Job' }),
-      ])
+      ]
 
-      expect(jobs.filter(simpleJobFilter('Kaiko')).length).toEqual(1)
       expect(jobs.filter(simpleJobFilter('FM Job')).length).toEqual(1)
       expect(jobs.filter(simpleJobFilter('OCR Job')).length).toEqual(1)
-      expect(jobs.filter(simpleJobFilter('Job')).length).toEqual(5)
+      expect(jobs.filter(simpleJobFilter('Job')).length).toEqual(2)
     })
 
-    it('filters by initiator', () => {
-      let jobs: CombinedJobs[] = jsonApiJobSpecs([
-        {
-          initiators: [
-            partialAsFull<Initiator>({ type: 'web' as InitiatorType.WEB }),
-          ],
-        },
-        {
-          initiators: [
-            partialAsFull<Initiator>({ type: 'cron' as InitiatorType.CRON }),
-          ],
-        },
-      ]).data
-
-      jobs = jobs.concat([
+    it('filters by type', () => {
+      const jobs: JobSpecV2[] = [
         fluxMonitorJobResource({}),
         fluxMonitorJobResource({}),
         ocrJobResource({}),
-      ])
+      ]
 
-      expect(jobs.filter(simpleJobFilter('cr')).length).toEqual(1)
       expect(jobs.filter(simpleJobFilter('fluxmonitor')).length).toEqual(2)
     })
 
     it('filters by ID', () => {
-      let jobs: CombinedJobs[] = jsonApiJobSpecs([
-        {
-          id: 'id-1a',
-        },
-        {
-          id: 'id-1b',
-        },
-        {
-          id: 'id-1c',
-        },
-        {
-          id: 'id-2c',
-        },
-      ]).data
-
-      jobs = jobs.concat([
+      const jobs: JobSpecV2[] = [
         fluxMonitorJobResource({ id: 'id-3a' }),
         ocrJobResource({ id: 'id-3b' }),
-      ])
+      ]
 
-      expect(jobs.filter(simpleJobFilter('i')).length).toEqual(6)
-      expect(jobs.filter(simpleJobFilter('id')).length).toEqual(6)
-      expect(jobs.filter(simpleJobFilter('id-')).length).toEqual(6)
-      expect(jobs.filter(simpleJobFilter('id-1')).length).toEqual(3)
-      expect(jobs.filter(simpleJobFilter('id-1c')).length).toEqual(1)
+      expect(jobs.filter(simpleJobFilter('i')).length).toEqual(2)
+      expect(jobs.filter(simpleJobFilter('id')).length).toEqual(2)
+      expect(jobs.filter(simpleJobFilter('id-')).length).toEqual(2)
+      expect(jobs.filter(simpleJobFilter('id-1')).length).toEqual(0)
       expect(jobs.filter(simpleJobFilter('id-3a')).length).toEqual(1)
     })
 
     it('filters by job type', () => {
-      let jobs: CombinedJobs[] = jsonApiJobSpecs([
-        {
-          id: 'id-1a',
-        },
-        {
-          id: 'id-1b',
-        },
-      ]).data
+      const jobs: JobSpecV2[] = [
+        ocrJobResource({ id: '1' }),
+        fluxMonitorJobResource({ id: '2' }),
+      ]
 
-      jobs = jobs.concat(
-        jsonApiJobSpecsV2([
-          ocrJobResource({
-            id: '1',
-          }),
-          fluxMonitorJobResource({
-            id: '2',
-          }),
-        ]).data,
-      )
-
-      expect(jobs.filter(simpleJobFilter('direct')).length).toEqual(3)
       expect(jobs.filter(simpleJobFilter('off')).length).toEqual(1)
       expect(jobs.filter(simpleJobFilter('chain')).length).toEqual(1)
     })

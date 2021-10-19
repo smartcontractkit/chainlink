@@ -14,12 +14,12 @@ func Test_FixedPriceEstimator(t *testing.T) {
 	t.Parallel()
 
 	// TODO: Add this test for BlockHistoryEstimator also
-	t.Run("EstimateGas returns EthGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
+	t.Run("EstimateGas returns EvmGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
 		config := new(mocks.Config)
 		f := gas.NewFixedPriceEstimator(config)
 
-		config.On("EthGasPriceDefault").Return(big.NewInt(42))
-		config.On("EthGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 
 		gasPrice, gasLimit, err := f.EstimateGas(nil, 100000)
 		require.NoError(t, err)
@@ -33,16 +33,16 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config := new(mocks.Config)
 		f := gas.NewFixedPriceEstimator(config)
 
-		config.On("EthGasPriceDefault").Return(big.NewInt(42))
-		config.On("EthGasBumpPercent").Return(uint16(10))
-		config.On("EthGasBumpWei").Return(big.NewInt(150))
-		config.On("EthMaxGasPriceWei").Return(big.NewInt(1000000))
-		config.On("EthGasLimitMultiplier").Return(float32(1.1))
+		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
+		config.On("EvmGasBumpPercent").Return(uint16(10))
+		config.On("EvmGasBumpWei").Return(big.NewInt(150))
+		config.On("EvmMaxGasPriceWei").Return(big.NewInt(1000000))
+		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 
 		gasPrice, gasLimit, err := f.BumpGas(big.NewInt(42), 100000)
 		require.NoError(t, err)
 
-		expectedGasPrice, expectedGasLimit, err := gas.BumpGasPriceOnly(config, big.NewInt(42), 100000)
+		expectedGasPrice, expectedGasLimit, err := gas.BumpGasPriceOnly(config, nil, big.NewInt(42), 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)

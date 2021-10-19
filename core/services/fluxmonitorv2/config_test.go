@@ -17,8 +17,8 @@ func TestConfig(t *testing.T) {
 		DefaultHTTPTimeout:       time.Minute,
 		FlagsContractAddress:     flagsContractAddress.Hex(),
 		MinContractPayment:       assets.NewLink(1),
-		EthGasLimit:              21000,
-		EthMaxQueuedTransactions: 0,
+		EvmGasLimit:              21000,
+		EvmMaxQueuedTransactions: 0,
 	}
 
 	t.Run("MinimumPollingInterval", func(t *testing.T) {

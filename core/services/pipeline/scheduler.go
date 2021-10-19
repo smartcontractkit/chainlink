@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"gopkg.in/guregu/null.v4"
@@ -40,6 +41,7 @@ func (s *scheduler) newMemoryTaskRun(task Task) *memoryTaskRun {
 
 type scheduler struct {
 	ctx          context.Context
+	cancel       context.CancelFunc
 	pipeline     *Pipeline
 	run          *Run
 	dependencies map[int]uint
@@ -62,8 +64,11 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		dependencies[id] = uint(len)
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	s := &scheduler{
 		ctx:          ctx,
+		cancel:       cancel,
 		pipeline:     p,
 		run:          run,
 		dependencies: dependencies,
@@ -91,6 +96,8 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		}
 
 		run := s.newMemoryTaskRun(task)
+
+		logger.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++
@@ -145,30 +152,16 @@ func (s *scheduler) reconstructResults() {
 }
 
 func (s *scheduler) Run() {
-Loop:
 	for s.waiting > 0 {
 		// we don't "for result in resultCh" because it would stall if the
 		// pipeline is completely empty
 
-		var result TaskRunResult
-		select {
-		case result = <-s.resultCh:
-		case <-s.ctx.Done():
-			now := time.Now()
-			// mark remaining jobs as timeout
-			for _, task := range s.pipeline.Tasks {
-				if _, ok := s.results[task.ID()]; !ok {
-					s.results[task.ID()] = TaskRunResult{
-						Task:       task,
-						Result:     Result{Error: ErrTimeout},
-						CreatedAt:  now, // TODO: more accurate start time
-						FinishedAt: null.TimeFrom(now),
-					}
-				}
-			}
-
-			break Loop
-		}
+		result := <-s.resultCh
+		// var result TaskRunResult
+		// select {
+		// case result = <-s.resultCh:
+		// case <-s.ctx.Done():
+		// }
 
 		s.waiting--
 
@@ -176,6 +169,14 @@ Loop:
 		if result.Result.Error == ErrPending {
 			result.Result = Result{}        // no output, no error
 			result.FinishedAt = null.Time{} // not finished
+		}
+
+		// retrieve previous attempt count
+		result.Attempts = s.results[result.Task.ID()].Attempts
+
+		// only count as an attempt if the job actually ran. If we're exiting then it got cancelled
+		if !s.exiting {
+			result.Attempts++
 		}
 
 		// store task run
@@ -197,13 +198,53 @@ Loop:
 		}
 
 		// if the task was marked as fail early, and the result is a fail
-		if result.Result.Error != nil && result.Task.Base().FailEarly == "true" {
-			// drain remaining jobs then exit
+		if result.Result.Error != nil && result.Task.Base().FailEarly {
+			// drain remaining jobs (continue the loop until waiting = 0) then exit
 			s.exiting = true
+			s.cancel() // cleanup: terminate pending retries
+
+			// mark remaining jobs as cancelled
+			s.markRemaining(ErrCancelled)
 		}
 
 		if s.exiting {
 			// skip scheduling dependencies if we're exiting early
+			continue
+		}
+
+		// if task hasn't reached it's max retry count yet, we schedule it again
+		if result.Attempts < uint(result.Task.TaskRetries()) && result.Result.Error != nil {
+			// we immediately increase the in-flight counter so the pipeline doesn't terminate
+			// while we wait for the next retry
+			s.waiting++
+
+			backoff := backoff.Backoff{
+				Factor: 2,
+				Min:    result.Task.TaskMinBackoff(),
+				Max:    result.Task.TaskMaxBackoff(),
+			}
+
+			go func() {
+				select {
+				case <-s.ctx.Done():
+					// report back so the waiting counter gets decreased
+					now := time.Now()
+					s.report(context.Background(), TaskRunResult{
+						Task:       result.Task,
+						Result:     Result{Error: ErrCancelled},
+						CreatedAt:  now, // TODO: more accurate start time
+						FinishedAt: null.TimeFrom(now),
+					})
+				case <-time.After(backoff.ForAttempt(float64(result.Attempts - 1))): // we subtract 1 because backoff 0-indexes
+					// schedule a new attempt
+					run := s.newMemoryTaskRun(result.Task)
+					run.attempts = result.Attempts
+					logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+					s.taskCh <- run
+				}
+			}()
+
+			// skip scheduling dependencies since it's the task is not complete yet
 			continue
 		}
 
@@ -216,6 +257,7 @@ Loop:
 				task := s.pipeline.Tasks[id]
 				run := s.newMemoryTaskRun(task)
 
+				logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run
 				s.waiting++
 			}
@@ -224,6 +266,20 @@ Loop:
 	}
 
 	close(s.taskCh)
+}
+
+func (s *scheduler) markRemaining(err error) {
+	now := time.Now()
+	for _, task := range s.pipeline.Tasks {
+		if _, ok := s.results[task.ID()]; !ok {
+			s.results[task.ID()] = TaskRunResult{
+				Task:       task,
+				Result:     Result{Error: err},
+				CreatedAt:  now, // TODO: more accurate start time
+				FinishedAt: null.TimeFrom(now),
+			}
+		}
+	}
 }
 
 func (s *scheduler) report(ctx context.Context, result TaskRunResult) {

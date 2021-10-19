@@ -91,6 +91,7 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 // client represents an abstract client that manages connections to
 // multiple ethereum nodes
 type client struct {
+	logger      *logger.Logger
 	primary     *node
 	secondaries []*secondarynode
 	mocked      bool
@@ -100,7 +101,7 @@ type client struct {
 
 var _ Client = (*client)(nil)
 
-func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
+func NewClient(logger *logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -110,7 +111,7 @@ func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	c := client{}
+	c := client{logger: logger}
 
 	// for now only one primary is supported
 	c.primary = newNode(*parsed, rpcHTTPURL, "eth-primary-0")
@@ -223,7 +224,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
-			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			client.logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
 		}(s)
 	}
 
@@ -287,7 +288,7 @@ func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 }
 
 func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
+	client.logger.Debugw("eth.Client#SubscribeFilterLogs(...)",
 		"q", q,
 	)
 	return client.primary.SubscribeFilterLogs(ctx, q, ch)

@@ -12,21 +12,19 @@ export class Jobs {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
-  public getJobSpecs(): Promise<jsonapi.ApiResponse<models.JobSpecV2[]>> {
+  public getJobSpecs(): Promise<jsonapi.ApiResponse<models.Job[]>> {
     return this.index()
   }
 
   @boundMethod
-  public getJobSpec(
-    id: string,
-  ): Promise<jsonapi.ApiResponse<models.JobSpecV2>> {
+  public getJobSpec(id: string): Promise<jsonapi.ApiResponse<models.Job>> {
     return this.show({}, { specId: id })
   }
 
   @boundMethod
   public createJobSpec(
-    request: models.JobSpecV2Request,
-  ): Promise<jsonapi.ApiResponse<models.JobSpecV2>> {
+    request: models.CreateJobRequest,
+  ): Promise<jsonapi.ApiResponse<models.Job>> {
     return this.create(request)
   }
 
@@ -43,16 +41,15 @@ export class Jobs {
     return this.post(pipelineInput, { specId: id })
   }
 
-  private index = this.api.fetchResource<{}, models.JobSpecV2[]>(ENDPOINT)
+  private index = this.api.fetchResource<{}, models.Job[]>(ENDPOINT)
 
-  private create = this.api.createResource<
-    models.JobSpecV2Request,
-    models.JobSpecV2
-  >(ENDPOINT)
+  private create = this.api.createResource<models.CreateJobRequest, models.Job>(
+    ENDPOINT,
+  )
 
   private show = this.api.fetchResource<
     {},
-    models.JobSpecV2,
+    models.Job,
     {
       specId: string
     }

@@ -37,11 +37,20 @@ observationSource   = """
 
     encode_mwr [type=ethabiencode
                 abi="(bytes32 requestId, uint256 usd, uint256 eur, uint256 jpy)"
-                data="{\\"requestId\\": $(decode_log.requestId), \\"usd\\": $(usd_multiply), \\"eur\\": $(eur_multiply), \\"jpy\\": $(jpy_multiply)}"]
+                data=<{
+                    "requestId": $(decode_log.requestId),
+                    "usd": $(usd_multiply),
+                    "eur": $(eur_multiply),
+                    "jpy": $(jpy_multiply)}>]
     encode_tx  [type=ethabiencode
                 abi="fulfillOracleRequest2(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
-                data="{\\"requestId\\": $(decode_log.requestId), \\"payment\\": $(decode_log.payment), \\"callbackAddress\\": $(decode_log.callbackAddr), \\"callbackFunctionId\\": $(decode_log.callbackFunctionId), \\"expiration\\": $(decode_log.cancelExpiration), \\"data\\": $(encode_mwr)}"]
-    submit_tx  [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)"]
+                data=<{"requestId": $(decode_log.requestId),
+                       "payment":   $(decode_log.payment),
+                       "callbackAddress": $(decode_log.callbackAddr),
+                       "callbackFunctionId": $(decode_log.callbackFunctionId),
+                       "expiration": $(decode_log.cancelExpiration),
+                       "data": $(encode_mwr)}>]
+    submit_tx  [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2"]
 
     encode_mwr -> encode_tx -> submit_tx
 """

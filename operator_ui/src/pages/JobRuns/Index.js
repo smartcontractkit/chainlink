@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import Card from '@material-ui/core/Card'
 import TablePagination from '@material-ui/core/TablePagination'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import { fetchJobRuns } from 'actionCreators'
-import jobRunsSelector from 'selectors/jobRuns'
-import jobRunsCountSelector from 'selectors/jobRunsCount'
 import List from '../Jobs/JobRunsList'
 import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
+import { v2 } from 'src/api'
+import { transformPipelineJobRun } from '../Jobs/transformJobRuns'
 
 const styles = (theme) => ({
   breadcrumb: {
@@ -70,18 +67,31 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
+const fetchRuns = async (page, size) => {
+  const response = await v2.runs.getAllJobRuns({ page, size })
+
+  return response.data.map((run) =>
+    transformPipelineJobRun(run.attributes.pipelineSpec.jobID)(run),
+  )
+}
+
 export const Index = (props) => {
-  const { jobSpecId, fetchJobRuns, pageSize, match } = props
+  const { jobSpecId, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
+  const [latestJobRuns, setLatestJobRuns] = useState([])
 
   useEffect(() => {
     document.title = 'Job Runs'
+  }, [])
+
+  useEffect(() => {
     const queryPage = parseInt(match?.params.jobRunsPage, 10) || FIRST_PAGE
     setPage(queryPage)
-    fetchJobRuns({ jobSpecId, page: queryPage, size: pageSize })
-  }, [fetchJobRuns, jobSpecId, pageSize, match])
+    fetchRuns(1, pageSize).then(setLatestJobRuns)
+  }, [jobSpecId, pageSize, match])
+
   const handleChangePage = (_, pageNum) => {
-    fetchJobRuns({ jobSpecId, page: pageNum, size: pageSize })
+    fetchRuns(pageNum, pageSize).then(setLatestJobRuns)
     setPage(pageNum)
   }
 
@@ -89,39 +99,20 @@ export const Index = (props) => {
     <Content>
       <Title>Runs</Title>
 
-      {renderDetails(props, { page }, handleChangePage)}
+      {renderDetails({ ...props, latestJobRuns }, { page }, handleChangePage)}
     </Content>
   )
 }
 
 Index.propTypes = {
   classes: PropTypes.object.isRequired,
-  latestJobRuns: PropTypes.array,
   jobRunsCount: PropTypes.number,
   pageSize: PropTypes.number.isRequired,
   pagePath: PropTypes.string.isRequired,
 }
 
 Index.defaultProps = {
-  latestJobRuns: [],
   pageSize: 25,
 }
 
-const mapStateToProps = (state, ownProps) => {
-  const jobSpecId = ownProps.match.params.jobSpecId
-  const jobRunsCount = jobRunsCountSelector(state)
-  const latestJobRuns = jobRunsSelector(state, jobSpecId)
-
-  return {
-    jobSpecId,
-    latestJobRuns,
-    jobRunsCount,
-  }
-}
-
-export const ConnectedIndex = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJobRuns }),
-)(Index)
-
-export default withStyles(styles)(ConnectedIndex)
+export default withStyles(styles)(Index)

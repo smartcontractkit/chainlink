@@ -8,7 +8,8 @@ import (
 )
 
 func TestVRF_VerifyProof(t *testing.T) {
-	sk := NewPrivateKeyXXXTestingOnly(big.NewInt(1))
+	sk, err := NewV2()
+	require.NoError(t, err)
 	seed, nonce := big.NewInt(2), big.NewInt(3)
 	p, err := sk.GenerateProofWithNonce(seed, nonce)
 	require.NoError(t, err, "could not generate proof")

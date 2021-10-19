@@ -1,7 +1,6 @@
 package p2pkey
 
 import (
-	"crypto/rand"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
@@ -16,12 +15,18 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key represents a libp2p private key
 type Key struct {
 	cryptop2p.PrivKey
+}
+
+func (k Key) ToV2() KeyV2 {
+	return KeyV2{
+		PrivKey: k.PrivKey,
+		peerID:  k.PeerID(),
+	}
 }
 
 // PublicKeyBytes is generated using cryptop2p.PubKey.Raw()
@@ -86,7 +91,7 @@ func (k Key) GetPeerID() (PeerID, error) {
 	return PeerID(peerID), err
 }
 
-func (k Key) MustGetPeerID() PeerID {
+func (k Key) PeerID() PeerID {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
 		panic(err)
@@ -117,56 +122,6 @@ func (ep2pk *EncryptedP2PKey) SetID(value string) error {
 
 	ep2pk.ID = int32(result)
 	return nil
-}
-
-// CreateKey makes a new libp2p keypair from a crytographically secure entropy source
-func CreateKey() (Key, error) {
-	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
-	if err != nil {
-		return Key{}, nil
-	}
-	return Key{
-		p2pPrivkey,
-	}, nil
-}
-
-// type is added to the beginning of the passwords for
-// P2P key, so that the keys can't accidentally be mis-used
-// in the wrong place
-func adulteratedPassword(auth string) string {
-	s := "p2pkey" + auth
-	return s
-}
-
-func (k Key) ToEncryptedP2PKey(auth string, scryptParams utils.ScryptParams) (s EncryptedP2PKey, err error) {
-	var marshalledPrivK []byte
-	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
-	if err != nil {
-		return s, err
-	}
-	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword(auth)), scryptParams.N, scryptParams.P)
-	if err != nil {
-		return s, errors.Wrapf(err, "could not encrypt p2p key")
-	}
-	marshalledCryptoJSON, err := json.Marshal(&cryptoJSON)
-	if err != nil {
-		return s, errors.Wrapf(err, "could not encode cryptoJSON")
-	}
-	peerID, err := k.GetPeerID()
-	if err != nil {
-		return s, errors.Wrapf(err, "could not get peer ID")
-	}
-	pubKeyBytes, err := k.GetPublic().Raw()
-	if err != nil {
-		return s, errors.Wrapf(err, "could not get public key bytes")
-	}
-
-	s = EncryptedP2PKey{
-		PubKey:           pubKeyBytes,
-		EncryptedPrivKey: marshalledCryptoJSON,
-		PeerID:           peerID,
-	}
-	return s, nil
 }
 
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error

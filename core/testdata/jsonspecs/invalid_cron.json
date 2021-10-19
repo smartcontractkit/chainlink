@@ -1,4 +1,0 @@
-{
-  "initiators": [{ "type": "cron", "params": { "schedule": "CRON_TZ=UTC ! * * * *" }}],
-  "tasks": [{ "type": "HttpGet", "params": { "get": "https://example.com/api" } }]
-}

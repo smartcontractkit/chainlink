@@ -1,6 +1,11 @@
 package pipeline
 
-import "time"
+import (
+	"time"
+
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/null"
+)
 
 type BaseTask struct {
 	outputs []Task
@@ -10,7 +15,13 @@ type BaseTask struct {
 	dotID     string
 	Index     int32         `mapstructure:"index" json:"-" `
 	Timeout   time.Duration `mapstructure:"timeout"`
-	FailEarly string        `mapstructure:"failEarly"`
+	FailEarly bool          `mapstructure:"failEarly"`
+
+	Retries    null.Uint32   `mapstructure:"retries"`
+	MinBackoff time.Duration `mapstructure:"minBackoff"`
+	MaxBackoff time.Duration `mapstructure:"maxBackoff"`
+
+	uuid uuid.UUID
 }
 
 func NewBaseTask(id int, dotID string, inputs, outputs []Task, index int32) BaseTask {
@@ -46,4 +57,22 @@ func (t BaseTask) TaskTimeout() (time.Duration, bool) {
 		return time.Duration(0), false
 	}
 	return t.Timeout, true
+}
+
+func (t BaseTask) TaskRetries() uint32 {
+	return t.Retries.Uint32
+}
+
+func (t BaseTask) TaskMinBackoff() time.Duration {
+	if t.MinBackoff > 0 {
+		return t.MinBackoff
+	}
+	return time.Second * 5
+}
+
+func (t BaseTask) TaskMaxBackoff() time.Duration {
+	if t.MinBackoff > 0 {
+		return t.MaxBackoff
+	}
+	return time.Minute
 }

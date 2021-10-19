@@ -47,10 +47,25 @@ type PreSeedData struct {
 	BlockNum  uint64      // Cardinal number of block containing VRF request
 }
 
+type PreSeedDataV2 struct {
+	PreSeed          Seed        // Seed to be mixed with hash of containing block
+	BlockHash        common.Hash // Hash of block containing VRF request
+	BlockNum         uint64      // Cardinal number of block containing VRF request
+	SubId            uint64
+	CallbackGasLimit uint32
+	NumWords         uint32
+	Sender           common.Address
+}
+
 // FinalSeed is the seed which is actually passed to the VRF proof generator,
 // given the pre-seed and the hash of the block in which the VRFCoordinator
 // emitted the log for the request this is responding to.
 func FinalSeed(s PreSeedData) (finalSeed *big.Int) {
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	return utils.MustHash(string(seedHashMsg)).Big()
+}
+
+func FinalSeedV2(s PreSeedDataV2) (finalSeed *big.Int) {
 	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
 	return utils.MustHash(string(seedHashMsg)).Big()
 }

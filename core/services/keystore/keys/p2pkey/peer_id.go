@@ -10,12 +10,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-const peerIDPrefix = "p2p_"
+const PeerIDPrefix = "p2p_"
 
 type PeerID peer.ID
 
 func (p PeerID) String() string {
-	return fmt.Sprintf("%s%s", peerIDPrefix, peer.ID(p).String())
+	return fmt.Sprintf("%s%s", PeerIDPrefix, peer.ID(p).String())
 }
 
 func (p PeerID) Raw() string {
@@ -24,8 +24,8 @@ func (p PeerID) Raw() string {
 
 func (p *PeerID) UnmarshalText(bs []byte) error {
 	input := string(bs)
-	if strings.HasPrefix(input, peerIDPrefix) {
-		input = string(bs[len(peerIDPrefix):])
+	if strings.HasPrefix(input, PeerIDPrefix) {
+		input = string(bs[len(PeerIDPrefix):])
 	}
 
 	peerID, err := peer.Decode(input)

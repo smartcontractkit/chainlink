@@ -155,22 +155,13 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge: %+v", err))
 		return
 	}
-	jobsUsingBridge, err := btc.App.GetStore().FindJobIDsWithBridge(name)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs: %+v", err))
-		return
-	}
-	if len(jobsUsingBridge) > 0 {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because jobs %v are associated with it", jobsUsingBridge))
-		return
-	}
-	v2jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(name)
+	jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %+v", err))
 		return
 	}
-	if len(v2jobsUsingBridge) > 0 {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because jobs %v are associated with it", v2jobsUsingBridge))
+	if len(jobsUsingBridge) > 0 {
+		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because jobs %v are associated with it", jobsUsingBridge))
 		return
 	}
 	if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {

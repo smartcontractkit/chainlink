@@ -361,7 +361,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 	for j := 0; j < numSamples(); j++ {
 		sk := randomScalar(t, r)
 		skNum := secp256k1.ToInt(sk)
-		pk := vrfkey.NewPrivateKeyXXXTestingOnly(skNum)
+		pk := vrfkey.MustNewV2XXXTestingOnly(skNum)
 		nonce := randomScalar(t, r)
 		randomSeed := randomUint256(t, r)
 		proof, err := pk.GenerateProofWithNonce(randomSeed, secp256k1.ToInt(nonce))

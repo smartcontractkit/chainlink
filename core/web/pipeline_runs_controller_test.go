@@ -16,6 +16,7 @@ import (
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -30,13 +31,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+
+	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()
-	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
-	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 	require.NoError(t, app.Start())
 
 	// Setup the bridge
@@ -96,13 +98,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		ethClient,
-	)
+	cfg := cltest.NewTestEVMConfig(t)
+
+	cfg.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	cfg.GeneralConfig.Overrides.SetDefaultHTTPTimeout(2 * time.Second)
+	cfg.GeneralConfig.Overrides.SetTriggerFallbackDBPollInterval(10 * time.Millisecond)
+
+	app, cleanup := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	defer cleanup()
-	app.Config.Set("MAX_HTTP_ATTEMPTS", "1")
-	app.Config.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-	app.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "10ms")
 	require.NoError(t, app.Start())
 
 	// Setup the bridges
@@ -163,7 +166,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
-	client, _, runIDs, cleanup := setupPipelineRunsControllerTests(t)
+	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
 	defer cleanup()
 
 	response, cleanup := client.Get("/v2/pipeline/runs")
@@ -181,6 +184,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
@@ -204,6 +208,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, parsedResponse[1].ID, strconv.Itoa(int(runIDs[0])))
 	assert.NotNil(t, parsedResponse[1].CreatedAt)
 	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	assert.Equal(t, jobID, parsedResponse[1].PipelineSpec.JobID)
 	// Successful pipeline runs does not save task runs.
 	require.Len(t, parsedResponse[1].TaskRuns, 0)
 }
@@ -274,11 +279,14 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app, cleanup := cltest.NewApplication(t,
 		ethClient,
 	)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	require.NoError(t, app.Start())
+	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	client := app.NewHTTPClient()
 	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 
-	key := cltest.MustInsertRandomKey(t, app.Store.DB)
+	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
@@ -309,9 +317,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	err = toml.Unmarshal([]byte(sp), &os)
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
-
-	err = app.GetKeyStore().OCR().Unlock(cltest.Password)
-	require.NoError(t, err)
 
 	jb, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)

@@ -31,6 +31,9 @@ var (
 	})
 )
 
+// HeadsBufferSize - The buffer is used when heads sampling is disabled, to ensure the callback is run for every head
+const HeadsBufferSize = 10
+
 // HeadTracker holds and stores the latest block number experienced by this particular node
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
@@ -41,7 +44,7 @@ type HeadTracker struct {
 	config          Config
 
 	backfillMB   utils.Mailbox
-	samplingMB   utils.Mailbox
+	callbackMB   utils.Mailbox
 	muLogger     sync.RWMutex
 	headListener *HeadListener
 	headSaver    *HeadSaver
@@ -70,7 +73,7 @@ func NewHeadTracker(
 		config:          config,
 		log:             l,
 		backfillMB:      *utils.NewMailbox(1),
-		samplingMB:      *utils.NewMailbox(1),
+		callbackMB:      *utils.NewMailbox(HeadsBufferSize),
 		chStop:          chStop,
 		wgDone:          &wgDone,
 		headListener:    NewHeadListener(l, ethClient, config, chStop, &wgDone, sleepers...),
@@ -110,31 +113,28 @@ func (ht *HeadTracker) Start() error {
 			)
 		}
 
-		// NOTE: In an ideal world we want to always start the head tracker off
-		// with whatever the latest head is, without waiting for the
-		// subscription to send us one.
+		// NOTE: Always try to start the head tracker off with whatever the
+		// latest head is, without waiting for the subscription to send us one.
 		//
-		// This does not play nicely with the legacy pipeline for reasons that
-		// are difficult to understand, so for now we leave it disabled in case
-		// the legacy pipeline is turned on. We can remove this once legacy
-		// pipeline is removed
-		if !ht.config.EnableLegacyJobPipeline() {
-			initialHead, err := ht.getInitialHead()
-			if err != nil {
-				return err
-			} else if initialHead != nil {
-				if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
-					return errors.Wrap(err, "error handling initial head")
-				}
-			} else {
-				logger.Debug("HeadTracker: got nil initial head")
+		// In some cases the subscription will send us the most recent head
+		// anyway when we connect (but we should not rely on this because it is
+		// not specced). If it happens this is fine, and the head will be
+		// ignored as a duplicate.
+		initialHead, err := ht.getInitialHead()
+		if err != nil {
+			return err
+		} else if initialHead != nil {
+			if err := ht.handleNewHead(context.Background(), *initialHead); err != nil {
+				return errors.Wrap(err, "error handling initial head")
 			}
+		} else {
+			logger.Debug("HeadTracker: got nil initial head")
 		}
 
 		ht.wgDone.Add(3)
-		go ht.headListener.ListenForNewHeads(ht.handleNewHead, ht.handleConnected)
+		go ht.headListener.ListenForNewHeads(ht.handleNewHead)
 		go ht.backfiller()
-		go ht.headSampler()
+		go ht.headCallbackLoop()
 
 		return nil
 	})
@@ -158,7 +158,7 @@ func (ht *HeadTracker) getInitialHead() (*models.Head, error) {
 // Stop unsubscribes all connections and fires Disconnect.
 func (ht *HeadTracker) Stop() error {
 	return ht.StopOnce("HeadTracker", func() error {
-		ht.logger().Info(fmt.Sprintf("HeadTracker disconnecting from %v", ht.config.EthereumURL()))
+		ht.logger().Info(fmt.Sprintf("HeadTracker: Stopping - disconnecting from %v", ht.config.EthereumURL()))
 		close(ht.chStop)
 		ht.wgDone.Wait()
 		return nil
@@ -182,42 +182,55 @@ func (ht *HeadTracker) Connected() bool {
 	return ht.headListener.Connected()
 }
 
-func (ht *HeadTracker) handleConnected() {
-	ht.connect(ht.headSaver.HighestSeenHead())
-}
+func (ht *HeadTracker) headCallbackLoop() {
+	defer ht.wgDone.Done()
 
-func (ht *HeadTracker) connect(bn *models.Head) {
-	if err := ht.headBroadcaster.Connect(bn); err != nil {
-		ht.logger().Warn(err)
+	samplingInterval := ht.config.EvmHeadTrackerSamplingInterval()
+	if samplingInterval > 0 {
+		ht.logger().Infof("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
+		debounceHead := time.NewTicker(samplingInterval)
+		defer debounceHead.Stop()
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-debounceHead.C:
+				item := ht.callbackMB.RetrieveLatestAndClear()
+				if item == nil {
+					continue
+				}
+				ht.callbackOnLatestHead(item)
+			}
+		}
+	} else {
+		ht.logger().Info("Head sampling is disabled - callback will be called on every head")
+		for {
+			select {
+			case <-ht.chStop:
+				return
+			case <-ht.callbackMB.Notify():
+				for {
+					item, exists := ht.callbackMB.Retrieve()
+					if !exists {
+						break
+					}
+					ht.callbackOnLatestHead(item)
+				}
+			}
+		}
 	}
 }
 
-func (ht *HeadTracker) headSampler() {
-	defer ht.wgDone.Done()
-
-	debounceHead := time.NewTicker(ht.config.EthHeadTrackerSamplingInterval())
-	defer debounceHead.Stop()
-
+func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	for {
-		select {
-		case <-ht.chStop:
-			return
-		case <-debounceHead.C:
-			item, exists := ht.samplingMB.Retrieve()
-			if !exists {
-				continue
-			}
-			head, ok := item.(models.Head)
-			if !ok {
-				panic(fmt.Sprintf("expected `models.Head`, got %T", item))
-			}
-
-			ht.headBroadcaster.OnNewLongestChain(ctx, head)
-		}
+	head, ok := item.(models.Head)
+	if !ok {
+		panic(fmt.Sprintf("expected `models.Head`, got %T", item))
 	}
+
+	ht.headBroadcaster.OnNewLongestChain(ctx, head)
 }
 
 func (ht *HeadTracker) backfiller() {
@@ -237,8 +250,8 @@ func (ht *HeadTracker) backfiller() {
 					panic(fmt.Sprintf("expected `models.Head`, got %T", head))
 				}
 				{
-					ctx, cancel := utils.ContextFromChan(ht.chStop)
-					err := ht.Backfill(ctx, h, ht.config.EthFinalityDepth())
+					ctx, cancel := eth.DefaultQueryCtx()
+					err := ht.Backfill(ctx, h, ht.config.EvmFinalityDepth())
 					if err != nil {
 						ht.logger().Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -356,7 +369,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	if prevHead == nil || head.Number > prevHead.Number {
 		promCurrentHead.Set(float64(head.Number))
 
-		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EthFinalityDepth())
+		headWithChain, err := ht.headSaver.Chain(ctx, head.Hash, ht.config.EvmFinalityDepth())
 		if ctx.Err() != nil {
 			return nil
 		} else if err != nil {
@@ -364,7 +377,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 
 		ht.backfillMB.Deliver(headWithChain)
-		ht.samplingMB.Deliver(headWithChain)
+		ht.callbackMB.Deliver(headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {
@@ -375,7 +388,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		}
 	} else {
 		ht.logger().Debugw("HeadTracker: got out of order head", "blockNum", head.Number, "gotHead", head.Hash.Hex(), "highestSeenHead", prevHead.Number)
-		if head.Number < prevHead.Number-int64(ht.config.EthFinalityDepth()) {
+		if head.Number < prevHead.Number-int64(ht.config.EvmFinalityDepth()) {
 			promOldHead.Inc()
 			ht.logger().Errorf("HeadTracker: got very old block with number %d (highest seen was %d). This is a problem and either means a very deep re-org occurred, or the chain went backwards in block numbers. This node will not function correctly without manual intervention.", head.Number, prevHead.Number)
 		}

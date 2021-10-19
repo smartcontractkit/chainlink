@@ -38,20 +38,20 @@ func (c *Chain) Config() ChainSpecificConfig {
 	return c.config
 }
 
-// IsArbitrum returns true if the chain is arbitrum mainnet or testnet
+// IsArbitrum returns true if the chain is arbitrum
 func (c *Chain) IsArbitrum() bool {
-	return c.ID().Cmp(ArbitrumMainnet.ID()) == 0 || c.ID().Cmp(ArbitrumRinkeby.ID()) == 0
+	return c.Config().Layer2Type == "Arbitrum"
 }
 
-// IsOptimism returns true if the chain is optimism mainnet or testnet
+// IsOptimism returns true if the chain is optimism
 func (c *Chain) IsOptimism() bool {
-	return c.ID().Cmp(OptimismMainnet.ID()) == 0 || c.ID().Cmp(OptimismKovan.ID()) == 0
+	return c.Config().Layer2Type == "Optimism"
 }
 
-// IsL2 returns true if this chain is an L2 chain, notably that the block
-// numbers used for log searching are different from calling block.number
+// IsL2 returns true if this chain is an L2 chain. Notably the block numbers
+// used for log searching are different from calling block.number
 func (c *Chain) IsL2() bool {
-	return c.IsOptimism() || c.IsArbitrum()
+	return c.Config().Layer2Type != ""
 }
 
 var chains map[int64]*Chain

@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2021-10-04
+
+### Added
+
+- `chainlink node db status` will now display a table of applied and pending migrations.
+- Add support for OKEx/ExChain.
+
+### Changed
+
+**Legacy job pipeline (JSON specs) are no longer supported**
+
+This version will refuse to migrate the database if job specs are still present. You must manually delete or migrate all V1 job specs before upgrading.
+
+For more information on migrating, see [the docs](https://docs.chain.link/chainlink-nodes/).
+
+This release will DROP legacy job tables so please take a backup before upgrading.
+
+#### New env vars
+
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
+
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs,
+  regardless of the head frequency from the chain.
+- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
+- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
+
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
 ## [0.10.15]
 
 **It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
@@ -64,10 +96,13 @@ observationSource           = """
 A new configuration variable, `BLOCK_BACKFILL_SKIP`, can be optionally set to "true" in order to strongly limit the depth of the log backfill.
 This is useful if the node has been offline for a longer time and after startup should not be concerned with older events from the chain.
 
+Three new configuration variables are added for the new telemetry ingress service support. `TELEMETRY_INGRESS_URL` sets the URL to connect to for telemetry ingress, `TELEMETRY_INGRESS_SERVER_PUB_KEY` sets the public key of the telemetry ingress server, and `TELEMETRY_INGRESS_LOGGING` toggles verbose logging of the raw telemetry messages being sent.
+
 * Fixes the logging configuration form not displaying the current values
 * Updates the design of the configuration cards to be easier on the eyes
 * View Coordinator Service Authentication keys in the Operator UI. This is hidden
   behind a feature flag until usage is enabled.
+* Adds support for the new telemetry ingress service.
 
 ### Changed
 
@@ -128,9 +163,15 @@ To give some background, the legacy job pipeline has been around since before Ch
 
 The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
 
+#### KeyStore changes
+
+* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+
 ## [0.10.10] - 2021-07-19
 
-### Changed 
+### Changed
 
 This update will truncate `pipeline_runs`, `pipeline_task_runs`, `flux_monitor_round_stats_v2` DB tables as a part of the migration.
 

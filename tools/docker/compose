@@ -26,18 +26,12 @@ fi
 
 base="docker-compose $base_files"                                       # base config, used standalone for acceptance
 dev="$base -f docker-compose.dev.yaml"                                  # config for cldev
-test="$base -f docker-compose.integration.yaml"                         # config to run integration tests
-ts_test="$base -f docker-compose.ts-integration.yaml"                   # config to run integration tests in typescript
-deps="$test -f docker-compose.deps.yaml"                                # config to bring up integration test dependencies
-dev_integration="$test -f docker-compose.dev-integration.yaml"          # config to run integration tests in dev mode
-dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
 
 clean_docker() {
   $base down -v --remove-orphans
   $dev down -v --remove-orphans
   $test down -v --remove-orphans
   $deps down -v --remove-orphans
-  $dev_integration down -v --remove-orphans
   $ts_test down -v --remove-orphans
 }
 
@@ -68,15 +62,6 @@ Commands:
 
     acceptance            Run the services required to perform an acceptance test
 
-    test                  Run integration test suite
-    test:down             Cleanup resources that may have been left over by ./compose test, used for CI
-    test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
-    test:ts               Run integration test suite in typescript (WIP)
-    test:ts:down          Cleanup resources that may have been left over by ./compose test:ts, used for CI
-    test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)
-
-    integration | i       Run docker-compose with config for integration tests
-    dev:integration | di  Run docker-compose with dev config for integration tests
     dev                   Run docker-compose with dev config for the core node and operator-ui
 
     eth:restart             Reset blockchain data to genesis state
@@ -115,58 +100,6 @@ acceptance)
   $base up
   ;;
 
-test)
-  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
-  $test up --abort-on-container-exit --remove-orphans integration
-  save_test_logs
-  $test down -v --remove-orphans
-  ;;
-test:down)
-  $test down -v --remove-orphans
-  ;;
-test:dev)
-  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
-  $dev_integration up --abort-on-container-exit --remove-orphans integration
-  $dev_integration down -v --remove-orphans
-  ;;
-test:ts)
-  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
-  $deps up --abort-on-container-exit --remove-orphans wait-db-2 wait-db-2
-
-  # Avoiding hanging, because of a bug: https://github.com/docker/compose/issues/3106
-  export COMPOSE_INTERACTIVE_NO_CLI=1
-
-  $ts_test run integration-ts /bin/sh -c \
-    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && cd tools/ci-ts && npm install && npm run test --runInBand ${@:2}"
-  exit_code=$?
-  set -e
-  save_test_logs
-  $ts_test down -v --remove-orphans
-  exit $exit_code
-  ;;
-test:ts:down)
-  $ts_test down -v --remove-orphans
-  ;;
-test:ts:dev)
-  $deps up --abort-on-container-exit --remove-orphans wait-db wait-db
-  $deps up --abort-on-container-exit --remove-orphans wait-db-2 wait-db-2
-  set +e
-  $dev_ts_integration run integration-ts /bin/sh -c \
-    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
-      && cd tools/ci-ts && npm install && npm run test --verbose --runInBand ${@:2}"
-  exit_code=$?
-  set -e
-  save_test_logs
-  $dev_ts_integration down -v --remove-orphans
-  exit $exit_code
-  ;;
-integration | i)
-  $test ${@:2}
-  ;;
-dev:integ | di)
-  $dev_integration ${@:2}
-  ;;
 dev)
   $dev ${@:2}
   ;;

@@ -53,13 +53,16 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_spawner", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Close()
 
-	key := cltest.MustInsertRandomKey(t, db)
-	address := key.Address.Address()
+	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
@@ -78,7 +81,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
 
-		orm := job.NewORM(db, config.Config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -121,11 +124,13 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDA))
+		err = spawner.DeleteJob(ctx, jobSpecIDA)
+		require.NoError(t, err)
 
 		serviceB1.On("Close").Return(nil).Once()
 		serviceB2.On("Close").Return(nil).Once()
-		require.NoError(t, spawner.DeleteJob(ctx, jobSpecIDB))
+		err = spawner.DeleteJob(ctx, jobSpecIDB)
+		require.NoError(t, err)
 
 		require.NoError(t, spawner.Close())
 		serviceA1.AssertExpectations(t)
@@ -145,7 +150,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config.Config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -174,7 +179,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
-		orm := job.NewORM(db, config.Config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, orm, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -211,7 +216,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
-		orm := job.NewORM(db, config.Config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+		orm := job.NewORM(db, config, pipeline.NewORM(db), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 		defer orm.Close()
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewDelegate(nil, nil, nil, nil, nil, nil, ethClient, nil, nil, monitoringEndpoint, nil, nil)}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{

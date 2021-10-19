@@ -33,19 +33,23 @@ func TestORM(t *testing.T) {
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "services_job_orm", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
+
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer orm.Close()
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
-	key := cltest.MustInsertRandomKey(t, db)
-	address := key.Address.Address()
+	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	dbSpec := makeOCRJobSpec(t, address)
 
 	t.Run("it creates job specs", func(t *testing.T) {
@@ -82,7 +86,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer d.Close()
 
-	orm2 := job.NewORM(db2, config.Config, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2), eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
@@ -226,14 +230,16 @@ func TestORM(t *testing.T) {
 func TestORM_CheckForDeletedJobs(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
-	key := cltest.MustInsertRandomKey(t, db)
-	address := key.Address.Address()
+	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
@@ -243,7 +249,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer orm.Close()
 
 	claimedJobs := make([]job.Job, 3)
@@ -269,20 +275,20 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 func TestORM_UnclaimJob(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
-	key := cltest.MustInsertRandomKey(t, db)
-	address := key.Address.Address()
+	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
 	advisoryLocker := new(mocks.AdvisoryLocker)
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, advisoryLocker)
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker, keyStore)
 	defer orm.Close()
 
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
@@ -310,17 +316,17 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config := cltest.NewTestEVMConfig(t)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	keyStore.VRF().Unlock("blah")
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
-	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	defer orm.Close()
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
@@ -329,9 +335,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 		require.NoError(t, db.Create(bridge2).Error)
 
-		key := cltest.MustInsertRandomKey(t, store.DB)
-		address := key.Address.Address()
-		jb, err := offchainreporting.ValidatedOracleSpecToml(config.Config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
+		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+		jb, err := offchainreporting.ValidatedOracleSpecToml(config, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
 		require.NoError(t, err)
 
 		ocrJob, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
@@ -368,8 +373,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
-		pk, err := keyStore.VRF().CreateKey()
+		key, err := keyStore.VRF().Create()
 		require.NoError(t, err)
+		pk := key.PublicKey
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)
 
