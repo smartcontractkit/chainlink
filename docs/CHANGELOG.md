@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.0.0] - 2021-10-04
+## [1.0.0] - 2021-10-19
 
 ### Added
 
@@ -38,6 +38,14 @@ This release will DROP legacy job tables so please take a backup before upgradin
 ### Fixed
 
 Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
+## [0.10.15] - 2021-10-14
+
+**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+
+### Fixed
+
+- Prevent release from clobbering databases that have previously been upgraded
 
 ## [0.10.14] - 2021-09-06
 
