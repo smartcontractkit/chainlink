@@ -382,6 +382,8 @@ declare module 'core/store/models' {
       confirmations: number
       publicKey: string
       coordinatorAddress: common.Address
+      fromAddress: string
+      pollPeriod: string
       createdAt: time.Time
       updatedAt: time.Time
     }

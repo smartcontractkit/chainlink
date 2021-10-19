@@ -397,7 +397,25 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg); err != nil {
+	userOnly := c.Bool("user-only")
+	var fixturePath = "../store/fixtures/fixtures.sql"
+	if userOnly {
+		fixturePath = "../store/fixtures/user_only_fixture.sql"
+	}
+	if err := insertFixtures(cfg, fixturePath); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// testing against testnets. Does not include fake chain fixtures.
+func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
+	if err := cli.ResetDatabase(c); err != nil {
+		return cli.errorOut(err)
+	}
+	cfg := cli.Config
+	if err := insertFixtures(cfg, "../store/fixtures/user_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -587,7 +605,7 @@ func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
 	return nil
 }
 
-func insertFixtures(config config.GeneralConfig) (err error) {
+func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err error) {
 	dbURL := config.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
@@ -603,7 +621,7 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 	if !ok {
 		return errors.New("could not get runtime.Caller(1)")
 	}
-	filepath := path.Join(path.Dir(filename), "../store/fixtures/fixtures.sql")
+	filepath := path.Join(path.Dir(filename), pathToFixtures)
 	fixturesSQL, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return err

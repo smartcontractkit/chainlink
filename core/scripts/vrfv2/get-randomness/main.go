@@ -24,7 +24,7 @@ func main() {
 	panicErr(err)
 	sub, err := coordinator.GetSubscription(nil, 1)
 	fmt.Println(sub, err)
-	c, err := coordinator.SConfig(nil)
+	c, err := coordinator.GetConfig(nil)
 	fmt.Println(c, err)
 
 	consumer, err := vrf_consumer_v2.NewVRFConsumerV2(common.HexToAddress(consumerAddress), ec)

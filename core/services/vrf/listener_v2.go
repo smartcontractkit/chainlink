@@ -112,9 +112,13 @@ func (lsn *listenerV2) Start() error {
 		go gracefulpanic.WrapRecover(func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
+		pollPeriod := lsn.job.VRFSpec.PollPeriod
+		if pollPeriod == 0 {
+			pollPeriod = 5 * time.Second
+		}
 		// Request handler periodically computes a set of logs which can be fulfilled.
 		go gracefulpanic.WrapRecover(func() {
-			lsn.runRequestHandler()
+			lsn.runRequestHandler(pollPeriod)
 		})
 		return nil
 	})
@@ -122,15 +126,19 @@ func (lsn *listenerV2) Start() error {
 
 // Returns all the confirmed logs from
 // the pending queue by subscription
-func (lsn *listenerV2) getConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
+func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
 	var toProcess = make(map[uint64][]pendingRequest)
+	var toKeep []pendingRequest
 	for i := 0; i < len(lsn.reqs); i++ {
 		if r := lsn.reqs[i]; r.confirmedAtBlock <= latestHead {
 			toProcess[r.req.SubId] = append(toProcess[r.req.SubId], r)
+		} else {
+			toKeep = append(toKeep, lsn.reqs[i])
 		}
 	}
+	lsn.reqs = toKeep
 	return toProcess
 }
 
@@ -182,7 +190,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 		logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
 		return
 	}
-	confirmed := lsn.getConfirmedLogsBySub(latestHead.Number.Uint64())
+	confirmed := lsn.getAndRemoveConfirmedLogsBySub(latestHead.Number.Uint64())
 	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
@@ -256,15 +264,16 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 
 func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
 	var err1 error
-	startBalance, err1 = MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
+	startBalanceNoReserveLink, err1 := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
 	if err1 != nil {
 		return
 	}
 	logger.Infow("VRFListenerV2: processing requests",
-		"sub", lsn.reqs[0].req.SubId,
+		"sub", reqs[0].req.SubId,
 		"maxGasPrice", maxGasPrice.String(),
 		"reqs", len(reqs),
 		"startBalance", startBalance.String(),
+		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 	)
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
@@ -332,7 +341,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		// If we successfully enqueued for the bptxm, subtract that balance
 		// And loop to attempt to enqueue another fulfillment
-		startBalance = startBalance.Sub(startBalance, bi)
+		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, bi)
 		processed[req.req.RequestId.String()] = struct{}{}
 	}
 	// Remove all the confirmed logs
@@ -343,7 +352,9 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 	}
 	lsn.reqsMu.Lock()
-	lsn.reqs = toKeep
+	// There could be logs accumulated to this slice while request processor is running,
+	// so we merged the new ones with the ones that need to be requeued.
+	lsn.reqs = append(lsn.reqs, toKeep...)
 	lsn.reqsMu.Unlock()
 	lsn.l.Infow("VRFListenerV2: finished processing for sub",
 		"sub", reqs[0].req.SubId,
@@ -410,9 +421,8 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	return maxLink, run, payload, gaslimit, nil
 }
 
-func (lsn *listenerV2) runRequestHandler() {
-	// TODO: Probably would have to be a configuration parameter per job so chains could have faster ones
-	tick := time.NewTicker(5 * time.Second)
+func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration) {
+	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
 	for {
 		select {
@@ -515,6 +525,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	}
 
 	confirmedAt := lsn.getConfirmedAt(req, minConfs)
+	lsn.l.Infow("VRFListenerV2: Received log request", "reqID", req.RequestId, "confirmedAt", confirmedAt, "subID", req.SubId, "sender", req.Sender)
 	lsn.reqsMu.Lock()
 	lsn.reqs = append(lsn.reqs, pendingRequest{
 		confirmedAtBlock: confirmedAt,

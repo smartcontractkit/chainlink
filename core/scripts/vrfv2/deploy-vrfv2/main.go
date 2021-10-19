@@ -83,26 +83,17 @@ func main() {
 	time.Sleep(waitForMine)
 	// Set coordinators config
 	_, err = coordinatorContract.SetConfig(user,
-		uint16(1), // minRequestConfirmations
+		uint16(1),    // minRequestConfirmations
+		uint32(1000), // 0.0001 link flat fee
 		uint32(1000000),
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
-		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-			FulfillmentFlatFeeLinkPPMTier1: uint32(10000),
-			FulfillmentFlatFeeLinkPPMTier2: uint32(1000),
-			FulfillmentFlatFeeLinkPPMTier3: uint32(100),
-			FulfillmentFlatFeeLinkPPMTier4: uint32(10),
-			FulfillmentFlatFeeLinkPPMTier5: uint32(1),
-			ReqsForTier2:                   big.NewInt(10),
-			ReqsForTier3:                   big.NewInt(20),
-			ReqsForTier4:                   big.NewInt(30),
-			ReqsForTier5:                   big.NewInt(40),
-		},
+		big.NewInt(1000000000000000000),        // Minimum subscription balance 0.01 link
 	)
 	panicErr(err)
 	time.Sleep(waitForMine)
-	c, err := coordinatorContract.SConfig(nil)
+	c, err := coordinatorContract.GetConfig(nil)
 	panicErr(err)
 	fmt.Printf("Coordinator config %v %v %+v\n", coordinatorAddress, linkAddress, c)
 	// Deploy consumer

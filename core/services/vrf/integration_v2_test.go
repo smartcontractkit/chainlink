@@ -790,7 +790,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	keyHash [32]byte) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash},nil, []common.Address{} )
+		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)

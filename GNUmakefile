@@ -80,6 +80,10 @@ go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and thei
 testdb: ## Prepares the test database
 	go run ./core/main.go local db preparetest
 
+.PHONY: testdb
+testdb-user-only: ## Prepares the test database
+	go run ./core/main.go local db preparetest --user-only
+
 # Format for CI
 .PHONY: presubmit
 presubmit:
