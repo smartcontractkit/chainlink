@@ -126,11 +126,11 @@ func Test_ChainsController_Show(t *testing.T) {
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
-				assert.Equal(t, resource1.ID, dbChain.ID.String())
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, dbChain.Cfg.BlockHistoryEstimatorBlockDelay)
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, dbChain.Cfg.BlockHistoryEstimatorBlockHistorySize)
-				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, dbChain.Cfg.EvmEIP1559DynamicFees)
-				assert.Equal(t, resource1.Config.MinIncomingConfirmations, dbChain.Cfg.MinIncomingConfirmations)
+				assert.Equal(t, resource1.ID, tc.want.ID.String())
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, tc.want.Cfg.BlockHistoryEstimatorBlockDelay)
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, tc.want.Cfg.BlockHistoryEstimatorBlockHistorySize)
+				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, tc.want.Cfg.EvmEIP1559DynamicFees)
+				assert.Equal(t, resource1.Config.MinIncomingConfirmations, tc.want.Cfg.MinIncomingConfirmations)
 			}
 		})
 	}
@@ -207,13 +207,108 @@ func Test_ChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["next"].Href)
 	assert.NotEmpty(t, links["prev"].Href)
 
-	// Validating the second received chain
 	assert.Len(t, links, 1)
 	assert.Equal(t, newChains[0].ID.String(), chains[0].ID)
 	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockDelay, chains[0].Config.BlockHistoryEstimatorBlockDelay)
 	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockHistorySize, chains[0].Config.BlockHistoryEstimatorBlockHistorySize)
 	assert.Equal(t, newChains[0].Config.EvmEIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees)
 	assert.Equal(t, newChains[0].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
+}
+
+func Test_ChainsController_Update(t *testing.T) {
+	t.Parallel()
+
+	var dbChain types.Chain
+
+	chainUpdate := web.UpdateChainRequest{
+		Enabled: true,
+		Config: types.ChainCfg{
+			BlockHistoryEstimatorBlockDelay:       null.IntFrom(55),
+			BlockHistoryEstimatorBlockHistorySize: null.IntFrom(33),
+			EvmEIP1559DynamicFees:                 null.BoolFrom(true),
+			MinIncomingConfirmations:              null.IntFrom(100),
+		},
+	}
+
+	testCases := []struct {
+		name           string
+		before         func(t *testing.T, app *cltest.TestApplication, id *string)
+		want           *types.Chain
+		wantStatusCode int
+	}{
+		{
+			name: "success",
+			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
+				newChainConfig := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
+					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
+					EvmEIP1559DynamicFees:                 null.BoolFrom(false),
+					MinIncomingConfirmations:              null.IntFrom(30),
+				}
+
+				chainId := utils.HexToBig(*id)
+				chain, err := app.GetChainSet().Add(chainId, newChainConfig)
+				require.NoError(t, err)
+
+				dbChain = chain
+				*id = chainId.String()
+			},
+			want:           &dbChain,
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "invalid id",
+			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
+				*id = "invalidid"
+			},
+			wantStatusCode: http.StatusUnprocessableEntity,
+		},
+		{
+			name: "not found",
+			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
+				*id = "341212"
+			},
+			wantStatusCode: http.StatusNotFound,
+		},
+	}
+
+	for _, testCase := range testCases {
+		tc := testCase
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			controller := setupChainsControllerTest(t)
+
+			newHexChainId := hex.EncodeToString([]byte("40"))
+			if tc.before != nil {
+				tc.before(t, controller.app, &newHexChainId)
+			}
+
+			body, err := json.Marshal(chainUpdate)
+			require.NoError(t, err)
+
+			resp, cleanup := controller.client.Patch(
+				fmt.Sprintf("/v2/chains/evm/%s", newHexChainId),
+				bytes.NewReader(body),
+			)
+			t.Cleanup(cleanup)
+			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
+
+			if tc.want != nil {
+				resource1 := presenters.ChainResource{}
+				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
+				require.NoError(t, err)
+
+				assert.Equal(t, resource1.ID, tc.want.ID.String())
+				assert.Equal(t, resource1.Enabled, chainUpdate.Enabled)
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, chainUpdate.Config.BlockHistoryEstimatorBlockDelay)
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, chainUpdate.Config.BlockHistoryEstimatorBlockHistorySize)
+				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, chainUpdate.Config.EvmEIP1559DynamicFees)
+				assert.Equal(t, resource1.Config.MinIncomingConfirmations, chainUpdate.Config.MinIncomingConfirmations)
+			}
+		})
+	}
 }
 
 type TestChainsController struct {
