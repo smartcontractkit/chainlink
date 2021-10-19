@@ -48,7 +48,12 @@ func (cc *ChainsController) Show(c *gin.Context) {
 
 	chain, err := cc.App.EVMORM().Chain(id)
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			jsonAPIError(c, http.StatusNotFound, errors.New("feeds Manager not found"))
+			return
+		}
+
+		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
