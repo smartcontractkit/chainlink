@@ -41,7 +41,7 @@ func NewSimulatedBackend(t *testing.T, alloc core.GenesisAlloc, gasLimit uint64)
 	// NOTE: Make sure to finish closing any application/client before
 	// backend.Close or they can hang
 	t.Cleanup(func() {
-		logger.ErrorIfCalling(backend.Close)
+		logger.TestLogger(t).ErrorIfCalling(backend.Close)
 	})
 	return backend
 }
@@ -66,7 +66,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	cfg.Overrides.DefaultChainID = chainId
 
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0)
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t))
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
@@ -392,7 +392,7 @@ func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int)
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewLondonSigner(c.chainId), tx)
 	if err != nil {
-		logger.Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
+		logger.TestLogger(c.t).Panic(fmt.Errorf("invalid transaction: %v (tx: %#v)", err, tx))
 	}
 	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
 	if err != nil {
@@ -406,7 +406,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	}
 
 	err = c.b.SendTransaction(ctx, tx)
-	c.b.Commit()
 	return err
 }
 

@@ -803,7 +803,7 @@ func NewPausableTicker(duration time.Duration) PausableTicker {
 }
 
 // Ticks retrieves the ticks from a PausableTicker
-func (t PausableTicker) Ticks() <-chan time.Time {
+func (t *PausableTicker) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if t.ticker == nil {
@@ -907,7 +907,7 @@ func NewResettableTimer() ResettableTimer {
 }
 
 // Ticks retrieves the ticks from a ResettableTimer
-func (t ResettableTimer) Ticks() <-chan time.Time {
+func (t *ResettableTimer) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	if t.timer == nil {
@@ -1058,6 +1058,7 @@ func (once *StartStopOnce) Healthy() error {
 
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
+	// #nosec
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)

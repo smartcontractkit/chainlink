@@ -33,7 +33,7 @@ func NewResultRunSaver(db *sqlx.DB, runResults <-chan pipeline.Run, pipelineRunn
 
 func (r *RunResultSaver) Start() error {
 	return r.StartOnce("RunResultSaver", func() error {
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(r.logger, func() {
 			for {
 				select {
 				case run := <-r.runResults:

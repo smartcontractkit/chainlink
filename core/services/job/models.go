@@ -356,10 +356,11 @@ type KeeperSpec struct {
 
 type VRFSpec struct {
 	ID                 int32
-	CoordinatorAddress ethkey.EIP55Address `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey `toml:"publicKey"`
-	Confirmations      uint32              `toml:"confirmations"`
-	EVMChainID         *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
-	CreatedAt          time.Time           `toml:"-"`
-	UpdatedAt          time.Time           `toml:"-"`
+	CoordinatorAddress ethkey.EIP55Address  `toml:"coordinatorAddress"`
+	PublicKey          secp256k1.PublicKey  `toml:"publicKey"`
+	Confirmations      uint32               `toml:"confirmations"`
+	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	FromAddress        *ethkey.EIP55Address `toml:"fromAddress"`
+	CreatedAt          time.Time            `toml:"-"`
+	UpdatedAt          time.Time            `toml:"-"`
 }

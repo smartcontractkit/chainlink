@@ -3,6 +3,7 @@ package fluxmonitorv2
 import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -18,6 +19,7 @@ type Delegate struct {
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
 	chainSet       evm.ChainSet
+	lggr           logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -30,6 +32,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	db *gorm.DB,
 	chainSet evm.ChainSet,
+	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
 		db,
@@ -38,6 +41,7 @@ func NewDelegate(
 		pipelineORM,
 		pipelineRunner,
 		chainSet,
+		lggr.Named("FluxMonitor"),
 	}
 }
 
@@ -71,6 +75,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
 		chain.Config(),
+		d.lggr,
 	)
 	if err != nil {
 		return nil, err

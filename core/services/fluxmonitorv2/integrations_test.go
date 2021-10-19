@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -209,9 +211,8 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config := cltest.NewTestGeneralConfig(t)
+	config, _, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
 	setConfig(config)
-
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start())
 	return app
@@ -357,10 +358,14 @@ func submitAnswer(t *testing.T, p answerParams) {
 	checkSubmission(t, p, cb.Int64(), 0)
 }
 
-func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
+func awaitSubmission(t *testing.T, backend *backends.SimulatedBackend, submissionReceived chan *faw.FluxAggregatorSubmissionReceived) (
 	receiptBlock uint64, answer int64,
 ) {
 	t.Helper()
+
+	// Send blocks until we get a response
+	stopBlocks := utils.FiniteTicker(time.Second, func() { backend.Commit() })
+	defer stopBlocks()
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		return log.Raw.BlockNumber, log.Submission.Int64()
@@ -416,8 +421,9 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 		require.NotNil(t, block)
 		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
+		fa.backend.Commit()
 		return consumed
-	}, cltest.DefaultWaitTimeout).Should(gomega.BeTrue())
+	}, cltest.DefaultWaitTimeout, time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -450,8 +456,11 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			})
 
-			type k struct{ latestAnswer, updatedAt string }
-			expectedMeta := map[k]int{}
+			type v struct {
+				count     int
+				updatedAt string
+			}
+			expectedMeta := map[string]v{}
 			var expMetaMu sync.Mutex
 
 			reportPrice := atomic.NewInt64(100)
@@ -463,9 +472,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 					var m bridges.BridgeMetaDataJSON
 					require.NoError(t, json.Unmarshal(b, &m))
 					if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
-						key := k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()}
+						k := m.Meta.LatestAnswer.String()
 						expMetaMu.Lock()
-						expectedMeta[key] = expectedMeta[key] + 1
+						curr := expectedMeta[k]
+						expectedMeta[k] = v{curr.count + 1, m.Meta.UpdatedAt.String()}
 						expMetaMu.Unlock()
 					}
 				},
@@ -526,7 +536,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
-			receiptBlock, answer := awaitSubmission(t, submissionReceived)
+			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
 
 			lggr := logger.TestLogger(t)
 			lggr.Infof("Detected submission: %v in block %v", answer, receiptBlock)
@@ -548,19 +558,15 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			assertPipelineRunCreated(t, app.GetDB(), 1, float64(100))
 
-			// make sure the log is sent from LogBroadcaster
-			fa.backend.Commit()
-			fa.backend.Commit()
-
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 5)
+			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), receiptBlock)
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
 			reportPrice.Store(103)
-			receiptBlock, answer = awaitSubmission(t, submissionReceived)
+			receiptBlock, answer = awaitSubmission(t, fa.backend, submissionReceived)
 
 			lggr.Infof("Detected submission: %v in block %v", answer, receiptBlock)
 
@@ -581,13 +587,10 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			)
 			assertPipelineRunCreated(t, app.GetDB(), 2, float64(103))
 
-			stopMining := cltest.Mine(fa.backend, time.Second)
-			defer stopMining()
-
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), 8)
+			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), receiptBlock)
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)
@@ -596,8 +599,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			expMetaMu.Lock()
 			defer expMetaMu.Unlock()
 			assert.Len(t, expectedMeta, 2, "expected metadata %v", expectedMeta)
-			assert.Greater(t, expectedMeta[k{"100", "50"}], 0, "Stored answer metadata does not contain 100 updated at 50, but contains: %v", expectedMeta)
-			assert.Greater(t, expectedMeta[k{"103", "80"}], 0, "Stored answer metadata does not contain 103 updated at 80, but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["100"].count, 0, "Stored answer metadata does not contain 100 but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["103"].count, 0, "Stored answer metadata does not contain 103 but contains: %v", expectedMeta)
+			assert.Greater(t, expectedMeta["103"].updatedAt, expectedMeta["100"].updatedAt)
 		})
 	}
 }
@@ -693,7 +697,7 @@ ds1 -> ds1_parse
 
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node
-	receiptBlock, _ := awaitSubmission(t, submissionReceived)
+	receiptBlock, _ := awaitSubmission(t, fa.backend, submissionReceived)
 	checkSubmission(t,
 		answerParams{
 			fa:              &fa,
@@ -782,10 +786,10 @@ ds1 -> ds1_parse
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
-	awaitSubmission(t, submissionReceived)
+	awaitSubmission(t, fa.backend, submissionReceived)
 
 	reportPrice.Store(2) // change in price should trigger run
-	awaitSubmission(t, submissionReceived)
+	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// lower contract's flag - should have no effect
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{fa.aggregatorContractAddress})
@@ -794,7 +798,7 @@ ds1 -> ds1_parse
 
 	// change in price should trigger run
 	reportPrice.Store(4)
-	awaitSubmission(t, submissionReceived)
+	awaitSubmission(t, fa.backend, submissionReceived)
 
 	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
@@ -972,7 +976,7 @@ ds1 -> ds1_parse -> ds1_multiply
 
 	cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
-	receiptBlock, answer := awaitSubmission(t, submissionReceived)
+	receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
 
 	assert.Equal(t, 100*reportPrice.Load(), answer,
 		"failed to report correct price to contract")
@@ -993,7 +997,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	// Triggers a new round, since price deviation exceeds threshold
 	reportPrice.Store(answer + 1)
 
-	receiptBlock, _ = awaitSubmission(t, submissionReceived)
+	receiptBlock, _ = awaitSubmission(t, fa.backend, submissionReceived)
 	newRound := roundId + 1
 	processedAnswer = 100 * reportPrice.Load()
 	checkSubmission(t,
@@ -1054,7 +1058,7 @@ ds1 -> ds1_parse -> ds1_multiply
 
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node
-	awaitSubmission(t, submissionReceived)
+	awaitSubmission(t, fa.backend, submissionReceived)
 }
 
 // submitMaliciousAnswer simulates a call to fa's FluxAggregator contract from

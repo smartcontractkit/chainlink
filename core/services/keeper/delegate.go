@@ -91,7 +91,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.LogBroadcaster(),
 		chain.Config().KeeperRegistrySyncInterval(),
 		chain.Config().KeeperMinimumRequiredConfirmations(),
-		svcLogger.Named("RegistrySynchronizer"),
+		svcLogger,
 		chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
@@ -101,7 +101,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		chain.Client(),
 		chain.HeadBroadcaster(),
 		chain.TxManager().GetGasEstimator(),
-		svcLogger.Named("UpkeepExecuter"),
+		svcLogger,
 		chain.Config(),
 	)
 

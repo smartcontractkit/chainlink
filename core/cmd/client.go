@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"encoding/json"
@@ -9,12 +10,12 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -70,6 +71,9 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+
+	lggr     logger.Logger
+	lggrOnce sync.Once
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -77,6 +81,13 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
+}
+
+func (cli *Client) Logger() logger.Logger {
+	cli.lggrOnce.Do(func() {
+		cli.lggr = logger.ProductionLogger(cli.Config)
+	})
+	return cli.lggr
 }
 
 // AppFactory implements the NewApplication method.
@@ -87,6 +98,53 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
+func logRetry(count int) {
+	if count == 1 {
+		logger.Infow("Could not get lock, retrying...", "failCount", count)
+	} else if count%1000 == 0 || count&(count-1) == 0 {
+		logger.Infow("Still waiting for lock...", "failCount", count)
+	}
+}
+
+// Try to immediately acquire an advisory lock. The lock will be released on application stop.
+func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+	lockID := int64(1027321974924625846)
+	lockRetryInterval := time.Second
+
+	initCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	lock, err := postgres.NewLock(initCtx, lockID, db)
+	if err != nil {
+		return nil, err
+	}
+
+	ticker := time.NewTicker(lockRetryInterval)
+	defer ticker.Stop()
+	retryCount := 0
+	for {
+		lockCtx, cancel := context.WithTimeout(ctx, timeout)
+		gotLock, err := lock.Lock(lockCtx)
+		cancel()
+		if err != nil {
+			return nil, err
+		}
+		if gotLock {
+			break
+		}
+
+		select {
+		case <-ticker.C:
+			retryCount++
+			logRetry(retryCount)
+			continue
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
+		}
+	}
+
+	return &lock, nil
+}
+
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
 	globalLogger := logger.ProductionLogger(cfg)
@@ -95,6 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
+		Logger:           globalLogger,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
@@ -102,11 +161,20 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		return nil, err
 	}
+
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	advisoryLock, err := AdvisoryLock(ctx, db.DB, time.Second)
+	if err != nil {
+		return nil, errors.Wrap(err, "error acquiring lock")
+	}
+
 	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), globalLogger)
 	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db)
+	verORM := versioning.NewORM(db, globalLogger)
 
 	// Set up periodic backup
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
@@ -132,6 +200,14 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 
+	// Check before migration so we don't do anything destructive to the
+	// database if this app version is too old
+	if static.Version != "unset" {
+		if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
+			return nil, errors.Wrap(err, "CheckVersion")
+		}
+	}
+
 	// Migrate the database
 	if cfg.MigrateDatabase() {
 		if err = migrate.Migrate(db.DB); err != nil {
@@ -139,23 +215,22 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	// Determine node version
-	nodeVersion := static.Version
-	if nodeVersion == "unset" {
-		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
-	}
-	version := versioning.NewNodeVersion(nodeVersion)
-	if err = verORM.UpsertNodeVersion(version); err != nil {
-		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
+	// Update to latest version
+	if static.Version != "unset" {
+		version := versioning.NewNodeVersion(static.Version)
+		if err = verORM.UpsertNodeVersion(version); err != nil {
+			return nil, errors.Wrap(err, "UpsertNodeVersion")
+		}
 	}
 
-	if cfg.ClobberNodesFromEnv() {
-		if err = evm.ClobberNodesFromEnv(gormDB, cfg); err != nil {
+	if cfg.UseLegacyEthEnvVars() {
+		if err = evm.ClobberDBFromEnv(gormDB, cfg); err != nil {
 			return nil, err
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
+		cfg.DatabaseListenerMaxReconnectDuration(), globalLogger)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           globalLogger,
@@ -167,7 +242,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
 	if err != nil {
-		logger.Fatal(err)
+		globalLogger.Fatal(err)
 	}
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -180,6 +255,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		EventBroadcaster:         eventBroadcaster,
 		Logger:                   globalLogger,
 		ExternalInitiatorManager: externalInitiatorManager,
+		Version:                  static.Version,
+		AdvisoryLock:             advisoryLock,
 	})
 }
 
@@ -207,14 +284,17 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		log.Fatal("You must specify at least one port to listen on")
 	}
 
+	server := server{handler: handler, lggr: app.GetLogger()}
+
 	if config.Port() != 0 {
-		g.Go(func() error { return runServer(handler, config.Port(), config.HTTPServerWriteTimeout()) })
+		g.Go(func() error {
+			return server.run(config.Port(), config.HTTPServerWriteTimeout())
+		})
 	}
 
 	if config.TLSPort() != 0 {
 		g.Go(func() error {
-			return runServerTLS(
-				handler,
+			return server.runTLS(
 				config.TLSPort(),
 				config.CertFile(),
 				config.KeyFile(),
@@ -225,19 +305,24 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	return g.Wait()
 }
 
-func runServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) error {
-	logger.Infof("Listening and serving HTTP on port %d", port)
-	server := createServer(handler, port, writeTimeout)
+type server struct {
+	handler *gin.Engine
+	lggr    logger.Logger
+}
+
+func (s *server) run(port uint16, writeTimeout time.Duration) error {
+	s.lggr.Infof("Listening and serving HTTP on port %d", port)
+	server := createServer(s.handler, port, writeTimeout)
 	err := server.ListenAndServe()
-	logger.ErrorIf(err, "Error starting server")
+	s.lggr.ErrorIf(err, "Error starting server")
 	return err
 }
 
-func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
-	logger.Infof("Listening and serving HTTPS on port %d", port)
-	server := createServer(handler, port, writeTimeout)
+func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
+	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
+	server := createServer(s.handler, port, writeTimeout)
 	err := server.ListenAndServeTLS(certFile, keyFile)
-	logger.ErrorIf(err, "Error starting TLS server")
+	s.lggr.ErrorIf(err, "Error starting TLS server")
 	return err
 }
 

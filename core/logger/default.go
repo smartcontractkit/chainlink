@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -43,12 +42,8 @@ func InitLogger(newLogger Logger) {
 	if Default != nil {
 		defer func(l Logger) {
 			if err := l.Sync(); err != nil {
-				if errors.Unwrap(err).Error() != os.ErrInvalid.Error() &&
-					errors.Unwrap(err).Error() != "inappropriate ioctl for device" &&
-					errors.Unwrap(err).Error() != "bad file descriptor" {
-					// logger.Sync() will return 'invalid argument' error when closing file
-					log.Fatalf("failed to sync logger %+v", err)
-				}
+				// logger.Sync() will return 'invalid argument' error when closing file
+				log.Fatalf("failed to sync logger %+v", err)
 			}
 		}(Default)
 	}
@@ -92,16 +87,6 @@ func Warnf(format string, values ...interface{}) {
 	skipDefault.Warnf(format, values...)
 }
 
-// Panicf formats and then logs the message before panicking.
-func Panicf(format string, values ...interface{}) {
-	skipDefault.Panic(fmt.Sprintf(format, values...))
-}
-
-// Info logs an info message.
-func Info(args ...interface{}) {
-	skipDefault.Info(args...)
-}
-
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
 	skipDefault.Debug(args...)
@@ -117,17 +102,8 @@ func Error(args ...interface{}) {
 	skipDefault.Error(args...)
 }
 
-func ErrorIf(err error, msg string) {
-	skipDefault.ErrorIf(err, msg)
-}
-
 func ErrorIfCalling(f func() error) {
 	skipDefault.ErrorIfCalling(f)
-}
-
-// Fatal logs a fatal message then exits the application.
-func Fatal(args ...interface{}) {
-	skipDefault.Fatal(args...)
 }
 
 // Errorf logs a message at the error level using Sprintf.
@@ -143,19 +119,4 @@ func Fatalf(format string, values ...interface{}) {
 // Fatalw logs a message and exits the application
 func Fatalw(msg string, keysAndValues ...interface{}) {
 	skipDefault.Fatalw(msg, keysAndValues...)
-}
-
-// Panic logs a panic message then panics.
-func Panic(args ...interface{}) {
-	skipDefault.Panic(args...)
-}
-
-// PanicIf logs the error if present.
-func PanicIf(err error, msg string) {
-	skipDefault.PanicIf(err, msg)
-}
-
-// Sync flushes any buffered log entries.
-func Sync() error {
-	return Default.Sync()
 }

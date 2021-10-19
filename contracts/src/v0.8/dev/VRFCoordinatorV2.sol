@@ -26,12 +26,19 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubOwner(address owner);
+  error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
+  // We use the subscription struct (1 word)
+  // at fulfillment time.
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common link balance used for all consumer requests.
+    uint64 reqCount; // For fee tiers
+  }
+  // We use the config for the mgmt APIs
+  struct SubscriptionConfig {
     address owner; // Owner can fund/withdraw/cancel the sub.
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
@@ -42,17 +49,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
   }
-  struct Consumer {
-    uint64 subId;
-    uint64 nonce;
-  }
-  mapping(address => mapping(uint64 => Consumer)) /* consumer */ /* subId */
+  // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
+  mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subId */ /* nonce */
     private s_consumers;
+  mapping(uint64 => SubscriptionConfig) /* subId */ /* subscriptionConfig */
+    private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subId */ /* subscription */
     private s_subscriptions;
   uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
-  // this contract through onTokenTransfer, defundSubscription, cancelSubscription and oracleWithdraw.
+  // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
@@ -60,7 +66,6 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
   event SubscriptionConsumerRemoved(uint64 indexed subId, address consumer);
-  event SubscriptionDefunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
   event SubscriptionOwnerTransferRequested(uint64 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subId, address from, address to);
@@ -69,9 +74,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   // the request before requiring the block hash feeder.
   uint16 public constant MAX_REQUEST_CONFIRMATIONS = 200;
   uint32 public constant MAX_NUM_WORDS = 500;
-  // The minimum gas limit that could be requested for a callback.
-  // Set to 5k to ensure plenty of room to make the call itself.
-  uint256 public constant MIN_GAS_LIMIT = 5_000;
+  // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
+  // and some arithmetic operations.
+  uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   error InvalidRequestConfirmations(uint16 have, uint16 min, uint16 max);
   error GasLimitTooBig(uint32 have, uint32 want);
   error NumWordsTooBig(uint32 have, uint32 want);
@@ -93,6 +98,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   }
   mapping(bytes32 => address) /* keyHash */ /* oracle */
     private s_provingKeys;
+  bytes32[] public s_provingKeyHashes;
   mapping(address => uint96) /* oracle */ /* LINK balance */
     private s_withdrawableTokens;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */
@@ -113,30 +119,39 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   struct Config {
     uint16 minimumRequestConfirmations;
-    // Flat fee charged per fulfillment in millionths of link
-    // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeLinkPPM;
     uint32 maxGasLimit;
+    // Re-entrancy protection.
+    bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
     // Gas to cover oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
-    uint96 minimumSubscriptionBalance;
-    // Re-entrancy protection.
-    bool reentrancyLock;
   }
-  int256 internal s_fallbackWeiPerUnitLink;
-  Config private s_config;
+  int256 public s_fallbackWeiPerUnitLink;
+  Config public s_config;
+  FeeConfig public s_feeConfig;
+  struct FeeConfig {
+    // Flat fee charged per fulfillment in millionths of link
+    // So fee range is [0, 2^32/10^6].
+    uint32 fulfillmentFlatFeeLinkPPMTier1;
+    uint32 fulfillmentFlatFeeLinkPPMTier2;
+    uint32 fulfillmentFlatFeeLinkPPMTier3;
+    uint32 fulfillmentFlatFeeLinkPPMTier4;
+    uint32 fulfillmentFlatFeeLinkPPMTier5;
+    uint24 reqsForTier2;
+    uint24 reqsForTier3;
+    uint24 reqsForTier4;
+    uint24 reqsForTier5;
+  }
   event ConfigSet(
     uint16 minimumRequestConfirmations,
-    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    uint96 minimumSubscriptionBalance,
-    int256 fallbackWeiPerUnitLink
+    int256 fallbackWeiPerUnitLink,
+    FeeConfig feeConfig
   );
 
   constructor(
@@ -160,6 +175,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert ProvingKeyAlreadyRegistered(kh);
     }
     s_provingKeys[kh] = oracle;
+    s_provingKeyHashes.push(kh);
     emit ProvingKeyRegistered(kh, oracle);
   }
 
@@ -174,6 +190,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert NoSuchProvingKey(kh);
     }
     delete s_provingKeys[kh];
+    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
+      if (s_provingKeyHashes[i] == kh) {
+        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
+        // Copy last element and overwrite kh to be deleted with it
+        s_provingKeyHashes[i] = last;
+        s_provingKeyHashes.pop();
+      }
+    }
     emit ProvingKeyDeregistered(kh, oracle);
   }
 
@@ -187,12 +211,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function setConfig(
     uint16 minimumRequestConfirmations,
-    uint32 fulfillmentFlatFeeLinkPPM,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
-    uint96 minimumSubscriptionBalance,
-    int256 fallbackWeiPerUnitLink
+    int256 fallbackWeiPerUnitLink,
+    FeeConfig memory feeConfig
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
       revert InvalidRequestConfirmations(
@@ -206,51 +229,30 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
-      fulfillmentFlatFeeLinkPPM: fulfillmentFlatFeeLinkPPM,
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
       gasAfterPaymentCalculation: gasAfterPaymentCalculation,
-      minimumSubscriptionBalance: minimumSubscriptionBalance,
       reentrancyLock: false
     });
+    s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
-      fulfillmentFlatFeeLinkPPM,
       maxGasLimit,
       stalenessSeconds,
       gasAfterPaymentCalculation,
-      minimumSubscriptionBalance,
-      fallbackWeiPerUnitLink
+      fallbackWeiPerUnitLink,
+      s_feeConfig
     );
   }
 
-  /**
-   * @notice read the current configuration of the coordinator.
-   */
-  function getConfig()
-    external
-    view
-    returns (
-      uint16 minimumRequestConfirmations,
-      uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation,
-      uint96 minimumSubscriptionBalance,
-      int256 fallbackWeiPerUnitLink
-    )
-  {
-    Config memory config = s_config;
-    return (
-      config.minimumRequestConfirmations,
-      config.fulfillmentFlatFeeLinkPPM,
-      config.maxGasLimit,
-      config.stalenessSeconds,
-      config.gasAfterPaymentCalculation,
-      config.minimumSubscriptionBalance,
-      s_fallbackWeiPerUnitLink
-    );
+  // A protective measure, the owner can cancel anyone's subscription,
+  // sending the link directly to the subscription owner.
+  function ownerCancelSubscription(uint64 subId) external onlyOwner {
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
+    cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
   }
 
   function recoverFunds(address to) external onlyOwner {
@@ -278,13 +280,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint32 numWords // Desired number of random words
   ) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
-    if (s_subscriptions[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
-    Consumer memory consumer = s_consumers[msg.sender][subId];
-    if (consumer.subId == 0) {
+    // A nonce of 0 indicates consumer is not allocated to the sub.
+    uint64 currentNonce = s_consumers[msg.sender][subId];
+    if (currentNonce == 0) {
       revert InvalidConsumer(subId, msg.sender);
     }
     // Input validation using the config storage word.
@@ -297,9 +300,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         MAX_REQUEST_CONFIRMATIONS
       );
     }
-    if (s_subscriptions[subId].balance < s_config.minimumSubscriptionBalance) {
-      revert InsufficientBalance();
-    }
+    // No lower bound on the requested gas limit. A user could request 0
+    // and they would simply be billed for the proof verification and wouldn't be
+    // able to do anything with the random value.
     if (callbackGasLimit > s_config.maxGasLimit) {
       revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
     }
@@ -309,9 +312,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = consumer.nonce + 1;
-    uint256 preSeed = uint256(keccak256(abi.encode(keyHash, msg.sender, subId, nonce)));
-    uint256 requestId = uint256(keccak256(abi.encode(keyHash, preSeed)));
+    uint64 nonce = currentNonce + 1;
+    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
 
     s_requestCommitments[requestId] = keccak256(
       abi.encode(requestId, block.number, subId, callbackGasLimit, numWords, msg.sender)
@@ -326,7 +328,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       numWords,
       msg.sender
     );
-    s_consumers[msg.sender][subId].nonce = nonce;
+    s_consumers[msg.sender][subId] = nonce;
 
     return requestId;
   }
@@ -335,11 +337,19 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return s_requestCommitments[requestId];
   }
 
+  function computeRequestId(
+    bytes32 keyHash,
+    address sender,
+    uint64 subId,
+    uint64 nonce
+  ) private pure returns (uint256, uint256) {
+    uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
+    return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
+  }
+
   /**
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
-   * The maximum amount of gasAmount is all gas available but 1/64th.
-   * The minimum amount of gasAmount is MIN_GAS_LIMIT.
    */
   function callWithExactGas(
     uint256 gasAmount,
@@ -349,11 +359,16 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
-      // Compute g -= MIN_GAS_LIMIT and check for underflow
-      if lt(g, MIN_GAS_LIMIT) {
+      // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
+      // The gas actually passed to the callee is min(gasAmount, 63//64*gas available).
+      // We want to ensure that we revert if gasAmount >  63//64*gas available
+      // as we do not want to provide them with less, however that check itself costs
+      // gas.  GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able
+      // to revert if gasAmount >  63//64*gas available.
+      if lt(g, GAS_FOR_CALL_EXACT_CHECK) {
         revert(0, 0)
       }
-      g := sub(g, MIN_GAS_LIMIT)
+      g := sub(g, GAS_FOR_CALL_EXACT_CHECK)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
@@ -364,6 +379,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
         revert(0, 0)
       }
       // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
     return success;
@@ -408,7 +424,25 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant {
+  // Select the fee tier based on the request count
+  function getFeeTier(uint64 reqCount) public view returns (uint32) {
+    FeeConfig memory fc = s_feeConfig;
+    if (0 <= reqCount && reqCount <= fc.reqsForTier2) {
+      return fc.fulfillmentFlatFeeLinkPPMTier1;
+    }
+    if (fc.reqsForTier2 < reqCount && reqCount <= fc.reqsForTier3) {
+      return fc.fulfillmentFlatFeeLinkPPMTier2;
+    }
+    if (fc.reqsForTier3 < reqCount && reqCount <= fc.reqsForTier4) {
+      return fc.fulfillmentFlatFeeLinkPPMTier3;
+    }
+    if (fc.reqsForTier4 < reqCount && reqCount <= fc.reqsForTier5) {
+      return fc.fulfillmentFlatFeeLinkPPMTier4;
+    }
+    return fc.fulfillmentFlatFeeLinkPPMTier5;
+  }
+
+  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
@@ -420,18 +454,20 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     delete s_requestCommitments[requestId];
     VRFConsumerBaseV2 v;
     bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, proof.seed, randomWords);
-    uint256 gasPreCallback = gasleft();
-    if (gasPreCallback < rc.callbackGasLimit) {
-      revert InsufficientGasForConsumer(gasPreCallback, rc.callbackGasLimit);
-    }
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
+    // Note that callWithExactGas will revert if we do not have sufficient gas
+    // to give the callee their requested amount.
     s_config.reentrancyLock = true;
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
     emit RandomWordsFulfilled(requestId, randomWords, success);
     s_config.reentrancyLock = false;
+
+    // Increment the req count for fee tier selection.
+    uint64 reqCount = s_subscriptions[rc.subId].reqCount;
+    s_subscriptions[rc.subId].reqCount += 1;
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
@@ -442,7 +478,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     uint96 payment = calculatePaymentAmount(
       startGas,
       s_config.gasAfterPaymentCalculation,
-      s_config.fulfillmentFlatFeeLinkPPM,
+      getFeeTier(reqCount),
       tx.gasprice
     );
     if (s_subscriptions[rc.subId].balance < payment) {
@@ -450,6 +486,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
     s_subscriptions[rc.subId].balance -= payment;
     s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+    return payment;
   }
 
   // Get the amount of gas used for fulfillment
@@ -510,10 +547,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidCalldata();
     }
     uint64 subId = abi.decode(data, (uint64));
-    if (s_subscriptions[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    address owner = s_subscriptions[subId].owner;
+    address owner = s_subscriptionConfigs[subId].owner;
     if (owner != sender) {
       revert MustBeSubOwner(owner);
     }
@@ -532,18 +569,18 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       address[] memory consumers
     )
   {
-    if (s_subscriptions[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    return (s_subscriptions[subId].balance, s_subscriptions[subId].owner, s_subscriptions[subId].consumers);
+    return (s_subscriptions[subId].balance, s_subscriptionConfigs[subId].owner, s_subscriptionConfigs[subId].consumers);
   }
 
   function createSubscription() external nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
-    s_subscriptions[currentSubId] = Subscription({
-      balance: 0,
+    s_subscriptions[currentSubId] = Subscription({balance: 0, reqCount: 0});
+    s_subscriptionConfigs[currentSubId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
       consumers: consumers
@@ -555,39 +592,39 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
-    if (s_subscriptions[subId].requestedOwner != newOwner) {
-      s_subscriptions[subId].requestedOwner = newOwner;
+    if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
+      s_subscriptionConfigs[subId].requestedOwner = newOwner;
       emit SubscriptionOwnerTransferRequested(subId, msg.sender, newOwner);
     }
   }
 
   function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
-    if (s_subscriptions[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    if (s_subscriptions[subId].requestedOwner != msg.sender) {
-      revert MustBeRequestedOwner(s_subscriptions[subId].requestedOwner);
+    if (s_subscriptionConfigs[subId].requestedOwner != msg.sender) {
+      revert MustBeRequestedOwner(s_subscriptionConfigs[subId].requestedOwner);
     }
-    address oldOwner = s_subscriptions[subId].owner;
-    s_subscriptions[subId].owner = msg.sender;
-    s_subscriptions[subId].requestedOwner = address(0);
+    address oldOwner = s_subscriptionConfigs[subId].owner;
+    s_subscriptionConfigs[subId].owner = msg.sender;
+    s_subscriptionConfigs[subId].requestedOwner = address(0);
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
   }
 
   function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
-    if (s_consumers[consumer][subId].subId == 0) {
+    if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
-    address[] memory consumers = s_subscriptions[subId].consumers;
+    address[] memory consumers = s_subscriptionConfigs[subId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
-        s_subscriptions[subId].consumers[i] = last;
+        s_subscriptionConfigs[subId].consumers[i] = last;
         // Storage remove last element
-        s_subscriptions[subId].consumers.pop();
+        s_subscriptionConfigs[subId].consumers.pop();
         break;
       }
     }
@@ -597,47 +634,40 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subId].consumers.length == MAX_CONSUMERS) {
+    if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    if (s_consumers[consumer][subId].subId != 0) {
+    if (s_consumers[consumer][subId] != 0) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
-    s_consumers[consumer][subId] = Consumer({subId: subId, nonce: 0});
-    s_subscriptions[subId].consumers.push(consumer);
+    // Initialize the nonce to 1, indicating the consumer is allocated.
+    s_consumers[consumer][subId] = 1;
+    s_subscriptionConfigs[subId].consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subId, consumer);
-  }
-
-  function defundSubscription(
-    uint64 subId,
-    address to,
-    uint96 amount
-  ) external onlySubOwner(subId) nonReentrant {
-    if (s_subscriptions[subId].balance < amount) {
-      revert InsufficientBalance();
-    }
-    uint256 oldBalance = s_subscriptions[subId].balance;
-    s_subscriptions[subId].balance -= amount;
-    s_totalBalance -= amount;
-    if (!LINK.transfer(to, amount)) {
-      revert InsufficientBalance();
-    }
-    emit SubscriptionDefunded(subId, oldBalance, s_subscriptions[subId].balance);
   }
 
   // Keep this separate from zeroing, perhaps there is a use case where consumers
   // want to keep the subId, but withdraw all the link.
   function cancelSubscription(uint64 subId, address to) external onlySubOwner(subId) nonReentrant {
+    if (pendingRequestExists(subId)) {
+      revert PendingRequestExists();
+    }
+    cancelSubscriptionHelper(subId, to);
+  }
+
+  function cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
+    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < sub.consumers.length; i++) {
-      delete s_consumers[sub.consumers[i]][subId];
+    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
+      delete s_consumers[subConfig.consumers[i]][subId];
     }
+    delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
     s_totalBalance -= balance;
     if (!LINK.transfer(to, uint256(balance))) {
@@ -646,8 +676,29 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionCanceled(subId, to, balance);
   }
 
+  // Check to see if there exists a request commitment consumers
+  // for all consumers and keyhashes for a given sub.
+  // Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
+  function pendingRequestExists(uint64 subId) public view returns (bool) {
+    SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
+    for (uint256 i = 0; i < subConfig.consumers.length; i++) {
+      for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
+        (uint256 reqId, ) = computeRequestId(
+          s_provingKeyHashes[j],
+          subConfig.consumers[i],
+          subId,
+          s_consumers[subConfig.consumers[i]][subId]
+        );
+        if (s_requestCommitments[reqId] != 0) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   modifier onlySubOwner(uint64 subId) {
-    address owner = s_subscriptions[subId].owner;
+    address owner = s_subscriptionConfigs[subId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
     }

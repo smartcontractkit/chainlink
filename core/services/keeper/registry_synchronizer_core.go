@@ -71,7 +71,7 @@ func NewRegistrySynchronizer(
 		mailRoom:            mailRoom,
 		minConfirmations:    minConfirmations,
 		orm:                 orm,
-		logger:              logger,
+		logger:              logger.Named("RegistrySynchronizer"),
 		syncUpkeepQueueSize: syncUpkeepQueueSize,
 	}
 }

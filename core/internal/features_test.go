@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -219,7 +220,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore)
+		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t))
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -247,7 +248,7 @@ func TestIntegration_AuthToken(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// set up user
-	mockUser := cltest.MustRandomUser()
+	mockUser := cltest.MustRandomUser(t)
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))
@@ -398,7 +399,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			empty := big.NewInt(0)
 			assertPricesUint256(t, empty, empty, empty, operatorContracts.multiWord)
 
-			stopBlocks := finiteTicker(100*time.Millisecond, func() {
+			stopBlocks := utils.FiniteTicker(100*time.Millisecond, func() {
 				triggerAllKeys(t, app)
 				b.Commit()
 			})
@@ -575,7 +576,7 @@ func TestIntegration_OCR(t *testing.T) {
 				})
 			}
 
-			stopBlocks := finiteTicker(time.Second, func() {
+			stopBlocks := utils.FiniteTicker(time.Second, func() {
 				b.Commit()
 			})
 			defer stopBlocks()
@@ -876,26 +877,4 @@ func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwo
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
 	assert.True(t, jpy.Cmp(haveJpy) == 0)
-}
-
-func finiteTicker(period time.Duration, onTick func()) func() {
-	tick := time.NewTicker(period)
-	chStop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-tick.C:
-				onTick()
-			case <-chStop:
-				return
-			}
-		}
-	}()
-
-	// NOTE: tick.Stop does not close the ticker channel,
-	// so we still need another way of returning (chStop).
-	return func() {
-		tick.Stop()
-		close(chStop)
-	}
 }

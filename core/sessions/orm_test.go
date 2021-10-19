@@ -124,7 +124,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 	_, orm := setupORM(t)
 
-	initial := cltest.MustRandomUser()
+	initial := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initial))
 
 	tests := []struct {

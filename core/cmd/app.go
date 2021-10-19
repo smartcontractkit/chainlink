@@ -36,7 +36,7 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(logger.ProductionLogger(client.Config))
+		logger.InitLogger(client.Logger())
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -774,11 +774,15 @@ func NewApp(client *Client) *cli.App {
 						},
 						cli.StringFlag{
 							Name:  "http-url",
-							Usage: "HTTP URL",
+							Usage: "HTTP URL, optional",
 						},
 						cli.Int64Flag{
 							Name:  "chain-id",
 							Usage: "chain ID",
+						},
+						cli.StringFlag{
+							Name:  "type",
+							Usage: "primary|secondary",
 						},
 					},
 				},

@@ -57,9 +57,8 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
-	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil)
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore)
-	defer jobORM.Close()
+	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	runner.Start()
 	defer runner.Close()
@@ -356,6 +355,7 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			cc,
+			logger.TestLogger(t),
 		)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -385,7 +385,8 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -395,6 +396,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -440,7 +442,8 @@ ds1 -> ds1_parse;
 
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -450,6 +453,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -477,7 +481,8 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -487,6 +492,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -508,7 +514,8 @@ ds1 -> ds1_parse;
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
 			db,
@@ -518,6 +525,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			lggr,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -540,7 +548,8 @@ ds1 -> ds1_parse;
 		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		config.Overrides.P2PPeerID = &peerID
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db)
+		lggr := logger.TestLogger(t)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
@@ -551,6 +560,7 @@ ds1 -> ds1_parse;
 			pw,
 			monitoringEndpoint,
 			cc,
+			lggr,
 		)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -806,7 +816,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
+		jobORM := job.NewTestORM(t, app.GetDB(), cc, pipelineORM, app.KeyStore)
 
 		// Trigger v2/resume
 		select {
@@ -841,7 +851,7 @@ observationSource   = """
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
 		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), cc, pipelineORM, app.KeyStore)
+		jobORM := job.NewTestORM(t, app.GetDB(), cc, pipelineORM, app.KeyStore)
 
 		// Trigger v2/resume
 		select {

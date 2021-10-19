@@ -44,7 +44,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
 
-	url := cltest.MustParseURL(server.URL)
+	url := cltest.MustParseURL(t, server.URL)
 	url.Scheme = "ws"
 	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret")
 	require.NoError(t, explorerClient.Start())

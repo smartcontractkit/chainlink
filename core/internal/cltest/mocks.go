@@ -33,6 +33,7 @@ import (
 
 // MockSubscription a mock subscription
 type MockSubscription struct {
+	t            testing.TB
 	mut          sync.Mutex
 	channel      interface{}
 	unsubscribed bool
@@ -40,8 +41,8 @@ type MockSubscription struct {
 }
 
 // EmptyMockSubscription return empty MockSubscription
-func EmptyMockSubscription() *MockSubscription {
-	return &MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+func EmptyMockSubscription(t testing.TB) *MockSubscription {
+	return &MockSubscription{t: t, Errors: make(chan error, 1), channel: make(chan struct{})}
 }
 
 // Err returns error channel from mes
@@ -64,7 +65,7 @@ func (mes *MockSubscription) Unsubscribe() {
 	case chan *eth.Head:
 		close(mes.channel.(chan *eth.Head))
 	default:
-		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
+		logger.TestLogger(mes.t).Fatalf("Unable to close MockSubscription channel of type %T", mes.channel)
 	}
 	close(mes.Errors)
 }
@@ -366,11 +367,11 @@ func (ns NeverSleeper) After() time.Duration { return 0 * time.Microsecond }
 // Duration returns a duration
 func (ns NeverSleeper) Duration() time.Duration { return 0 * time.Microsecond }
 
-func MustRandomUser() sessions.User {
+func MustRandomUser(t testing.TB) sessions.User {
 	email := fmt.Sprintf("user-%v@chainlink.test", NewRandomInt64())
 	r, err := sessions.NewUser(email, Password)
 	if err != nil {
-		logger.Panic(err)
+		logger.TestLogger(t).Panic(err)
 	}
 	return r
 }
@@ -384,7 +385,12 @@ func MustNewUser(t *testing.T, email, password string) sessions.User {
 }
 
 type MockAPIInitializer struct {
+	t     testing.TB
 	Count int
+}
+
+func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
+	return &MockAPIInitializer{t: t}
 }
 
 func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
@@ -392,7 +398,7 @@ func (m *MockAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error)
 		return user, err
 	}
 	m.Count++
-	user := MustRandomUser()
+	user := MustRandomUser(m.t)
 	return user, orm.CreateUser(&user)
 }
 
@@ -401,16 +407,17 @@ func NewMockAuthenticatedHTTPClient(cfg cmd.HTTPClientConfig, sessionID string) 
 }
 
 type MockCookieAuthenticator struct {
+	t         testing.TB
 	SessionID string
 	Error     error
 }
 
 func (m MockCookieAuthenticator) Cookie() (*http.Cookie, error) {
-	return MustGenerateSessionCookie(m.SessionID), m.Error
+	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
 func (m MockCookieAuthenticator) Authenticate(sessions.SessionRequest) (*http.Cookie, error) {
-	return MustGenerateSessionCookie(m.SessionID), m.Error
+	return MustGenerateSessionCookie(m.t, m.SessionID), m.Error
 }
 
 type MockSessionRequestBuilder struct {

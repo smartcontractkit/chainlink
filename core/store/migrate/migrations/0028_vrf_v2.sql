@@ -4,6 +4,7 @@ CREATE TABLE vrf_specs (
     public_key text NOT NULL,
     coordinator_address bytea NOT NULL,
     confirmations bigint NOT NULL,
+    from_address bytea,
     created_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone NOT NULL
     CONSTRAINT coordinator_address_len_chk CHECK (octet_length(coordinator_address) = 20)

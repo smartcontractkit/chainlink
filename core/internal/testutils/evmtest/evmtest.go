@@ -136,7 +136,7 @@ func (mo *MockORM) CreateChain(id utils.Big, config evmtypes.ChainCfg) (evmtypes
 }
 
 func (mo *MockORM) UpdateChain(id utils.Big, enabled bool, config evmtypes.ChainCfg) (evmtypes.Chain, error) {
-	panic("not implemented")
+	return evmtypes.Chain{}, nil
 }
 
 func (mo *MockORM) DeleteChain(id utils.Big) error {
