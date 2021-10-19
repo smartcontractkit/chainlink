@@ -43,7 +43,7 @@ type master struct {
 }
 
 func New(db *gorm.DB, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
-	return newMaster(db, scryptParams, lggr.Named("KeyStore"))
+	return newMaster(db, scryptParams, lggr)
 }
 
 func newMaster(db *gorm.DB, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
@@ -51,7 +51,7 @@ func newMaster(db *gorm.DB, scryptParams utils.ScryptParams, lggr logger.Logger)
 		orm:          NewORM(db),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
-		logger:       lggr,
+		logger:       lggr.Named("KeyStore"),
 	}
 
 	return &master{
@@ -107,7 +107,7 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 		if _, exists := ks.keyRing.CSA[csaKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating CSA key %s", csaKey.ID())
+		ks.logger.Debugf("Migrating CSA key %s", csaKey.ID())
 		ks.keyRing.CSA[csaKey.ID()] = csaKey
 	}
 	ocrKeys, err := ks.ocr.GetV1KeysAsV2()
@@ -118,7 +118,7 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 		if _, exists := ks.keyRing.OCR[ocrKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating OCR key %s", ocrKey.ID())
+		ks.logger.Debugf("Migrating OCR key %s", ocrKey.ID())
 		ks.keyRing.OCR[ocrKey.ID()] = ocrKey
 	}
 	p2pKeys, err := ks.p2p.GetV1KeysAsV2()
@@ -129,7 +129,7 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 		if _, exists := ks.keyRing.P2P[p2pKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating P2P key %s", p2pKey.ID())
+		ks.logger.Debugf("Migrating P2P key %s", p2pKey.ID())
 		ks.keyRing.P2P[p2pKey.ID()] = p2pKey
 	}
 	vrfKeys, err := ks.vrf.GetV1KeysAsV2(vrfPssword)
@@ -140,7 +140,7 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 		if _, exists := ks.keyRing.VRF[vrfKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating VRF key %s", vrfKey.ID())
+		ks.logger.Debugf("Migrating VRF key %s", vrfKey.ID())
 		ks.keyRing.VRF[vrfKey.ID()] = vrfKey
 	}
 	if err = ks.keyManager.save(); err != nil {
@@ -154,7 +154,7 @@ func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
 		if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
 			continue
 		}
-		logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
+		ks.logger.Debugf("Migrating Eth key %s (and pegging to default chain ID %s)", ethKey.ID(), chainID.String())
 		if err = ks.eth.addEthKeyWithState(ethKey, states[idx]); err != nil {
 			return err
 		}

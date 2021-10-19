@@ -40,6 +40,7 @@ type eventBroadcaster struct {
 	subscriptionsMu      sync.RWMutex
 	chStop               chan struct{}
 	chDone               chan struct{}
+	lggr                 logger.Logger
 	utils.StartStopOnce
 }
 
@@ -50,7 +51,7 @@ type Event struct {
 	Payload string
 }
 
-func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxReconnectDuration time.Duration) *eventBroadcaster {
+func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxReconnectDuration time.Duration, lggr logger.Logger) *eventBroadcaster {
 	if minReconnectInterval == time.Duration(0) {
 		minReconnectInterval = 1 * time.Second
 	}
@@ -65,6 +66,7 @@ func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxRec
 		subscriptions:        make(map[string]map[Subscription]struct{}),
 		chStop:               make(chan struct{}),
 		chDone:               make(chan struct{}),
+		lggr:                 lggr.Named("EventBroadcaster"),
 	}
 }
 
@@ -84,13 +86,13 @@ func (b *eventBroadcaster) Start() error {
 			// operators' sanity.
 			switch ev {
 			case pq.ListenerEventConnected:
-				logger.Debug("Postgres event broadcaster: connected")
+				b.lggr.Debug("Postgres event broadcaster: connected")
 			case pq.ListenerEventDisconnected:
-				logger.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
+				b.lggr.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
 			case pq.ListenerEventReconnected:
-				logger.Debug("Postgres event broadcaster: reconnected")
+				b.lggr.Debug("Postgres event broadcaster: reconnected")
 			case pq.ListenerEventConnectionAttemptFailed:
-				logger.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
+				b.lggr.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
 			}
 		})
 
@@ -129,7 +131,7 @@ func (b *eventBroadcaster) runLoop() {
 			} else if notification == nil {
 				continue
 			}
-			logger.Debugw("Postgres event broadcaster: received notification",
+			b.lggr.Debugw("Postgres event broadcaster: received notification",
 				"channel", notification.Channel,
 				"payload", notification.Extra,
 			)
@@ -167,6 +169,7 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		queue:            utils.NewBoundedQueue(1000),
 		chEvents:         make(chan Event),
 		chDone:           make(chan struct{}),
+		lggr:             b.lggr,
 	}
 	sub.processQueueWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(sub.processQueue),
@@ -193,7 +196,7 @@ func (b *eventBroadcaster) removeSubscription(sub Subscription) {
 	if len(b.subscriptions[sub.ChannelName()]) == 0 {
 		err := b.listener.Unlisten(sub.ChannelName())
 		if err != nil {
-			logger.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
+			b.lggr.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
 		}
 		delete(b.subscriptions, sub.ChannelName())
 	}
@@ -239,6 +242,7 @@ type subscription struct {
 	processQueueWorker utils.SleeperTask
 	chEvents           chan Event
 	chDone             chan struct{}
+	lggr               logger.Logger
 }
 
 var _ Subscription = (*subscription)(nil)
@@ -261,7 +265,7 @@ func (sub *subscription) processQueue() {
 	for !sub.queue.Empty() {
 		event, ok := sub.queue.Take().(Event)
 		if !ok {
-			logger.Errorf("Postgres event broadcaster subscription expected an Event, got %T", event)
+			sub.lggr.Errorf("Postgres event broadcaster subscription expected an Event, got %T", event)
 			continue
 		}
 		select {
@@ -286,7 +290,7 @@ func (sub *subscription) Close() {
 	close(sub.chDone)
 	err := sub.processQueueWorker.Stop()
 	if err != nil {
-		logger.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
+		sub.lggr.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
 	}
 }
 

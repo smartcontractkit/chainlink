@@ -135,10 +135,10 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		})
 		return nil
