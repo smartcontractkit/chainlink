@@ -29,6 +29,10 @@ before(async () => {
   crossdomainMessenger = await impersonateAs(
     toArbitrumL2AliasAddress(l1OwnerAddress),
   )
+  await owner.sendTransaction({
+    to: crossdomainMessenger.address,
+    value: ethers.utils.parseEther("1.0")
+  })
 
   // Contract factories
   forwarderFactory = await ethers.getContractFactory(
@@ -48,7 +52,7 @@ before(async () => {
 describe('ArbitrumCrossDomainForwarder', () => {
   beforeEach(async () => {
     forwarder = await forwarderFactory.deploy(l1OwnerAddress)
-    greeter = await greeterFactory.deploy()
+    greeter = await greeterFactory.deploy(forwarder.address)
     // multisend = await multisendFactory.deploy()
   })
 
@@ -90,47 +94,16 @@ describe('ArbitrumCrossDomainForwarder', () => {
         forwarder.connect(stranger).forward(greeter.address, '0x'),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
+
+    it('should be callable by crossdomain messenger address', async () => {
+      const newGreeting = 'hello'
+      const setGreetingData = greeterFactory.interface.encodeFunctionData("setGreeting", [newGreeting])
+      await forwarder.connect(crossdomainMessenger).forward(greeter.address, setGreetingData)
+
+      const updatedGreeting = await greeter.greeting()
+      assert.equal(updatedGreeting, newGreeting)
+    })
   })
 
-  //   TODO: test forward()
   //   TODO: test forwardDelegate()
-
-  //   describe('#raiseFlag', () => {
-  //     describe('when called by the owner', () => {
-  //       it('updates the warning flag', async () => {
-  //         assert.equal(false, await flags.getFlag(consumer.address))
-
-  //         await flags.connect(personas.Nelly).raiseFlag(consumer.address)
-
-  //         assert.equal(true, await flags.getFlag(consumer.address))
-  //       })
-
-  //       it('emits an event log', async () => {
-  //         await expect(flags.connect(personas.Nelly).raiseFlag(consumer.address))
-  //           .to.emit(flags, 'FlagRaised')
-  //           .withArgs(consumer.address)
-  //       })
-
-  //       describe('if a flag has already been raised', () => {
-  //         beforeEach(async () => {
-  //           await flags.connect(personas.Nelly).raiseFlag(consumer.address)
-  //         })
-
-  //         it('emits an event log', async () => {
-  //           const tx = await flags
-  //             .connect(personas.Nelly)
-  //             .raiseFlag(consumer.address)
-  //           const receipt = await tx.wait()
-  //           assert.equal(0, receipt.events?.length)
-  //         })
-  //       })
-  //     })
-
-  //     describe('when called by a non-enabled setter', () => {
-  //       it('reverts', async () => {
-  //         await expect(
-  //           flags.connect(personas.Neil).raiseFlag(consumer.address),
-  //         ).to.be.revertedWith('Not allowed to raise flags')
-  //       })
-  //     })
 })
