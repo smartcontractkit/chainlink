@@ -2,10 +2,12 @@ package web_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -309,6 +311,65 @@ func Test_ChainsController_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ChainsController_Delete(t *testing.T) {
+	t.Parallel()
+
+	controller := setupChainsControllerTest(t)
+
+	newChainConfig := types.ChainCfg{
+		BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
+		BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
+		EvmEIP1559DynamicFees:                 null.BoolFrom(false),
+		MinIncomingConfirmations:              null.IntFrom(30),
+	}
+
+	chainId := utils.NewBigI(50)
+	_, err := controller.app.GetChainSet().Add(chainId.ToInt(), newChainConfig)
+	require.NoError(t, err)
+
+	_, countBefore, err := controller.app.EVMORM().Chains(0, 10)
+	require.NoError(t, err)
+	// 3 with the default chains
+	require.Equal(t, 3, countBefore)
+
+	t.Run("invalid id", func(t *testing.T) {
+		t.Parallel()
+
+		resp, cleanup := controller.client.Delete("/v2/chains/evm/invalid_id")
+		t.Cleanup(cleanup)
+		require.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
+	})
+
+	t.Run("non-existing chain", func(t *testing.T) {
+		resp, cleanup := controller.client.Delete("/v2/chains/evm/121231")
+		t.Cleanup(cleanup)
+		require.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+		_, countAfter, err := controller.app.EVMORM().Chains(0, 10)
+		require.NoError(t, err)
+		// 3 with the default chains
+		require.Equal(t, 3, countAfter)
+	})
+
+	t.Run("existing chain", func(t *testing.T) {
+		resp, cleanup := controller.client.Delete(
+			fmt.Sprintf("/v2/chains/evm/%d", chainId.ToInt()),
+		)
+		t.Cleanup(cleanup)
+		require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+		_, countAfter, err := controller.app.EVMORM().Chains(0, 10)
+		require.NoError(t, err)
+		// 3 with the default chains
+		require.Equal(t, 2, countAfter)
+
+		_, err = controller.app.EVMORM().Chain(*chainId)
+
+		assert.Error(t, err)
+		assert.True(t, errors.Is(err, sql.ErrNoRows))
+	})
 }
 
 type TestChainsController struct {
