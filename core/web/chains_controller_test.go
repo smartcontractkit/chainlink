@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -147,6 +148,86 @@ func Test_ChainsController_Show(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_ChainsController_Index(t *testing.T) {
+	t.Parallel()
+
+	controller := setupChainsControllerTest(t)
+
+	newChains := []web.CreateChainRequest{
+		{
+			ID: *utils.NewBigI(30),
+			Config: types.ChainCfg{
+				BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
+				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
+				EvmEIP1559DynamicFees:                 null.BoolFrom(false),
+				MinIncomingConfirmations:              null.IntFrom(30),
+			},
+		},
+		{
+			ID: *utils.NewBigI(24),
+			Config: types.ChainCfg{
+				BlockHistoryEstimatorBlockDelay:       null.IntFrom(13),
+				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(1),
+				EvmEIP1559DynamicFees:                 null.BoolFrom(true),
+				MinIncomingConfirmations:              null.IntFrom(120),
+			},
+		},
+	}
+
+	for _, newChain := range newChains {
+		_, err := controller.app.GetChainSet().Add(newChain.ID.ToInt(), newChain.Config)
+		require.NoError(t, err)
+	}
+
+	badResp, cleanup := controller.client.Get("/v2/chains/evm?size=asd")
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusUnprocessableEntity, badResp.StatusCode)
+
+	resp, cleanup := controller.client.Get("/v2/chains/evm?size=3")
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	body := cltest.ParseResponseBody(t, resp)
+
+	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
+	require.NoError(t, err)
+	// Apparently there are 2 chains by default...
+	require.Equal(t, 4, metaCount)
+
+	var links jsonapi.Links
+
+	chains := []presenters.ChainResource{}
+	err = web.ParsePaginatedResponse(body, &chains, &links)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, links["next"].Href)
+	assert.Empty(t, links["prev"].Href)
+
+	assert.Len(t, links, 1)
+	assert.Equal(t, newChains[1].ID.String(), chains[2].ID)
+	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockDelay, chains[2].Config.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockHistorySize, chains[2].Config.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, newChains[1].Config.EvmEIP1559DynamicFees, chains[2].Config.EvmEIP1559DynamicFees)
+	assert.Equal(t, newChains[1].Config.MinIncomingConfirmations, chains[2].Config.MinIncomingConfirmations)
+
+	resp, cleanup = controller.client.Get(links["next"].Href)
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	chains = []presenters.ChainResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
+	assert.NoError(t, err)
+	assert.Empty(t, links["next"].Href)
+	assert.NotEmpty(t, links["prev"].Href)
+
+	// Validating the second received chain
+	assert.Len(t, links, 1)
+	assert.Equal(t, newChains[0].ID.String(), chains[0].ID)
+	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockDelay, chains[0].Config.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockHistorySize, chains[0].Config.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, newChains[0].Config.EvmEIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees)
+	assert.Equal(t, newChains[0].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
 }
 
 type TestChainsController struct {
