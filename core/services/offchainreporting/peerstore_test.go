@@ -7,8 +7,10 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	ma "github.com/multiformats/go-multiaddr"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/require"
@@ -42,7 +44,7 @@ func Test_Peerstore_Start(t *testing.T) {
 	`, cltest.DefaultP2PPeerID, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID), logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -61,7 +63,7 @@ func Test_Peerstore_Start(t *testing.T) {
 func Test_Peerstore_WriteToDB(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID))
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(cltest.DefaultP2PPeerID), logger.TestLogger(t))
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")

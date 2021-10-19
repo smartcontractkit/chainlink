@@ -92,7 +92,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	mgr.connections[opts.FeedsManagerID] = conn
 	mgr.mu.Unlock()
 
-	go gracefulpanic.WrapRecover(func() {
+	go gracefulpanic.WrapRecover(mgr.lggr, func() {
 		defer mgr.wgClosed.Done()
 
 		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)

@@ -108,11 +108,11 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go gracefulpanic.WrapRecover(func() {
+		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runRequestHandler()
 		})
 		return nil
@@ -137,7 +137,7 @@ func (lsn *listenerV2) getConfirmedLogsBySub(latestHead uint64) map[uint64][]pen
 func (lsn *listenerV2) getLatestHead() uint64 {
 	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
 	if err != nil {
-		logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
+		lsn.l.Errorw("Unable to read latest head", "err", err)
 		return 0
 	}
 	return latestHead.Number.Uint64()
@@ -178,7 +178,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 func (lsn *listenerV2) processPendingVRFRequests() {
 	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
 	if err != nil {
-		logger.Errorw("VRFListenerV2: unable to read latest head", "err", err)
+		lsn.l.Errorw("Unable to read latest head", "err", err)
 		return
 	}
 	confirmed := lsn.getConfirmedLogsBySub(latestHead.Number.Uint64())
@@ -186,18 +186,18 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
-		logger.Infow("VRFListenerV2: no pending requests")
+		lsn.l.Infow("No pending requests")
 		return
 	}
 	for subID, reqs := range confirmed {
 		sub, err := lsn.coordinator.GetSubscription(nil, subID)
 		if err != nil {
-			logger.Errorw("VRFListenerV2: unable to read subscription balance", "err", err)
+			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			return
 		}
 		keys, err := lsn.gethks.SendingKeys()
 		if err != nil {
-			logger.Errorw("VRFListenerV2: unable to read sending keys", "err", err)
+			lsn.l.Errorw("Unable to read sending keys", "err", err)
 			continue
 		}
 		fromAddress := keys[0].Address
@@ -219,14 +219,14 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
 					GROUP BY from_address = ?`, fromAddress).Scan(&reservedLink).Error
 	if err != nil {
-		l.Errorw("VRFListenerV2: could not get reserved link", "err", err)
+		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
 	}
 
 	if reservedLink != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedLink, 10)
 		if !success {
-			l.Errorw("VRFListenerV2: error converting reserved link", "reservedLink", reservedLink)
+			l.Errorw("Error converting reserved link", "reservedLink", reservedLink)
 			return startBalance, errors.New("unable to convert returned link")
 		}
 		// Subtract the reserved link
@@ -259,7 +259,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 	if err1 != nil {
 		return
 	}
-	logger.Infow("VRFListenerV2: processing requests",
+	lsn.l.Infow("Processing requests",
 		"sub", lsn.reqs[0].req.SubId,
 		"maxGasPrice", maxGasPrice.String(),
 		"reqs", len(reqs),
@@ -277,11 +277,11 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, req.req.RequestId)
 		if err != nil {
-			lsn.l.Errorw("VRFListenerV2: unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
+			lsn.l.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", req.req.Raw.TxHash)
 		} else if utils.IsEmpty(callback[:]) {
 			// If seedAndBlockNumber is zero then the response has been fulfilled
 			// and we should skip it
-			lsn.l.Infow("VRFListenerV2: request already fulfilled", "txHash", req.req.Raw.TxHash, "subID", req.req.SubId, "callback", callback)
+			lsn.l.Infow("Request already fulfilled", "txHash", req.req.Raw.TxHash, "subID", req.req.SubId, "callback", callback)
 			lsn.markLogAsConsumed(req.lb)
 			processed[req.req.RequestId.String()] = struct{}{}
 			continue
@@ -295,10 +295,10 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		if startBalance.Cmp(bi) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
-			lsn.l.Infow("VRFListenerV2: insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", bi)
+			lsn.l.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", bi)
 			break
 		}
-		lsn.l.Infow("VRFListenerV2: enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
+		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
 		err = postgres.NewGormTransactionManager(lsn.db).Transact(func(ctx context.Context) error {
 			tx := postgres.TxFromContext(ctx, lsn.db)
@@ -323,7 +323,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 			return err
 		})
 		if err != nil {
-			lsn.l.Errorw("VRFListenerV2: error enqueuing fulfillment, requeuing request",
+			lsn.l.Errorw("Error enqueuing fulfillment, requeuing request",
 				"err", err,
 				"reqID", req.req.RequestId,
 				"txHash", req.req.Raw.TxHash)
@@ -344,7 +344,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 	lsn.reqsMu.Lock()
 	lsn.reqs = toKeep
 	lsn.reqsMu.Unlock()
-	lsn.l.Infow("VRFListenerV2: finished processing for sub",
+	lsn.l.Infow("Finished processing for sub",
 		"sub", reqs[0].req.SubId,
 		"total reqs", len(reqs),
 		"total processed", len(processed),
@@ -378,22 +378,22 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	})
 	run, trrs, err := lsn.pipelineRunner.ExecuteRun(context.Background(), *lsn.job.PipelineSpec, vars, lsn.l)
 	if err != nil {
-		logger.Errorw("VRFListenerV2: failed executing run", "err", err)
+		lsn.l.Errorw("Failed executing run", "err", err)
 		return maxLink, run, payload, gaslimit, err
 	}
 	// The call task will fail if there are insufficient funds
 	if run.AllErrors.HasError() {
-		logger.Warnw("VRFListenerV2: simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
+		lsn.l.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
 		return maxLink, run, payload, gaslimit, errors.New("run errored")
 	}
 	if len(trrs.FinalResult().Values) != 1 {
-		logger.Errorw("VRFListenerV2: unexpected number of outputs", "err", err)
+		lsn.l.Errorw("Unexpected number of outputs", "err", err)
 		return maxLink, run, payload, gaslimit, errors.New("unexpected number of outputs")
 	}
 	// Run succeeded, we expect a byte array representing the billing amount
 	b, ok := trrs.FinalResult().Values[0].([]uint8)
 	if !ok {
-		logger.Errorw("VRFListenerV2: unexpected type")
+		lsn.l.Errorw("Unexpected type")
 		return maxLink, run, payload, gaslimit, errors.New("expected []uint8 final result")
 	}
 	maxLink = utils.HexToBig(hexutil.Encode(b)[2:])
@@ -425,7 +425,7 @@ func (lsn *listenerV2) runRequestHandler() {
 }
 
 func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
-	lsn.l.Infow("VRFListenerV2: listening for run requests",
+	lsn.l.Infow("Listening for run requests",
 		"minConfs", minConfs)
 	for {
 		select {
@@ -457,7 +457,7 @@ func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
 	defer cancel()
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
@@ -476,7 +476,7 @@ func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2Ra
 		newConfs = 200
 	}
 	if lsn.respCount[req.RequestId.String()] > 0 {
-		lsn.l.Warnw("VRFListenerV2: duplicate request found after fulfillment, doubling incoming confirmations",
+		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw.TxHash,
 			"blockNumber", req.Raw.BlockNumber,
 			"blockHash", req.Raw.BlockHash,
@@ -505,7 +505,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 
 	req, err := lsn.coordinator.ParseRandomWordsRequested(lb.RawLog())
 	if err != nil {
-		lsn.l.Errorw("VRFListenerV2: failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		if !lsn.shouldProcessLog(lb) {
 			return
 		}
@@ -528,7 +528,7 @@ func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
-	lsn.l.ErrorIf(err, fmt.Sprintf("VRFListenerV2: unable to mark log %v as consumed", lb.String()))
+	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
 // Close complies with job.Service
@@ -543,7 +543,7 @@ func (lsn *listenerV2) Close() error {
 func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := lsn.reqLogs.Deliver(lb)
 	if wasOverCapacity {
-		logger.Error("VRFListenerV2: log mailbox is over capacity - dropped the oldest log")
+		lsn.l.Error("Log mailbox is over capacity - dropped the oldest log")
 	}
 }
 

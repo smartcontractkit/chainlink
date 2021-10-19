@@ -18,7 +18,7 @@ func main() {
 // Run runs the CLI, providing further command instructions by default.
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
-	logger.Default.WarnIf(app.Run(args), "Error running app")
+	client.Logger().WarnIf(app.Run(args), "Error running app")
 }
 
 // NewProductionClient configures an instance of the CLI to be used
@@ -34,7 +34,7 @@ func NewProductionClient() *cmd.Client {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
 		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
-			logger.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
+			logger.ProductionLogger(cfg).Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
 	return &cmd.Client{
