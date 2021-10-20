@@ -3,6 +3,7 @@ package bridges
 import (
 	"database/sql"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -111,7 +112,7 @@ func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) erro
 	`
 	stmt, err := o.db.PrepareNamed(sql)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "CreateExternalInitiator failed")
 	}
 	return stmt.Get(externalInitiator, externalInitiator)
 }
