@@ -8,7 +8,7 @@ import (
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
-	config "github.com/smartcontractkit/chainlink/core/store/config"
+	config "github.com/smartcontractkit/chainlink/core/config"
 
 	context "context"
 
