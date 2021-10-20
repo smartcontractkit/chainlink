@@ -52,6 +52,7 @@ type (
 		keyStore keystore.Master
 		config   NetworkingConfig
 		db       *gorm.DB
+		lggr     logger.Logger
 
 		pstoreWrapper *Pstorewrapper
 		PeerID        p2pkey.PeerID
@@ -64,11 +65,12 @@ type (
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config NetworkingConfig, db *gorm.DB) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, config NetworkingConfig, db *gorm.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		config:   config,
 		db:       db,
+		lggr:     lggr.Named("SingletonPeerWrapper"),
 	}
 }
 
@@ -88,7 +90,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		if len(p2pkeys) == 0 {
-			logger.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
+			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 			return nil
 		}
 
@@ -101,7 +103,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		if p.PeerID == "" {
 			return errors.Wrap(err, "could not get peer ID")
 		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}
@@ -120,7 +122,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			announcePort = listenPort
 		}
 
-		peerLogger := logger.NewOCRWrapper(logger.Default, p.config.OCRTraceLogging(), func(string) {})
+		peerLogger := logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {})
 
 		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),

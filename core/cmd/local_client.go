@@ -52,7 +52,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	lggr := logger.ProductionLogger(cli.Config).Named("boot")
+	lggr := cli.Logger().Named("boot")
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
 	if cli.Config.Dev() {
@@ -123,7 +123,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		lggr.Infof("Created P2P key with ID %s", p2pKey.ID())
 	}
 
-	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
+	if e := checkFilePermissions(lggr, cli.Config.RootDir()); e != nil {
 		lggr.Warn(e)
 	}
 
@@ -143,7 +143,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
 	defer func() { lggr.WarnIf(app.Stop(), "Error stopping app") }()
-	err = logConfigVariables(cli.Config)
+	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -152,12 +152,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
-func checkFilePermissions(rootDir string) error {
+func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure `$CLROOT/tls` directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	_, err := os.Stat(tlsDir)
 	if err != nil && !os.IsNotExist(err) {
-		logger.Errorf("error checking perms of 'tls' directory: %v", err)
+		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
 		if err != nil {
@@ -166,12 +166,12 @@ func checkFilePermissions(rootDir string) error {
 
 		err = filepath.Walk(tlsDir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
-				logger.Errorf(`error checking perms of "%v": %v`, path, err)
+				lggr.Errorf(`error checking perms of "%v": %v`, path, err)
 				return err
 			}
 			if utils.TooPermissive(info.Mode().Perm(), ownerPermsMask) {
 				newPerms := info.Mode().Perm() & ownerPermsMask
-				logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
+				lggr.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, info.Mode().Perm(), newPerms)
 				return utils.EnsureFilepathMaxPerms(path, newPerms)
 			}
 			return nil
@@ -193,7 +193,7 @@ func checkFilePermissions(rootDir string) error {
 		}
 		if utils.TooPermissive(fileInfo.Mode().Perm(), ownerPermsMask) {
 			newPerms := fileInfo.Mode().Perm() & ownerPermsMask
-			logger.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
+			lggr.Warnf("%s has overly permissive file permissions, reducing them from %s to %s", path, fileInfo.Mode().Perm(), newPerms)
 			err = utils.EnsureFilepathMaxPerms(path, newPerms)
 			if err != nil {
 				return err
@@ -201,11 +201,11 @@ func checkFilePermissions(rootDir string) error {
 		}
 		owned, err := utils.IsFileOwnedByChainlink(fileInfo)
 		if err != nil {
-			logger.Warn(err)
+			lggr.Warn(err)
 			continue
 		}
 		if !owned {
-			logger.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
+			lggr.Warnf("The file %v is not owned by the user running chainlink. This will be made mandatory in the future.", path)
 		}
 	}
 	return nil
@@ -219,13 +219,13 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func logConfigVariables(cfg config.GeneralConfig) error {
+func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
 	wlc, err := presenters.NewConfigPrinter(cfg)
 	if err != nil {
 		return err
 	}
 
-	logger.Debug("Environment variables\n", wlc)
+	lggr.Debug("Environment variables\n", wlc)
 	return nil
 }
 
@@ -286,7 +286,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+	cli.Logger().Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
@@ -367,22 +367,23 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	logger.Infof("Resetting database: %#v", parsed.String())
-	logger.Debugf("Dropping and recreating database: %#v", parsed.String())
+	lggr := cli.Logger()
+	lggr.Infof("Resetting database: %#v", parsed.String())
+	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
-	logger.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg); err != nil {
+	lggr.Debugf("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, lggr); err != nil {
 		return cli.errorOut(err)
 	}
 	schema, err := dumpSchema(cfg)
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	logger.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
+	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
 	var baseVersionID int64 = 54
-	if err := downAndUpDB(cfg, baseVersionID); err != nil {
+	if err := downAndUpDB(cfg, lggr, baseVersionID); err != nil {
 		return cli.errorOut(err)
 	}
 	if err := checkSchema(cfg, schema); err != nil {
@@ -429,8 +430,8 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	logger.Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg); err != nil {
+	cli.Logger().Infof("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, cli.Logger()); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -448,7 +449,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config, cli.Logger())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -462,7 +463,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config, cli.Logger())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -472,13 +473,13 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
-	logger.Infof("Database version: %v", version)
+	cli.Logger().Infof("Database version: %v", version)
 	return nil
 }
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config, cli.Logger())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -494,7 +495,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config)
+	db, err := newConnection(cli.Config, cli.Logger())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -510,12 +511,13 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	return nil
 }
 
-func newConnection(cfg config.GeneralConfig) (*sqlx.DB, error) {
+func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, error) {
 	parsed := cfg.DatabaseURL()
 	if parsed.String() == "" {
 		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 	}
 	config := postgres.Config{
+		Logger:           lggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
@@ -550,8 +552,8 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	return nil
 }
 
-func migrateDB(config config.GeneralConfig) error {
-	db, err := newConnection(config)
+func migrateDB(config config.GeneralConfig, lggr logger.Logger) error {
+	db, err := newConnection(config, lggr)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -561,8 +563,8 @@ func migrateDB(config config.GeneralConfig) error {
 	return db.Close()
 }
 
-func downAndUpDB(cfg config.GeneralConfig, baseVersionID int64) error {
-	db, err := newConnection(cfg)
+func downAndUpDB(cfg config.GeneralConfig, lggr logger.Logger, baseVersionID int64) error {
+	db, err := newConnection(cfg, lggr)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
