@@ -79,7 +79,8 @@ type explorerClient struct {
 	secret           string
 	logging          bool
 
-	done          chan struct{}
+	chStop        chan struct{}
+	wg            sync.WaitGroup
 	writePumpDone chan struct{}
 
 	statusMtx sync.RWMutex
@@ -121,7 +122,8 @@ func (ec *explorerClient) Status() ConnectionStatus {
 // Start starts a write pump over a websocket.
 func (ec *explorerClient) Start() error {
 	return ec.StartOnce("Explorer client", func() error {
-		ec.done = make(chan struct{})
+		ec.chStop = make(chan struct{})
+		ec.wg.Add(1)
 		go ec.connectAndWritePump()
 		return nil
 	})
@@ -213,10 +215,11 @@ const (
 // lexical confinement of done chan allows multiple connectAndWritePump routines
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
 func (ec *explorerClient) connectAndWritePump() {
+	defer ec.wg.Done()
 	for {
 		select {
 		case <-time.After(ec.sleeper.After()):
-			ctx, cancel := utils.ContextFromChan(ec.done)
+			ctx, cancel := utils.ContextFromChan(ec.chStop)
 
 			logger.Infow("Connecting to explorer", "url", ec.url)
 			err := ec.connect(ctx)
@@ -236,10 +239,11 @@ func (ec *explorerClient) connectAndWritePump() {
 			logger.Infow("Connected to explorer", "url", ec.url)
 			ec.sleeper.Reset()
 			ec.writePumpDone = make(chan struct{})
+			ec.wg.Add(1)
 			go ec.readPump()
 			ec.writePump()
 
-		case <-ec.done:
+		case <-ec.chStop:
 			return
 		}
 	}
@@ -292,7 +296,7 @@ func (ec *explorerClient) writePump() {
 
 		case <-ec.writePumpDone:
 			return
-		case <-ec.done:
+		case <-ec.chStop:
 			return
 		}
 	}
@@ -344,6 +348,7 @@ const CloseTimeout = 100 * time.Millisecond
 //  * https://stackoverflow.com/a/48181794/639773
 //  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
 func (ec *explorerClient) readPump() {
+	defer ec.wg.Done()
 	ec.conn.SetReadLimit(maxMessageSize)
 	_ = ec.conn.SetReadDeadline(time.Now().Add(pongWait))
 	ec.conn.SetPongHandler(func(string) error {
@@ -377,7 +382,8 @@ func (ec *explorerClient) wrapConnErrorIf(err error) {
 
 func (ec *explorerClient) Close() error {
 	return ec.StopOnce("Explorer client", func() error {
-		close(ec.done)
+		close(ec.chStop)
+		ec.wg.Wait()
 		return nil
 	})
 }
