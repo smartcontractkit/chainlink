@@ -4,13 +4,14 @@ pragma solidity ^0.8.0;
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
+import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
@@ -347,6 +348,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   function getRequestConfig()
     external
     view
+    override
     returns (
       uint16,
       uint32,
@@ -358,14 +360,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   /**
    * @inheritdoc VRFCoordinatorV2Interface
-   */```
+   */
   function requestRandomWords(
     bytes32 keyHash,
     uint64 subId,
     uint16 requestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords
-  ) external nonReentrant returns (uint256) {
+  ) external override nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -673,10 +675,11 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
 
   /**
    * @inheritdoc VRFCoordinatorV2Interface
-   */```
+   */
   function getSubscription(uint64 subId)
     external
     view
+    override
     returns (
       uint96 balance,
       uint64 reqCount,
@@ -698,7 +701,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function createSubscription() external nonReentrant returns (uint64) {
+  function createSubscription() external override nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
@@ -716,7 +719,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
+  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner)
+    external
+    override
+    onlySubOwner(subId)
+    nonReentrant
+  {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;
@@ -727,7 +735,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
+  function acceptSubscriptionOwnerTransfer(uint64 subId) external override nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -743,7 +751,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
+  function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
     }
@@ -767,7 +775,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
   /**
    * @inheritdoc VRFCoordinatorV2Interface
    */
-  function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
+  function addConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -784,9 +792,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  // Keep this separate from zeroing, perhaps there is a use case where consumers
-  // want to keep the subId, but withdraw all the link.
-  function cancelSubscription(uint64 subId, address to) external onlySubOwner(subId) nonReentrant {
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
+  function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
