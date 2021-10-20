@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -254,25 +253,7 @@ func ExtractRevertReasonFromRPCError(err error) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "unable to decode hex to bytes")
 	}
-
-	ln := len(revertReasonBytes)
-	breaker := time.After(time.Second * 5)
-cleanup:
-	for {
-		select {
-		case <-breaker:
-			break cleanup
-		default:
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
-			revertReasonBytes = bytes.Trim(revertReasonBytes, "\x11")
-			revertReasonBytes = bytes.TrimSpace(revertReasonBytes)
-			if ln == len(revertReasonBytes) {
-				break cleanup
-			}
-			ln = len(revertReasonBytes)
-		}
-	}
-
+	revertReasonBytes = bytes.Trim(revertReasonBytes, "\x00")
 	revertReason := strings.TrimSpace(string(revertReasonBytes))
 	return revertReason, nil
 }

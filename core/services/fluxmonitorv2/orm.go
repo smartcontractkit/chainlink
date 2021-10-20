@@ -8,7 +8,7 @@ import (
 )
 
 type transmitter interface {
-	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -17,8 +17,8 @@ type transmitter interface {
 type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
-	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint) error
+	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error)
+	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error
 	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
 
@@ -61,16 +61,9 @@ func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roun
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given
 // oracle on a given round, or creates it if no record exists
-func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error) {
-
-	// new potential entry to be inserted
+func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (FluxMonitorRoundStatsV2, error) {
 	var stats FluxMonitorRoundStatsV2
-	stats.Aggregator = aggregator
-	stats.RoundID = roundID
-	stats.NumNewRoundLogs = uint64(newRoundLogs)
-
 	err := o.db.FirstOrCreate(&stats,
-		// conditions for finding the existing one
 		FluxMonitorRoundStatsV2{Aggregator: aggregator, RoundID: roundID},
 	).Error
 
@@ -79,19 +72,18 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint) error {
+func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64) error {
 	err := db.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (
-            ?, ?, ?, ?, 1
+            ?, ?, ?, 0, 1
         ) ON CONFLICT (aggregator, round_id)
         DO UPDATE SET
-          num_new_round_logs = flux_monitor_round_stats_v2.num_new_round_logs + ?,
-					num_submissions    = flux_monitor_round_stats_v2.num_submissions + 1,
-					pipeline_run_id    = EXCLUDED.pipeline_run_id
-    `, aggregator, roundID, runID, newRoundLogsAddition, newRoundLogsAddition).Error
-	return errors.Wrapf(err, "Failed to insert round stats for roundID=%v, runID=%v, newRoundLogsAddition=%v", roundID, runID, newRoundLogsAddition)
+					num_submissions = flux_monitor_round_stats_v2.num_submissions + 1,
+					pipeline_run_id = EXCLUDED.pipeline_run_id
+    `, aggregator, roundID, runID).Error
+	return errors.Wrapf(err, "Failed to insert round stats for roundID=%v, runID=%v", roundID, runID)
 }
 
 // CountFluxMonitorRoundStats counts the total number of records
@@ -110,13 +102,6 @@ func (o *orm) CreateEthTransaction(
 	payload []byte,
 	gasLimit uint64,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
-		FromAddress:    fromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: payload,
-		GasLimit:       gasLimit,
-		Meta:           nil,
-		Strategy:       o.strategy,
-	})
+	_, err = o.txm.CreateEthTransaction(db, fromAddress, toAddress, payload, gasLimit, nil, o.strategy)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }

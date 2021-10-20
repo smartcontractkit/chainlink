@@ -32,10 +32,10 @@ type node struct {
 
 func newNode(wsuri url.URL, httpuri *url.URL, name string) (n *node) {
 	n = new(node)
-	n.log = logger.Default.With(
+	n.log = logger.CreateLogger(logger.Default.With(
 		"nodeName", name,
 		"nodeTier", "primary",
-	)
+	))
 	n.ws.uri = wsuri
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}

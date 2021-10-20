@@ -16,12 +16,14 @@ describe('pages/Keys/OcrKeys', () => {
       const [expectedKey1, expectedKey2] = [
         partialAsFull<OcrKeyBundle>({
           id: 'keyId1',
+          createdAt: new Date().toISOString(),
           offChainPublicKey: 'offChainPublicKey1',
           configPublicKey: 'configPublicKey1',
           onChainSigningAddress: 'onChainSigningAddress1',
         }),
         partialAsFull<OcrKeyBundle>({
           id: 'keyId2',
+          createdAt: new Date().toISOString(),
           offChainPublicKey: 'offChainPublicKey2',
           configPublicKey: 'configPublicKey2',
           onChainSigningAddress: 'onChainSigningAddress2',
@@ -35,6 +37,7 @@ describe('pages/Keys/OcrKeys', () => {
 
       const wrapper = mountWithProviders(<OcrKeys />)
       await syncFetch(wrapper)
+      expect(wrapper.text()).toContain('just now')
       expect(wrapper.text()).toContain('Delete')
       expect(wrapper.find('tbody').children().length).toEqual(2)
       expect(wrapper.text()).toContain(expectedKey1.id)

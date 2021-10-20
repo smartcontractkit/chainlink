@@ -1,7 +1,6 @@
 import React from 'react'
 import { jsonApiOcrKeys, OcrKeyBundle } from 'factories/jsonApiOcrKeys'
 import { jsonApiP2PKeys, P2PKeyBundle } from 'factories/jsonApiP2PKeys'
-import { jsonApiFeatureFlags } from 'factories/jsonApiFeatures'
 import { accountBalances } from 'factories/accountBalance'
 
 import { syncFetch } from 'test-helpers/syncFetch'
@@ -9,7 +8,6 @@ import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import { ACCOUNT_BALANCES_ENDPOINT } from 'api/v2/user/balances'
-import { INDEX_ENDPOINT as FEATURES_INDEX_ENDPOINT } from 'api/v2/features'
 import { INDEX_ENDPOINT as OCR_INDEX_ENDPOINT } from 'api/v2/ocrKeys'
 import { INDEX_ENDPOINT as P2P_INDEX_ENDPOINT } from 'api/v2/p2pKeys'
 
@@ -26,10 +24,6 @@ describe('pages/Keys/Index', () => {
       }),
     ]
 
-    global.fetch.getOnce(
-      globPath(FEATURES_INDEX_ENDPOINT),
-      jsonApiFeatureFlags(),
-    )
     global.fetch.getOnce(
       globPath(OCR_INDEX_ENDPOINT),
       jsonApiOcrKeys([expectedOcr]),

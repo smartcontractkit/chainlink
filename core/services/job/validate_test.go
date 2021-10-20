@@ -80,7 +80,7 @@ sldkfjalskdjf
 		{
 			name: "async check",
 			spec: `
-type="offchainreporting"
+type="vrf"
 schemaVersion=1
 observationSource="""
 ds [type=bridge async=true]

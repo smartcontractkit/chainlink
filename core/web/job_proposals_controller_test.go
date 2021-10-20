@@ -11,7 +11,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	feedMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
+	pbMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -53,14 +53,21 @@ func Test_JobProposalsController_Index(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctrl := setupJobProposalsTest(t)
+			app, client := setupJobProposalsTest(t)
+			rpcClient := &pbMocks.FeedsManagerClient{}
+			app.FeedsService.Unsafe_SetFMSClient(rpcClient)
+
+			// Defer the FK requirement of a feeds manager.
+			require.NoError(t, app.Store.DB.Exec(
+				`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
+			).Error)
 
 			// Create the job proposal
-			fsvc := ctrl.app.GetFeedsService()
+			fsvc := app.GetFeedsService()
 			id, err := fsvc.CreateJobProposal(&jp1)
 			require.NoError(t, err)
 
-			resp, cleanup := ctrl.client.Get("/v2/job_proposals")
+			resp, cleanup := client.Get("/v2/job_proposals")
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -112,14 +119,21 @@ func Test_JobProposalsController_Show(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctrl := setupJobProposalsTest(t)
+			app, client := setupJobProposalsTest(t)
+			rpcClient := &pbMocks.FeedsManagerClient{}
+			app.FeedsService.Unsafe_SetFMSClient(rpcClient)
+
+			// Defer the FK requirement of a feeds manager.
+			require.NoError(t, app.Store.DB.Exec(
+				`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
+			).Error)
 
 			// Create the job proposal
-			fsvc := ctrl.app.GetFeedsService()
+			fsvc := app.GetFeedsService()
 			id, err := fsvc.CreateJobProposal(&jp)
 			require.NoError(t, err)
 
-			resp, cleanup := ctrl.client.Get(fmt.Sprintf("/v2/job_proposals/%d", id))
+			resp, cleanup := client.Get(fmt.Sprintf("/v2/job_proposals/%d", id))
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -149,28 +163,25 @@ func Test_JobProposalsController_Approve(t *testing.T) {
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
 		}
-		expected  = jp1
-		rpcClient = &feedMocks.FeedsManagerClient{}
+		expected = jp1
 	)
 	expected.Status = feeds.JobProposalStatusApproved
 
 	testCases := []struct {
 		name           string
-		before         func(t *testing.T, ctrl *TestJobProposalsController, id *string)
+		before         func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient)
 		want           *feeds.JobProposal
 		wantStatusCode int
 	}{
 		{
 			name: "success",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
-				fsvc := ctrl.app.GetFeedsService()
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
+				fsvc := app.GetFeedsService()
 
 				jp1ID, err := fsvc.CreateJobProposal(&jp1)
 				require.NoError(t, err)
 
 				*id = strconv.Itoa(int(jp1ID))
-
-				ctrl.connMgr.On("GetClient", jp1.FeedsManagerID).Return(rpcClient, nil)
 
 				rpcClient.On("ApprovedJob", mock.MatchedBy(func(c context.Context) bool { return true }), &pb.ApprovedJobRequest{
 					Uuid: jp1.RemoteUUID.String(),
@@ -181,14 +192,14 @@ func Test_JobProposalsController_Approve(t *testing.T) {
 		},
 		{
 			name: "invalid id",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "notanint"
 			},
 			wantStatusCode: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "999999999"
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -200,14 +211,21 @@ func Test_JobProposalsController_Approve(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctrl := setupJobProposalsTest(t)
+			app, client := setupJobProposalsTest(t)
+			rpcClient := &pbMocks.FeedsManagerClient{}
+			app.FeedsService.Unsafe_SetFMSClient(rpcClient)
+
+			// Defer the FK requirement of a feeds manager.
+			require.NoError(t, app.Store.DB.Exec(
+				`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
+			).Error)
 
 			var id string
 			if tc.before != nil {
-				tc.before(t, ctrl, &id)
+				tc.before(t, app, &id, rpcClient)
 			}
 
-			resp, cleanup := ctrl.client.Post(fmt.Sprintf("/v2/job_proposals/%s/approve", id), bytes.NewReader([]byte{}))
+			resp, cleanup := client.Post(fmt.Sprintf("/v2/job_proposals/%s/approve", id), bytes.NewReader([]byte{}))
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -228,35 +246,31 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 	t.Parallel()
 
 	var (
-		spec = string(cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml"))
-		jp1  = feeds.JobProposal{
+		jp1 = feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
-			Spec:           spec,
+			Spec:           "some spec",
 			Status:         feeds.JobProposalStatusPending,
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
 		}
-		expected  = jp1
-		rpcClient = &feedMocks.FeedsManagerClient{}
+		expected = jp1
 	)
 	expected.Status = feeds.JobProposalStatusRejected
 
 	testCases := []struct {
 		name           string
-		before         func(t *testing.T, ctrl *TestJobProposalsController, id *string)
+		before         func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient)
 		want           *feeds.JobProposal
 		wantStatusCode int
 	}{
 		{
 			name: "success",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
-				fsvc := ctrl.app.GetFeedsService()
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
+				fsvc := app.GetFeedsService()
 
 				jp1ID, err := fsvc.CreateJobProposal(&jp1)
 				require.NoError(t, err)
-
-				ctrl.connMgr.On("GetClient", jp1.FeedsManagerID).Return(rpcClient, nil)
 
 				*id = strconv.Itoa(int(jp1ID))
 
@@ -269,14 +283,14 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 		},
 		{
 			name: "invalid id",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "notanint"
 			},
 			wantStatusCode: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "999999999"
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -288,14 +302,21 @@ func Test_JobProposalsController_Reject(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctrl := setupJobProposalsTest(t)
+			app, client := setupJobProposalsTest(t)
+			rpcClient := &pbMocks.FeedsManagerClient{}
+			app.FeedsService.Unsafe_SetFMSClient(rpcClient)
+
+			// Defer the FK requirement of a feeds manager.
+			require.NoError(t, app.Store.DB.Exec(
+				`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
+			).Error)
 
 			var id string
 			if tc.before != nil {
-				tc.before(t, ctrl, &id)
+				tc.before(t, app, &id, rpcClient)
 			}
 
-			resp, cleanup := ctrl.client.Post(fmt.Sprintf("/v2/job_proposals/%s/reject", id), bytes.NewReader([]byte{}))
+			resp, cleanup := client.Post(fmt.Sprintf("/v2/job_proposals/%s/reject", id), bytes.NewReader([]byte{}))
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -316,11 +337,10 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 	t.Parallel()
 
 	var (
-		spec = string(cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml"))
-		jp1  = feeds.JobProposal{
+		jp1 = feeds.JobProposal{
 			ID:             1,
 			RemoteUUID:     uuid.NewV4(),
-			Spec:           spec,
+			Spec:           "some spec",
 			Status:         feeds.JobProposalStatusPending,
 			ExternalJobID:  uuid.NullUUID{},
 			FeedsManagerID: 10,
@@ -332,14 +352,14 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		before         func(t *testing.T, ctrl *TestJobProposalsController, id *string)
+		before         func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient)
 		want           *feeds.JobProposal
 		wantStatusCode int
 	}{
 		{
 			name: "success",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
-				fsvc := ctrl.app.GetFeedsService()
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
+				fsvc := app.GetFeedsService()
 
 				jp1ID, err := fsvc.CreateJobProposal(&jp1)
 				require.NoError(t, err)
@@ -351,14 +371,14 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 		},
 		{
 			name: "invalid id",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "notanint"
 			},
 			wantStatusCode: http.StatusBadRequest,
 		},
 		{
 			name: "not found",
-			before: func(t *testing.T, ctrl *TestJobProposalsController, id *string) {
+			before: func(t *testing.T, app *cltest.TestApplication, id *string, rpcClient *pbMocks.FeedsManagerClient) {
 				*id = "999999999"
 			},
 			wantStatusCode: http.StatusNotFound,
@@ -370,14 +390,20 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctrl := setupJobProposalsTest(t)
+			app, client := setupJobProposalsTest(t)
+			rpcClient := &pbMocks.FeedsManagerClient{}
+
+			// Defer the FK requirement of a feeds manager.
+			require.NoError(t, app.Store.DB.Exec(
+				`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
+			).Error)
 
 			var id string
 			if tc.before != nil {
-				tc.before(t, ctrl, &id)
+				tc.before(t, app, &id, rpcClient)
 			}
 
-			resp, cleanup := ctrl.client.Patch(
+			resp, cleanup := client.Patch(
 				fmt.Sprintf("/v2/job_proposals/%s/spec", id),
 				bytes.NewReader([]byte(reqBody)),
 			)
@@ -396,33 +422,12 @@ func Test_JobProposalsController_UpdateSpec(t *testing.T) {
 	}
 }
 
-type TestJobProposalsController struct {
-	app     *cltest.TestApplication
-	client  cltest.HTTPClientCleaner
-	connMgr *feedMocks.ConnectionsManager
-}
-
-func setupJobProposalsTest(t *testing.T) *TestJobProposalsController {
+func setupJobProposalsTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
 	app, cleanup := cltest.NewApplication(t)
 	t.Cleanup(cleanup)
 	app.Start()
 
 	client := app.NewHTTPClient()
 
-	// Defer the FK requirement of a feeds manager.
-	require.NoError(t, app.Store.DB.Exec(
-		`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
-	).Error)
-
-	// Mock the connection manager since we don't have a real FMS to connect to
-	connMgr := &feedMocks.ConnectionsManager{}
-	connMgr.AssertExpectations(t)
-	app.FeedsService.Unsafe_SetConnectionsManager(connMgr)
-	connMgr.On("Close")
-
-	return &TestJobProposalsController{
-		app:     app,
-		client:  client,
-		connMgr: connMgr,
-	}
+	return app, client
 }

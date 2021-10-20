@@ -1,8 +1,10 @@
 import { CardTitle } from 'components/CardTitle'
+import { KeyValueList } from 'components/KeyValueList'
 import {
   Card,
   Grid,
   Theme,
+  Typography,
   WithStyles,
   createStyles,
   withStyles,
@@ -12,9 +14,22 @@ import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
 import TaskListDag from './TaskListDag'
+import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
-import { JobData } from './sharedTypes'
+import { GWEI_PER_TOKEN } from 'utils/constants'
+import formatMinPayment from 'utils/formatWeiAsset'
+import { formatInitiators } from 'utils/jobSpecInitiators'
+import { DirectRequestJob, JobData } from './sharedTypes'
 import { parseDot } from './parseDot'
+
+const totalLinkEarned = (job: DirectRequestJob) => {
+  const zero = '0.000000'
+  const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+  const formatted =
+    unformatted &&
+    (unformatted.length >= 3 ? unformatted : (unformatted + '.').padEnd(8, '0'))
+  return formatted || zero
+}
 
 const chartCardStyles = ({ spacing, palette }: Theme) =>
   createStyles({
@@ -42,7 +57,7 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   error: unknown
-  getJobRuns: (props?: { page?: number; size?: number }) => Promise<void>
+  getJobSpecRuns: (props?: { page?: number; size?: number }) => Promise<void>
   job?: JobData['job']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
@@ -55,7 +70,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
     ErrorComponent,
     LoadingPlaceholder,
     error,
-    getJobRuns,
+    getJobSpecRuns,
     job,
     recentRuns,
     recentRunsCount,
@@ -68,14 +83,13 @@ export const RecentRuns = withStyles(chartCardStyles)(
     }, [job])
 
     React.useEffect(() => {
-      getJobRuns()
-    }, [getJobRuns])
+      getJobSpecRuns()
+    }, [getJobSpecRuns])
 
     return (
       <Content>
         <ErrorComponent />
         <LoadingPlaceholder />
-
         {!error && job && (
           <Grid container spacing={40}>
             <Grid item xs={8}>
@@ -99,9 +113,8 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 )}
               </Card>
             </Grid>
-
             <Grid item xs={4}>
-              {job.dotDagSource !== '' && (
+              {job?.type === 'v2' && job.dotDagSource !== '' && (
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
@@ -109,6 +122,43 @@ export const RecentRuns = withStyles(chartCardStyles)(
                       stratify={parseDot(`digraph {${job.dotDagSource}}`)}
                     />
                   </Card>
+                </Grid>
+              )}
+              {job?.type === 'Direct request' && (
+                <Grid container direction="column">
+                  <Grid item xs>
+                    <Card>
+                      <Grid item className={classes.wrapper}>
+                        <Typography
+                          className={classes.paymentText}
+                          variant="h5"
+                        >
+                          Link Payment
+                        </Typography>
+                        <Typography className={classes.earnedText}>
+                          {totalLinkEarned(job)}
+                        </Typography>
+                      </Grid>
+                    </Card>
+                  </Grid>
+                  <Grid item xs>
+                    <Card>
+                      <CardTitle divider>Task list</CardTitle>
+                      <TaskList tasks={job.tasks} />
+                    </Card>
+                  </Grid>
+                  <Grid item xs>
+                    <KeyValueList
+                      showHead={false}
+                      entries={Object.entries({
+                        initiator: formatInitiators(job.initiators),
+                        minimumPayment: `${
+                          formatMinPayment(Number(job.minPayment)) || 0
+                        } Link`,
+                      })}
+                      titleize
+                    />
+                  </Grid>
                 </Grid>
               )}
             </Grid>

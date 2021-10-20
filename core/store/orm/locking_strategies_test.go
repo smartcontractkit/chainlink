@@ -42,10 +42,10 @@ func TestNewLockingStrategy(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
 
-	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	delay := tc.DatabaseTimeout()
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
@@ -70,11 +70,11 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
 	delay := tc.DatabaseTimeout()
 
-	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	dbURL := tc.DatabaseURL()
 	if dbURL.String() == "" {
 		t.Skip("No postgres DatabaseURL set.")
@@ -100,9 +100,8 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
-	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
@@ -111,7 +110,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(cltest.Head(0)).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
@@ -120,12 +119,12 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	require.NoError(t, dbErr)
 
 	err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(cltest.Head(0)).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
 	dbURL := store.Config.DatabaseURL()
-	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond, 0, 0)
+	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond, 0, 0)
 	require.NoError(t, err)
 	lock2, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
@@ -135,15 +134,14 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 }
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
-	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(cltest.Head(0)).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
@@ -153,12 +151,12 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 
 	orm2ShutdownSignal := gracefulpanic.NewSignal()
 	dbURL := store.Config.DatabaseURL()
-	orm2, err := orm.NewORM(dbURL.String(), tc.DatabaseTimeout(), orm2ShutdownSignal, dialects.TransactionWrappedPostgres, tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	orm2, err := orm.NewORM(dbURL.String(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, dialects.TransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	defer orm2.Close()
 
 	err = orm2.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(cltest.Head(0)).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
@@ -167,9 +165,8 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 }
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
-	tc := cltest.NewTestEVMConfig(t)
-	d := 500 * time.Millisecond
-	tc.GeneralConfig.Overrides.DatabaseTimeout = &d
+	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
@@ -177,7 +174,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 
 	// NewStore no longer takes a lock on opening, so do something that does...
 	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-		return db.Save(cltest.Head(0)).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
@@ -186,7 +183,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, dbErr)
 
 	dbURL := store.Config.DatabaseURL()
-	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	lock, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)

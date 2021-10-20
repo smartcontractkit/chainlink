@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
+	"github.com/scylladb/go-reflectx"
 	"gorm.io/gorm"
 )
 
@@ -93,7 +94,13 @@ func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
 	return fc(db.WithContext(ctx))
 }
 
-func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
+	db := sqlx.NewDb(rdb, "postgres")
+	db.MapperFunc(reflectx.CamelToSnakeASCII)
+	return db
+}
+
+func SqlxTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
 	opts := &DefaultSqlTxOptions
 	if len(txOpts) > 0 {
 		opts = &txOpts[0]

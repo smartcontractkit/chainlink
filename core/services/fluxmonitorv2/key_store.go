@@ -10,16 +10,16 @@ import (
 
 // KeyStoreInterface defines an interface to interact with the keystore
 type KeyStoreInterface interface {
-	SendingKeys() ([]ethkey.KeyV2, error)
+	SendingKeys() ([]ethkey.Key, error)
 	GetRoundRobinAddress(...common.Address) (common.Address, error)
 }
 
 // KeyStore implements KeyStoreInterface
 type KeyStore struct {
-	keystore.Eth
+	keystore.EthKeyStoreInterface
 }
 
 // NewKeyStore initializes a new keystore
-func NewKeyStore(ks keystore.Eth) *KeyStore {
+func NewKeyStore(ks keystore.EthKeyStoreInterface) *KeyStore {
 	return &KeyStore{ks}
 }

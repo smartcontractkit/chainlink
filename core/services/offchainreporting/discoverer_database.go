@@ -55,9 +55,6 @@ SELECT remote_peer_id, ann FROM offchainreporting_discoverer_announcements WHERE
 		}
 		results[peerID] = ann
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
 	if err := rows.Close(); err != nil {
 		return nil, errors.WithStack(err)
 	}

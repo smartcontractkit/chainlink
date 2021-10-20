@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -e
+
+source ./integration/common
+
+heading 'Forks Test'
+
+./integration/forks/test
+
+title 'All tests passed.'
+

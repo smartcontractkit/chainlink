@@ -70,7 +70,7 @@ func (P *secp256k1Point) Pick(rand cipher.Stream) kyber.Point {
 			P.Y.Set(maybeY)
 			// Take the negative with 50% probability
 			b := make([]byte, 1)
-			rand.XORKeyStream(b, b)
+			rand.XORKeyStream(b[:], b[:])
 			if b[0]&1 == 0 {
 				P.Y.Neg(P.Y)
 			}

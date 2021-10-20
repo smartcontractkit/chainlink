@@ -15,7 +15,7 @@ import (
 type Delegate struct {
 	db             *gorm.DB
 	txm            transmitter
-	ethKeyStore    keystore.Eth
+	ethKeyStore    *keystore.Eth
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
@@ -29,7 +29,7 @@ var _ job.Delegate = (*Delegate)(nil)
 // NewDelegate constructs a new delegate
 func NewDelegate(
 	txm transmitter,
-	ethKeyStore keystore.Eth,
+	ethKeyStore *keystore.Eth,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,

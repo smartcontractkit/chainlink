@@ -3,10 +3,13 @@ package web
 import (
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -19,7 +22,7 @@ type OCRKeysController struct {
 // Example:
 // "GET <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Index(c *gin.Context) {
-	ekbs, err := ocrkc.App.GetKeyStore().OCR().GetAll()
+	ekbs, err := ocrkc.App.GetKeyStore().OCR().FindEncryptedOCRKeyBundles()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -31,12 +34,12 @@ func (ocrkc *OCRKeysController) Index(c *gin.Context) {
 // Example:
 // "POST <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Create(c *gin.Context) {
-	key, err := ocrkc.App.GetKeyStore().OCR().Create()
+	_, ekb, err := ocrkc.App.GetKeyStore().OCR().GenerateEncryptedOCRKeyBundle()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
+	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(ekb), "offChainReportingKeyBundle")
 }
 
 // Delete an OCR key bundle
@@ -44,23 +47,36 @@ func (ocrkc *OCRKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/ocr/:keyID"
 // "DELETE <application>/keys/ocr/:keyID?hard=true"
 func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
+	var hardDelete bool
 	var err error
-	id := c.Param("keyID")
+	if c.Query("hard") != "" {
+		hardDelete, err = strconv.ParseBool(c.Query("hard"))
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+	}
+
+	id, err := models.Sha256HashFromHex(c.Param("keyID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	key, err := ocrkc.App.GetKeyStore().OCR().Get(id)
+	ekb, err := ocrkc.App.GetKeyStore().OCR().FindEncryptedOCRKeyBundleByID(id)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	_, err = ocrkc.App.GetKeyStore().OCR().Delete(id)
+	if hardDelete {
+		err = ocrkc.App.GetKeyStore().OCR().DeleteEncryptedOCRKeyBundle(&ekb)
+	} else {
+		err = ocrkc.App.GetKeyStore().OCR().ArchiveEncryptedOCRKeyBundle(&ekb)
+	}
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(key), "offChainReportingKeyBundle")
+	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(ekb), "offChainReportingKeyBundle")
 }
 
 // Import imports an OCR key bundle
@@ -75,7 +91,7 @@ func (ocrkc *OCRKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	encryptedOCRKeyBundle, err := ocrkc.App.GetKeyStore().OCR().Import(bytes, oldPassword)
+	encryptedOCRKeyBundle, err := ocrkc.App.GetKeyStore().OCR().ImportOCRKeyBundle(bytes, oldPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -91,8 +107,13 @@ func (ocrkc *OCRKeysController) Export(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
 	stringID := c.Param("ID")
+	id, err := models.Sha256HashFromHex(stringID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("invalid key ID"))
+		return
+	}
 	newPassword := c.Query("newpassword")
-	bytes, err := ocrkc.App.GetKeyStore().OCR().Export(stringID, newPassword)
+	bytes, err := ocrkc.App.GetKeyStore().OCR().ExportOCRKeyBundle(id, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

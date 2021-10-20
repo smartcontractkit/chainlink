@@ -1,10 +1,19 @@
 import React, { useEffect, useState } from 'react'
-import { isToml, getTaskList } from './utils'
+import Radio from '@material-ui/core/Radio'
+import {
+  JobSpecFormats,
+  JobSpecFormat,
+  getJobSpecFormat,
+  isJson,
+  isToml,
+  getTaskList,
+} from './utils'
 import { ApiResponse, BadRequestError } from 'utils/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
-import { CreateJobRequest, Job } from 'core/store/models'
+import { JobSpecV2Request, JobSpecV2, JobSpecRequest } from 'core/store/models'
+import { JobSpec } from 'core/store/presenters'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
@@ -15,7 +24,10 @@ import {
   Grid,
   Card,
   CardContent,
+  FormControlLabel,
+  FormControl,
   FormLabel,
+  RadioGroup,
   CardHeader,
   CircularProgress,
   Typography,
@@ -26,9 +38,13 @@ import {
   WithStyles,
   Theme,
 } from '@material-ui/core/styles'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useHistory } from 'react-router-dom'
+import { TaskSpec } from 'core/store/models'
 import TaskListDag from './TaskListDag'
+import TaskList from 'components/Jobs/TaskList'
 import { Stratify } from './parseDot'
+
+const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
 
 export const SELECTED_FORMAT = 'persistSpec.format'
 export const PERSIST_SPEC = 'persistSpec.'
@@ -52,36 +68,75 @@ const SuccessNotification = ({ id }: { id: string }) => (
   </>
 )
 
-export function validate({ value }: { value: string }) {
+export function validate({
+  format,
+  value,
+}: {
+  format: JobSpecFormats
+  value: string
+}) {
   if (value.trim() === '') {
     return false
-  } else if (isToml({ value })) {
+  } else if (format === JobSpecFormats.JSON && isJson({ value })) {
+    return true
+  } else if (format === JobSpecFormats.TOML && isToml({ value })) {
     return true
   } else {
     return false
   }
 }
 
-function apiCall({ value }: { value: string }): Promise<ApiResponse<Job>> {
-  const definition: CreateJobRequest = { toml: value }
-  return api.v2.jobs.createJobSpec(definition)
+function apiCall({
+  format,
+  value,
+}: {
+  format: JobSpecFormats
+  value: string
+}): Promise<ApiResponse<JobSpec | JobSpecV2>> {
+  if (format === JobSpecFormats.JSON) {
+    const definition: JobSpecRequest = JSON.parse(value)
+    return api.v2.specs.createJobSpec(definition)
+  }
+
+  if (format === JobSpecFormats.TOML) {
+    const definition: JobSpecV2Request = { toml: value }
+    return api.v2.jobs.createJobSpec(definition)
+  }
+
+  return Promise.reject('Invalid format')
 }
 
-function getInitialValues({ query }: { query: string }): { jobSpec: string } {
+function getInitialValues({
+  query,
+}: {
+  query: string
+}): { jobSpec: string; format: JobSpecFormats } {
   const params = new URLSearchParams(query)
   const queryJobSpec = params.get('definition') as string
+  const queryJobSpecFormat =
+    getJobSpecFormat({
+      value: queryJobSpec,
+    }) || JobSpecFormats.JSON
 
   if (queryJobSpec) {
-    storage.set(PERSIST_SPEC, queryJobSpec)
+    storage.set(`${PERSIST_SPEC}${queryJobSpecFormat}`, queryJobSpec)
     return {
       jobSpec: queryJobSpec,
+      format: queryJobSpecFormat,
     }
   }
 
-  const lastOpenedJobSpec = storage.get(`${PERSIST_SPEC}`) || ''
+  const lastOpenedFormat =
+    JobSpecFormats[params.get('format')?.toUpperCase() as JobSpecFormat] ||
+    storage.get(SELECTED_FORMAT) ||
+    JobSpecFormats.JSON
+
+  const lastOpenedJobSpec =
+    storage.get(`${PERSIST_SPEC}${lastOpenedFormat}`) || ''
 
   return {
     jobSpec: lastOpenedJobSpec,
+    format: lastOpenedFormat,
   }
 }
 
@@ -91,12 +146,14 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const dispatch = useDispatch()
+  const history = useHistory()
   const location = useLocation()
   const [initialValues] = useState(() =>
     getInitialValues({
       query: location.search,
     }),
   )
+  const [format, setFormat] = useState<JobSpecFormats>(initialValues.format)
   const [value, setValue] = useState<string>(initialValues.jobSpec)
   const [valid, setValid] = useState<boolean>(true)
   const [valueErrorMsg, setValueErrorMsg] = useState<string>('')
@@ -121,26 +178,34 @@ export const New = ({
     return () => clearTimeout(timeout)
   }, [value, setTasks])
 
+  // Change the form to use either JSON or TOML format
+  function handleFormatChange(_event: React.ChangeEvent<{}>, format: string) {
+    setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
+    setFormat(format as JobSpecFormats)
+    storage.set(SELECTED_FORMAT, format)
+    setValid(true)
+    history.replace({
+      search: `?format=${format}`,
+    })
+  }
+
   // Update the job spec value
   function handleValueChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    const noWhiteSpaceValue = event.target.value.replace(
-      /[\u200B-\u200D\uFEFF]/g,
-      '',
-    )
-    setValue(noWhiteSpaceValue)
-    storage.set(`${PERSIST_SPEC}`, noWhiteSpaceValue)
+    setValue(event.target.value)
+    storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
     setValid(true)
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isValid = validate({ value })
+    const isValid = validate({ format, value })
     setValid(isValid)
 
     if (isValid) {
       setLoading(true)
 
       apiCall({
+        format,
         value,
       })
         .then(({ data }) => {
@@ -172,9 +237,30 @@ export const New = ({
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
                   <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <FormLabel>Job Spec Format</FormLabel>
+                      <RadioGroup
+                        name="select-format"
+                        value={format}
+                        onChange={handleFormatChange}
+                        row
+                      >
+                        {jobSpecFormatList.map((format) => (
+                          <FormControlLabel
+                            key={format}
+                            value={format}
+                            control={<Radio />}
+                            label={format}
+                            checked={format === 'toml'}
+                          />
+                        ))}
+                      </RadioGroup>
+                    </FormControl>
                     <b>
-                      NOTE: Support for adding JSON jobs has been removed. For
-                      help writing jobs in TOML format, please see the{' '}
+                      NOTE: Support for JSON jobs has been deprecated. These
+                      legacy job types will be disabled entirely in an upcoming
+                      release. For help migrating existing jobs to the TOML
+                      format, please see the{' '}
                       <a href="https://docs.chain.link/docs/jobs/">docs</a>.
                     </b>
                   </Grid>
@@ -186,10 +272,10 @@ export const New = ({
                       onChange={handleValueChange}
                       helperText={!valid && valueErrorMsg}
                       autoComplete="off"
-                      label={'TOML blob'}
+                      label={`${format} blob`}
                       rows={10}
                       rowsMax={25}
-                      placeholder={'Paste TOML'}
+                      placeholder={`Paste ${format}`}
                       multiline
                       margin="normal"
                       name="jobSpec"
@@ -225,7 +311,12 @@ export const New = ({
         <Grid item xs={12} lg={4}>
           <Card style={{ overflow: 'visible' }}>
             <CardHeader title="Task list preview" />
-            {tasks.list && <TaskListDag stratify={tasks.list as Stratify[]} />}
+            {tasks.format === JobSpecFormats.JSON && tasks.list && (
+              <TaskList tasks={tasks.list as TaskSpec[]} />
+            )}
+            {tasks.format === JobSpecFormats.TOML && tasks.list && (
+              <TaskListDag stratify={tasks.list as Stratify[]} />
+            )}
             {!tasks.list && (
               <Typography
                 className={classes.emptyTasks}

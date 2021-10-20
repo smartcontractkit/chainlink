@@ -5,18 +5,22 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.AllowOrigins = null.StringFrom("http://localhost:3000,http://localhost:6689")
-	config.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	t.Cleanup(cleanup)
+	config, _ := cltest.NewConfig(t)
+	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+		config,
+		ethClient,
+	)
+	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -56,11 +60,17 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
-			config := cltest.NewTestEVMConfig(t)
-			config.GeneralConfig.Overrides.AllowOrigins = null.StringFrom(test.allow)
-			config.GeneralConfig.Overrides.EthereumDisabled = null.BoolFrom(true)
-			app, cleanup := cltest.NewApplicationWithConfig(t, config)
+			config, _ := cltest.NewConfig(t)
+			config.Set("ALLOW_ORIGINS", test.allow)
+
+			ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			defer assertMocksCalled()
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+				config,
+				ethClient,
+			)
 			defer cleanup()
+			require.NoError(t, app.Start())
 
 			client := app.NewHTTPClient()
 

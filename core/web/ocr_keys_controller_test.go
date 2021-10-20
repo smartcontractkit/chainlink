@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -16,7 +17,7 @@ import (
 func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
-	keys, _ := OCRKeyStore.GetAll()
+	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 
 	response, cleanup := client.Get("/v2/keys/ocr")
 	t.Cleanup(cleanup)
@@ -27,34 +28,48 @@ func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, resources, len(keys))
-	assert.Equal(t, keys[0].ID(), resources[0].ID)
+	assert.Equal(t, keys[0].ID.String(), resources[0].ID)
+	assert.Equal(t, keys[0].OnChainSigningAddress, resources[0].OnChainSigningAddress)
+	assert.Equal(t, keys[0].OffChainPublicKey, resources[0].OffChainPublicKey)
+	assert.Equal(t, keys[0].ConfigPublicKey, resources[0].ConfigPublicKey)
 }
 
 func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
-	keys, _ := OCRKeyStore.GetAll()
+	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
 
 	response, cleanup := client.Post("/v2/keys/ocr", nil)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	keys, _ = OCRKeyStore.GetAll()
+	keys, _ = OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.Len(t, keys, initialLength+1)
 
 	resource := presenters.OCRKeysBundleResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
-	var ids []string
-	for _, key := range keys {
-		ids = append(ids, key.ID())
-	}
-	require.Contains(t, ids, resource.ID)
+	lastKeyIndex := len(keys) - 1
+	assert.Equal(t, keys[lastKeyIndex].ID.String(), resource.ID)
+	assert.Equal(t, keys[lastKeyIndex].OnChainSigningAddress, resource.OnChainSigningAddress)
+	assert.Equal(t, keys[lastKeyIndex].OffChainPublicKey, resource.OffChainPublicKey)
+	assert.Equal(t, keys[lastKeyIndex].ConfigPublicKey, resource.ConfigPublicKey)
 
-	_, err = OCRKeyStore.Get(resource.ID)
+	idSHA256, err := models.Sha256HashFromHex(resource.ID)
 	require.NoError(t, err)
+	_, exists := OCRKeyStore.DecryptedOCRKey(idSHA256)
+	assert.Equal(t, exists, true)
+}
+
+func TestOCRKeysController_Delete_InvalidOCRKey(t *testing.T) {
+	client, _ := setupOCRKeysControllerTests(t)
+
+	invalidOCRKeyID := "bad_key_id"
+	response, cleanup := client.Delete("/v2/keys/ocr/" + invalidOCRKeyID)
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 }
 
 func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
@@ -68,21 +83,22 @@ func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 
 func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
+	require.NoError(t, OCRKeyStore.Unlock(cltest.Password))
 
-	keys, _ := OCRKeyStore.GetAll()
+	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
-	key, _ := OCRKeyStore.Create()
+	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 
-	response, cleanup := client.Delete("/v2/keys/ocr/" + key.ID())
+	response, cleanup := client.Delete("/v2/keys/ocr/" + encryptedKeyBundle.ID.String())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
+	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedOCRKeyBundleByID(encryptedKeyBundle.ID)))
 
-	keys, _ = OCRKeyStore.GetAll()
+	keys, _ = OCRKeyStore.FindEncryptedOCRKeyBundles()
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR) {
+func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *keystore.OCR) {
 	t.Parallel()
 
 	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
@@ -91,10 +107,8 @@ func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keysto
 		ethClient,
 	)
 	t.Cleanup(cleanup)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 	client := app.NewHTTPClient()
-
-	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	return client, app.GetKeyStore().OCR()
 }

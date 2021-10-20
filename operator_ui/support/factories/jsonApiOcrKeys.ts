@@ -19,11 +19,13 @@ export const jsonApiOcrKeys = (keys: OcrKeyBundle[]) => {
 
       return {
         id,
-        type: 'keyV2s',
+        type: 'encryptedKeyBundles',
         attributes: {
           configPublicKey,
           offChainPublicKey,
           onChainSigningAddress,
+          createdAt: new Date().toISOString(),
+          UpdatedAt: new Date().toISOString(),
         },
       }
     }),

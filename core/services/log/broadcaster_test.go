@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,13 +16,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	strpkg "github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
@@ -33,7 +34,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	helper := newBroadcasterHelper(t, blockHeight, 1)
 	helper.lb.AddDependents(2)
 
-	var listener = helper.newLogListenerWithJob("A")
+	var listener = helper.newLogListenerWithJobV2("A")
 	helper.register(listener, newMockContract(), 1)
 
 	helper.start()
@@ -78,11 +79,11 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	blockBackfillDepth := helper.config.BlockBackfillDepth()
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -94,11 +95,11 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		require.Equal(t, lastStoredBlockHeight-numConfirmations-int64(blockBackfillDepth), fromBlock)
 	}
 
-	listener := helper.newLogListenerWithJob("initial")
+	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
 
 	for i := 0; i < numContracts; i++ {
-		listener := helper.newLogListenerWithJob("")
+		listener := helper.newLogListenerWithJobV2("")
 		helper.register(listener, newMockContract(), 1)
 	}
 
@@ -117,7 +118,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		atomic.StoreInt64(backfillCountPtr, 2)
 	}
 
-	listenerLast := helper.newLogListenerWithJob("last")
+	listenerLast := helper.newLogListenerWithJobV2("last")
 	helper.register(listenerLast, newMockContract(), 1)
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
@@ -147,7 +148,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
@@ -156,13 +157,13 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	listener := helper.newLogListenerWithJob("one")
+	listener := helper.newLogListenerWithJobV2("one")
 	helper.register(listener, newMockContract(), uint64(maxNumConfirmations))
 
-	listener2 := helper.newLogListenerWithJob("two")
+	listener2 := helper.newLogListenerWithJobV2("two")
 	helper.register(listener2, newMockContract(), uint64(2))
 
-	blockBackfillDepth := helper.config.BlockBackfillDepth()
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
 
 	// the first backfill should use the height of last head saved to the db,
 	// minus maxNumConfirmations of subscribers and minus blockBackfillDepth
@@ -208,22 +209,22 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
 	backfillDepth := 15
 
-	helper.config.GeneralConfig.Overrides.BlockBackfillSkip = null.BoolFrom(true)
-	helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillSkip"), true)
+	helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), backfillDepth)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
 
-	listener := helper.newLogListenerWithJob("one")
+	listener := helper.newLogListenerWithJobV2("one")
 	helper.register(listener, newMockContract(), uint64(10))
 
-	listener2 := helper.newLogListenerWithJob("two")
+	listener2 := helper.newLogListenerWithJobV2("two")
 	helper.register(listener2, newMockContract(), uint64(2))
 
 	// the backfill does not use the height from DB because BlockBackfillSkip is true
@@ -262,12 +263,12 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	blockBackfillDepth := helper.config.BlockBackfillDepth()
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(batchSize)
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -289,7 +290,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
-	listener := helper.newLogListenerWithJob("initial")
+	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), numConfirmations)
 	helper.start()
 
@@ -337,11 +338,11 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 	}
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
-	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient, cltest.Head(lastStoredBlockHeight))
 	helper.mockEth = mockEth
 
-	helper.config.Overrides.EvmLogBackfillBatchSize = null.IntFrom(int64(batchSize))
+	helper.store.Config.Set(config.EnvVarName("EthLogBackfillBatchSize"), batchSize)
 
 	var backfillCount int64
 	var backfillCountPtr = &backfillCount
@@ -352,7 +353,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 		atomic.StoreInt64(backfillCountPtr, times+1)
 	}
 
-	listener := helper.newLogListenerWithJob("initial")
+	listener := helper.newLogListenerWithJobV2("initial")
 	helper.register(listener, newMockContract(), 1)
 	helper.start()
 	defer helper.stop()
@@ -389,10 +390,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		blocks.LogOnBlockNum(6, contract2.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	listener2 := helper.newLogListenerWithJob("listener 2")
-	listener3 := helper.newLogListenerWithJob("listener 3")
-	listener4 := helper.newLogListenerWithJob("listener 4")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
+	listener3 := helper.newLogListenerWithJobV2("listener 3")
+	listener4 := helper.newLogListenerWithJobV2("listener 4")
 
 	helper.start()
 
@@ -419,7 +420,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	requireBroadcastCount(t, helper.db, 12)
+	requireBroadcastCount(t, helper.store, 12)
 
 	requireEqualLogs(t, addr1SentLogs, listener1.received.uniqueLogs)
 	requireEqualLogs(t, addr1SentLogs, listener2.received.uniqueLogs)
@@ -449,8 +450,8 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 		blocks.LogOnBlockNum(3, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	listener2 := helper.newLogListenerWithJob("listener 2")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
 
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 8)
@@ -471,7 +472,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	requireBroadcastCount(t, helper.db, 5)
+	requireBroadcastCount(t, helper.store, 5)
 	helper.stop()
 
 	require.Equal(t, []uint64{1, 2, 3}, listener1.getUniqueLogsBlockNumbers())
@@ -519,12 +520,105 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	helper.mockEth.assertExpectations(t)
 }
 
+func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 10
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := cltest.NewBlocks(t, 10)
+	hash100 := utils.NewHash()
+	hash105 := utils.NewHash()
+	addr1SentLogs := []types.Log{
+		cltest.RawNewRoundLog(t, contract1.Address(), hash100, 100, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 0, false),
+		cltest.RawNewRoundLog(t, contract1.Address(), hash105, 105, 1, false),
+	}
+
+	// listener1 does not mark logs as consumed to check the correct number of sends
+	listener1 := helper.newLogListener("listener 1")
+	listener1.SkipMarkingConsumed(true)
+
+	listener2 := helper.newLogListener("listener 2")
+
+	helper.register(listener1, contract1, 0)
+	helper.register(listener2, contract1, 0)
+
+	cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       9,
+		BackfillDepth:  10,
+		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		Blocks:         blocks,
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	chRawLogs := <-helper.chchRawLogs
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	// 3 because only one listeners is marking logs as consumed
+	requireBroadcastCount(t, helper.store, 3)
+	helper.stop()
+
+	requireEqualLogs(t,
+		addr1SentLogs,
+		listener1.received.uniqueLogs,
+	)
+	requireEqualLogs(t,
+		addr1SentLogs,
+		listener2.received.uniqueLogs,
+	)
+
+	// unique sends should be equal to sends overall
+	requireEqualLogs(t,
+		listener1.received.uniqueLogs,
+		listener1.received.logs,
+	)
+	requireEqualLogs(t,
+		listener2.received.uniqueLogs,
+		listener2.received.logs,
+	)
+
+	// the logs should have been received at much earlier heights than logs' block numbers
+	logsOnBlocks := listener2.received.logsOnBlocks()
+	expectedLogsOnBlocks := []logOnBlock{
+		{
+			logBlockNumber: 100,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+		{
+			logBlockNumber: 105,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+		{
+			logBlockNumber: 105,
+			blockNumber:    4,
+			blockHash:      blocks.Hashes[4],
+		},
+	}
+
+	require.Equal(t, logsOnBlocks, expectedLogsOnBlocks)
+
+	helper.mockEth.assertExpectations(t)
+}
+
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	t.Parallel()
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(1)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(1))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -537,10 +631,10 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 		blocks.LogOnBlockNum(3, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	listener2 := helper.newLogListenerWithJob("listener 2")
-	listener3 := helper.newLogListenerWithJob("listener 3")
-	listener4 := helper.newLogListenerWithJob("listener 4")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
+	listener3 := helper.newLogListenerWithJobV2("listener 3")
+	listener4 := helper.newLogListenerWithJobV2("listener 4")
 
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 3)
@@ -561,7 +655,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	requireBroadcastCount(t, helper.db, 6)
+	requireBroadcastCount(t, helper.store, 6)
 	<-headsDone
 
 	helper.register(listener3, contract1, 1)
@@ -578,7 +672,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	<-headsDone
 
 	// the new listener should still receive 2 of the 3 logs
-	requireBroadcastCount(t, helper.db, 8)
+	requireBroadcastCount(t, helper.store, 8)
 	require.Equal(t, 2, len(listener3.received.uniqueLogs))
 
 	helper.register(listener4, contract1, 1)
@@ -605,7 +699,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(4)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(4))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -618,10 +712,10 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 		blocks.LogOnBlockNum(3, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	listener2 := helper.newLogListenerWithJob("listener 2")
-	listener3 := helper.newLogListenerWithJob("listener 3")
-	listener4 := helper.newLogListenerWithJob("listener 4")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
+	listener3 := helper.newLogListenerWithJobV2("listener 3")
+	listener4 := helper.newLogListenerWithJobV2("listener 4")
 
 	helper.register(listener1, contract1, 1)
 	helper.register(listener2, contract1, 3)
@@ -642,7 +736,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	requireBroadcastCount(t, helper.db, 6)
+	requireBroadcastCount(t, helper.store, 6)
 	<-headsDone
 
 	helper.register(listener3, contract1, 1)
@@ -659,7 +753,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	<-headsDone
 
 	// the new listener should still receive 3 logs because of finality depth being higher than max NumConfirmations
-	requireBroadcastCount(t, helper.db, 9)
+	requireBroadcastCount(t, helper.store, 9)
 	require.Equal(t, 3, len(listener3.received.uniqueLogs))
 
 	helper.register(listener4, contract1, 1)
@@ -686,7 +780,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(3)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(3))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -706,11 +800,11 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 		blocks.LogOnBlockNumWithTopics(2, 1, contract1.Address(), []common.Hash{topic, field1Value2, utils.NewHash()}),
 	}
 
-	listener0 := helper.newLogListenerWithJob("listener 0")
-	listener1 := helper.newLogListenerWithJob("listener 1")
-	listener2 := helper.newLogListenerWithJob("listener 2")
-	listener3 := helper.newLogListenerWithJob("listener 3")
-	listener4 := helper.newLogListenerWithJob("listener 4")
+	listener0 := helper.newLogListenerWithJobV2("listener 0")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
+	listener2 := helper.newLogListenerWithJobV2("listener 2")
+	listener3 := helper.newLogListenerWithJobV2("listener 3")
+	listener4 := helper.newLogListenerWithJobV2("listener 4")
 
 	helper.registerWithTopicValues(listener0, contract1, 1,
 		map[common.Hash][][]log.Topic{
@@ -776,7 +870,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -792,7 +886,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 		blocks.LogOnBlockNumWithIndex(3, 1, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
 	helper.register(listener1, contract1, 1)
 
 	chRawLogs := <-helper.chchRawLogs
@@ -827,7 +921,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 	<-headsDone
 
-	requireBroadcastCount(t, helper.db, 4)
+	requireBroadcastCount(t, helper.store, 4)
 	helper.stop()
 
 	helper.mockEth.assertExpectations(t)
@@ -850,7 +944,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 		blocks.LogOnBlockNum(3, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
 	helper.register(listener1, contract1, 1)
 
 	chRawLogs := <-helper.chchRawLogs
@@ -869,7 +963,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	})
 	defer cleanup()
 
-	requireBroadcastCount(t, helper.db, 3)
+	requireBroadcastCount(t, helper.store, 3)
 	helper.stop()
 
 	requireEqualLogs(t,
@@ -891,7 +985,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.config.Overrides.EvmFinalityDepth = null.IntFrom(2)
+	helper.store.Config.Set(config.EnvVarName("EthFinalityDepth"), uint(2))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -904,7 +998,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 		blocks.LogOnBlockNum(3, contract1.Address()),
 	}
 
-	listener1 := helper.newLogListenerWithJob("listener 1")
+	listener1 := helper.newLogListenerWithJobV2("listener 1")
 	helper.register(listener1, contract1, 1)
 
 	chRawLogs := <-helper.chchRawLogs
@@ -937,7 +1031,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 
 	<-headsDone
 
-	requireBroadcastCount(t, helper.db, 3)
+	requireBroadcastCount(t, helper.store, 3)
 	helper.stop()
 
 	requireEqualLogs(t,
@@ -963,10 +1057,11 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		expectedBlock = 5
 	)
 	var (
-		ethClient, sub = cltest.NewEthClientAndSubMock(t)
-		contract0      = newMockContract()
-		contract1      = newMockContract()
-		contract2      = newMockContract()
+		ethClient = new(mocks.Client)
+		sub       = new(mocks.Subscription)
+		contract0 = newMockContract()
+		contract1 = newMockContract()
+		contract2 = newMockContract()
 	)
 
 	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
@@ -1030,9 +1125,9 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	helper.start()
 	defer helper.stop()
 
-	listener0 := helper.newLogListenerWithJob("0")
-	listener1 := helper.newLogListenerWithJob("1")
-	listener2 := helper.newLogListenerWithJob("2")
+	listener0 := helper.newLogListenerWithJobV2("0")
+	listener1 := helper.newLogListenerWithJobV2("1")
+	listener2 := helper.newLogListenerWithJobV2("2")
 
 	// Subscribe #0
 	helper.register(listener0, contract0, 1)
@@ -1178,14 +1273,13 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			helper := newBroadcasterHelper(t, test.blockHeight1, 2)
 			var backfillDepth int64 = 5
-			// something other than default
-			helper.config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(int64(backfillDepth))
+			helper.store.Config.Set(config.EnvVarName("BlockBackfillDepth"), uint64(backfillDepth)) // something other than default
 
 			helper.start()
 			defer helper.stop()
 
-			logListenerA := helper.newLogListenerWithJob("logListenerA")
-			logListenerB := helper.newLogListenerWithJob("logListenerB")
+			logListenerA := helper.newLogListenerWithJobV2("logListenerA")
+			logListenerB := helper.newLogListenerWithJobV2("logListenerB")
 
 			contractA, err := flux_aggregator_wrapper.NewFluxAggregator(addrA, nil)
 			require.NoError(t, err)
@@ -1220,7 +1314,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				})},
 			})
 
-			requireBroadcastCount(t, helper.db, len(test.batch1))
+			requireBroadcastCount(t, helper.store, len(test.batch1))
 			expectedA := newReceived(pickLogs(logsA, test.batch1))
 			logListenerA.requireAllReceived(t, expectedA)
 
@@ -1277,7 +1371,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			expectedB := newReceived(pickLogs(logsB, test.expectedFilteredB))
 			logListenerA.requireAllReceived(t, expectedA)
 			logListenerB.requireAllReceived(t, expectedB)
-			requireBroadcastCount(t, helper.db, len(test.expectedFilteredA)+len(test.expectedFilteredB))
+			requireBroadcastCount(t, helper.store, len(test.expectedFilteredA)+len(test.expectedFilteredB))
 
 			helper.mockEth.ethClient.AssertExpectations(t)
 		})
@@ -1315,7 +1409,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, nil, logger.Default, nil)
+	lb := log.NewBroadcaster(nil, nil, nil, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 
@@ -1356,7 +1450,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 
 	blocks := cltest.NewBlocks(t, 100)
 
-	logListener := helper.newLogListenerWithJob("logListener")
+	logListener := helper.newLogListenerWithJobV2("logListener")
 
 	contract := newMockContract()
 	contract.On("ParseLog", mock.Anything).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil).Once()
@@ -1377,7 +1471,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	chRawLogs <- blocks.LogOnBlockNum(1, contract.Address())
 
 	require.Eventually(t, func() bool { return len(logListener.received.uniqueLogs) >= 2 }, 5*time.Second, 10*time.Millisecond)
-	requireBroadcastCount(t, helper.db, 2)
+	requireBroadcastCount(t, helper.store, 2)
 
 	helper.mockEth.ethClient.AssertExpectations(t)
 }
@@ -1436,8 +1530,8 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	contract, err := flux_aggregator_wrapper.NewFluxAggregator(addr, nil)
 	require.NoError(t, err)
 
-	listenerA := helper.newLogListenerWithJob("listenerA")
-	listenerB := helper.newLogListenerWithJob("listenerB")
+	listenerA := helper.newLogListenerWithJobV2("listenerA")
+	listenerB := helper.newLogListenerWithJobV2("listenerB")
 	helper.register(listenerA, contract, 1)
 	helper.register(listenerB, contract, 3)
 
@@ -1482,8 +1576,8 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	contract, err := flux_aggregator_wrapper.NewFluxAggregator(addr1, nil)
 	require.NoError(t, err)
 
-	listener1 := helper.newLogListenerWithJob("1")
-	listener2 := helper.newLogListenerWithJob("2")
+	listener1 := helper.newLogListenerWithJobV2("1")
+	listener2 := helper.newLogListenerWithJobV2("2")
 
 	topics1 := []generated.AbigenLog{
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
@@ -1512,13 +1606,13 @@ func pickLogs(allLogs map[uint]types.Log, indices []uint) []types.Log {
 	return picked
 }
 
-func requireBroadcastCount(t *testing.T, db *gorm.DB, expectedCount int) {
+func requireBroadcastCount(t *testing.T, store *strpkg.Store, expectedCount int) {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	comparisonFunc := func() int {
 		var count struct{ Count int }
-		err := db.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
+		err := store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
 		require.NoError(t, err)
 		return count.Count
 	}

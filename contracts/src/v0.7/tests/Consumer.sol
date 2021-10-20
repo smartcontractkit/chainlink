@@ -8,7 +8,6 @@ contract Consumer is ChainlinkClient {
 
   bytes32 internal specId;
   bytes32 public currentPrice;
-  uint256 public currentPriceInt;
 
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID
@@ -24,14 +23,6 @@ contract Consumer is ChainlinkClient {
   {
     setChainlinkToken(_link);
     setChainlinkOracle(_oracle);
-    specId = _specId;
-  }
-
-  function setSpecID(
-    bytes32 _specId
-  )
-  public
-  {
     specId = _specId;
   }
 
@@ -57,19 +48,6 @@ contract Consumer is ChainlinkClient {
     path[0] = _currency;
     req.addStringArray("path", path);
     // version 2
-    sendChainlinkRequest(req, _payment);
-  }
-
-  function requestMultipleParametersWithCustomURLs(
-    string memory _urlUSD,
-    string memory _pathUSD,
-    uint256 _payment
-  )
-  public
-  {
-    Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillParametersWithCustomURLs.selector);
-    req.add("urlUSD", _urlUSD);
-    req.add("pathUSD", _pathUSD);
     sendChainlinkRequest(req, _payment);
   }
 
@@ -111,17 +89,6 @@ contract Consumer is ChainlinkClient {
   {
     emit RequestFulfilled(_requestId, _price);
     currentPrice = _price;
-  }
-
-  function fulfillParametersWithCustomURLs(
-    bytes32 _requestId,
-    uint256 _price
-  )
-  public
-  recordChainlinkFulfillment(_requestId)
-  {
-    emit RequestFulfilled(_requestId, bytes32(_price));
-    currentPriceInt = _price;
   }
 
 }

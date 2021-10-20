@@ -26,18 +26,13 @@ type Logger struct {
 }
 
 // Constants for service names for package specific logging configuration
-const (
+var (
 	HeadTracker = "head_tracker"
 	FluxMonitor = "fluxmonitor"
-	Keeper      = "keeper"
 )
 
 func GetLogServices() []string {
-	return []string{
-		HeadTracker,
-		FluxMonitor,
-		Keeper,
-	}
+	return []string{HeadTracker, FluxMonitor}
 }
 
 // Write logs a message at the Info level and returns the length
@@ -45,33 +40,6 @@ func GetLogServices() []string {
 func (l *Logger) Write(b []byte) (int, error) {
 	l.Info(string(b))
 	return len(b), nil
-}
-
-// With creates a new logger with the given arguments
-func (l *Logger) With(args ...interface{}) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.With(args...))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
-}
-
-// Named creates a new named logger with the given name
-func (l *Logger) Named(name string) *Logger {
-	newLogger := CreateLogger(l.SugaredLogger.Named(name).With("id", name))
-	newLogger.Orm = l.Orm
-	newLogger.lvl = l.lvl
-	newLogger.dir = l.dir
-	newLogger.jsonConsole = l.jsonConsole
-	newLogger.toDisk = l.toDisk
-	return newLogger
-}
-
-// WithError adds the given error to the log
-func (l *Logger) WithError(err error) *Logger {
-	return l.With("error", err)
 }
 
 // WarnIf logs the error if present.
@@ -119,25 +87,28 @@ func (l *Logger) SetDB(db *gorm.DB) {
 func (l *Logger) GetServiceLogLevels() (map[string]string, error) {
 	serviceLogLevels := make(map[string]string)
 
-	for _, svcName := range GetLogServices() {
-		svc, err := l.ServiceLogLevel(svcName)
-		if err != nil {
-			Fatalf("error getting service log levels: %v", err)
-		}
-		serviceLogLevels[svcName] = svc
+	headTracker, err := l.ServiceLogLevel(HeadTracker)
+	if err != nil {
+		Fatalf("error getting service log levels: %v", err)
 	}
+
+	serviceLogLevels[HeadTracker] = headTracker
+
+	fluxMonitor, err := l.ServiceLogLevel(FluxMonitor)
+	if err != nil {
+		Fatalf("error getting service log levels: %v", err)
+	}
+
+	serviceLogLevels[FluxMonitor] = fluxMonitor
 
 	return serviceLogLevels, nil
 }
 
-// CreateLogger creates a new Logger with the given SugaredLogger
+// CreateLogger dwisott
 func CreateLogger(zl *zap.SugaredLogger) *Logger {
-	return &Logger{
-		SugaredLogger: zl,
-	}
+	return &Logger{SugaredLogger: zl}
 }
 
-// CreateLoggerWithConfig creates a new Logger with the given SugaredLogger and configuration options
 func CreateLoggerWithConfig(zl *zap.SugaredLogger, lvl zapcore.Level, dir string, jsonConsole bool, toDisk bool) *Logger {
 	return &Logger{
 		SugaredLogger: zl,

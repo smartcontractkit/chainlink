@@ -1,0 +1,8 @@
+{
+  "extends": "../tsconfig.cjs.json",
+  "compilerOptions": {
+    "outDir": "./dist" /* Redirect output structure to the directory. */
+  },
+  "include": ["src"],
+  "references": [{ "path": "../evm-test-helpers" }]
+}

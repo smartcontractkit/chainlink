@@ -20,7 +20,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := presenters.NewConfigPrinter(cc.App.GetConfig())
+	cw, err := presenters.NewConfigPrinter(cc.App.GetStore())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
 		return
@@ -30,13 +30,13 @@ func (cc *ConfigController) Show(c *gin.Context) {
 }
 
 type configPatchRequest struct {
-	EvmGasPriceDefault *utils.Big `json:"ethGasPriceDefault"`
+	EthGasPriceDefault *utils.Big `json:"ethGasPriceDefault"`
 }
 
 // ConfigPatchResponse represents the change to the configuration made due to a
 // PATCH to the config endpoint
 type ConfigPatchResponse struct {
-	EvmGasPriceDefault Change `json:"ethGasPriceDefault"`
+	EthGasPriceDefault Change `json:"ethGasPriceDefault"`
 }
 
 // Change represents the old value and the new value after a PATH request has
@@ -65,17 +65,15 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	// TODO: Remove this from the configurations ORM after multichain
-	// See: https://app.clubhouse.io/chainlinklabs/story/12739/generalise-necessary-models-tables-on-the-send-side-to-support-the-concept-of-multiple-chains
-	if err := cc.App.GetEVMConfig().SetEvmGasPriceDefault(request.EvmGasPriceDefault.ToInt()); err != nil {
+	if err := cc.App.GetConfig().ORM.SetConfigValue("EthGasPriceDefault", request.EthGasPriceDefault); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to set gas price default: %+v", err))
 		return
 	}
 
 	response := &ConfigPatchResponse{
-		EvmGasPriceDefault: Change{
-			From: cc.App.GetEVMConfig().EvmGasPriceDefault().String(),
-			To:   request.EvmGasPriceDefault.String(),
+		EthGasPriceDefault: Change{
+			From: cc.App.GetStore().Config.EthGasPriceDefault().String(),
+			To:   request.EthGasPriceDefault.String(),
 		},
 	}
 	jsonAPIResponse(c, response, "config")

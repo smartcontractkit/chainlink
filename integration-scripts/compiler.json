@@ -1,0 +1,7 @@
+{
+  "contractsDir": "contracts",
+  "artifactsDir": "dist/artifacts",
+  "contracts": "*",
+  "solcVersion": "0.4.24",
+  "useDockerisedSolc": false
+}

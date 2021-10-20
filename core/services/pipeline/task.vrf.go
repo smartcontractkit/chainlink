@@ -29,7 +29,7 @@ type VRFTask struct {
 }
 
 type VRFKeyStore interface {
-	GenerateProof(id string, seed *big.Int) (vrfkey.Proof, error)
+	GenerateProof(k secp256k1.PublicKey, seed *big.Int) (vrfkey.Proof, error)
 }
 
 var _ Task = (*VRFTask)(nil)
@@ -97,7 +97,7 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 		BlockNum:  uint64(requestBlockNumber),
 	}
 	finalSeed := proof.FinalSeed(preSeedData)
-	p, err := t.keyStore.GenerateProof(pk.String(), finalSeed)
+	p, err := t.keyStore.GenerateProof(pk, finalSeed)
 	if err != nil {
 		return Result{Error: err}
 	}
@@ -105,8 +105,5 @@ func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Res
 	if err != nil {
 		return Result{Error: err}
 	}
-	var results = make(map[string]interface{})
-	results["onChainProof"] = hexutil.Encode(onChainProof[:])
-
 	return Result{Value: hexutil.Encode(onChainProof[:])}
 }

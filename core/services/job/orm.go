@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
@@ -57,7 +55,6 @@ type ORM interface {
 type orm struct {
 	db                  *gorm.DB
 	config              Config
-	keyStore            keystore.Master
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
@@ -68,18 +65,10 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(
-	db *gorm.DB,
-	cfg Config,
-	pipelineORM pipeline.ORM,
-	eventBroadcaster postgres.EventBroadcaster,
-	advisoryLocker postgres.AdvisoryLocker,
-	keyStore keystore.Master, // needed to validation key properties on new job creation
-) *orm {
+func NewORM(db *gorm.DB, cfg Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
 	return &orm{
 		db:                  db,
 		config:              cfg,
-		keyStore:            keyStore,
 		advisoryLocker:      advisoryLocker,
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
 		pipelineORM:         pipelineORM,
@@ -212,26 +201,21 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, p pipeline.Pipeline) 
 		}
 		jobSpec.FluxMonitorSpecID = &jobSpec.FluxMonitorSpec.ID
 	case OffchainReporting:
-		if jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID != nil {
-			_, err := o.keyStore.OCR().Get(jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String())
-			if err != nil {
-				return jb, errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-			}
-		}
-		if jobSpec.OffchainreportingOracleSpec.P2PPeerID != nil {
-			_, err := o.keyStore.P2P().Get(jobSpec.OffchainreportingOracleSpec.P2PPeerID.Raw())
-			if err != nil {
+		err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
+		pqErr, ok := err.(*pgconn.PgError)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return jb, errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
-		}
-		if jobSpec.OffchainreportingOracleSpec.TransmitterAddress != nil {
-			_, err := o.keyStore.Eth().Get(jobSpec.OffchainreportingOracleSpec.TransmitterAddress.Hex())
-			if err != nil {
-				return jb, errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+					return jb, errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+				}
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+					return jb, errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+				}
 			}
 		}
-
-		err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
 		if err != nil {
 			return jb, errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
 		}
@@ -392,7 +376,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
 			DoUpdates: clause.Assignments(map[string]interface{}{
-				"occurrences": gorm.Expr("job_spec_errors.occurrences + 1"),
+				"occurrences": gorm.Expr("job_spec_errors_v2.occurrences + 1"),
 				"updated_at":  gorm.Expr("excluded.updated_at"),
 			}),
 		}).
@@ -406,7 +390,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 }
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
-	result := o.db.Exec("DELETE FROM job_spec_errors WHERE id = ?", ID)
+	result := o.db.Exec("DELETE FROM job_spec_errors_v2 WHERE id = ?", ID)
 	if result.Error != nil {
 		return result.Error
 	} else if result.RowsAffected == 0 {
@@ -440,7 +424,7 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 		}
 		for i := range jobs {
 			if jobs[i].OffchainreportingOracleSpec != nil {
-				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+				jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
 			}
 		}
 		return nil
@@ -448,32 +432,24 @@ func (o *orm) JobsV2(offset, limit int) ([]Job, int, error) {
 	return jobs, int(count), err
 }
 
-type OCRSpecConfig interface {
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
-	OCRObservationTimeout() time.Duration
-}
-
-func LoadDynamicConfigVars(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func loadDynamicConfigVars(cfg Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	// Load dynamic variables
-	if os.ObservationTimeout == 0 {
-		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
+	return &OffchainReportingOracleSpec{
+		ID:                                     os.ID,
+		ContractAddress:                        os.ContractAddress,
+		P2PPeerID:                              os.P2PPeerID,
+		P2PBootstrapPeers:                      os.P2PBootstrapPeers,
+		IsBootstrapPeer:                        os.IsBootstrapPeer,
+		EncryptedOCRKeyBundleID:                os.EncryptedOCRKeyBundleID,
+		TransmitterAddress:                     os.TransmitterAddress,
+		ObservationTimeout:                     models.Interval(cfg.OCRObservationTimeout(time.Duration(os.ObservationTimeout))),
+		BlockchainTimeout:                      models.Interval(cfg.OCRBlockchainTimeout(time.Duration(os.BlockchainTimeout))),
+		ContractConfigTrackerSubscribeInterval: models.Interval(cfg.OCRContractSubscribeInterval(time.Duration(os.ContractConfigTrackerSubscribeInterval))),
+		ContractConfigTrackerPollInterval:      models.Interval(cfg.OCRContractPollInterval(time.Duration(os.ContractConfigTrackerPollInterval))),
+		ContractConfigConfirmations:            cfg.OCRContractConfirmations(os.ContractConfigConfirmations),
+		CreatedAt:                              os.CreatedAt,
+		UpdatedAt:                              os.UpdatedAt,
 	}
-	if os.BlockchainTimeout == 0 {
-		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
-	}
-	if os.ContractConfigTrackerSubscribeInterval == 0 {
-		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
-	}
-	if os.ContractConfigTrackerPollInterval == 0 {
-		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
-	}
-	if os.ContractConfigConfirmations == 0 {
-		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
-	}
-	return &os
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -500,7 +476,7 @@ func (o *orm) FindJob(ctx context.Context, id int32) (Job, error) {
 	}
 
 	if jb.OffchainreportingOracleSpec != nil {
-		jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
+		jb.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jb.OffchainreportingOracleSpec)
 	}
 	return jb, nil
 }
@@ -528,42 +504,6 @@ func (o *orm) FindJobIDsWithBridge(name string) ([]int32, error) {
 	return jids, nil
 }
 
-// Preload PipelineSpec.JobID for each Run
-func (o *orm) preloadJobIDs(runs []pipeline.Run) error {
-	db := postgres.UnwrapGormDB(o.db)
-
-	ids := make([]int32, 0, len(runs))
-	for _, run := range runs {
-		ids = append(ids, run.PipelineSpecID)
-	}
-
-	// construct a WHERE IN query
-	sql := `SELECT id, pipeline_spec_id FROM jobs WHERE pipeline_spec_id IN (?);`
-	query, args, err := sqlx.In(sql, ids)
-	if err != nil {
-		return err
-	}
-	query = db.Rebind(query)
-	var results []struct {
-		ID             int32
-		PipelineSpecID int32
-	}
-	if err := db.Select(&results, query, args...); err != nil {
-		return err
-	}
-
-	// fill in fields
-	for i := range runs {
-		for _, result := range results {
-			if result.PipelineSpecID == runs[i].PipelineSpecID {
-				runs[i].PipelineSpec.JobID = result.ID
-			}
-		}
-	}
-
-	return nil
-}
-
 // PipelineRunsByJobID returns all pipeline runs
 func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 	var pipelineRuns []pipeline.Run
@@ -588,12 +528,6 @@ func (o *orm) PipelineRuns(offset, size int) ([]pipeline.Run, int, error) {
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
-
-	if err != nil {
-		return pipelineRuns, int(count), err
-	}
-
-	err = o.preloadJobIDs(pipelineRuns)
 
 	return pipelineRuns, int(count), err
 }
@@ -626,11 +560,6 @@ func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run
 		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
-
-	// can skip preloadJobIDs since we already know the jobID
-	for i := range pipelineRuns {
-		pipelineRuns[i].PipelineSpec.JobID = jobID
-	}
 
 	return pipelineRuns, int(count), err
 }

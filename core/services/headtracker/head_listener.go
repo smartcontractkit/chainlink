@@ -31,12 +31,13 @@ var (
 
 type Config interface {
 	ChainID() *big.Int
-	EvmHeadTrackerHistoryDepth() uint
-	EvmHeadTrackerMaxBufferSize() uint
-	EvmHeadTrackerSamplingInterval() time.Duration
+	EnableLegacyJobPipeline() bool
+	EthHeadTrackerHistoryDepth() uint
+	EthHeadTrackerMaxBufferSize() uint
+	EthHeadTrackerSamplingInterval() time.Duration
 	BlockEmissionIdleWarningThreshold() time.Duration
 	EthereumURL() string
-	EvmFinalityDepth() uint
+	EthFinalityDepth() uint
 }
 
 type HeadListener struct {
@@ -92,7 +93,7 @@ func (hl *HeadListener) logger() *logger.Logger {
 	return hl.log
 }
 
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error) {
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header models.Head) error, connected func()) {
 	defer hl.wgDone.Done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
@@ -104,7 +105,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 	defer cancel()
 
 	for {
-		if !hl.subscribe() {
+		if !hl.subscribe(connected) {
 			break
 		}
 		err := hl.receiveHeaders(ctx, handleNewHead)
@@ -167,7 +168,7 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 
 // subscribe periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
-func (hl *HeadListener) subscribe() bool {
+func (hl *HeadListener) subscribe(connected func()) bool {
 	hl.sleeper.Reset()
 	for {
 		if err := hl.unsubscribeFromHead(); err != nil {
@@ -180,7 +181,7 @@ func (hl *HeadListener) subscribe() bool {
 		case <-hl.chStop:
 			return false
 		case <-time.After(hl.sleeper.After()):
-			err := hl.subscribeToHead()
+			err := hl.subscribeToHead(connected)
 			if err != nil {
 				promEthConnectionErrors.Inc()
 				hl.logger().Warnw(fmt.Sprintf("HeadListener: Failed to connect to ethereum node %v", hl.config.EthereumURL()), "err", err)
@@ -192,7 +193,7 @@ func (hl *HeadListener) subscribe() bool {
 	}
 }
 
-func (hl *HeadListener) subscribeToHead() error {
+func (hl *HeadListener) subscribeToHead(connected func()) error {
 	hl.connectedMutex.Lock()
 	defer hl.connectedMutex.Unlock()
 
@@ -209,6 +210,7 @@ func (hl *HeadListener) subscribeToHead() error {
 	hl.headSubscription = sub
 	hl.connected = true
 
+	connected()
 	return nil
 }
 

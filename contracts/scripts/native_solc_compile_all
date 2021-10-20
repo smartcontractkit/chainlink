@@ -3,7 +3,6 @@
 set -e
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.6.6
 solc-select install 0.7.6
@@ -23,7 +22,6 @@ $SCRIPTPATH/native_solc6_compile VRFConsumerBase.sol
 
 $SCRIPTPATH/native_solc7_compile tests/MultiWordConsumer.sol
 $SCRIPTPATH/native_solc7_compile Operator.sol
-$SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 
 $SCRIPTPATH/native_solc8_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_compile ChainlinkClient.sol
@@ -31,15 +29,3 @@ $SCRIPTPATH/native_solc8_compile VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc8_compile VRFConsumerBase.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFConsumer.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFRequestIDBaseTestHelper.sol
-
-# VRF V2
-$SCRIPTPATH/native_solc8_compile dev/VRFConsumerBaseV2.sol
-$SCRIPTPATH/native_solc8_compile tests/VRFConsumerV2.sol
-$SCRIPTPATH/native_solc8_compile tests/VRFMaliciousConsumerV2.sol
-
-# Make sure the example consumers compile
-$SCRIPTPATH/native_solc8_compile tests/VRFConsumerExternalSubOwnerExample.sol
-$SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
-
-$SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
-$SCRIPTPATH/native_solc8_compile dev/VRFCoordinatorV2.sol

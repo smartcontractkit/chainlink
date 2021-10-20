@@ -1,0 +1,64 @@
+version: '3.5'
+
+services:
+  integration-ts:
+    container_name: ts-integration-tests
+    image: smartcontract/ts-integration
+    build:
+      context: ../../
+      dockerfile: tools/docker/ts-integration.Dockerfile
+      args:
+        - SRCROOT
+    volumes:
+      # Forwards the local Docker socket to the container.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - node
+      - node-2
+      - external-adapter
+      - external-adapter-2
+    environment:
+      - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
+      - CHAINLINK_URL
+      - CLIENT_NODE_URL # used to send remote commands
+      - CLIENT_NODE_2_URL
+      - ETH_HTTP_URL
+      - EXTERNAL_ADAPTER_URL
+      - EXTERNAL_ADAPTER_2_URL
+      - GETH_MODE
+      - MINIMUM_CONTRACT_PAYMENT_LINK_JUELS
+      - NODE_1_CONTAINER
+      - NODE_2_CONTAINER
+      - SRCROOT
+    secrets:
+      - apicredentials
+
+  external-adapter:
+    container_name: external-adapter
+    image: smartcontract/external-adapter
+    build:
+      context: ../../
+      dockerfile: tools/external-adapter/Dockerfile
+    ports:
+      - '6644:6644'
+    environment:
+      - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
+
+  external-adapter-2:
+    container_name: external-adapter-2
+    image: smartcontract/external-adapter
+    build:
+      context: ../../
+      dockerfile: tools/external-adapter/Dockerfile
+    ports:
+      - '6645:6644'
+    environment:
+      - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
+
+  node:
+    environment:
+      ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration-ts:3000,http://integration-ts:6688,http://node:3000,http://node:6688
+
+  node-2:
+    environment:
+      ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688,http://integration-ts:3000,http://integration-ts:6688,http://node:3000,http://node:6688

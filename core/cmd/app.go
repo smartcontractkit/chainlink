@@ -62,6 +62,20 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
+			Name:    "agreements",
+			Aliases: []string{"agree"},
+			Usage:   "Commands for handling service agreements",
+			Hidden:  !client.Config.Dev(),
+			Subcommands: []cli.Command{
+				{
+					Name:   "create",
+					Usage:  "Creates a Service Agreement",
+					Action: client.CreateServiceAgreement,
+				},
+			},
+		},
+
+		{
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
@@ -197,6 +211,38 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
+			Name:  "job_specs",
+			Usage: "Commands for managing Job Specs (jobs V1)",
+			Subcommands: []cli.Command{
+				{
+					Name:   "list",
+					Usage:  "List all jobs",
+					Action: client.IndexJobSpecs,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
+					Name:   "show",
+					Usage:  "Show a specific Job's details",
+					Action: client.ShowJobSpec,
+				},
+				{
+					Name:   "create",
+					Usage:  "Create Job from a Job Specification JSON",
+					Action: client.CreateJobSpec,
+				},
+				{
+					Name:   "archive",
+					Usage:  "Archive a Job and all its associated Runs",
+					Action: client.ArchiveJobSpec,
+				},
+			},
+		},
+		{
 			Name:  "jobs",
 			Usage: "Commands for managing Jobs (V2)",
 			Subcommands: []cli.Command{
@@ -219,12 +265,17 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "delete",
 					Usage:  "Delete a V2 job",
-					Action: client.DeleteJob,
+					Action: client.DeleteJobV2,
 				},
 				{
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
+				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
+					Action: client.Migrate,
 				},
 			},
 		},
@@ -479,6 +530,19 @@ func NewApp(client *Client) *cli.App {
 							Name: "list", Usage: "List the VRF keys",
 							Action: client.ListVRFKeys,
 						},
+						{
+							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
+							Usage: format(`
+                               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
+
+                               Creates a key with weak key-derivation-function parameters, so that it can be
+                               decrypted quickly during tests. As a result, it would be cheap to brute-force
+                               the encryption password for the key, if the ciphertext fell into the wrong
+                               hands!`),
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.CreateAndExportWeakVRFKey,
+							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
+						},
 					},
 				},
 			},
@@ -494,6 +558,12 @@ func NewApp(client *Client) *cli.App {
 					Usage:       "Erase the *local node's* user and corresponding session to force recreation on next node launch.",
 					Description: "Does not work remotely over API.",
 					Action:      client.DeleteUser,
+				},
+				{
+					Name:    "import",
+					Aliases: []string{"i"},
+					Usage:   "Import a key file to use with the node",
+					Action:  client.ImportKey,
 				},
 				{
 					Name:   "setnextnonce",
@@ -566,6 +636,12 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
+					Name:   "hard-reset",
+					Usage:  "Removes unstarted transactions, cancels pending transactions as well as deletes job runs. Use with caution, this command cannot be reverted! Only execute when the node is not started!",
+					Action: client.HardReset,
+					Flags:  []cli.Flag{},
+				},
+				{
 					Name:   "status",
 					Usage:  "Displays the health of various services running inside the node.",
 					Action: client.Status,
@@ -602,34 +678,10 @@ func NewApp(client *Client) *cli.App {
 							Flags:  []cli.Flag{},
 						},
 						{
-							Name:   "status",
-							Usage:  "Display the current database migration status.",
-							Action: client.StatusDatabase,
-							Flags:  []cli.Flag{},
-						},
-						{
 							Name:   "migrate",
 							Usage:  "Migrate the database to the latest version.",
 							Action: client.MigrateDatabase,
 							Flags:  []cli.Flag{},
-						},
-						{
-							Name:   "rollback",
-							Usage:  "Roll back the database to a previous <version>. Rolls back a single migration if no version specified.",
-							Action: client.RollbackDatabase,
-							Flags:  []cli.Flag{},
-						},
-						{
-							Name:   "create-migration",
-							Usage:  "Create a new migration.",
-							Hidden: !client.Config.Dev(),
-							Action: client.CreateMigration,
-							Flags: []cli.Flag{
-								cli.StringFlag{
-									Name:  "type",
-									Usage: "set to `go` to generate a .go migration (instead of .sql)",
-								},
-							},
 						},
 					},
 				},
@@ -660,6 +712,46 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
+			Name:  "runs",
+			Usage: "Commands for managing Runs",
+			Subcommands: []cli.Command{
+				{
+					Name:        "create",
+					Aliases:     []string{"r"},
+					Usage:       "Create a new Run for a Job given an Job ID and optional JSON body",
+					Description: "Takes a Job ID and a JSON string or path to a JSON file",
+					Action:      client.CreateJobRun,
+				},
+				{
+					Name:   "list",
+					Usage:  "List all Runs",
+					Action: client.IndexJobRuns,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+						cli.StringFlag{
+							Name:  "jobid",
+							Usage: "filter all Runs to match the given jobid",
+						},
+					},
+				},
+				{
+					Name:    "show",
+					Aliases: []string{"sr"},
+					Usage:   "Show a Run for a specific ID",
+					Action:  client.ShowJobRun,
+				},
+				{
+					Name:   "cancel",
+					Usage:  "Cancel a Run with a specified ID",
+					Action: client.CancelJobRun,
+				},
+			},
+		},
+
+		{
 			Name:  "txs",
 			Usage: "Commands for handling Ethereum transactions",
 			Subcommands: []cli.Command{
@@ -683,54 +775,6 @@ func NewApp(client *Client) *cli.App {
 					Name:   "show",
 					Usage:  "get information on a specific Ethereum Transaction",
 					Action: client.ShowTransaction,
-				},
-			},
-		},
-		{
-			Name:  "chains",
-			Usage: "Commands for handling chain configuration",
-			Subcommands: cli.Commands{
-				{
-					Name:  "evm",
-					Usage: "Commands for handling EVM chains",
-					Subcommands: cli.Commands{
-						{
-							Name:   "create",
-							Usage:  "Create a new EVM chain",
-							Action: client.CreateChain,
-						},
-						{
-							Name:   "delete",
-							Usage:  "Delete an EVM chain",
-							Action: client.RemoveChain,
-						},
-						{
-							Name:   "list",
-							Usage:  "List all chains",
-							Action: client.IndexChains,
-						},
-					},
-				},
-			},
-		},
-		{
-			Name:  "nodes",
-			Usage: "Commands for handling node configuration",
-			Subcommands: cli.Commands{
-				{
-					Name:   "create",
-					Usage:  "Create a new node",
-					Action: client.CreateNode,
-				},
-				{
-					Name:   "delete",
-					Usage:  "Delete a node",
-					Action: client.RemoveNode,
-				},
-				{
-					Name:   "list",
-					Usage:  "List all nodes",
-					Action: client.IndexNodes,
 				},
 			},
 		},

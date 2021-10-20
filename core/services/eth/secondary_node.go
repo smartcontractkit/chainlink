@@ -24,10 +24,10 @@ type secondarynode struct {
 
 func newSecondaryNode(httpuri url.URL, name string) (s *secondarynode) {
 	s = new(secondarynode)
-	s.log = logger.Default.With(
+	s.log = logger.CreateLogger(logger.Default.With(
 		"nodeName", name,
 		"nodeTier", "secondary",
-	)
+	))
 	s.uri = httpuri
 	return
 }

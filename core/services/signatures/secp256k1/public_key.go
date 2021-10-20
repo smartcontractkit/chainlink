@@ -56,7 +56,7 @@ func NewPublicKeyFromHex(hex string) (PublicKey, error) {
 			"wrong length for public key: %s of length %d", rawKey, l)
 	}
 	var k PublicKey
-	if c := copy(k[:], rawKey); c != CompressedPublicKeyLength {
+	if c := copy(k[:], rawKey[:]); c != CompressedPublicKeyLength {
 		panic(fmt.Errorf("failed to copy entire key to return value"))
 	}
 	return k, err

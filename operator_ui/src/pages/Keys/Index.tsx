@@ -5,10 +5,10 @@ import { CSAKeys } from './CSAKeys'
 import { OcrKeys } from './OcrKeys'
 import { P2PKeys } from './P2PKeys'
 import { AccountAddresses } from './AccountAddresses'
-import { Feature, useFeature } from 'src/hooks/useFeatureFlag'
+import { useFeature, Feature } from 'src/lib/featureFlags'
 
 export const KeysIndex = () => {
-  const isCSAKeysFeatureEnabled = useFeature(Feature.CSA)
+  const isCSAKeysFeatureEnabled = useFeature(Feature.CSAKeys)
 
   React.useEffect(() => {
     document.title = 'Keys and account addresses'

@@ -24,7 +24,7 @@ describe('pages/Keys/CSAKeys', () => {
 
       const wrapper = mountWithProviders(<CSAKeys />)
       await syncFetch(wrapper)
-
+      expect(wrapper.text()).toContain('just now')
       expect(wrapper.find('tbody').children().length).toEqual(1)
       expect(wrapper.text()).toContain(expectedKey.publicKey)
     })

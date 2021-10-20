@@ -14,7 +14,6 @@ type JobProposalResource struct {
 	Status         feeds.JobProposalStatus `json:"status"`
 	ExternalJobID  *string                 `json:"external_job_id"`
 	FeedsManagerID string                  `json:"feeds_manager_id"`
-	Multiaddrs     []string                `json:"multiaddrs"`
 	CreatedAt      time.Time               `json:"createdAt"`
 }
 
@@ -30,7 +29,6 @@ func NewJobProposalResource(jp feeds.JobProposal) *JobProposalResource {
 		Status:         jp.Status,
 		Spec:           jp.Spec,
 		FeedsManagerID: strconv.FormatInt(jp.FeedsManagerID, 10),
-		Multiaddrs:     jp.Multiaddrs,
 		CreatedAt:      jp.CreatedAt,
 	}
 

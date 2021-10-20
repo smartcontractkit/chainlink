@@ -67,18 +67,12 @@ const (
 )
 
 var (
-	healthStatus = promauto.NewGaugeVec(
+	metrics = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "health",
 			Help: "Health status by service",
 		},
 		[]string{"service_id"},
-	)
-	uptimeSeconds = promauto.NewCounter(
-		prometheus.CounterOpts{
-			Name: "uptime_seconds",
-			Help: "Uptime of the application measured in seconds",
-		},
 	)
 )
 
@@ -161,9 +155,8 @@ func (c *checker) update() {
 		}
 
 		// report metrics to prometheus
-		healthStatus.WithLabelValues(name).Set(float64(value))
+		metrics.WithLabelValues(name).Set(float64(value))
 	}
-	uptimeSeconds.Add(interval.Seconds())
 }
 
 func (c *checker) Register(name string, service Checkable) error {
@@ -185,7 +178,7 @@ func (c *checker) Unregister(name string) error {
 	c.srvMutex.Lock()
 	defer c.srvMutex.Unlock()
 	delete(c.services, name)
-	healthStatus.DeleteLabelValues(name)
+	metrics.DeleteLabelValues(name)
 	return nil
 }
 

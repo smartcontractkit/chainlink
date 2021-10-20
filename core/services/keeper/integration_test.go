@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
@@ -20,8 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -90,21 +91,16 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// setup app
 	config, _, cfgCleanup := heavyweight.FullTestORM(t, "keeper_eth_integration", true, true)
+	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
-	d := 24 * time.Hour
-	// disable full sync ticker for test
-	config.GeneralConfig.Overrides.KeeperRegistrySyncInterval = &d
-	// backfill will trigger sync on startup
-	config.GeneralConfig.Overrides.BlockBackfillDepth = null.IntFrom(0)
-	// disable reorg protection for this test
-	config.GeneralConfig.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
-	// avoid waiting to re-submit for upkeeps
-	config.GeneralConfig.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-	// helps prevent missed heads
-	config.Overrides.EvmHeadTrackerMaxBufferSize = null.IntFrom(100)
+	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test
+	config.Set("BLOCK_BACKFILL_DEPTH", 0)                     // backfill will trigger sync on startup
+	config.Set("KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS", 1)    // disable reorg protection for this test
+	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)              // avoid waiting to re-submit for upkeeps
+	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	// create job
 	regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)

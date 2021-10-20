@@ -5,7 +5,6 @@ linters:
     - revive
     - goimports
     - gosec
-    - rowserrcheck
   disable:
     # Disable these default linters so we match our current lint set up
     - deadcode
@@ -63,7 +62,7 @@ linters-settings:
       - name: string-of-int
       # - name: range-val-address
       - name: range-val-in-closure
-      - name: modifies-value-receiver
+      # - name: modifies-value-receiver
       - name: modifies-parameter
       - name: identical-branches
       - name: get-return

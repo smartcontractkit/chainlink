@@ -12,10 +12,9 @@ import (
 // We only support OCR and FM for the feeds manager
 const (
 	JobTypeFluxMonitor       = "fluxmonitor"
-	JobTypeOffchainReporting = "ocr"
+	JobTypeOffchainReporting = "offchainreporting"
 )
 
-// FeedsManager contains feeds manager related fields
 type FeedsManager struct {
 	ID        int64
 	Name      string
@@ -30,9 +29,6 @@ type FeedsManager struct {
 	// The libp2p multiaddress which the node operator will assign to this node
 	// for bootstrap peer discovery.
 	OCRBootstrapPeerMultiaddr null.String
-
-	// IsConnectionActive is the indicator of connection activeness
-	IsConnectionActive bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -60,7 +56,6 @@ type JobProposal struct {
 	// ExternalJobID is the external job id in the spec.
 	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
-	Multiaddrs     pq.StringArray `gorm:"type:text[]"`
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 }

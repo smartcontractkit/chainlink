@@ -1,6 +1,6 @@
 import React from 'react'
 import { v2 } from 'api'
-import { Route, Switch, useParams, useRouteMatch } from 'react-router-dom'
+import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { CardTitle } from 'components/CardTitle'
 import { Card, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
@@ -8,31 +8,46 @@ import { useErrorHandler } from 'hooks/useErrorHandler'
 import StatusCard from './StatusCard'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import RegionalNav from './RegionalNav'
-import { PipelineJobRun } from '../sharedTypes'
+import { DirectRequestJobRun, PipelineJobRun } from '../sharedTypes'
+import { Overview } from './Overview/Overview'
 import { PipelineJobRunOverview } from './Overview/PipelineJobRunOverview'
 import { Json } from './Json'
+import { isJobV2 } from '../utils'
 import { TaskList } from '../TaskListDag'
 import { augmentOcrTasksList } from './augmentOcrTasksList'
-import { transformPipelineJobRun } from '../transformJobRuns'
+import {
+  transformDirectRequestJobRun,
+  transformPipelineJobRun,
+} from '../transformJobRuns'
 
-interface RouteParams {
-  jobId: string
-  jobRunId: string
-}
+function getErrorsList(
+  jobRun: DirectRequestJobRun | PipelineJobRun | undefined,
+): string[] {
+  if (jobRun?.type === 'Direct request job run') {
+    return jobRun.taskRuns
+      .filter(({ status }) => status === 'errored')
+      .map((tr) => tr.result.error)
+      .filter((error): error is string => error !== null)
+  }
 
-function getErrorsList(jobRun?: PipelineJobRun): string[] {
-  if (jobRun?.errors) {
+  if (jobRun?.type === 'Pipeline job run' && jobRun.errors) {
     return jobRun.errors.filter((error): error is string => error !== null)
   }
 
   return []
 }
 
-export const Show = () => {
-  const { path } = useRouteMatch()
-  const { jobId, jobRunId } = useParams<RouteParams>()
-  const [jobRun, setState] = React.useState<PipelineJobRun>()
+type Props = RouteComponentProps<{
+  jobSpecId: string
+  jobRunId: string
+}>
 
+export const Show = ({ match }: Props) => {
+  const [jobRun, setState] = React.useState<
+    DirectRequestJobRun | PipelineJobRun
+  >()
+
+  const { jobSpecId, jobRunId } = match.params
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobRun)
 
@@ -41,13 +56,22 @@ export const Show = () => {
   }, [])
 
   const getJobRun = React.useCallback(async () => {
-    v2.runs
-      .getJobRun({ jobId, runId: jobRunId })
-      .then((res) => res.data)
-      .then(transformPipelineJobRun(jobId))
-      .then(setState)
-      .catch(setError)
-  }, [jobRunId, jobId, setError])
+    if (isJobV2(jobSpecId)) {
+      v2.ocrRuns
+        .getJobSpecRun({ jobSpecId, runId: jobRunId })
+        .then((jobSpecRunResponse) => jobSpecRunResponse.data)
+        .then(transformPipelineJobRun(jobSpecId))
+        .then(setState)
+        .catch(setError)
+    } else {
+      return v2.runs
+        .getJobSpecRun(jobRunId)
+        .then((jobSpecRunResponse) => jobSpecRunResponse.data)
+        .then(transformDirectRequestJobRun(jobSpecId))
+        .then(setState)
+        .catch(setError)
+    }
+  }, [jobRunId, jobSpecId, setError])
 
   React.useEffect(() => {
     getJobRun()
@@ -55,12 +79,10 @@ export const Show = () => {
 
   return (
     <>
-      <RegionalNav jobId={jobId} jobRunId={jobRunId} jobRun={jobRun} />
-
+      <RegionalNav {...match.params} jobRun={jobRun} />
       <Content>
         <ErrorComponent />
         <LoadingPlaceholder />
-
         {jobRun && (
           <Grid container spacing={40}>
             <Grid item xs={4}>
@@ -68,13 +90,19 @@ export const Show = () => {
                 <Grid item xs={12}>
                   <StatusCard {...jobRun} title={jobRun.status} />
                 </Grid>
-                {jobRun.status == 'errored' && (
-                  <Grid item xs={12}>
-                    <Card style={{ overflow: 'visible' }}>
-                      <CardTitle divider>Task list</CardTitle>
-                      <TaskList stratify={augmentOcrTasksList({ jobRun })} />
-                    </Card>
-                  </Grid>
+                {jobRun.type === 'Pipeline job run' && (
+                  <Switch>
+                    {jobRun.status == 'errored' && (
+                      <Grid item xs={12}>
+                        <Card style={{ overflow: 'visible' }}>
+                          <CardTitle divider>Task list</CardTitle>
+                          <TaskList
+                            stratify={augmentOcrTasksList({ jobRun })}
+                          />
+                        </Card>
+                      </Grid>
+                    )}
+                  </Switch>
                 )}
               </Grid>
             </Grid>
@@ -96,13 +124,23 @@ export const Show = () => {
                 )}
                 <Grid item xs={12}>
                   <Switch>
-                    <Route path={`${path}/json`}>
-                      <Json jobRun={jobRun} />
-                    </Route>
-                    {jobRun.status == 'errored' && (
-                      <Route path={path}>
-                        <PipelineJobRunOverview jobRun={jobRun} />
-                      </Route>
+                    <Route
+                      path={`${match.path}/json`}
+                      render={() => <Json jobRun={jobRun} />}
+                    />
+                    {jobRun.type === 'Direct request job run' && (
+                      <Route render={() => <Overview jobRun={jobRun} />} />
+                    )}
+                    {jobRun.type === 'Pipeline job run' && (
+                      <Switch>
+                        {jobRun.status == 'errored' && (
+                          <Route
+                            render={() => (
+                              <PipelineJobRunOverview jobRun={jobRun} />
+                            )}
+                          />
+                        )}
+                      </Switch>
                     )}
                   </Switch>
                 </Grid>

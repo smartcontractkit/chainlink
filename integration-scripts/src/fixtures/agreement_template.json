@@ -1,0 +1,25 @@
+{
+  "initiators": [{ "type": "execagreement" }],
+  "tasks": [
+    {
+      "type": "HttpGet",
+      "params": { "get": "https://bitstamp.net/api/ticker/" }
+    },
+    { "type": "JsonParse", "params": { "path": ["last"] } },
+    { "type": "EthBytes32" },
+    {
+      "type": "EthTx",
+      "params": {
+        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+        "functionSelector": "0x609ff1bd"
+      }
+    }
+  ],
+  "payment": "1000000000000000000",
+  "expiration": 300,
+  "oracles": ["{{ $ORACLE_ADDRESS }}"],
+  "endAt": "2020-10-19T22:17:19Z",
+  "aggregator": "{{ $AGGREGATOR_ADDRESS }}",
+  "aggInitiateJobSelector": "0xd43a12f6",
+  "aggFulfillSelector": "0x9760168f"
+}

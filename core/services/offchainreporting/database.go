@@ -231,10 +231,6 @@ WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
 		m[k] = p
 	}
 
-	if err := rows.Err(); err != nil {
-		return m, err
-	}
-
 	return m, nil
 }
 
@@ -302,10 +298,6 @@ LIMIT 1
 
 		err2 = json.Unmarshal(rawLog, &rr.Raw)
 		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
-	}
-
-	if err = rows.Err(); err != nil {
-		return
 	}
 
 	err = multierr.Combine(err, rows.Close())

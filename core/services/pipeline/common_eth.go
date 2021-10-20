@@ -31,9 +31,9 @@ func parseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 	}
 
 	for _, argStr := range argStrs {
-		argStr = bytes.ReplaceAll(argStr, calldataKeyword, nil) // Strip `calldata` modifiers
-		argStr = bytes.ReplaceAll(argStr, memoryKeyword, nil)   // Strip `memory` modifiers
-		argStr = bytes.ReplaceAll(argStr, storageKeyword, nil)  // Strip `storage` modifiers
+		argStr = bytes.Replace(argStr, calldataKeyword, nil, -1) // Strip `calldata` modifiers
+		argStr = bytes.Replace(argStr, memoryKeyword, nil, -1)   // Strip `memory` modifiers
+		argStr = bytes.Replace(argStr, storageKeyword, nil, -1)  // Strip `storage` modifiers
 		argStr = bytes.TrimSpace(argStr)
 		parts := bytes.Split(argStr, spaceDelim)
 

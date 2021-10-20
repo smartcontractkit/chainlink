@@ -11,13 +11,7 @@ func SetRollingBlockHistory(bhe Estimator, blocks []Block) {
 }
 
 func GetGasPrice(b *BlockHistoryEstimator) *big.Int {
-	b.gasPriceMu.RLock()
-	defer b.gasPriceMu.RUnlock()
-	return b.gasPrice
-}
-
-func SetGasPrice(b *BlockHistoryEstimator, gp *big.Int) {
 	b.gasPriceMu.Lock()
 	defer b.gasPriceMu.Unlock()
-	b.gasPrice = gp
+	return b.gasPrice
 }

@@ -5,54 +5,53 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const keyTypeIdentifier = "OCR"
-
-func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
-	var export EncryptedOCRKeyExport
-	if err := json.Unmarshal(keyJSON, &export); err != nil {
-		return KeyV2{}, err
-	}
-	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
-	if err != nil {
-		return KeyV2{}, errors.Wrap(err, "failed to decrypt OCR key")
-	}
-	key := Raw(privKey).Key()
-	return key, nil
-}
-
 type EncryptedOCRKeyExport struct {
-	KeyType               string                `json:"keyType"`
-	ID                    string                `json:"id"`
+	ID                    models.Sha256Hash     `json:"id" gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
 	OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
 	ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`
 	Crypto                keystore.CryptoJSON   `json:"crypto"`
 }
 
-func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
+func (pk *KeyBundle) ToEncryptedExport(auth string, scryptParams utils.ScryptParams) (export []byte, err error) {
+	marshalledPrivK, err := json.Marshal(pk)
+	if err != nil {
+		return nil, err
+	}
 	cryptoJSON, err := keystore.EncryptDataV3(
-		key.Raw(),
-		[]byte(adulteratedPassword(password)),
+		marshalledPrivK,
+		[]byte(adulteratedPassword(auth)),
 		scryptParams.N,
 		scryptParams.P,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
+		return nil, errors.Wrapf(err, "could not encrypt OCR key")
 	}
+
 	encryptedOCRKExport := EncryptedOCRKeyExport{
-		KeyType:               keyTypeIdentifier,
-		ID:                    key.ID(),
-		OnChainSigningAddress: key.OnChainSigning.Address(),
-		OffChainPublicKey:     key.OffChainSigning.PublicKey(),
-		ConfigPublicKey:       key.PublicKeyConfig(),
+		ID:                    pk.ID,
+		OnChainSigningAddress: pk.onChainSigning.Address(),
+		OffChainPublicKey:     pk.offChainSigning.PublicKey(),
+		ConfigPublicKey:       pk.PublicKeyConfig(),
 		Crypto:                cryptoJSON,
 	}
 	return json.Marshal(encryptedOCRKExport)
 }
 
-func adulteratedPassword(password string) string {
-	return "ocrkey" + password
+// DecryptPrivateKey returns the PrivateKey in export, decrypted via auth, or an error
+func (export EncryptedOCRKeyExport) DecryptPrivateKey(auth string) (*KeyBundle, error) {
+	marshalledPrivK, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(auth))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decrypt key %s", export.ID.String())
+	}
+	var pk KeyBundle
+	err = json.Unmarshal(marshalledPrivK, &pk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not unmarshal OCR private key %s", export.ID.String())
+	}
+	return &pk, nil
 }

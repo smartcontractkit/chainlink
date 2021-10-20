@@ -21,14 +21,14 @@ import (
 
 func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
-	config := cltest.NewTestEVMConfig(t)
+	config, cleanup := cltest.NewConfig(t)
+	t.Cleanup(cleanup)
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(cleanup)
 	db := store.DB
-	keyStore := cltest.NewKeyStore(t, db)
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	t.Cleanup(cleanupPipeline)
-	jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
 	spec := &job.Job{
 		Type:          job.Cron,
@@ -62,7 +62,7 @@ func TestCronV2Schedule(t *testing.T) {
 	}
 	runner := new(pipelinemocks.Runner)
 
-	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
 		Return(false, nil).Once()
 
 	service, err := cron.NewCronFromJobSpec(spec, runner)

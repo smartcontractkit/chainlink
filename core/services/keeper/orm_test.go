@@ -4,16 +4,17 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"gorm.io/gorm"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var checkData = common.Hex2Bytes("ABC123")
@@ -61,7 +62,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	defer cleanup()
 
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	upkeep := keeper.UpkeepRegistration{
@@ -100,7 +101,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 
@@ -125,7 +126,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	blockheight := int64(63)
 	gracePeriod := int64(10)
@@ -178,7 +179,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	blockheight := int64(120)
 	gracePeriod := int64(100)
@@ -210,7 +211,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry.NumKeepers = 5
@@ -242,7 +243,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry.NumKeepers = 5
@@ -277,7 +278,7 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	registry2, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
@@ -305,7 +306,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 
-	nextID, err := orm.LowestUnsyncedID(context.Background(), registry.ID)
+	nextID, err := orm.LowestUnsyncedID(context.Background(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), nextID)
 
@@ -313,7 +314,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.LowestUnsyncedID(context.Background(), registry.ID)
+	nextID, err = orm.LowestUnsyncedID(context.Background(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), nextID)
 
@@ -321,7 +322,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.LowestUnsyncedID(context.Background(), registry.ID)
+	nextID, err = orm.LowestUnsyncedID(context.Background(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), nextID)
 }
@@ -335,9 +336,9 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	registry, j := cltest.MustInsertKeeperRegistry(t, store, ethKeyStore)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 100)
+	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 100)
 	assertLastRunHeight(t, store, upkeep, 100)
-	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
+	orm.SetLastRunHeightForUpkeepOnJob(orm.DB, j.ID, upkeep.UpkeepID, 0)
 	assertLastRunHeight(t, store, upkeep, 0)
 }
 
@@ -360,22 +361,17 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 
 	var ethTX bulletprooftxmanager.EthTx
 	var err error
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 	gasLimit := upkeep.ExecuteGas + store.Config.KeeperRegistryPerformGasOverhead()
-	err = orm.WithTransaction(func(ctx context.Context) error {
-		txm.On("CreateEthTransaction", mock.IsType(store.DB), bulletprooftxmanager.NewTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: payload,
-			GasLimit:       gasLimit,
-			Meta:           nil,
-			Strategy:       bulletprooftxmanager.SendEveryStrategy{},
-		}).Once().Return(bulletprooftxmanager.EthTx{
+	err = postgres.GormTransaction(ctx, orm.DB, func(tx *gorm.DB) error {
+		txm.On("CreateEthTransaction", tx, fromAddress, toAddress, payload, gasLimit, nil, bulletprooftxmanager.SendEveryStrategy{}).Once().Return(bulletprooftxmanager.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			GasLimit:       gasLimit,
 		}, nil)
-		ethTX, err = orm.CreateEthTransactionForUpkeep(ctx, upkeep, payload)
+		ethTX, err = orm.CreateEthTransactionForUpkeep(tx, upkeep, payload)
 		return err
 	})
 	require.NoError(t, err)

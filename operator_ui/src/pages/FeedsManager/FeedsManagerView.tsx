@@ -2,12 +2,12 @@ import React from 'react'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
 import { JobProposalsCard } from './JobProposalsCard'
-import { FeedsManager } from 'core/store/models'
+import * as models from 'core/store/models'
 
 import Grid from '@material-ui/core/Grid'
 
 interface Props {
-  manager: FeedsManager
+  manager: models.FeedsManager
 }
 
 export const FeedsManagerView: React.FC<Props> = ({ manager }) => {

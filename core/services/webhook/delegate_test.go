@@ -62,7 +62,7 @@ func TestWebhookDelegate(t *testing.T) {
 	err = service.Start()
 	require.NoError(t, err)
 
-	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
 		Return(false, nil).
 		Run(func(args mock.Arguments) {
 			run := args.Get(1).(*pipeline.Run)
@@ -78,7 +78,7 @@ func TestWebhookDelegate(t *testing.T) {
 	// Should error after service is started upon a failed run
 	expectedErr := errors.New("foo bar")
 
-	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
+	runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything).
 		Return(false, expectedErr).Once()
 
 	_, err = delegate.WebhookJobRunner().RunJob(context.Background(), spec.ExternalJobID, requestBody, meta)

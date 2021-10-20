@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
+func TestPipelineJobSpecErrorsController_Delete(t *testing.T) {
 	app, client, _, jID, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	description := "job spec error description"

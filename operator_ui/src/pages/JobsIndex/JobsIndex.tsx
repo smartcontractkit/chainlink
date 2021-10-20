@@ -1,33 +1,39 @@
-import React from 'react'
-
-import { v2 } from 'api'
-import BaseLink from 'components/BaseLink'
+import React, { useEffect } from 'react'
 import Button from 'components/Button'
-import Content from 'components/Content'
-import { JobRow } from './JobRow'
-import Link from 'components/Link'
-import * as models from 'core/store/models'
 import { Title } from 'components/Title'
+import Content from 'components/Content'
+import BaseLink from 'components/BaseLink'
+import { v2 } from 'api'
+import * as models from 'core/store/models'
+import {
+  Grid,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+  TextField,
+} from '@material-ui/core'
+import Link from 'components/Link'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
-
-import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
-import CardContent from '@material-ui/core/CardContent'
-import SearchIcon from '@material-ui/icons/Search'
 import {
   createStyles,
   withStyles,
   WithStyles,
   Theme,
 } from '@material-ui/core/styles'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableHead from '@material-ui/core/TableHead'
-import TableRow from '@material-ui/core/TableRow'
-import Typography from '@material-ui/core/Typography'
-import TextField from '@material-ui/core/TextField'
+import { DirectRequestRow } from './DirectRequestRow'
+import { JobV2Row } from './JobV2Row'
+import SearchIcon from '@material-ui/icons/Search'
+
+enum JobSpecTypes {
+  v1 = 'specs',
+  v2 = 'jobs',
+}
 
 interface Job<T> {
   attributes: T
@@ -35,42 +41,82 @@ interface Job<T> {
   type: string
 }
 
-export type JobSpecV2 = Job<models.Job>
+export type DirectRequest = Job<models.JobSpec>
+export type JobSpecV2 = Job<models.JobSpecV2>
+export type CombinedJobs = DirectRequest | JobSpecV2
 
-function isOCRJobSpec(job: JobSpecV2) {
+function isJobSpecV1(job: CombinedJobs): job is DirectRequest {
+  return job.type === JobSpecTypes.v1
+}
+
+function isJobSpecV2(job: CombinedJobs): job is JobSpecV2 {
+  return job.type === JobSpecTypes.v2
+}
+
+function isDirectRequestJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'directrequest'
+}
+
+function isFluxMonitorJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'fluxmonitor'
+}
+
+function isKeeperSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'keeper'
+}
+
+function isOCRJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'offchainreporting'
 }
 
-function getCreatedAt(job: JobSpecV2) {
-  switch (job.attributes.type) {
-    case 'offchainreporting':
-      return job.attributes.offChainReportingOracleSpec.createdAt
+function isCronSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'cron'
+}
 
-    case 'fluxmonitor':
-      return job.attributes.fluxMonitorSpec.createdAt
+function isWebhookSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'webhook'
+}
 
-    case 'directrequest':
-      return job.attributes.directRequestSpec.createdAt
+function getCreatedAt(job: CombinedJobs) {
+  if (isJobSpecV1(job)) {
+    return job.attributes.createdAt
+  } else if (isJobSpecV2(job)) {
+    switch (job.attributes.type) {
+      case 'offchainreporting':
+        return job.attributes.offChainReportingOracleSpec.createdAt
 
-    case 'keeper':
-      return job.attributes.keeperSpec.createdAt
+      case 'fluxmonitor':
+        return job.attributes.fluxMonitorSpec.createdAt
 
-    case 'cron':
-      return job.attributes.cronSpec.createdAt
+      case 'directrequest':
+        return job.attributes.directRequestSpec.createdAt
 
-    case 'webhook':
-      return job.attributes.webhookSpec.createdAt
+      case 'keeper':
+        return job.attributes.keeperSpec.createdAt
 
-    case 'vrf':
-      return job.attributes.vrfSpec.createdAt
-    default:
-      return new Date().toString()
+      case 'cron':
+        return job.attributes.cronSpec.createdAt
+
+      case 'webhook':
+        return job.attributes.webhookSpec.createdAt
+
+      case 'vrf':
+        return job.attributes.vrfSpec.createdAt
+    }
+  } else {
+    return new Date().toString()
   }
 }
 
+const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avoid pagination
+
 async function getJobs() {
-  return Promise.all([v2.jobs.getJobSpecs()]).then(([v2Jobs]) => {
-    const jobsByDate = v2Jobs.data.sort((a, b) => {
+  return Promise.all([
+    v2.specs.getJobSpecs(1, PAGE_SIZE),
+    v2.jobs.getJobSpecs(),
+  ]).then(([v1Jobs, v2Jobs]) => {
+    const combinedJobs = [...v1Jobs.data, ...v2Jobs.data]
+    const jobsByDate = combinedJobs.sort((a, b) => {
       const jobA = new Date(getCreatedAt(a)).getTime()
       const jobB = new Date(getCreatedAt(b)).getTime()
       return jobA > jobB ? -1 : 1
@@ -88,26 +134,97 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const simpleJobFilter = (search: string) => (job: JobSpecV2) => {
+export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
   if (search === '') {
     return true
   }
 
-  if (isOCRJobSpec(job)) {
-    return matchOCR(job, search)
-  } else {
-    return matchSimple(job, search)
+  if (isJobSpecV1(job)) {
+    return matchV1Job(job, search)
   }
+
+  if (isJobSpecV2(job)) {
+    if (isDirectRequestJobSpecV2(job)) {
+      return matchDirectRequest(job, search)
+    }
+
+    if (isFluxMonitorJobSpecV2(job)) {
+      return matchFluxMonitor(job, search)
+    }
+
+    if (isOCRJobSpecV2(job)) {
+      return matchOCR(job, search)
+    }
+
+    if (isKeeperSpecV2(job)) {
+      return matchKeeper(job, search)
+    }
+
+    if (isCronSpecV2(job)) {
+      return matchCron(job, search)
+    }
+
+    if (isWebhookSpecV2(job)) {
+      return matchWebhook(job, search)
+    }
+  }
+
+  return false
 }
 
-// matchSimple does a simple match on the id, name and type.
-function matchSimple(job: JobSpecV2, term: string) {
+/**
+ * matchV1Job determines whether the V1 job matches the search term
+ *
+ * @param job {DirectRequest} The V1 Job Spec
+ * @param term {string}
+ */
+function matchV1Job(job: DirectRequest, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name,
+    ...job.attributes.initiators.map((i) => i.type), // Match any of the initiators
+    'direct request',
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchDirectRequest determines whether the V2 Direct Request job matches the search
+ * terms.
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchDirectRequest(job: JobSpecV2, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [
     job.id,
     job.attributes.name || '',
-    job.attributes.type,
+    'direct request', // Hardcoded to match the type column
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchFluxMonitor determines whether the Flux Monitor job matches the search
+ * terms.
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchFluxMonitor(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'direct request', // Hardcoded to match the type column
+    'fluxmonitor', // Hardcoded to match initiator column
   ]
 
   return dataset.some(match)
@@ -127,7 +244,7 @@ function matchOCR(job: JobSpecV2, term: string) {
   const dataset: string[] = [
     job.id,
     job.attributes.name || '',
-    job.attributes.type,
+    'off-chain reporting',
   ]
 
   const searchableProperties = [
@@ -135,13 +252,59 @@ function matchOCR(job: JobSpecV2, term: string) {
     'keyBundleID',
     'p2pPeerID',
     'transmitterAddress',
-  ] as Array<keyof models.Job['offChainReportingOracleSpec']>
+  ] as Array<keyof models.JobSpecV2['offChainReportingOracleSpec']>
 
   if (offChainReportingOracleSpec) {
     searchableProperties.forEach((property) => {
       dataset.push(String(offChainReportingOracleSpec[property]))
     })
   }
+
+  return dataset.some(match)
+}
+
+/**
+ * matchKeeper determines whether the Keeper job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchKeeper(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'keeper', // Hardcoded to match the type column
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchCron determines whether the Cron job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchCron(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'cron']
+
+  return dataset.some(match)
+}
+
+/**
+ * matchWebhook determines whether the Webhook job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchWebhook(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'webhook']
 
   return dataset.some(match)
 }
@@ -163,7 +326,7 @@ export const JobsIndex = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const [search, setSearch] = React.useState('')
-  const [jobs, setJobs] = React.useState<JobSpecV2[]>()
+  const [jobs, setJobs] = React.useState<CombinedJobs[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
 
@@ -171,13 +334,13 @@ export const JobsIndex = ({
     document.title = 'Jobs'
   }, [])
 
-  React.useEffect(() => {
-    getJobs().then(setJobs).catch(setError)
-  }, [setError])
-
   const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
     search,
   ])
+
+  useEffect(() => {
+    getJobs().then(setJobs).catch(setError)
+  }, [setError])
 
   return (
     <Content>
@@ -232,22 +395,19 @@ export const JobsIndex = ({
                           ID
                         </Typography>
                       </TableCell>
-
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
-                          Name
+                          Created
                         </Typography>
                       </TableCell>
-
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
                           Type
                         </Typography>
                       </TableCell>
-
                       <TableCell>
                         <Typography variant="body1" color="textSecondary">
-                          Created
+                          Initiator
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -261,10 +421,16 @@ export const JobsIndex = ({
                         </TableCell>
                       </TableRow>
                     )}
-
-                    {jobs.filter(jobFilter).map((job) => (
-                      <JobRow key={job.id} job={job} />
-                    ))}
+                    {jobs &&
+                      jobs.filter(jobFilter).map((job: CombinedJobs) => {
+                        if (isJobSpecV1(job)) {
+                          return <DirectRequestRow key={job.id} job={job} />
+                        } else if (isJobSpecV2(job)) {
+                          return <JobV2Row key={job.id} job={job} />
+                        } else {
+                          return <TableRow>Unknown Job Type</TableRow>
+                        }
+                      })}
                   </TableBody>
                 </Table>
               </CardContent>

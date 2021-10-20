@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -31,24 +31,21 @@ type Runner interface {
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
-	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx *gorm.DB) error) (incomplete bool, err error)
-	ResumeRun(taskID uuid.UUID, result interface{}) error
+	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error)
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (int64, error)
+	InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
-	// ExecuteAndInsertFinishedRun executes a new run in-memory according to a spec, persists and saves the results.
+	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 
 	// Test method for inserting completed non-pipeline job runs
 	TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error)
-
-	OnRunFinished(func(*Run))
 }
 
 type runner struct {
@@ -59,9 +56,6 @@ type runner struct {
 	vrfKeyStore     VRFKeyStore
 	txManager       TxManager
 	runReaperWorker utils.SleeperTask
-
-	// test helper
-	runFinished func(*Run)
 
 	utils.StartStopOnce
 	chStop chan struct{}
@@ -108,7 +102,6 @@ func NewRunner(orm ORM, config Config, ethClient eth.Client, ethks ETHKeyStore, 
 		txManager:   txManager,
 		chStop:      make(chan struct{}),
 		wgDone:      sync.WaitGroup{},
-		runFinished: func(*Run) {},
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.runReaper),
@@ -157,10 +150,9 @@ func (r *runner) runReaperLoop() {
 }
 
 type memoryTaskRun struct {
-	task     Task
-	inputs   []Result // sorted by input index
-	vars     Vars
-	attempts uint
+	task   Task
+	inputs []Result // sorted by input index
+	vars   Vars
 }
 
 // When a task panics, we catch the panic and wrap it in an error for reporting to the scheduler.
@@ -183,30 +175,22 @@ func NewRun(spec Spec, vars Vars) Run {
 	}
 }
 
-func (r *runner) OnRunFinished(fn func(*Run)) {
-	r.runFinished = fn
-}
-
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
 	vars Vars,
 	l logger.Logger,
 ) (Run, TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
+
 	run := NewRun(spec, vars)
 
-	pipeline, err := r.initializePipeline(&run)
-
+	taskRunResults, err := r.run(ctx, &run, vars, l)
 	if err != nil {
 		return run, nil, err
 	}
 
-	taskRunResults, err := r.run(ctx, pipeline, &run, vars, l)
-	if err != nil {
-		return run, nil, err
-	}
-
-	if run.Pending {
+	if run.Async && run.Pending {
 		return run, nil, errors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
 	}
 
@@ -223,7 +207,14 @@ func (r *runner) ExecuteRun(
 	return run, taskRunResults, nil
 }
 
-func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
+func (r *runner) run(
+	ctx context.Context,
+	run *Run,
+	vars Vars,
+	l logger.Logger,
+) (TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
+
 	pipeline, err := Parse(run.PipelineSpec.DotDagSource)
 	if err != nil {
 		return nil, err
@@ -231,23 +222,17 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 
 	// initialize certain task params
 	for _, task := range pipeline.Tasks {
-		task.Base().uuid = uuid.NewV4()
-
 		switch task.Type() {
 		case TaskTypeHTTP:
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
 			task.(*BridgeTask).db = r.orm.DB()
+			task.(*BridgeTask).id = uuid.NewV4()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).ethClient = r.ethClient
 		case TaskTypeVRF:
 			task.(*VRFTask).keyStore = r.vrfKeyStore
-		case TaskTypeVRFV2:
-			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
-		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).GasEstimator = r.ethClient
-			task.(*EstimateGasLimitTask).EvmGasLimit = r.config.EvmGasLimitDefault()
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).db = r.orm.DB()
 			task.(*ETHTxTask).config = r.config
@@ -257,23 +242,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		}
 	}
 
-	// retain old UUID values
-	for _, taskRun := range run.PipelineTaskRuns {
-		task := pipeline.ByDotID(taskRun.DotID)
-		task.Base().uuid = taskRun.ID
+	// avoid an extra db write if there is no async tasks present or if this is a resumed run
+	if pipeline.HasAsync() {
+		run.Async = true
+		if run.ID == 0 {
+			if err = r.orm.CreateRun(r.orm.DB(), run); err != nil {
+				return nil, err
+			}
+		}
 	}
-
-	return pipeline, nil
-}
-
-func (r *runner) run(
-	ctx context.Context,
-	pipeline *Pipeline,
-	run *Run,
-	vars Vars,
-	l logger.Logger,
-) (TaskRunResults, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
 
 	todo := context.TODO()
 	scheduler := newScheduler(todo, pipeline, run, vars)
@@ -368,7 +345,7 @@ func (r *runner) run(
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	return taskRunResults, nil
+	return taskRunResults, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
@@ -376,7 +353,6 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	loggerFields := []interface{}{
 		"taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
-		"attempt", taskRun.attempts,
 	}
 
 	// Order of precedence for task timeout:
@@ -407,8 +383,15 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 
 	now := time.Now()
 
+	var id uuid.UUID
+	if taskRun.task.Type() == TaskTypeBridge {
+		id = taskRun.task.(*BridgeTask).id
+	} else {
+		id = uuid.NewV4()
+	}
+
 	return TaskRunResult{
-		ID:         taskRun.task.Base().uuid,
+		ID:         id,
 		Task:       taskRun.task,
 		Result:     result,
 		CreatedAt:  start,
@@ -443,74 +426,32 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, nil
 	}
 
-	if runID, err = r.orm.InsertFinishedRun(postgres.UnwrapGormDB(r.orm.DB()), run, saveSuccessfulTaskRuns); err != nil {
+	if runID, err = r.orm.InsertFinishedRun(r.orm.DB(), run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return runID, finalResult, nil
 
 }
 
-func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx *gorm.DB) error) (incomplete bool, err error) {
-	pipeline, err := r.initializePipeline(run)
-	if err != nil {
-		return false, err
-	}
-
-	preinsert := pipeline.RequiresPreInsert()
-
-	err = postgres.GormTransactionWithDefaultContext(r.orm.DB(), func(tx *gorm.DB) error {
-		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
-		if preinsert && run.ID == 0 {
-			now := time.Now()
-			// initialize certain task params
-			for _, task := range pipeline.Tasks {
-				switch task.Type() {
-				case TaskTypeETHTx:
-					run.PipelineTaskRuns = append(run.PipelineTaskRuns, TaskRun{
-						ID:            task.Base().uuid,
-						PipelineRunID: run.ID,
-						Type:          task.Type(),
-						Index:         task.OutputIndex(),
-						DotID:         task.DotID(),
-						CreatedAt:     now,
-					})
-				default:
-				}
-			}
-			if err = r.orm.CreateRun(postgres.UnwrapGorm(tx), run); err != nil {
-				return err
-			}
-
-		}
-
-		if fn != nil {
-			return fn(tx)
-		}
-		return nil
-	})
-	if err != nil {
-		return false, err
-	}
-
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool) (incomplete bool, err error) {
 	for {
-		if _, err = r.run(ctx, pipeline, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l); err != nil {
+		trrs, err := r.run(ctx, run, NewVarsFrom(run.Inputs.Val.(map[string]interface{})), l)
+		if err != nil {
 			return false, errors.Wrapf(err, "failed to run for spec ID %v", run.PipelineSpec.ID)
 		}
 
-		if preinsert {
-			// if run failed and it's failEarly, skip StoreRun and instead delete all trace of it
-			if run.FailEarly {
-				if err = r.orm.DeleteRun(run.ID); err != nil {
-					return false, errors.Wrap(err, "Run")
-				}
-				return false, nil
+		if run.Async {
+			var db *sql.DB
+			db, err = r.orm.DB().DB()
+			if err != nil {
+				return false, errors.Wrap(err, "unable to retrieve sql.DB")
 			}
 
 			var restart bool
-			restart, err = r.orm.StoreRun(postgres.UnwrapGormDB(r.orm.DB()), run)
+
+			restart, err = r.orm.StoreRun(db, run)
 			if err != nil {
-				return false, errors.Wrapf(err, "error storing run for spec ID %v state %v outputs %v errors %v finished_at %v",
-					run.PipelineSpec.ID, run.State, run.Outputs, run.Errors, run.FinishedAt)
+				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 
 			if restart {
@@ -525,49 +466,29 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 			if run.FailEarly {
 				return false, nil
 			}
-
-			if _, err = r.orm.InsertFinishedRun(postgres.UnwrapGormDB(r.orm.DB()), *run, saveSuccessfulTaskRuns); err != nil {
+			if _, err = r.orm.InsertFinishedRun(r.orm.DB(), *run, trrs, saveSuccessfulTaskRuns); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
-
-		r.runFinished(run)
 
 		return run.Pending, err
 	}
 }
 
-func (r *runner) ResumeRun(taskID uuid.UUID, result interface{}) error {
-	run, start, err := r.orm.UpdateTaskRunResult(taskID, result)
-	if err != nil {
-		return err
-	}
-
-	if start {
-		// start the runner again
-		go func() {
-			if _, err := r.Run(context.Background(), &run, *logger.Default, false, nil); err != nil {
-				logger.Errorw("Resume", "err", err)
-			}
-		}()
-	}
-	return nil
-}
-
-func (r *runner) InsertFinishedRun(db postgres.Queryer, run Run, saveSuccessfulTaskRuns bool) (int64, error) {
-	return r.orm.InsertFinishedRun(db, run, saveSuccessfulTaskRuns)
+func (r *runner) InsertFinishedRun(db *gorm.DB, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	return r.orm.InsertFinishedRun(db, run, trrs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
 	t := time.Now()
-	runID, err := r.InsertFinishedRun(postgres.UnwrapGorm(db), Run{
+	runID, err := r.InsertFinishedRun(db, Run{
 		State:          RunStatusCompleted,
 		PipelineSpecID: specID,
 		Errors:         RunErrors{null.String{}},
 		Outputs:        JSONSerializable{Val: []interface{}{"queued eth transaction"}},
 		CreatedAt:      t,
 		FinishedAt:     null.TimeFrom(t),
-	}, false)
+	}, nil, false)
 	elapsed := time.Since(t)
 
 	// For testing metrics.
@@ -606,7 +527,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 
 	err := r.orm.GetUnfinishedRuns(now, func(run Run) error {
 		go func() {
-			if _, err := r.Run(context.TODO(), &run, *logger.Default, false, nil); err != nil {
+			if _, err := r.Run(context.TODO(), &run, *logger.Default, false); err != nil {
 				logger.Errorw("Pipeline run init job resumption failed", "error", err)
 			}
 		}()

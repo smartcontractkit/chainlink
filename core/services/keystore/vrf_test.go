@@ -1,88 +1,131 @@
 package keystore_test
 
 import (
+	"bytes"
+	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	proof2 "github.com/smartcontractkit/chainlink/core/services/vrf/proof"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 )
 
-func Test_VRFKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(db)
-	keyStore.Unlock(cltest.Password)
-	ks := keyStore.VRF()
-	reset := func() {
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
-		keyStore.ResetXXXTestOnly()
-		keyStore.Unlock(cltest.Password)
+// NB: For changes to the VRF solidity code to be reflected here, "go generate"
+// must be run in core/services/vrf.
+func vrfVerifier(t *testing.T) *solidity_vrf_verifier_wrapper.VRFTestHelper {
+	ethereumKey, _ := crypto.GenerateKey()
+	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, ethereumKey)
+	genesisData := core.GenesisAlloc{auth.From: {Balance: assets.Ether(100)}}
+	gasLimit := ethconfig.Defaults.Miner.GasCeil
+	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
+	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
+	if err != nil {
+		panic(errors.Wrapf(err, "while initializing EVM contract wrapper"))
 	}
+	backend.Commit()
+	return verifier
+}
 
-	t.Run("initializes with an empty state", func(t *testing.T) {
-		defer reset()
-		keys, err := ks.GetAll()
-		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
-	})
+var phrase = "engelbert humperdinck is the greatest musician of all time"
 
-	t.Run("errors when getting non-existant ID", func(t *testing.T) {
-		defer reset()
-		_, err := ks.Get("non-existant-id")
-		require.Error(t, err)
-	})
+func TestKeyStoreEndToEnd(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 
-	t.Run("creates a key", func(t *testing.T) {
-		defer reset()
-		key, err := ks.Create()
-		require.NoError(t, err)
-		retrievedKey, err := ks.Get(key.ID())
-		require.NoError(t, err)
-		require.Equal(t, key, retrievedKey)
-	})
+	ks := cltest.NewKeyStore(t, store.DB).VRF()
+	ks.Unlock(phrase)
+	key, err := ks.CreateKey() // NB: Varies from run to run. Shouldn't matter, though
+	require.NoError(t, err, "could not create encrypted key")
+	require.NoError(t, ks.Forget(key), "could not forget a created key from in-memory store")
 
-	t.Run("imports and exports a key", func(t *testing.T) {
-		defer reset()
-		key, err := ks.Create()
-		require.NoError(t, err)
-		exportJSON, err := ks.Export(key.ID(), cltest.Password)
-		require.NoError(t, err)
-		_, err = ks.Delete(key.ID())
-		require.NoError(t, err)
-		_, err = ks.Get(key.ID())
-		require.Error(t, err)
-		importedKey, err := ks.Import(exportJSON, cltest.Password)
-		require.NoError(t, err)
-		require.Equal(t, key.ID(), importedKey.ID())
-		retrievedKey, err := ks.Get(key.ID())
-		require.NoError(t, err)
-		require.Equal(t, importedKey, retrievedKey)
-	})
+	keys, err := ks.Get() // Test generic Get
+	require.NoError(t, err, "failed to retrieve expected key from db")
+	assert.True(t, len(keys) == 1 && keys[0].PublicKey == key, "did not get back the expected key from db retrial")
 
-	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
-		defer reset()
-		newKey, err := vrfkey.NewV2()
-		require.NoError(t, err)
-		err = ks.Add(newKey)
-		require.NoError(t, err)
-		keys, err := ks.GetAll()
-		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
-		_, err = ks.Delete(newKey.ID())
-		require.NoError(t, err)
-		keys, err = ks.GetAll()
-		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
-		_, err = ks.Get(newKey.ID())
-		require.Error(t, err)
-	})
+	ophrase := phrase + "corruption" // Cannot unlock with the wrong phrase
+	_, err = ks.Unlock(ophrase)
+	require.Error(t, err)
 
-	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
-		exportedKey := `{"PublicKey":"0xd2377bc6be8a2c5ce163e1867ee42ef111e320686f940a98e52e9c019ca0606800","vrf_key":{"address":"b94276ad4e5452732ec0cccf30ef7919b67844b6","crypto":{"cipher":"aes-128-ctr","ciphertext":"ff66d61d02dba54a61bab1ceb8414643f9e76b7351785d2959e2c8b50ee69a92","cipherparams":{"iv":"75705da271b11e330a27b8d593a3930c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"efe5b372e4fe79d0af576a79d65a1ee35d0792d9c92b70107b5ada1817ea7c7b"},"mac":"e4d0bb08ffd004ab03aeaa42367acbd9bb814c6cfd981f5157503f54c30816e7"},"version":3}}`
-		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
-		require.NoError(t, err)
-		require.Equal(t, "0xd2377bc6be8a2c5ce163e1867ee42ef111e320686f940a98e52e9c019ca0606800", importedKey.ID())
-	})
+	keys, err = ks.Get(key) // Test targeted Get
+	require.NoError(t, err, "key database retrieval failed")
+	require.Equal(t, keys[0].PublicKey, key, "retrieved wrong key from db")
+	require.Len(t, keys, 1, "retrieved more keys than expected from db")
+
+	keys, err = ks.Get() // Verify both keys are present in the db
+	require.NoError(t, err, "could not retrieve keys from db")
+	require.Len(t, keys, 1, "failed to remember the key just created")
+
+	unlockedKeys, err := ks.Unlock(phrase) // Unlocking enables generation of proofs
+	require.NoError(t, err)
+	assert.Len(t, unlockedKeys, 1, "should have only unlocked one key")
+	assert.Equal(t, unlockedKeys[0], key, "should have only unlocked the key with the offered password")
+
+	blockHash := common.Hash{}
+	blockNum := 0
+	preSeed := big.NewInt(10)
+	seed := proof2.TestXXXSeedData(t, preSeed, blockHash, blockNum)
+
+	proof, err := proof2.GenerateProofResponse(ks, key, seed)
+	require.NoError(t, err, "failed to generate proof response")
+
+	// ...but only for unlocked keys
+	randomKey := vrfkey.CreateKey()
+	_, err = proof2.GenerateProofResponse(ks, randomKey.PublicKey, seed)
+	require.Error(t, err, "should not be able to generate VRF proofs unless key has been unlocked")
+	require.Contains(t, err.Error(), "has not been unlocked", "complaint when attempting to generate VRF proof with unclocked key should be that it's locked")
+
+	encryptedKey, err := ks.GetSpecificKey(key) // Can export a key to bytes
+	require.NoError(t, err, "should be able to get a specific key")
+	assert.True(t, bytes.Equal(encryptedKey.PublicKey[:], key[:]), "should have recovered the encrypted key for the requested public key")
+
+	verifier := vrfVerifier(t) // Generated proof is valid
+	coordinatorProof, err := proof2.UnmarshalProofResponse(proof)
+	require.NoError(t, err)
+
+	verifierProof, err := coordinatorProof.CryptoProof(seed)
+	require.NoError(t, err, "recovered bad VRF proof")
+
+	wireProof, err := proof2.MarshalForSolidityVerifier(&verifierProof)
+	require.NoError(t, err, "could not marshal vrf proof for on-chain verification")
+
+	_, err = verifier.RandomValueFromVRFProof(nil, wireProof[:])
+	require.NoError(t, err, "failed to get VRF proof output from solidity VRF contract")
+
+	err = ks.Delete(key)
+	require.NoError(t, err, "failed to delete VRF key")
+
+	_, err = proof2.GenerateProofResponse(ks, key, seed)
+	require.Error(t, err, "should not be able to generate VRF proofs with a deleted key")
+	require.Contains(t, err.Error(), "has not been unlocked", "complaint when trying to prove with deleted key should be that it's locked")
+
+	keys, err = ks.Get(key) // Deleted key is removed from DB
+	require.NoError(t, err, "failed to query db for key")
+	require.Len(t, keys, 0, "deleted key should not be retrieved by db query")
+
+	keyjson, err := encryptedKey.JSON()
+	require.NoError(t, err, "failed to serialize key to JSON")
+
+	_, err = ks.Import(keyjson, phrase)
+	require.NoError(t, err, "failed to import encrypted key to database")
+
+	_, err = ks.Import(keyjson, phrase)
+	require.Equal(t, keystore.ErrMatchingVRFKey, err, "should be prevented from importing a key with a public key already present in the DB")
+
+	_, err = proof2.GenerateProofResponse(ks, key, seed)
+	require.NoError(t, err, "should be able to generate proof with unlocked key")
 }

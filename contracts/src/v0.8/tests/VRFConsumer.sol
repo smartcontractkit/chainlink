@@ -9,20 +9,20 @@ contract VRFConsumer is VRFConsumerBase {
   uint256 public randomnessOutput;
   bytes32 public requestId;
 
-  constructor(address vrfCoordinator, address link)
+  constructor(address _vrfCoordinator, address _link) public
     // solhint-disable-next-line no-empty-blocks
-    VRFConsumerBase(vrfCoordinator, link) { /* empty */ }
+    VRFConsumerBase(_vrfCoordinator, _link) { /* empty */ }
 
-  function fulfillRandomness(bytes32 requestId, uint256 randomness)
+  function fulfillRandomness(bytes32 _requestId, uint256 _randomness)
     internal override
   {
-    randomnessOutput = randomness;
-    requestId = requestId;
+    randomnessOutput = _randomness;
+    requestId = _requestId;
   }
 
-  function testRequestRandomness(bytes32 keyHash, uint256 fee)
-    external returns (bytes32)
+  function testRequestRandomness(bytes32 _keyHash, uint256 _fee)
+    external returns (bytes32 requestId)
   {
-    return requestRandomness(keyHash, fee);
+    return requestRandomness(_keyHash, _fee);
   }
 }

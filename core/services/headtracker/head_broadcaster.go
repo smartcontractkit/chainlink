@@ -29,9 +29,8 @@ func (set callbackSet) clone() callbackSet {
 }
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster(logger *logger.Logger) httypes.HeadBroadcaster {
+func NewHeadBroadcaster() httypes.HeadBroadcaster {
 	return &headBroadcaster{
-		logger:        logger,
 		callbacks:     make(callbackSet),
 		mailbox:       utils.NewMailbox(1),
 		mutex:         &sync.Mutex{},
@@ -44,7 +43,6 @@ func NewHeadBroadcaster(logger *logger.Logger) httypes.HeadBroadcaster {
 // headBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
 // congestion than the head tracker, and missed heads should be expected by consuming jobs
 type headBroadcaster struct {
-	logger    *logger.Logger
 	callbacks callbackSet
 	mailbox   *utils.Mailbox
 	mutex     *sync.Mutex
@@ -77,6 +75,23 @@ func (hr *headBroadcaster) Close() error {
 	})
 }
 
+// TODO: Connect will be removed along with legacy job pipeline
+// See: https://app.clubhouse.io/chainlinklabs/story/13234/remove-jpv1-legacy-pipeline
+func (hr *headBroadcaster) Connect(head *models.Head) error {
+	hr.mutex.Lock()
+	callbacks := hr.callbacks.clone()
+	hr.mutex.Unlock()
+
+	for i, callback := range callbacks {
+		err := callback.Connect(head)
+		if err != nil {
+			logger.Errorf("HeadBroadcaster: Failed Connect callback at index %v: %v", i, err)
+		}
+	}
+
+	return nil
+}
+
 func (hr *headBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 	hr.mailbox.Deliver(head)
 }
@@ -89,7 +104,7 @@ func (hr *headBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLon
 	currentLongestChain = hr.latest
 	id, err := newID()
 	if err != nil {
-		hr.logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
+		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
@@ -119,12 +134,12 @@ func (hr *headBroadcaster) run() {
 func (hr *headBroadcaster) executeCallbacks() {
 	item, exists := hr.mailbox.Retrieve()
 	if !exists {
-		hr.logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
+		logger.Info("HeadBroadcaster: no head to retrieve. It might have been skipped")
 		return
 	}
 	head, ok := item.(models.Head)
 	if !ok {
-		hr.logger.Errorf("expected `models.Head`, got %T", head)
+		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
 	hr.mutex.Lock()
@@ -132,23 +147,23 @@ func (hr *headBroadcaster) executeCallbacks() {
 	hr.latest = &head
 	hr.mutex.Unlock()
 
-	hr.logger.Debugw("HeadBroadcaster initiating callbacks",
+	logger.Debugw("HeadBroadcaster initiating callbacks",
 		"headNum", head.Number,
 		"numCallbacks", len(hr.callbacks),
 	)
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(callbacks))
+	wg.Add(len(hr.callbacks))
 
 	for _, callback := range callbacks {
-		go func(trackable httypes.HeadTrackable) {
+		go func(hr httypes.HeadTrackable) {
 			defer wg.Done()
 			start := time.Now()
 			ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 			defer cancel()
-			trackable.OnNewLongestChain(ctx, head)
+			hr.OnNewLongestChain(ctx, head)
 			elapsed := time.Since(start)
-			hr.logger.Debugw(fmt.Sprintf("HeadBroadcaster: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(hr), "blockNumber", head.Number, "time", elapsed, "id", "head_relayer")
+			logger.Debugw(fmt.Sprintf("HeadBroadcaster: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(hr), "blockNumber", head.Number, "time", elapsed, "id", "head_relayer")
 		}(callback)
 	}
 
@@ -169,6 +184,7 @@ type NullBroadcaster struct{}
 
 func (*NullBroadcaster) Start() error                                            { return nil }
 func (*NullBroadcaster) Close() error                                            { return nil }
+func (*NullBroadcaster) Connect(head *models.Head) error                         { return nil }
 func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {}
 func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *models.Head, unsubscribe func()) {
 	return nil, func() {}

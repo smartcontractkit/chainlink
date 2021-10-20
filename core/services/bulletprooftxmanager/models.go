@@ -17,16 +17,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-type EthTxMeta struct {
-	JobID         int32
-	RequestID     common.Hash
-	RequestTxHash common.Hash
-}
-
-func (EthTxMeta) GormDataType() string {
-	return "json"
-}
-
 type EthTxState string
 type EthTxAttemptState string
 
@@ -42,6 +32,12 @@ const (
 	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")
 	EthTxAttemptBroadcast       = EthTxAttemptState("broadcast")
 )
+
+type EthTaskRunTx struct {
+	TaskRunID uuid.UUID
+	EthTxID   int64
+	EthTx     EthTx
+}
 
 type EthTx struct {
 	ID             int64

@@ -6,49 +6,25 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-type TestRPCHandlers struct {
-	*feeds.RPCHandlers
+func Test_RPCHandlers_ProposeJob(t *testing.T) {
+	svc := setupTestService(t)
 
-	svc            *mocks.Service
-	feedsManagerID int64
-}
-
-func setupTestHandlers(t *testing.T) *TestRPCHandlers {
 	var (
-		svc            = &mocks.Service{}
+		jobID          = uuid.NewV4()
+		spec           = `some spec`
 		feedsManagerID = int64(1)
 	)
+	h := feeds.NewRPCHandlers(svc, feedsManagerID)
 
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			svc,
-		)
-	})
-
-	return &TestRPCHandlers{
-		RPCHandlers:    feeds.NewRPCHandlers(svc, feedsManagerID),
-		svc:            svc,
-		feedsManagerID: feedsManagerID,
-	}
-}
-
-func Test_RPCHandlers_ProposeJob(t *testing.T) {
-	var (
-		jobID = uuid.NewV4()
-		spec  = TestSpec
-	)
-	h := setupTestHandlers(t)
-
-	h.svc.
-		On("ProposeJob", &feeds.JobProposal{
+	svc.orm.
+		On("CreateJobProposal", context.Background(), &feeds.JobProposal{
 			Spec:           spec,
-			FeedsManagerID: h.feedsManagerID,
+			Status:         feeds.JobProposalStatusPending,
+			FeedsManagerID: feedsManagerID,
 			RemoteUUID:     jobID,
 		}).
 		Return(int64(1), nil)

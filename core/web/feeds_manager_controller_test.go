@@ -192,7 +192,7 @@ func setupFeedsManagerTest(t *testing.T) (*cltest.TestApplication, cltest.HTTPCl
 	app.Start()
 
 	// We need a CSA key to establish a connection to the FMS
-	app.KeyStore.CSA().Create()
+	app.KeyStore.CSA().CreateCSAKey()
 
 	client := app.NewHTTPClient()
 

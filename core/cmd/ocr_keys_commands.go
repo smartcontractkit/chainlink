@@ -22,7 +22,7 @@ type OCRKeyBundlePresenter struct {
 
 // RenderTable implements TableRenderer
 func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
@@ -30,23 +30,32 @@ func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return nil
 }
 
 func (p *OCRKeyBundlePresenter) ToRow() []string {
-	return []string{
+	var deletedAt string
+	if p.DeletedAt != nil {
+		deletedAt = p.DeletedAt.String()
+	}
+	row := []string{
 		p.ID,
 		p.OnChainSigningAddress.String(),
 		p.OffChainPublicKey.String(),
 		p.ConfigPublicKey.String(),
+		p.CreatedAt.String(),
+		p.UpdatedAt.String(),
+		deletedAt,
 	}
+
+	return row
 }
 
 type OCRKeyBundlePresenters []OCRKeyBundlePresenter
 
 // RenderTable implements TableRenderer
 func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey"}
+	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -58,7 +67,7 @@ func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return nil
 }
 
 // ListOCRKeyBundles lists the available OCR Key Bundles

@@ -15,12 +15,6 @@ type Mailbox struct {
 	capacity uint64
 }
 
-// NewHighCapacityMailbox create a new mailbox with a capacity
-// that is better able to handle e.g. large log replays
-func NewHighCapacityMailbox() *Mailbox {
-	return NewMailbox(100000)
-}
-
 // NewMailbox creates a new mailbox instance
 func NewMailbox(capacity uint64) *Mailbox {
 	queueCap := capacity

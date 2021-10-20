@@ -32,9 +32,8 @@ type (
 	registrations struct {
 		subscribers map[uint64]*subscribers
 		decoders    map[common.Address]ParseLogFunc
-		logger      *logger.Logger
 
-		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
+		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}
@@ -46,7 +45,9 @@ type (
 	// The Listener responds to log events through HandleLog.
 	Listener interface {
 		HandleLog(b Broadcast)
-		JobID() int32
+		JobID() models.JobID
+		JobIDV2() int32
+		IsV2Job() bool
 	}
 
 	// Metadata structure maintained per listener
@@ -56,11 +57,10 @@ type (
 	}
 )
 
-func newRegistrations(logger *logger.Logger) *registrations {
+func newRegistrations() *registrations {
 	return &registrations{
 		subscribers: make(map[uint64]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
-		logger:      logger,
 	}
 }
 
@@ -154,7 +154,7 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead models.Hea
 			}
 
 			for _, log := range logsPerBlock.Logs {
-				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders, r.logger)
+				subscribers.sendLog(log, latestHead, broadcastsExisting, r.decoders)
 			}
 		}
 	}
@@ -251,11 +251,7 @@ func (r *subscribers) isAddressRegistered(address common.Address) bool {
 	return exists
 }
 
-func (r *subscribers) sendLog(log types.Log, latestHead models.Head,
-	broadcasts map[LogBroadcastAsKey]struct{},
-	decoders map[common.Address]ParseLogFunc,
-	logger *logger.Logger) {
-
+func (r *subscribers) sendLog(log types.Log, latestHead models.Head, broadcasts map[LogBroadcastAsKey]struct{}, decoders map[common.Address]ParseLogFunc) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
 	for listener, metadata := range r.handlers[log.Address][log.Topics[0]] {
@@ -287,8 +283,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head,
 		}
 
 		logger.Debugw("LogBroadcaster: Sending out log",
-			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash,
-			"address", log.Address, "latestBlockNumber", latestBlockNumber)
+			"blockNumber", log.BlockNumber, "blockHash", log.BlockHash, "address", log.Address, "latestBlockNumber", latestBlockNumber)
 
 		wg.Add(1)
 		go func() {
@@ -298,7 +293,7 @@ func (r *subscribers) sendLog(log types.Log, latestHead models.Head,
 				latestBlockHash:   latestHead.Hash,
 				rawLog:            logCopy,
 				decodedLog:        decodedLog,
-				jobID:             listener.JobID(),
+				jobID:             NewJobIdFromListener(listener),
 			})
 		}()
 	}

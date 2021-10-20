@@ -1,0 +1,7 @@
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "assetPrice", "params": { "bodyParam": true }},
+    { "type": "copy" }
+  ]
+}

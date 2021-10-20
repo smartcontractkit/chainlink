@@ -19,7 +19,6 @@ import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Grid from '@material-ui/core/Grid'
-import { EditJobSpecDialog, FormValues } from './EditJobSpecDialog'
 
 interface RouteParams {
   id: string
@@ -31,7 +30,6 @@ export const JobProposalScreen = () => {
   const [proposal, setProposal] = React.useState<Resource<JobProposal>>()
   const [confirmApprove, setConfirmApprove] = React.useState(false)
   const [confirmReject, setConfirmReject] = React.useState(false)
-  const [isEditing, setIsEditing] = React.useState(false)
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !proposal)
 
@@ -70,19 +68,6 @@ export const JobProposalScreen = () => {
       .finally(() => setConfirmApprove(false))
   }
 
-  const handleUpdateJobSpecSubmit = ({ spec }: FormValues) => {
-    return v2.jobProposals
-      .updateJobProposalSpec(id, { spec })
-      .then((res) => {
-        setProposal(res.data)
-        dispatch(notifySuccess(() => <>Spec was updated</>, {}))
-        setIsEditing(false)
-      })
-      .catch((e) => {
-        dispatch(notifyError(ErrorMessage, e))
-      })
-  }
-
   return (
     <Content>
       <Grid container>
@@ -118,18 +103,11 @@ export const JobProposalScreen = () => {
               />
 
               <CardContent>
-                <SyntaxHighlighter language="toml" style={prism}>
-                  {proposal.attributes.spec}
-                </SyntaxHighlighter>
-
-                {proposal.attributes.status === 'pending' && (
-                  <Button
-                    variant="contained"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    Edit job spec
-                  </Button>
-                )}
+                <div>
+                  <SyntaxHighlighter language="toml" style={prism}>
+                    {proposal.attributes.spec}
+                  </SyntaxHighlighter>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -154,15 +132,6 @@ export const JobProposalScreen = () => {
         cancelButtonText="Cancel"
         onCancel={() => setConfirmReject(false)}
       />
-
-      {proposal && (
-        <EditJobSpecDialog
-          open={isEditing}
-          onClose={() => setIsEditing(false)}
-          initialValues={{ spec: proposal.attributes.spec }}
-          onSubmit={handleUpdateJobSpecSubmit}
-        />
-      )}
     </Content>
   )
 }

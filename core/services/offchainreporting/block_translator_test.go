@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_BlockTranslator(t *testing.T) {
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := new(mocks.Client)
 	ctx := context.Background()
 
 	t.Run("for L1 chains, returns the block changed argument", func(t *testing.T) {

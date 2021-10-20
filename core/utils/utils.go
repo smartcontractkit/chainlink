@@ -109,7 +109,7 @@ func FormatJSON(v interface{}) ([]byte, error) {
 // NewBytes32ID returns a randomly generated UUID that conforms to
 // Ethereum bytes32.
 func NewBytes32ID() string {
-	return strings.ReplaceAll(uuid.NewV4().String(), "-", "")
+	return strings.Replace(uuid.NewV4().String(), "-", "", -1)
 }
 
 // NewSecret returns a new securely random sequence of n bytes of entropy.  The

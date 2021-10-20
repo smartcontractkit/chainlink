@@ -1,23 +1,21 @@
 package store
 
 import (
-	"database/sql"
 	"fmt"
 	"math/rand"
 	"os"
-	"strings"
 	"sync"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -36,26 +34,31 @@ const (
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
-	Config         config.GeneralConfig
+	Config         *config.Config
 	Clock          utils.AfterNower
 	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
 // NewStore will create a new store
-// func NewStore(config config.GeneralConfig, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-func NewStore(config config.GeneralConfig, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLock, shutdownSignal)
+// func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
+func NewStore(config *config.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	// return newStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+	return newStore(config, ethClient, advisoryLock, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config config.GeneralConfig, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStore(config, advisoryLocker, shutdownSignal)
+func NewInsecureStore(config *config.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
+	// return newStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	return newStore(config, ethClient, advisoryLocker, shutdownSignal)
 }
 
+// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
+// See: https://www.pivotaltracker.com/story/show/175493792
 func newStore(
-	config config.GeneralConfig,
+	config *config.Config,
+	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
 	shutdownSignal gracefulpanic.Signal,
 ) (*Store, error) {
@@ -78,7 +81,19 @@ func newStore(
 	return store, nil
 }
 
+// Start initiates all of Store's dependencies
 func (s *Store) Start() error {
+	return checkV1JobSpecs(s.DB)
+}
+
+func checkV1JobSpecs(db *gorm.DB) error {
+	var count int
+	if err := db.Raw(`SELECT count(*) FROM job_specs`).Scan(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		logger.Warnf(`Found %d legacy job_specs. The JSON style of job spec is now deprecated and support for jobs using this format will be REMOVED in an upcoming release. You should migrate all these jobs to V2 (TOML) format. For help doing this, please refer to the docs (https://docs.chain.link/docs/jobs/). To test your node to see how it would behave after support for these jobs is removed, you may set ENABLE_LEGACY_JOB_PIPELINE=false`, count)
+	}
 	return nil
 }
 
@@ -148,37 +163,22 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	return nil
 }
 
-func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+func initializeORM(cfg *config.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := cfg.DatabaseURL()
 	dbOrm, err := orm.NewORM(dbURL.String(), cfg.DatabaseTimeout(), shutdownSignal, cfg.GetDatabaseDialectConfiguredOrDefault(), cfg.GetAdvisoryLockIDConfiguredOrDefault(), cfg.GlobalLockRetryInterval().Duration(), cfg.ORMMaxOpenConns(), cfg.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-
-	// Set up the versioning ORM
-	verORM := versioning.NewORM(postgres.WrapDbWithSqlx(
-		postgres.MustSQLDB(dbOrm.DB)),
-	)
-
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
-		var version *versioning.NodeVersion
-		var versionString string
 
-		version, err = verORM.FindLatestNodeVersion()
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				logger.Default.Debugf("Failed to find any node version in the DB: %w", err)
-			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				logger.Default.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
-			} else {
-				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
-			}
+		version, err2 := dbOrm.FindLatestNodeVersion()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
 		}
-
+		var versionString string
 		if version != nil {
 			versionString = version.Version
 		}
-
 		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
@@ -189,7 +189,7 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 		dbOrm.SetLogging(cfg.LogSQLStatements() || cfg.LogSQLMigrations())
 
 		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return migrate.Migrate(postgres.UnwrapGormDB(db).DB)
+			return migrations.Migrate(db)
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
@@ -200,12 +200,11 @@ func initializeORM(cfg config.GeneralConfig, shutdownSignal gracefulpanic.Signal
 	if nodeVersion == "unset" {
 		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
 	}
-	version := versioning.NewNodeVersion(nodeVersion)
-	err = verORM.UpsertNodeVersion(version)
+	version := models.NewNodeVersion(nodeVersion)
+	err = dbOrm.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
-
 	dbOrm.SetLogging(cfg.LogSQLStatements())
 	return dbOrm, nil
 }

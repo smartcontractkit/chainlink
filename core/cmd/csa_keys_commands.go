@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -14,7 +15,7 @@ type CSAKeyPresenter struct {
 
 // RenderTable implements TableRenderer
 func (p *CSAKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Public key"}
+	headers := []string{"ID", "Public key", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 CSA Keys\n")); err != nil {
@@ -27,7 +28,10 @@ func (p *CSAKeyPresenter) RenderTable(rt RendererTable) error {
 
 func (p *CSAKeyPresenter) ToRow() []string {
 	row := []string{
+		p.ID,
 		p.PubKey,
+		fmt.Sprintf("%v", p.CreatedAt),
+		fmt.Sprintf("%v", p.UpdatedAt),
 	}
 
 	return row
@@ -37,7 +41,7 @@ type CSAKeyPresenters []CSAKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps CSAKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Public key"}
+	headers := []string{"ID", "Public key", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -48,7 +52,8 @@ func (ps CSAKeyPresenters) RenderTable(rt RendererTable) error {
 		return err
 	}
 	renderList(headers, rows, rt.Writer)
-	return utils.JustError(rt.Write([]byte("\n")))
+
+	return nil
 }
 
 // ListCSAKeys retrieves a list of all CSA keys

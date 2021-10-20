@@ -38,7 +38,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
 	subj1 := uuid.NewV4()
 	subj2 := uuid.NewV4()

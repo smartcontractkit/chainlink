@@ -1,29 +1,24 @@
 package keeper
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"gorm.io/gorm"
 )
 
-// To make sure Delegate struct implements job.Delegate interface
-var _ job.Delegate = (*Delegate)(nil)
-
 type transmitter interface {
-	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, meta interface{}, strategy bulletprooftxmanager.TxStrategy) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type Delegate struct {
 	config          Config
-	logger          *logger.Logger
 	db              *gorm.DB
 	txm             transmitter
 	jrm             job.ORM
@@ -33,7 +28,8 @@ type Delegate struct {
 	logBroadcaster  log.Broadcaster
 }
 
-// NewDelegate is the constructor of Delegate
+var _ job.Delegate = (*Delegate)(nil)
+
 func NewDelegate(
 	db *gorm.DB,
 	txm transmitter,
@@ -42,7 +38,6 @@ func NewDelegate(
 	ethClient eth.Client,
 	headBroadcaster httypes.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
-	logger *logger.Logger,
 	config Config,
 ) *Delegate {
 	return &Delegate{
@@ -54,17 +49,14 @@ func NewDelegate(
 		ethClient:       ethClient,
 		headBroadcaster: headBroadcaster,
 		logBroadcaster:  logBroadcaster,
-		logger:          logger,
 	}
 }
 
-// JobType returns job type
 func (d *Delegate) JobType() job.Type {
 	return job.Keeper
 }
 
-func (Delegate) AfterJobCreated(spec job.Job) {}
-
+func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
@@ -88,11 +80,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 
 	orm := NewORM(d.db, d.txm, d.config, strategy)
 
-	svcLogger := d.logger.With(
-		"jobID", spec.ID,
-		"registryAddress", contractAddress.Hex(),
-	)
-
 	registrySynchronizer := NewRegistrySynchronizer(
 		spec,
 		contract,
@@ -101,7 +88,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),
 		d.config.KeeperMinimumRequiredConfirmations(),
-		svcLogger.Named("RegistrySynchronizer"),
 	)
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
@@ -109,7 +95,6 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.pr,
 		d.ethClient,
 		d.headBroadcaster,
-		svcLogger.Named("UpkeepExecuter"),
 		d.config,
 	)
 

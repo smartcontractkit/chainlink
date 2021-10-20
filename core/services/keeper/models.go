@@ -13,6 +13,14 @@ type Registry struct {
 	NumKeepers        int32
 }
 
+func NewRegistry(address ethkey.EIP55Address, from ethkey.EIP55Address, jobID int32) Registry {
+	return Registry{
+		ContractAddress: address,
+		FromAddress:     from,
+		JobID:           jobID,
+	}
+}
+
 func (Registry) TableName() string {
 	return "keeper_registries"
 }

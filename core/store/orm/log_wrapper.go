@@ -55,12 +55,10 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 			return
 		}
 		sql, rows := fc()
-		// We only log these as debugs as we expect the errors are handled at a higher
-		// level.
 		if rows == -1 {
-			o.SugaredLogger.Debugw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Debugw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case elapsed > o.slowThreshold && o.slowThreshold != 0:
 		sql, rows := fc()

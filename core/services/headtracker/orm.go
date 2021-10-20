@@ -67,7 +67,7 @@ func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (mod
 	var prevHead *models.Head
 	for rows.Next() {
 		h := models.Head{}
-		if err = rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
+		if err := rows.Scan(&h.ID, &h.Hash, &h.Number, &h.ParentHash, &h.Timestamp, &h.CreatedAt); err != nil {
 			return models.Head{}, err
 		}
 		if firstHead == nil {
@@ -76,9 +76,6 @@ func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (mod
 			prevHead.Parent = &h
 		}
 		prevHead = &h
-	}
-	if err = rows.Err(); err != nil {
-		return models.Head{}, err
 	}
 	if firstHead == nil {
 		return models.Head{}, gorm.ErrRecordNotFound

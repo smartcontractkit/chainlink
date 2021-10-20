@@ -2,12 +2,9 @@ package models
 
 import (
 	"crypto/subtle"
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -137,63 +134,4 @@ func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[strin
 		return nil, err
 	}
 	return mp, nil
-}
-
-// TaskType defines what Adapter a TaskSpec will use.
-type TaskType string
-
-// NewTaskType returns a formatted Task type.
-func NewTaskType(val string) (TaskType, error) {
-	re := regexp.MustCompile("^[a-zA-Z0-9-_]*$")
-	if !re.MatchString(val) {
-		return TaskType(""), fmt.Errorf("task type validation: name %v contains invalid characters", val)
-	}
-
-	return TaskType(strings.ToLower(val)), nil
-}
-
-// MustNewTaskType instantiates a new TaskType, and panics if a bad input is provided.
-func MustNewTaskType(val string) TaskType {
-	tt, err := NewTaskType(val)
-	if err != nil {
-		panic(fmt.Sprintf("%v is not a valid TaskType", val))
-	}
-	return tt
-}
-
-// UnmarshalJSON converts a bytes slice of JSON to a TaskType.
-func (t *TaskType) UnmarshalJSON(input []byte) error {
-	var aux string
-	if err := json.Unmarshal(input, &aux); err != nil {
-		return err
-	}
-	tt, err := NewTaskType(aux)
-	*t = tt
-	return err
-}
-
-// MarshalJSON converts a TaskType to a JSON byte slice.
-func (t TaskType) MarshalJSON() ([]byte, error) {
-	return json.Marshal(t.String())
-}
-
-// String returns this TaskType as a string.
-func (t TaskType) String() string {
-	return string(t)
-}
-
-// Value returns this instance serialized for database storage.
-func (t TaskType) Value() (driver.Value, error) {
-	return string(t), nil
-}
-
-// Scan reads the database value and returns an instance.
-func (t *TaskType) Scan(value interface{}) error {
-	temp, ok := value.(string)
-	if !ok {
-		return fmt.Errorf("unable to convert %v of %T to TaskType", value, value)
-	}
-
-	*t = TaskType(temp)
-	return nil
 }

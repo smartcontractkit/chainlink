@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.cjs.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [
+      "cypress",
+      "@types/node"
+    ] /* Type declaration files to be included in compilation. */
+  }
+}

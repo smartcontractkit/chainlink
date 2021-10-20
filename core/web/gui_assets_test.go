@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,8 +76,9 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	t.Parallel()
 
-	config := cltest.NewTestEVMConfig(t)
-	config.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	config, cfgCleanup := cltest.NewConfig(t)
+	config.Set("CHAINLINK_DEV", false)
+	t.Cleanup(cfgCleanup)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())

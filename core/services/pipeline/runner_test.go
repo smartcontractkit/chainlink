@@ -19,7 +19,6 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -28,8 +27,8 @@ import (
 )
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -43,7 +42,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	_, bridge := cltest.NewBridgeType(t, "example-bridge")
 	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -55,9 +54,9 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	defer s5.Close()
 
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(db)
+	orm.On("DB").Return(store.DB)
 
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -187,7 +186,6 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			cfg := cltest.NewTestEVMConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
 			expectedRequestDS2 := map[string]interface{}{"data": []interface{}{test.vars["bar"], test.vars["baz"]}}
@@ -235,7 +233,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			orm := new(mocks.ORM)
 			orm.On("DB").Return(store.DB)
 
-			runner := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+			runner := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
@@ -310,9 +308,8 @@ ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
 `, m1.URL, m2.URL)
-	cfg := cltest.NewTestEVMConfig(t)
 
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -335,8 +332,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -365,8 +361,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	defer cleanup()
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -394,8 +389,7 @@ func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
 		res.WriteHeader(http.StatusOK)
 		res.Write([]byte(`{"result":10}`))
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds1 [type=http url="%s"]
@@ -459,8 +453,7 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -496,7 +489,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
 	require.Equal(t, true, incomplete)      // still incomplete
@@ -505,7 +498,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 
 	// Trigger run resumption with no new data
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
 
@@ -518,7 +511,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// Trigger run resumption
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err = r.Run(context.Background(), &run, *logger.Default, false)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
@@ -589,8 +582,7 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(store.DB)
 
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 
 	s := fmt.Sprintf(`
 ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
@@ -638,7 +630,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}).Once()
 	// StoreRun is called again to store the final result
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
-	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false, nil)
+	incomplete, err := r.Run(context.Background(), &run, *logger.Default, false)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
 	require.Equal(t, false, incomplete) // run is complete
@@ -671,8 +663,7 @@ func Test_PipelineRunner_FailEarly(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		require.Fail(t, "ds1 shouldn't have been called")
 	}))
-	cfg := cltest.NewTestEVMConfig(t)
-	r := pipeline.NewRunner(orm, cfg, nil, nil, nil, nil)
+	r := pipeline.NewRunner(orm, store.Config, nil, nil, nil, nil)
 	spec := pipeline.Spec{
 		DotDagSource: fmt.Sprintf(`
 ds_panic [type=panic msg="oh no" failEarly=true]
@@ -686,10 +677,6 @@ ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
 	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, *logger.Default)
 	require.NoError(t, err)
 	require.True(t, run.FailEarly)
-	require.Equal(t, 4, len(trrs))
-	assert.Contains(t, run.ByDotID("ds_panic").Error.String, "panicked")
-	// all the other runs are failed with ErrCancelled
-	assert.Contains(t, run.ByDotID("ds1").Error.String, "cancelled")
-	assert.Contains(t, run.ByDotID("ds_parse").Error.String, "cancelled")
-	assert.Contains(t, run.ByDotID("ds_multiply").Error.String, "cancelled")
+	require.Equal(t, 1, len(trrs))
+	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs[0].Result.Error)
 }

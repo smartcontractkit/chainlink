@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
@@ -34,9 +33,6 @@ type (
 		Inputs() []Task
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		TaskRetries() uint32
-		TaskMinBackoff() time.Duration
-		TaskMaxBackoff() time.Duration
 	}
 
 	Config interface {
@@ -47,9 +43,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		EvmGasLimitDefault() uint64
-		EvmMaxQueuedTransactions() uint64
-		MinRequiredOutgoingConfirmations() uint64
+		EthGasLimitDefault() uint64
+		EthMaxQueuedTransactions() uint64
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineReaperInterval() time.Duration
@@ -65,7 +60,6 @@ var (
 	ErrTooManyErrors         = errors.New("too many errors")
 	ErrTimeout               = errors.New("timeout")
 	ErrTaskRunFailed         = errors.New("task run failed")
-	ErrCancelled             = errors.New("task run cancelled (fail early)")
 )
 
 const (
@@ -125,7 +119,6 @@ type TaskRunResult struct {
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
-	Attempts   uint
 	CreatedAt  time.Time
 	FinishedAt null.Time
 }
@@ -162,6 +155,11 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 		panic("expected at least one task to be final")
 	}
 	return fr
+}
+
+type RunWithResults struct {
+	Run            Run
+	TaskRunResults TaskRunResults
 }
 
 type JSONSerializable struct {
@@ -218,36 +216,33 @@ func (t TaskType) String() string {
 }
 
 const (
-	TaskTypeHTTP             TaskType = "http"
-	TaskTypeBridge           TaskType = "bridge"
-	TaskTypeMean             TaskType = "mean"
-	TaskTypeMedian           TaskType = "median"
-	TaskTypeMode             TaskType = "mode"
-	TaskTypeSum              TaskType = "sum"
-	TaskTypeMultiply         TaskType = "multiply"
-	TaskTypeDivide           TaskType = "divide"
-	TaskTypeJSONParse        TaskType = "jsonparse"
-	TaskTypeCBORParse        TaskType = "cborparse"
-	TaskTypeAny              TaskType = "any"
-	TaskTypeVRF              TaskType = "vrf"
-	TaskTypeVRFV2            TaskType = "vrfv2"
-	TaskTypeEstimateGasLimit TaskType = "estimategaslimit"
-	TaskTypeETHCall          TaskType = "ethcall"
-	TaskTypeETHTx            TaskType = "ethtx"
-	TaskTypeETHABIEncode     TaskType = "ethabiencode"
-	TaskTypeETHABIDecode     TaskType = "ethabidecode"
-	TaskTypeETHABIDecodeLog  TaskType = "ethabidecodelog"
+	TaskTypeHTTP            TaskType = "http"
+	TaskTypeBridge          TaskType = "bridge"
+	TaskTypeMean            TaskType = "mean"
+	TaskTypeMedian          TaskType = "median"
+	TaskTypeMode            TaskType = "mode"
+	TaskTypeSum             TaskType = "sum"
+	TaskTypeMultiply        TaskType = "multiply"
+	TaskTypeDivide          TaskType = "divide"
+	TaskTypeJSONParse       TaskType = "jsonparse"
+	TaskTypeCBORParse       TaskType = "cborparse"
+	TaskTypeAny             TaskType = "any"
+	TaskTypeVRF             TaskType = "vrf"
+	TaskTypeETHCall         TaskType = "ethcall"
+	TaskTypeETHTx           TaskType = "ethtx"
+	TaskTypeETHABIEncode    TaskType = "ethabiencode"
+	TaskTypeETHABIDecode    TaskType = "ethabidecode"
+	TaskTypeETHABIDecodeLog TaskType = "ethabidecodelog"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
 )
 
 var (
-	stringType     = reflect.TypeOf("")
-	bytesType      = reflect.TypeOf([]byte(nil))
-	bytes20Type    = reflect.TypeOf([20]byte{})
-	int32Type      = reflect.TypeOf(int32(0))
-	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
+	stringType  = reflect.TypeOf("")
+	bytesType   = reflect.TypeOf([]byte(nil))
+	bytes20Type = reflect.TypeOf([20]byte{})
+	int32Type   = reflect.TypeOf(int32(0))
 )
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID string) (_ Task, err error) {
@@ -287,10 +282,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRF:
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeVRFV2:
-		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
-	case TaskTypeEstimateGasLimit:
-		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
 		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHTx:
@@ -308,18 +299,17 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 	}
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Result:           task,
-		WeaklyTypedInput: true,
+		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToTimeDurationHookFunc(),
 			func(from reflect.Type, to reflect.Type, data interface{}) (interface{}, error) {
-				if from != stringType {
-					return data, nil
-				}
-				switch to {
-				case nullUint32Type:
-					i, err2 := strconv.ParseUint(data.(string), 10, 32)
-					return cnull.Uint32From(uint32(i)), err2
+				switch from {
+				case stringType:
+					switch to {
+					case int32Type:
+						i, err2 := strconv.ParseInt(data.(string), 10, 32)
+						return int32(i), err2
+					}
 				}
 				return data, nil
 			},

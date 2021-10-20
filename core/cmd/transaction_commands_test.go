@@ -4,6 +4,7 @@ import (
 	"flag"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -103,16 +104,21 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 
+	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
+		withConfig(map[string]interface{}{
+			"OPERATOR_CONTRACT_ADDRESS": &oca,
+		}),
 		withMocks(newEthMock(t)),
+		startAndConnect(),
 	)
 	client, r := app.NewClientAndRenderer()
 	s := app.GetStore()
 
 	set := flag.NewFlagSet("sendether", 0)
 	amount := "100.5"
-	_, fromAddress := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth(), 0)
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	set.Parse([]string{amount, fromAddress.Hex(), to})
 

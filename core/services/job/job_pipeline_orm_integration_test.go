@@ -3,17 +3,17 @@ package job_test
 import (
 	"context"
 	"testing"
-	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -43,16 +43,13 @@ func TestPipelineORM_Integration(t *testing.T) {
     `
 
 	config, oldORM, cleanupDB := heavyweight.FullTestORM(t, "pipeline_orm", true, true)
-	config.GeneralConfig.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
-	config.GeneralConfig.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
+	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
+	config.Set("MAX_HTTP_ATTEMPTS", "1")
 	defer cleanupDB()
 	db := oldORM.DB
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
 
-	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
+	key := cltest.MustInsertRandomKey(t, db)
+	transmitterAddress := key.Address.Address()
 
 	var specID int32
 
@@ -124,7 +121,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		defer cleanup()
 		runner := pipeline.NewRunner(orm, config, nil, nil, nil, nil)
 		defer runner.Close()
-		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
+		jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)

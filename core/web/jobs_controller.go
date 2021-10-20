@@ -88,14 +88,14 @@ func (jc *JobsController) Create(c *gin.Context) {
 
 	jobType, err := job.ValidateSpec(request.TOML)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse TOML"))
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
 	var jb job.Job
 	config := jc.App.GetStore().Config
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetEVMConfig(), request.TOML)
+		jb, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
@@ -144,7 +144,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 		return
 	}
 
-	err = jc.App.DeleteJob(c.Request.Context(), jobSpec.ID)
+	err = jc.App.DeleteJobV2(c.Request.Context(), jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return

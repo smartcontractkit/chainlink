@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+
+source ../common
+
+build_images() {
+  docker build -t geth ./geth
+  docker build -t smartcontract/chainlink ../../
+}
+
+start_network() {
+  echo "Starting Network. See logs/{chain_[12],geth}.log for logs"
+  ( docker-compose up > /dev/null ) &
+}
+
+tear_down() {
+  docker-compose down
+  # Remove CL database
+  sudo rm -rf tmp
+}
+
+login() {
+  docker exec -it forks_chainlink chainlink admin login -f /run/secrets/apicredentials
+}
+
+create_job() {
+  login
+  ETH_LOG_JOB=`cat fixtures/eth_log_job.json`
+  docker exec -it forks_chainlink chainlink job_specs create "$ETH_LOG_JOB"
+}
+
+create_contract() {
+  CONTRACT_DATA=`cat fixtures/create_contract.json`
+  docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$CONTRACT_DATA" \
+    172.16.1.100:8545
+}
+
+initial_setup() {
+  tear_down
+  build_images
+  start_network
+  waitFor "docker run --network forks_gethnet --ip 172.16.1.199 --rm pstauffer/curl:latest curl -s 172.16.1.102:6688 2>/dev/null"
+  assert_testing_correct_artifact
+  create_job
+}
+
+assert_not_in_chainlink_logs() {
+  echo "asserting \"$1\" not present ..."
+  num_found=`docker-compose logs chainlink | grep -c "$1"`
+  if [ $num_found != "0" ]; then
+    printf "\n"
+    echo "TEST FAILED - Found $1 in chainlink logs and shouldn't have"
+    exit 1
+  fi;
+}
+
+assert_testing_correct_artifact() {
+  version="`cat ../../VERSION`"
+  sha="`git rev-parse HEAD`"
+  search_chainlink_logs "Starting Chainlink Node ${version} at commit ${sha}"
+}
+
+search_chainlink_logs() {
+	echo "searching for \"$1\" ... "
+	check_count=0;
+	TIMEOUT=60
+	until ( docker-compose logs chainlink | grep "$1" > /dev/null) ; do
+    if [ $check_count -gt $TIMEOUT ]; then
+      printf "\n"
+      echo "TEST FAILED - Timed out searching chainlink logs for \"$1\""
+      exit 1
+    fi;
+    check_count=$((check_count + 1))
+    sleep 1;
+	done
+}
+
+save_logs() {
+  echo "saving logs for chain $1"
+  docker-compose logs chainlink > "logs/chain_$1.log"
+  docker-compose logs geth >> "logs/geth_$1.log"
+}

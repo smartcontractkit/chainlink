@@ -6,22 +6,21 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/libocr/offchainreporting"
+	"github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 )
 
 type ValidationConfig interface {
-	Chain() *chains.Chain
 	Dev() bool
-	OCRBlockchainTimeout() time.Duration
-	OCRContractConfirmations() uint16
-	OCRContractPollInterval() time.Duration
-	OCRContractSubscribeInterval() time.Duration
+	OCRBlockchainTimeout(override time.Duration) time.Duration
+	OCRContractConfirmations(override uint16) uint16
+	OCRContractPollInterval(override time.Duration) time.Duration
+	OCRContractSubscribeInterval(override time.Duration) time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
-	OCRObservationTimeout() time.Duration
+	OCRObservationTimeout(override time.Duration) time.Duration
 	OCRObservationGracePeriod() time.Duration
 }
 
@@ -95,9 +94,22 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) error {
-	lc := NewLocalConfig(cfg, spec)
-	return errors.Wrap(offchainreporting.SanityCheckLocalConfig(lc), "offchainreporting.SanityCheckLocalConfig failed")
+func validateTimingParameters(config ValidationConfig, spec job.OffchainReportingOracleSpec) error {
+	lc := types.LocalConfig{
+		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
+		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
+		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
+		ContractConfigTrackerSubscribeInterval: config.OCRContractSubscribeInterval(time.Duration(spec.ContractConfigTrackerSubscribeInterval)),
+		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
+		DataSourceGracePeriod:                  config.OCRObservationGracePeriod(),
+	}
+	if config.Dev() {
+		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode
+	}
+
+	return offchainreporting.SanityCheckLocalConfig(lc)
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
@@ -119,12 +131,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
 	}
-	var observationTimeout time.Duration
-	if spec.OffchainreportingOracleSpec.ObservationTimeout != 0 {
-		observationTimeout = spec.OffchainreportingOracleSpec.ObservationTimeout.Duration()
-	} else {
-		observationTimeout = config.OCRObservationTimeout()
-	}
+	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.OffchainreportingOracleSpec.ObservationTimeout))
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}

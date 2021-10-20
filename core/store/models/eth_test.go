@@ -89,7 +89,8 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
+	ethKeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
 	chainID := big.NewInt(3)

@@ -2,17 +2,18 @@ package web
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -123,7 +124,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 			}
 			respondWithPipelineRun(jobRunID)
 		} else {
-			jsonAPIError(c, http.StatusUnauthorized, errors.Errorf("external initiator %s is not allowed to run job %s", ei.Name, jobUUID))
+			jsonAPIError(c, http.StatusUnauthorized, err2)
 		}
 		return
 	}
@@ -164,9 +165,26 @@ func (prc *PipelineRunsController) Resume(c *gin.Context) {
 		return
 	}
 
-	if err := prc.App.ResumeJobV2(context.Background(), taskID, bodyBytes); err != nil {
+	sqlDB, err := prc.App.PipelineORM().DB().DB()
+	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
+	}
+
+	run, start, err := prc.App.PipelineORM().UpdateTaskRunResult(sqlDB, taskID, bodyBytes)
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	if start {
+		// start the runner again
+		go func() {
+			if _, err := prc.App.ResumeJobV2(context.Background(), &run); err != nil {
+				logger.Errorw("/v2/resume:", "err", err)
+			}
+		}()
 	}
 
 	c.Status(http.StatusOK)

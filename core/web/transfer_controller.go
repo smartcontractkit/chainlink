@@ -29,7 +29,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 
 	store := tc.App.GetStore()
 
-	etx, err := bulletprooftxmanager.SendEther(store.DB, tr.FromAddress, tr.DestinationAddress, tr.Amount, tc.App.GetEVMConfig().EvmGasLimitTransfer())
+	etx, err := bulletprooftxmanager.SendEther(store.DB, tr.FromAddress, tr.DestinationAddress, tr.Amount, store.Config.EthGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))
 		return

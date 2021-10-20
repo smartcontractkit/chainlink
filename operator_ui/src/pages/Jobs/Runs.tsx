@@ -10,7 +10,7 @@ interface Props {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   error: unknown
-  getJobRuns: (props: { page: number; size: number }) => Promise<void>
+  getJobSpecRuns: (props: { page: number; size: number }) => Promise<void>
   job?: JobData['job']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
@@ -21,7 +21,7 @@ export const Runs = ({
   LoadingPlaceholder,
   error,
   job,
-  getJobRuns,
+  getJobSpecRuns,
   recentRuns,
   recentRunsCount,
 }: Props) => {
@@ -42,11 +42,11 @@ export const Runs = ({
   const history = useHistory()
 
   React.useEffect(() => {
-    getJobRuns({ page, size: pageSize })
+    getJobSpecRuns({ page, size: pageSize })
     history.replace({
       search: `?page=${page}&size=${pageSize}`,
     })
-  }, [getJobRuns, history, page, pageSize])
+  }, [getJobSpecRuns, history, page, pageSize])
 
   return (
     <Content>

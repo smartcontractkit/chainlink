@@ -9,13 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
@@ -24,9 +23,9 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	key := cltest.MustInsertRandomKey(t, store.DB)
+	fromAddress := key.Address.Address()
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
@@ -69,20 +68,20 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestEVMConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	store, cleanup := cltest.NewStore(t)
+	t.Cleanup(cleanup)
+	db := store.DB
 	// This can be anything as long as it isn't zero
-	d := 42 * time.Hour
-	cfg.Overrides.EthTxResendAfterThreshold = &d
+	store.Config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", "42h")
 	// Set batch size low to test batching
-	cfg.Overrides.EvmRPCDefaultBatchSize = null.IntFrom(1)
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	store.Config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", "1")
+	key := cltest.MustInsertRandomKey(t, store.DB)
+	fromAddress := key.Address.Address()
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {
-		ethClient := cltest.NewEthClientMock(t)
+		ethClient := new(mocks.Client)
 
-		er := bulletprooftxmanager.NewEthResender(db, ethClient, 100*time.Millisecond, cfg)
+		er := bulletprooftxmanager.NewEthResender(store.DB, ethClient, 100*time.Millisecond, store.Config)
 
 		originalBroadcastAt := time.Unix(1616509100, 0)
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, db, 0, fromAddress, originalBroadcastAt)
@@ -111,9 +110,9 @@ func Test_EthResender_Start(t *testing.T) {
 			cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
 		}()
 
-		err := db.First(&etx).Error
+		err := store.DB.First(&etx).Error
 		require.NoError(t, err)
-		err = db.First(&etx2).Error
+		err = store.DB.First(&etx2).Error
 		require.NoError(t, err)
 
 		assert.Greater(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())

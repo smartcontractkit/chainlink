@@ -139,6 +139,40 @@ docker logs operator-ui -f
 
 You'll now have two terminals, one with the core node, one with operator-ui, with both being able to react to code changes without rebuilding their respective images.
 
+### Running integration test suites
+
+The integration test suite will run against a parity node by default. You can run the integration test suite with the following command:
+
+```sh
+./compose test
+```
+
+If you want to run the test suite against a geth node, you can set the `GETH_MODE` environment variable.
+
+```sh
+GETH_MODE=true ./compose test
+```
+
+If we want to quickly test new changes we make to `integration/` or `tools/ci/ethereum_test` without re-building our images, we can use the `test:dev` command which will reflect those changes from the host file system without rebuilding those containers.
+
+```sh
+./compose test:dev
+```
+
+Still a work in progress, you can run the tests in typescript (instead of bash) by using
+
+```sh
+./compose test:ts
+# or
+./compose test:ts:dev
+```
+
+Eventually, these tests should replace the bash tests entirely
+
+### Running specifically cypress tests
+
+See the README within the [integration folder.](../../integration/README.md)
+
 ### Cleaning up
 
 To remove any containers, volumes, and networks related to our docker-compose setup, we can run the `clean` command:
@@ -160,6 +194,8 @@ The following commands allow you do just about anything:
 
 ```sh
 ./compose <subcommand>
+./compose integration <subcommand> # or ./compose i
+./compose dev:integration <subcommand> # or ./compose di
 ./compose dev <subcommand>
 ```
 
@@ -167,6 +203,7 @@ For example, to see what our compose configuration looks like:
 
 ```sh
 ./compose config # base config
+./compose dev:integration # development integration test config
 ```
 
 Or, to run just an ethereum node:

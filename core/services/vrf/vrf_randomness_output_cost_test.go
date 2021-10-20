@@ -17,7 +17,7 @@ func TestMeasureRandomValueFromVRFProofGasCost(t *testing.T) {
 	r := mrand.New(mrand.NewSource(10))
 	sk := randomScalar(t, r)
 	skNum := secp256k1.ToInt(sk)
-	pk := vrfkey.MustNewV2XXXTestingOnly(skNum)
+	pk := vrfkey.NewPrivateKeyXXXTestingOnly(skNum)
 	nonce := randomScalar(t, r)
 	randomSeed := randomUint256(t, r)
 	proof, err := pk.GenerateProofWithNonce(randomSeed, secp256k1.ToInt(nonce))

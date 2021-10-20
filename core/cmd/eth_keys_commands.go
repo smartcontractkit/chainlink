@@ -19,31 +19,39 @@ type EthKeyPresenter struct {
 }
 
 func (p *EthKeyPresenter) ToRow() []string {
+	nextNonce := fmt.Sprintf("%d", p.NextNonce)
+	var deletedAt string
+	if p.DeletedAt != nil {
+		deletedAt = p.DeletedAt.String()
+	}
+
 	return []string{
 		p.Address,
 		p.EthBalance.String(),
 		p.LinkBalance.String(),
+		nextNonce,
 		fmt.Sprintf("%v", p.IsFunding),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
+		deletedAt,
 	}
 }
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "ETH", "LINK", "Next nonce", "Is funding", "Created", "Updated", "Deleted"}
 	rows := [][]string{p.ToRow()}
 
 	renderList(headers, rows, rt.Writer)
+	return nil
 
-	return utils.JustError(rt.Write([]byte("\n")))
 }
 
 type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "ETH", "LINK", "Is funding", "Created", "Updated"}
+	headers := []string{"Address", "ETH", "LINK", "Next nonce", "Is funding", "Created", "Updated", "Deleted"}
 	rows := [][]string{}
 
 	for _, p := range ps {

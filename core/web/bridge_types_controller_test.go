@@ -2,10 +2,12 @@ package web_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -19,11 +21,12 @@ import (
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b)
 	b.Cleanup(cleanup)
+	setupJobSpecsControllerIndex(app)
 	client := app.NewHTTPClient()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		resp, cleanup := client.Get("/v2/bridge_types")
+		resp, cleanup := client.Get("/v2/specs")
 		defer cleanup()
 		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
@@ -40,7 +43,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	bt, err := setupBridgeControllerIndex(t, app.Store)
 	assert.NoError(t, err)
 
-	resp, cleanup := client.Get("/v2/bridge_types?size=x")
+	resp, cleanup := client.Get("/v2/specs?size=x")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
@@ -177,6 +180,62 @@ func TestBridgeController_Show(t *testing.T) {
 	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
+}
+
+func TestBridgeController_Destroy(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
+
+	bridgeJSON := cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")
+	var bt models.BridgeType
+	err := json.Unmarshal(bridgeJSON, &bt)
+	assert.NoError(t, err)
+	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
+
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
+
+	resp, cleanup = client.Get("/v2/bridge_types/" + bt.Name.String())
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
+
+	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
+
+	// Create an FM and DR job using the bridge.
+	js := cltest.NewJobWithWebInitiator()
+	js.Tasks = []models.TaskSpec{{Type: bt.Name}}
+	assert.NoError(t, app.Store.CreateJob(&js))
+
+	jsFM := cltest.NewJobWithFluxMonitorInitiatorWithBridge(bt.Name.String())
+	jsFM.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
+	assert.NoError(t, app.Store.CreateJob(&jsFM))
+
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
+
+	require.NoError(t, app.Store.ArchiveJob(js.ID))
+
+	// Still fails because FM job using bridge.
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
+
+	require.NoError(t, app.Store.ArchiveJob(jsFM.ID))
+
+	// Succeeds because FM job is archived.
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be 200")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {

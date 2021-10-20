@@ -87,7 +87,7 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.config.locking {
-		err := s.waitForLock(ctx, timeout)
+		err := s.waitForLock(ctx)
 		if err != nil {
 			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)
 		}
@@ -95,15 +95,23 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	return nil
 }
 
-func (s *PostgresLockingStrategy) waitForLock(ctx context.Context, timeout models.Duration) error {
+func (s *PostgresLockingStrategy) waitForLock(ctx context.Context) error {
 	ticker := time.NewTicker(s.config.lockRetryInterval)
 	defer ticker.Stop()
 	retryCount := 0
 	for {
-
-		// the individual query also should stay reasonably within the timeout
-		gotLock, err := s.tryAdvisoryLock(timeout)
+		rows, err := s.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID)
 		if err != nil {
+			return err
+		}
+		var gotLock bool
+		for rows.Next() {
+			err := rows.Scan(&gotLock)
+			if err != nil {
+				return multierr.Combine(err, rows.Close())
+			}
+		}
+		if err := rows.Close(); err != nil {
 			return err
 		}
 		if gotLock {
@@ -119,20 +127,6 @@ func (s *PostgresLockingStrategy) waitForLock(ctx context.Context, timeout model
 			return errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
 		}
 	}
-}
-
-func (s *PostgresLockingStrategy) tryAdvisoryLock(timeout models.Duration) (bool, error) {
-	ctx := context.Background()
-	if !timeout.IsInstant() {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, timeout.Duration())
-		defer cancel()
-	}
-	var gotLock bool
-	if err := s.conn.QueryRowContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID).Scan(&gotLock); err != nil {
-		return false, err
-	}
-	return gotLock, nil
 }
 
 // logRetry logs messages at

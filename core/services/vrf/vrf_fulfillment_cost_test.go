@@ -39,7 +39,6 @@ func TestMeasureFulfillmentGasCost(t *testing.T) {
 
 	assert.Greater(t, estimate, uint64(108000),
 		"fulfillRandomness tx cost less gas than expected")
-	t.Log("estimate", estimate)
 	// Note that this is probably a very loose upper bound on gas usage.
 	// TODO:https://www.pivotaltracker.com/story/show/175040572
 	assert.Less(t, estimate, uint64(500000),

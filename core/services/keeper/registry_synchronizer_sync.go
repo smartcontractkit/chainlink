@@ -2,11 +2,12 @@ package keeper
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/pkg/errors"
-
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -17,19 +18,21 @@ const syncUpkeepQueueSize = 10
 
 func (rs *RegistrySynchronizer) fullSync() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
-	rs.logger.Debugf("fullSyncing registry %s", contractAddress.Hex())
+	logger.Debugf("fullSyncing registry %s", contractAddress.Hex())
+
+	var err error
+	defer func() {
+		logger.ErrorIf(err, fmt.Sprintf("unable to fullSync registry %s", contractAddress.Hex()))
+	}()
 
 	registry, err := rs.syncRegistry()
 	if err != nil {
-		rs.logger.WithError(err).Error("failed to sync registry during fullSyncing registry")
 		return
 	}
-	if err := rs.addNewUpkeeps(registry); err != nil {
-		rs.logger.WithError(err).Error("failed to add new upkeeps during fullSyncing registry")
+	if err = rs.addNewUpkeeps(registry); err != nil {
 		return
 	}
-	if err := rs.deleteCanceledUpkeeps(); err != nil {
-		rs.logger.WithError(err).Error("failed to delete canceled upkeeps during fullSyncing registry")
+	if err = rs.deleteCanceledUpkeeps(registry); err != nil {
 		return
 	}
 }
@@ -37,34 +40,32 @@ func (rs *RegistrySynchronizer) fullSync() {
 func (rs *RegistrySynchronizer) syncRegistry() (Registry, error) {
 	registry, err := rs.newRegistryFromChain()
 	if err != nil {
-		return Registry{}, errors.Wrap(err, "failed to get new registry from chain")
+		return Registry{}, err
 	}
-
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	if err := rs.orm.UpsertRegistry(ctx, &registry); err != nil {
-		return Registry{}, errors.Wrap(err, "failed to upsert registry")
+	if err = rs.orm.UpsertRegistry(ctx, &registry); err != nil {
+		return Registry{}, err
 	}
-
-	return registry, nil
+	return registry, err
 }
 
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg.ID)
+	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg)
 	if err != nil {
-		return errors.Wrap(err, "unable to find next ID for registry")
+		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}
 
 	countOnContractBig, err := rs.contract.GetUpkeepCount(nil)
 	if err != nil {
-		return errors.Wrapf(err, "unable to get upkeep count")
+		return errors.Wrapf(err, "RegistrySynchronizer: unable to get upkeep count")
 	}
 	countOnContract := countOnContractBig.Int64()
 
 	if nextUpkeepID > countOnContract {
-		return errors.New("invariant, contract should always have at least as many upkeeps as DB")
+		return errors.New("RegistrySynchronizer: invariant, contract should always have at least as many upkeeps as DB")
 	}
 
 	rs.batchSyncUpkeepsOnRegistry(reg, nextUpkeepID, countOnContract)
@@ -93,23 +94,20 @@ func (rs *RegistrySynchronizer) batchSyncUpkeepsOnRegistry(reg Registry, start, 
 
 func (rs *RegistrySynchronizer) syncUpkeepWithCallback(registry Registry, upkeepID int64, doneCallback func()) {
 	defer doneCallback()
-
-	if err := rs.syncUpkeep(registry, upkeepID); err != nil {
-		rs.logger.WithError(err).With(
-			"upkeepID", upkeepID,
-			"registryContract", registry.ContractAddress.Hex(),
-		).Error("unable to sync upkeep on registry")
+	err := rs.syncUpkeep(registry, upkeepID)
+	if err != nil {
+		logger.ErrorIf(err, fmt.Sprintf("unable to sync upkeep #%d on registry %s", upkeepID, registry.ContractAddress.Hex()))
 	}
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) error {
 	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(upkeepID))
 	if err != nil {
-		return errors.Wrap(err, "failed to get upkeep config")
+		return err
 	}
 	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
-		return errors.Wrap(err, "failed to calc positioning constant")
+		return err
 	}
 	newUpkeep := UpkeepRegistration{
 		CheckData:           upkeepConfig.CheckData,
@@ -120,17 +118,13 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	if err := rs.orm.UpsertUpkeep(ctx, &newUpkeep); err != nil {
-		return errors.Wrap(err, "failed to upsert upkeep")
-	}
-
-	return nil
+	return rs.orm.UpsertUpkeep(ctx, &newUpkeep)
 }
 
-func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
+func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	canceledBigs, err := rs.contract.GetCanceledUpkeepList(nil)
 	if err != nil {
-		return errors.Wrap(err, "failed to get canceled upkeep list")
+		return err
 	}
 	canceled := make([]int64, len(canceledBigs))
 	for idx, upkeepID := range canceledBigs {
@@ -138,11 +132,8 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps() error {
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	if _, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled); err != nil {
-		return errors.Wrap(err, "failed to batch delete upkeeps from job")
-	}
-
-	return nil
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	return err
 }
 
 // newRegistryFromChain returns a Registry stuct with fields synched from those on chain
@@ -154,11 +145,11 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		ctx, cancel := postgres.DefaultQueryCtx()
 		defer cancel()
 		rs.jrm.RecordError(ctx, rs.job.ID, err.Error())
-		return Registry{}, errors.Wrap(err, "failed to get contract config")
+		return Registry{}, err
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)
 	if err != nil {
-		return Registry{}, errors.Wrap(err, "failed to get keeper list")
+		return Registry{}, err
 	}
 	keeperIndex := int32(-1)
 	for idx, address := range keeperAddresses {
@@ -167,7 +158,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 		}
 	}
 	if keeperIndex == -1 {
-		rs.logger.Warnf("unable to find %s in keeper list on registry %s", fromAddress.Hex(), contractAddress.Hex())
+		logger.Warnf("unable to find %s in keeper list on registry %s", fromAddress.Hex(), contractAddress.Hex())
 	}
 
 	return Registry{
@@ -181,8 +172,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	}, nil
 }
 
-// CalcPositioningConstant calculates a positioning constant.
-// The positioning constant is fixed because upkeepID and registryAddress are immutable
+// the positioning constant is fixed because upkeepID and registryAddress are immutable
 func CalcPositioningConstant(upkeepID int64, registryAddress ethkey.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(upkeepBytes, upkeepID)

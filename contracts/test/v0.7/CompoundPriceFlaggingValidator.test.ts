@@ -21,10 +21,7 @@ before(async () => {
     personas.Carol,
   );
   flagsFactory = await ethers.getContractFactory("src/v0.6/Flags.sol:Flags", personas.Carol);
-  aggregatorFactory = await ethers.getContractFactory(
-    "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
-    personas.Carol,
-  );
+  aggregatorFactory = await ethers.getContractFactory("MockV3Aggregator", personas.Carol);
   compoundOracleFactory = await ethers.getContractFactory("MockCompoundOracle", personas.Carol);
 });
 

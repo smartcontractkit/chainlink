@@ -8,20 +8,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"gopkg.in/guregu/null.v4"
 )
 
 func ExampleRun() {
 	t := &testing.T{}
-	tc := cltest.NewTestEVMConfig(t)
-	tc.GeneralConfig.Overrides.Dev = null.BoolFrom(false)
+	tc, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	tc.Config.Set("CHAINLINK_DEV", false)
 	testClient := &cmd.Client{
 		Renderer:               cmd.RendererTable{Writer: ioutil.Discard},
-		Config:                 tc,
+		Config:                 tc.Config,
 		AppFactory:             cmd.ChainlinkAppFactory{},
+		KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{}},
 		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 		Runner:                 cmd.ChainlinkRunner{},
-		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc, "session"),
+		HTTP:                   cltest.NewMockAuthenticatedHTTPClient(tc.Config, "session"),
 		ChangePasswordPrompter: cltest.MockChangePasswordPrompter{},
 	}
 

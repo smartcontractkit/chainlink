@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -21,7 +22,7 @@ type P2PKeyPresenter struct {
 
 // RenderTable implements TableRenderer
 func (p *P2PKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Peer ID", "Public key"}
+	headers := []string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}
 	rows := [][]string{p.ToRow()}
 
 	if _, err := rt.Write([]byte("🔑 P2P Keys\n")); err != nil {
@@ -29,14 +30,21 @@ func (p *P2PKeyPresenter) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return nil
 }
 
 func (p *P2PKeyPresenter) ToRow() []string {
+	var deletedAt string
+	if p.DeletedAt != nil {
+		deletedAt = p.DeletedAt.String()
+	}
 	row := []string{
 		p.ID,
 		p.PeerID,
 		p.PubKey,
+		fmt.Sprintf("%v", p.CreatedAt),
+		fmt.Sprintf("%v", p.UpdatedAt),
+		deletedAt,
 	}
 
 	return row
@@ -46,7 +54,7 @@ type P2PKeyPresenters []P2PKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"ID", "Peer ID", "Public key"}
+	headers := []string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -58,7 +66,7 @@ func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
 	}
 	renderList(headers, rows, rt.Writer)
 
-	return utils.JustError(rt.Write([]byte("\n")))
+	return nil
 }
 
 // ListP2PKeys retrieves a list of all P2P keys
@@ -97,7 +105,10 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
-	id := c.Args().Get(0)
+	id, err := strconv.ParseUint(c.Args().Get(0), 10, 32)
+	if err != nil {
+		return cli.errorOut(err)
+	}
 
 	if !confirmAction(c) {
 		return nil
@@ -108,7 +119,7 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 		queryStr = "?hard=true"
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/p2p/%s%s", id, queryStr))
+	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/p2p/%d%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}

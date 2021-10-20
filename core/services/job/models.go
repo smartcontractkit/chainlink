@@ -58,12 +58,12 @@ var (
 		Webhook:           true,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:              true,
-		DirectRequest:     true,
+		Cron:              false,
+		DirectRequest:     false,
 		FluxMonitor:       false,
 		OffchainReporting: false,
 		Keeper:            false,
-		VRF:               true,
+		VRF:               false,
 		Webhook:           true,
 	}
 )
@@ -95,25 +95,17 @@ type Job struct {
 	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
 }
 
-func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
-	return common.BytesToHash([]byte(strings.Replace(id.String(), "-", "", 4)))
-}
-
-func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
-	return common.BytesToHash(common.RightPadBytes(id.Bytes(), utils.EVMWordByteLen))
-}
-
 // The external job ID (UUID) can be encoded into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
 func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
-	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
+	return common.BytesToHash([]byte(strings.Replace(j.ExternalJobID.String(), "-", "", 4)))
 }
 
 // The external job ID (UUID) can also be encoded into a log topic (32 bytes)
 // by taking the 16 bytes undelying the UUID and right padding it.
 func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
-	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
+	return common.BytesToHash(common.RightPadBytes(j.ExternalJobID.Bytes(), utils.EVMWordByteLen))
 }
 
 func (j Job) TableName() string {
@@ -141,7 +133,7 @@ type SpecError struct {
 }
 
 func (SpecError) TableName() string {
-	return "job_spec_errors"
+	return "job_spec_errors_v2"
 }
 
 type PipelineRun struct {
@@ -287,25 +279,6 @@ func (s *CronSpec) BeforeSave(db *gorm.DB) error {
 
 func (CronSpec) TableName() string {
 	return "cron_specs"
-}
-
-// Need to also try integer thresholds until
-// https://github.com/pelletier/go-toml/issues/571 is addressed.
-// The UI's TOML.stringify({"threshold": 1.0}) (https://github.com/iarna/iarna-toml)
-// will return "threshold = 1" since ts/js doesn't know the
-// difference between 1.0 and 1, so we need to address it on the backend.
-type FluxMonitorSpecIntThreshold struct {
-	ContractAddress     ethkey.EIP55Address `toml:"contractAddress"`
-	Threshold           int                 `toml:"threshold"`
-	AbsoluteThreshold   int                 `toml:"absoluteThreshold"`
-	PollTimerPeriod     time.Duration
-	PollTimerDisabled   bool
-	IdleTimerPeriod     time.Duration
-	IdleTimerDisabled   bool
-	DrumbeatSchedule    string
-	DrumbeatRandomDelay time.Duration
-	DrumbeatEnabled     bool
-	MinPayment          *assets.Link
 }
 
 type FluxMonitorSpec struct {

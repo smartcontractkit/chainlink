@@ -79,7 +79,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		if err = cc.App.GetConfig().SetLogLevel(c.Request.Context(), ll.String()); err != nil {
+		if err = cc.App.GetStore().Config.SetLogLevel(c.Request.Context(), ll.String()); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -88,7 +88,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetStore().Config.LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
+		if err := cc.App.GetStore().Config.SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}

@@ -17,13 +17,12 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	cfg := cltest.NewTestEVMConfig(t)
-	store, cleanup := cltest.NewStoreWithConfig(t, cfg)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	logger := store.Config.CreateProductionLogger()
 
 	sub := new(mocks.Subscription)
-	ethClient := cltest.NewEthClientMock(t)
+	ethClient := new(mocks.Client)
 
 	chchHeaders := make(chan chan<- *models.Head, 1)
 	ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
@@ -40,9 +39,9 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hr := headtracker.NewHeadBroadcaster(logger)
+	hr := headtracker.NewHeadBroadcaster()
 	orm := headtracker.NewORM(store.DB)
-	ht := headtracker.NewHeadTracker(logger, ethClient, cfg, orm, hr, cltest.NeverSleeper{})
+	ht := headtracker.NewHeadTracker(logger, ethClient, store.Config, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
 	require.NoError(t, ht.Start())

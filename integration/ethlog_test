@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+source $SRCROOT/integration/common
+
+title 'Ethlog test.'
+
+ethlog_test() {
+    expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
+    expected_job_count=$(expr $(chainlink -j job_specs list | jq length) + 1)
+    local log=$LOG_PATH/send_ethlog_transaction.log
+
+    yarn workspace @chainlink/integration-scripts send-ethlog-transaction | tee $log
+
+    jid=`cat $log | grep Job | awk '{print$4}'`
+
+    # Check echo count
+    assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
+
+    # Check job counts
+    assert "Jobs count" "chainlink -j job_specs list | jq length" $expected_job_count
+
+    # Check job runs
+    assert "EthLog Runs count" "chainlink -j runs list --jobid $jid | jq length" 1
+
+    # Check that the run completed
+    assert "Run completed" 'chainlink -j runs list --jobid $jid | jq ".[].status" | sed s/\"//g' completed
+}
+
+ethlog_test

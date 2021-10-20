@@ -103,11 +103,6 @@ func (a *EIP55Address) Scan(value interface{}) error {
 	return nil
 }
 
-// IsZeroAddress determines whether the address is 0x0000... or not
-func (a EIP55Address) IsZero() bool {
-	return a.Address() == common.Address{}
-}
-
 // EIP55AddressCollection is an array of EIP55Addresses.
 type EIP55AddressCollection []EIP55Address
 

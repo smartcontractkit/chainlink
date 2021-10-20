@@ -23,10 +23,7 @@ before(async () => {
   defaultAccount = users.roles.defaultAccount;
 
   linkTokenFactory = await ethers.getContractFactory("LinkToken", defaultAccount);
-  aggregatorFactory = await ethers.getContractFactory(
-    "src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator",
-    defaultAccount,
-  );
+  aggregatorFactory = await ethers.getContractFactory("MockV3Aggregator", defaultAccount);
   historicAggregatorFactory = await ethers.getContractFactory("MockV2Aggregator", defaultAccount);
   aggregatorFacadeFactory = await ethers.getContractFactory("AggregatorFacade", defaultAccount);
   aggregatorProxyFactory = await ethers.getContractFactory("AggregatorProxy", defaultAccount);

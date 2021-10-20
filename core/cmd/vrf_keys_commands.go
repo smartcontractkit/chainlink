@@ -21,9 +21,16 @@ type VRFKeyPresenter struct {
 	presenters.VRFKeyResource
 }
 
+func (p VRFKeyPresenter) FriendlyDeletedAt() string {
+	if p.DeletedAt != nil {
+		return p.DeletedAt.String()
+	}
+	return ""
+}
+
 // RenderTable implements TableRenderer
 func (p *VRFKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Compressed", "Uncompressed", "Hash"}
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
 	rows := [][]string{p.ToRow()}
 	renderList(headers, rows, rt.Writer)
 	_, err := rt.Write([]byte("\n"))
@@ -35,6 +42,9 @@ func (p *VRFKeyPresenter) ToRow() []string {
 		p.Compressed,
 		p.Uncompressed,
 		p.Hash,
+		p.CreatedAt.String(),
+		p.UpdatedAt.String(),
+		p.FriendlyDeletedAt(),
 	}
 }
 
@@ -42,7 +52,7 @@ type VRFKeyPresenters []VRFKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps VRFKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Compressed", "Uncompressed", "Hash"}
+	headers := []string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}
 	rows := [][]string{}
 
 	for _, p := range ps {
@@ -231,6 +241,36 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 
 	var presenters VRFKeyPresenters
 	return cli.renderAPIResponse(resp, &presenters, "🔑 VRF Keys")
+}
+
+// CreateAndExportWeakVRFKey creates a key in the VRF keystore, protected by the
+// password in the password file, but with weak key-derivation-function
+// parameters, which makes it cheaper for testing, but also more vulnerable to
+// bruteforcing of the encrypted key material. For testing purposes only!
+//
+// The key is only stored at the specified file location, not stored in the DB.
+func (cli *Client) CreateAndExportWeakVRFKey(c *cli.Context) error {
+	password, err := getPassword(c)
+	if err != nil {
+		return err
+	}
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	vrfKeyStore := app.GetKeyStore().VRF()
+	key, err := vrfKeyStore.CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(
+		string(password))
+	if err != nil {
+		return errors.Wrapf(err, "while creating testing key")
+	}
+	if !c.IsSet("file") || !noFileToOverwrite(c.String("file")) {
+		errmsg := "must specify path to key file which does not already exist"
+		fmt.Println(errmsg)
+		return fmt.Errorf(errmsg)
+	}
+	fmt.Println("Don't use this key for anything sensitive!")
+	return key.WriteToDisk(c.String("file"))
 }
 
 func noFileToOverwrite(path string) bool {

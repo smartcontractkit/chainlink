@@ -9,8 +9,7 @@ import (
 
 // Run with `go test -bench BenchmarkProofValidation`
 func BenchmarkProofValidation(b *testing.B) {
-	key, err := NewV2()
-	require.NoError(b, err)
+	key := NewPrivateKeyXXXTestingOnly(big.NewInt(1))
 	var proofs []Proof
 	for i := 0; i < b.N; i++ {
 		p, err := key.GenerateProof(big.NewInt(int64(i)))

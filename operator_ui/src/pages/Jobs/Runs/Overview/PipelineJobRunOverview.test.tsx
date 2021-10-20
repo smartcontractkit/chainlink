@@ -1,5 +1,5 @@
 import React from 'react'
-import { jobRunAPIResponse } from 'factories/jsonApiOcrJobRun'
+import { jsonApiOcrJobRun } from 'factories/jsonApiOcrJobRun'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { transformPipelineJobRun } from '../../transformJobRuns'
 import { PipelineJobRunOverview } from './PipelineJobRunOverview'
@@ -7,7 +7,7 @@ import { PipelineJobRunOverview } from './PipelineJobRunOverview'
 describe('PipelineJobRunOverview', () => {
   it('displays an overview & json tab by default', () => {
     const error = 'something something error'
-    const apiResponse = jobRunAPIResponse({
+    const apiResponse = jsonApiOcrJobRun({
       id: '1',
       errors: [error],
       dotDagSource: `
