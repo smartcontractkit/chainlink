@@ -341,7 +341,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // If the balances are equal, nothing to be done.
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function getRequestConfig()
     external
     view
@@ -354,7 +356,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */```
   function requestRandomWords(
     bytes32 keyHash,
     uint64 subId,
@@ -667,7 +671,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return s_currentSubId;
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */```
   function getSubscription(uint64 subId)
     external
     view
@@ -689,7 +695,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     );
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function createSubscription() external nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
@@ -705,7 +713,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     return currentSubId;
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
@@ -714,7 +724,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -728,7 +740,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionOwnerTransferred(subId, oldOwner, msg.sender);
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function removeConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
@@ -750,7 +764,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
-  // See interface docstring.
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
   function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
