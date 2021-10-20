@@ -33,7 +33,7 @@ import (
 
 	sessions "github.com/gin-gonic/contrib/sessions"
 
-	storeconfig "github.com/smartcontractkit/chainlink/core/store/config"
+	storeconfig "github.com/smartcontractkit/chainlink/core/config"
 
 	time "time"
 
