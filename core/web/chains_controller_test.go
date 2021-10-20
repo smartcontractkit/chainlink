@@ -100,7 +100,7 @@ func Test_ChainsController_Show(t *testing.T) {
 			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
 				*id = "234"
 			},
-			wantStatusCode: http.StatusNotFound,
+			wantStatusCode: http.StatusBadRequest,
 		},
 	}
 
