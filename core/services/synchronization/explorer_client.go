@@ -216,23 +216,20 @@ const (
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
 func (ec *explorerClient) connectAndWritePump() {
 	defer ec.wg.Done()
+	ctx, cancel := utils.ContextFromChan(ec.chStop)
+	defer cancel()
 	for {
 		select {
 		case <-time.After(ec.sleeper.After()):
-			ctx, cancel := utils.ContextFromChan(ec.chStop)
-
 			logger.Infow("Connecting to explorer", "url", ec.url)
 			err := ec.connect(ctx)
 			if ctx.Err() != nil {
-				cancel()
 				return
 			} else if err != nil {
 				ec.setStatus(ConnectionStatusError)
 				logger.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
-				cancel()
 				break
 			}
-			cancel()
 
 			ec.setStatus(ConnectionStatusConnected)
 
