@@ -58,12 +58,12 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     private s_subscriptions;
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
-  uint64 public s_currentSubId;
+  uint64 private s_currentSubId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
-  uint96 public s_totalBalance;
+  uint96 private s_totalBalance;
   event SubscriptionCreated(uint64 indexed subId, address owner);
   event SubscriptionFunded(uint64 indexed subId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subId, address consumer);
@@ -131,9 +131,9 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     // We make it configurable in case those operations are repriced.
     uint32 gasAfterPaymentCalculation;
   }
-  int256 public s_fallbackWeiPerUnitLink;
-  Config public s_config;
-  FeeConfig public s_feeConfig;
+  int256 private s_fallbackWeiPerUnitLink;
+  Config private s_config;
+  FeeConfig private s_feeConfig;
   struct FeeConfig {
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
@@ -257,17 +257,58 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     );
   }
 
-  // See interface docstring.
-  function getRequestConfig()
+  function getConfig()
     external
     view
     returns (
-      uint16,
-      uint32,
-      bytes32[] memory
+      uint16 minimumRequestConfirmations,
+      uint32 maxGasLimit,
+      uint32 stalenessSeconds,
+      uint32 gasAfterPaymentCalculation
     )
   {
-    return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
+    return (
+      s_config.minimumRequestConfirmations,
+      s_config.maxGasLimit,
+      s_config.stalenessSeconds,
+      s_config.gasAfterPaymentCalculation
+    );
+  }
+
+  function getFeeConfig()
+    external
+    view
+    returns (
+      uint32 fulfillmentFlatFeeLinkPPMTier1,
+      uint32 fulfillmentFlatFeeLinkPPMTier2,
+      uint32 fulfillmentFlatFeeLinkPPMTier3,
+      uint32 fulfillmentFlatFeeLinkPPMTier4,
+      uint32 fulfillmentFlatFeeLinkPPMTier5,
+      uint24 reqsForTier2,
+      uint24 reqsForTier3,
+      uint24 reqsForTier4,
+      uint24 reqsForTier5
+    )
+  {
+    return (
+      s_feeConfig.fulfillmentFlatFeeLinkPPMTier1,
+      s_feeConfig.fulfillmentFlatFeeLinkPPMTier2,
+      s_feeConfig.fulfillmentFlatFeeLinkPPMTier3,
+      s_feeConfig.fulfillmentFlatFeeLinkPPMTier4,
+      s_feeConfig.fulfillmentFlatFeeLinkPPMTier5,
+      s_feeConfig.reqsForTier2,
+      s_feeConfig.reqsForTier3,
+      s_feeConfig.reqsForTier4,
+      s_feeConfig.reqsForTier5
+    );
+  }
+
+  function getTotalBalance() external view returns (uint256) {
+    return s_totalBalance;
+  }
+
+  function getFallbackWeiPerUnitLink() external view returns (int256) {
+    return s_fallbackWeiPerUnitLink;
   }
 
   /**
@@ -298,6 +339,19 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
+  }
+
+  // See interface docstring.
+  function getRequestConfig()
+    external
+    view
+    returns (
+      uint16,
+      uint32,
+      bytes32[] memory
+    )
+  {
+    return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
   // See interface docstring.
@@ -607,6 +661,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface {
     s_subscriptions[subId].balance += uint96(amount);
     s_totalBalance += uint96(amount);
     emit SubscriptionFunded(subId, oldBalance, oldBalance + amount);
+  }
+
+  function getCurrentSubId() external view returns (uint64) {
+    return s_currentSubId;
   }
 
   // See interface docstring.

@@ -111,17 +111,17 @@ describe('VRFCoordinatorV2', () => {
       'acceptOwnership',
       'transferOwnership',
       'owner',
-      's_feeConfig',
-      's_config',
-      's_fallbackWeiPerUnitLink',
-      's_currentSubId',
+      'getConfig',
+      'getFeeConfig',
+      'getFallbackWeiPerUnitLink',
+      'getCurrentSubId',
       'setConfig',
       'getRequestConfig',
       'recoverFunds',
       'ownerCancelSubscription',
       'getFeeTier',
       'pendingRequestExists',
-      's_totalBalance',
+      'getTotalBalance',
       // Oracle
       'requestRandomWords',
       'getCommitment', // Note we use this to check if a request is already fulfilled.
@@ -162,13 +162,12 @@ describe('VRFCoordinatorV2', () => {
           ),
       ).to.be.revertedWith('Only callable by owner')
       // Anyone can read the config.
-      const resp = await vrfCoordinatorV2.connect(random).s_config()
+      const resp = await vrfCoordinatorV2.connect(random).getConfig()
       console.log('config', resp)
       assert(resp[0] == c.minimumRequestBlockConfirmations)
       assert(resp[1] == c.maxGasLimit)
-      assert(resp[2] == false) // locked
-      assert(resp[3] == c.stalenessSeconds)
-      assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString())
+      assert(resp[2] == c.stalenessSeconds)
+      assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString())
     })
 
     it('max req confs', async function () {
@@ -560,9 +559,9 @@ describe('VRFCoordinatorV2', () => {
         ],
       ]
       for (const [fn, expectedBalanceChange] of balanceChangingFns) {
-        const startingBalance = await vrfCoordinatorV2.s_totalBalance()
+        const startingBalance = await vrfCoordinatorV2.getTotalBalance()
         await fn()
-        const endingBalance = await vrfCoordinatorV2.s_totalBalance()
+        const endingBalance = await vrfCoordinatorV2.getTotalBalance()
         assert(
           endingBalance.sub(startingBalance).toString() ==
             expectedBalanceChange.toString(),
