@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -80,6 +81,13 @@ var (
 			Help: "Uptime of the application measured in seconds",
 		},
 	)
+	nodeVersion = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "version",
+			Help: "Node version information",
+		},
+		[]string{"version", "commit"},
+	)
 )
 
 func NewChecker() Checker {
@@ -95,6 +103,8 @@ func NewChecker() Checker {
 
 func (c *checker) Start() error {
 	return c.StartOnce("HealthCheck", func() error {
+		nodeVersion.WithLabelValues(static.Version, static.Sha).Inc()
+
 		// update immediately
 		c.update()
 
