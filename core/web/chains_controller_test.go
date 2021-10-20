@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/manyminds/api2go/jsonapi"
@@ -62,17 +61,18 @@ func Test_ChainsController_Create(t *testing.T) {
 func Test_ChainsController_Show(t *testing.T) {
 	t.Parallel()
 
-	var dbChain types.Chain
+	validId := utils.NewBigI(12)
 
 	testCases := []struct {
 		name           string
-		before         func(t *testing.T, app *cltest.TestApplication, id *string)
-		want           *types.Chain
+		inputId        string
 		wantStatusCode int
+		want           func(t *testing.T, app *cltest.TestApplication) *types.Chain
 	}{
 		{
-			name: "success",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
+			inputId: validId.String(),
+			name:    "success",
+			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
 				newChainConfig := types.ChainCfg{
 					BlockHistoryEstimatorBlockDelay:       null.IntFrom(23),
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(50),
@@ -80,30 +80,29 @@ func Test_ChainsController_Show(t *testing.T) {
 					MinIncomingConfirmations:              null.IntFrom(12),
 				}
 
-				chainId := utils.HexToBig(*id)
 				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
-					ID:      *utils.NewBig(chainId),
+					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
 				})
 
-				dbChain = chain
-				*id = chainId.String()
+				return &chain
 			},
-			want:           &dbChain,
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			name: "invalid id",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
-				*id = "invalidid"
+			inputId: "invalidid",
+			name:    "invalid id",
+			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+				return nil
 			},
 			wantStatusCode: http.StatusUnprocessableEntity,
 		},
 		{
-			name: "not found",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
-				*id = "234"
+			inputId: "234",
+			name:    "not found",
+			want: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+				return nil
 			},
 			wantStatusCode: http.StatusBadRequest,
 		},
@@ -117,27 +116,23 @@ func Test_ChainsController_Show(t *testing.T) {
 
 			controller := setupChainsControllerTest(t)
 
-			newHexChainId := hex.EncodeToString([]byte("1"))
-			if tc.before != nil {
-				tc.before(t, controller.app, &newHexChainId)
-			}
-
+			wantedResult := tc.want(t, controller.app)
 			resp, cleanup := controller.client.Get(
-				fmt.Sprintf("/v2/chains/evm/%s", newHexChainId),
+				fmt.Sprintf("/v2/chains/evm/%s", tc.inputId),
 			)
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
-			if tc.want != nil {
+			if wantedResult != nil {
 				resource1 := presenters.ChainResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
-				assert.Equal(t, resource1.ID, tc.want.ID.String())
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, tc.want.Cfg.BlockHistoryEstimatorBlockDelay)
-				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, tc.want.Cfg.BlockHistoryEstimatorBlockHistorySize)
-				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, tc.want.Cfg.EvmEIP1559DynamicFees)
-				assert.Equal(t, resource1.Config.MinIncomingConfirmations, tc.want.Cfg.MinIncomingConfirmations)
+				assert.Equal(t, resource1.ID, wantedResult.ID.String())
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, wantedResult.Cfg.BlockHistoryEstimatorBlockDelay)
+				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, wantedResult.Cfg.BlockHistoryEstimatorBlockHistorySize)
+				assert.Equal(t, resource1.Config.EvmEIP1559DynamicFees, wantedResult.Cfg.EvmEIP1559DynamicFees)
+				assert.Equal(t, resource1.Config.MinIncomingConfirmations, wantedResult.Cfg.MinIncomingConfirmations)
 			}
 		})
 	}
@@ -228,8 +223,6 @@ func Test_ChainsController_Index(t *testing.T) {
 func Test_ChainsController_Update(t *testing.T) {
 	t.Parallel()
 
-	var dbChain types.Chain
-
 	chainUpdate := web.UpdateChainRequest{
 		Enabled: true,
 		Config: types.ChainCfg{
@@ -240,15 +233,18 @@ func Test_ChainsController_Update(t *testing.T) {
 		},
 	}
 
+	validId := utils.NewBigI(12)
+
 	testCases := []struct {
-		name           string
-		before         func(t *testing.T, app *cltest.TestApplication, id *string)
-		want           *types.Chain
-		wantStatusCode int
+		name              string
+		inputId           string
+		wantStatusCode    int
+		chainBeforeUpdate func(t *testing.T, app *cltest.TestApplication) *types.Chain
 	}{
 		{
-			name: "success",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
+			inputId: validId.String(),
+			name:    "success",
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
 				newChainConfig := types.ChainCfg{
 					BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
 					BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
@@ -256,30 +252,29 @@ func Test_ChainsController_Update(t *testing.T) {
 					MinIncomingConfirmations:              null.IntFrom(30),
 				}
 
-				chainId := utils.HexToBig(*id)
 				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
-					ID:      *utils.NewBig(chainId),
+					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
 				})
 
-				dbChain = chain
-				*id = chainId.String()
+				return &chain
 			},
-			want:           &dbChain,
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			name: "invalid id",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
-				*id = "invalidid"
+			inputId: "invalidid",
+			name:    "invalid id",
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+				return nil
 			},
 			wantStatusCode: http.StatusUnprocessableEntity,
 		},
 		{
-			name: "not found",
-			before: func(t *testing.T, app *cltest.TestApplication, id *string) {
-				*id = "341212"
+			inputId: "341212",
+			name:    "not found",
+			chainBeforeUpdate: func(t *testing.T, app *cltest.TestApplication) *types.Chain {
+				return nil
 			},
 			wantStatusCode: http.StatusNotFound,
 		},
@@ -293,27 +288,24 @@ func Test_ChainsController_Update(t *testing.T) {
 
 			controller := setupChainsControllerTest(t)
 
-			newHexChainId := hex.EncodeToString([]byte("40"))
-			if tc.before != nil {
-				tc.before(t, controller.app, &newHexChainId)
-			}
+			beforeUpdate := tc.chainBeforeUpdate(t, controller.app)
 
 			body, err := json.Marshal(chainUpdate)
 			require.NoError(t, err)
 
 			resp, cleanup := controller.client.Patch(
-				fmt.Sprintf("/v2/chains/evm/%s", newHexChainId),
+				fmt.Sprintf("/v2/chains/evm/%s", tc.inputId),
 				bytes.NewReader(body),
 			)
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
-			if tc.want != nil {
+			if beforeUpdate != nil {
 				resource1 := presenters.ChainResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource1)
 				require.NoError(t, err)
 
-				assert.Equal(t, resource1.ID, tc.want.ID.String())
+				assert.Equal(t, resource1.ID, beforeUpdate.ID.String())
 				assert.Equal(t, resource1.Enabled, chainUpdate.Enabled)
 				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockDelay, chainUpdate.Config.BlockHistoryEstimatorBlockDelay)
 				assert.Equal(t, resource1.Config.BlockHistoryEstimatorBlockHistorySize, chainUpdate.Config.BlockHistoryEstimatorBlockHistorySize)
