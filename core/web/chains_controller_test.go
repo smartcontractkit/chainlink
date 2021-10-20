@@ -392,6 +392,8 @@ type TestChainsController struct {
 }
 
 func setupChainsControllerTest(t *testing.T) *TestChainsController {
+	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
+	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
