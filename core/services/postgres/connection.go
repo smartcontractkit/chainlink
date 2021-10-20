@@ -22,6 +22,7 @@ import (
 )
 
 type Config struct {
+	Logger           logger.Logger
 	LogSQLStatements bool
 	MaxOpenConns     int
 	MaxIdleConns     int
@@ -40,7 +41,7 @@ func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, gorm
 		uri = uuid.NewV4().String()
 	}
 	// NOTE: SetConsumerName was already called in config.DatabaseURL(), we don't need to do it here
-	newLogger := logger.NewGormWrapper(logger.Default, config.LogSQLStatements, time.Second)
+	newLogger := logger.NewGormWrapper(config.Logger, config.LogSQLStatements, time.Second)
 
 	// Initialize sql/sqlx
 	db, err = sqlx.Open(dialect, uri)

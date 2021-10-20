@@ -15,6 +15,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -70,6 +71,9 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
+
+	lggr     logger.Logger
+	lggrOnce sync.Once
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -77,6 +81,13 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
+}
+
+func (cli *Client) Logger() logger.Logger {
+	cli.lggrOnce.Do(func() {
+		cli.lggr = logger.ProductionLogger(cli.Config)
+	})
+	return cli.lggr
 }
 
 // AppFactory implements the NewApplication method.
@@ -142,6 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
+		Logger:           globalLogger,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
@@ -217,7 +229,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration())
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
+		cfg.DatabaseListenerMaxReconnectDuration(), globalLogger)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           globalLogger,

@@ -33,6 +33,7 @@ import (
 
 // MockSubscription a mock subscription
 type MockSubscription struct {
+	t            testing.TB
 	mut          sync.Mutex
 	channel      interface{}
 	unsubscribed bool
@@ -40,8 +41,8 @@ type MockSubscription struct {
 }
 
 // EmptyMockSubscription return empty MockSubscription
-func EmptyMockSubscription() *MockSubscription {
-	return &MockSubscription{Errors: make(chan error, 1), channel: make(chan struct{})}
+func EmptyMockSubscription(t testing.TB) *MockSubscription {
+	return &MockSubscription{t: t, Errors: make(chan error, 1), channel: make(chan struct{})}
 }
 
 // Err returns error channel from mes
@@ -64,7 +65,7 @@ func (mes *MockSubscription) Unsubscribe() {
 	case chan *eth.Head:
 		close(mes.channel.(chan *eth.Head))
 	default:
-		logger.Fatal(fmt.Sprintf("Unable to close MockSubscription channel of type %T", mes.channel))
+		logger.TestLogger(mes.t).Fatalf("Unable to close MockSubscription channel of type %T", mes.channel)
 	}
 	close(mes.Errors)
 }

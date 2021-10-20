@@ -193,6 +193,8 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			b.onRmSubscribers()
 
 		case <-b.DependentAwaiter.AwaitDependents():
+			// ensure that any queued dependent subscriptions are registered first
+			b.onAddSubscribers()
 			go b.startResubscribeLoop()
 			return
 
