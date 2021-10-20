@@ -43,10 +43,10 @@ func TestGeneralConfig_sessionSecret(t *testing.T) {
 
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
-	v.Set("ROOT", "../../../tools/clroot/")
+	v.Set("ROOT", "../../tools/clroot/")
 
 	config := newGeneralConfigWithViper(v)
-	assert.Equal(t, config.RootDir(), "../../../tools/clroot/")
+	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
 	assert.Equal(t, config.Dev(), true)
 	assert.Equal(t, config.TLSPort(), uint16(0))
 }
