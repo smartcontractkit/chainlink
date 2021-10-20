@@ -93,4 +93,4 @@ replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+in
 replace github.com/ethereum/go-ethereum => github.com/smartcontractkit/go-ethereum v1.10.9-0.20210909134823-a177d470d620
 
 // Strictly for development of genocr
-replace github.com/smartcontractkit/libocr => ../libocr-internal
+replace github.com/smartcontractkit/libocr => ../libocr

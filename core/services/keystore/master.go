@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,6 +26,7 @@ var ErrLocked = errors.New("Keystore is locked")
 type Master interface {
 	CSA() CSA
 	Eth() Eth
+	Terra() Terra
 	OCR() OCR
 	OCR2() OCR2
 	P2P() P2P
@@ -36,12 +38,13 @@ type Master interface {
 
 type master struct {
 	*keyManager
-	csa  csa
-	eth  eth
-	ocr  ocr
-	ocr2 ocr2
-	p2p  p2p
-	vrf  vrf
+	csa   csa
+	eth   eth
+	terra terra
+	ocr   ocr
+	ocr2  ocr2
+	p2p   p2p
+	vrf   vrf
 }
 
 func New(db *gorm.DB, scryptParams utils.ScryptParams) Master {
@@ -59,6 +62,7 @@ func newMaster(db *gorm.DB, scryptParams utils.ScryptParams) *master {
 		keyManager: km,
 		csa:        newCSAKeyStore(km),
 		eth:        newEthKeyStore(km),
+		terra:      newTerraKeyStore(km),
 		ocr:        newOCRKeyStore(km),
 		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
@@ -72,6 +76,10 @@ func (ks master) CSA() CSA {
 
 func (ks *master) Eth() Eth {
 	return ks.eth
+}
+
+func (ks *master) Terra() Terra {
+	return ks.terra
 }
 
 func (ks *master) OCR() OCR {
@@ -168,6 +176,22 @@ func (ks *master) Migrate(vrfPssword string) error {
 			return err
 		}
 	}
+	// terraKeys, states, err := ks.terra.GetV1KeysAsV2()
+	// if err != nil {
+	// 	return err
+	// }
+	// for idx, ethKey := range terraKeys {
+	// 	if _, exists := ks.keyRing.Terra[terraKey.ID()]; exists {
+	// 		continue
+	// 	}
+	// 	logger.Debugf("Migrating Terra key %s", terraKey.ID())
+	// 	if err = ks.terra.addTerraKeyWithState(terraKey, states[idx]); err != nil {
+	// 		return err
+	// 	}
+	// 	if err = ks.keyManager.save(); err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
 
@@ -290,6 +314,8 @@ func getFieldNameForKey(unknownKey Key) (string, error) {
 		return "CSA", nil
 	case ethkey.KeyV2:
 		return "Eth", nil
+	case terrakey.KeyV2:
+		return "Terra", nil
 	case ocrkey.KeyV2:
 		return "OCR", nil
 	case ocr2key.KeyBundle:

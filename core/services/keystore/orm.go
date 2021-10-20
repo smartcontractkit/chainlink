@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"gorm.io/gorm"
 )
@@ -65,6 +66,10 @@ func (orm ksORM) GetEncryptedV1CSAKeys() (retrieved []csakey.Key, err error) {
 }
 
 func (orm ksORM) GetEncryptedV1EthKeys() (retrieved []ethkey.Key, err error) {
+	return retrieved, orm.db.Find(&retrieved).Error
+}
+
+func (orm ksORM) GetEncryptedV1TerraKeys() (retrieved []terrakey.Key, err error) {
 	return retrieved, orm.db.Find(&retrieved).Error
 }
 

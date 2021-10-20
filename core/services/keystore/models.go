@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/terrakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
@@ -47,7 +48,8 @@ func (ekr encryptedKeyRing) Decrypt(password string) (keyRing, error) {
 }
 
 type keyStates struct {
-	Eth map[string]*ethkey.State
+	Eth   map[string]*ethkey.State
+	Terra map[string]*terrakey.State
 }
 
 func newKeyStates() keyStates {
@@ -68,22 +70,24 @@ func (ks keyStates) validate(kr keyRing) (err error) {
 }
 
 type keyRing struct {
-	CSA  map[string]csakey.KeyV2
-	Eth  map[string]ethkey.KeyV2
-	OCR  map[string]ocrkey.KeyV2
-	OCR2 map[string]ocr2key.KeyBundle
-	P2P  map[string]p2pkey.KeyV2
-	VRF  map[string]vrfkey.KeyV2
+	CSA   map[string]csakey.KeyV2
+	Eth   map[string]ethkey.KeyV2
+	Terra map[string]terrakey.KeyV2
+	OCR   map[string]ocrkey.KeyV2
+	OCR2  map[string]ocr2key.KeyBundle
+	P2P   map[string]p2pkey.KeyV2
+	VRF   map[string]vrfkey.KeyV2
 }
 
 func newKeyRing() keyRing {
 	return keyRing{
-		CSA: make(map[string]csakey.KeyV2),
-		Eth: make(map[string]ethkey.KeyV2),
-		OCR: make(map[string]ocrkey.KeyV2),
-		OCR2: make(map[string]ocr2key.KeyBundle),
-		P2P: make(map[string]p2pkey.KeyV2),
-		VRF: make(map[string]vrfkey.KeyV2),
+		CSA:   make(map[string]csakey.KeyV2),
+		Eth:   make(map[string]ethkey.KeyV2),
+		Terra: make(map[string]terrakey.KeyV2),
+		OCR:   make(map[string]ocrkey.KeyV2),
+		OCR2:  make(map[string]ocr2key.KeyBundle),
+		P2P:   make(map[string]p2pkey.KeyV2),
+		VRF:   make(map[string]vrfkey.KeyV2),
 	}
 }
 
@@ -117,6 +121,9 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 	for _, ethKey := range kr.Eth {
 		rawKeys.Eth = append(rawKeys.Eth, ethKey.Raw())
 	}
+	for _, terraKey := range kr.Terra {
+		rawKeys.Terra = append(rawKeys.Terra, terraKey.Raw())
+	}
 	for _, ocrKey := range kr.OCR {
 		rawKeys.OCR = append(rawKeys.OCR, ocrKey.Raw())
 	}
@@ -133,12 +140,13 @@ func (kr *keyRing) raw() (rawKeys rawKeyRing) {
 // it holds only the essential key information to avoid adding unecessary data
 // (like public keys) to the database
 type rawKeyRing struct {
-	Eth  []ethkey.Raw
-	CSA  []csakey.Raw
-	OCR  []ocrkey.Raw
-	OCR2 []ocr2key.Raw
-	P2P  []p2pkey.Raw
-	VRF  []vrfkey.Raw
+	Eth   []ethkey.Raw
+	Terra []terrakey.Raw
+	CSA   []csakey.Raw
+	OCR   []ocrkey.Raw
+	OCR2  []ocr2key.Raw
+	P2P   []p2pkey.Raw
+	VRF   []vrfkey.Raw
 }
 
 func (rawKeys rawKeyRing) keys() (keyRing, error) {
@@ -150,6 +158,10 @@ func (rawKeys rawKeyRing) keys() (keyRing, error) {
 	for _, rawETHKey := range rawKeys.Eth {
 		ethKey := rawETHKey.Key()
 		keyRing.Eth[ethKey.ID()] = ethKey
+	}
+	for _, rawTerraKey := range rawKeys.Terra {
+		terraKey := rawTerraKey.Key()
+		keyRing.Terra[terraKey.ID()] = terraKey
 	}
 	for _, rawOCRKey := range rawKeys.OCR {
 		ocrKey := rawOCRKey.Key()
