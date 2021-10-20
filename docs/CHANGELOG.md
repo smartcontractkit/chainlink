@@ -24,6 +24,11 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
+#### KeyStore changes
+
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
+
 #### New env vars
 
 `LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
@@ -162,12 +167,6 @@ Why are we doing this?
 To give some background, the legacy job pipeline has been around since before Chainlink went to mainnet and is getting quite long in the tooth. The code is brittle and difficult to understand and maintain. For a while now we have been developing a v2 job pipeline in parallel which uses the TOML format. The new job pipeline is simpler, more performant and more powerful. Every job that can be represented in the legacy pipeline should be able to be represented in the v2 pipeline - if it can't be, that's a bug, so please let us know ASAP.
 
 The v2 pipeline has now been extensively tested in production and proved itself reliable. So, we made the decision to drop V1 support entirely in favour of focusing developer effort on new features like native multichain support, EIP1559-compatible fees, further gas saving measures and support for more blockchains. By dropping support for the old pipeline, we can deliver these features faster and better support our community.
-
-#### KeyStore changes
-
-* Key export files are changing format and will not be compatible between versions. Ex, a key exported in 0.10.12, will not be importable by a node running 1.0.0, and vice-versa.
-* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
-* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
 ## [0.10.10] - 2021-07-19
 
