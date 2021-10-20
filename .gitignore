@@ -30,7 +30,7 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .direnv
-.idea 
+.idea
 
 # codeship
 *.aes
@@ -49,3 +49,12 @@ core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 # DB state
 db/
 .s.PGSQL.5432.lock
+
+# yarn
+.yarn/*
+!.yarn/cache
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
