@@ -9,6 +9,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -78,9 +79,13 @@ func Test_ChainsController_Show(t *testing.T) {
 					EvmEIP1559DynamicFees:                 null.BoolFrom(true),
 					MinIncomingConfirmations:              null.IntFrom(12),
 				}
+
 				chainId := utils.HexToBig(*id)
-				chain, err := app.GetChainSet().Add(chainId, newChainConfig)
-				require.NoError(t, err)
+				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
+					ID:      *utils.NewBig(chainId),
+					Enabled: true,
+					Cfg:     newChainConfig,
+				})
 
 				dbChain = chain
 				*id = chainId.String()
@@ -165,8 +170,11 @@ func Test_ChainsController_Index(t *testing.T) {
 	}
 
 	for _, newChain := range newChains {
-		_, err := controller.app.GetChainSet().Add(newChain.ID.ToInt(), newChain.Config)
-		require.NoError(t, err)
+		_ = evmtest.MustInsertChainWithNode(t, controller.app.GetDB(), types.Chain{
+			ID:      newChain.ID,
+			Enabled: true,
+			Cfg:     newChain.Config,
+		})
 	}
 
 	badResp, cleanup := controller.client.Get("/v2/chains/evm?size=asd")
@@ -193,11 +201,11 @@ func Test_ChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[1].ID.String(), chains[2].ID)
-	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockDelay, chains[2].Config.BlockHistoryEstimatorBlockDelay)
-	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockHistorySize, chains[2].Config.BlockHistoryEstimatorBlockHistorySize)
-	assert.Equal(t, newChains[1].Config.EvmEIP1559DynamicFees, chains[2].Config.EvmEIP1559DynamicFees)
-	assert.Equal(t, newChains[1].Config.MinIncomingConfirmations, chains[2].Config.MinIncomingConfirmations)
+	assert.Equal(t, newChains[0].ID.String(), chains[2].ID)
+	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockDelay, chains[2].Config.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockHistorySize, chains[2].Config.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, newChains[0].Config.EvmEIP1559DynamicFees, chains[2].Config.EvmEIP1559DynamicFees)
+	assert.Equal(t, newChains[0].Config.MinIncomingConfirmations, chains[2].Config.MinIncomingConfirmations)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
 	t.Cleanup(cleanup)
@@ -210,11 +218,11 @@ func Test_ChainsController_Index(t *testing.T) {
 	assert.NotEmpty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	assert.Equal(t, newChains[0].ID.String(), chains[0].ID)
-	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockDelay, chains[0].Config.BlockHistoryEstimatorBlockDelay)
-	assert.Equal(t, newChains[0].Config.BlockHistoryEstimatorBlockHistorySize, chains[0].Config.BlockHistoryEstimatorBlockHistorySize)
-	assert.Equal(t, newChains[0].Config.EvmEIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees)
-	assert.Equal(t, newChains[0].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
+	assert.Equal(t, newChains[1].ID.String(), chains[0].ID)
+	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockDelay, chains[0].Config.BlockHistoryEstimatorBlockDelay)
+	assert.Equal(t, newChains[1].Config.BlockHistoryEstimatorBlockHistorySize, chains[0].Config.BlockHistoryEstimatorBlockHistorySize)
+	assert.Equal(t, newChains[1].Config.EvmEIP1559DynamicFees, chains[0].Config.EvmEIP1559DynamicFees)
+	assert.Equal(t, newChains[1].Config.MinIncomingConfirmations, chains[0].Config.MinIncomingConfirmations)
 }
 
 func Test_ChainsController_Update(t *testing.T) {
@@ -249,8 +257,11 @@ func Test_ChainsController_Update(t *testing.T) {
 				}
 
 				chainId := utils.HexToBig(*id)
-				chain, err := app.GetChainSet().Add(chainId, newChainConfig)
-				require.NoError(t, err)
+				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
+					ID:      *utils.NewBig(chainId),
+					Enabled: true,
+					Cfg:     newChainConfig,
+				})
 
 				dbChain = chain
 				*id = chainId.String()
@@ -325,9 +336,12 @@ func Test_ChainsController_Delete(t *testing.T) {
 		MinIncomingConfirmations:              null.IntFrom(30),
 	}
 
-	chainId := utils.NewBigI(50)
-	_, err := controller.app.GetChainSet().Add(chainId.ToInt(), newChainConfig)
-	require.NoError(t, err)
+	chainId := *utils.NewBigI(50)
+	chain := evmtest.MustInsertChainWithNode(t, controller.app.GetDB(), types.Chain{
+		ID:      chainId,
+		Enabled: true,
+		Cfg:     newChainConfig,
+	})
 
 	_, countBefore, err := controller.app.EVMORM().Chains(0, 10)
 	require.NoError(t, err)
@@ -355,7 +369,7 @@ func Test_ChainsController_Delete(t *testing.T) {
 
 	t.Run("existing chain", func(t *testing.T) {
 		resp, cleanup := controller.client.Delete(
-			fmt.Sprintf("/v2/chains/evm/%d", chainId.ToInt()),
+			fmt.Sprintf("/v2/chains/evm/%d", chain.ID.ToInt()),
 		)
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -365,7 +379,7 @@ func Test_ChainsController_Delete(t *testing.T) {
 		// 3 with the default chains
 		require.Equal(t, 2, countAfter)
 
-		_, err = controller.app.EVMORM().Chain(*chainId)
+		_, err = controller.app.EVMORM().Chain(chain.ID)
 
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, sql.ErrNoRows))
@@ -378,7 +392,7 @@ type TestChainsController struct {
 }
 
 func setupChainsControllerTest(t *testing.T) *TestChainsController {
-	app := cltest.NewApplicationEVMDisabled(t)
+	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
