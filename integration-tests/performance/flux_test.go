@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 var _ = Describe("Performance tests @perf-flux", func() {
@@ -29,7 +28,7 @@ var _ = Describe("Performance tests @perf-flux", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(numberOfNodes),
 				client.NewNetworkFromConfigWithDefault(client.NetworkGethPerformance),
-				tools.ProjectRoot,
+				"./",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(suiteSetup.Environment())

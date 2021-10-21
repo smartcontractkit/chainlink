@@ -17,7 +17,7 @@ import (
 func TestIntegration(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
-	conf, err := config.NewConfig(tools.ProjectRoot)
+	conf, err := config.NewConfig("./")
 	if err != nil {
 		Fail("failed to load config")
 	}

@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 var _ = Describe("Keeper performance test @performance-keeper", func() {
@@ -27,7 +26,7 @@ var _ = Describe("Keeper performance test @performance-keeper", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(5),
 				client.DefaultNetworkFromConfig,
-				tools.ProjectRoot,
+				"./",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			defaultNetwork = suiteSetup.DefaultNetwork()

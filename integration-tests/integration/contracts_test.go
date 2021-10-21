@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/contracts"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 var _ = Describe("Basic Contract Interactions @contract", func() {
@@ -26,7 +25,7 @@ var _ = Describe("Basic Contract Interactions @contract", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(0),
 				client.DefaultNetworkFromConfig,
-				tools.ProjectRoot,
+				"./",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			networkInfo = suiteSetup.DefaultNetwork()

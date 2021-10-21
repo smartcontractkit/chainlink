@@ -1,14 +1,14 @@
 package performance
 
 import (
+	"math/big"
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
-	"math/big"
-	"time"
 )
 
 var _ = Describe("Runlog perf test @perf-runlog", func() {
@@ -25,7 +25,7 @@ var _ = Describe("Runlog perf test @perf-runlog", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfigWithDefault(client.NetworkGethPerformance),
-				tools.ProjectRoot,
+				"./",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			adapter, err = environment.GetExternalAdapter(suiteSetup.Environment())
