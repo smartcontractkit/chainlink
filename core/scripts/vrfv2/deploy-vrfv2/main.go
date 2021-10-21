@@ -83,8 +83,8 @@ func main() {
 	time.Sleep(waitForMine)
 	// Set coordinators config
 	_, err = coordinatorContract.SetConfig(user,
-		uint16(1), // minRequestConfirmations
-		uint32(1000000),
+		uint16(1),                              // minRequestConfirmations
+		uint32(1000000),                        // max gas limit
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(vrf.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(10000000000000000),          // 0.01 eth per link fallbackLinkPrice
@@ -102,9 +102,9 @@ func main() {
 	)
 	panicErr(err)
 	time.Sleep(waitForMine)
-	c, err := coordinatorContract.SConfig(nil)
+	minreq, maxgas, kh, err := coordinatorContract.GetRequestConfig(nil)
 	panicErr(err)
-	fmt.Printf("Coordinator config %v %v %+v\n", coordinatorAddress, linkAddress, c)
+	fmt.Printf("Coordinator config %v %v %v %v %v\n", coordinatorAddress, linkAddress, minreq, maxgas, kh)
 	// Deploy consumer
 	consumerContractAddress, _, consumerContract, err :=
 		vrf_consumer_v2.DeployVRFConsumerV2(
