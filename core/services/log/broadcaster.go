@@ -248,7 +248,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 	var chRawLogs chan types.Log
 	for {
-		b.logger.Debug("LogBroadcaster: Resubscribing and backfilling logs...")
+		b.logger.Infow("LogBroadcaster: Resubscribing and backfilling logs...")
 		addresses, topics := b.registrations.addressesAndTopics()
 
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)

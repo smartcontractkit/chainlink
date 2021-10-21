@@ -647,7 +647,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	require.Equal(t, false, fulfillments[0].Success)
 
 	// It should not have succeeded in placing another request.
-	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil)
+	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil, nil)
 	require.NoError(t, err2)
 	var requests []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	for it2.Next() {
@@ -787,7 +787,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	keyHash [32]byte) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, []common.Address{})
+		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {
 			rf = append(rf, rfIterator.Event)
