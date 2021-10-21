@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/cbor"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/cbor"
 	"go.uber.org/multierr"
 )
 
