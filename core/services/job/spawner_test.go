@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/onsi/gomega"
 	"gorm.io/gorm"
 
@@ -73,6 +76,25 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	txm := postgres.NewGormTransactionManager(db)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 
+	t.Run("should respect its dependents", func(t *testing.T) {
+		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db), keyStore)
+		a := utils.NewDependentAwaiter()
+		a.AddDependents(1)
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{}, txm, []utils.DependentAwaiter{a})
+		// Starting the spawner should signal to the dependents
+		result := make(chan bool)
+		go func() {
+			select {
+			case <-a.AwaitDependents():
+				result <- true
+			case <-time.After(2 * time.Second):
+				result <- false
+			}
+		}()
+		spawner.Start()
+		assert.True(t, <-result, "failed to signal to dependents")
+	})
+
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		jobSpecA := cltest.MakeDirectRequestJobSpec(t)
 		jobSpecB := makeOCRJobSpec(t, address)
@@ -96,7 +118,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 			jobSpecB.Type: delegateB,
-		}, txm)
+		}, txm, nil)
 		spawner.Start()
 		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -152,7 +174,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		}, txm)
+		}, txm, nil)
 
 		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
@@ -187,7 +209,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		}, txm)
+		}, txm, nil)
 
 		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
