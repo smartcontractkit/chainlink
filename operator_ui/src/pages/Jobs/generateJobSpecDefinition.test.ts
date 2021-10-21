@@ -316,6 +316,8 @@ observationSource = """
         coordinatorAddress: '0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7',
         publicKey:
           '0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301',
+        fromAddress: '',
+        pollPeriod: '',
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
@@ -336,6 +338,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 confirmations = 6
 publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c914301"
+fromAddress = ""
+pollPeriod = ""
 observationSource = ""
 `
     const output = generateTOMLDefinition(jobSpecAttributesInput)
