@@ -152,3 +152,72 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	ethClient.AssertExpectations(t)
 }
+
+func TestETHKeysController_CreateWithMaxGasGweiSuccess(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
+
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethBalanceInt := big.NewInt(100)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
+	linkBalance := assets.NewLinkFromJuels(42)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
+
+	client := app.NewHTTPClient()
+
+	require.NoError(t, app.Start())
+
+	resp, cleanup := client.Post("/v2/keys/eth?maxGasGwei=12345", nil)
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, 201)
+
+	ethClient.AssertExpectations(t)
+}
+
+func TestETHKeysController_UpdateMaxGasGweiSuccess(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
+
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethBalanceInt := big.NewInt(100)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
+	linkBalance := assets.NewLinkFromJuels(42)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
+
+	client := app.NewHTTPClient()
+
+	require.NoError(t, app.Start())
+
+	respCreate, cleanupCreate := client.Post("/v2/keys/eth", nil)
+	defer cleanupCreate()
+
+	cltest.AssertServerResponse(t, respCreate, 201)
+
+	allKeys, err := app.KeyStore.Eth().GetAll()
+	require.NoError(t, err)
+	require.True(t, len(allKeys) > 0)
+
+	respUpdate, cleanupUpdate := client.Put("/v2/keys/eth/"+allKeys[0].Address.Hex()+"?maxGasGwei=12345", nil)
+	defer cleanupUpdate()
+
+	cltest.AssertServerResponse(t, respUpdate, 200)
+
+	keyState, err := app.KeyStore.Eth().GetState(allKeys[0].ID())
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(12345), keyState.MaxGasGwei.ToInt())
+
+	ethClient.AssertExpectations(t)
+}

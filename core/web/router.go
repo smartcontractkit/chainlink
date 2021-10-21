@@ -251,6 +251,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
+		authv2.PUT("/keys/eth/:keyID", ekc.Update)
 		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
 		authv2.POST("/keys/eth/import", ekc.Import)
 		authv2.POST("/keys/eth/export/:address", ekc.Export)

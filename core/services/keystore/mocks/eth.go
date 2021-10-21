@@ -439,3 +439,24 @@ func (_m *Eth) SubscribeToKeyChanges() (chan struct{}, func()) {
 
 	return r0, r1
 }
+
+// Update provides a mock function with given fields: id, maxGasGwei
+func (_m *Eth) Update(id string, maxGasGwei *big.Int) (ethkey.KeyV2, error) {
+	ret := _m.Called(id, maxGasGwei)
+
+	var r0 ethkey.KeyV2
+	if rf, ok := ret.Get(0).(func(string, *big.Int) ethkey.KeyV2); ok {
+		r0 = rf(id, maxGasGwei)
+	} else {
+		r0 = ret.Get(0).(ethkey.KeyV2)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, *big.Int) error); ok {
+		r1 = rf(id, maxGasGwei)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}

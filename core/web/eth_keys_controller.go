@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -87,11 +88,28 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
+	var maxGasGwei *big.Int
+	if c.Query("maxGasGwei") != "" {
+		maxGasGwei = new(big.Int)
+		if _, ok := maxGasGwei.SetString(c.Query("maxGasGwei"), 10); !ok {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("non-decimal maxGasGwei value"))
+			return
+		}
+	}
+
 	key, err := ethKeyStore.Create(chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	if maxGasGwei != nil {
+		key, err = ethKeyStore.Update(key.ID(), maxGasGwei)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
 	state, err := ethKeyStore.GetState(key.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -107,6 +125,52 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
+}
+
+// Update an ETH key parameters
+// Example:
+// "PUT <application>/keys/eth/:keyID?maxGasGwei=12345"
+func (ekc *ETHKeysController) Update(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+
+	keyID := c.Param("keyID")
+	state, err := ethKeyStore.GetState(keyID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	var maxGasGwei *big.Int
+	if c.Query("maxGasGwei") != "" {
+		maxGasGwei = new(big.Int)
+		if _, ok := maxGasGwei.SetString(c.Query("maxGasGwei"), 10); !ok {
+			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("non-decimal maxGasGwei value"))
+			return
+		}
+	}
+
+	if maxGasGwei == nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("nothing to update"))
+		return
+	}
+
+	key, err := ethKeyStore.Update(keyID, maxGasGwei)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	state.MaxGasGwei = *utils.NewBig(maxGasGwei)
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
+	)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
 }
 
 // Delete an ETH key bundle

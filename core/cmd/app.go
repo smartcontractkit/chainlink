@@ -252,6 +252,10 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
 							Flags: []cli.Flag{
+								cli.Uint64Flag{
+									Name:  "maxGasGwei",
+									Usage: "Max gas price (in Gwei)",
+								},
 								cli.StringFlag{
 									Name:  "evmChainID",
 									Usage: "Chain ID for the key. If left blank, default chain will be used.",
@@ -262,6 +266,17 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
 							Action: client.ListETHKeys,
+						},
+						{
+							Name:  "update",
+							Usage: format(`Update the ETH key parameters by address`),
+							Flags: []cli.Flag{
+								cli.Uint64Flag{
+									Name:  "maxGasGwei",
+									Usage: "Max gas price (in Gwei)",
+								},
+							},
+							Action: client.UpdateETHKey,
 						},
 						{
 							Name:  "delete",

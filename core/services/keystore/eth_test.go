@@ -64,6 +64,17 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 2, len(retrievedKeys))
 	})
 
+	t.Run("UpdateKey", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+		require.NoError(t, err)
+		_, err = ethKeyStore.Update(key.ID(), big.NewInt(123))
+		require.NoError(t, err)
+		keyState, err := ethKeyStore.GetState(key.ID())
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(123), keyState.MaxGasGwei.ToInt())
+	})
+
 	t.Run("RemoveKey", func(t *testing.T) {
 		defer reset()
 		key, err := ethKeyStore.Create(&cltest.FixtureChainID)

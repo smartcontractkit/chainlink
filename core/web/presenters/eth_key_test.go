@@ -18,6 +18,7 @@ func TestETHKeyResource(t *testing.T) {
 		now        = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 		nextNonce  = int64(1)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
+		maxGasGwei = *utils.NewBigI(123456789)
 	)
 	address, err := ethkey.NewEIP55Address(addressStr)
 	require.NoError(t, err)
@@ -34,6 +35,7 @@ func TestETHKeyResource(t *testing.T) {
 		UpdatedAt:  now,
 		NextNonce:  nextNonce,
 		IsFunding:  true,
+		MaxGasGwei: maxGasGwei,
 	}
 
 	r, err := NewETHKeyResource(key, state,
@@ -60,7 +62,8 @@ func TestETHKeyResource(t *testing.T) {
 			  "linkBalance":"1",
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
-			  "updatedAt":"2000-01-01T00:00:00Z"
+			  "updatedAt":"2000-01-01T00:00:00Z",
+			  "maxGasGwei":"123456789"
 		   }
 		}
 	 }
@@ -88,7 +91,8 @@ func TestETHKeyResource(t *testing.T) {
 				"linkBalance":"1",
 				"isFunding":true,
 				"createdAt":"2000-01-01T00:00:00Z",
-				"updatedAt":"2000-01-01T00:00:00Z"
+				"updatedAt":"2000-01-01T00:00:00Z",
+				"maxGasGwei":"123456789"
 			}
 		}
 	}`,

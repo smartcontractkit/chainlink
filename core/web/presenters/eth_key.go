@@ -19,6 +19,7 @@ type ETHKeyResource struct {
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
+	MaxGasGwei  utils.Big    `json:"maxGasGwei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -46,6 +47,7 @@ func NewETHKeyResource(k ethkey.KeyV2, state ethkey.State, opts ...NewETHKeyOpti
 		IsFunding:   state.IsFunding,
 		CreatedAt:   state.CreatedAt,
 		UpdatedAt:   state.UpdatedAt,
+		MaxGasGwei:  state.MaxGasGwei,
 	}
 
 	for _, opt := range opts {

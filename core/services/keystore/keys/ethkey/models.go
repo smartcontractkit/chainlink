@@ -14,6 +14,7 @@ type State struct {
 	EVMChainID utils.Big `gorm:"column:evm_chain_id"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	MaxGasGwei utils.Big `gorm:"column:max_gas_gwei"`
 	lastUsed   time.Time
 }
 

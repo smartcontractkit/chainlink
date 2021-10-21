@@ -29,15 +29,17 @@ func (p *EthKeyPresenter) ToRow() []string {
 		fmt.Sprintf("%v", p.IsFunding),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
+		p.MaxGasGwei.String(),
 	}
 }
 
+var tableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Gwei"}
+
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(tableHeaders, rows, rt.Writer)
 
 	return utils.JustError(rt.Write([]byte("\n")))
 }
@@ -46,14 +48,13 @@ type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(tableHeaders, rows, rt.Writer)
 
 	return nil
 }
@@ -80,6 +81,9 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	if c.IsSet("evmChainID") {
 		query.Set("evmChainID", c.String("evmChainID"))
 	}
+	if c.IsSet("maxGasGwei") {
+		query.Set("maxGasGwei", c.String("maxGasGwei"))
+	}
 	resp, err := cli.HTTP.Post("/v2/keys/eth?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -91,6 +95,34 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	}()
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key created.\n\n🔑 New key")
+}
+
+// UpdateETHKey updates an Ethereum key's parameters,
+// address of key must be passed and at least one parameter to update (currently only maxGasGwei)
+func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the address of the key to be updated"))
+	}
+
+	query := url.Values{}
+	if c.IsSet("maxGasGwei") {
+		query.Set("maxGasGwei", c.String("maxGasGwei"))
+	} else {
+		return cli.errorOut(errors.New("Must pass at least one parameter to update"))
+	}
+
+	address := c.Args().Get(0)
+	resp, err := cli.HTTP.Put(fmt.Sprintf("/v2/keys/eth/%s?%s", address, query.Encode()), nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key parameters updated.\n\n🔑 Updated key")
 }
 
 // DeleteETHKey deletes an Ethereum key,

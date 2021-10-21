@@ -35,6 +35,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 		isFunding   = true
 		createdAt   = time.Now()
 		updatedAt   = time.Now().Add(time.Second)
+		maxGasGwei  = *utils.NewBigI(123456789)
 		bundleID    = cltest.DefaultOCRKeyBundleID
 		buffer      = bytes.NewBufferString("")
 		r           = cmd.RendererTable{Writer: buffer}
@@ -49,6 +50,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 			IsFunding:   isFunding,
 			CreatedAt:   createdAt,
 			UpdatedAt:   updatedAt,
+			MaxGasGwei:  maxGasGwei,
 		},
 	}
 
@@ -62,6 +64,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasGwei.String())
 
 	// Render many resources
 	buffer.Reset()
@@ -75,6 +78,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasGwei.String())
 }
 
 func TestClient_ListETHKeys(t *testing.T) {
@@ -145,15 +149,61 @@ func TestClient_CreateETHKey(t *testing.T) {
 	set.Parse([]string{"-evmChainID", id.String()})
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, ethkey.State{}, 3)
+	// create a key with maxGasGwei specified
+	set = flag.NewFlagSet("test", 0)
+	set.Uint64("maxGasGwei", 0, "")
+	set.Set("maxGasGwei", "12345")
+	c = cli.NewContext(nil, set, nil)
+	assert.NoError(t, client.CreateETHKey(c))
+
+	cltest.AssertCount(t, db, ethkey.State{}, 4)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, 3, len(keys))
+	require.Equal(t, 4, len(keys))
 
 	// TODO: re-enable this once ChainSet is smart enough to reload chains at runtime
 	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
 	// states, err := app.KeyStore.Eth().GetStatesForChain(id)
 	// require.Len(t, states, 1)
+}
+
+func TestClient_UpdateETHKey(t *testing.T) {
+	t.Parallel()
+
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	app := startNewApplication(t,
+		withKey(),
+		withMocks(ethClient),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
+	ethKeyStore := app.GetKeyStore().Eth()
+	client, _ := app.NewClientAndRenderer()
+
+	// Create the key
+	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+	require.NoError(t, err)
+
+	// Update the key's max gas price
+	set := flag.NewFlagSet("test", 0)
+	set.Uint64("maxGasGwei", 0, "")
+	set.Set("maxGasGwei", "12345")
+	set.Parse([]string{key.Address.Hex()})
+	c := cli.NewContext(nil, set, nil)
+	err = client.UpdateETHKey(c)
+	require.NoError(t, err)
+
+	key, err = ethKeyStore.Get(key.Address.Hex())
+	require.NoError(t, err)
+	keyState, err := ethKeyStore.GetState(key.ID())
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(12345), keyState.MaxGasGwei.ToInt())
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {
