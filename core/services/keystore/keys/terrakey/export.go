@@ -8,24 +8,24 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-const keyTypeIdentifier = "Eth"
+const keyTypeIdentifier = "Terra"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
-	var export EncryptedterrakeyExport
+	var export EncryptedTerraKeyExport
 	if err := json.Unmarshal(keyJSON, &export); err != nil {
 		return KeyV2{}, err
 	}
 	privKey, err := keystore.DecryptDataV3(export.Crypto, adulteratedPassword(password))
 	if err != nil {
-		return KeyV2{}, errors.Wrap(err, "failed to decrypt Eth key")
+		return KeyV2{}, errors.Wrap(err, "failed to decrypt Terra key")
 	}
 	key := Raw(privKey).Key()
 	return key, nil
 }
 
-type EncryptedterrakeyExport struct {
+type EncryptedTerraKeyExport struct {
 	KeyType string              `json:"keyType"`
-	Address EIP55Address        `json:"address"`
+	Address TerraAddress        `json:"address"`
 	Crypto  keystore.CryptoJSON `json:"crypto"`
 }
 
@@ -37,9 +37,9 @@ func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParam
 		scryptParams.P,
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not encrypt Eth key")
+		return nil, errors.Wrapf(err, "could not encrypt Terra key")
 	}
-	encryptedOCRKExport := EncryptedterrakeyExport{
+	encryptedOCRKExport := EncryptedTerraKeyExport{
 		KeyType: keyTypeIdentifier,
 		Address: key.Address,
 		Crypto:  cryptoJSON,

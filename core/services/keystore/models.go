@@ -48,8 +48,7 @@ func (ekr encryptedKeyRing) Decrypt(password string) (keyRing, error) {
 }
 
 type keyStates struct {
-	Eth   map[string]*ethkey.State
-	Terra map[string]*terrakey.State
+	Eth map[string]*ethkey.State
 }
 
 func newKeyStates() keyStates {

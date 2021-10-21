@@ -1,60 +1,69 @@
 package terrakey
 
 import (
+	"crypto/ed25519"
 	"errors"
-	"io/ioutil"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
-// Key holds the private key metadata for a given address that is used to unlock
-// said key when given a password.
-//
-// By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	ID        int32 `gorm:"primary_key"`
-	Address   EIP55Address
-	JSON      datatypes.JSON `json:"-"`
-	CreatedAt time.Time      `json:"-"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-"`
-	// This is the nonce that should be used for the next transaction.
-	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
-	// because we have a better view of our own transactions
-	// NOTE: Be cautious about using this field, it is provided for convenience
-	// only, can go out of date, and should not be relied upon. The source of
-	// truth is always the database row for the key.
-	NextNonce int64 `json:"-"`
-	// IsFunding marks the address as being used for rescuing the  node and the pending transactions
-	// Only one key can be IsFunding=true at a time.
-	IsFunding bool
+	ID                  uint
+	PublicKey           crypto.PublicKey
+	privateKey          []byte
+	EncryptedPrivateKey crypto.EncryptedPrivateKey
+	Address             TerraAddress
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
-// Type returns type of key
-func (k Key) Type() string {
-	if k.IsFunding {
-		return "funding"
-	}
-	return "sending"
+func (Key) TableName() string {
+	return "terra_keys"
 }
 
-// NewKeyFromFile creates an instance in memory from a key file on disk.
-func NewKeyFromFile(path string) (Key, error) {
-	dat, err := ioutil.ReadFile(path)
+// New creates a new Terra key consisting of an ed25519 key. It encrypts the
+// Key with the passphrase.
+func New(passphrase string, scryptParams utils.ScryptParams) (*Key, error) {
+	pubkey, privkey, err := ed25519.GenerateKey(nil)
 	if err != nil {
-		return Key{}, err
+		return nil, err
 	}
 
-	js := gjson.ParseBytes(dat)
-	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
+	encPrivkey, err := crypto.NewEncryptedPrivateKey(privkey, passphrase, scryptParams)
 	if err != nil {
-		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
+		return nil, err
 	}
 
-	return Key{Address: address, JSON: datatypes.JSON(dat)}, nil
+	return &Key{
+		PublicKey:           crypto.PublicKey(pubkey),
+		privateKey:          privkey,
+		EncryptedPrivateKey: *encPrivkey,
+	}, nil
+}
+
+func (k *Key) Unlock(password string) error {
+	pk, err := k.EncryptedPrivateKey.Decrypt(password)
+	if err != nil {
+		return err
+	}
+	k.privateKey = pk
+	return nil
+}
+
+func (k *Key) Unsafe_GetPrivateKey() ([]byte, error) {
+	if k.privateKey == nil {
+		return nil, errors.New("key has not been unlocked")
+	}
+
+	return k.privateKey, nil
+}
+
+func (k Key) ToV2() KeyV2 {
+	pk := ed25519.PrivateKey(k.privateKey)
+	return KeyV2{
+		privateKey: &pk,
+		Address:    k.Address,
+	}
 }

@@ -1,34 +1,29 @@
 package terrakey
 
 import (
-	"bytes"
-	"crypto/ecdsa"
-	"crypto/rand"
+	"crypto/ed25519"
+	cryptorand "crypto/rand"
+
+	cosmostypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/terra-project/terra.go/msg"
+
 	"fmt"
-	"math/big"
-
-	"github.com/ethereum/go-ethereum/crypto"
 )
-
-var curve = crypto.S256()
 
 type Raw []byte
 
+type TerraAddress cosmostypes.Address
+
 func (raw Raw) Key() KeyV2 {
-	var privateKey ecdsa.PrivateKey
-	d := big.NewInt(0).SetBytes(raw)
-	privateKey.PublicKey.Curve = curve
-	privateKey.D = d
-	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
-	address := EIP55AddressFromAddress(crypto.PubkeyToAddress(privateKey.PublicKey))
+	privKey := ed25519.PrivateKey(raw)
 	return KeyV2{
-		Address:    address,
-		privateKey: &privateKey,
+		privateKey: &privKey,
+		Address:    msg.AccAddress(ed25519PubKeyFromPrivKey(privKey)),
 	}
 }
 
 func (raw Raw) String() string {
-	return "<Eth Raw Private Key>"
+	return "<Terra Raw Private Key>"
 }
 
 func (raw Raw) GoString() string {
@@ -36,47 +31,44 @@ func (raw Raw) GoString() string {
 }
 
 type KeyV2 struct {
-	Address    EIP55Address
-	privateKey *ecdsa.PrivateKey
+	//TODO: this is only for OCR signing
+	privateKey *ed25519.PrivateKey
+	publicKey  ed25519.PublicKey
+
+	Address TerraAddress
+	// Type       string
 }
 
 func NewV2() (KeyV2, error) {
-	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	pubKey, privKey, err := ed25519.GenerateKey(cryptorand.Reader)
 	if err != nil {
 		return KeyV2{}, err
 	}
-	return FromPrivateKey(privateKeyECDSA), nil
-}
-
-func FromPrivateKey(privKey *ecdsa.PrivateKey) (key KeyV2) {
-	address := EIP55AddressFromAddress(crypto.PubkeyToAddress(privKey.PublicKey))
 	return KeyV2{
-		Address:    address,
-		privateKey: privKey,
-	}
+		privateKey: &privKey,
+		publicKey:  pubKey,
+		Address:    msg.AccAddress(pubKey),
+	}, nil
 }
 
 func (key KeyV2) ID() string {
-	return key.Address.Hex()
+	return string(key.Address.String())
 }
 
 func (key KeyV2) Raw() Raw {
-	return key.privateKey.D.Bytes()
-}
-
-func (key KeyV2) ToEcdsaPrivKey() *ecdsa.PrivateKey {
-	return key.privateKey
+	return Raw(*key.privateKey)
 }
 
 func (key KeyV2) String() string {
-	return fmt.Sprintf("terrakeyV2{PrivateKey: <redacted>, Address: %s}", key.Address)
+	return fmt.Sprintf("TerraKeyV2{PrivateKey: <redacted>, Address: %s}", key.Address)
 }
 
 func (key KeyV2) GoString() string {
 	return key.String()
 }
 
-// Cmp uses byte-order address comparison to give a stable comparison between two keys
-func (key KeyV2) Cmp(key2 KeyV2) int {
-	return bytes.Compare(key.Address.Bytes(), key2.Address.Bytes())
+func ed25519PubKeyFromPrivKey(privKey ed25519.PrivateKey) ed25519.PublicKey {
+	publicKey := make([]byte, ed25519.PublicKeySize)
+	copy(publicKey, privKey[32:])
+	return ed25519.PublicKey(publicKey)
 }
