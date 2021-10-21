@@ -269,7 +269,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
+	var lbs []utils.DependentAwaiter
+	for _, c := range chainSet.Chains() {
+		lbs = append(lbs, c.LogBroadcaster())
+	}
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)

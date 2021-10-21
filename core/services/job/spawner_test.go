@@ -96,7 +96,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
 			jobSpecB.Type: delegateB,
-		}, txm)
+		}, txm, nil)
 		spawner.Start()
 		jobA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -152,7 +152,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		}, txm)
+		}, txm, nil)
 
 		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobSpecA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
 			jobSpecA.Type: delegateA,
-		}, txm)
+		}, txm, nil)
 
 		jobA, err := orm.CreateJob(context.Background(), jobSpecA, jobSpecA.Pipeline)
 		require.NoError(t, err)
