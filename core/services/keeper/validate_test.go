@@ -87,7 +87,8 @@ perform_upkeep_tx        [type=ethtx
                           from="[$(jobSpec.fromAddress)]"
                           evmChainID="$(jobSpec.evmChainID)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"
+                          simulate=true]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `,
@@ -136,7 +137,8 @@ perform_upkeep_tx        [type=ethtx
                           minConfirmations=0
                           to="$(jobSpec.contractAddress)"
                           data="$(encode_perform_upkeep_tx)"
-                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"]
+                          txMeta="{\\"jobID\\":$(jobSpec.jobID),\\"upkeepID\\":$(jobSpec.upkeepID)}"
+                          simulate=true]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx
 """
 `,
