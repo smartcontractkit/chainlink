@@ -211,6 +211,7 @@ type VRFSpec struct {
 	CoordinatorAddress ethkey.EIP55Address  `json:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey  `json:"publicKey"`
 	FromAddress        *ethkey.EIP55Address `json:"fromAddress"`
+	PollPeriod         models.Duration      `json:"pollPeriod"`
 	Confirmations      uint32               `json:"confirmations"`
 	CreatedAt          time.Time            `json:"createdAt"`
 	UpdatedAt          time.Time            `json:"updatedAt"`
@@ -221,6 +222,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		CoordinatorAddress: spec.CoordinatorAddress,
 		PublicKey:          spec.PublicKey,
 		FromAddress:        spec.FromAddress,
+		PollPeriod:         models.MustMakeDuration(spec.PollPeriod),
 		Confirmations:      spec.Confirmations,
 		CreatedAt:          spec.CreatedAt,
 		UpdatedAt:          spec.UpdatedAt,
