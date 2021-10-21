@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // ParseDietCBOR attempts to coerce the input byte array into valid CBOR

@@ -2,12 +2,12 @@ package cbor
 
 import (
 	"encoding/json"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
