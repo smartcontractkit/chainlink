@@ -38,7 +38,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	inputValues, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
@@ -71,7 +71,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) (resul
 		metaMap = MapParam(v)
 	case nil:
 	default:
-		logger.Warnw(`"meta" field on task run is malformed, discarding`,
+		lggr.Warnw(`"meta" field on task run is malformed, discarding`,
 			"task", t.DotID(),
 			"meta", meta,
 		)
@@ -100,7 +100,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) (resul
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	logger.Debugw("Bridge task: sending request",
+	lggr.Debugw("Bridge task: sending request",
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
@@ -133,7 +133,7 @@ func (t *BridgeTask) Run(ctx context.Context, vars Vars, inputs []Result) (resul
 	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
-	logger.Debugw("Bridge task: fetched answer",
+	lggr.Debugw("Bridge task: fetched answer",
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),
