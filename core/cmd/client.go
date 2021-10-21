@@ -137,7 +137,7 @@ func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postg
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	appLggr := logger.ApplicationLogger(cfg)
+	appLggr := logger.NewLogger(cfg)
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()

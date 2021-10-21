@@ -10,7 +10,7 @@ func registerOSSinks() error {
 }
 
 // logFileURI returns the full path to the file the
-// ApplicationLogger logs to, and uses zap's built in default file sink.
+// NewLogger logs to, and uses zap's built in default file sink.
 func logFileURI(configRootDir string) string {
 	return filepath.ToSlash(filepath.Join(configRootDir, "log.jsonl"))
 }

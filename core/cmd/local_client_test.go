@@ -56,7 +56,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.ApplicationLogger(cfg),
+		Logger:                 logger.NewLogger(cfg),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -282,7 +282,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			require.NoError(t, os.MkdirAll(config.RootDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
-			logger.ApplicationLogger(config).Sync()
+			logger.NewLogger(config).Sync()
 			filepath := filepath.Join(config.RootDir(), "log.jsonl")
 			_, err := os.Stat(filepath)
 			assert.Equal(t, os.IsNotExist(err), !tt.fileShouldExist)
