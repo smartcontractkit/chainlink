@@ -4,10 +4,7 @@ import accountBalances from './reducers/accountBalances'
 import authentication from './reducers/authentication'
 import bridges from './reducers/bridges'
 import configuration from './reducers/configuration'
-import dashboardIndex from './reducers/dashboardIndex'
 import fetching from './reducers/fetching'
-import jobRuns from './reducers/jobRuns'
-import jobs from './reducers/jobs'
 import notifications from './reducers/notifications'
 import redirect from './reducers/redirect'
 import transactions from './reducers/transactions'
@@ -18,10 +15,7 @@ const reducer = combineReducers({
   authentication,
   bridges,
   configuration,
-  dashboardIndex,
   fetching,
-  jobRuns,
-  jobs,
   notifications,
   redirect,
   transactions,

@@ -146,6 +146,7 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"id"`
+	JobID        int32  `json:"jobID"`
 	DotDAGSource string `json:"dotDagSource"`
 }
 
@@ -153,6 +154,7 @@ type PipelineSpec struct {
 func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 	return PipelineSpec{
 		ID:           spec.ID,
+		JobID:        spec.JobID,
 		DotDAGSource: spec.DotDagSource,
 	}
 }

@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -226,7 +227,12 @@ func (b *BytesParam) UnmarshalPipelineParam(val interface{}) error {
 			*b = BytesParam(bs)
 			return nil
 		}
-		*b = BytesParam(v)
+		// try decoding as base64 first, in case this is a string from the database
+		bs, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			bs = []byte(v)
+		}
+		*b = BytesParam(bs)
 	case []byte:
 		*b = BytesParam(v)
 	case nil:
@@ -260,6 +266,8 @@ func (u *Uint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		*u = Uint64Param(v)
 	case int64:
+		*u = Uint64Param(v)
+	case float64: // when decoding from db: JSON numbers are floats
 		*u = Uint64Param(v)
 	case string:
 		n, err := strconv.ParseUint(v, 10, 64)
@@ -300,6 +308,8 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		n = uint64(v)
 	case int64:
+		n = uint64(v)
+	case float64: // when decoding from db: JSON numbers are floats
 		n = uint64(v)
 	case string:
 		if strings.TrimSpace(v) == "" {
@@ -363,6 +373,11 @@ func (p *MaybeInt32Param) UnmarshalPipelineParam(val interface{}) error {
 	case int32:
 		n = int32(v)
 	case int64:
+		if v > math.MaxInt32 || v < math.MinInt32 {
+			return errors.Wrap(ErrBadInput, "overflows int32")
+		}
+		n = int32(v)
+	case float64: // when decoding from db: JSON numbers are floats
 		if v > math.MaxInt32 || v < math.MinInt32 {
 			return errors.Wrap(ErrBadInput, "overflows int32")
 		}
@@ -594,6 +609,19 @@ func (s *HashSliceParam) UnmarshalPipelineParam(val interface{}) error {
 		err := json.Unmarshal(v, &dsp)
 		if err != nil {
 			return err
+		}
+	case []interface{}:
+		for _, h := range v {
+			if s, is := h.(string); is {
+				var hash common.Hash
+				err := hash.UnmarshalText([]byte(s))
+				if err != nil {
+					return errors.Wrapf(ErrBadInput, "HashSliceParam: %v", err)
+				}
+				dsp = append(dsp, hash)
+			} else {
+				return errors.Wrap(ErrBadInput, "HashSliceParam")
+			}
 		}
 	default:
 		return errors.Wrap(ErrBadInput, "HashSliceParam")

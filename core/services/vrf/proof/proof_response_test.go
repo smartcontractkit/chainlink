@@ -1,7 +1,6 @@
 package proof_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -24,14 +23,13 @@ func TestMarshaledProof(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	keyStore := cltest.NewKeyStore(t, store.DB)
-	key, err := keyStore.VRF().CreateAndUnlockWeakInMemoryEncryptedKeyXXXTestingOnly(cltest.Password)
-	fmt.Println("key.PublicKey", key.PublicKey)
-	require.NoError(t, err)
+	key := cltest.DefaultVRFKey
+	keyStore.VRF().Add(key)
 	blockHash := common.Hash{}
 	blockNum := 0
 	preSeed := big.NewInt(1)
 	s := proof2.TestXXXSeedData(t, preSeed, blockHash, blockNum)
-	proofResponse, err := proof2.GenerateProofResponse(keyStore.VRF(), key.PublicKey, s)
+	proofResponse, err := proof2.GenerateProofResponse(keyStore.VRF(), key.ID(), s)
 	require.NoError(t, err)
 	goProof, err := proof2.UnmarshalProofResponse(proofResponse)
 	require.NoError(t, err)

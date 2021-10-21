@@ -31,7 +31,7 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 
 	// Setup the rounds
 	for round := uint32(0); round < 10; round++ {
-		_, err := orm.FindOrCreateFluxMonitorRoundStats(address, round)
+		_, err := orm.FindOrCreateFluxMonitorRoundStats(address, round, 1)
 		require.NoError(t, err)
 	}
 
@@ -40,10 +40,11 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	require.Equal(t, 10, count)
 
 	// Ensure round stats are not created again for the same address/roundID
-	stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, uint32(0))
+	stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, uint32(0), 1)
 	require.NoError(t, err)
 	require.Equal(t, uint32(0), stats.RoundID)
 	require.Equal(t, address, stats.Aggregator)
+	require.Equal(t, uint64(1), stats.NumNewRoundLogs)
 
 	count, err = orm.CountFluxMonitorRoundStats()
 	require.NoError(t, err)
@@ -77,8 +78,11 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
-	corestore, cleanup := cltest.NewStore(t)
+	cfg := cltest.NewTestEVMConfig(t)
+	corestore, cleanup := cltest.NewStoreWithConfig(t, cfg)
 	t.Cleanup(cleanup)
+
+	keyStore := cltest.NewKeyStore(t, corestore.DB)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
@@ -90,7 +94,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(corestore.DB)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(corestore.ORM.DB, corestore.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(corestore.ORM.DB, cfg, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{}, keyStore)
 	orm := fluxmonitorv2.NewORM(corestore.DB, nil, nil)
 
 	address := cltest.NewAddress()
@@ -103,7 +107,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
 		runID, err := pipelineORM.InsertFinishedRun(
-			corestore.DB,
+			postgres.UnwrapGormDB(corestore.DB),
 			pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
@@ -112,21 +116,22 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 				FinishedAt:     null.TimeFrom(f),
 				Errors:         pipeline.RunErrors{null.String{}},
 				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
-			}, pipeline.TaskRunResults{
-				{
-					ID:         uuid.NewV4(),
-					Task:       &pipeline.HTTPTask{},
-					Result:     pipeline.Result{Value: 10},
-					CreatedAt:  f,
-					FinishedAt: null.TimeFrom(f),
+				PipelineTaskRuns: []pipeline.TaskRun{
+					{
+						ID:         uuid.NewV4(),
+						Type:       pipeline.TaskTypeHTTP,
+						Output:     &pipeline.JSONSerializable{Val: 10, Null: false},
+						CreatedAt:  f,
+						FinishedAt: null.TimeFrom(f),
+					},
 				},
 			}, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID)
+		err = orm.UpdateFluxMonitorRoundStats(corestore.DB, address, roundID, runID, 0)
 		require.NoError(t, err)
 
-		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID)
+		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID, 0)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, stats.NumSubmissions)
 		require.True(t, stats.PipelineRunID.Valid)
@@ -161,6 +166,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	corestore, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
+	ethKeyStore := cltest.NewKeyStore(t, corestore.DB).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
@@ -168,14 +174,20 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		txm = new(bptxmmocks.TxManager)
 		orm = fluxmonitorv2.NewORM(corestore.DB, txm, strategy)
 
-		key      = cltest.MustInsertRandomKey(t, corestore.DB, 0)
-		from     = key.Address.Address()
+		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", corestore.DB, from, to, payload, gasLimit, nil, strategy).Return(bulletprooftxmanager.EthTx{}, nil).Once()
+	txm.On("CreateEthTransaction", corestore.DB, bulletprooftxmanager.NewTx{
+		FromAddress:    from,
+		ToAddress:      to,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta:           nil,
+		Strategy:       strategy,
+	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
 	orm.CreateEthTransaction(corestore.DB, from, to, payload, gasLimit)
 

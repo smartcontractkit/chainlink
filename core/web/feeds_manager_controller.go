@@ -106,3 +106,61 @@ func (fmc *FeedsManagerController) Show(c *gin.Context) {
 
 	jsonAPIResponse(c, presenters.NewFeedsManagerResource(*ms), "feeds_managers")
 }
+
+// UpdateFeedsManagerRequest represents a JSONAPI request for updating a
+// feeds manager
+type UpdateFeedsManagerRequest struct {
+	Name                   string           `json:"name"`
+	URI                    string           `json:"uri"`
+	JobTypes               []string         `json:"jobTypes"`
+	PublicKey              crypto.PublicKey `json:"publicKey"`
+	IsBootstrapPeer        bool             `json:"isBootstrapPeer"`
+	BootstrapPeerMultiaddr null.String      `json:"bootstrapPeerMultiaddr"`
+}
+
+// Update updates a feeds manager
+// Example:
+// "PUT <application>/feeds_managers/<id>"
+func (fmc *FeedsManagerController) Update(c *gin.Context) {
+	request := UpdateFeedsManagerRequest{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	id, err := strconv.ParseInt(c.Param("id"), 10, 32)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	mgr := &feeds.FeedsManager{
+		ID:                        id,
+		URI:                       request.URI,
+		Name:                      request.Name,
+		PublicKey:                 request.PublicKey,
+		JobTypes:                  request.JobTypes,
+		IsOCRBootstrapPeer:        request.IsBootstrapPeer,
+		OCRBootstrapPeerMultiaddr: request.BootstrapPeerMultiaddr,
+	}
+
+	feedsService := fmc.App.GetFeedsService()
+
+	err = feedsService.UpdateFeedsManager(c.Request.Context(), *mgr)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	mgr, err = feedsService.GetManager(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c,
+		presenters.NewFeedsManagerResource(*mgr),
+		"feeds_managers",
+		http.StatusOK,
+	)
+}

@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`pages/Jobs/Definition renders the job definition component 1`] = `
+"type = \\"fluxmonitor\\"
+schemaVersion = 1
+name = \\"Flux Monitor V2 job\\"
+maxTaskDuration = \\"\\"
+observationSource = \\"\\"\\"
+   fetch    [type=http method=POST url=\\"http://localhost:8001\\" requestData=\\"{\\\\\\\\\\"hi\\\\\\\\\\": \\\\\\\\\\"hello\\\\\\\\\\"}\\"];
+    parse    [type=jsonparse path=\\"data,result\\"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+\\"\\"\\"
+externalJobID = \\"0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47\\"
+
+"
+`;

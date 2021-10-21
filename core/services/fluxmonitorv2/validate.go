@@ -31,7 +31,24 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return jb, err
+		var specIntThreshold job.FluxMonitorSpecIntThreshold
+		err = tree.Unmarshal(&specIntThreshold)
+		if err != nil {
+			return jb, err
+		}
+		spec = job.FluxMonitorSpec{
+			ContractAddress:     specIntThreshold.ContractAddress,
+			Threshold:           float32(specIntThreshold.Threshold),
+			AbsoluteThreshold:   float32(specIntThreshold.AbsoluteThreshold),
+			PollTimerPeriod:     specIntThreshold.PollTimerPeriod,
+			PollTimerDisabled:   specIntThreshold.PollTimerDisabled,
+			IdleTimerPeriod:     specIntThreshold.IdleTimerPeriod,
+			IdleTimerDisabled:   specIntThreshold.IdleTimerDisabled,
+			DrumbeatSchedule:    specIntThreshold.DrumbeatSchedule,
+			DrumbeatRandomDelay: specIntThreshold.DrumbeatRandomDelay,
+			DrumbeatEnabled:     specIntThreshold.DrumbeatEnabled,
+			MinPayment:          specIntThreshold.MinPayment,
+		}
 	}
 	jb.FluxMonitorSpec = &spec
 
@@ -63,6 +80,10 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 		err := utils.ValidateCronSchedule(jb.FluxMonitorSpec.DrumbeatSchedule)
 		if err != nil {
 			return jb, errors.Wrap(err, "while validating drumbeat schedule")
+		}
+
+		if !spec.IdleTimerDisabled {
+			return jb, errors.Errorf("When the drumbeat ticker is enabled, the idle timer must be disabled. Please set IdleTimerDisabled to true")
 		}
 	}
 

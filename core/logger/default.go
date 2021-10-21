@@ -66,12 +66,6 @@ func Debugw(msg string, keysAndValues ...interface{}) {
 	Default.Debugw(msg, keysAndValues...)
 }
 
-// Tracew is a shim stand-in for when we have real trace-level logging support
-func Tracew(msg string, keysAndValues ...interface{}) {
-	// Zap does not support trace logging just yet
-	Default.Debugw("TRACE: "+msg, keysAndValues...)
-}
-
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
 	Default.Warnw(msg, keysAndValues...)

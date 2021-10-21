@@ -19,8 +19,6 @@ export const jsonApiCSAKeys = (keys: CSAKey[]) => {
         type: 'csaKeys',
         attributes: {
           publicKey,
-          createdAt: new Date().toISOString(),
-          UpdatedAt: new Date().toISOString(),
         },
       }
     }),

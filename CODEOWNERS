@@ -10,6 +10,7 @@
 /core/services/health @archseer @samsondav
 /core/services/job @spooktheducks @connorwstein @archseer
 /core/services/keeper @RyanRHall @samsondav
+/core/services/keystore @RyanRHall
 /core/services/log @PiotrTrzpil @spooktheducks
 /core/services/offchainreporting @spooktheducks @connorwstein @samsondav @archseer
 /core/services/periodicbackup @PiotrTrzpil @samsondav
@@ -31,3 +32,6 @@
 
 # Contracts
 /contracts/ @alexroan @se3000 @connorwstein
+
+# Misc
+/core/store @archseer @samsondav

@@ -10,11 +10,9 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -43,17 +41,6 @@ type (
 		UpdatedAt             time.Time
 		DeletedAt             gorm.DeletedAt
 	}
-
-	keyBundleRawData struct {
-		EcdsaD             big.Int
-		Ed25519PrivKey     []byte
-		OffChainEncryption [curve25519.ScalarSize]byte
-	}
-)
-
-var (
-	ErrScalarTooBig = errors.Errorf("can't handle scalars greater than %d", curve25519.PointSize)
-	curve           = secp256k1.S256()
 )
 
 func (EncryptedKeyBundle) TableName() string {
@@ -260,14 +247,16 @@ func (pk KeyBundle) String() string {
 	)
 }
 
-// GoStringer reduces the risk of accidentally logging the private key
-func (pk KeyBundle) GoStringer() string {
+// GoString reduces the risk of accidentally logging the private key
+func (pk KeyBundle) GoString() string {
 	return pk.String()
 }
 
-// type is added to the beginning of the passwords for OCR key bundles,
-// so that the keys can't accidentally be mis-used in the wrong place
-func adulteratedPassword(auth string) string {
-	s := "ocrkey" + auth
-	return s
+// GoString reduces the risk of accidentally logging the private key
+func (pk KeyBundle) ToV2() KeyV2 {
+	return KeyV2{
+		OnChainSigning:     pk.onChainSigning,
+		OffChainSigning:    pk.offChainSigning,
+		OffChainEncryption: pk.offChainEncryption,
+	}
 }

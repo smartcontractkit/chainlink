@@ -51,7 +51,7 @@ func ValidateSpec(ts string) (Type, error) {
 	if jb.Type.RequiresPipelineSpec() && (jb.Pipeline.Source == "") {
 		return "", ErrNoPipelineSpec
 	}
-	if jb.Pipeline.HasAsync() && !jb.Type.SupportsAsync() {
+	if jb.Pipeline.RequiresPreInsert() && !jb.Type.SupportsAsync() {
 		return "", errors.Errorf("async=true tasks are not supported for %v", jb.Type)
 	}
 	return jb.Type, nil

@@ -180,9 +180,6 @@ func (t *OCRContractTracker) Close() error {
 	})
 }
 
-// Connect conforms to HeadTrackable
-func (t *OCRContractTracker) Connect(*models.Head) error { return nil }
-
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
 func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h models.Head) {
 	t.setLatestBlockHeight(h)
@@ -322,19 +319,9 @@ func IsLaterThan(incoming gethTypes.Log, existing gethTypes.Log) bool {
 		(incoming.BlockNumber == existing.BlockNumber && incoming.TxIndex == existing.TxIndex && incoming.Index > existing.Index)
 }
 
-// IsV2Job complies with LogListener interface
-func (t *OCRContractTracker) IsV2Job() bool {
-	return true
-}
-
-// JobIDV2 complies with LogListener interface
-func (t *OCRContractTracker) JobIDV2() int32 {
-	return t.jobID
-}
-
 // JobID complies with LogListener interface
-func (t *OCRContractTracker) JobID() models.JobID {
-	return models.NilJobID
+func (t *OCRContractTracker) JobID() int32 {
+	return t.jobID
 }
 
 // SubscribeToNewConfigs returns the tracker aliased as a ContractConfigSubscription

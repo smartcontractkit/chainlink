@@ -3,7 +3,6 @@ package presenters
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -13,15 +12,11 @@ import (
 )
 
 func TestCSAKeyResource(t *testing.T) {
-	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
-
 	key, err := csakey.New("passphrase", utils.FastScryptParams)
 	require.NoError(t, err)
 	key.ID = 1
-	key.CreatedAt = timestamp
-	key.UpdatedAt = timestamp
 
-	r := NewCSAKeyResource(*key)
+	r := NewCSAKeyResource(key.ToV2())
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
 
@@ -29,14 +24,13 @@ func TestCSAKeyResource(t *testing.T) {
 	{
 		"data":{
 			"type":"csaKeys",
-			"id":"1",
+			"id":"%s",
 			"attributes":{
 				"publicKey": "%s",
-				"createdAt":"2000-01-01T00:00:00Z",
-				"updatedAt":"2000-01-01T00:00:00Z"
+				"version": 1
 			}
 		}
-	}`, key.PublicKey.String())
+	}`, key.PublicKey.String(), key.PublicKey.String())
 
 	assert.JSONEq(t, expected, string(b))
 }

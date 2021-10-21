@@ -3,6 +3,8 @@ package vrf
 import (
 	"bytes"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/pelletier/go-toml"
@@ -47,6 +49,15 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	}
 	if spec.CoordinatorAddress.String() == "" {
 		return jb, errors.Wrap(ErrKeyNotSet, "coordinatorAddress")
+	}
+	var foundVRFTask bool
+	for _, t := range jb.Pipeline.Tasks {
+		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
+			foundVRFTask = true
+		}
+	}
+	if !foundVRFTask {
+		return jb, errors.Wrapf(ErrKeyNotSet, "invalid pipeline, expected a vrf task")
 	}
 
 	jb.VRFSpec = &spec

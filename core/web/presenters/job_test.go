@@ -32,15 +32,14 @@ func TestJob(t *testing.T) {
 
 	// Used in OCR tests
 	var (
-		peerIDStr      = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
-		ocrKeyBundleID = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+		peerIDStr      = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+		ocrKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 	)
 	p2pPeerID, err := peer.Decode(peerIDStr)
 	require.NoError(t, err)
 	peerID := p2pkey.PeerID(p2pPeerID)
+	ocrKeyID := models.MustSha256HashFromHex(ocrKeyBundleID)
 	transmitterAddress, err := ethkey.NewEIP55Address("0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15")
-	require.NoError(t, err)
-	ocrKeyBundleIDSha256, err := models.Sha256HashFromHex(ocrKeyBundleID)
 	require.NoError(t, err)
 
 	// Used in keeper test
@@ -84,7 +83,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"directRequestSpec": {
 							"contractAddress": "%s",
@@ -144,7 +144,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"fluxMonitorSpec": {
 							"contractAddress": "%s",
@@ -181,7 +182,7 @@ func TestJob(t *testing.T) {
 					P2PPeerID:                              &peerID,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
-					EncryptedOCRKeyBundleID:                &ocrKeyBundleIDSha256,
+					EncryptedOCRKeyBundleID:                &ocrKeyID,
 					TransmitterAddress:                     &transmitterAddress,
 					ObservationTimeout:                     models.Interval(1 * time.Minute),
 					BlockchainTimeout:                      models.Interval(1 * time.Minute),
@@ -214,7 +215,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\""
+							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
+							"jobID": 0
 						},
 						"offChainReportingOracleSpec": {
 							"contractAddress": "%s",
@@ -275,7 +277,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"keeperSpec": {
 							"contractAddress": "%s",
@@ -327,7 +330,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
                         "pipelineSpec": {
                             "id": 1,
-                            "dotDagSource": ""
+                            "dotDagSource": "",
+														"jobID": 0
                         },
                         "cronSpec": {
                             "schedule": "%s",
@@ -376,7 +380,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"webhookSpec": {
 							"createdAt":"2000-01-01T00:00:00Z",
@@ -436,7 +441,8 @@ func TestJob(t *testing.T) {
 					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
-							"dotDagSource": ""
+							"dotDagSource": "",
+							"jobID": 0
 						},
 						"keeperSpec": {
 							"contractAddress": "%s",

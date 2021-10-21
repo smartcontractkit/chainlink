@@ -78,19 +78,6 @@ declare module 'core/store/presenters' {
   }
 
   /**
-   * JobSpec holds the JobSpec definition together with
-   * the total link earned from that job
-   */
-  export interface JobSpec extends models.JobSpec {
-    earnings: Pointer<assets.Link>
-  }
-
-  /**
-   * JobRun presents an API friendly version of the data.
-   */
-  export interface JobRun extends models.JobRun {}
-
-  /**
    * Tx is a jsonapi wrapper for an Ethereum Transaction.
    */
   export interface Tx {

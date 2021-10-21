@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/gin-gonic/gin"
@@ -42,9 +41,9 @@ var (
 // Client is the shell for the node, local commands and remote commands.
 type Client struct {
 	Renderer
-	Config                         *config.Config
+	Config                         config.GeneralConfig
 	AppFactory                     AppFactory
-	KeyStoreAuthenticator          KeyStoreAuthenticator
+	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
 	Runner                         Runner
 	HTTP                           HTTPClient
@@ -64,27 +63,31 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*config.Config, ...func(chainlink.Application)) (chainlink.Application, error)
+	NewApplication(config.EVMConfig) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *config.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+func (n ChainlinkAppFactory) NewApplication(config config.EVMConfig) (chainlink.Application, error) {
+	chainLogger := logger.Default.With(
+		"chainId", config.Chain().ID(),
+	)
+
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
+		ethClient, err = eth.NewClient(chainLogger, config.EthereumURL(), config.EthereumHTTPURL(), config.EthereumSecondaryURLs())
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
+	return chainlink.NewApplication(chainLogger, config, ethClient, advisoryLock)
 }
 
 // Runner implements the Run method.
@@ -167,8 +170,12 @@ type HTTPClient interface {
 	Delete(string) (*http.Response, error)
 }
 
+type HTTPClientConfig interface {
+	SessionCookieAuthenticatorConfig
+}
+
 type authenticatedHTTPClient struct {
-	config         orm.ConfigReader
+	config         HTTPClientConfig
 	client         *http.Client
 	cookieAuth     CookieAuthenticator
 	sessionRequest models.SessionRequest
@@ -176,7 +183,7 @@ type authenticatedHTTPClient struct {
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
+func NewAuthenticatedHTTPClient(config HTTPClientConfig, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
 		config:         config,
 		client:         newHttpClient(config),
@@ -185,7 +192,7 @@ func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthen
 	}
 }
 
-func newHttpClient(config orm.ConfigReader) *http.Client {
+func newHttpClient(config SessionCookieAuthenticatorConfig) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
@@ -273,16 +280,21 @@ type CookieAuthenticator interface {
 	Authenticate(models.SessionRequest) (*http.Cookie, error)
 }
 
+type SessionCookieAuthenticatorConfig interface {
+	ClientNodeURL() string
+	InsecureSkipVerify() bool
+}
+
 // SessionCookieAuthenticator is a concrete implementation of CookieAuthenticator
 // that retrieves a session id for the user with credentials from the session request.
 type SessionCookieAuthenticator struct {
-	config *config.Config
+	config SessionCookieAuthenticatorConfig
 	store  CookieStore
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config *config.Config, store CookieStore) CookieAuthenticator {
+func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore) CookieAuthenticator {
 	return &SessionCookieAuthenticator{config: config, store: store}
 }
 
@@ -347,9 +359,13 @@ func (m *MemoryCookieStore) Retrieve() (*http.Cookie, error) {
 	return m.Cookie, nil
 }
 
+type DiskCookieConfig interface {
+	RootDir() string
+}
+
 // DiskCookieStore saves a single cookie in the local cli working directory.
 type DiskCookieStore struct {
-	Config *config.Config
+	Config DiskCookieConfig
 }
 
 // Save stores a cookie.

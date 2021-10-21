@@ -2,7 +2,7 @@ package feeds_test
 
 import (
 	"context"
-	"crypto/ed25519"
+	"database/sql"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -21,6 +22,8 @@ import (
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
+	verMocks "github.com/smartcontractkit/chainlink/core/services/versioning/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/stretchr/testify/assert"
@@ -29,31 +32,60 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+const TestSpec = `
+type              = "fluxmonitor"
+schemaVersion     = 1
+name              = "example flux monitor spec"
+contractAddress   = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+externalJobID     = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
+threshold = 0.5
+absoluteThreshold = 0.0 # optional
+
+idleTimerPeriod = "1s"
+idleTimerDisabled = false
+
+pollTimerPeriod = "1m"
+pollTimerDisabled = false
+
+observationSource = """
+ds1  [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
+jp1  [type=jsonparse path="bpi,USD,rate_float"];
+ds1 -> jp1 -> answer1;
+answer1 [type=median index=0];
+"""
+`
+
 type TestService struct {
 	feeds.Service
 	orm         *mocks.ORM
+	verORM      *verMocks.ORM
+	connMgr     *mocks.ConnectionsManager
 	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
 	fmsClient   *mocks.FeedsManagerClient
-	csaKeystore *ksmocks.CSAKeystoreInterface
-	ethKeystore *ksmocks.EthKeyStoreInterface
+	csaKeystore *ksmocks.CSA
+	ethKeystore *ksmocks.Eth
 	cfg         *mocks.Config
 }
 
 func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
+		verORM      = &verMocks.ORM{}
+		connMgr     = &mocks.ConnectionsManager{}
 		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
-		csaKeystore = &ksmocks.CSAKeystoreInterface{}
-		ethKeystore = &ksmocks.EthKeyStoreInterface{}
+		csaKeystore = &ksmocks.CSA{}
+		ethKeystore = &ksmocks.Eth{}
 		cfg         = &mocks.Config{}
 	)
 
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
 			orm,
+			verORM,
+			connMgr,
 			txm,
 			spawner,
 			fmsClient,
@@ -63,12 +95,14 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
-	svc := feeds.NewService(orm, txm, spawner, csaKeystore, ethKeystore, cfg)
-	svc.SetFMSClient(fmsClient)
+	svc := feeds.NewService(orm, verORM, txm, spawner, csaKeystore, ethKeystore, cfg)
+	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
 		Service:     svc,
 		orm:         orm,
+		verORM:      verORM,
+		connMgr:     connMgr,
 		txm:         txm,
 		spawner:     spawner,
 		fmsClient:   fmsClient,
@@ -81,8 +115,7 @@ func setupTestService(t *testing.T) *TestService {
 func Test_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
 
-	_, privkey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
+	key := cltest.DefaultCSAKey
 
 	var (
 		id        = int64(1)
@@ -91,21 +124,18 @@ func Test_Service_RegisterManager(t *testing.T) {
 	)
 
 	var pubKey crypto.PublicKey
-	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
-	key := csakey.Key{
-		PublicKey: pubKey,
-	}
 
 	svc := setupTestService(t)
 
-	svc.orm.On("CountManagers").Return(int64(0), nil)
+	svc.orm.On("CountManagers", context.Background()).Return(int64(0), nil)
 	svc.orm.On("CreateManager", context.Background(), &ms).
 		Return(id, nil)
-	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
-	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
 	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{ms}, nil).Maybe()
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(&ms)
 	// We need to stop the service because the manager will attempt to make a
@@ -127,6 +157,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 	svc.orm.On("ListManagers", context.Background()).
 		Return(mss, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.ListManagers()
 	require.NoError(t, err)
@@ -145,6 +176,7 @@ func Test_Service_GetManager(t *testing.T) {
 
 	svc.orm.On("GetManager", context.Background(), id).
 		Return(&ms, nil)
+	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
 	actual, err := svc.GetManager(id)
 	require.NoError(t, err)
@@ -157,10 +189,16 @@ func Test_Service_CreateJobProposal(t *testing.T) {
 
 	var (
 		id = int64(1)
-		jp = feeds.JobProposal{}
+		jp = feeds.JobProposal{
+			FeedsManagerID: 1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         "pending",
+			Spec:           TestSpec,
+		}
 	)
 	svc := setupTestService(t)
 
+	svc.cfg.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(1 * time.Second))
 	svc.orm.On("CreateJobProposal", context.Background(), &jp).
 		Return(id, nil)
 
@@ -168,6 +206,145 @@ func Test_Service_CreateJobProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
+}
+
+func Test_Service_ProposeJob(t *testing.T) {
+	t.Parallel()
+
+	var (
+		ctx = context.Background()
+		id  = int64(1)
+		jp  = feeds.JobProposal{
+			FeedsManagerID: 1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         "pending",
+			Spec:           TestSpec,
+		}
+		httpTimeout = models.MustMakeDuration(1 * time.Second)
+	)
+
+	testCases := []struct {
+		name     string
+		proposal feeds.JobProposal
+		before   func(svc *TestService)
+		wantID   int64
+		wantErr  string
+	}{
+		{
+			name: "Create success",
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+				svc.orm.On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).Return(nil, sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+			},
+			wantID:   id,
+			proposal: jp,
+		},
+		{
+			name: "Update success",
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: jp.FeedsManagerID,
+						RemoteUUID:     jp.RemoteUUID,
+						Status:         feeds.JobProposalStatusPending,
+					}, nil)
+				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+			},
+			wantID:   id,
+			proposal: jp,
+		},
+		{
+			name: "Updates the status of a rejected job proposal",
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: jp.FeedsManagerID,
+						RemoteUUID:     jp.RemoteUUID,
+						Status:         feeds.JobProposalStatusRejected,
+					}, nil)
+				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+			},
+			wantID:   id,
+			proposal: jp,
+		},
+		{
+			name:     "contains invalid job spec",
+			proposal: feeds.JobProposal{Spec: ""},
+			wantErr:  "invalid job type",
+		},
+		{
+			name: "must be an ocr job to include bootstraps",
+			proposal: feeds.JobProposal{
+				RemoteUUID: uuid.NewV4(),
+				Status:     "pending",
+				Spec:       TestSpec,
+				Multiaddrs: pq.StringArray{"/dns4/example.com"},
+			},
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+			},
+			wantErr: "only OCR job type supports multiaddr",
+		},
+		{
+			name:     "ensure an upsert validates the job propsal belongs to the feeds manager",
+			proposal: jp,
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: 2,
+						RemoteUUID:     jp.RemoteUUID,
+						Status:         feeds.JobProposalStatusPending,
+					}, nil)
+			},
+			wantErr: "cannot update a job proposal belonging to another feeds manager",
+		},
+		{
+			name:     "ensure an upsert does not occur on an approved job proposal",
+			proposal: jp,
+			before: func(svc *TestService) {
+				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
+				svc.orm.
+					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					Return(&feeds.JobProposal{
+						FeedsManagerID: jp.FeedsManagerID,
+						RemoteUUID:     jp.RemoteUUID,
+						Status:         feeds.JobProposalStatusApproved,
+					}, nil)
+			},
+			wantErr: "cannot repropose a job that has already been approved",
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t)
+			if tc.before != nil {
+				tc.before(svc)
+			}
+
+			actual, err := svc.ProposeJob(&tc.proposal)
+
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.wantID, actual)
+			}
+		})
+	}
+
 }
 
 func Test_Service_SyncNodeInfo(t *testing.T) {
@@ -183,9 +360,11 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			OCRBootstrapPeerMultiaddr: null.StringFrom(multiaddr),
 		}
 		chainID    = big.NewInt(1)
-		sendingKey = ethkey.Key{
-			Address:   ethkey.EIP55AddressFromAddress(rawKey.Address),
-			IsFunding: false,
+		sendingKey = ethkey.KeyV2{
+			Address: ethkey.EIP55AddressFromAddress(rawKey.Address),
+		}
+		nodeVersion = &versioning.NodeVersion{
+			Version: "1.0.0",
 		}
 	)
 
@@ -193,19 +372,46 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 	// Mock fetching the information to send
 	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
-	svc.ethKeystore.On("SendingKeys").Return([]ethkey.Key{sendingKey}, nil)
+	svc.ethKeystore.On("SendingKeys").Return([]ethkey.KeyV2{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
+	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
+	svc.connMgr.On("IsConnected", feedsMgr.ID).Return(false, nil)
+	svc.verORM.On("FindLatestNodeVersion").Return(nodeVersion, nil)
 
 	// Mock the send
 	svc.fmsClient.On("UpdateNode", ctx, &proto.UpdateNodeRequest{
 		JobTypes:           []proto.JobType{proto.JobType_JOB_TYPE_FLUX_MONITOR},
 		ChainId:            chainID.Int64(),
+		ChainIds:           []int64{chainID.Int64()},
 		AccountAddresses:   []string{sendingKey.Address.String()},
 		IsBootstrapPeer:    true,
 		BootstrapMultiaddr: multiaddr,
+		Version:            nodeVersion.Version,
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
 	err = svc.SyncNodeInfo(feedsMgr.ID)
+	require.NoError(t, err)
+}
+
+func Test_Service_UpdateFeedsManager(t *testing.T) {
+	key := cltest.DefaultCSAKey
+
+	var (
+		ctx = context.Background()
+		mgr = feeds.FeedsManager{
+			ID: 1,
+		}
+	)
+
+	svc := setupTestService(t)
+
+	ctx = mockTransactWithContext(ctx, svc.txm)
+	svc.orm.On("UpdateManager", ctx, mgr).Return(nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
+
+	err := svc.UpdateFeedsManager(ctx, mgr)
 	require.NoError(t, err)
 }
 
@@ -249,9 +455,10 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 	var (
 		ctx = context.Background()
 		jp  = &feeds.JobProposal{
-			ID:         1,
-			RemoteUUID: uuid.NewV4(),
-			Status:     feeds.JobProposalStatusPending,
+			ID:             1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         feeds.JobProposalStatusPending,
+			FeedsManagerID: 2,
 			Spec: `name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 			schemaVersion = 1
 			contractAddress = '0x0000000000000000000000000000000000000000'
@@ -305,6 +512,7 @@ func Test_Service_ApproveJobProposal(t *testing.T) {
 		uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
 		feeds.JobProposalStatusApproved,
 	).Return(nil)
+	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 	svc.fmsClient.On("ApprovedJob",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		&proto.ApprovedJobRequest{
@@ -320,9 +528,10 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 	var (
 		ctx = context.Background()
 		jp  = &feeds.JobProposal{
-			ID:         1,
-			RemoteUUID: uuid.NewV4(),
-			Status:     feeds.JobProposalStatusPending,
+			ID:             1,
+			RemoteUUID:     uuid.NewV4(),
+			Status:         feeds.JobProposalStatusPending,
+			FeedsManagerID: 2,
 		}
 	)
 
@@ -335,6 +544,7 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 		jp.ID,
 		feeds.JobProposalStatusRejected,
 	).Return(nil)
+	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 	svc.fmsClient.On("RejectedJob",
 		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		&proto.RejectedJobRequest{
@@ -372,26 +582,27 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 }
 
 func Test_Service_StartStop(t *testing.T) {
-	_, privkey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
+	key := cltest.DefaultCSAKey
 
 	var (
-		ms        = feeds.FeedsManager{}
+		mgr = feeds.FeedsManager{
+			ID:  1,
+			URI: "localhost:2000",
+		}
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
 	)
 
 	var pubKey crypto.PublicKey
-	_, err = hex.Decode([]byte(pubKeyHex), pubKey)
+	_, err := hex.Decode([]byte(pubKeyHex), pubKey)
 	require.NoError(t, err)
-	key := csakey.Key{
-		PublicKey: pubKey,
-	}
 
 	svc := setupTestService(t)
 
-	svc.csaKeystore.On("ListCSAKeys").Return([]csakey.Key{key}, nil)
-	svc.csaKeystore.On("Unsafe_GetUnlockedPrivateKey", pubKey).Return([]byte(privkey), nil)
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{ms}, nil)
+	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
+	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
+	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
+	svc.connMgr.On("Close")
 
 	err = svc.Start()
 	require.NoError(t, err)

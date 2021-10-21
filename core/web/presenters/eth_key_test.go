@@ -1,7 +1,6 @@
 package presenters
 
 import (
-	"database/sql"
 	"fmt"
 	"testing"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
 func TestETHKeyResource(t *testing.T) {
@@ -23,7 +21,11 @@ func TestETHKeyResource(t *testing.T) {
 	address, err := ethkey.NewEIP55Address(addressStr)
 	require.NoError(t, err)
 
-	key := ethkey.Key{
+	key := ethkey.KeyV2{
+		Address: address,
+	}
+
+	state := ethkey.State{
 		ID:        1,
 		Address:   address,
 		CreatedAt: now,
@@ -32,7 +34,7 @@ func TestETHKeyResource(t *testing.T) {
 		IsFunding: true,
 	}
 
-	r, err := NewETHKeyResource(key,
+	r, err := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLink(1)),
 	)
@@ -53,11 +55,9 @@ func TestETHKeyResource(t *testing.T) {
 			  "address":"%s",
 			  "ethBalance":"1",
 			  "linkBalance":"1",
-			  "nextNonce":1,
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
-			  "updatedAt":"2000-01-01T00:00:00Z",
-			  "deletedAt":null
+			  "updatedAt":"2000-01-01T00:00:00Z"
 		   }
 		}
 	 }
@@ -65,10 +65,7 @@ func TestETHKeyResource(t *testing.T) {
 
 	assert.JSONEq(t, expected, string(b))
 
-	// With a deleted field
-	key.DeletedAt = gorm.DeletedAt(sql.NullTime{Time: now, Valid: true})
-
-	r, err = NewETHKeyResource(key,
+	r, err = NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLink(1)),
 	)
@@ -85,11 +82,9 @@ func TestETHKeyResource(t *testing.T) {
 				"address":"%s",
 				"ethBalance":"1",
 				"linkBalance":"1",
-				"nextNonce":1,
 				"isFunding":true,
 				"createdAt":"2000-01-01T00:00:00Z",
-				"updatedAt":"2000-01-01T00:00:00Z",
-				"deletedAt":"2000-01-01T00:00:00Z"
+				"updatedAt":"2000-01-01T00:00:00Z"
 			}
 		}
 	}`,

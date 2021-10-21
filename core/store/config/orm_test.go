@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -43,9 +44,8 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 func TestORM_GetConfigBoolValue(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewGormDB(t)
-	orm := config.NewORM(db)
-	cfg := config.NewConfig()
-	cfg.SetRuntimeStore(orm)
+	cfg := cltest.NewTestEVMConfig(t)
+	cfg.SetDB(db)
 
 	isSqlStatementEnabled := true
 	err := cfg.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)

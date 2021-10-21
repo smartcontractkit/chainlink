@@ -72,13 +72,13 @@ func NewNonceSyncer(db *gorm.DB, ethClient eth.Client) *NonceSyncer {
 //
 // This should only be called once, before the EthBroadcaster has started.
 // Calling it later is not safe and could lead to races.
-func (s NonceSyncer) SyncAll(ctx context.Context, keys []ethkey.Key) (merr error) {
+func (s NonceSyncer) SyncAll(ctx context.Context, keys []ethkey.KeyV2) (merr error) {
 	var wg sync.WaitGroup
 	var errMu sync.Mutex
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k ethkey.Key) {
+		go func(k ethkey.KeyV2) {
 			defer wg.Done()
 			if err := s.fastForwardNonceIfNecessary(ctx, k.Address.Address()); err != nil {
 				errMu.Lock()
@@ -138,7 +138,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
 	return postgres.DBWithDefaultContext(s.db, func(db *gorm.DB) error {
-		res := db.Exec(`UPDATE keys SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ?`, newNextNonce, time.Now(), address, keyNextNonce)
+		res := db.Exec(`UPDATE eth_key_states SET next_nonce = ?, updated_at = ? WHERE address = ? AND next_nonce = ?`, newNextNonce, time.Now(), address, keyNextNonce)
 		if res.Error != nil {
 			return errors.Wrap(res.Error, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}
