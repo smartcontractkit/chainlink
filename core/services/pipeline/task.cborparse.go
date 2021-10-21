@@ -4,9 +4,8 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/cbor"
 	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //
@@ -54,7 +53,7 @@ func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		// NOTE: In diet mode, cbor_parse ASSUMES that the incoming CBOR is a
 		// map. In the case that data is entirely missing, we assume it was the
 		// empty map
-		parsed, err := models.ParseDietCBOR([]byte(data))
+		parsed, err := cbor.ParseDietCBOR([]byte(data))
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
@@ -64,7 +63,7 @@ func (t *CBORParseTask) Run(_ context.Context, vars Vars, inputs []Result) (resu
 		}
 		return Result{Value: m}, runInfo
 	case "standard":
-		parsed, err := models.ParseStandardCBOR([]byte(data))
+		parsed, err := cbor.ParseStandardCBOR([]byte(data))
 		if err != nil {
 			return Result{Error: errors.Wrapf(ErrBadInput, "CBORParse: data: %v", err)}, runInfo
 		}
