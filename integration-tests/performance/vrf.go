@@ -171,10 +171,7 @@ func (f *VRFTest) watchPerfEvents() context.CancelFunc {
 		for _, p := range f.contractInstances {
 			p := p
 			g.Go(func() error {
-				if err := p.consumer.WatchPerfEvents(context.Background(), ch); err != nil {
-					return err
-				}
-				return nil
+				return p.consumer.WatchPerfEvents(context.Background(), ch)
 			})
 		}
 		for {

@@ -228,10 +228,7 @@ func (f *KeeperTest) fundRegistrarBalances() error {
 			if err != nil {
 				return err
 			}
-			if err = f.Link.TransferAndCall(f.Wallets.Default(), f.Registrar.Address(), big.NewInt(9e18), req); err != nil {
-				return err
-			}
-			return nil
+			return f.Link.TransferAndCall(f.Wallets.Default(), f.Registrar.Address(), big.NewInt(9e18), req)
 		})
 	}
 	if err := g.Wait(); err != nil {
