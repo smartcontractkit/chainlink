@@ -185,10 +185,6 @@ func (c *chain) Start() error {
 			return merr
 		}
 
-		// Log Broadcaster fully starts after all initial Register calls are done from other starting services
-		// to make sure the initial backfill covers those subscribers.
-		c.logBroadcaster.DependentReady()
-
 		if !c.cfg.Dev() {
 			return nil
 		}
