@@ -237,8 +237,10 @@ contract KeeperRegistry is
       uint256 linkEth
     )
   {
+    Upkeep memory upkeep = s_upkeep[id];
+
     bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = s_upkeep[id].target.call{gas: s_config.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_config.checkGasLimit}(callData);
 
     if (!success) {
       string memory upkeepRevertReason = getRevertMsg(result);
@@ -250,8 +252,7 @@ contract KeeperRegistry is
     require(success, "upkeep not needed");
 
     PerformParams memory params = generatePerformParams(from, id, performData, false);
-    success = performUpkeepWithParams(params);
-    require(success, "call to perform upkeep failed");
+    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
   }
@@ -716,10 +717,8 @@ contract KeeperRegistry is
     validUpkeep(params.id)
     returns (bool success)
   {
-    require(s_keeperInfo[params.from].active, "only active keepers");
     Upkeep memory upkeep = s_upkeep[params.id];
-    require(upkeep.balance >= params.maxLinkPayment, "insufficient funds");
-    require(upkeep.lastKeeper != params.from, "keepers must take turns");
+    prePerformUpkeep(upkeep, params.from, params.maxLinkPayment);
 
     uint256 gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
@@ -742,6 +741,19 @@ contract KeeperRegistry is
    */
   function validateUpkeep(uint256 id) private view {
     require(s_upkeep[id].maxValidBlocknumber > block.number, "invalid upkeep id");
+  }
+
+  /**
+   * @dev ensures all required checks are passed before an upkeep is performed
+   */
+  function prePerformUpkeep(
+    Upkeep memory upkeep,
+    address from,
+    uint256 maxLinkPayment
+  ) private view {
+    require(s_keeperInfo[from].active, "only active keepers");
+    require(upkeep.balance >= maxLinkPayment, "insufficient funds");
+    require(upkeep.lastKeeper != from, "keepers must take turns");
   }
 
   /**
