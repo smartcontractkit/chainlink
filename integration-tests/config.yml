@@ -5,219 +5,219 @@
 # APPS_CHAINLINK_VERSION=1.0.0
 
 networks: # Selected network(s) for test execution
-    - "ethereum_geth" 
-    - "ethereum_geth" 
+  - 'ethereum_geth'
+  - 'ethereum_geth'
 keep_environments: Never # Options: Always, OnFail, Never
 
 apps:
-    chainlink:
-        # When run in CI, this is squashed by the current build
-        image: public.ecr.aws/chainlink/chainlink 
-        version: 1.0.0
-        requests:
-            memory: 768Mi
-            cpu: 300m
-        limits:
-            memory: 1024Mi
-            cpu: 450m
-    postgres:
-        requests:
-            memory: 512Mi
-            cpu: 200m
-        limits:
-            memory: 1024Mi
-            cpu: 350m
-    geth:
-        requests:
-            memory: 1536Mi
-            cpu: 250m
-        limits:
-            memory: 2048Mi
-            cpu: 375m
-    adapter:
-        requests:
-            memory: 64Mi
-            cpu: 25m
-        limits:
-            memory: 96Mi
-            cpu: 50m
-    otpe:
-        image: "804282218731.dkr.ecr.us-west-2.amazonaws.com/ocr-telemetry-prometheus-exporter"
-        version: "2496ee62ed6c81898ddcc42d40d3be1f9c7ac549"
-    explorer:
-        image: "studentcuza/explorer"
-        version: "choose-security-protocol"
+  chainlink:
+    # When run in CI, this is squashed by the current build
+    image: public.ecr.aws/chainlink/chainlink
+    version: 1.0.0
+    requests:
+      memory: 768Mi
+      cpu: 300m
+    limits:
+      memory: 1024Mi
+      cpu: 450m
+  postgres:
+    requests:
+      memory: 512Mi
+      cpu: 200m
+    limits:
+      memory: 1024Mi
+      cpu: 350m
+  geth:
+    requests:
+      memory: 1536Mi
+      cpu: 250m
+    limits:
+      memory: 2048Mi
+      cpu: 375m
+  adapter:
+    requests:
+      memory: 64Mi
+      cpu: 25m
+    limits:
+      memory: 96Mi
+      cpu: 50m
+  otpe:
+    image: '804282218731.dkr.ecr.us-west-2.amazonaws.com/ocr-telemetry-prometheus-exporter'
+    version: '2496ee62ed6c81898ddcc42d40d3be1f9c7ac549'
+  explorer:
+    image: 'studentcuza/explorer'
+    version: 'choose-security-protocol'
 
-private_keys: &private_keys
-    # Default private keys used for simulated blockchains (geth, hardhat, etc...)
-    private_keys:
-        - ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-        - 59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
-        - 5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
-        - 7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
-        - 47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a
-        - 8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
-        - 92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e
-        - 4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356
-        - dbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97
-        - 2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
-        - f214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897
-        - 701b615bbdfb9de65240bc28bd21bbc0d996645a3dd57e7b12bc2bdf6f192c82
-        - a267530f49f8280200edf313ee7af6b827f2a8bce2897751d06a843f644967b1
-        - 47c99abed3324a2707c28affff1267e45918ec8c3f20b8aa892e8b065d2942dd
-        - c526ee95bf44d8fc405a158bb884d9d1238d99f0612e9f33d006bb0789009aaa
-        - 8166f546bab6da521a8369cab06c5d2b9e46670292d85c875ee9ec20e84ffb61
-        - ea6c44ac03bff858b476bba40716402b03e41b8e97e276d1baec7c37d42484a0
-        - 689af8efa8c651a91ad287602527f3af2fe9f6501a7ac4b061667b5a93e037fd
-        - de9be858da4a475276426320d5e9262ecfc3ba460bfac56360bfa6c4c28b4ee0
-        - df57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e
+private_keys:
+  &private_keys # Default private keys used for simulated blockchains (geth, hardhat, etc...)
+  private_keys:
+    - ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+    - 59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+    - 5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+    - 7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6
+    - 47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a
+    - 8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba
+    - 92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e
+    - 4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356
+    - dbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97
+    - 2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
+    - f214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897
+    - 701b615bbdfb9de65240bc28bd21bbc0d996645a3dd57e7b12bc2bdf6f192c82
+    - a267530f49f8280200edf313ee7af6b827f2a8bce2897751d06a843f644967b1
+    - 47c99abed3324a2707c28affff1267e45918ec8c3f20b8aa892e8b065d2942dd
+    - c526ee95bf44d8fc405a158bb884d9d1238d99f0612e9f33d006bb0789009aaa
+    - 8166f546bab6da521a8369cab06c5d2b9e46670292d85c875ee9ec20e84ffb61
+    - ea6c44ac03bff858b476bba40716402b03e41b8e97e276d1baec7c37d42484a0
+    - 689af8efa8c651a91ad287602527f3af2fe9f6501a7ac4b061667b5a93e037fd
+    - de9be858da4a475276426320d5e9262ecfc3ba460bfac56360bfa6c4c28b4ee0
+    - df57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e
 
 network_configs:
-    ethereum_geth: &common_ethereum
-        name: "Ethereum Geth dev"
-        chain_id: 1337
-        type: evm
-        secret_private_keys: false
-        namespace_for_secret: default
-        <<: *private_keys
-        transaction_limit: 9500000
-        transaction_timeout: 10s
-        minimum_confirmations: 1
-        gas_estimation_buffer: 100000
-        block_gas_limit: 40000000
-    ethereum_geth_performance: &ethereum_geth_performance
-        <<: *common_ethereum
-        transaction_timeout: 5m
-        block_gas_limit: 400000000000000
-    ethereum_geth_reorg:
-        <<: *ethereum_geth_performance
-        name: "Ethereum Geth reorg"
-        type: evm_multi
-        transaction_timeout: 10m
-        gas_estimation_buffer: 0
-    ethereum_ganache:
-        <<: *common_ethereum
-        name: "Ethereum Ganache"
-        minimum_confirmations: 0
-    ethereum_kovan: &common_ethereum_testnet
-        name: "Ethereum Kovan"
-        chain_id: 42
-        type: evm
-        namespace_for_secret: default
-        secret_private_keys: true
-        secret_private_url: true
-        private_url: kovan_testnet_url
-        private_keys:
-            - kovan_testnet_1
-        transaction_limit: 7667850
-        transaction_timeout: 2m
-        minimum_confirmations: 1
-        gas_estimation_buffer: 10000
-    ethereum_goerli:
-        <<: *common_ethereum_testnet
-        name: "Ethereum Goerli"
-        chain_id: 5
-        private_url: gorli_private_url
-        private_keys:
-            - gorli_testnet_1
-    ethereum_rinkeby:
-        <<: *common_ethereum_testnet
-        name: "Ethereum Rinkeby"
-        private_url: rinkeby_private_url
-        chain_id: 4
-        private_keys:
-            - rinkeby_private_key_1
-        transaction_limit: 9000000
-    arbitrum_testnet:
-        <<: *common_ethereum_testnet
-        name: "Arbitrum testnet"
-        chain_id: 421611
-        private_url: arb_testnet_url
-        private_keys:
-            - arb_testnet_1
-        transaction_limit: 9000000000
-        minimum_confirmations: 1
-        transaction_timeout: 1m
-    bsc_testnet:
-        <<: *common_ethereum_testnet
-        name: "BSC testnet"
-        private_url: bsc_testnet_url
-        chain_id: 97
-        private_keys:
-            - bsc_testnet_1
-        transaction_limit: 6500000
-        transaction_timeout: 1m
-    matic_mumbai:
-        <<: *common_ethereum_testnet
-        name: "Matic Mumbai"
-        chain_id: 80001
-        private_url: matic_mumbai_url
-        private_keys:
-            - matic_mumbai_1
-    fantom_testnet:
-        <<: *common_ethereum_testnet
-        name: "Fantom testnet"
-        chain_id: 4002
-        private_url: fantom_testnet_url
-        private_keys:
-            - fantom_testnet_1
-    harmony_testnet:
-        <<: *common_ethereum_testnet
-        name: "Harmony testnet"
-        chain_id: 1666700000
-        private_url: harmony_testnet_url
-        private_keys:
-            - harmony_testnet_1
-        minimum_confirmations: 3
-    avalanche_fuji:
-        <<: *common_ethereum_testnet
-        name: "Avalanche Fuji testnet"
-        chain_id: 43113
-        private_url: avax_fuji_testnet_url
-        private_keys:
-            - avax_fuji_testnet_1
-        transaction_limit: 6000000
-    optimism_kovan:
-        <<: *common_ethereum_testnet
-        name: "Optimism Kovan testnet"
-        chain_id: 43113
-        private_url: optimism_kovan_url
-        private_keys:
-            - optimism_kovan_1
-    rsk_testnet:
-        <<: *common_ethereum_testnet
-        name: "RSK testnet"
-        chain_id: 31
-        private_url: rsk_testnet_url
-        private_keys:
-            - rsk_testnet_1
-    moonbase_alpha:
-        <<: *common_ethereum_testnet
-        name: "Moonbase alpha"
-        chain_id: 1287
-        private_url: moonbase_alpha_url
-        private_keys:
-            - moonbase_alpha_1
-    iotex_testnet:
-        <<: *common_ethereum_testnet
-        name: "IoTeX testnet"
-        chain_id: 4690
-        private_url: iotex_testnet_url
-        private_keys:
-            - iotex_testnet_1
+  ethereum_geth: &common_ethereum
+    name: 'Ethereum Geth dev'
+    chain_id: 1337
+    type: evm
+    secret_private_keys: false
+    namespace_for_secret: default
+    <<: *private_keys
+    transaction_limit: 9500000
+    transaction_timeout: 10s
+    minimum_confirmations: 1
+    gas_estimation_buffer: 100000
+    block_gas_limit: 40000000
+  ethereum_geth_performance: &ethereum_geth_performance
+    <<: *common_ethereum
+    transaction_timeout: 5m
+    block_gas_limit: 400000000000000
+  ethereum_geth_reorg:
+    <<: *ethereum_geth_performance
+    name: 'Ethereum Geth reorg'
+    type: evm_multi
+    transaction_timeout: 10m
+    gas_estimation_buffer: 0
+  ethereum_ganache:
+    <<: *common_ethereum
+    name: 'Ethereum Ganache'
+    minimum_confirmations: 0
+  ethereum_kovan: &common_ethereum_testnet
+    name: 'Ethereum Kovan'
+    chain_id: 42
+    type: evm
+    namespace_for_secret: default
+    secret_private_keys: true
+    secret_private_url: true
+    private_url: kovan_testnet_url
+    private_keys:
+      - kovan_testnet_1
+    transaction_limit: 7667850
+    transaction_timeout: 2m
+    minimum_confirmations: 1
+    gas_estimation_buffer: 10000
+  ethereum_goerli:
+    <<: *common_ethereum_testnet
+    name: 'Ethereum Goerli'
+    chain_id: 5
+    private_url: gorli_private_url
+    private_keys:
+      - gorli_testnet_1
+  ethereum_rinkeby:
+    <<: *common_ethereum_testnet
+    name: 'Ethereum Rinkeby'
+    private_url: rinkeby_private_url
+    chain_id: 4
+    private_keys:
+      - rinkeby_private_key_1
+    transaction_limit: 9000000
+  arbitrum_testnet:
+    <<: *common_ethereum_testnet
+    name: 'Arbitrum testnet'
+    chain_id: 421611
+    private_url: arb_testnet_url
+    private_keys:
+      - arb_testnet_1
+    transaction_limit: 9000000000
+    minimum_confirmations: 1
+    transaction_timeout: 1m
+  bsc_testnet:
+    <<: *common_ethereum_testnet
+    name: 'BSC testnet'
+    private_url: bsc_testnet_url
+    chain_id: 97
+    private_keys:
+      - bsc_testnet_1
+    transaction_limit: 6500000
+    transaction_timeout: 1m
+  matic_mumbai:
+    <<: *common_ethereum_testnet
+    name: 'Matic Mumbai'
+    chain_id: 80001
+    private_url: matic_mumbai_url
+    private_keys:
+      - matic_mumbai_1
+  fantom_testnet:
+    <<: *common_ethereum_testnet
+    name: 'Fantom testnet'
+    chain_id: 4002
+    private_url: fantom_testnet_url
+    private_keys:
+      - fantom_testnet_1
+  harmony_testnet:
+    <<: *common_ethereum_testnet
+    name: 'Harmony testnet'
+    chain_id: 1666700000
+    private_url: harmony_testnet_url
+    private_keys:
+      - harmony_testnet_1
+    minimum_confirmations: 3
+  avalanche_fuji:
+    <<: *common_ethereum_testnet
+    name: 'Avalanche Fuji testnet'
+    chain_id: 43113
+    private_url: avax_fuji_testnet_url
+    private_keys:
+      - avax_fuji_testnet_1
+    transaction_limit: 6000000
+  optimism_kovan:
+    <<: *common_ethereum_testnet
+    name: 'Optimism Kovan testnet'
+    chain_id: 43113
+    private_url: optimism_kovan_url
+    private_keys:
+      - optimism_kovan_1
+  rsk_testnet:
+    <<: *common_ethereum_testnet
+    name: 'RSK testnet'
+    chain_id: 31
+    private_url: rsk_testnet_url
+    private_keys:
+      - rsk_testnet_1
+  moonbase_alpha:
+    <<: *common_ethereum_testnet
+    name: 'Moonbase alpha'
+    chain_id: 1287
+    private_url: moonbase_alpha_url
+    private_keys:
+      - moonbase_alpha_1
+  iotex_testnet:
+    <<: *common_ethereum_testnet
+    name: 'IoTeX testnet'
+    chain_id: 4690
+    private_url: iotex_testnet_url
+    private_keys:
+      - iotex_testnet_1
 retry:
-    attempts: 120
-    linear_delay: 1s
+  attempts: 120
+  linear_delay: 1s
 
 kubernetes:
-    # Increase k8s default throttling variables to avoid test slowdown
-    qps: 50
-    burst: 50
-    # How long to wait for the environment to deploy & be marked as healthy before test errors
-    deployment_timeout: 5m
+  # Increase k8s default throttling variables to avoid test slowdown
+  qps: 50
+  burst: 50
+  # How long to wait for the environment to deploy & be marked as healthy before test errors
+  deployment_timeout: 5m
 
 logging:
-    # panic=5, fatal=4, error=3, warn=2, info=1, debug=0, trace=-1
-    level: 0
+  # panic=5, fatal=4, error=3, warn=2, info=1, debug=0, trace=-1
+  level: 0
 prometheus:
-    url: ""
+  url: ''
