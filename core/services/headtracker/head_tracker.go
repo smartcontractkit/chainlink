@@ -3,7 +3,6 @@ package headtracker
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"math/big"
 	"sync"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"

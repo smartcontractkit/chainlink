@@ -2,9 +2,9 @@ package web
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
