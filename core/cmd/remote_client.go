@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -320,7 +320,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	cwl := presenters.ConfigPrinter{}
+	cwl := config.ConfigPrinter{}
 	err = cli.renderAPIResponse(resp, &cwl)
 	return err
 }

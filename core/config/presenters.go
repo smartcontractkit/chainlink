@@ -1,7 +1,7 @@
 // Package presenters allow for the specification and result
 // of a Job, its associated TaskSpecs, and every JobRun and TaskRun
 // to be returned in a user friendly human readable format.
-package presenters
+package config
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -68,7 +67,7 @@ type EnvPrinter struct {
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
-	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
+	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
@@ -107,7 +106,7 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 	explorerURL := ""
 	if cfg.ExplorerURL() != nil {
 		explorerURL = cfg.ExplorerURL().String()
@@ -150,7 +149,7 @@ func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
 			KeeperDefaultTransactionQueueDepth:    cfg.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:           cfg.KeeperGasPriceBufferPercent(),
 			KeeperGasTipCapBufferPercent:          cfg.KeeperGasTipCapBufferPercent(),
-			LogLevel:                              config.LogLevel{Level: cfg.LogLevel()},
+			LogLevel:                              LogLevel{Level: cfg.LogLevel()},
 			LogSQLMigrations:                      cfg.LogSQLMigrations(),
 			LogSQLStatements:                      cfg.LogSQLStatements(),
 			LogToDisk:                             cfg.LogToDisk(),
@@ -194,7 +193,7 @@ func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(config.ConfigSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 

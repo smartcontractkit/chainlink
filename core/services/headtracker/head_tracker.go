@@ -3,6 +3,7 @@ package headtracker
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"math/big"
 	"sync"
 	"time"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/zap/zapcore"
 )
@@ -96,7 +96,7 @@ func (ht *HeadTracker) Start() error {
 		}
 		if latestChain != nil {
 			ht.log.Debugw(
-				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", presenters.FriendlyBigInt(latestChain.ToInt()), latestChain.Hash.Hex()),
+				fmt.Sprintf("HeadTracker: Tracking logs from last block %v with hash %s", config.FriendlyBigInt(latestChain.ToInt()), latestChain.Hash.Hex()),
 				"blockNumber", latestChain.Number,
 				"blockHash", latestChain.Hash,
 			)
@@ -341,7 +341,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head,
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 	prevHead := ht.LatestChain()
 
-	ht.log.Debugw(fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
 		"blockHash", head.Hash,
 		"parentHeadHash", head.ParentHash,

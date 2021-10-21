@@ -2,10 +2,10 @@ package web
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +20,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := presenters.NewConfigPrinter(cc.App.GetConfig())
+	cw, err := config.NewConfigPrinter(cc.App.GetConfig())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
 		return

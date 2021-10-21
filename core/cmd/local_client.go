@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -220,7 +219,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 }
 
 func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc, err := presenters.NewConfigPrinter(cfg)
+	wlc, err := config.NewConfigPrinter(cfg)
 	if err != nil {
 		return err
 	}
