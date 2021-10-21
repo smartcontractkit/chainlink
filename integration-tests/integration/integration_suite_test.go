@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/integrations-framework/config"
-	"github.com/smartcontractkit/integrations-framework/tools"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
@@ -22,6 +21,6 @@ func TestIntegration(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../../logs/tests-integration.xml")
+	junitReporter := reporters.NewJUnitReporter("../logs/tests-integration.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Integration suite", []Reporter{junitReporter})
 }

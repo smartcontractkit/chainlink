@@ -2,15 +2,16 @@ package chaos
 
 import (
 	"context"
+	"math/big"
+	"sync"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/integrations-framework/chaos/experiments"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"math/big"
-	"sync"
-	"time"
 )
 
 // ReorgStep step enum for re-org test
@@ -166,7 +167,7 @@ func (rc *ReorgConfirmer) awaitAltBlocks(blk client.NodeBlock) error {
 			Int("Node", blk.NodeID).
 			Msg("Mined alternative block")
 		rc.altBlockNumbers = append(rc.altBlockNumbers, blk.Number().Int64())
-		rc.currentAltBlocks += 1
+		rc.currentAltBlocks++
 	}
 	if rc.currentAltBlocks == rc.reorgDepth {
 		log.Info().Msg("Joining network")

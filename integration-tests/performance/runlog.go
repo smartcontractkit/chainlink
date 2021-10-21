@@ -153,7 +153,7 @@ func (f *RunlogTest) requestData() error {
 			jobUUIDReplaces := strings.Replace(p.jobUUID, "-", "", 4)
 			var jobID [32]byte
 			copy(jobID[:], jobUUIDReplaces)
-			if err := p.consumer.CreateRequestTo(
+			return p.consumer.CreateRequestTo(
 				f.Wallets.Default(),
 				p.oracle.Address(),
 				jobID,
@@ -161,10 +161,7 @@ func (f *RunlogTest) requestData() error {
 				fmt.Sprintf("%s/five", f.adapter.ClusterURL()),
 				"data,result",
 				big.NewInt(100),
-			); err != nil {
-				return err
-			}
-			return nil
+			)
 		})
 	}
 	return g.Wait()
@@ -217,10 +214,7 @@ func (f *RunlogTest) watchPerfEvents() context.CancelFunc {
 		for _, p := range f.contractInstances {
 			p := p
 			g.Go(func() error {
-				if err := p.consumer.WatchPerfEvents(context.Background(), ch); err != nil {
-					return err
-				}
-				return nil
+				return p.consumer.WatchPerfEvents(context.Background(), ch)
 			})
 		}
 		for {

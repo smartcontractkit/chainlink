@@ -190,10 +190,7 @@ func (f *KeeperTest) deployRegistry() error {
 	if err != nil {
 		return err
 	}
-	if err = f.Registry.Fund(f.Wallets.Default(), big.NewFloat(0), big.NewFloat(1)); err != nil {
-		return err
-	}
-	return nil
+	return f.Registry.Fund(f.Wallets.Default(), big.NewFloat(0), big.NewFloat(1))
 }
 
 // setKeepers sets keepers, all keepers are "payees" too

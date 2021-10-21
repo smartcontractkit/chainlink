@@ -262,10 +262,7 @@ func (r *PerfRequestIDTestResults) calculateLatencies(b ginkgo.Benchmarker) erro
 			latencies = append(latencies, latency)
 		}
 	}
-	if err := recordResults(b, "Request latency", latencies); err != nil {
-		return err
-	}
-	return nil
+	return recordResults(b, "Request latency", latencies)
 }
 
 // NodeData common node data

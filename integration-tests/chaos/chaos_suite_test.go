@@ -21,6 +21,6 @@ func TestChaos(t *testing.T) {
 		Fail("failed to load config")
 	}
 	log.Logger = log.Logger.Level(zerolog.Level(conf.Logging.Level))
-	junitReporter := reporters.NewJUnitReporter("../../logs/tests-chaos.xml")
+	junitReporter := reporters.NewJUnitReporter("../logs/tests-chaos.xml")
 	RunSpecsWithDefaultAndCustomReporters(t, "Chaos suite", []Reporter{junitReporter})
 }
