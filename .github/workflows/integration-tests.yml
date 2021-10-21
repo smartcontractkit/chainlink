@@ -38,6 +38,7 @@ jobs:
           push: true
 
   smoke:
+    name: Smoke Integration Tests
     runs-on: ubuntu-latest
     needs: build-chainlink
     env:
@@ -100,6 +101,7 @@ jobs:
           path: ./logs
 
   performance:
+    name: Performance and Chaos Integration Tests
     # Only run performance tests on significant PRs / merges to main
     if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop') || contains(github.ref, 'master')
     needs: build-chainlink
