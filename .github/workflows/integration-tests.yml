@@ -86,7 +86,7 @@ jobs:
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./tools/integration_test.sh 0
+          ./integration_tests.sh 0
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
@@ -152,7 +152,7 @@ jobs:
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./tools/integration_test.sh 1
+          ./integration_tests.sh 1
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
