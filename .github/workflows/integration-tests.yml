@@ -83,10 +83,12 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: go install github.com/onsi/ginkgo/ginkgo
+        working-directory: ./integration-tests
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           ./integration-tests/integration_tests.sh 0
+        working-directory: ./integration-tests
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
@@ -149,10 +151,12 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: go install github.com/onsi/ginkgo/ginkgo
+        working-directory: ./integration-tests
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           ./integration-tests/integration_tests.sh 1
+        working-directory: ./integration-tests
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()

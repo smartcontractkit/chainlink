@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/integrations-framework/actions"
 	"github.com/smartcontractkit/integrations-framework/client"
 	"github.com/smartcontractkit/integrations-framework/environment"
-	"github.com/smartcontractkit/integrations-framework/tools"
 )
 
 var _ = Describe("VRF soak test @soak-vrf", func() {
