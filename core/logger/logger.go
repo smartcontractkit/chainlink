@@ -3,8 +3,8 @@
 // The package-level helper functions are being phased out. Loggers should be injected
 // instead (and usually Named as well): e.g. lggr.Named("<service name>")
 //
-// Tests should use a TestLogger, with ProductionLogger being reserved for actual
-// production and very limited direct testing.
+// Tests should use a TestLogger, with ApplicationLogger being reserved for actual
+// runtime and limited direct testing.
 package logger
 
 import (
@@ -231,10 +231,10 @@ type Config interface {
 	LogLevel() zapcore.Level
 }
 
-// ProductionLogger returns a custom logger for the config's root
-// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
-// false, the logger will only log to stdout.
-func ProductionLogger(c Config) Logger {
+// ApplicationLogger returns a custom logger for the config's root directory
+// and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is false,
+// the logger will only log to stdout.
+func ApplicationLogger(c Config) Logger {
 	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
 	cfg.Level.SetLevel(c.LogLevel())
 	l, err := newZapLogger(cfg)

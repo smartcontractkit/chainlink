@@ -25,7 +25,7 @@ func Run(client *cmd.Client, args ...string) {
 // in production.
 func NewProductionClient() *cmd.Client {
 	cfg := config.NewGeneralConfig()
-	lggr := logger.ProductionLogger(cfg)
+	lggr := logger.ApplicationLogger(cfg)
 
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
