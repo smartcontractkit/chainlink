@@ -228,6 +228,14 @@ func (err *JsonError) String() string {
 	return fmt.Sprintf("json-rpc error { Code = %d, Message = '%s', Data = '%v' }", err.Code, err.Message, err.Data)
 }
 
+func MakeJsonRpcErr(err error) error {
+	return &JsonError{
+		Code:    3, // error code on mainnet ethereum
+		Message: err.Error(),
+		Data:    utils.StringToHex(err.Error()),
+	}
+}
+
 func ExtractRPCError(err error) *JsonError {
 	jErr, eErr := extractRPCError(err)
 	if eErr != nil {

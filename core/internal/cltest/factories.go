@@ -568,7 +568,8 @@ perform_upkeep_tx        [type=ethtx
                           to="$(jobSpec.contractAddress)"
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
-                          txMeta="{\"jobID\":$(jobSpec.jobID)}"]
+                          txMeta="{\"jobID\":$(jobSpec.jobID)}"
+                          simulate=true]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`,
 		JobID:   keeperSpec.ID,
 		JobName: "keeper",

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -123,41 +124,21 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 // other simulated clients might still be using it
 func (c *SimulatedBackendClient) Close() {}
 
-// checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
-func (c *SimulatedBackendClient) checkEthCallArgs(
-	args []interface{}) (*eth.CallArgs, *big.Int, error) {
-	if len(args) != 2 {
-		return nil, nil, fmt.Errorf(
-			"should have two arguments after \"eth_call\", got %d", len(args))
-	}
-	callArgs, ok := args[0].(eth.CallArgs)
-	if !ok {
-		return nil, nil, fmt.Errorf("third arg to SimulatedBackendClient.Call "+
-			"must be an eth.CallArgs, got %+#v", args[0])
-	}
-	blockNumber, err := c.blockNumber(args[1])
-	if err != nil || blockNumber.Cmp(c.currentBlockNumber()) != 0 {
-		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call "+
-			"must be the string \"latest\", or a *big.Int equal to current "+
-			"blocknumber, got %#+v", args[1])
-	}
-	return &callArgs, blockNumber, nil
-}
-
 // Call mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
 func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
 	switch method {
 	case "eth_call":
-		callArgs, _, err := c.checkEthCallArgs(args)
+		callMsg, blockNum, err := c.composeCallArgs(args)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error composing call args")
 		}
-		callMsg := ethereum.CallMsg{To: &callArgs.To, Data: callArgs.Data}
-		b, err := c.b.CallContract(context.TODO(), callMsg, nil /* always latest block */)
+
+		b, err := c.b.CallContract(context.TODO(), callMsg, blockNum)
 		if err != nil {
-			return errors.Wrapf(err, "while calling contract at address %x with "+
-				"data %x", callArgs.To, callArgs.Data)
+			return eth.MakeJsonRpcErr(
+				errors.Wrapf(err, "while calling contract at address %x with data %x", callMsg.To, callMsg.Data),
+			)
 		}
 		switch r := result.(type) {
 		case *hexutil.Bytes:
@@ -415,7 +396,11 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 }
 
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	return c.b.CallContract(ctx, msg, blockNumber)
+	resp, err := c.b.CallContract(ctx, msg, blockNumber)
+	if err != nil {
+		err = eth.MakeJsonRpcErr(err)
+	}
+	return resp, err
 }
 
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
@@ -477,4 +462,46 @@ func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMini
 		}
 	}()
 	return func() { close(chStop); timer.Stop(); wg.Wait() }
+}
+
+// composeCallArgs transforms the args sent to geth's rpc client functions
+// into the arg types expected by the simuated backend
+func (c *SimulatedBackendClient) composeCallArgs(args []interface{}) (call ethereum.CallMsg, blockNum *big.Int, _ error) {
+	if len(args) != 1 && len(args) != 2 {
+		return call, nil, fmt.Errorf(
+			"should have 1-2 arguments after \"eth_call\", got %d", len(args))
+	}
+	if len(args) == 1 {
+		args = append(args, "latest")
+	}
+	switch arg := args[0].(type) {
+	case eth.CallArgs:
+		call.To = &arg.To
+		call.Data = arg.Data
+	case map[string]interface{}:
+		raw, err := json.Marshal(arg)
+		if err != nil {
+			return call, blockNum, errors.Wrap(err, "could not marshal arg")
+		}
+		err = json.Unmarshal(raw, &call)
+		if err != nil {
+			return call, blockNum, errors.Wrap(err, "could not unmarshal json")
+		}
+	case ethereum.CallMsg:
+		call = arg
+	default:
+		return call, blockNum, fmt.Errorf("unknown call arg type %v", arg)
+	}
+	switch arg := args[1].(type) {
+	case *big.Int:
+		blockNum = arg
+	case string:
+		if arg != "latest" {
+			return call, blockNum, fmt.Errorf("invalid string arg %s", arg)
+		}
+		blockNum = nil
+	default:
+		return call, blockNum, fmt.Errorf("unknown blockNum arg type %v", arg)
+	}
+	return call, blockNum, nil
 }
