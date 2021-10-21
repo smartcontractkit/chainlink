@@ -249,9 +249,9 @@ contract KeeperRegistry is
     (success, performData) = abi.decode(result, (bool, bytes));
     require(success, "upkeep not needed");
 
+    // Make sure an upkeep can be performed
     PerformParams memory params = generatePerformParams(from, id, performData, false);
-    success = performUpkeepWithParams(params);
-    require(success, "call to perform upkeep failed");
+    prePerformUpkeep(params.id, params.from, params.maxLinkPayment);
 
     return (performData, params.maxLinkPayment, params.gasLimit, params.adjustedGasWei, params.linkEth);
   }
@@ -716,10 +716,8 @@ contract KeeperRegistry is
     validUpkeep(params.id)
     returns (bool success)
   {
-    require(s_keeperInfo[params.from].active, "only active keepers");
+    prePerformUpkeep(params.id, params.from, params.maxLinkPayment);
     Upkeep memory upkeep = s_upkeep[params.id];
-    require(upkeep.balance >= params.maxLinkPayment, "insufficient funds");
-    require(upkeep.lastKeeper != params.from, "keepers must take turns");
 
     uint256 gasUsed = gasleft();
     bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, params.performData);
@@ -742,6 +740,16 @@ contract KeeperRegistry is
    */
   function validateUpkeep(uint256 id) private view {
     require(s_upkeep[id].maxValidBlocknumber > block.number, "invalid upkeep id");
+  }
+
+  /**
+   * @dev ensures all required checks are passed before an upkeep is performed
+   */
+  function prePerformUpkeep(uint256 id, address from, uint256 maxLinkPayment) private view {
+    require(s_keeperInfo[from].active, "only active keepers");
+    Upkeep memory upkeep = s_upkeep[id];
+    require(upkeep.balance >= maxLinkPayment, "insufficient funds");
+    require(upkeep.lastKeeper != from, "keepers must take turns");
   }
 
   /**
