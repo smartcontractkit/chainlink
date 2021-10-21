@@ -249,7 +249,6 @@ contract KeeperRegistry is
     (success, performData) = abi.decode(result, (bool, bytes));
     require(success, "upkeep not needed");
 
-    // Make sure an upkeep can be performed
     PerformParams memory params = generatePerformParams(from, id, performData, false);
     prePerformUpkeep(params.id, params.from, params.maxLinkPayment);
 
