@@ -87,7 +87,7 @@ jobs:
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./integration-tests/integration_tests.sh 0
+          ./integration_tests.sh 0
         working-directory: ./integration-tests
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
@@ -155,7 +155,7 @@ jobs:
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./integration-tests/integration_tests.sh 1
+          ./integration_tests.sh 1
         working-directory: ./integration-tests
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2

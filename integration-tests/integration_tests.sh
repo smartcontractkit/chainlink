@@ -9,8 +9,8 @@ performance=$1
 
 if [[ $performance == 0 ]]; then
   echo "Running smoke tests"
-  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -nodes=15 -skipPackage=./integration-tests/performance,./integration-tests/chaos ./integration-tests/...
+  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -nodes=15 -skipPackage=./performance,./chaos ./...
 else
   echo "Running performance and chaos tests"
-  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress ./integration-tests/performance ./integration-tests/chaos
+  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress ./performance ./chaos
 fi
