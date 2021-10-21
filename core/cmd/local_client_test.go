@@ -56,7 +56,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
-		Logger:                 logger.TestLogger(t),
+		Logger:                 logger.ApplicationLogger(cfg),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
