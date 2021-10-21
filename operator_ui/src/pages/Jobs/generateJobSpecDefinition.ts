@@ -192,7 +192,13 @@ function generateVRFDefinition(
 ) {
   const { vrfSpec, name, schemaVersion, type, externalJobID, pipelineSpec } =
     attrs
-  const { coordinatorAddress, confirmations, publicKey } = vrfSpec
+  const {
+    coordinatorAddress,
+    confirmations,
+    publicKey,
+    fromAddress,
+    pollPeriod,
+  } = vrfSpec
 
   return stringifyJobSpec({
     value: {
@@ -203,6 +209,8 @@ function generateVRFDefinition(
       coordinatorAddress,
       confirmations,
       publicKey,
+      fromAddress,
+      pollPeriod,
       observationSource: pipelineSpec.dotDagSource,
     },
   })
