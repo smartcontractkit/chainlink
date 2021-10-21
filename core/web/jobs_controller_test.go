@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -32,31 +32,33 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		contractAddress = cltest.NewEIP55Address()
 	)
 
+	randomBytes := cltest.Random32Byte()
+
 	var tt = []struct {
 		name        string
 		pid         p2pkey.PeerID
-		kb          models.Sha256Hash
+		kb          string
 		taExists    bool
 		expectedErr error
 	}{
 		{
 			name:        "invalid keybundle",
 			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
-			kb:          models.Sha256Hash(cltest.Random32Byte()),
+			kb:          hex.EncodeToString(randomBytes[:]),
 			taExists:    true,
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
 			name:        "invalid peerID",
 			pid:         p2pkey.PeerID(cltest.NonExistentP2PPeerID),
-			kb:          cltest.DefaultOCRKeyBundleIDSha256,
+			kb:          cltest.DefaultOCRKeyBundleID,
 			taExists:    true,
 			expectedErr: job.ErrNoSuchPeerID,
 		},
 		{
 			name:        "invalid transmitter address",
 			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
-			kb:          cltest.DefaultOCRKeyBundleIDSha256,
+			kb:          cltest.DefaultOCRKeyBundleID,
 			taExists:    false,
 			expectedErr: job.ErrNoSuchTransmitterAddress,
 		},
@@ -67,11 +69,14 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 			var address ethkey.EIP55Address
 			if tc.taExists {
-				key := cltest.MustInsertRandomKey(t, ta.Store.DB)
+				key, _ := cltest.MustInsertRandomKey(t, ta.KeyStore.Eth())
 				address = key.Address
 			} else {
 				address = cltest.NewEIP55Address()
 			}
+
+			ta.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+			ta.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
 			body, _ := json.Marshal(web.CreateJobRequest{
@@ -89,7 +94,9 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	pks, err := app.KeyStore.VRF().ListKeys()
+	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
 	var tt = []struct {
@@ -225,7 +232,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		},
 		{
 			name: "vrf",
-			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].String()}).Toml(),
+			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].PublicKey.String()}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				jb := job.Job{}
@@ -257,11 +264,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
-	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	t.Cleanup(assertMocksCalled)
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		ethClient,
-	)
+	app, cleanup := cltest.NewApplicationEthereumDisabled(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
@@ -390,18 +393,17 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
-	vrfKeyStore.Unlock(cltest.Password)
-	_, err := vrfKeyStore.CreateKey()
+	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
 	return app, client
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	t.Parallel()
-
 	app, cleanup := cltest.NewApplicationWithKey(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
+	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge).Error)

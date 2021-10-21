@@ -109,6 +109,15 @@ dockerpush: ## Push the docker image to ecr
 mockery: $(mockery)
 	go install github.com/vektra/mockery/v2@v2.8.0
 
+.PHONY: telemetry-protobuf
+telemetry-protobuf: $(telemetry-protobuf)
+	protoc \
+	--go_out=. \
+	--go_opt=paths=source_relative \
+	--go-wsrpc_out=. \
+	--go-wsrpc_opt=paths=source_relative \
+	./core/services/synchronization/telem/*.proto
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"

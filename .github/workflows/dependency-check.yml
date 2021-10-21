@@ -20,6 +20,7 @@ jobs:
       - name: Check vulnerabilities
         uses: sonatype-nexus-community/nancy-github-action@main
         with:
+          nancyVersion: "v1.0.22"
           nancyCommand: sleuth -e bba60acb-c7b5-4621-af69-f4085a8301d0,d373dc3f-aa88-483b-b501-20fe5382cc80,5def94e5-b89c-4a94-b9c6-ae0e120784c2,dcf6da03-f9dd-4a4e-b792-0262de36a0b1
           # Check the dependency by entering the OSS index UUID here:
           # https://ossindex.sonatype.org/vuln/bba60acb-c7b5-4621-af69-f4085a8301d0

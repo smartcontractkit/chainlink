@@ -1,444 +1,315 @@
 package keystore_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
-	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 )
 
-func Test_EthKeyStore_CreateNewKey(t *testing.T) {
+func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	db := pgtest.NewGormDB(t)
 
-	_, err := ethKeyStore.CreateNewKey()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ethKeyStore.Unlock(cltest.Password)
-	assert.NoError(t, err)
-
-	k, err := ethKeyStore.CreateNewKey()
-	assert.NoError(t, err)
-
-	has, err := ethKeyStore.HasSendingKeyWithAddress(k.Address.Address())
+	keyStore := keystore.ExposedNewMaster(db)
+	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
-	assert.True(t, has)
-
-	cltest.AssertCount(t, db, ethkey.Key{}, 1)
-}
-
-func Test_EthKeyStore_Unlock(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	k := cltest.MustInsertRandomKey(t, store.DB)
-
-	_, err := ethKeyStore.SendingKeys()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	assert.EqualError(t, ethKeyStore.Unlock("wrong phrase"), fmt.Sprintf("invalid password for account %s; could not decrypt key with given password", k.Address.Hex()))
-	assert.NoError(t, ethKeyStore.Unlock(cltest.Password))
-}
-
-func Test_EthKeyStore_KeyByAddress(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	_, address := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore, 0)
-
-	key, err := ethKeyStore.KeyByAddress(address)
-	require.NoError(t, err)
-	require.Equal(t, address, key.Address.Address())
-
-	missingAddress := cltest.NewAddress()
-	_, err = ethKeyStore.KeyByAddress(missingAddress)
-	require.EqualError(t, err, fmt.Sprintf("address %s not in keystore", missingAddress.Hex()))
-}
-
-func Test_EthKeyStore_EnsureFundingKey(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	cltest.AssertCount(t, db, ethkey.Key{}, 0)
-
-	_, _, err := ethKeyStore.EnsureFundingKey()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	require.NoError(t, ethKeyStore.Unlock(cltest.Password))
-
-	k, didExist, err := ethKeyStore.EnsureFundingKey()
-	require.NoError(t, err)
-	require.False(t, didExist)
-	require.True(t, k.IsFunding)
-
-	cltest.AssertCount(t, db, ethkey.Key{}, 1)
-}
-
-func Test_EthKeyStore_ImportKey(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	keyBytes := []byte(`{"address":"72f4f206d41339921570e47409cfef89ad528605","crypto":{"cipher":"aes-128-ctr","ciphertext":"d55d1cf27b464a7262e947fc6b09161c9c56b2efb1a2e6aef8b1ed0c22e02143","cipherparams":{"iv":"ff9effce7ce8318f54029c30e5e60c3a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":2,"p":2,"r":8,"salt":"bdec27593d039aca0fe87047bf425bd603a6eb134b8f04ee993ef090086300f7"},"mac":"5e06e90baef19112fcc301fb708d20577af9220e8b1f72329f9f06a70aade18e"},"id":"ec04d5fc-49ce-4d98-bdce-13d1dfa89eb9","version":3}`)
-
-	_, err := ethKeyStore.ImportKey(keyBytes, cltest.Password)
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ethKeyStore.Unlock(cltest.Password)
-	require.NoError(t, err)
-
-	keys, err := ethKeyStore.AllKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 0)
-
-	_, err = ethKeyStore.ImportKey(keyBytes, "wrong password")
-	require.EqualError(t, err, "EthKeyStore#ImportKey failed to decrypt key: could not decrypt key with given password")
-
-	k, err := ethKeyStore.ImportKey(keyBytes, cltest.Password)
-	assert.NoError(t, err)
-
-	keys, err = ethKeyStore.AllKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 1)
-	require.Equal(t, k.Address, keys[0].Address)
-}
-
-func Test_EthKeyStore_ExportKey(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	k := cltest.MustInsertRandomKey(t, store.DB)
-
-	_, err := ethKeyStore.ExportKey(cltest.NewAddress(), "some password")
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ethKeyStore.Unlock(cltest.Password)
-	require.NoError(t, err)
-
-	keys, err := ethKeyStore.AllKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, 1)
-
-	bytes, err := ethKeyStore.ExportKey(k.Address.Address(), "new password")
-	require.NoError(t, err)
-
-	var addr struct {
-		Address string `json:"address"`
+	ethKeyStore := keyStore.Eth()
+	reset := func() {
+		keyStore.ResetXXXTestOnly()
+		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		require.NoError(t, db.Exec("DELETE FROM eth_key_states").Error)
+		keyStore.Unlock(cltest.Password)
 	}
-	err = json.Unmarshal(bytes, &addr)
-	require.NoError(t, err)
 
-	require.Equal(t, k.Address.Address(), common.HexToAddress("0x"+addr.Address))
-
-	// Check it can be decrypted with new password
-	_, err = gethkeystore.DecryptKey(bytes, "new password")
-	assert.NoError(t, err)
-}
-
-func Test_EthKeyStore_AddKey(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	ks := ethKeyStore
-
-	key := ethkey.Key{}
-
-	err := ks.AddKey(&key)
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ks.Unlock(cltest.Password)
-	require.NoError(t, err)
-
-	err = ks.AddKey(&key)
-	assert.EqualError(t, err, "unable to decrypt key JSON with keystore password: unexpected end of JSON input")
-
-	key = cltest.MustGenerateRandomKey(t)
-
-	err = ks.AddKey(&key)
-	assert.NoError(t, err)
-	assert.Greater(t, key.ID, int32(0))
-	assert.True(t, key.CreatedAt.After(time.Time{}))
-}
-
-func Test_EthKeyStore_RemoveKey(t *testing.T) {
-	t.Run("hard delete", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-		db := store.DB
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
-		require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-		k := cltest.MustInsertRandomKey(t, store.DB)
-
-		err = ethKeyStore.Unlock(cltest.Password)
+	t.Run("Create / GetAll / Get", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create()
 		require.NoError(t, err)
-
-		keys, err := ethKeyStore.AllKeys()
+		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
-		require.Len(t, keys, 1)
-
-		deleted, err := ethKeyStore.RemoveKey(k.Address.Address(), true)
+		require.Equal(t, 1, len(retrievedKeys))
+		require.Equal(t, key.Address, retrievedKeys[0].Address)
+		foundKey, err := ethKeyStore.Get(key.Address.Hex())
 		require.NoError(t, err)
-
-		assert.Equal(t, k.Address, deleted.Address)
-
-		keys, err = ethKeyStore.AllKeys()
+		require.Equal(t, key, foundKey)
+		// adds ethkey.State
+		cltest.AssertCount(t, db, ethkey.State{}, 1)
+		var state ethkey.State
+		require.NoError(t, db.First(&state).Error)
+		require.Equal(t, state.Address, retrievedKeys[0].Address)
+		// adds key to db
+		keyStore.ResetXXXTestOnly()
+		keyStore.Unlock(cltest.Password)
+		retrievedKeys, err = ethKeyStore.GetAll()
 		require.NoError(t, err)
-		require.Len(t, keys, 0)
-
-		cltest.AssertCount(t, db, ethkey.Key{}, 0)
+		require.Equal(t, 1, len(retrievedKeys))
+		require.Equal(t, key.Address, retrievedKeys[0].Address)
+		// adds 2nd key
+		_, err = ethKeyStore.Create()
+		require.NoError(t, err)
+		retrievedKeys, err = ethKeyStore.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 2, len(retrievedKeys))
 	})
 
-	t.Run("soft delete", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-		db := store.DB
-		ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-		_, err := ethKeyStore.RemoveKey(cltest.NewAddress(), false)
-		require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-		k := cltest.MustInsertRandomKey(t, store.DB)
-
-		err = ethKeyStore.Unlock(cltest.Password)
+	t.Run("RemoveKey", func(t *testing.T) {
+		defer reset()
+		key, err := ethKeyStore.Create()
 		require.NoError(t, err)
-
-		keys, err := ethKeyStore.AllKeys()
+		_, err = ethKeyStore.Delete(key.ID())
 		require.NoError(t, err)
-		require.Len(t, keys, 1)
-
-		deleted, err := ethKeyStore.RemoveKey(k.Address.Address(), false)
+		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
-
-		assert.Equal(t, k.Address, deleted.Address)
-
-		keys, err = ethKeyStore.AllKeys()
-		require.NoError(t, err)
-		require.Len(t, keys, 0)
-
-		cltest.AssertCount(t, db, ethkey.Key{}, 1)
-
-		// Does not load soft deleted keys on a subsequent unlock
-		ks := keystore.New(store.DB, utils.FastScryptParams).Eth()
-		err = ks.Unlock(cltest.Password)
-		require.NoError(t, err)
-		keys, err = ks.AllKeys()
-		require.NoError(t, err)
-		require.Len(t, keys, 0)
+		require.Equal(t, 0, len(retrievedKeys))
+		cltest.AssertCount(t, db, ethkey.State{}, 0)
 	})
-}
 
-func Test_EthKeyStore_SignTx(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	k := cltest.MustInsertRandomKey(t, store.DB)
-
-	chainID := big.NewInt(eth.NullClientChainID)
-	tx := types.NewTransaction(0, cltest.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
-
-	_, err := ethKeyStore.SignTx(cltest.NewAddress(), tx, chainID)
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ethKeyStore.Unlock(cltest.Password)
-	require.NoError(t, err)
-
-	randomAddress := cltest.NewAddress()
-	_, err = ethKeyStore.SignTx(randomAddress, tx, chainID)
-	require.EqualError(t, err, fmt.Sprintf("address %s not in keystore", randomAddress.Hex()))
-
-	signed, err := ethKeyStore.SignTx(k.Address.Address(), tx, chainID)
-	require.NoError(t, err)
-
-	assert.NotEqual(t, tx, signed)
-}
-
-func Test_EthKeyStore_AllKeys_SendingKeys_FundingKeys_HasSendingKeyWithAddress_GetKeyByAddress(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	sending1 := cltest.MustInsertRandomKey(t, store.DB, false)
-	cltest.MustInsertRandomKey(t, store.DB, false)
-	funding1 := cltest.MustInsertRandomKey(t, store.DB, true)
-
-	_, err := ethKeyStore.AllKeys()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-	_, err = ethKeyStore.SendingKeys()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-	_, err = ethKeyStore.FundingKeys()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-	_, err = ethKeyStore.HasSendingKeyWithAddress(cltest.NewAddress())
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
-
-	err = ethKeyStore.Unlock(cltest.Password)
-	assert.NoError(t, err)
-
-	keys, err := ethKeyStore.AllKeys()
-	require.NoError(t, err)
-	assert.Len(t, keys, 3)
-	keys, err = ethKeyStore.SendingKeys()
-	require.NoError(t, err)
-	assert.Len(t, keys, 2)
-	keys, err = ethKeyStore.FundingKeys()
-	require.NoError(t, err)
-	assert.Len(t, keys, 1)
-
-	has, err := ethKeyStore.HasSendingKeyWithAddress(cltest.NewAddress())
-	require.NoError(t, err)
-	assert.False(t, has)
-	has, err = ethKeyStore.HasSendingKeyWithAddress(funding1.Address.Address())
-	require.NoError(t, err)
-	assert.False(t, has)
-	has, err = ethKeyStore.HasSendingKeyWithAddress(sending1.Address.Address())
-	require.NoError(t, err)
-	assert.True(t, has)
+	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
+		defer reset()
+		sKey, sDidExist, fKey, fDidExist, err := ethKeyStore.EnsureKeys()
+		require.NoError(t, err)
+		require.False(t, sDidExist)
+		require.False(t, fDidExist)
+		sendingKeys, err := ethKeyStore.SendingKeys()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(sendingKeys))
+		require.Equal(t, sKey.Address, sendingKeys[0].Address)
+		require.NoError(t, err)
+		cltest.AssertCount(t, db, ethkey.State{}, 2)
+		require.NotEqual(t, sKey.Address, fKey.Address)
+		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys()
+		require.NoError(t, err)
+		require.True(t, sDidExist)
+		require.True(t, fDidExist)
+		require.Equal(t, sKey, sKey2)
+		require.Equal(t, fKey, fKey2)
+	})
 }
 
 func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
 
-	kst := ethKeyStore
+	db := pgtest.NewGormDB(t)
 
-	k := []ethkey.Key{
-		cltest.MustInsertRandomKey(t, store.DB, true),
-		cltest.MustInsertRandomKey(t, store.DB),
-		cltest.MustInsertRandomKey(t, store.DB),
-		cltest.MustInsertRandomKey(t, store.DB),
-	}
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
-	_, err := kst.GetRoundRobinAddress()
-	require.EqualError(t, err, keystore.ErrKeyStoreLocked.Error())
+	t.Run("should error when no addresses", func(t *testing.T) {
+		_, err := ethKeyStore.GetRoundRobinAddress()
+		require.Error(t, err)
+	})
 
-	require.NoError(t, kst.Unlock(cltest.Password))
+	// create 4 keys - 1 funding and 3 sending
+	k1, _, kf, _, err := ethKeyStore.EnsureKeys()
+	require.NoError(t, err)
+	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
+	cltest.MustInsertRandomKey(t, ethKeyStore)
+
+	keys, err := ethKeyStore.SendingKeys()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(keys))
 
 	t.Run("with no address filter, rotates between all sending addresses", func(t *testing.T) {
-		address, err := kst.GetRoundRobinAddress()
+		address1, err := ethKeyStore.GetRoundRobinAddress()
 		require.NoError(t, err)
-		assert.Equal(t, k[1].Address.Hex(), address.Hex())
+		address2, err := ethKeyStore.GetRoundRobinAddress()
+		require.NoError(t, err)
+		address3, err := ethKeyStore.GetRoundRobinAddress()
+		require.NoError(t, err)
+		address4, err := ethKeyStore.GetRoundRobinAddress()
+		require.NoError(t, err)
+		address5, err := ethKeyStore.GetRoundRobinAddress()
+		require.NoError(t, err)
+		address6, err := ethKeyStore.GetRoundRobinAddress()
+		require.NoError(t, err)
 
-		address, err = kst.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k[2].Address.Hex(), address.Hex())
-
-		address, err = kst.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k[3].Address.Hex(), address.Hex())
-
-		address, err = kst.GetRoundRobinAddress()
-		require.NoError(t, err)
-		assert.Equal(t, k[1].Address.Hex(), address.Hex())
+		require.NotEqual(t, address1, address2)
+		require.NotEqual(t, address2, address3)
+		require.NotEqual(t, address1, address3)
+		require.Equal(t, address1, address4)
+		require.Equal(t, address2, address5)
+		require.Equal(t, address3, address6)
 	})
 
 	t.Run("with address filter, rotates between given addresses that match sending keys", func(t *testing.T) {
-		// k0 is a funding address so even though it's whitelisted, it will be ignored
-		addresses := []common.Address{k[0].Address.Address(), k[1].Address.Address(), k[2].Address.Address(), cltest.NewAddress()}
+		// kf is a funding address so even though it's whitelisted, it will be ignored
+		addresses := []common.Address{kf.Address.Address(), k1.Address.Address(), k2.Address.Address(), cltest.NewAddress()}
 
-		// Last returned was k[1] so expect k[2] here
-		address, err := kst.GetRoundRobinAddress(addresses...)
+		address1, err := ethKeyStore.GetRoundRobinAddress(addresses...)
 		require.NoError(t, err)
-		assert.Equal(t, k[2].Address.Hex(), address.Hex())
+		address2, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		address3, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
+		address4, err := ethKeyStore.GetRoundRobinAddress(addresses...)
+		require.NoError(t, err)
 
-		address, err = kst.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k[1].Address.Hex(), address.Hex())
-
-		address, err = kst.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k[2].Address.Hex(), address.Hex())
-
-		address, err = kst.GetRoundRobinAddress(addresses...)
-		require.NoError(t, err)
-		assert.Equal(t, k[1].Address.Hex(), address.Hex())
+		require.True(t, address1 == k1.Address.Address() || address1 == k2.Address.Address())
+		require.True(t, address2 == k1.Address.Address() || address2 == k2.Address.Address())
+		require.NotEqual(t, address1, address2)
+		require.Equal(t, address1, address3)
+		require.Equal(t, address2, address4)
 	})
 
 	t.Run("with address filter when no address matches", func(t *testing.T) {
-		_, err := kst.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
+		_, err := ethKeyStore.GetRoundRobinAddress([]common.Address{cltest.NewAddress()}...)
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
 }
 
-// Does not require Unlock
-func Test_EthKeyStore_HasDBSendingKeys(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+func Test_EthKeyStore_SignTx(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	ethKeyStore := keyStore.Eth()
 
-	kst := ethKeyStore
+	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	has, err := kst.HasDBSendingKeys()
+	chainID := big.NewInt(eth.NullClientChainID)
+	tx := types.NewTransaction(0, cltest.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
+
+	randomAddress := cltest.NewAddress()
+	_, err := ethKeyStore.SignTx(randomAddress, tx, chainID)
+	require.EqualError(t, err, fmt.Sprintf("unable to find eth key with id %s", randomAddress.Hex()))
+
+	signed, err := ethKeyStore.SignTx(k.Address.Address(), tx, chainID)
 	require.NoError(t, err)
-	require.False(t, has)
 
-	cltest.MustInsertRandomKey(t, store.DB, true)
-
-	has, err = kst.HasDBSendingKeys()
-	require.NoError(t, err)
-	require.False(t, has)
-
-	cltest.MustInsertRandomKey(t, store.DB, false)
-
-	has, err = kst.HasDBSendingKeys()
-	require.NoError(t, err)
-	require.True(t, has)
-
+	require.NotEqual(t, tx, signed)
 }
 
-func Test_EthKeyStore_ImportKeyFileToDB(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
-
-	kst := ethKeyStore
-
-	path := "../../internal/fixtures/keys/7fc66c61f88A61DFB670627cA715Fe808057123e.json"
-	k, err := kst.ImportKeyFileToDB(path)
+func Test_EthKeyStore_E2E(t *testing.T) {
+	db := pgtest.NewGormDB(t)
+	keyStore := keystore.ExposedNewMaster(db)
+	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
-	require.Equal(t, "0x7fc66c61f88A61DFB670627cA715Fe808057123e", k.Address.Hex())
+	ks := keyStore.Eth()
+	reset := func() {
+		keyStore.ResetXXXTestOnly()
+		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		require.NoError(t, db.Exec("DELETE FROM eth_key_states").Error)
+		keyStore.Unlock(cltest.Password)
+	}
 
-	// importing again simply upserts
-	_, err = kst.ImportKeyFileToDB(path)
-	require.NoError(t, err)
+	t.Run("initializes with an empty state", func(t *testing.T) {
+		defer reset()
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(keys))
+	})
 
-	var keys []ethkey.Key
-	err = store.DB.Find(&keys).Error
-	require.NoError(t, err)
+	t.Run("errors when getting non-existant ID", func(t *testing.T) {
+		defer reset()
+		_, err := ks.Get("non-existant-id")
+		require.Error(t, err)
+	})
 
-	require.Len(t, keys, 1)
-	require.Equal(t, "0x7fc66c61f88A61DFB670627cA715Fe808057123e", keys[0].Address.String())
+	t.Run("creates a key", func(t *testing.T) {
+		defer reset()
+		key, err := ks.Create()
+		require.NoError(t, err)
+		retrievedKey, err := ks.Get(key.ID())
+		require.NoError(t, err)
+		require.Equal(t, key, retrievedKey)
+	})
+
+	t.Run("imports and exports a key", func(t *testing.T) {
+		defer reset()
+		key, err := ks.Create()
+		require.NoError(t, err)
+		exportJSON, err := ks.Export(key.ID(), cltest.Password)
+		require.NoError(t, err)
+		_, err = ks.Delete(key.ID())
+		require.NoError(t, err)
+		_, err = ks.Get(key.ID())
+		require.Error(t, err)
+		importedKey, err := ks.Import(exportJSON, cltest.Password)
+		require.NoError(t, err)
+		require.Equal(t, key.ID(), importedKey.ID())
+		retrievedKey, err := ks.Get(key.ID())
+		require.NoError(t, err)
+		require.Equal(t, importedKey, retrievedKey)
+	})
+
+	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
+		defer reset()
+		newKey, err := ethkey.NewV2()
+		require.NoError(t, err)
+		err = ks.Add(newKey)
+		require.NoError(t, err)
+		keys, err := ks.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 1, len(keys))
+		_, err = ks.Delete(newKey.ID())
+		require.NoError(t, err)
+		keys, err = ks.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 0, len(keys))
+		_, err = ks.Get(newKey.ID())
+		require.Error(t, err)
+	})
+
+	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
+		exportedKey := `{"address":"0dd359b4f22a30e44b2fd744b679971941865820","crypto":{"cipher":"aes-128-ctr","ciphertext":"b30af964a3b3f37894e599446b4cf2314bbfcd1062e6b35b620d3d20bd9965cc","cipherparams":{"iv":"58a8d75629cc1945da7cf8c24520d1dc"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"c352887e9d427d8a6a1869082619b73fac4566082a99f6e367d126f11b434f28"},"mac":"fd76a588210e0bf73d01332091e0e83a4584ee2df31eaec0e27f9a1b94f024b4"},"id":"a5ee0802-1d7b-45b6-aeb8-ea8a3351e715","version":3}`
+		importedKey, err := ks.Import([]byte(exportedKey), cltest.Password)
+		require.NoError(t, err)
+		require.Equal(t, "0x0dd359b4f22a30E44b2fD744B679971941865820", importedKey.ID())
+	})
+}
+
+func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
+	chDone := make(chan struct{})
+	defer func() { close(chDone) }()
+	db := pgtest.NewGormDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	ks := keyStore.Eth()
+	chSub, unsubscribe := ks.SubscribeToKeyChanges()
+	defer unsubscribe()
+
+	count := atomic.NewInt32(0)
+
+	go func() {
+		for {
+			select {
+			case <-chSub:
+				count.Add(1)
+			case <-chDone:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		_, _, _, _, err := ks.EnsureKeys()
+		require.NoError(t, err)
+		_, err = ks.Create()
+		require.NoError(t, err)
+		newKey, err := ethkey.NewV2()
+		require.NoError(t, err)
+		err = ks.Add(newKey)
+		require.NoError(t, err)
+		_, err = ks.Delete(newKey.ID())
+		require.NoError(t, err)
+		count.Add(1)
+	}()
+
+	require.Eventually(
+		t,
+		func() bool { return count.Load() == 5 },
+		10*time.Second,
+		10*time.Millisecond,
+		"insufficient number of callbacks triggered",
+	)
 }

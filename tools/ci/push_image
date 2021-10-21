@@ -8,7 +8,6 @@ set -ex
 # Pushes smartcontract/<image>:circleci to relevant location based on passed args:
 # push_image <branch> <gittag> <image>
 # ie:
-# push_image master 0.6.9 integration
 # push_image develop echo_server
 #
 # Ignores anything not matching above.
@@ -16,7 +15,6 @@ set -ex
 # to work with.
 #
 # Argument <image> is likely one of the following:
-# test-integration
 # test-cypress-job-server
 # test-external-adapter
 # test-echo-server

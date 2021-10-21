@@ -1,5 +1,11 @@
 package utils
 
+import (
+	"time"
+
+	"github.com/pkg/errors"
+)
+
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Stop() error
@@ -46,11 +52,14 @@ func NewSleeperTask(worker Worker) SleeperTask {
 }
 
 // Stop stops the SleeperTask
-// It never returns an error, this is simply to comply with the interface
 func (s *sleeperTask) Stop() error {
 	return s.StopOnce("Sleeper task", func() error {
 		close(s.chStop)
-		<-s.chDone
+		select {
+		case <-s.chDone:
+		case <-time.After(15 * time.Second):
+			return errors.New("Sleeper task took too long to stop")
+		}
 		return nil
 	})
 }

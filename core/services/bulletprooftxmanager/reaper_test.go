@@ -16,7 +16,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	t.Cleanup(cleanup)
 	db := store.DB
-	ethKeyStore := cltest.NewKeyStore(t, store.DB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	var nonce int64 = 0
@@ -24,7 +24,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("with nothing in the database, doesn't error", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EthFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
@@ -40,7 +40,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EthFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(0 * time.Second)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
@@ -54,7 +54,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least ETH_FINALITY_DEPTH blocks above their receipt", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EthFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 
@@ -82,7 +82,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)
-		config.On("EthFinalityDepth").Return(uint(10))
+		config.On("EvmFinalityDepth").Return(uint(10))
 		config.On("EthTxReaperThreshold").Return(1 * time.Hour)
 		config.On("EthTxReaperInterval").Return(1 * time.Hour)
 

@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/require"
@@ -13,96 +15,72 @@ import (
 func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	cfg := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewGormDB(t)
 
-	db := store.DB
-
-	t.Run("with locked KeyStore returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
-
-		require.NoError(t, pw.Start())
-	})
-
-	// Clear out fixture
-	require.NoError(t, db.Exec(`DELETE FROM encrypted_p2p_keys`).Error)
+	require.NoError(t, db.Exec(`DELETE FROM encrypted_key_rings`).Error)
 
 	t.Run("with no p2p keys returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
+		keyStore := cltest.NewKeyStore(t, db)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
 		require.NoError(t, pw.Start())
 	})
 
-	var k p2pkey.Key
+	var k p2pkey.KeyV2
 	var err error
 
 	t.Run("with one p2p key and matching P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
-		k, _, err = keyStore.GenerateEncryptedP2PKey()
+		keyStore := cltest.NewKeyStore(t, db)
+		k, err = keyStore.P2P().Create()
 		require.NoError(t, err)
 
-		store.Config.Set("P2P_PEER_ID", k.MustGetPeerID())
+		peerID := k.PeerID()
+		cfg.Overrides.P2PPeerID = &peerID
 
 		require.NoError(t, err)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
 		require.NoError(t, pw.Start(), "foo")
-		require.Equal(t, k.MustGetPeerID(), pw.PeerID)
-	})
-
-	t.Run("with one p2p key and no P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
-
-		store.Config.Set("P2P_PEER_ID", "")
-
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
-
-		require.EqualError(t, pw.Start(), "failed to start peer wrapper: P2P_PEER_ID: env var unset")
+		require.Equal(t, k.PeerID(), pw.PeerID)
 	})
 
 	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
+		keyStore := cltest.NewKeyStore(t, db)
 
-		store.Config.Set("P2P_PEER_ID", cltest.DefaultP2PPeerID)
+		cfg.Overrides.P2PPeerID = &cltest.DefaultP2PPeerID
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
-		require.EqualError(t, pw.Start(), fmt.Sprintf("multiple p2p keys found but none matched the given P2P_PEER_ID of '%v'. Keys available: %s", cltest.DefaultP2PPeerID, k.MustGetPeerID()))
+		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", cltest.DefaultP2PPeerID.Raw()))
 	})
 
-	var k2 p2pkey.Key
+	var k2 p2pkey.KeyV2
 
 	t.Run("with multiple p2p keys and valid P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
-		k2, _, err = keyStore.GenerateEncryptedP2PKey()
+		keyStore := cltest.NewKeyStore(t, db)
+		k2, err = keyStore.P2P().Create()
 		require.NoError(t, err)
 
-		store.Config.Set("P2P_PEER_ID", k2.MustGetPeerID())
+		peerID := k2.PeerID()
+		cfg.Overrides.P2PPeerID = &peerID
 
 		require.NoError(t, err)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
 		require.NoError(t, pw.Start(), "foo")
-		require.Equal(t, k2.MustGetPeerID(), pw.PeerID)
+		require.Equal(t, k2.PeerID(), pw.PeerID)
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db).OCR()
-		require.NoError(t, keyStore.Unlock(cltest.Password))
+		keyStore := cltest.NewKeyStore(t, db)
 
-		store.Config.Set("P2P_PEER_ID", cltest.DefaultP2PPeerID.String())
+		cfg.Overrides.P2PPeerID = &cltest.DefaultP2PPeerID
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db)
 
-		require.Contains(t, pw.Start().Error(), "multiple p2p keys found but none matched the given P2P_PEER_ID of")
+		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", cltest.DefaultP2PPeerID.Raw()))
 	})
 }

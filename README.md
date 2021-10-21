@@ -180,28 +180,6 @@ go test -parallel=1 ./...
 
 ### Solidity Development
 
-> Note: `evm-contracts/` directory houses Solidity versions <=0.7. New contracts, using v0.8, are being developed in the `contracts/` directory, using hardhat.
-
-Inside the `evm-contracts/` directory:
-
-1. [Install Yarn](https://yarnpkg.com/lang/en/docs/install)
-2. Install the dependencies:
-
-```bash
-yarn
-yarn setup
-```
-
-3. Run tests:
-
-   i. Solidity versions `0.4.x` to `0.7.x`:
-
-   ```bash
-   yarn test
-   ```
-
-#### Solidity >=v0.8
-
 Inside the `contracts/` directory:
 1. Install dependencies:
 

@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -41,19 +42,17 @@ func NewSimulatedBackendIdentity(t *testing.T) *bind.TransactOpts {
 
 func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	t testing.TB,
-	tc *TestConfig,
+	tc *configtest.TestEVMConfig,
 	backend *backends.SimulatedBackend,
 	flagsAndDeps ...interface{},
 ) (app *TestApplication, cleanup func()) {
-	chainId := int(backend.Blockchain().Config().ChainID.Int64())
-	tc.Config.Set("ETH_CHAIN_ID", chainId)
+	chainId := backend.Blockchain().Config().ChainID.Int64()
+	tc.GeneralConfig.Overrides.SetChainID(chainId)
 
-	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: int(chainId)}
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
-	err := app.KeyStore.Eth().Unlock(Password)
-	require.NoError(t, err)
 
 	return app, func() { appCleanup(); client.Close() }
 }

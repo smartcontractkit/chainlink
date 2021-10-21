@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
@@ -35,9 +34,10 @@ type (
 	}
 
 	balanceMonitor struct {
+		logger         *logger.Logger
 		db             *gorm.DB
 		ethClient      eth.Client
-		ethKeyStore    *keystore.Eth
+		ethKeyStore    keystore.Eth
 		ethBalances    map[gethCommon.Address]*assets.Eth
 		ethBalancesMtx *sync.RWMutex
 		sleeperTask    utils.SleeperTask
@@ -47,8 +47,9 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.Eth) BalanceMonitor {
+func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger *logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
+		logger,
 		db,
 		ethClient,
 		ethKeyStore,
@@ -60,14 +61,9 @@ func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore *keystore.
 	return bm
 }
 
-// Connect complies with HeadTrackable
-func (bm *balanceMonitor) Connect(_ *models.Head) error {
-	return nil
-}
-
 func (bm *balanceMonitor) Start() error {
 	// Always query latest balance on start
-	bm.checkBalance(nil)
+	(&worker{bm}).Work()
 	return nil
 }
 
@@ -90,12 +86,12 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
-	logger.Debugw("BalanceMonitor: signalling balance worker")
+	bm.logger.Debugw("BalanceMonitor: signalling balance worker")
 	bm.sleeperTask.WakeUp()
 }
 
 func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {
-	promUpdateEthBalance(&ethBal, address)
+	bm.promUpdateEthBalance(&ethBal, address)
 
 	bm.ethBalancesMtx.Lock()
 	oldBal := bm.ethBalances[address]
@@ -110,12 +106,12 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	}
 
 	if oldBal == nil {
-		logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.logger.Infow(fmt.Sprintf("ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 		return
 	}
 
 	if ethBal.Cmp(oldBal) != 0 {
-		logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
+		bm.logger.Infow(fmt.Sprintf("New ETH balance for %s: %s", address.Hex(), ethBal.String()), loggerFields...)
 	}
 }
 
@@ -132,16 +128,16 @@ type worker struct {
 func (w *worker) Work() {
 	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
-		logger.Error("BalanceMonitor: error getting keys", err)
+		w.bm.logger.Error("BalanceMonitor: error getting keys", err)
 	}
 
 	var wg sync.WaitGroup
 
 	wg.Add(len(keys))
 	for _, key := range keys {
-		go func(k ethkey.Key) {
+		go func(k ethkey.KeyV2) {
+			defer wg.Done()
 			w.checkAccountBalance(k)
-			wg.Done()
 		}(key)
 	}
 	wg.Wait()
@@ -150,18 +146,18 @@ func (w *worker) Work() {
 // Approximately ETH block time
 const ethFetchTimeout = 15 * time.Second
 
-func (w *worker) checkAccountBalance(k ethkey.Key) {
+func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 
 	bal, err := w.bm.ethClient.BalanceAt(ctx, k.Address.Address(), nil)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
 			"address", k.Address,
 		)
 	} else if bal == nil {
-		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
+		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
 			"error", err,
 			"address", k.Address,
 		)
@@ -174,13 +170,10 @@ func (w *worker) checkAccountBalance(k ethkey.Key) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error   { return nil }
-func (*NullBalanceMonitor) Close() error   { return nil }
-func (*NullBalanceMonitor) Ready() error   { return nil }
-func (*NullBalanceMonitor) Healthy() error { return nil }
-func (*NullBalanceMonitor) Connect(head *models.Head) error {
-	return nil
-}
+func (*NullBalanceMonitor) Start() error                                            { return nil }
+func (*NullBalanceMonitor) Close() error                                            { return nil }
+func (*NullBalanceMonitor) Ready() error                                            { return nil }
+func (*NullBalanceMonitor) Healthy() error                                          { return nil }
 func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}
 
 var promETHBalance = promauto.NewGaugeVec(
@@ -191,11 +184,11 @@ var promETHBalance = promauto.NewGaugeVec(
 	[]string{"account"},
 )
 
-func promUpdateEthBalance(balance *assets.Eth, from common.Address) {
+func (bm *balanceMonitor) promUpdateEthBalance(balance *assets.Eth, from gethCommon.Address) {
 	balanceFloat, err := ApproximateFloat64(balance)
 
 	if err != nil {
-		logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
+		bm.logger.Error(fmt.Errorf("updatePrometheusEthBalance: %v", err))
 		return
 	}
 

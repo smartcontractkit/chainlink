@@ -4,7 +4,7 @@ jobs:
     resource_class: 2xlarge
     machine:
       image: circleci/classic:201808-01
-      docker_layer_caching: false
+      docker_layer_caching: true
     steps:
       - checkout
       - setup-aws-ecr

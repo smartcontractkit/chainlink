@@ -22,11 +22,6 @@ func MustHelloWorldAgreement(t *testing.T) string {
 
 }
 
-// FixtureCreateJobViaWeb creates a job from a fixture using /v2/specs
-func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpec {
-	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
-}
-
 func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.Job {
 	request := web.CreateJobRequest{
 		TOML: string(MustReadFile(t, path)),

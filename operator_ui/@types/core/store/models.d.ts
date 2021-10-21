@@ -25,110 +25,6 @@ declare module 'core/store/models' {
   }
 
   /**
-   * JobSpecRequest represents a schema for the incoming job spec request as used by the API.
-   */
-  export interface JobSpecRequest {
-    initiators: InitiatorRequest[]
-    task: TaskSpecRequest[]
-    startAt: nullable.Time
-    endAt: nullable.Time
-    minPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * InitiatorRequest represents a schema for incoming initiator requests as used by the API.
-   */
-  export interface InitiatorRequest {
-    type: string
-    params?: InitiatorParams
-  }
-
-  /**
-   * TaskSpecRequest represents a schema for incoming TaskSpec requests as used by the API.
-   */
-  export interface TaskSpecRequest<T extends JSONValue = JSONValue> {
-    type: TaskType
-    confirmations: clnull.Uint32
-    params: T
-  }
-
-  /**
-   * JobSpec is the definition for all the work to be carried out by the node
-   * for a given contract. It contains the Initiators, Tasks (which are the
-   * individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
-   */
-  export interface JobSpec {
-    id?: string // FIXME -- why is this nullable?
-    createdAt: time.Time
-    initiators: Initiator[]
-    minPayment: Pointer<assets.Link>
-    tasks: TaskSpec[]
-    startAt: nullable.Time
-    endAt: nullable.Time
-    name: string
-    earnings: number | null
-    errors: JobSpecError[]
-    updatedAt: time.time
-  }
-
-  // Types of Initiators (see Initiator struct just below.)
-  export enum InitiatorType {
-    /**
-     * InitiatorRunLog for tasks in a job to watch an ethereum address
-     * and expect a JSON payload from a log event.
-     */
-    RUN_LOG = 'runlog',
-    /**
-     * InitiatorCron for tasks in a job to be ran on a schedule.
-     */
-    CRON = 'cron',
-    /**
-     * InitiatorEthLog for tasks in a job to use the Ethereum blockchain.
-     */
-    ETH_LOG = 'ethlog',
-    /**
-     * InitiatorRunAt for tasks in a job to be ran once.
-     */
-    RUN_AT = 'runat',
-    /**
-     * InitiatorWeb for tasks in a job making a web request.
-     */
-    WEB = 'web',
-    /**
-     * InitiatorServiceAgreementExecutionLog for tasks in a job to watch a
-     * Solidity Coordinator contract and expect a payload from a log event.
-     */
-    SERVICE_AGREEMENT_EXECUTION_LOG = 'execagreement',
-  }
-
-  /**
-   * Initiator could be thought of as a trigger, defines how a Job can be
-   * started, or rather, how a JobRun can be created from a Job.
-   * Initiators will have their own unique ID, but will be associated
-   * to a parent JobID.
-   */
-  export interface Initiator {
-    id?: number
-    jobSpecId?: string
-    type: InitiatorType
-    // FIXME - missing json struct tag
-    CreatedAt?: time.Time
-    params?: InitiatorParams
-  }
-
-  /**
-   * InitiatorParams is a collection of the possible parameters that different
-   * Initiators may require.
-   */
-  interface InitiatorParams {
-    schedule?: Cron
-    time?: AnyTime
-    ran?: boolean
-    address?: common.Address
-    requesters?: AddressCollection
-  }
-
-  /**
    * TaskSpec is the definition of work to be carried out. The
    * Type will be an adapter, and the Params will contain any
    * additional information that adapter would need to operate.
@@ -144,68 +40,6 @@ declare module 'core/store/models' {
    */
   type TaskType = string
 
-  //#endregion job_spec.go
-
-  //#region run.go
-
-  /**
-   * JobRun tracks the status of a job by holding its TaskRuns and the
-   * Result of each Run.
-   */
-  export interface JobRun {
-    id: string
-    jobId: string
-    result: RunResult
-    status: RunStatus
-    taskRuns: TaskRun[]
-    createdAt: time.Time
-    finishedAt: nullable.Time
-    updatedAt: time.Time
-    initiator: Initiator
-    createdHeight: Pointer<Big>
-    observedHeight: Pointer<Big>
-    overrides: RunResult
-    payment: Pointer<assets.Link>
-  }
-
-  /**
-   * TaskRun stores the Task and represents the status of the
-   * Task to be ran.
-   */
-  export interface TaskRun {
-    id: string
-    result:
-      | { data: { result: string }; error: null }
-      | { data: {}; error: string }
-    status: RunStatus
-    task: TaskSpec
-    minimumConfirmations?: number | null
-    confirmations?: number | null
-  }
-
-  /**
-   * RunResult keeps track of the outcome of a TaskRun or JobRun. It stores the
-   * Data and ErrorMessage, and contains a field to track the status.
-   */
-  export interface RunResult<T extends JSONValue = JSONValue> {
-    jobRunId: string
-    taskRunId: string
-    data: JSONValue
-    status: RunStatus
-    error: nullable.String
-  }
-
-  /**
-   * BridgeRunResult handles the parsing of RunResults from external adapters.
-   */
-  export interface BridgeRunResult extends RunResult {
-    pending: boolean
-    accessToken: string
-  }
-
-  //#endregion run.go
-
-  //#region common.go
   /**
    * WebURL contains the URL of the endpoint.
    */
@@ -223,24 +57,6 @@ declare module 'core/store/models' {
    * day of the month (4), month (5), and day of the week (6).
    */
   type Cron = string
-
-  /**
-   * WithdrawalRequest request to withdraw LINK.
-   */
-  export interface WithdrawalRequest {
-    address: common.Address
-    contractAddress: common.Address
-    amount: Pointer<assets.Link>
-  }
-
-  /**
-   * SendEtherRequest represents a request to transfer ETH.
-   */
-  export interface SendEtherRequest {
-    address: common.Address
-    from: common.Address
-    amount: Pointer<assets.Eth>
-  }
 
   /**
    * Big stores large integers and can deserialize a variety of inputs.
@@ -289,55 +105,6 @@ declare module 'core/store/models' {
     minimumContractPayment: Pointer<assets.Link>
   }
   //#endregion bridge_type.go
-  //#region eth.go
-  /**
-   * Log represents a contract log event. These events are generated by the LOG opcode and
-   * stored/indexed by the node.
-   */
-  export interface Log {
-    /**
-     * Consensus fields:
-     * address of the contract that generated the event
-     */
-    address: common.Address
-    /**
-     * List of topics provided by the contract
-     */
-    topics: common.Hash[]
-    /**
-     * Supplied by the contract, usually ABI-encoded
-     */
-    data: string
-
-    /**
-     * Derived fields. These fields are filled in by the node
-     * but not secured by consensus.
-     * block in which the transaction was included
-     */
-    blockNumber: number // FIXME -- uint64 is unsafe in this context
-    /**
-     * Hash of the transaction
-     */
-    transactionHash: common.Hash
-    /**
-     * Index of the transaction in the block
-     */
-    transactionIndex: number
-    /**
-     * Hash of the block in which the transaction was included
-     */
-    blockHash: common.Hash
-    /**
-     * Index of the log in the receipt
-     */
-    logIndex: number
-
-    /**
-     * The Removed field is true if this log was reverted due to a chain reorganisation.
-     * You must pay attention to this field if you receive logs through a filter query.
-     */
-    removed: boolean
-  }
 
   /**
    * Tx contains fields necessary for an Ethereum transaction with
@@ -441,10 +208,8 @@ declare module 'core/store/models' {
 
   export interface OcrKey {
     configPublicKey: string
-    createdAt: time.Time
     offChainPublicKey: string
     onChainSigningAddress: common.Address
-    updatedAt: time.Time
   }
   //#endregion ocrkey/key_bundle.go
   //#region p2pKey/p2p_key.go
@@ -456,23 +221,21 @@ declare module 'core/store/models' {
   export interface P2PKey {
     peerId: string
     publicKey: string
-    createdAt: time.Time
-    updatedAt: time.Time
-    deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
 
   /**
-   * JobSpecV2Request represents a schema for the incoming job spec v2 request as used by the API.
+   * CreateJobRequest represents a schema for the create job request as used by
+   * the API.
    */
-  export interface JobSpecV2Request {
+  export interface CreateJobRequest {
     toml: string
   }
 
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
-  interface BaseJobSpecV2 {
+  interface BaseJob {
     name: string | null
     errors: JobSpecError[]
     maxTaskDuration: string
@@ -483,7 +246,7 @@ declare module 'core/store/models' {
     externalJobID: string
   }
 
-  export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
+  export type DirectRequestJob = BaseJob & {
     type: 'directrequest'
     directRequestSpec: {
       initiator: 'runlog'
@@ -499,7 +262,7 @@ declare module 'core/store/models' {
     vrfSpec: null
   }
 
-  export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
+  export type FluxMonitorJob = BaseJob & {
     type: 'fluxmonitor'
     fluxMonitorSpec: {
       contractAddress: common.Address
@@ -524,7 +287,7 @@ declare module 'core/store/models' {
     vrfSpec: null
   }
 
-  export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
+  export type OffChainReportingJob = BaseJob & {
     type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
@@ -550,7 +313,7 @@ declare module 'core/store/models' {
     keeperSpec: null
   }
 
-  export type KeeperV2Spec = BaseJobSpecV2 & {
+  export type KeeperJob = BaseJob & {
     type: 'keeper'
     keeperSpec: {
       contractAddress: common.Address
@@ -566,7 +329,7 @@ declare module 'core/store/models' {
     offChainReportingOracleSpec: null
   }
 
-  export type CronV2Spec = BaseJobSpecV2 & {
+  export type CronJob = BaseJob & {
     type: 'cron'
     keeperSpec: null
     cronSpec: {
@@ -581,7 +344,7 @@ declare module 'core/store/models' {
     offChainReportingOracleSpec: null
   }
 
-  export type WebhookV2Spec = BaseJobSpecV2 & {
+  export type WebhookJob = BaseJob & {
     type: 'webhook'
     keeperSpec: null
     webhookSpec: {
@@ -595,7 +358,7 @@ declare module 'core/store/models' {
     offChainReportingOracleSpec: null
   }
 
-  export type VRFV2Spec = BaseJobSpecV2 & {
+  export type VRFJob = BaseJob & {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
@@ -612,16 +375,23 @@ declare module 'core/store/models' {
     offChainReportingOracleSpec: null
   }
 
-  export type JobSpecV2 =
-    | DirectRequestJobV2Spec
-    | FluxMonitorJobV2Spec
-    | OffChainReportingOracleJobV2Spec
-    | KeeperV2Spec
-    | CronV2Spec
-    | WebhookV2Spec
-    | VRFV2Spec
+  export type Job =
+    | DirectRequestJob
+    | FluxMonitorJob
+    | OffChainReportingJob
+    | KeeperJob
+    | CronJob
+    | WebhookJob
+    | VRFJob
 
-  export interface OcrJobRun {
+  export type Chain = {
+    config: Record<string, JSONPrimitive>,
+    createdAt: time.Time,
+    updatedAt: time.Time
+  }
+
+  export interface JobRunV2 {
+    state: string
     outputs: PipelineTaskOutput[]
     errors: PipelineTaskError[]
     taskRuns: PipelineTaskRun[]
@@ -631,6 +401,7 @@ declare module 'core/store/models' {
       ID: number
       CreatedAt: time.Time
       dotDagSource: string
+      jobID: string
     }
   }
 
@@ -652,8 +423,6 @@ declare module 'core/store/models' {
 
   export interface CSAKey {
     publicKey: string
-    createdAt: time.Time
-    updatedAt: time.Tome
   }
 
   export interface FeedsManager {
@@ -662,6 +431,7 @@ declare module 'core/store/models' {
     jobTypes: string[]
     publicKey: string
     isBootstrapPeer: boolean
+    isConnectionActive: boolean
     bootstrapPeerMultiaddr?: string
     createdAt: time.Time
   }
@@ -675,11 +445,28 @@ declare module 'core/store/models' {
     bootstrapPeerMultiaddr?: string
   }
 
+  export interface UpdateFeedsManagerRequest {
+    name: string
+    uri: string
+    jobTypes: string[]
+    publicKey: string
+    isBootstrapPeer: boolean
+    bootstrapPeerMultiaddr?: string
+  }
+
   export interface JobProposal {
     spec: string
     status: string
     external_job_id: string | null
     createdAt: time.Time
+  }
+
+  export interface UpdateJobProposalSpecRequest {
+    spec: string
+  }
+
+  export interface FeatureFlag {
+    enabled: boolean
   }
 }
 

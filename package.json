@@ -4,11 +4,8 @@
   "workspaces": [
     "evm-test-helpers",
     "contracts",
-    "integration",
-    "integration-scripts",
     "operator_ui",
     "tools",
-    "tools/ci-ts",
     "tools/cypress-job-server",
     "tools/echo-server",
     "tools/external-adapter",
@@ -25,7 +22,6 @@
     "setup": "wsrun -me -t setup",
     "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
-    "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
     "clean": "wsrun -me clean",
     "postinstall": "patch-package"
   },
@@ -34,7 +30,7 @@
     "@typescript-eslint/parser": "^2.34.0",
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.15.0",
-    "eslint-plugin-prettier": "^3.4.0",
+    "eslint-plugin-prettier": "^3.4.1",
     "eslint-plugin-react": "^7.23.2",
     "eslint-plugin-react-hooks": "^4.0.0",
     "patch-package": "^6.4.7",

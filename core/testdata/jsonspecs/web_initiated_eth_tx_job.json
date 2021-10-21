@@ -1,4 +1,0 @@
-{
-  "initiators": [{"type": "web"}],
-  "tasks": [{"type": "ethTx"}]
-}

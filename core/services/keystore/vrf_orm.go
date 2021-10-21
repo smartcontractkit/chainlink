@@ -48,7 +48,7 @@ func (orm *vrfORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 		c := constraint
 		anonWhere = append(anonWhere, &c)
 	}
-	return retrieved, orm.db.Find(&retrieved, anonWhere...).Order("created_at DESC").Error
+	return retrieved, orm.db.Find(&retrieved, anonWhere...).Order("created_at DESC, id DESC").Error
 }
 
 func (orm *vrfORM) FindEncryptedSecretVRFKeysIncludingArchived(where ...vrfkey.EncryptedVRFKey) (
@@ -58,5 +58,5 @@ func (orm *vrfORM) FindEncryptedSecretVRFKeysIncludingArchived(where ...vrfkey.E
 		c := constraint
 		anonWhere = append(anonWhere, &c)
 	}
-	return retrieved, orm.db.Unscoped().Find(&retrieved, anonWhere...).Order("created_at DESC").Error
+	return retrieved, orm.db.Unscoped().Find(&retrieved, anonWhere...).Order("created_at DESC, id DESC").Error
 }

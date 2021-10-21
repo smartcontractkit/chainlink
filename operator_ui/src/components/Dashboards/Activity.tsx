@@ -14,13 +14,14 @@ import TableCell from '@material-ui/core/TableCell'
 import TableFooter from '@material-ui/core/TableFooter'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import BaseLink from '../BaseLink'
 import Button from '../Button'
 import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
+import { JobRunV2, Resource } from 'core/store/models'
+import { getJobStatus } from 'src/pages/Jobs/utils'
 
 const noActivityStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -100,7 +101,7 @@ const styles = ({ palette, spacing }: Theme) =>
 
 interface Props extends WithStyles<typeof styles> {
   pageSize: number
-  runs?: JobRuns
+  runs?: Resource<JobRunV2>[]
   count?: number
 }
 
@@ -115,33 +116,39 @@ const Activity = ({ classes, runs, count, pageSize }: Props) => {
     activity = (
       <Table>
         <TableBody>
-          {runs.map((r: JobRun) => (
+          {runs.map((r) => (
             <TableRow key={r.id}>
               <TableCell scope="row" className={classes.cell}>
                 <div className={classes.content}>
                   <div className={classes.status}>
-                    <StatusIcon width={38}>{r.status}</StatusIcon>
+                    <StatusIcon width={38}>
+                      {getJobStatus(r.attributes)}
+                    </StatusIcon>
                   </div>
                   <div className={classes.runDetails}>
                     <Grid container spacing={0}>
                       <Grid item xs={12}>
                         <Typography variant="body1" color="textSecondary">
-                          <TimeAgo tooltip>{r.createdAt}</TimeAgo>
+                          <TimeAgo tooltip>{r.attributes.createdAt}</TimeAgo>
                         </Typography>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}`}>
+                        <Link
+                          href={`/jobs/${r.attributes.pipelineSpec?.jobID}`}
+                        >
                           <Typography
                             variant="h5"
                             color="primary"
                             component="span"
                           >
-                            Job: {r.jobId}
+                            Job: {r.attributes.pipelineSpec?.jobID}
                           </Typography>
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}/runs/${r.id}`}>
+                        <Link
+                          href={`/jobs/${r.attributes.pipelineSpec?.jobID}/runs/${r.id}`}
+                        >
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"

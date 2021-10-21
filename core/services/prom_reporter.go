@@ -116,11 +116,6 @@ func (pr *promReporter) Close() error {
 	})
 }
 
-// Do nothing on connect, simply wait for the next head
-func (pr *promReporter) Connect(*models.Head) error {
-	return nil
-}
-
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	pr.newHeads.Deliver(head)
 }
@@ -163,41 +158,19 @@ func (pr *promReporter) reportMetrics(ctx context.Context, head models.Head) {
 }
 
 func (pr *promReporter) reportPendingEthTxes(ctx context.Context) (err error) {
-	rows, err := pr.db.QueryContext(ctx, `SELECT count(*) FROM eth_txes WHERE state = 'unconfirmed'`)
-	if err != nil {
-		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
-	}
-
-	defer func() {
-		err = multierr.Combine(err, rows.Close())
-	}()
-
 	var unconfirmed int64
-	for rows.Next() {
-		if err := rows.Scan(&unconfirmed); err != nil {
-			return errors.Wrap(err, "unexpected error scanning row")
-		}
+	if err := pr.db.QueryRowContext(ctx, `SELECT count(*) FROM eth_txes WHERE state = 'unconfirmed'`).Scan(&unconfirmed); err != nil {
+		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
 	}
 	pr.backend.SetUnconfirmedTransactions(unconfirmed)
 	return nil
 }
 
 func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context) (err error) {
-	now := time.Now()
-	rows, err := pr.db.QueryContext(ctx, `SELECT min(broadcast_at) FROM eth_txes WHERE state = 'unconfirmed'`)
-	if err != nil {
-		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
-	}
-
-	defer func() {
-		err = multierr.Combine(err, rows.Close())
-	}()
-
 	var broadcastAt null.Time
-	for rows.Next() {
-		if err := rows.Scan(&broadcastAt); err != nil {
-			return errors.Wrap(err, "unexpected error scanning row")
-		}
+	now := time.Now()
+	if err := pr.db.QueryRowContext(ctx, `SELECT min(broadcast_at) FROM eth_txes WHERE state = 'unconfirmed'`).Scan(&broadcastAt); err != nil {
+		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
 	}
 	var seconds float64
 	if broadcastAt.Valid {
@@ -209,22 +182,13 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context) (err error)
 }
 
 func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head models.Head) (err error) {
-	rows, err := pr.db.QueryContext(ctx, `
+	var earliestUnconfirmedTxBlock null.Int
+	err = pr.db.QueryRowContext(ctx, `
 SELECT MIN(broadcast_before_block_num) FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
-AND eth_txes.state = 'unconfirmed'`)
+AND eth_txes.state = 'unconfirmed'`).Scan(&earliestUnconfirmedTxBlock)
 	if err != nil {
 		return errors.Wrap(err, "failed to query for min broadcast_before_block_num")
-	}
-	defer func() {
-		err = multierr.Combine(err, rows.Close())
-	}()
-
-	var earliestUnconfirmedTxBlock null.Int
-	for rows.Next() {
-		if err := rows.Scan(&earliestUnconfirmedTxBlock); err != nil {
-			return errors.Wrap(err, "unexpected error scanning row")
-		}
 	}
 	var blocksUnconfirmed int64
 	if !earliestUnconfirmedTxBlock.IsZero() {
@@ -249,11 +213,14 @@ SELECT pipeline_run_id FROM pipeline_task_runs WHERE finished_at IS NULL
 	pipelineRunsQueuedSet := make(map[int32]struct{})
 	for rows.Next() {
 		var pipelineRunID int32
-		if err := rows.Scan(&pipelineRunID); err != nil {
+		if err = rows.Scan(&pipelineRunID); err != nil {
 			return errors.Wrap(err, "unexpected error scanning row")
 		}
 		pipelineTaskRunsQueued++
 		pipelineRunsQueuedSet[pipelineRunID] = struct{}{}
+	}
+	if err = rows.Err(); err != nil {
+		return err
 	}
 	pipelineRunsQueued := len(pipelineRunsQueuedSet)
 
