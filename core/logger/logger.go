@@ -1,5 +1,10 @@
-// Package logger is used to store details of events in the node.
-// Events can be categorized by Trace, Debug, Info, Error, Fatal, and Panic.
+// Logger is the main interface of this package.
+//
+// The package-level helper functions are being phased out. Loggers should be injected
+// instead (and usually Named as well): e.g. lggr.Named("<service name>")
+//
+// Tests should use a TestLogger, with ProductionLogger being reserved for actual
+// production and very limited direct testing.
 package logger
 
 import (
@@ -23,6 +28,7 @@ func init() {
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
+// TestLogger should be used in tests.
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
