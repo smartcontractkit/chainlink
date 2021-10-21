@@ -36,7 +36,7 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(client.Logger())
+		logger.InitLogger(client.Logger)
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{

@@ -56,6 +56,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
 		Config:                 cfg,
+		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 runner,
@@ -130,6 +131,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
+				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: apiPrompt,
 				Runner:                 cltest.EmptyRunner{},
@@ -176,6 +178,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	apiPrompt := cltest.NewMockAPIInitializer(t)
 	client := cmd.Client{
 		Config:                 cfg,
+		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: apiPrompt,
 		Runner:                 cltest.EmptyRunner{},
@@ -238,6 +241,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			apiPrompt := cltest.NewMockAPIInitializer(t)
 			client := cmd.Client{
 				Config:                 cfg,
+				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  cmd.TerminalKeyStoreAuthenticator{prompter},
 				FallbackAPIInitializer: apiPrompt,
@@ -320,6 +324,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 
 	client := cmd.Client{
 		Config:                 config,
+		Logger:                 logger.TestLogger(t),
 		AppFactory:             cltest.InstanceAppFactory{App: app},
 		FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 		Runner:                 cltest.EmptyRunner{},
@@ -388,6 +393,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 			client := cmd.Client{
 				Config:                 config,
+				Logger:                 logger.TestLogger(t),
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				FallbackAPIInitializer: cltest.NewMockAPIInitializer(t),
 				Runner:                 cltest.EmptyRunner{},
@@ -418,6 +424,7 @@ func TestClient_SetNextNonce(t *testing.T) {
 
 	client := cmd.Client{
 		Config: config,
+		Logger: logger.TestLogger(t),
 		Runner: cltest.EmptyRunner{},
 	}
 

@@ -18,13 +18,14 @@ func main() {
 // Run runs the CLI, providing further command instructions by default.
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
-	client.Logger().WarnIf(app.Run(args), "Error running app")
+	client.Logger.WarnIf(app.Run(args), "Error running app")
 }
 
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
 	cfg := config.NewGeneralConfig()
+	lggr := logger.ProductionLogger(cfg)
 
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
@@ -34,12 +35,13 @@ func NewProductionClient() *cmd.Client {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
 		if err != nil && errors.Cause(err) != cmd.ErrNoCredentialFile && !os.IsNotExist(err) {
-			logger.ProductionLogger(cfg).Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
+			lggr.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         cfg,
+		Logger:                         lggr,
 		AppFactory:                     cmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
