@@ -109,6 +109,18 @@ describe('ArbitrumCrossDomainForwarder', () => {
       const updatedGreeting = await greeter.greeting()
       assert.equal(updatedGreeting, newGreeting)
     })
+
+    it('should revert when contract call reverts', async () => {
+      const setGreetingData = greeterFactory.interface.encodeFunctionData(
+        'setGreeting',
+        [''],
+      )
+      await expect(
+        forwarder
+          .connect(crossdomainMessenger)
+          .forward(greeter.address, setGreetingData),
+      ).to.be.revertedWith('xDomain call failed:')
+    })
   })
 
   describe('#forwardDelegate', () => {
@@ -142,6 +154,34 @@ describe('ArbitrumCrossDomainForwarder', () => {
 
       const updatedGreeting = await greeter.greeting()
       assert.equal(updatedGreeting, 'bar')
+    })
+
+    it('should be revert batch when one call fails', async () => {
+      const calls = [
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'foo',
+          ]),
+          value: 0,
+        },
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            '', // should revert
+          ]),
+          value: 0,
+        },
+      ]
+      const multisendData = encodeMultisendData(multisend.interface, calls)
+      await expect(
+        forwarder
+          .connect(crossdomainMessenger)
+          .forwardDelegate(multisend.address, multisendData),
+      ).to.be.revertedWith('xDomain delegatecall failed:')
+
+      const greeting = await greeter.greeting()
+      assert.equal(greeting, '') // Unchanged
     })
   })
 
