@@ -202,7 +202,7 @@ decode_log->vrf->encode_tx->submit_tx
 	if params.V2 {
 		observationSource = fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
+              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
               data="$(jobRun.logData)"
               topics="$(jobRun.logTopics)"]
 vrf          [type=vrfv2

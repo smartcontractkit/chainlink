@@ -618,7 +618,12 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Reset database and load fixtures.",
 							Hidden: !client.Config.Dev(),
 							Action: client.PrepareTestDatabase,
-							Flags:  []cli.Flag{},
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "user-only",
+									Usage: "only include test user fixture",
+								},
+							},
 						},
 						{
 							Name:   "version",
