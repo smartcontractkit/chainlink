@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -30,7 +32,7 @@ func (t *ModeTask) Type() TaskType {
 	return TaskTypeMode
 }
 
-func (t *ModeTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		maybeAllowedFaults MaybeUint64Param
 		valuesAndErrs      SliceParam

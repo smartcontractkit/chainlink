@@ -7,15 +7,15 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf/proof"
-	"go.uber.org/multierr"
 )
 
 type VRFTask struct {
@@ -38,7 +38,7 @@ func (t *VRFTask) Type() TaskType {
 	return TaskTypeVRF
 }
 
-func (t *VRFTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) != 1 {
 		return Result{Error: ErrWrongInputCardinality}, runInfo
 	}

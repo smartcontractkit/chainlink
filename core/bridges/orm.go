@@ -8,6 +8,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+//go:generate mockery --name ORM --output ./mocks --case=underscore
+
 type ORM interface {
 	FindBridge(name TaskType) (bt BridgeType, err error)
 	DeleteBridgeType(bt *BridgeType) error

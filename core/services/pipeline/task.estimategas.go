@@ -43,7 +43,7 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 	return TaskTypeEstimateGasLimit
 }
 
-func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *EstimateGasLimitTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var (
 		fromAddr   AddressParam
 		toAddr     AddressParam
@@ -75,7 +75,7 @@ func (t *EstimateGasLimitTask) Run(_ context.Context, vars Vars, inputs []Result
 	if err != nil {
 		// Fallback to the maximum conceivable gas limit
 		// if we're unable to call estimate gas for whatever reason.
-		logger.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", maximumGasLimit)
+		lggr.Warnw("EstimateGas: unable to estimate, fallback to configured limit", "err", err, "fallback", maximumGasLimit)
 		return Result{Value: maximumGasLimit}, runInfo
 	}
 	gasLimitDecimal, err := decimal.NewFromString(strconv.FormatUint(gasLimit, 10))

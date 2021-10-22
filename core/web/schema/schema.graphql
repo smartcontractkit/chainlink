@@ -1,0 +1,20 @@
+scalar Time
+
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+type Query {
+    bridge(name: String!): Bridge!
+    bridges(offset: Int, limit: Int): [Bridge!]!
+    chain(id: ID!): Chain!
+    chains(offset: Int, limit: Int): [Chain!]!
+    feedsManager(id: ID!): FeedsManager!
+    feedsManagers: [FeedsManager!]!
+}
+
+type Mutation {
+    createBridge(input: CreateBridgeInput!): CreateBridgePayload!
+    updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
+}

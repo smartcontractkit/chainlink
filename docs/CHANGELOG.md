@@ -86,8 +86,6 @@ Use at your own risk.
 
 #### Misc
 
-Add support for OKEx/ExChain.
-
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
 
 Add CRUD functionality for EVM Chains and Nodes through Operator UI.
@@ -165,9 +163,22 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are not required (and do nothing) if `USE_LEGACY_ETH_ENV_VARS=false`. If `USE_LEGACY_ETH_ENV_VARS=true` (the default) these env vars must be explicitly set. This is most likely safe, since almost all node operators set these values explicitly anyway (and we don't even recommend running an eth node on the same box as the CL node).
 
+### Removed
+
+- `belt/` and `evm-test-helpers/` removed from the codebase.
+
+#### Deprecated env vars
+
+`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
+
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
 ### Changed
 
-Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
 
 #### Async support in external adapters
 
@@ -194,37 +205,11 @@ This only applies to EAs using the `X-Chainlink-Pending` header to signal that t
 
 (NOTE: Official documentation for EAs needs to be updated)
 
-### Removed
-
-- `belt/` and `evm-test-helpers/` removed from the codebase.
-
-#### Deprecated env vars
-
-`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
-
-### Fixed
-
-Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
-
-## [v1.0.0]
-
-### Added
-
-- `chainlink node db status` will now display a table of applied and pending migrations.
-- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
-
-### Changed
-
-- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, regardless of the head frequency from the chain.
-- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
-
 #### New env vars
 
 `BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
 
 `ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
-
-`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
 
 #### Removed env vars
 
@@ -339,7 +324,14 @@ To help you work around this, Chainlink now supports setting per-chain configura
 
 TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
 
-#### Legacy pipeline removed
+## [1.0.0] - 2021-10-19
+
+### Added
+
+- `chainlink node db status` will now display a table of applied and pending migrations.
+- Add support for OKEx/ExChain.
+
+### Changed
 
 **Legacy job pipeline (JSON specs) are no longer supported**
 
@@ -349,21 +341,33 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
-#### Requesters
+#### KeyStore changes
 
-V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
-```toml
-type                = "directrequest"
-schemaVersion       = 1
-requesters          = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
-name                = "example eth request event spec with requesters"
-contractAddress     = "..."
-externalJobID     =  "..."
-observationSource   = """
-...
-"""
-```
+#### New env vars
+
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
+
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs,
+  regardless of the head frequency from the chain.
+- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
+- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
+
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
+## [0.10.15] - 2021-10-14
+
+**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+
+### Fixed
+
+- Prevent release from clobbering databases that have previously been upgraded
 
 ## [0.10.14] - 2021-09-06
 
@@ -752,8 +756,6 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 ```
 
 ### Changed
-
-- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
 
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 
