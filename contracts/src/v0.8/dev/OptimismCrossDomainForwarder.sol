@@ -56,23 +56,6 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
-   * @inheritdoc ForwarderInterface
-   */
-  function forwardDelegate(address target, bytes memory data) external override {
-    // 1. The delegatecall MUST come from the L1 Messenger
-    require(msg.sender == OVM_CROSS_DOMAIN_MESSENGER, "Sender is not the L2 messenger");
-    // 2. The L1 Messenger's caller MUST be the L1 Owner
-    require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
-      "xDomain sender is not the L1 owner"
-    );
-    // 3. Make the external call
-    (bool success, bytes memory res) = target.delegatecall(data);
-    require(success, string(abi.encode("xDomain delegatecall failed:", res)));
-  }
-
-  /**
    * @notice This is always the address of the OVM_L2CrossDomainMessenger contract
    * @inheritdoc CrossDomainForwarder
    */

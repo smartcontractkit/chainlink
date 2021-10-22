@@ -9,11 +9,4 @@ interface ForwarderInterface {
    * @param data to send to target contract
    */
   function forward(address target, bytes memory data) external;
-
-  /**
-   * @notice forward delegatecalls the `target` with `data`
-   * @param target contract address to be delegatecalled
-   * @param data to send to target contract
-   */
-  function forwardDelegate(address target, bytes memory data) external;
 }
