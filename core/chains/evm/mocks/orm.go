@@ -174,6 +174,52 @@ func (_m *ORM) EnabledChainsWithNodes() ([]types.Chain, error) {
 	return r0, r1
 }
 
+// GetChainsByIDs provides a mock function with given fields: ids
+func (_m *ORM) GetChainsByIDs(ids []utils.Big) ([]types.Chain, error) {
+	ret := _m.Called(ids)
+
+	var r0 []types.Chain
+	if rf, ok := ret.Get(0).(func([]utils.Big) []types.Chain); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Chain)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]utils.Big) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetNodesByChainIDs provides a mock function with given fields: chainIDs
+func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big) ([]types.Node, error) {
+	ret := _m.Called(chainIDs)
+
+	var r0 []types.Node
+	if rf, ok := ret.Get(0).(func([]utils.Big) []types.Node); ok {
+		r0 = rf(chainIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.Node)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]utils.Big) error); ok {
+		r1 = rf(chainIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Nodes provides a mock function with given fields: offset, limit
 func (_m *ORM) Nodes(offset int, limit int) ([]types.Node, int, error) {
 	ret := _m.Called(offset, limit)

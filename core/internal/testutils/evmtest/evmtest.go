@@ -147,6 +147,10 @@ func (mo *MockORM) Chains(offset int, limit int) ([]evmtypes.Chain, int, error) 
 	panic("not implemented")
 }
 
+func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.Chain, err error) {
+	panic("not implemented")
+}
+
 func (mo *MockORM) CreateNode(data evmtypes.NewNode) (evmtypes.Node, error) {
 	panic("not implemented")
 }
@@ -156,6 +160,10 @@ func (mo *MockORM) DeleteNode(id int64) error {
 }
 
 func (mo *MockORM) Nodes(offset int, limit int) ([]evmtypes.Node, int, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
 	panic("not implemented")
 }
 
