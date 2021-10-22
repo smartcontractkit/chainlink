@@ -1,13 +1,13 @@
 package keeper
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
@@ -47,7 +47,7 @@ var expectedPipeline pipeline.Pipeline
 func init() {
 	pp, err := pipeline.Parse(expectedObservationSourceRaw)
 	if err != nil {
-		logger.Default.With("error", err).Fatal("failed to parse default observation source")
+		panic(fmt.Sprintf("failed to parse default observation source: %v", err))
 	}
 	expectedPipeline = *pp
 }

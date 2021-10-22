@@ -5,8 +5,10 @@ package mocks
 import (
 	context "context"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
+
+	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	time "time"
 )
@@ -106,20 +108,20 @@ func (_m *Task) Outputs() []pipeline.Task {
 	return r0
 }
 
-// Run provides a mock function with given fields: ctx, vars, inputs
-func (_m *Task) Run(ctx context.Context, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
-	ret := _m.Called(ctx, vars, inputs)
+// Run provides a mock function with given fields: ctx, lggr, vars, inputs
+func (_m *Task) Run(ctx context.Context, lggr logger.Logger, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
+	ret := _m.Called(ctx, lggr, vars, inputs)
 
 	var r0 pipeline.Result
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Vars, []pipeline.Result) pipeline.Result); ok {
-		r0 = rf(ctx, vars, inputs)
+	if rf, ok := ret.Get(0).(func(context.Context, logger.Logger, pipeline.Vars, []pipeline.Result) pipeline.Result); ok {
+		r0 = rf(ctx, lggr, vars, inputs)
 	} else {
 		r0 = ret.Get(0).(pipeline.Result)
 	}
 
 	var r1 pipeline.RunInfo
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Vars, []pipeline.Result) pipeline.RunInfo); ok {
-		r1 = rf(ctx, vars, inputs)
+	if rf, ok := ret.Get(1).(func(context.Context, logger.Logger, pipeline.Vars, []pipeline.Result) pipeline.RunInfo); ok {
+		r1 = rf(ctx, lggr, vars, inputs)
 	} else {
 		r1 = ret.Get(1).(pipeline.RunInfo)
 	}
