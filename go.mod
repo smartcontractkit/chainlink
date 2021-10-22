@@ -57,7 +57,7 @@ require (
 	github.com/smartcontractkit/wsrpc v0.3.4
 	github.com/spf13/viper v1.8.1
 	github.com/stretchr/testify v1.7.0
-	github.com/terra-project/terra.go v1.0.0
+	github.com/terra-project/terra.go v1.0.1-0.20210907074752-0a5391f2dfe2
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.8.1

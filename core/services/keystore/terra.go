@@ -25,7 +25,7 @@ type Terra interface {
 
 	// SignTx(fromAddress common.Address, tx *types.Transaction) (*types.Transaction, error)
 
-	GetV1KeysAsV2() ([]terrakey.KeyV2, error)
+	// GetV1KeysAsV2() ([]terrakey.KeyV2, error)
 }
 
 type terra struct {
@@ -145,20 +145,20 @@ func (ks terra) SignTx(address common.Address, tx *types.Transaction, chainID *b
 	return types.SignTx(tx, signer, &ecdsa.PrivateKey{})
 }
 
-func (ks terra) GetV1KeysAsV2() (keys []terrakey.KeyV2, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1TerraKeys()
-	if err != nil {
-		return keys, err
-	}
-	for _, keyV1 := range v1Keys {
-		err := keyV1.Unlock(ks.password)
-		if err != nil {
-			return keys, err
-		}
-		keys = append(keys, keyV1.ToV2())
-	}
-	return keys, nil
-}
+// func (ks terra) GetV1KeysAsV2() (keys []terrakey.KeyV2, _ error) {
+// 	v1Keys, err := ks.orm.GetEncryptedV1TerraKeys()
+// 	if err != nil {
+// 		return keys, err
+// 	}
+// 	for _, keyV1 := range v1Keys {
+// 		err := keyV1.Unlock(ks.password)
+// 		if err != nil {
+// 			return keys, err
+// 		}
+// 		keys = append(keys, keyV1.ToV2())
+// 	}
+// 	return keys, nil
+// }
 
 // caller must hold lock!
 func (ks terra) getByID(id string) (terrakey.KeyV2, error) {

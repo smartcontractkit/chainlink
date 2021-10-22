@@ -1,10 +1,11 @@
 package terrakey
 
 import (
-	"crypto/ed25519"
-	cryptorand "crypto/rand"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/tendermint/tendermint/crypto/secp256k1"
 
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/terra-project/terra.go/key"
 	"github.com/terra-project/terra.go/msg"
 
 	"fmt"
@@ -15,10 +16,12 @@ type Raw []byte
 type TerraAddress cosmostypes.Address
 
 func (raw Raw) Key() KeyV2 {
-	privKey := ed25519.PrivateKey(raw)
+	privKey, _ := key.PrivKeyGen(raw)
+
 	return KeyV2{
-		privateKey: &privKey,
-		Address:    msg.AccAddress(ed25519PubKeyFromPrivKey(privKey)),
+		privateKey: privKey,
+		publicKey:  privKey.PubKey(),
+		Address:    msg.AccAddress(privKey.PubKey().Address()),
 	}
 }
 
@@ -31,23 +34,20 @@ func (raw Raw) GoString() string {
 }
 
 type KeyV2 struct {
-	//TODO: this is only for OCR signing
-	privateKey *ed25519.PrivateKey
-	publicKey  ed25519.PublicKey
-
-	Address TerraAddress
+	privateKey cryptotypes.PrivKey
+	publicKey  cryptotypes.PubKey
+	Address    TerraAddress
+	// TODO: choose type here? or put OCR pair somewhere else?
 	// Type       string
 }
 
 func NewV2() (KeyV2, error) {
-	pubKey, privKey, err := ed25519.GenerateKey(cryptorand.Reader)
-	if err != nil {
-		return KeyV2{}, err
-	}
+	privKey, _ := key.PrivKeyGen(secp256k1.GenPrivKey())
+
 	return KeyV2{
-		privateKey: &privKey,
-		publicKey:  pubKey,
-		Address:    msg.AccAddress(pubKey),
+		privateKey: privKey,
+		publicKey:  privKey.PubKey(),
+		Address:    msg.AccAddress(privKey.PubKey().Address()),
 	}, nil
 }
 
@@ -56,7 +56,12 @@ func (key KeyV2) ID() string {
 }
 
 func (key KeyV2) Raw() Raw {
-	return Raw(*key.privateKey)
+	return Raw(key.privateKey.Bytes())
+}
+
+//TODO: temp method until we figure out signing
+func (key KeyV2) Unsafe_GetPrivateKey() cryptotypes.PrivKey {
+	return key.privateKey
 }
 
 func (key KeyV2) String() string {
@@ -65,10 +70,4 @@ func (key KeyV2) String() string {
 
 func (key KeyV2) GoString() string {
 	return key.String()
-}
-
-func ed25519PubKeyFromPrivKey(privKey ed25519.PrivateKey) ed25519.PublicKey {
-	publicKey := make([]byte, ed25519.PublicKeySize)
-	copy(publicKey, privKey[32:])
-	return ed25519.PublicKey(publicKey)
 }

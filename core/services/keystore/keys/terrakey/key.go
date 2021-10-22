@@ -1,7 +1,11 @@
 package terrakey
 
 import (
-	"crypto/ed25519"
+	"github.com/tendermint/tendermint/crypto/secp256k1"
+
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/terra-project/terra.go/key"
+
 	"errors"
 	"time"
 
@@ -11,7 +15,7 @@ import (
 
 type Key struct {
 	ID                  uint
-	PublicKey           crypto.PublicKey
+	PublicKey           cryptotypes.PubKey
 	privateKey          []byte
 	EncryptedPrivateKey crypto.EncryptedPrivateKey
 	Address             TerraAddress
@@ -19,26 +23,19 @@ type Key struct {
 	UpdatedAt           time.Time
 }
 
-func (Key) TableName() string {
-	return "terra_keys"
-}
-
-// New creates a new Terra key consisting of an ed25519 key. It encrypts the
+// New creates a new Terra key consisting of an secp256k1 key. It encrypts the
 // Key with the passphrase.
 func New(passphrase string, scryptParams utils.ScryptParams) (*Key, error) {
-	pubkey, privkey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return nil, err
-	}
 
-	encPrivkey, err := crypto.NewEncryptedPrivateKey(privkey, passphrase, scryptParams)
+	privKey, _ := key.PrivKeyGen(secp256k1.GenPrivKey())
+	encPrivkey, err := crypto.NewEncryptedPrivateKey(privKey.Bytes(), passphrase, scryptParams)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Key{
-		PublicKey:           crypto.PublicKey(pubkey),
-		privateKey:          privkey,
+		PublicKey:           privKey.PubKey(),
+		privateKey:          privKey.Bytes(),
 		EncryptedPrivateKey: *encPrivkey,
 	}, nil
 }
@@ -61,9 +58,8 @@ func (k *Key) Unsafe_GetPrivateKey() ([]byte, error) {
 }
 
 func (k Key) ToV2() KeyV2 {
-	pk := ed25519.PrivateKey(k.privateKey)
 	return KeyV2{
-		privateKey: &pk,
-		Address:    k.Address,
+		// TODO: Add more? where is this used?
+		Address: k.Address,
 	}
 }
