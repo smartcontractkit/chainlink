@@ -42,7 +42,8 @@ type (
 		txm              postgres.TransactionManager
 
 		utils.StartStopOnce
-		chStop chan struct{}
+		chStop              chan struct{}
+		lbDependentAwaiters []utils.DependentAwaiter
 	}
 
 	// TODO(spook): I can't wait for Go generics
@@ -66,14 +67,15 @@ type (
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, txm postgres.TransactionManager) *spawner {
+func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, txm postgres.TransactionManager, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
 	s := &spawner{
-		orm:              orm,
-		config:           config,
-		jobTypeDelegates: jobTypeDelegates,
-		txm:              txm,
-		activeJobs:       make(map[int32]activeJob),
-		chStop:           make(chan struct{}),
+		orm:                 orm,
+		config:              config,
+		jobTypeDelegates:    jobTypeDelegates,
+		txm:                 txm,
+		activeJobs:          make(map[int32]activeJob),
+		chStop:              make(chan struct{}),
+		lbDependentAwaiters: lbDependentAwaiters,
 	}
 	return s
 }
@@ -107,6 +109,11 @@ func (js *spawner) startAllServices() {
 		if err = js.StartService(spec); err != nil {
 			logger.Errorf("Couldn't start service %v: %v", spec.Name, err)
 		}
+	}
+	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
+	// to make sure the initial backfill covers those subscribers.
+	for _, lbd := range js.lbDependentAwaiters {
+		lbd.DependentReady()
 	}
 }
 

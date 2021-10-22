@@ -1,4 +1,4 @@
-package models
+package cbor
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // ParseDietCBOR attempts to coerce the input byte array into valid CBOR
@@ -14,26 +15,26 @@ import (
 // Assumes the input is "diet" CBOR which is like CBOR, except:
 // 1. It is guaranteed to always be a map
 // 2. It may or may not include the opening and closing markers "{}"
-func ParseDietCBOR(b []byte) (JSON, error) {
+func ParseDietCBOR(b []byte) (models.JSON, error) {
 	b = autoAddMapDelimiters(b)
 
 	var m map[interface{}]interface{}
 
 	if err := cbor.Unmarshal(b, &m); err != nil {
-		return JSON{}, err
+		return models.JSON{}, err
 	}
 
 	coerced, err := CoerceInterfaceMapToStringMap(m)
 	if err != nil {
-		return JSON{}, err
+		return models.JSON{}, err
 	}
 
 	jsb, err := json.Marshal(coerced)
 	if err != nil {
-		return JSON{}, err
+		return models.JSON{}, err
 	}
 
-	var js JSON
+	var js models.JSON
 	return js, json.Unmarshal(jsb, &js)
 }
 

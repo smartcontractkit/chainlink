@@ -496,23 +496,7 @@ describe('KeeperRegistry', () => {
         })
       })
 
-      context('and performing the upkeep simulation fails', () => {
-        beforeEach(async () => {
-          await mock.setCanCheck(true)
-          await mock.setCanPerform(false)
-        })
-
-        it('reverts', async () => {
-          await evmRevert(
-            registry
-              .connect(zeroAddress)
-              .callStatic.checkUpkeep(id, await keeper1.getAddress()),
-            'call to perform upkeep failed',
-          )
-        })
-      })
-
-      context('and upkeep check and perform simulations succeeds', () => {
+      context('and upkeep check simulations succeeds', () => {
         beforeEach(async () => {
           await mock.setCanCheck(true)
           await mock.setCanPerform(true)

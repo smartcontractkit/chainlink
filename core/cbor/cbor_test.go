@@ -1,4 +1,4 @@
-package models
+package cbor
 
 import (
 	"encoding/json"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -17,7 +18,7 @@ func Test_ParseCBOR(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          string
-		want        JSON
+		want        models.JSON
 		wantErrored bool
 	}{
 		{
@@ -100,7 +101,7 @@ func Test_ParseCBOR(t *testing.T) {
 		},
 		{"empty object", `0xa0`, jsonMustUnmarshal(t, `{}`), false},
 		{"empty string", `0x`, jsonMustUnmarshal(t, `{}`), false},
-		{"invalid CBOR", `0xff`, JSON{}, true},
+		{"invalid CBOR", `0xff`, models.JSON{}, true},
 	}
 
 	for _, test := range tests {
@@ -176,8 +177,8 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 	}
 }
 
-func jsonMustUnmarshal(t *testing.T, in string) JSON {
-	var j JSON
+func jsonMustUnmarshal(t *testing.T, in string) models.JSON {
+	var j models.JSON
 	err := json.Unmarshal([]byte(in), &j)
 	require.NoError(t, err)
 	return j
@@ -251,9 +252,9 @@ func TestJSON_CBOR(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   JSON
+		in   models.JSON
 	}{
-		{"empty object", JSON{}},
+		{"empty object", models.JSON{}},
 		{"array", jsonMustUnmarshal(t, `[1,2,3,4]`)},
 		{
 			"basic object",

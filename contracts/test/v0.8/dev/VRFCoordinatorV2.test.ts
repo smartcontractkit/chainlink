@@ -111,16 +111,17 @@ describe('VRFCoordinatorV2', () => {
       'acceptOwnership',
       'transferOwnership',
       'owner',
-      's_feeConfig',
-      's_config',
-      's_fallbackWeiPerUnitLink',
+      'getConfig',
+      'getFeeConfig',
+      'getFallbackWeiPerUnitLink',
+      'getCurrentSubId',
       'setConfig',
+      'getRequestConfig',
       'recoverFunds',
       'ownerCancelSubscription',
       'getFeeTier',
       'pendingRequestExists',
-      's_totalBalance',
-      's_provingKeyHashes',
+      'getTotalBalance',
       // Oracle
       'requestRandomWords',
       'getCommitment', // Note we use this to check if a request is already fulfilled.
@@ -161,13 +162,12 @@ describe('VRFCoordinatorV2', () => {
           ),
       ).to.be.revertedWith('Only callable by owner')
       // Anyone can read the config.
-      const resp = await vrfCoordinatorV2.connect(random).s_config()
+      const resp = await vrfCoordinatorV2.connect(random).getConfig()
       console.log('config', resp)
       assert(resp[0] == c.minimumRequestBlockConfirmations)
       assert(resp[1] == c.maxGasLimit)
-      assert(resp[2] == false) // locked
-      assert(resp[3] == c.stalenessSeconds)
-      assert(resp[4].toString() == c.gasAfterPaymentCalculation.toString())
+      assert(resp[2] == c.stalenessSeconds)
+      assert(resp[3].toString() == c.gasAfterPaymentCalculation.toString())
     })
 
     it('max req confs', async function () {
@@ -559,9 +559,9 @@ describe('VRFCoordinatorV2', () => {
         ],
       ]
       for (const [fn, expectedBalanceChange] of balanceChangingFns) {
-        const startingBalance = await vrfCoordinatorV2.s_totalBalance()
+        const startingBalance = await vrfCoordinatorV2.getTotalBalance()
         await fn()
-        const endingBalance = await vrfCoordinatorV2.s_totalBalance()
+        const endingBalance = await vrfCoordinatorV2.getTotalBalance()
         assert(
           endingBalance.sub(startingBalance).toString() ==
             expectedBalanceChange.toString(),
@@ -603,18 +603,6 @@ describe('VRFCoordinatorV2', () => {
     await vrfCoordinatorV2
       .connect(subOwner)
       .addConsumer(subId, await consumer.getAddress())
-
-    // Subscription owner cannot fund
-    const s = ethers.utils.defaultAbiCoder.encode(['uint64'], [subId])
-    await expect(
-      linkToken
-        .connect(random)
-        .transferAndCall(
-          vrfCoordinatorV2.address,
-          BigNumber.from('1000000000000000000'),
-          s,
-        ),
-    ).to.be.revertedWith(`MustBeSubOwner("${subOwnerAddress}")`)
 
     // Fund the subscription
     await expect(
@@ -965,9 +953,8 @@ describe('VRFCoordinatorV2', () => {
       )
         .to.emit(vrfCoordinatorV2, 'ProvingKeyRegistered')
         .withArgs(kh, subOwnerAddress)
-      assert(kh, await vrfCoordinatorV2.s_provingKeyHashes(0))
-      // Only one keyhash saved
-      await expect(vrfCoordinatorV2.s_provingKeyHashes(1)).to.be.reverted
+      const reqConfig = await vrfCoordinatorV2.getRequestConfig()
+      assert(reqConfig[2].length == 1) // 1 keyhash registered
     })
     it('cannot re-register key', async function () {
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]
@@ -984,8 +971,8 @@ describe('VRFCoordinatorV2', () => {
       await expect(vrfCoordinatorV2.deregisterProvingKey(testKey))
         .to.emit(vrfCoordinatorV2, 'ProvingKeyDeregistered')
         .withArgs(kh, subOwnerAddress)
-      // No longer any keyhashes saved.
-      await expect(vrfCoordinatorV2.s_provingKeyHashes(0)).to.be.reverted
+      const reqConfig = await vrfCoordinatorV2.getRequestConfig()
+      assert(reqConfig[2].length == 0) // 0 keyhash registered
     })
     it('cannot deregister unregistered key', async function () {
       const testKey = [BigNumber.from('1'), BigNumber.from('2')]

@@ -70,7 +70,7 @@ func (cc *ChainsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewChainResource(chain), "chain")
+	jsonAPIResponseWithStatus(c, presenters.NewChainResource(chain), "chain", http.StatusCreated)
 }
 
 type UpdateChainRequest struct {
