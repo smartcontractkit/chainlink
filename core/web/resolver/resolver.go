@@ -4,12 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/url"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
-	"github.com/jackc/pgconn"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -62,22 +60,8 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	if err = ValidateBridgeTypeUniqueness(btr, orm); err != nil {
 		return nil, err
 	}
-	if e := orm.CreateBridgeType(bt); e != nil {
+	if err := orm.CreateBridgeType(bt); err != nil {
 		return nil, err
-	}
-	if err != nil {
-		switch e := err.(type) {
-		case *pgconn.PgError:
-			var apiErr error
-			if e.ConstraintName == "external_initiators_name_key" {
-				apiErr = fmt.Errorf("bridge Type %v conflict", bt.Name)
-			} else {
-				apiErr = err
-			}
-			return nil, apiErr
-		default:
-			return nil, err
-		}
 	}
 
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
