@@ -577,6 +577,7 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	client := &cmd.Client{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
+		Logger:                         logger.TestLogger(ta.t),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
@@ -594,6 +595,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
+		Logger:                         logger.TestLogger(ta.t),
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},

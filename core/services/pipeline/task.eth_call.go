@@ -50,7 +50,7 @@ func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
 }
 
-func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
@@ -98,7 +98,7 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	elapsed := time.Since(start)
 	if err != nil {
 		if t.ExtractRevertReason {
-			err = t.retrieveRevertReason(err)
+			err = t.retrieveRevertReason(err, lggr)
 		}
 
 		return Result{Error: err}, retryableRunInfo()
@@ -109,10 +109,10 @@ func (t *ETHCallTask) Run(ctx context.Context, vars Vars, inputs []Result) (resu
 	return Result{Value: resp}, runInfo
 }
 
-func (t *ETHCallTask) retrieveRevertReason(baseErr error) error {
+func (t *ETHCallTask) retrieveRevertReason(baseErr error, lggr logger.Logger) error {
 	reason, err := eth.ExtractRevertReasonFromRPCError(baseErr)
 	if err != nil {
-		logger.Default.With("error", err).Errorw("failed to extract revert reason", "baseErr", baseErr)
+		lggr.Errorw("failed to extract revert reason", "baseErr", baseErr, "error", err)
 		return baseErr
 	}
 

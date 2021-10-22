@@ -368,11 +368,9 @@ func (r *runner) run(
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryTaskRun, l logger.Logger) TaskRunResult {
 	start := time.Now()
-	loggerFields := []interface{}{
-		"taskName", taskRun.task.DotID(),
+	l = l.With("taskName", taskRun.task.DotID(),
 		"taskType", taskRun.task.Type(),
-		"attempt", taskRun.attempts,
-	}
+		"attempt", taskRun.attempts)
 
 	// Order of precedence for task timeout:
 	// - Specific task timeout (task.TaskTimeout)
@@ -389,11 +387,12 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		defer cancel()
 	}
 
-	result, runInfo := taskRun.task.Run(ctx, taskRun.vars, taskRun.inputs)
-	loggerFields = append(loggerFields, "runInfo", runInfo)
-	loggerFields = append(loggerFields, "resultValue", result.Value)
-	loggerFields = append(loggerFields, "resultError", result.Error)
-	loggerFields = append(loggerFields, "resultType", fmt.Sprintf("%T", result.Value))
+	result, runInfo := taskRun.task.Run(ctx, l, taskRun.vars, taskRun.inputs)
+	loggerFields := []interface{}{"runInfo", runInfo,
+		"resultValue", result.Value,
+		"resultError", result.Error,
+		"resultType", fmt.Sprintf("%T", result.Value),
+	}
 	switch v := result.Value.(type) {
 	case []byte:
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))

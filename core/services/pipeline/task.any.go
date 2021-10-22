@@ -6,6 +6,8 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 // AnyTask picks a value at random from the set of non-errored inputs.
@@ -20,7 +22,7 @@ func (t *AnyTask) Type() TaskType {
 	return TaskTypeAny
 }
 
-func (t *AnyTask) Run(_ context.Context, _ Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *AnyTask) Run(_ context.Context, _ logger.Logger, _ Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "AnyTask requires at least 1 input")}, runInfo
 	}
