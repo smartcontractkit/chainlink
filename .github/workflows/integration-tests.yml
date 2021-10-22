@@ -88,13 +88,10 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           ./integration-tests/integration_tests.sh 0
       - name: Publish Test Results
-        uses: dorny/test-reporter@v1
+        uses: mikepenz/action-junit-report@v2
         if: always()
         with:
-          name: Smoke Tests Report
-          path: './integration-tests/logs/tests-*.xml'
-          reporter: java-junit
-          token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: 'integration-tests/logs/tests-*.xml'
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
@@ -156,13 +153,10 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           ./integration-tests/integration_tests.sh 1
       - name: Publish Test Results
-        uses: dorny/test-reporter@v1
+        uses: mikepenz/action-junit-report@v2
         if: always()
         with:
-          name: Performance and Chaos Test Report
-          path: './integration-tests/logs/tests-*.xml'
-          reporter: java-junit
-          token: ${{ secrets.GITHUB_TOKEN }}
+          report_paths: 'integration-tests/logs/tests-*.xml'
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
