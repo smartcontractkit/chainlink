@@ -83,24 +83,22 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: go install github.com/onsi/ginkgo/ginkgo
-        working-directory: ./integration-tests
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./integration_tests.sh 0
-        working-directory: ./integration-tests
+          ./integration-tests/integration_tests.sh 0
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
         with:
-          report_paths: '**/logs/tests-*.xml'
+          report_paths: './integration-tests/logs/tests-*.xml'
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: ./logs
+          path: ./integration-tests/logs
 
   performance:
     name: Performance and Chaos Integration Tests
@@ -151,21 +149,19 @@ jobs:
         run: go mod download
       - name: Install Ginkgo CLI
         run: go install github.com/onsi/ginkgo/ginkgo
-        working-directory: ./integration-tests
       - name: Run Tests
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          ./integration_tests.sh 1
-        working-directory: ./integration-tests
+          ./integration-tests/integration_tests.sh 1
       - name: Publish Test Results
         uses: mikepenz/action-junit-report@v2
         if: always()
         with:
-          report_paths: '**/logs/tests-*.xml'
+          report_paths: './integration-tests/logs/tests-*.xml'
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
         with:
           name: test-logs
-          path: ./logs
+          path: ./integration-tests/logs
