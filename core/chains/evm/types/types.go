@@ -36,6 +36,8 @@ type ORM interface {
 	Chains(offset, limit int) ([]Chain, int, error)
 	CreateNode(data NewNode) (Node, error)
 	DeleteNode(id int64) error
+	GetChainsByIDs(ids []utils.Big) (chains []Chain, err error)
+	GetNodesByChainIDs(chainIDs []utils.Big) (nodes []Node, err error)
 	Nodes(offset, limit int) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int) ([]Node, int, error)
 	ChainConfigORM
