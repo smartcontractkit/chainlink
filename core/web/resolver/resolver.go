@@ -40,7 +40,9 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		webURL = models.WebURL(*url)
 	}
 	minContractPayment := &assets.Link{}
-	minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment))
+	if err := minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment)); err != nil {
+		return nil, err
+	}
 
 	btr := &bridges.BridgeTypeRequest{
 		Name:                   bridges.TaskType(args.Input.Name),
@@ -135,7 +137,9 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		webURL = models.WebURL(*url)
 	}
 	minContractPayment := &assets.Link{}
-	minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment))
+	if err := minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment)); err != nil {
+		return nil, err
+	}
 
 	btr := &bridges.BridgeTypeRequest{
 		Name:                   bridges.TaskType(args.Input.Name),
