@@ -27,7 +27,7 @@ var _ = Describe("Runlog soak test @soak-runlog", func() {
 				// no need more than one node for runlog test
 				environment.NewChainlinkCluster(1),
 				client.DefaultNetworkFromConfig,
-				"./integration-tests",
+				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			defaultNetwork = suiteSetup.DefaultNetwork()

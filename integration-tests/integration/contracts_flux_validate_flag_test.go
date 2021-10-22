@@ -41,7 +41,7 @@ var _ = Describe("Flux monitor external validator suite @validator-flux", func()
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(3),
 				client.DefaultNetworkFromConfig,
-				"./integration-tests",
+				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			nodes, err = environment.GetChainlinkClients(suiteSetup.Environment())

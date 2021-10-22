@@ -25,7 +25,7 @@ var _ = Describe("Runlog perf test @perf-runlog", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(1),
 				client.NewNetworkFromConfigWithDefault(client.NetworkGethPerformance),
-				"./integration-tests",
+				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())
 			adapter, err = environment.GetExternalAdapter(suiteSetup.Environment())
