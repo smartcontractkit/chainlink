@@ -52,7 +52,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	lggr := cli.Logger().Named("boot")
+	lggr := cli.Logger.Named("boot")
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
 	if cli.Config.Dev() {
@@ -286,7 +286,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	cli.Logger().Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
@@ -367,7 +367,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	lggr := cli.Logger()
+	lggr := cli.Logger
 	lggr.Infof("Resetting database: %#v", parsed.String())
 	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
@@ -430,8 +430,8 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	cli.Logger().Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg, cli.Logger()); err != nil {
+	cli.Logger.Infof("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, cli.Logger); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -449,7 +449,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -463,7 +463,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -473,13 +473,13 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
-	cli.Logger().Infof("Database version: %v", version)
+	cli.Logger.Infof("Database version: %v", version)
 	return nil
 }
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -495,7 +495,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
