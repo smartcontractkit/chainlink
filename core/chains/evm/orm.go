@@ -3,6 +3,7 @@ package evm
 import (
 	"math/big"
 
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -71,17 +72,10 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 
 // GetNodesByChainID fetches allow nodes for the given chain ids.
 func (o *orm) GetChainsByIDs(ids []utils.Big) (chains []types.Chain, err error) {
-	// sql := `SELECT * FROM evm_chains WHERE id = ANY($1) ORDER BY created_at, id;`
-	sql, args, err := sqlx.In(
-		`SELECT * FROM evm_chains WHERE id IN (?) ORDER BY created_at, id;`,
-		ids,
-	)
+	sql := `SELECT * FROM evm_chains WHERE id = ANY($1) ORDER BY created_at, id;`
 
-	if err != nil {
-		return nil, err
-	}
-	sql = o.db.Rebind(sql)
-	if err = o.db.Select(&chains, sql, args...); err != nil {
+	chainIDs := pq.Array(ids)
+	if err = o.db.Select(&chains, sql, chainIDs); err != nil {
 		return nil, err
 	}
 
@@ -151,15 +145,10 @@ func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error
 
 // GetNodesByChainID fetches allow nodes for the given chain ids.
 func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
-	sql, args, err := sqlx.In(
-		`SELECT * FROM nodes WHERE evm_chain_id IN (?) ORDER BY created_at;`,
-		chainIDs,
-	)
-	if err != nil {
-		return nil, err
-	}
-	sql = o.db.Rebind(sql)
-	if err = o.db.Select(&nodes, sql, args...); err != nil {
+	sql := `SELECT * FROM nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
+
+	cids := pq.Array(chainIDs)
+	if err = o.db.Select(&nodes, sql, cids); err != nil {
 		return nil, err
 	}
 
