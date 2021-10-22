@@ -7,6 +7,8 @@
 #     - 1: Performance tests
 performance=$1
 
+echo "Using image $APPS_CHAINLINK_IMAGE at version $APPS_CHAINLINK_VERSION"
+
 if [[ $performance == 0 ]]; then
   echo "Running smoke tests"
   ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -nodes=15 -skipPackage=./integration-tests/performance,./integration-tests/chaos ./integration-tests/...

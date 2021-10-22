@@ -92,7 +92,7 @@ jobs:
         if: always()
         with:
           report_paths: './integration-tests/logs/tests-*.xml'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
@@ -158,7 +158,7 @@ jobs:
         if: always()
         with:
           report_paths: './integration-tests/logs/tests-*.xml'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
