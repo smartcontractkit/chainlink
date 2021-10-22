@@ -26,16 +26,17 @@ import (
 	"github.com/gobuffalo/packr"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
+	"github.com/ulule/limiter"
+	mgin "github.com/ulule/limiter/drivers/middleware/gin"
+	"github.com/ulule/limiter/drivers/store/memory"
+	"github.com/unrolled/secure"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 	"github.com/smartcontractkit/chainlink/core/web/resolver"
 	"github.com/smartcontractkit/chainlink/core/web/schema"
-	"github.com/ulule/limiter"
-	mgin "github.com/ulule/limiter/drivers/middleware/gin"
-	"github.com/ulule/limiter/drivers/store/memory"
-	"github.com/unrolled/secure"
 )
 
 func init() {
