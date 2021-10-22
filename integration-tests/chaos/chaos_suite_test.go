@@ -16,7 +16,7 @@ import (
 func TestChaos(t *testing.T) {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	RegisterFailHandler(Fail)
-	conf, err := config.NewConfig("./")
+	conf, err := config.NewConfig("./integration-tests")
 	if err != nil {
 		Fail("failed to load config")
 	}
