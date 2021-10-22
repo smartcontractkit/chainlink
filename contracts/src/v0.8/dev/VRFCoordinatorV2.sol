@@ -647,7 +647,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
   }
 
   function onTokenTransfer(
-    address sender,
+    address, /* sender */
     uint256 amount,
     bytes calldata data
   ) external nonReentrant {
