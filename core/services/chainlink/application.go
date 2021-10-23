@@ -194,7 +194,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(sqlxDB)
 		bridgeORM      = bridges.NewORM(sqlxDB)
-		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration())
+		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
 		jobORM         = job.NewORM(sqlxDB, chainSet, pipelineORM, keyStore, globalLogger)
 		bptxmORM       = bulletprooftxmanager.NewORM(sqlxDB)

@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -17,22 +16,19 @@ import (
 
 // SessionsController manages session requests.
 type SessionsController struct {
-	app      chainlink.Application
-	lggr     logger.Logger
+	App      chainlink.Application
 	sessions *clsessions.WebAuthnSessionStore
 }
 
 func NewSessionsController(app chainlink.Application) *SessionsController {
-	return &SessionsController{app,
-		app.GetLogger().Named("SessionsController"),
-		clsessions.NewWebAuthnSessionStore()}
+	return &SessionsController{app, clsessions.NewWebAuthnSessionStore()}
 }
 
 // Create creates a session ID for the given user credentials, and returns it
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
-	defer sc.app.WakeSessionReaper()
-	sc.lggr.Debugf("TRACE: Starting Session Creation")
+	defer sc.App.WakeSessionReaper()
+	sc.App.GetLogger().Debugf("TRACE: Starting Session Creation")
 
 	session := sessions.Default(c)
 	var sr clsessions.SessionRequest
@@ -42,9 +38,9 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	}
 
 	// Does this user have 2FA enabled?
-	userWebAuthnTokens, err := sc.app.SessionORM().GetUserWebAuthn(sr.Email)
+	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
 	if err != nil {
-		sc.lggr.Errorf("Error loading user WebAuthn data: %s", err)
+		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
 		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
@@ -54,10 +50,10 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	if len(userWebAuthnTokens) > 0 {
 		sr.SessionStore = sc.sessions
 		sr.RequestContext = c
-		sr.WebAuthnConfig = sc.app.GetWebAuthnConfiguration()
+		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
 
-	sid, err := sc.app.SessionORM().CreateSession(sr, sc.lggr)
+	sid, err := sc.App.SessionORM().CreateSession(sr)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnauthorized, err)
 		return
@@ -73,7 +69,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 
 // Destroy erases the session ID for the sole API user.
 func (sc *SessionsController) Destroy(c *gin.Context) {
-	defer sc.app.WakeSessionReaper()
+	defer sc.App.WakeSessionReaper()
 
 	session := sessions.Default(c)
 	defer session.Clear()
@@ -82,7 +78,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
 	}
-	if err := sc.app.SessionORM().DeleteUserSession(sessionID); err != nil {
+	if err := sc.App.SessionORM().DeleteUserSession(sessionID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

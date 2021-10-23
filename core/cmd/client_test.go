@@ -139,7 +139,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute)
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
@@ -169,7 +169,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
@@ -198,7 +198,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute)
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture user
 			orm.DeleteUser()
 
@@ -221,7 +221,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	tests := []struct {
 		name      string

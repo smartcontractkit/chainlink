@@ -18,7 +18,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	return db, orm
 }
@@ -60,7 +60,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, test.sessionDuration)
+			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t))
 
 			user := cltest.MustNewUser(t, "have@email", "password")
 			require.NoError(t, orm.CreateUser(&user))
@@ -147,7 +147,7 @@ func TestORM_CreateSession(t *testing.T) {
 				Password: test.password,
 			}
 
-			sessionID, err := orm.CreateSession(sessionRequest, logger.TestLogger(t))
+			sessionID, err := orm.CreateSession(sessionRequest)
 			if test.wantSession {
 				require.NoError(t, err)
 				assert.NotEmpty(t, sessionID)

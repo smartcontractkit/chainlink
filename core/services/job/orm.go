@@ -69,7 +69,7 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		lggr:        lggr.Named("ORM"),
+		lggr:        lggr.Named("JobORM"),
 	}
 }
 func (o *orm) Close() error {

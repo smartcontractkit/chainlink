@@ -112,7 +112,7 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, fn func(tx *sqlx.Tx) erro
 }
 
 // Pls wen go generics
-// Duplicates logic above, unfortuantely necessary because the callback has a different signature
+// Duplicates logic above, unfortunately necessary because the callback has a different signature
 func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, fn func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	opts := &DefaultSqlTxOptions
 	if len(txOpts) > 0 {
@@ -126,11 +126,11 @@ func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, fn func(q Queryer) error
 	defer func() {
 		if p := recover(); p != nil {
 			// A panic occurred, rollback and repanic
-			logger.Errorf("panic in transaction, rolling back: %s", p)
+			logger.Errorf("Panic in transaction, rolling back: %s", p)
 			done := make(chan struct{})
 			go func() {
 				if rerr := tx.Rollback(); rerr != nil {
-					logger.Error("failed to rollback on panic: %s", rerr)
+					logger.Errorf("Failed to rollback on panic: %s", rerr)
 				}
 				close(done)
 			}()
@@ -141,7 +141,7 @@ func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, fn func(q Queryer) error
 				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
 			}
 		} else if err != nil {
-			logger.Debugf("error in transaction, rolling back: %s", err)
+			logger.Debugf("Error in transaction, rolling back: %s", err)
 			// An error occurred, rollback and return error
 			if rerr := tx.Rollback(); rerr != nil {
 				err = multierr.Combine(err, errors.WithStack(rerr))

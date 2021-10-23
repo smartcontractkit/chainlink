@@ -496,7 +496,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer logger.ErrorIfCalling(resp.Body.Close)
+	defer logger.ErrorIfClosing(resp.Body, "Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {

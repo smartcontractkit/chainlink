@@ -24,7 +24,7 @@ type ORM interface {
 	AuthorizedUserWithSession(sessionID string) (User, error)
 	DeleteUser() error
 	DeleteUserSession(sessionID string) error
-	CreateSession(sr SessionRequest, lggr logger.Logger) (string, error)
+	CreateSession(sr SessionRequest) (string, error)
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
 	SetAuthToken(user *User, token *auth.Token) error
@@ -40,12 +40,13 @@ type ORM interface {
 type orm struct {
 	db              *sqlx.DB
 	sessionDuration time.Duration
+	lggr            logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sessionDuration time.Duration) ORM {
-	return &orm{db, sessionDuration}
+func NewORM(db *sqlx.DB, sessionDuration time.Duration, lggr logger.Logger) ORM {
+	return &orm{db, sessionDuration, lggr.Named("SessionsORM")}
 }
 
 // FindUser will return the one API user, or an error.
@@ -118,12 +119,12 @@ func (o *orm) GetUserWebAuthn(email string) ([]WebAuthn, error) {
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db. Also will check WebAuthn if it's
 // enabled for that user.
-func (o *orm) CreateSession(sr SessionRequest, lggr logger.Logger) (string, error) {
+func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	user, err := o.FindUser()
 	if err != nil {
 		return "", err
 	}
-	lggr = lggr.With("user", user)
+	lggr := o.lggr.With("user", user)
 	lggr.Debugw("Found user")
 
 	// Do email and password check first to prevent extra database look up

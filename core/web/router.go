@@ -57,7 +57,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 
 	engine.Use(
 		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
-		loggerFunc(),
+		loggerFunc(app.GetLogger()),
 		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
@@ -415,7 +415,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 			}
 
 		}
-		defer logger.ErrorIfCalling(file.Close)
+		defer logger.ErrorIfClosing(file, "file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
@@ -424,11 +424,11 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func loggerFunc() gin.HandlerFunc {
+func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logger.Error("Web request log error: ", err.Error())
+			lggr.Error("Web request log error: ", err.Error())
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
 			// inside ioutil.ReadAll.
@@ -446,7 +446,7 @@ func loggerFunc() gin.HandlerFunc {
 		c.Next()
 		end := time.Now()
 
-		logger.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
+		lggr.Infow(fmt.Sprintf("%s %s", c.Request.Method, c.Request.URL.Path),
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
