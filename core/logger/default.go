@@ -89,11 +89,6 @@ func Warnf(format string, values ...interface{}) {
 	helper.Warnf(format, values...)
 }
 
-// Debug logs a debug message.
-func Debug(args ...interface{}) {
-	helper.Debug(args...)
-}
-
 // Warn logs a message at the warn level.
 func Warn(args ...interface{}) {
 	helper.Warn(args...)

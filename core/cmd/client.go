@@ -88,16 +88,17 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func logRetry(count int) {
+func retryLogMsg(count int) string {
 	if count == 1 {
-		logger.Infow("Could not get lock, retrying...", "failCount", count)
+		return "Could not get lock, retrying..."
 	} else if count%1000 == 0 || count&(count-1) == 0 {
-		logger.Infow("Still waiting for lock...", "failCount", count)
+		return "Still waiting for lock..."
 	}
+	return ""
 }
 
 // Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
@@ -125,7 +126,9 @@ func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postg
 		select {
 		case <-ticker.C:
 			retryCount++
-			logRetry(retryCount)
+			if msg := retryLogMsg(retryCount); msg != "" {
+				lggr.Infow(msg, "failCount", retryCount)
+			}
 			continue
 		case <-ctx.Done():
 			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
@@ -155,7 +158,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	advisoryLock, err := AdvisoryLock(ctx, db.DB, time.Second)
+	advisoryLock, err := AdvisoryLock(ctx, appLggr, db.DB, time.Second)
 	if err != nil {
 		return nil, errors.Wrap(err, "error acquiring lock")
 	}
@@ -590,15 +593,17 @@ func (p promptingSessionRequestBuilder) Build(string) (sessions.SessionRequest, 
 	return sessions.SessionRequest{Email: email, Password: pwd}, nil
 }
 
-type fileSessionRequestBuilder struct{}
-
-// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
-func NewFileSessionRequestBuilder() SessionRequestBuilder {
-	return fileSessionRequestBuilder{}
+type fileSessionRequestBuilder struct {
+	lggr logger.Logger
 }
 
-func (f fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest, error) {
-	return credentialsFromFile(file)
+// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
+func NewFileSessionRequestBuilder(lggr logger.Logger) SessionRequestBuilder {
+	return &fileSessionRequestBuilder{lggr: lggr}
+}
+
+func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest, error) {
+	return credentialsFromFile(file, f.lggr.With("file", file))
 }
 
 // APIInitializer is the interface used to create the API User credentials
@@ -645,12 +650,13 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 
 type fileAPIInitializer struct {
 	file string
+	lggr logger.Logger
 }
 
 // NewFileAPIInitializer creates a concrete instance of APIInitializer
 // that pulls API user credentials from the passed file path.
-func NewFileAPIInitializer(file string) APIInitializer {
-	return fileAPIInitializer{file: file}
+func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
+	return fileAPIInitializer{file: file, lggr: lggr.With("file", file)}
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
@@ -658,7 +664,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 		return user, err
 	}
 
-	request, err := credentialsFromFile(f.file)
+	request, err := credentialsFromFile(f.file, f.lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -672,12 +678,12 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
-func credentialsFromFile(file string) (sessions.SessionRequest, error) {
+func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
 		return sessions.SessionRequest{}, ErrNoCredentialFile
 	}
 
-	logger.Debug("Initializing API credentials from ", file)
+	lggr.Debug("Initializing API credentials")
 	dat, err := ioutil.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err
