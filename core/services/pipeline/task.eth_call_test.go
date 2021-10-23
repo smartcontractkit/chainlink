@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
@@ -111,7 +112,7 @@ func TestETHCallTask(t *testing.T) {
 			cc := cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			task.HelperSetDependencies(cc, cfg)
 
-			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

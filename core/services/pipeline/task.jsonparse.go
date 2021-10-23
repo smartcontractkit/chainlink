@@ -8,6 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 //
@@ -34,7 +36,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *JSONParseTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo

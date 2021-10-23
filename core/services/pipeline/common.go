@@ -33,7 +33,7 @@ type (
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, inputs []Result) (Result, RunInfo)
+		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	keystoremocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -403,7 +404,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(cfg, keyStore, txManager)
 			task.HelperSetDependencies(db, cc, keyStore)
 
-			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil {

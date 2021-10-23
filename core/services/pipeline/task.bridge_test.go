@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -138,7 +139,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
@@ -194,7 +195,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.True(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 
@@ -371,7 +372,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			bridge.URL = *feedWebURL
 			require.NoError(t, db.Create(&bridge).Error)
 
-			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -434,7 +435,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	task.Run(context.Background(), pipeline.NewVarsFrom(map[string]interface{}{"meta": metaDataForBridge}), nil)
+	task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"meta": metaDataForBridge}), nil)
 }
 
 func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
@@ -481,7 +482,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			bridge.URL = *(*models.WebURL)(feedURL)
 			require.NoError(t, db.Create(&bridge).Error)
 
-			result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if test.expectedErrorCause != nil {
@@ -533,7 +534,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -570,7 +571,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, db.Create(&bridge).Error)
 
-	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.True(t, runInfo.IsRetryable)
 	require.Error(t, result.Error)
@@ -590,7 +591,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	}
 	task.HelperSetDependencies(cfg, db, uuid.UUID{})
 
-	result, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), nil)
+	result, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
 	require.Nil(t, result.Value)
