@@ -200,7 +200,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 		config.UnAuthenticatedRateLimitPeriod().Duration(),
 		config.UnAuthenticatedRateLimit(),
 	))
-	sc := SessionsController{app, nil}
+	sc := NewSessionsController(app)
 	unauth.POST("/sessions", sc.Create)
 	auth := r.Group("/", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)

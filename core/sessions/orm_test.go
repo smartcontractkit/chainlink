@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -146,7 +147,7 @@ func TestORM_CreateSession(t *testing.T) {
 				Password: test.password,
 			}
 
-			sessionID, err := orm.CreateSession(sessionRequest)
+			sessionID, err := orm.CreateSession(sessionRequest, logger.TestLogger(t))
 			if test.wantSession {
 				require.NoError(t, err)
 				assert.NotEmpty(t, sessionID)
