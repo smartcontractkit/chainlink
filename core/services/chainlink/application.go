@@ -188,7 +188,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(postgres.MustSQLDB(db))
+	promReporter := services.NewPromReporter(postgres.MustSQLDB(db), globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (

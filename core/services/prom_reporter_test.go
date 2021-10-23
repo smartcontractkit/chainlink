@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -28,7 +30,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
-		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
+		reporter := services.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		var subscribeCalls atomic.Int32
 
@@ -75,7 +77,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 			}).
 			Return()
 		d, _ := db.DB()
-		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
+		reporter := services.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
 		reporter.Start()
 		defer reporter.Close()
 
@@ -101,7 +103,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
-		reporter := services.NewPromReporter(d, backend, 10*time.Millisecond)
+		reporter := services.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
