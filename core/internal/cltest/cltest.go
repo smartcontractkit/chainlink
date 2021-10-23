@@ -128,6 +128,9 @@ func init() {
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
 	logger.InitLogger(lggr)
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
+	}
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1

@@ -214,7 +214,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	if cfg.UseLegacyEthEnvVars() {
-		if err = evm.ClobberDBFromEnv(gormDB, cfg); err != nil {
+		if err = evm.ClobberDBFromEnv(gormDB, cfg, appLggr); err != nil {
 			return nil, err
 		}
 	}
@@ -267,6 +267,9 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
+	}
 	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 	var g errgroup.Group
 

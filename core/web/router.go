@@ -40,14 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
-func init() {
-	gin.DebugPrintRouteFunc = printRoutes
-}
-
-func printRoutes(httpMethod, absolutePath, handlerName string, nuHandlers int) {
-	logger.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
-}
-
 // Router listens and responds to requests to the node for valid paths.
 func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
 	engine := gin.New()

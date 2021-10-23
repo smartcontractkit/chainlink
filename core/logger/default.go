@@ -84,16 +84,6 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	helper.Errorw(msg, keysAndValues...)
 }
 
-// Infof formats and then logs the message.
-func Infof(format string, values ...interface{}) {
-	helper.Infof(format, values...)
-}
-
-// Debugf formats and then logs the message.
-func Debugf(format string, values ...interface{}) {
-	helper.Debugf(format, values...)
-}
-
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
 	helper.Warnf(format, values...)
