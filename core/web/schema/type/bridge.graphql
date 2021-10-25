@@ -1,0 +1,31 @@
+type Bridge {
+    name: String!
+    url: String!
+    confirmations: Int!
+    outgoingToken: String!
+    minimumContractPayment: String!
+    createdAt: Time!
+}
+
+input CreateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+type CreateBridgePayload {
+    bridge: Bridge!
+    token: String!
+}
+
+input UpdateBridgeInput {
+    name: String!
+    url: String!
+    confirmations: Int!
+    minimumContractPayment: String!
+}
+
+type UpdateBridgePayload {
+    bridge: Bridge!
+}

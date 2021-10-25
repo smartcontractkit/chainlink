@@ -1,0 +1,9 @@
+type Node {
+    id: ID!
+    name: String!
+    wsURL: String!
+    httpURL: String!
+    chain: Chain!
+    createdAt: Time!
+    updatedAt: Time!
+}

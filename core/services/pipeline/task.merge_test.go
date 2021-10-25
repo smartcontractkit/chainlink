@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -133,7 +134,7 @@ func TestMergeTask(t *testing.T) {
 				Left:     test.left,
 				Right:    test.right,
 			}
-			result, runInfo := task.Run(context.Background(), test.vars, test.inputs)
+			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -90,7 +91,7 @@ func TestMedian(t *testing.T) {
 				BaseTask:      pipeline.NewBaseTask(0, "task", nil, nil, 0),
 				AllowedFaults: test.allowedFaults,
 			}
-			output, runInfo := task.Run(context.Background(), pipeline.NewVarsFrom(nil), test.inputs)
+			output, runInfo := task.Run(context.Background(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {
@@ -124,7 +125,7 @@ func TestMedian(t *testing.T) {
 				Values:        "$(foo.bar)",
 				AllowedFaults: test.allowedFaults,
 			}
-			output, runInfo := task.Run(context.Background(), vars, nil)
+			output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {
@@ -172,7 +173,7 @@ func TestMedian(t *testing.T) {
 				Values:        valuesParam,
 				AllowedFaults: test.allowedFaults,
 			}
-			output, runInfo := task.Run(context.Background(), vars, nil)
+			output, runInfo := task.Run(context.Background(), logger.TestLogger(t), vars, nil)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {

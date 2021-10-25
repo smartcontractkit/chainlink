@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -356,7 +356,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, _ := task.Run(context.Background(), test.vars, test.inputs)
+			result, _ := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))
