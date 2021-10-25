@@ -361,7 +361,7 @@ type VRFSpec struct {
 	Confirmations      uint32               `toml:"confirmations"`
 	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	FromAddress        *ethkey.EIP55Address `toml:"fromAddress"`
-	PollPeriod         time.Duration        `toml:"pollPeriod"` // For v2 jobs
+	PollPeriod         *time.Duration       `toml:"pollPeriod"` // For v2 jobs
 	CreatedAt          time.Time            `toml:"-"`
 	UpdatedAt          time.Time            `toml:"-"`
 }
