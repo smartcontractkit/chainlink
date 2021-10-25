@@ -1,5 +1,10 @@
-// Package logger is used to store details of events in the node.
-// Events can be categorized by Trace, Debug, Info, Error, Fatal, and Panic.
+// Logger is the main interface of this package.
+//
+// The package-level helper functions are being phased out. Loggers should be injected
+// instead (and usually Named as well): e.g. lggr.Named("<service name>")
+//
+// Tests should use a TestLogger, with NewLogger being reserved for actual
+// runtime and limited direct testing.
 package logger
 
 import (
@@ -23,6 +28,7 @@ func init() {
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
+// TestLogger should be used in tests.
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -225,10 +231,10 @@ type Config interface {
 	LogLevel() zapcore.Level
 }
 
-// ProductionLogger returns a custom logger for the config's root
-// directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
-// false, the logger will only log to stdout.
-func ProductionLogger(c Config) Logger {
+// NewLogger returns a new Logger configured by c with pretty printing to stdout.
+// If LogToDisk is false, the Logger will only log to stdout.
+// Tests should use TestLogger instead.
+func NewLogger(c Config) Logger {
 	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
 	cfg.Level.SetLevel(c.LogLevel())
 	l, err := newZapLogger(cfg)
