@@ -68,9 +68,7 @@ func (p *Pstorewrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not start peerstore wrapper")
 		}
-		go gracefulpanic.WrapRecover(func() {
-			p.dbLoop()
-		})
+		go p.dbLoop()
 		return nil
 	})
 }
@@ -84,9 +82,11 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.WriteToDB(); err != nil {
-				logger.Errorw("Error writing peerstore to DB", "err", err)
-			}
+			gracefulpanic.WrapRecover(func() {
+				if err := p.WriteToDB(); err != nil {
+					logger.Errorw("Error writing peerstore to DB", "err", err)
+				}
+			})
 		}
 	}
 }
