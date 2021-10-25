@@ -163,7 +163,6 @@ describe('VRFCoordinatorV2', () => {
       ).to.be.revertedWith('Only callable by owner')
       // Anyone can read the config.
       const resp = await vrfCoordinatorV2.connect(random).getConfig()
-      console.log('config', resp)
       assert(resp[0] == c.minimumRequestBlockConfirmations)
       assert(resp[1] == c.maxGasLimit)
       assert(resp[2] == c.stalenessSeconds)
