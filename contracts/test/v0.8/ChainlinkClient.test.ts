@@ -173,7 +173,6 @@ describe('ChainlinkClientTestHelper', () => {
       const tx = await cc.publicRequestOracleDataFrom(
         newoc.address,
         specId,
-        cc.address,
         ethers.utils.toUtf8Bytes('fulfillRequest(bytes32,bytes32)'),
         0,
       )
@@ -187,7 +186,6 @@ describe('ChainlinkClientTestHelper', () => {
       const tx = await cc.publicRequestOracleDataFrom(
         newoc.address,
         specId,
-        cc.address,
         ethers.utils.toUtf8Bytes('fulfillRequest(bytes32,bytes32)'),
         0,
       )
@@ -202,7 +200,6 @@ describe('ChainlinkClientTestHelper', () => {
       await cc.publicRequestOracleDataFrom(
         newoc.address,
         specId,
-        cc.address,
         ethers.utils.toUtf8Bytes('fulfillRequest(bytes32,bytes32)'),
         0,
       )
