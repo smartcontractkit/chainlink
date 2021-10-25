@@ -15,7 +15,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -61,6 +60,7 @@ var (
 type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
+	Logger                         logger.Logger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -71,9 +71,6 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
-
-	lggr     logger.Logger
-	lggrOnce sync.Once
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -81,13 +78,6 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
-}
-
-func (cli *Client) Logger() logger.Logger {
-	cli.lggrOnce.Do(func() {
-		cli.lggr = logger.ProductionLogger(cli.Config)
-	})
-	return cli.lggr
 }
 
 // AppFactory implements the NewApplication method.
@@ -147,13 +137,13 @@ func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postg
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	globalLogger := logger.ProductionLogger(cfg)
+	appLggr := logger.NewLogger(cfg)
 
 	shutdownSignal := gracefulpanic.NewSignal()
 	uri := cfg.DatabaseURL()
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
-		Logger:           globalLogger,
+		Logger:           appLggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
@@ -170,11 +160,11 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		return nil, errors.Wrap(err, "error acquiring lock")
 	}
 
-	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), globalLogger)
+	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), appLggr)
 	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db, globalLogger)
+	verORM := versioning.NewORM(db, appLggr)
 
 	// Set up periodic backup
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
@@ -184,9 +174,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		version, err = verORM.FindLatestNodeVersion()
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				globalLogger.Debugf("Failed to find any node version in the DB: %w", err)
+				appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				globalLogger.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
 			} else {
 				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
 			}
@@ -196,14 +186,14 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 			versionString = version.Version
 		}
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, appLggr)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 
 	// Check before migration so we don't do anything destructive to the
 	// database if this app version is too old
 	if static.Version != "unset" {
-		if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
+		if err = versioning.CheckVersion(db, appLggr, static.Version); err != nil {
 			return nil, errors.Wrap(err, "CheckVersion")
 		}
 	}
@@ -230,10 +220,10 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
-		cfg.DatabaseListenerMaxReconnectDuration(), globalLogger)
+		cfg.DatabaseListenerMaxReconnectDuration(), appLggr)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
-		Logger:           globalLogger,
+		Logger:           appLggr,
 		GormDB:           gormDB,
 		SQLxDB:           db,
 		ORM:              evm.NewORM(db),
@@ -242,7 +232,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
 	if err != nil {
-		globalLogger.Fatal(err)
+		appLggr.Fatal(err)
 	}
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -253,7 +243,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		EventBroadcaster:         eventBroadcaster,
-		Logger:                   globalLogger,
+		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 		AdvisoryLock:             advisoryLock,

@@ -3,6 +3,7 @@ package evm
 import (
 	"math/big"
 
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
@@ -69,6 +70,18 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 	return
 }
 
+// GetNodesByChainID fetches allow nodes for the given chain ids.
+func (o *orm) GetChainsByIDs(ids []utils.Big) (chains []types.Chain, err error) {
+	sql := `SELECT * FROM evm_chains WHERE id = ANY($1) ORDER BY created_at, id;`
+
+	chainIDs := pq.Array(ids)
+	if err = o.db.Select(&chains, sql, chainIDs); err != nil {
+		return nil, err
+	}
+
+	return chains, nil
+}
+
 func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
 	sql := `INSERT INTO nodes (name, evm_chain_id, ws_url, http_url, send_only, created_at, updated_at)
 	VALUES (:name, :evm_chain_id, :ws_url, :http_url, :send_only, now(), now())
@@ -128,6 +141,18 @@ func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error
 	}
 
 	return
+}
+
+// GetNodesByChainID fetches allow nodes for the given chain ids.
+func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
+	sql := `SELECT * FROM nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
+
+	cids := pq.Array(chainIDs)
+	if err = o.db.Select(&nodes, sql, cids); err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
 
 func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
