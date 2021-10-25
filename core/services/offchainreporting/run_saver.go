@@ -33,22 +33,24 @@ func NewResultRunSaver(db *sqlx.DB, runResults <-chan pipeline.Run, pipelineRunn
 
 func (r *RunResultSaver) Start() error {
 	return r.StartOnce("RunResultSaver", func() error {
-		go gracefulpanic.WrapRecover(func() {
+		go func() {
 			for {
 				select {
 				case run := <-r.runResults:
-					r.logger.Infow("RunSaver: saving job run", "run", run)
-					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
-					// are produced and the successful TaskRuns do not provide value.
-					_, err := r.pipelineRunner.InsertFinishedRun(r.db, run, false)
-					if err != nil {
-						r.logger.Errorw("error inserting finished results", "err", err)
-					}
+					gracefulpanic.WrapRecover(func() {
+						r.logger.Infow("RunSaver: saving job run", "run", run)
+						// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
+						// are produced and the successful TaskRuns do not provide value.
+						_, err := r.pipelineRunner.InsertFinishedRun(r.db, run, false)
+						if err != nil {
+							r.logger.Errorw("error inserting finished results", "err", err)
+						}
+					})
 				case <-r.done:
 					return
 				}
 			}
-		})
+		}()
 		return nil
 	})
 }
