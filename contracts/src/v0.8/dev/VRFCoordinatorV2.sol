@@ -6,12 +6,18 @@ import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-
+import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "../ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 
-contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface {
+contract VRFCoordinatorV2 is
+  VRF,
+  ConfirmedOwner,
+  TypeAndVersionInterface,
+  VRFCoordinatorV2Interface,
+  ERC677ReceiverInterface
+{
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
@@ -650,7 +656,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     address, /* sender */
     uint256 amount,
     bytes calldata data
-  ) external nonReentrant {
+  ) external override nonReentrant {
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
