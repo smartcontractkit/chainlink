@@ -24,6 +24,7 @@ tools/clroot/db.sqlite3-wal
 
 # Log files
 *.log
+integration-tests/logs/
 
 # misc
 .DS_Store

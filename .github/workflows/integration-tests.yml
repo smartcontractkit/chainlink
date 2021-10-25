@@ -1,0 +1,165 @@
+name: Integration Tests
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+      - main
+      - develop
+  pull_request:
+jobs:
+  build-chainlink:
+    name: Build Chainlink Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build and Push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: core/chainlink.Dockerfile
+          build-args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink:latest.${{ github.sha }}
+          push: true
+
+  smoke:
+    name: Smoke Integration Tests
+    runs-on: ubuntu-latest
+    needs: build-chainlink
+    env:
+      APPS_CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+      APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
+      CGO_ENABLED: 0
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v1
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+      - name: Cache Vendor Packages
+        uses: actions/cache@v2
+        id: cache-packages
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Download Go Vendor Packages
+        if: steps.cache-packages.outputs.cache-hit != 'true'
+        run: go mod download
+      - name: Install Ginkgo CLI
+        run: go install github.com/onsi/ginkgo/ginkgo
+      - name: Run Tests
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          ./integration-tests/integration_tests.sh 0
+      - name: Publish Test Results
+        uses: mikepenz/action-junit-report@v2
+        if: always()
+        with:
+          report_paths: 'integration-tests/logs/tests-*.xml'
+      - name: Publish Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: test-logs
+          path: ./integration-tests/logs
+
+  performance:
+    name: Performance and Chaos Integration Tests
+    # Only run performance tests on significant PRs / merges to main
+    if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop') || contains(github.ref, 'master')
+    needs: build-chainlink
+    runs-on: ubuntu-latest
+    env:
+      APPS_CHAINLINK_IMAGE: 795953128386.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/chainlink
+      APPS_CHAINLINK_VERSION: latest.${{ github.sha }}
+      CGO_ENABLED: 0
+      NETWORKS: ethereum_geth_performance,ethereum_geth_performance
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 3600
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      - name: Set Kubernetes Context
+        uses: azure/k8s-set-context@v1
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+      - name: Cache Vendor Packages
+        uses: actions/cache@v2
+        id: cache-packages
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Download Go Vendor Packages
+        if: steps.cache-packages.outputs.cache-hit != 'true'
+        run: go mod download
+      - name: Install Ginkgo CLI
+        run: go install github.com/onsi/ginkgo/ginkgo
+      - name: Run Tests
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          ./integration-tests/integration_tests.sh 1
+      - name: Publish Test Results
+        uses: mikepenz/action-junit-report@v2
+        if: always()
+        with:
+          report_paths: 'integration-tests/logs/tests-*.xml'
+      - name: Publish Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: test-logs
+          path: ./integration-tests/logs
