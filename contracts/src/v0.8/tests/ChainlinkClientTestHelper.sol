@@ -54,7 +54,6 @@ contract ChainlinkClientTestHelper is ChainlinkClient {
   function publicRequestOracleDataFrom(
     address _oracle,
     bytes32 _id,
-    address _address,
     bytes memory _fulfillmentSignature,
     uint256 _wei
   ) public {
