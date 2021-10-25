@@ -300,7 +300,7 @@ $ make install
 
 # run go tests
 $ go run ./core/main.go local db preparetest
-$ go test $(go list ./... | grep -v /integration-tests/)
+$ go test ./...
 
 # run evm/explorer/operatorUI tests
 $ yarn workspace @chainlink/contracts test

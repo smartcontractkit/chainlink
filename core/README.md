@@ -49,12 +49,12 @@ go build -o $GOPATH/bin/chainlink .
 
 ```sh
 # A higher parallel number can speed up tests at the expense of more RAM.
-go test -p 1 $(go list ./... | grep -v /integration-tests/)
+go test -p 1 ./...
 ```
 
 This excludes more extensive integration tests which require a bit more setup, head over to `./integration-tests`
-for more details.
+for more details on running those.
 
 The golang testsuite is almost entirely parallelizable, and so running the default
-`go test $(go list ./... | grep -v /integration-tests/)` will commonly peg your processor. Limit parallelization with the
-`-p 2` or whatever best fits your computer: `go test -p 4 $(go list ./... | grep -v /integration-tests/)`.
+`go test ./...` will commonly peg your processor. Limit parallelization with the
+`-p 2` or whatever best fits your computer: `go test -p 4 ./...`.

@@ -1,3 +1,5 @@
+//go:build performance
+
 package performance_test
 
 import (

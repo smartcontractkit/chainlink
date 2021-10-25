@@ -20,6 +20,9 @@ Our suggested way to run these tests is to use [the ginkgo cli](https://onsi.git
 ginkgo ./integration-tests/integration
 ```
 
+Some defaults are set up in the `integration_tests.sh` file. Those are ideal for CI runs, and might need some adjustments
+if you're running locally.
+
 ### Options
 
 There are some standard ginkgo CLI arguments we like to use, along with some settings and environment variables you might like to change. Here are the significant ones, see the `integration-tests/config.yml` file for all of them.
