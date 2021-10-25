@@ -1,0 +1,9 @@
+interface Error {
+	message: String!
+	code: String!
+}
+
+type NotFoundError implements Error {
+	message: String!
+	code: String!
+}
