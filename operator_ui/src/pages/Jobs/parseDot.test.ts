@@ -133,7 +133,6 @@ encode_mwr [type=ethabiencode
     ]
 
     const stratify = parseDot(digraph)
-    console.log(digraph)
 
     expect(stratify).toEqual(expected)
   })
