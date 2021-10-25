@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
 
@@ -27,6 +28,7 @@ func TestBulletproofTxManager_NewDynamicFeeTx(t *testing.T) {
 	kst.Test(t)
 	tx := types.NewTx(&types.DynamicFeeTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
+	kst.On("GetState", addr.Hex()).Return(ethkey.State{}, nil)
 	var n int64
 
 	t.Run("creates attempt with fields", func(t *testing.T) {
@@ -94,6 +96,7 @@ func TestBulletproofTxManager_NewLegacyAttempt(t *testing.T) {
 	kst.Test(t)
 	tx := types.NewTx(&types.LegacyTx{})
 	kst.On("SignTx", addr, mock.Anything, big.NewInt(1)).Return(tx, nil)
+	kst.On("GetState", addr.Hex()).Return(ethkey.State{}, nil)
 	cks := bulletprooftxmanager.NewChainKeyStore(*big.NewInt(1), cfg, kst)
 
 	t.Run("creates attempt with fields", func(t *testing.T) {

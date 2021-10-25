@@ -45,12 +45,12 @@ type Config interface {
 	EvmMaxQueuedTransactions() uint64
 	EvmNonceAutoSync() bool
 	EvmRPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
 }
 
 // KeyStore encompasses the subset of keystore used by bulletprooftxmanager
 type KeyStore interface {
+	GetState(id string) (ethkey.State, error)
 	GetStatesForChain(chainID *big.Int) ([]ethkey.State, error)
 	SignTx(fromAddress common.Address, tx *gethTypes.Transaction, chainID *big.Int) (*gethTypes.Transaction, error)
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())

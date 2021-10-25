@@ -9,8 +9,6 @@ import (
 
 	chains "github.com/smartcontractkit/chainlink/core/chains"
 
-	common "github.com/ethereum/go-ethereum/common"
-
 	context "context"
 
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
@@ -2284,22 +2282,6 @@ func (_m *ChainScopedConfig) KeyFile() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
-	}
-
-	return r0
-}
-
-// KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
-func (_m *ChainScopedConfig) KeySpecificMaxGasPriceWei(addr common.Address) *big.Int {
-	ret := _m.Called(addr)
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
-		r0 = rf(addr)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
-		}
 	}
 
 	return r0

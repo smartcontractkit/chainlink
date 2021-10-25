@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -213,7 +214,11 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 		if lsn.job.VRFSpec.FromAddress != nil {
 			fromAddress = *lsn.job.VRFSpec.FromAddress
 		}
-		maxGasPrice := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress.Address())
+		maxGasPrice := assets.Wei(int64(lsn.cfg.EvmGasLimitDefault()))
+		ethKeyState, err := lsn.gethks.GetState(fromAddress.Address().Hex())
+		if err == nil && ethKeyState.MaxGasGwei > 0 {
+			maxGasPrice = assets.GWei(int64(ethKeyState.MaxGasGwei))
+		}
 		startBalance := sub.Balance
 		lsn.processRequestsPerSub(fromAddress.Address(), startBalance, maxGasPrice, reqs)
 	}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -29,7 +30,7 @@ func (p *EthKeyPresenter) ToRow() []string {
 		fmt.Sprintf("%v", p.IsFunding),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
-		p.MaxGasGwei.String(),
+		strconv.FormatUint(p.MaxGasGwei, 10),
 	}
 }
 

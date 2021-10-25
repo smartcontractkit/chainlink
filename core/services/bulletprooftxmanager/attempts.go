@@ -8,12 +8,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx); err != nil {
+	maxGasPriceWei := c.getMaxGasPriceWei(etx.FromAddress.Hex())
+	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx, maxGasPriceWei); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -44,11 +46,19 @@ func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasL
 	return attempt, nil
 }
 
+func (c *ChainKeyStore) getMaxGasPriceWei(ethKeyID string) *big.Int {
+	keyState, err := c.keystore.GetState(ethKeyID)
+	if err == nil && keyState.MaxGasGwei > 0 {
+		return assets.GWei(int64(keyState.MaxGasGwei))
+	}
+	return c.config.EvmMaxGasPriceWei()
+}
+
 var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint64, etx EthTx) error {
+func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint64, etx EthTx, maxGasPrice *big.Int) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -71,9 +81,8 @@ func validateDynamicFeeGas(cfg Config, fee gas.DynamicFee, gasLimit uint64, etx 
 	}
 
 	// Configuration sanity-check
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	if gasFeeCap.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.Hex())
+	if gasFeeCap.Cmp(maxGasPrice) > 0 {
+		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), maxGasPrice.String(), etx.FromAddress.Hex())
 	}
 	// Tip must be above minimum
 	minTip := cfg.EvmGasTipCapMinimum()
@@ -98,7 +107,8 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 }
 
 func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx); err != nil {
+	maxGasPriceWei := c.getMaxGasPriceWei(etx.FromAddress.Hex())
+	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx, maxGasPriceWei); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -130,13 +140,12 @@ func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit 
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx) error {
+func validateLegacyGas(cfg Config, gasPrice *big.Int, gasLimit uint64, etx EthTx, maxGasPrice *big.Int) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
-	if gasPrice.Cmp(max) > 0 {
-		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.Hex())
+	if gasPrice.Cmp(maxGasPrice) > 0 {
+		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), maxGasPrice.String(), etx.FromAddress.Hex())
 	}
 	min := cfg.EvmMinGasPriceWei()
 	if gasPrice.Cmp(min) < 0 {

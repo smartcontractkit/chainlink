@@ -23,7 +23,7 @@ type Eth interface {
 	GetAll() ([]ethkey.KeyV2, error)
 	Create(chainID *big.Int) (ethkey.KeyV2, error)
 	Add(key ethkey.KeyV2, chainID *big.Int) error
-	Update(id string, maxGasGwei *big.Int) (ethkey.KeyV2, error)
+	Update(id string, maxGasGwei uint64) (ethkey.KeyV2, error)
 	Delete(id string) (ethkey.KeyV2, error)
 	Import(keyJSON []byte, password string, chainID *big.Int) (ethkey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
@@ -200,7 +200,7 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-func (ks *eth) Update(id string, maxGasGwei *big.Int) (ethkey.KeyV2, error) {
+func (ks *eth) Update(id string, maxGasGwei uint64) (ethkey.KeyV2, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if ks.isLocked() {
@@ -211,7 +211,7 @@ func (ks *eth) Update(id string, maxGasGwei *big.Int) (ethkey.KeyV2, error) {
 		return ethkey.KeyV2{}, err
 	}
 	keyState := ks.keyStates.Eth[key.ID()]
-	keyState.MaxGasGwei = *utils.NewBig(maxGasGwei)
+	keyState.MaxGasGwei = maxGasGwei
 	err = ks.save(func(db *gorm.DB) error {
 		return db.Model(keyState).Update("max_gas_gwei", keyState.MaxGasGwei).Error
 	})

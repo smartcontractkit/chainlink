@@ -18,7 +18,7 @@ func TestETHKeyResource(t *testing.T) {
 		now        = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 		nextNonce  = int64(1)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"
-		maxGasGwei = *utils.NewBigI(123456789)
+		maxGasGwei = uint64(123456789)
 	)
 	address, err := ethkey.NewEIP55Address(addressStr)
 	require.NoError(t, err)

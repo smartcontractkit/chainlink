@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -88,11 +87,11 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
-	var maxGasGwei *big.Int
+	var maxGasGwei uint64
 	if c.Query("maxGasGwei") != "" {
-		maxGasGwei = new(big.Int)
-		if _, ok := maxGasGwei.SetString(c.Query("maxGasGwei"), 10); !ok {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("non-decimal maxGasGwei value"))
+		maxGasGwei, err = strconv.ParseUint(c.Query("maxGasGwei"), 10, 64)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
 	}
@@ -102,7 +101,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if maxGasGwei != nil {
+	if maxGasGwei > 0 {
 		key, err = ethKeyStore.Update(key.ID(), maxGasGwei)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -140,16 +139,14 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		return
 	}
 
-	var maxGasGwei *big.Int
+	var maxGasGwei uint64
 	if c.Query("maxGasGwei") != "" {
-		maxGasGwei = new(big.Int)
-		if _, ok := maxGasGwei.SetString(c.Query("maxGasGwei"), 10); !ok {
-			jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("non-decimal maxGasGwei value"))
+		maxGasGwei, err = strconv.ParseUint(c.Query("maxGasGwei"), 10, 64)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return
 		}
-	}
-
-	if maxGasGwei == nil {
+	} else {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("nothing to update"))
 		return
 	}
@@ -159,7 +156,7 @@ func (ekc *ETHKeysController) Update(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	state.MaxGasGwei = *utils.NewBig(maxGasGwei)
+	state.MaxGasGwei = maxGasGwei
 
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),

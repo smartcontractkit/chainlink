@@ -19,7 +19,7 @@ type ETHKeyResource struct {
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
-	MaxGasGwei  utils.Big    `json:"maxGasGwei"`
+	MaxGasGwei  uint64       `json:"maxGasGwei,string"`
 }
 
 // GetName implements the api2go EntityNamer interface

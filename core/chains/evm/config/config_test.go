@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestChainScopedConfig(t *testing.T) {
@@ -57,37 +56,6 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.EqualError(t, err, "cannot set default gas price to 999999999999999, it is above the maximum allowed value of 5000000000000")
 
 			assert.Equal(t, big.NewInt(42000000000), cfg.EvmGasPriceDefault())
-		})
-	})
-
-	t.Run("KeySpecificMaxGasPriceWei", func(t *testing.T) {
-		addr := cltest.NewAddress()
-		randomOtherAddr := cltest.NewAddress()
-		randomOtherKeySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: utils.NewBigI(rand.Int63())}
-		evmconfig.PersistedCfgPtr(cfg).KeySpecific[randomOtherAddr.Hex()] = randomOtherKeySpecific
-
-		t.Run("uses chain-specific default value when nothing is set", func(t *testing.T) {
-			assert.Equal(t, big.NewInt(5000000000000), cfg.KeySpecificMaxGasPriceWei(addr))
-		})
-
-		t.Run("uses chain-specific override value when that is set", func(t *testing.T) {
-			val := utils.NewBigI(rand.Int63())
-			evmconfig.PersistedCfgPtr(cfg).EvmMaxGasPriceWei = val
-
-			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
-		})
-		t.Run("uses key-specific override value when that is set", func(t *testing.T) {
-			val := utils.NewBigI(rand.Int63())
-			keySpecific := evmtypes.ChainCfg{EvmMaxGasPriceWei: val}
-			evmconfig.PersistedCfgPtr(cfg).KeySpecific[addr.Hex()] = keySpecific
-
-			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
-		})
-		t.Run("uses global value when that is set", func(t *testing.T) {
-			val := big.NewInt(rand.Int63())
-			gcfg.Overrides.GlobalEvmMaxGasPriceWei = val
-
-			assert.Equal(t, val.String(), cfg.KeySpecificMaxGasPriceWei(addr).String())
 		})
 	})
 }

@@ -35,7 +35,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 		isFunding   = true
 		createdAt   = time.Now()
 		updatedAt   = time.Now().Add(time.Second)
-		maxGasGwei  = *utils.NewBigI(123456789)
+		maxGasGwei  = uint64(123456789)
 		bundleID    = cltest.DefaultOCRKeyBundleID
 		buffer      = bytes.NewBufferString("")
 		r           = cmd.RendererTable{Writer: buffer}
@@ -64,7 +64,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
-	assert.Contains(t, output, maxGasGwei.String())
+	assert.Contains(t, output, strconv.FormatUint(maxGasGwei, 10))
 
 	// Render many resources
 	buffer.Reset()
@@ -78,7 +78,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
-	assert.Contains(t, output, maxGasGwei.String())
+	assert.Contains(t, output, strconv.FormatUint(maxGasGwei, 10))
 }
 
 func TestClient_ListETHKeys(t *testing.T) {
@@ -203,7 +203,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	keyState, err := ethKeyStore.GetState(key.ID())
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(12345), keyState.MaxGasGwei.ToInt())
+	require.Equal(t, 12345, keyState.MaxGasGwei)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {
