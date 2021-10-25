@@ -316,6 +316,17 @@ func MustMakeDuration(d time.Duration) Duration {
 	return rv
 }
 
+func MustMakeDurationPtr(d *time.Duration) *Duration {
+	if d == nil {
+		return nil
+	}
+	rv, err := MakeDuration(*d)
+	if err != nil {
+		panic(err)
+	}
+	return &rv
+}
+
 // Duration returns the value as the standard time.Duration value.
 func (d Duration) Duration() time.Duration {
 	return d.d
