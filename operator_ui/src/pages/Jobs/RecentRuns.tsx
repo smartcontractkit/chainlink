@@ -176,6 +176,7 @@ const TaskListFunc: React.FC<{ job?: JobData['job'] }> = ({ job }) => {
         />
       )
     } catch (error) {
+      console.error(error)
       return <p>Failed to parse task graph.</p>
     }
   }

@@ -25,6 +25,7 @@ export function augmentOcrTasksList({ jobRun }: { jobRun: PipelineJobRun }) {
   try {
      graph = parseDot(`digraph {${jobRun.pipelineSpec.dotDagSource}}`)
   } catch (error) {
+    console.error(error)
   }
 
   return graph.map((stratifyNode) => {

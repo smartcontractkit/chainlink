@@ -64,6 +64,7 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
       `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
     )
   } catch (error) {
+    console.error(error)
   }
 
   let taskRuns: PipelineTaskRun[] = []
