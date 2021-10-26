@@ -1,9 +1,14 @@
+enum ErrorCode {
+	NOT_FOUND
+}
+
+
 interface Error {
 	message: String!
-	code: String!
+	code: ErrorCode!
 }
 
 type NotFoundError implements Error {
 	message: String!
-	code: String!
+	code: ErrorCode!
 }
