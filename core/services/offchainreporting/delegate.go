@@ -105,7 +105,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec := *job.LoadDynamicConfigVars(chain.Config(), *jobSpec.OffchainreportingOracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jobSpec.OffchainreportingOracleSpec)
+	if err != nil {
+		return nil, err
+	}
 
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
@@ -143,24 +146,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	)
 	services = append(services, tracker)
 
-	var peerID p2pkey.PeerID
-	if concreteSpec.P2PPeerID != nil {
-		peerID = *concreteSpec.P2PPeerID
-	} else {
-		k, err2 := d.keyStore.P2P().GetOrFirst(chain.Config().P2PPeerID().Raw())
-		if err2 != nil {
-			return nil, err2
-		}
-		peerID = k.PeerID()
-	}
-
 	peerWrapper := d.peerWrapper
 	if peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
 	} else if !peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
-	} else if peerWrapper.PeerID != peerID {
-		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), peerID.String())
+	} else if peerWrapper.PeerID.String() != concreteSpec.P2PPeerID.String() {
+		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), concreteSpec.P2PPeerID.String())
 	}
 	var bootstrapPeers []string
 	if concreteSpec.P2PBootstrapPeers != nil {
@@ -182,7 +174,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
-	lc := NewLocalConfig(chain.Config(), concreteSpec)
+	lc := NewLocalConfig(chain.Config(), *concreteSpec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -206,16 +198,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		if len(bootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
 		}
-		var kb string
-		if concreteSpec.EncryptedOCRKeyBundleID != nil {
-			kb = concreteSpec.EncryptedOCRKeyBundleID.String()
-		} else {
-			kb, err = chain.Config().OCRKeyBundleID()
-			if err != nil {
-				return nil, err
-			}
-		}
-		ocrkey, err := d.keyStore.OCR().Get(kb)
+
+		ocrkey, err := d.keyStore.OCR().Get(concreteSpec.EncryptedOCRKeyBundleID.String())
 		if err != nil {
 			return nil, err
 		}
@@ -224,23 +208,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		var ta ethkey.EIP55Address
-		if concreteSpec.TransmitterAddress != nil {
-			ta = *concreteSpec.TransmitterAddress
-		} else {
-			ta, err = chain.Config().OCRTransmitterAddress()
-			if err != nil {
-				return nil, err
-			}
-		}
-
 		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), chain.Config().OCRSimulateTransactions())
 
 		contractTransmitter := NewOCRContractTransmitter(
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(chain.TxManager(), d.db, ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+			NewTransmitter(chain.TxManager(), d.db, concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),

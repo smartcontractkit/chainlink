@@ -15,6 +15,9 @@ const peerIDPrefix = "p2p_"
 type PeerID peer.ID
 
 func (p PeerID) String() string {
+	if peer.ID(p).String() == "" {
+		return ""
+	}
 	return fmt.Sprintf("%s%s", peerIDPrefix, peer.ID(p).String())
 }
 

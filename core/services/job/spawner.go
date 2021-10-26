@@ -203,7 +203,6 @@ func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (J
 		jb, err = js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 		if err != nil {
 			logger.Errorw("Error creating job", "type", spec.Type, "error", err)
-
 			return err
 		}
 
