@@ -88,20 +88,15 @@ type listenerV2 struct {
 
 func (lsn *listenerV2) Start() error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
-		// Take the larger of the global vs specific.
-		// Note that the v2 vrf requests specify their own confirmation requirements.
-		// We wait for max(minConfs, request required confs) to be safe.
-		minConfs := lsn.cfg.MinIncomingConfirmations()
-		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
-			minConfs = lsn.job.VRFSpec.Confirmations
-		}
+		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
 			ParseLog: lsn.coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
-						log.Topic(lsn.job.VRFSpec.PublicKey.MustHash()),
+						log.Topic(spec.PublicKey.MustHash()),
 					},
 				},
 			},
@@ -110,17 +105,12 @@ func (lsn *listenerV2) Start() error {
 
 		// Log listener gathers request logs
 		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
 		})
-		var pollPeriod time.Duration
-		if lsn.job.VRFSpec.PollPeriod != nil {
-			pollPeriod = *lsn.job.VRFSpec.PollPeriod
-		} else {
-			pollPeriod = 5 * time.Second
-		}
+
 		// Request handler periodically computes a set of logs which can be fulfilled.
 		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runRequestHandler(pollPeriod)
+			lsn.runRequestHandler(spec.PollPeriod)
 		})
 		return nil
 	})

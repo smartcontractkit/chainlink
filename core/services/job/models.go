@@ -178,21 +178,29 @@ func (pr *PipelineRun) SetID(value string) error {
 // TODO: remove pointers when upgrading to gormv2
 // which has https://github.com/go-gorm/gorm/issues/2748 fixed.
 type OffchainReportingOracleSpec struct {
-	ID                                     int32                `toml:"-" gorm:"primary_key"`
-	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
-	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
-	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
-	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
-	ObservationTimeout                     models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
-	BlockchainTimeout                      models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
-	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
-	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
-	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
-	EVMChainID                             *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
-	CreatedAt                              time.Time            `toml:"-"`
-	UpdatedAt                              time.Time            `toml:"-"`
+	ID                                        int32                `toml:"-" gorm:"primary_key"`
+	ContractAddress                           ethkey.EIP55Address  `toml:"contractAddress"`
+	P2PPeerID                                 *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
+	P2PPeerIDEnv                              bool                 `gorm:"-"`
+	P2PBootstrapPeers                         pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
+	IsBootstrapPeer                           bool                 `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
+	EncryptedOCRKeyBundleIDEnv                bool                 `gorm:"-"`
+	TransmitterAddress                        *ethkey.EIP55Address `toml:"transmitterAddress"`
+	TransmitterAddressEnv                     bool                 `gorm:"-"`
+	ObservationTimeout                        models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
+	ObservationTimeoutEnv                     bool                 `gorm:"-"`
+	BlockchainTimeout                         models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
+	BlockchainTimeoutEnv                      bool                 `gorm:"-"`
+	ContractConfigTrackerSubscribeInterval    models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
+	ContractConfigTrackerSubscribeIntervalEnv bool                 `gorm:"-"`
+	ContractConfigTrackerPollInterval         models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
+	ContractConfigTrackerPollIntervalEnv      bool                 `gorm:"-"`
+	ContractConfigConfirmations               uint16               `toml:"contractConfigConfirmations"`
+	ContractConfigConfirmationsEnv            bool                 `gorm:"-"`
+	EVMChainID                                *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	CreatedAt                                 time.Time            `toml:"-"`
+	UpdatedAt                                 time.Time            `toml:"-"`
 }
 
 func (s OffchainReportingOracleSpec) GetID() string {
@@ -256,14 +264,15 @@ func (WebhookSpec) TableName() string {
 }
 
 type DirectRequestSpec struct {
-	ID                       int32                    `toml:"-" gorm:"primary_key"`
-	ContractAddress          ethkey.EIP55Address      `toml:"contractAddress"`
-	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
-	Requesters               models.AddressCollection `toml:"requesters"`
-	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id"`
-	CreatedAt                time.Time                `toml:"-"`
-	UpdatedAt                time.Time                `toml:"-"`
+	ID                          int32                    `toml:"-" gorm:"primary_key"`
+	ContractAddress             ethkey.EIP55Address      `toml:"contractAddress"`
+	MinIncomingConfirmations    clnull.Uint32            `toml:"minIncomingConfirmations"`
+	MinIncomingConfirmationsEnv bool                     `toml:"minIncomingConfirmationsEnv" gorm:"-"`
+	Requesters                  models.AddressCollection `toml:"requesters"`
+	MinContractPayment          *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID                  *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	CreatedAt                   time.Time                `toml:"-"`
+	UpdatedAt                   time.Time                `toml:"-"`
 }
 
 func (DirectRequestSpec) TableName() string {
@@ -359,9 +368,11 @@ type VRFSpec struct {
 	CoordinatorAddress ethkey.EIP55Address  `toml:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey  `toml:"publicKey"`
 	Confirmations      uint32               `toml:"confirmations"`
+	ConfirmationsEnv   bool                 `toml:"-" gorm:"-"`
 	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
 	FromAddress        *ethkey.EIP55Address `toml:"fromAddress"`
-	PollPeriod         *time.Duration       `toml:"pollPeriod"` // For v2 jobs
+	PollPeriod         time.Duration        `toml:"pollPeriod"` // For v2 jobs
+	PollPeriodEnv      bool                 `gorm:"-"`
 	CreatedAt          time.Time            `toml:"-"`
 	UpdatedAt          time.Time            `toml:"-"`
 }

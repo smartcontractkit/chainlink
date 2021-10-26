@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Duplicate Job Configuration
+
+When duplicating a job, the new job's configuration settings that have not been overridden by the user, can still reflect the chainlink node configuration.
+
 ### Log to Disk
 
 This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.

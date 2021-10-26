@@ -103,13 +103,8 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 // Start complies with job.Service
 func (lsn *listenerV1) Start() error {
 	return lsn.StartOnce("VRFListener", func() error {
-		// Take the larger of the global vs specific
-		// Note that runtime changes to incoming confirmations require a job delete/add
-		// because we need to resubscribe to the lb with the new min.
-		minConfs := lsn.cfg.MinIncomingConfirmations()
-		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
-			minConfs = lsn.job.VRFSpec.Confirmations
-		}
+		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
 			ParseLog: lsn.coordinator.ParseLog,
@@ -127,7 +122,7 @@ func (lsn *listenerV1) Start() error {
 			// would depend on the order in which their OnNewLongestChain callbacks got called.
 			// We listen one block early so that the log can be stored in pendingRequests
 			// to avoid this.
-			NumConfirmations: uint64(minConfs - 1),
+			NumConfirmations: uint64(spec.Confirmations - 1),
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -136,7 +131,7 @@ func (lsn *listenerV1) Start() error {
 			lsn.setLatestHead(*latestHead)
 		}
 		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
 		})
 		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)

@@ -55,6 +55,7 @@ type service struct {
 	jobORM      job.ORM
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
+	p2pKeyStore keystore.P2P
 	jobSpawner  job.Spawner
 	cfg         Config
 	txm         postgres.TransactionManager
@@ -70,8 +71,7 @@ func NewService(
 	jobORM job.ORM,
 	txm postgres.TransactionManager,
 	jobSpawner job.Spawner,
-	csaKeyStore keystore.CSA,
-	ethKeyStore keystore.Eth,
+	keyStore keystore.Master,
 	cfg Config,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
@@ -83,8 +83,9 @@ func NewService(
 		jobORM:      jobORM,
 		txm:         txm,
 		jobSpawner:  jobSpawner,
-		csaKeyStore: csaKeyStore,
-		ethKeyStore: ethKeyStore,
+		p2pKeyStore: keyStore.P2P(),
+		csaKeyStore: keyStore.CSA(),
+		ethKeyStore: keyStore.Eth(),
 		cfg:         cfg,
 		connMgr:     newConnectionsManager(lggr),
 		chainSet:    chainSet,
@@ -560,10 +561,10 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}
+		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:
