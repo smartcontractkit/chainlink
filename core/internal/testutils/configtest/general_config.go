@@ -225,7 +225,10 @@ func (c *TestGeneralConfig) ORMMaxIdleConns() int {
 }
 
 func (c *TestGeneralConfig) ORMMaxOpenConns() int {
-	return 5
+	// HACK: txdb does not appear to use connection pooling properly, so that
+	// if this value is not large enough instead of waiting for a connection the
+	// database call will fail with "conn busy" or some other cryptic error
+	return 20
 }
 
 func (c *TestGeneralConfig) LogSQLMigrations() bool {
