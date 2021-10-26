@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -344,13 +348,9 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			if jobs[i].OffchainreportingOracleSpec != nil {
-				var ch evm.Chain
-				ch, err = o.chainSet.Get(jobs[i].OffchainreportingOracleSpec.EVMChainID.ToInt())
-				if err != nil {
-					return err
-				}
-				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jobs[i].OffchainreportingOracleSpec)
+			err := o.LoadEnvConfigVars(&jobs[i])
+			if err != nil {
+				return err
 			}
 		}
 		return nil
@@ -358,31 +358,132 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 	return jobs, int(count), err
 }
 
+func (o *orm) LoadEnvConfigVars(jb *Job) error {
+	if jb.OffchainreportingOracleSpec != nil {
+		ch, err := o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
+		if err != nil {
+			return err
+		}
+		jb.OffchainreportingOracleSpec = newSpec
+	} else if jb.VRFSpec != nil {
+		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config(), *jb.VRFSpec)
+	} else if jb.DirectRequestSpec != nil {
+		ch, err := o.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config(), *jb.DirectRequestSpec)
+	}
+	return nil
+}
+
+type DRSpecConfig interface {
+	MinIncomingConfirmations() uint32
+}
+
+func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
+	// Take the larger of the global vs specific.
+	// Note that the v2 vrf requests specify their own confirmation requirements.
+	// We wait for max(minConfs, request required confs) to be safe.
+	minConfs := cfg.MinIncomingConfirmations()
+	if vrfs.Confirmations <= minConfs {
+		vrfs.ConfirmationsEnv = true
+		vrfs.Confirmations = minConfs
+	}
+
+	if vrfs.PollPeriod == 0 {
+		vrfs.PollPeriodEnv = true
+		vrfs.PollPeriod = 5 * time.Second
+	}
+
+	return &vrfs
+}
+
+func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
+	minIncomingConfirmations := cfg.MinIncomingConfirmations()
+	if drs.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
+		drs.MinIncomingConfirmationsEnv = true
+		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
+	}
+
+	return &drs
+}
+
 type OCRSpecConfig interface {
+	P2PPeerID() p2pkey.PeerID
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
 	OCRObservationTimeout() time.Duration
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	OCRKeyBundleID() (string, error)
 }
 
-func LoadDynamicConfigVars(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	if os.ObservationTimeout == 0 {
+		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
+		os.BlockchainTimeoutEnv = true
 		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
+		os.ContractConfigTrackerSubscribeIntervalEnv = true
 		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
+		os.ContractConfigTrackerPollIntervalEnv = true
 		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
+		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
 	}
 	return &os
+}
+
+func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
+	if os.P2PPeerID == nil {
+		os.P2PPeerIDEnv = true
+		peerID := cfg.P2PPeerID()
+		os.P2PPeerID = &peerID
+	}
+
+	if os.TransmitterAddress == nil {
+		ta, err := cfg.OCRTransmitterAddress()
+		if errors.Cause(err) != config.ErrUnset {
+			if err != nil {
+				return nil, err
+			}
+			os.TransmitterAddressEnv = true
+			os.TransmitterAddress = &ta
+		}
+	}
+
+	if os.EncryptedOCRKeyBundleID == nil {
+		kb, err := cfg.OCRKeyBundleID()
+		if err != nil {
+			return nil, err
+		}
+		encryptedOCRKeyBundleID, err := models.Sha256HashFromHex(kb)
+		if err != nil {
+			return nil, err
+		}
+		os.EncryptedOCRKeyBundleIDEnv = true
+		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
+	}
+
+	return LoadEnvConfigVarsLocalOCR(cfg, os), nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -415,21 +516,12 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...postgres.QO
 			return err
 		}
 
-		if err = loadJobSpecErrors(tx, jb); err != nil {
-			return err
-		}
-
-		if jb.OffchainreportingOracleSpec != nil {
-			var ch evm.Chain
-			ch, err = o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
-			if err != nil {
-				return err
-			}
-			jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jb.OffchainreportingOracleSpec)
-		}
-		return nil
+		return loadJobSpecErrors(tx, jb)
 	})
-	return errors.Wrap(err, "findJob failed")
+	if err != nil {
+		return errors.Wrap(err, "findJob failed")
+	}
+	return o.LoadEnvConfigVars(jb)
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
