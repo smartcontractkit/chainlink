@@ -193,11 +193,21 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 		return
 	}
 	confirmed := lsn.getAndRemoveConfirmedLogsBySub(latestHead.Number.Uint64())
+	keys, err := lsn.gethks.SendingKeys()
+	if err != nil {
+		lsn.l.Errorw("Unable to read sending keys", "err", err)
+		return
+	}
+	fromAddress := keys[0].Address
+	if lsn.job.VRFSpec.FromAddress != nil {
+		fromAddress = *lsn.job.VRFSpec.FromAddress
+	}
+	maxGasPrice := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress.Address())
 	// TODO: also probably want to order these by request time so we service oldest first
 	// Get subscription balance. Note that outside of this request handler, this can only decrease while there
 	// are no pending requests
 	if len(confirmed) == 0 {
-		lsn.l.Infow("No pending requests")
+		lsn.l.Infow("No pending requests", "maxGasPrice", maxGasPrice, "fromAddress", fromAddress.Address())
 		return
 	}
 	for subID, reqs := range confirmed {
@@ -206,16 +216,6 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			lsn.l.Errorw("Unable to read subscription balance", "err", err)
 			return
 		}
-		keys, err := lsn.gethks.SendingKeys()
-		if err != nil {
-			lsn.l.Errorw("Unable to read sending keys", "err", err)
-			continue
-		}
-		fromAddress := keys[0].Address
-		if lsn.job.VRFSpec.FromAddress != nil {
-			fromAddress = *lsn.job.VRFSpec.FromAddress
-		}
-		maxGasPrice := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddress.Address())
 		startBalance := sub.Balance
 		lsn.processRequestsPerSub(fromAddress.Address(), startBalance, maxGasPrice, reqs)
 	}
@@ -397,7 +397,8 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	}
 	// The call task will fail if there are insufficient funds
 	if run.AllErrors.HasError() {
-		lsn.l.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available", "err", err, "max gas price", maxGasPrice)
+		lsn.l.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available",
+			"err", err, "max gas price", maxGasPrice, "reqID", req.req.RequestId)
 		return maxLink, run, payload, gaslimit, errors.New("run errored")
 	}
 	if len(trrs.FinalResult().Values) != 1 {
@@ -477,9 +478,14 @@ func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
 	return !consumed
 }
 
-func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, minConfs uint32) uint64 {
+func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, nodeMinConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
+	// Take the max(nodeConfs, requestedConfs)
+	minConfs := nodeMinConfs
+	if uint32(req.MinimumRequestConfirmations) > nodeMinConfs {
+		minConfs = uint32(req.MinimumRequestConfirmations)
+	}
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestId.String()])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
 	// in the contract so if it was older than that, fulfillments would start failing
