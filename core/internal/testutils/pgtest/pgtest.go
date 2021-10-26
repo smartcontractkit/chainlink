@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/DATA-DOG/go-txdb"
 	uuid "github.com/satori/go.uuid"
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/go-txdb"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
