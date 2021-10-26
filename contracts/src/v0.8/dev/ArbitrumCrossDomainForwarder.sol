@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../interfaces/TypeAndVersionInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 import "./CrossDomainForwarder.sol";
 
 /**
@@ -47,7 +48,6 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
     // 1. The call MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     // 2. Make the external call
-    (bool success, bytes memory res) = target.call(data);
-    require(success, string(abi.encode("xDomain call failed:", res)));
+    Address.functionCall(target, data, "Forwarder call reverted");
   }
 }
