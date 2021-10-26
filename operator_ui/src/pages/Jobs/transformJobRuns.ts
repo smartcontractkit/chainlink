@@ -58,11 +58,16 @@ const addTaskStatus = (stratify: Stratify[]) => (
 export const transformPipelineJobRun = (jobSpecId: string) => (
   jobRun: ApiResponse<OcrJobRun>['data'],
 ): PipelineJobRun => {
-  const stratify = parseDot(
-    `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
-  )
+  let stratify: Stratify[] | null = null
+  try {
+    stratify = parseDot(
+      `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
+    )
+  } catch (error) {
+  }
+
   let taskRuns: PipelineTaskRun[] = []
-  if (jobRun.attributes.taskRuns != null) {
+  if (jobRun.attributes.taskRuns != null && stratify != null) {
     taskRuns = jobRun.attributes.taskRuns.map(addTaskStatus(stratify))
   }
   return {

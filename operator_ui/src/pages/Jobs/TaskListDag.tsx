@@ -156,7 +156,7 @@ export const TaskList = ({ stratify }: Props) => {
 
   React.useEffect(() => {
     function handleResize() {
-      if (graph.current) {
+      if (graph.current && stratify.length > 0) {
         createDag({ stratify, ref: graph.current, setTooltip, setIcon })
       }
     }
