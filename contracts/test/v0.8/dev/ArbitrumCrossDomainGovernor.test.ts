@@ -37,7 +37,7 @@ before(async () => {
 
   // Contract factories
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/ArbitrumCrossDomainDelegateForwarder.sol:ArbitrumCrossDomainDelegateForwarder',
+    'src/v0.8/dev/ArbitrumCrossDomainGovernor.sol:ArbitrumCrossDomainGovernor',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(
@@ -50,7 +50,7 @@ before(async () => {
   )
 })
 
-describe('ArbitrumCrossDomainDelegateForwarder', () => {
+describe('ArbitrumCrossDomainGovernor', () => {
   beforeEach(async () => {
     forwarder = await forwarderFactory.deploy(l1OwnerAddress)
     greeter = await greeterFactory.deploy(forwarder.address)
