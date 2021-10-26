@@ -1373,7 +1373,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 			mock.MatchedBy(func(chainID *big.Int) bool {
 				return chainID.Cmp(evmcfg.ChainID()) == 0
 			})).Return(&tx, errors.New("could not sign transaction")).Once()
-		kst.On("GetState", fromAddress.Hex()).Return(ethkey.State{MaxGasGwei: 1000}, nil)
+		kst.On("GetState", fromAddress.Hex()).Return(ethkey.State{}, nil)
 
 		// Do the thing
 		err := eb.ProcessUnstartedEthTxs(context.Background(), keyState)

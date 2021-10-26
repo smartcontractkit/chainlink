@@ -217,7 +217,7 @@ func TestETHKeysController_UpdateMaxGasGweiSuccess(t *testing.T) {
 
 	keyState, err := app.KeyStore.Eth().GetState(allKeys[0].ID())
 	require.NoError(t, err)
-	require.Equal(t, 12345, keyState.MaxGasGwei)
+	require.Equal(t, uint64(12345), keyState.MaxGasGwei)
 
 	ethClient.AssertExpectations(t)
 }

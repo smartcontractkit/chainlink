@@ -203,7 +203,7 @@ func TestClient_UpdateETHKey(t *testing.T) {
 	require.NoError(t, err)
 	keyState, err := ethKeyStore.GetState(key.ID())
 	require.NoError(t, err)
-	require.Equal(t, 12345, keyState.MaxGasGwei)
+	require.Equal(t, uint64(12345), keyState.MaxGasGwei)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {
