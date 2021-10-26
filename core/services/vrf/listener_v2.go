@@ -113,8 +113,10 @@ func (lsn *listenerV2) Start() error {
 		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
 		})
-		pollPeriod := lsn.job.VRFSpec.PollPeriod
-		if pollPeriod == 0 {
+		var pollPeriod time.Duration
+		if lsn.job.VRFSpec.PollPeriod != nil {
+			pollPeriod = *lsn.job.VRFSpec.PollPeriod
+		} else {
 			pollPeriod = 5 * time.Second
 		}
 		// Request handler periodically computes a set of logs which can be fulfilled.
