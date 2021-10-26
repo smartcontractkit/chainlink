@@ -30,8 +30,6 @@ Acceptance can be accomplished by using the `acceptance` command.
 
 Credentials for logging into the operator-ui can be found [here](../../tools/secrets/apicredentials)
 
-###
-
 ### Doing local development on the core node
 
 Doing quick, iterative changes on the core codebase can still be achieved within the compose setup with the `cld` or `cldo` commands.
@@ -217,7 +215,7 @@ The `logs` command will allow you to follow the logs of any running service. For
 
 ## My storage space is full! How do I clean up docker's disk usage?
 
-```
+```sh
 docker system prune
 ```
 
@@ -225,7 +223,7 @@ docker system prune
 
 The default configuration tries to build everything in parallel. You can avoid this by clearing the Docker Compose build options.
 
-```
+```sh
 # Use docker compose's default build configuration
 export DOCKER_COMPOSE_BUILD_OPTS=""
 ```
@@ -249,7 +247,7 @@ docker logs -f chainlink-node
 
 This is most likely due to the (Allow Origins access policy](https://docs.chain.link/docs/configuration-variables#section-allow-origins). Make sure you are using 'http://localhost' (not 127.0.0.1), or try disabling ALLOW_ORIGINS.
 
-```
+```sh
 # Disable ALLOW_ORIGINS for testing
 echo "ALLOW_ORIGINS=*" >> chainlink-variables.env
 ```

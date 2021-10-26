@@ -51,7 +51,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.16
+          go-version: 1.17
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -116,7 +116,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v1
         with:
-          go-version: 1.16
+          go-version: 1.17
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
