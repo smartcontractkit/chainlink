@@ -9,3 +9,11 @@ type FeedsManager {
 	isConnectionActive: Boolean!
 	createdAt: Time!
 }
+
+# FeedsManagerPayload defines the response to fetch a single feeds manager by id
+union FeedsManagerPayload = FeedsManager | NotFoundError
+
+# FeedsManagersPayload defines the response when fetching feeds managers
+type FeedsManagersPayload {
+    results: [FeedsManager!]!
+}

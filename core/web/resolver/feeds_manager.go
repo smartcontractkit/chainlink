@@ -70,3 +70,45 @@ func (r *FeedsManagerResolver) BootstrapPeerMultiaddr() *string {
 func (r *FeedsManagerResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.mgr.CreatedAt}
 }
+
+type FeedsManagerPayloadResolver struct {
+	mgr *feeds.FeedsManager
+}
+
+func NewFeedsManagerPayload(mgr *feeds.FeedsManager) *FeedsManagerPayloadResolver {
+	return &FeedsManagerPayloadResolver{mgr: mgr}
+}
+
+// ToBridge implements the Bridge union type of the payload
+func (r *FeedsManagerPayloadResolver) ToFeedsManager() (*FeedsManagerResolver, bool) {
+	if r.mgr != nil {
+		return NewFeedsManager(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+// ToNotFoundError implements the NotFoundError union type of the payload
+func (r *FeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.mgr == nil {
+		return NewNotFoundError("feeds manager not found"), true
+	}
+
+	return nil, false
+}
+
+// FeedsManagersPayloadResolver resolves a list of feeds managers
+type FeedsManagersPayloadResolver struct {
+	feedsManagers []feeds.FeedsManager
+}
+
+func NewFeedsManagersPayload(feedsManagers []feeds.FeedsManager) *FeedsManagersPayloadResolver {
+	return &FeedsManagersPayloadResolver{
+		feedsManagers: feedsManagers,
+	}
+}
+
+// Results returns the feeds managers.
+func (r *FeedsManagersPayloadResolver) Results() []*FeedsManagerResolver {
+	return NewFeedsManagers(r.feedsManagers)
+}

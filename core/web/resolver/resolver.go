@@ -192,7 +192,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 }
 
 // FeedsManager retrieves a feeds manager by id.
-func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerResolver, error) {
+func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
 	id, err := strconv.ParseInt(string(args.ID), 10, 32)
 	if err != nil {
 		return nil, err
@@ -201,20 +201,20 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 	mgr, err := r.App.GetFeedsService().GetManager(int64(id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("feeds manager not found")
+			return NewFeedsManagerPayload(nil), nil
 		}
 
 		return nil, err
 	}
 
-	return NewFeedsManager(*mgr), nil
+	return NewFeedsManagerPayload(mgr), nil
 }
 
-func (r *Resolver) FeedsManagers() ([]*FeedsManagerResolver, error) {
+func (r *Resolver) FeedsManagers() (*FeedsManagersPayloadResolver, error) {
 	mgrs, err := r.App.GetFeedsService().ListManagers()
 	if err != nil {
 		return nil, err
 	}
 
-	return NewFeedsManagers(mgrs), nil
+	return NewFeedsManagersPayload(mgrs), nil
 }
