@@ -17,7 +17,7 @@ abstract contract CrossDomainDelegateForwarder is DelegateForwarderInterface, Cr
    * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`.
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address l1OwnerAddr) CrossDomainForwarder(msg.sender) {
+  constructor(address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {
     // noop
   }
 }
