@@ -11,8 +11,8 @@ echo "Using image $APPS_CHAINLINK_IMAGE at version $APPS_CHAINLINK_VERSION"
 
 if [[ $performance == 0 ]]; then
   echo "Running smoke tests"
-  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -nodes=15 -skipPackage=./integration-tests/performance,./integration-tests/chaos ./integration-tests/...
+  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -nodes=15 -tags integration -skipPackage=./integration-tests/performance,./integration-tests/chaos ./integration-tests/...
 else
   echo "Running performance and chaos tests"
-  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress ./integration-tests/performance ./integration-tests/chaos
+  ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -tags chaos,performance ./integration-tests/performance ./integration-tests/chaos
 fi
