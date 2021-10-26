@@ -3,7 +3,6 @@ package resolver
 import (
 	"context"
 
-	"github.com/graph-gophers/dataloader"
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -50,17 +49,12 @@ func (r *NodeResolver) HTTPURL() string {
 
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
-	ldr := loader.For(ctx)
-
-	thunk := ldr.ChainsByIDLoader.Load(ctx, dataloader.StringKey(r.node.EVMChainID.String()))
-	result, err := thunk()
+	chain, err := loader.GetChainByID(ctx, r.node.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
 
-	chain := result.(types.Chain)
-
-	return NewChain(chain), nil
+	return NewChain(*chain), nil
 }
 
 // CreatedAt resolves the node's created at field.

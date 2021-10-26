@@ -16,6 +16,8 @@ import (
 )
 
 func Test_Bridges(t *testing.T) {
+	t.Parallel()
+
 	var (
 		f         = setupFramework(t)
 		bridgeORM = &bridgeORMMocks.ORM{}
@@ -48,25 +50,35 @@ func Test_Bridges(t *testing.T) {
 		Query: `
 			{
 				bridges {
-					name
-					url
-					confirmations
-					outgoingToken
-					minimumContractPayment
-					createdAt
+					results {
+						name
+						url
+						confirmations
+						outgoingToken
+						minimumContractPayment
+						createdAt
+					}
+					metadata {
+						total
+					}
 				}
 			}
 		`,
 		ExpectedResult: `
 			{
-				"bridges": [{
-					"name": "bridge1",
-					"url": "https://external.adapter",
-					"confirmations": 1,
-					"outgoingToken": "outgoingToken",
-					"minimumContractPayment": "1",
-					"createdAt": "2021-01-01T00:00:00Z"
-				}]
+				"bridges": {
+					"results": [{
+						"name": "bridge1",
+						"url": "https://external.adapter",
+						"confirmations": 1,
+						"outgoingToken": "outgoingToken",
+						"minimumContractPayment": "1",
+						"createdAt": "2021-01-01T00:00:00Z"
+					}],
+					"metadata": {
+						"total": 1
+					}
+				}
 			}
 		`,
 	})
@@ -74,37 +86,9 @@ func Test_Bridges(t *testing.T) {
 
 func Test_Bridge(t *testing.T) {
 	var (
-		f         = setupFramework(t)
-		bridgeORM = &bridgeORMMocks.ORM{}
-
-		name = bridges.TaskType("bridge1")
-	)
-
-	bridgeURL, err := url.Parse("https://external.adapter")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			bridgeORM,
-		)
-	})
-
-	f.App.On("BridgeORM").Return(bridgeORM)
-	bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{
-		Name:                   name,
-		URL:                    models.WebURL(*bridgeURL),
-		Confirmations:          uint32(1),
-		OutgoingToken:          "outgoingToken",
-		MinimumContractPayment: assets.NewLinkFromJuels(1),
-		CreatedAt:              f.Timestamp(),
-	}, nil)
-
-	gqltesting.RunTest(t, &gqltesting.Test{
-		Context: f.Ctx,
-		Schema:  f.RootSchema,
-		Query: `
-			{
-				bridge(name: "bridge1") {
+		query = `{
+			bridge(name: "bridge1") {
+				... on Bridge {
 					name
 					url
 					confirmations
@@ -112,10 +96,39 @@ func Test_Bridge(t *testing.T) {
 					minimumContractPayment
 					createdAt
 				}
+				... on NotFoundError {
+					message
+					code
+				}
 			}
-		`,
-		ExpectedResult: `
-			{
+		}`
+
+		name = bridges.TaskType("bridge1")
+	)
+	bridgeURL, err := url.Parse("https://external.adapter")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name   string
+		before func(*gqlTestFramework, *bridgeORMMocks.ORM)
+		query  string
+		result string
+	}{
+		{
+			name: "success",
+			before: func(f *gqlTestFramework, bridgeORM *bridgeORMMocks.ORM) {
+				f.App.On("BridgeORM").Return(bridgeORM)
+				bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{
+					Name:                   name,
+					URL:                    models.WebURL(*bridgeURL),
+					Confirmations:          uint32(1),
+					OutgoingToken:          "outgoingToken",
+					MinimumContractPayment: assets.NewLinkFromJuels(1),
+					CreatedAt:              f.Timestamp(),
+				}, nil)
+			},
+			query: query,
+			result: `{
 				"bridge": {
 					"name": "bridge1",
 					"url": "https://external.adapter",
@@ -124,12 +137,57 @@ func Test_Bridge(t *testing.T) {
 					"minimumContractPayment": "1",
 					"createdAt": "2021-01-01T00:00:00Z"
 				}
+			}`,
+		},
+		{
+			name: "not found",
+			before: func(f *gqlTestFramework, bridgeORM *bridgeORMMocks.ORM) {
+				f.App.On("BridgeORM").Return(bridgeORM)
+				bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+			},
+			query: query,
+			result: `{
+				"bridge": {
+					"message": "bridge not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				f         = setupFramework(t)
+				bridgeORM = &bridgeORMMocks.ORM{}
+			)
+
+			t.Cleanup(func() {
+				mock.AssertExpectationsForObjects(t,
+					bridgeORM,
+				)
+			})
+
+			if tc.before != nil {
+				tc.before(f, bridgeORM)
 			}
-		`,
-	})
+
+			gqltesting.RunTest(t, &gqltesting.Test{
+				Context:        f.Ctx,
+				Schema:         f.RootSchema,
+				Query:          tc.query,
+				ExpectedResult: tc.result,
+			})
+		})
+	}
 }
 
 func Test_CreateBridge(t *testing.T) {
+	t.Parallel()
+
 	var (
 		f         = setupFramework(t)
 		bridgeORM = &bridgeORMMocks.ORM{}
@@ -168,13 +226,15 @@ func Test_CreateBridge(t *testing.T) {
 		Query: `
 			mutation createBridge($input: CreateBridgeInput!) {
 				createBridge(input: $input) {
-					bridge {
-						name
-						url
-						confirmations
-						outgoingToken
-						minimumContractPayment
-						createdAt
+					... on CreateBridgeSuccess {
+						bridge {
+							name
+							url
+							confirmations
+							outgoingToken
+							minimumContractPayment
+							createdAt
+						}
 					}
 				}
 			}
@@ -208,64 +268,11 @@ func Test_CreateBridge(t *testing.T) {
 
 func Test_UpdateBridge(t *testing.T) {
 	var (
-		f         = setupFramework(t)
-		bridgeORM = &bridgeORMMocks.ORM{}
-
-		name = bridges.TaskType("bridge1")
-	)
-
-	bridgeURL, err := url.Parse("https://external.adapter")
-	require.NoError(t, err)
-
-	newBridgeURL, err := url.Parse("https://external.adapter.new")
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t,
-			bridgeORM,
-		)
-	})
-
-	// Initialize the existing bridge
-	bridge := bridges.BridgeType{
-		Name:                   name,
-		URL:                    models.WebURL(*bridgeURL),
-		Confirmations:          uint32(1),
-		OutgoingToken:          "outgoingToken",
-		MinimumContractPayment: assets.NewLinkFromJuels(1),
-		CreatedAt:              f.Timestamp(),
-	}
-
-	f.App.On("BridgeORM").Return(bridgeORM)
-	bridgeORM.On("FindBridge", name).Return(bridge, nil)
-
-	btr := &bridges.BridgeTypeRequest{
-		Name:                   bridges.TaskType("bridge-updated"),
-		URL:                    models.WebURL(*newBridgeURL),
-		Confirmations:          2,
-		MinimumContractPayment: assets.NewLinkFromJuels(2),
-	}
-
-	bridgeORM.On("UpdateBridgeType", mock.IsType(&bridges.BridgeType{}), btr).
-		Run(func(args mock.Arguments) {
-			arg := args.Get(0).(*bridges.BridgeType)
-			*arg = bridges.BridgeType{
-				Name:                   "bridge-updated",
-				URL:                    models.WebURL(*newBridgeURL),
-				Confirmations:          2,
-				OutgoingToken:          "outgoingToken",
-				MinimumContractPayment: assets.NewLinkFromJuels(2),
-				CreatedAt:              f.Timestamp(),
-			}
-		}).
-		Return(nil)
-
-	gqltesting.RunTest(t, &gqltesting.Test{
-		Context: f.Ctx,
-		Schema:  f.RootSchema,
-		Query: `
-			mutation updateBridge($input: UpdateBridgeInput!) {
-				updateBridge(name: "bridge1", input: $input) {
+		name  = bridges.TaskType("bridge1")
+		query = `
+		mutation updateBridge($input: UpdateBridgeInput!) {
+			updateBridge(name: "bridge1", input: $input) {
+				... on UpdateBridgeSuccess {
 					bridge {
 						name
 						url
@@ -275,18 +282,74 @@ func Test_UpdateBridge(t *testing.T) {
 						createdAt
 					}
 				}
+				... on NotFoundError {
+					message
+					code
+				}
 			}
-		`,
-		Variables: map[string]interface{}{
+		}`
+		variables = map[string]interface{}{
 			"input": map[string]interface{}{
 				"name":                   "bridge-updated",
 				"url":                    "https://external.adapter.new",
 				"confirmations":          2,
 				"minimumContractPayment": "2",
 			},
-		},
-		ExpectedResult: `
-			{
+		}
+	)
+	bridgeURL, err := url.Parse("https://external.adapter")
+	require.NoError(t, err)
+
+	newBridgeURL, err := url.Parse("https://external.adapter.new")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name      string
+		before    func(*gqlTestFramework, *bridgeORMMocks.ORM)
+		query     string
+		variables map[string]interface{}
+		result    string
+	}{
+		{
+			name: "success",
+			before: func(f *gqlTestFramework, bridgeORM *bridgeORMMocks.ORM) {
+				// Initialize the existing bridge
+				bridge := bridges.BridgeType{
+					Name:                   name,
+					URL:                    models.WebURL(*bridgeURL),
+					Confirmations:          uint32(1),
+					OutgoingToken:          "outgoingToken",
+					MinimumContractPayment: assets.NewLinkFromJuels(1),
+					CreatedAt:              f.Timestamp(),
+				}
+
+				f.App.On("BridgeORM").Return(bridgeORM)
+				bridgeORM.On("FindBridge", name).Return(bridge, nil)
+
+				btr := &bridges.BridgeTypeRequest{
+					Name:                   bridges.TaskType("bridge-updated"),
+					URL:                    models.WebURL(*newBridgeURL),
+					Confirmations:          2,
+					MinimumContractPayment: assets.NewLinkFromJuels(2),
+				}
+
+				bridgeORM.On("UpdateBridgeType", mock.IsType(&bridges.BridgeType{}), btr).
+					Run(func(args mock.Arguments) {
+						arg := args.Get(0).(*bridges.BridgeType)
+						*arg = bridges.BridgeType{
+							Name:                   "bridge-updated",
+							URL:                    models.WebURL(*newBridgeURL),
+							Confirmations:          2,
+							OutgoingToken:          "outgoingToken",
+							MinimumContractPayment: assets.NewLinkFromJuels(2),
+							CreatedAt:              f.Timestamp(),
+						}
+					}).
+					Return(nil)
+			},
+			query:     query,
+			variables: variables,
+			result: `{
 				"updateBridge": {
 					"bridge": {
 						"name": "bridge-updated",
@@ -297,7 +360,52 @@ func Test_UpdateBridge(t *testing.T) {
 						"createdAt": "2021-01-01T00:00:00Z"
 					}
 				}
+			}`,
+		},
+		{
+			name: "not found",
+			before: func(f *gqlTestFramework, bridgeORM *bridgeORMMocks.ORM) {
+				f.App.On("BridgeORM").Return(bridgeORM)
+				bridgeORM.On("FindBridge", name).Return(bridges.BridgeType{}, sql.ErrNoRows)
+			},
+			query:     query,
+			variables: variables,
+			result: `{
+				"updateBridge": {
+					"message": "bridge not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				f         = setupFramework(t)
+				bridgeORM = &bridgeORMMocks.ORM{}
+			)
+
+			t.Cleanup(func() {
+				mock.AssertExpectationsForObjects(t,
+					bridgeORM,
+				)
+			})
+
+			if tc.before != nil {
+				tc.before(f, bridgeORM)
 			}
-		`,
-	})
+
+			gqltesting.RunTest(t, &gqltesting.Test{
+				Context:        f.Ctx,
+				Schema:         f.RootSchema,
+				Query:          tc.query,
+				Variables:      tc.variables,
+				ExpectedResult: tc.result,
+			})
+		})
+	}
 }
