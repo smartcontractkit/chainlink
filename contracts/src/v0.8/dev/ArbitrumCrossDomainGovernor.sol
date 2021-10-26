@@ -8,12 +8,12 @@ import "./ArbitrumCrossDomainForwarder.sol";
 import "./CrossDomainDelegateForwarder.sol";
 
 /**
- * @title ArbitrumCrossDomainDelegateForwarder - L1 xDomain account representation (with delegatecall support) for Arbitrum
+ * @title ArbitrumCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Arbitrum
  * @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract ArbitrumCrossDomainDelegateForwarder is TypeAndVersionInterface, CrossDomainDelegateForwarder {
+contract ArbitrumCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDelegateForwarder {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr tetherhe L1 owner address that will be allowed to call the forward fn
@@ -25,12 +25,12 @@ contract ArbitrumCrossDomainDelegateForwarder is TypeAndVersionInterface, CrossD
   /**
    * @notice versions:
    *
-   * - ArbitrumCrossDomainForwarder 0.1.0: initial release
+   * - ArbitrumCrossDomainGovernor 0.1.0: initial release
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumCrossDomainForwarder 0.1.0";
+    return "ArbitrumCrossDomainGovernor 0.1.0";
   }
 
   /**
