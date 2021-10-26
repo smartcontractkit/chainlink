@@ -216,7 +216,7 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 		if lsn.job.VRFSpec.FromAddress != nil {
 			fromAddress = *lsn.job.VRFSpec.FromAddress
 		}
-		maxGasPrice := assets.Wei(int64(lsn.cfg.EvmGasLimitDefault()))
+		maxGasPrice := lsn.cfg.EvmMaxGasPriceWei()
 		ethKeyState, err := lsn.gethks.GetState(fromAddress.Address().Hex())
 		if err == nil && ethKeyState.MaxGasGwei > 0 {
 			maxGasPrice = assets.GWei(int64(ethKeyState.MaxGasGwei))

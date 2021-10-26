@@ -40,6 +40,7 @@ type GethKeyStore interface {
 type Config interface {
 	MinIncomingConfirmations() uint32
 	EvmGasLimitDefault() uint64
+	EvmMaxGasPriceWei() *big.Int
 	MinRequiredOutgoingConfirmations() uint64
 }
 

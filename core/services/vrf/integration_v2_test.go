@@ -213,14 +213,11 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	sendEth(t, ownerKey, uni.backend, key2.Address.Address(), 10)
 
 	gasPrice := decimal.NewFromBigInt(big.NewInt(10000000000), 0) // Default is 10 gwei
-	configureSimChain(app, map[string]types.ChainCfg{
-		key1.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)), // 10 gwei
-		},
-		key2.Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(100000000000)), // 100 gwei
-		},
-	}, gasPrice.BigInt())
+	_, err = app.KeyStore.Eth().Update(key1.Address.Hex(), 10)
+	require.NoError(t, err)
+	_, err = app.KeyStore.Eth().Update(key2.Address.Hex(), 100)
+	require.NoError(t, err)
+	configureSimChain(app, map[string]types.ChainCfg{}, gasPrice.BigInt())
 	require.NoError(t, app.Start())
 
 	var jbs []job.Job
@@ -392,11 +389,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// max gas limit of 2M and a key specific max 10 gwei price.
 	// Keep the prices low so we can operate with small link balance subscriptions.
 	gasPrice := decimal.NewFromBigInt(big.NewInt(1000000000), 0)
-	configureSimChain(app, map[string]types.ChainCfg{
-		keys[0].Address.String(): {
-			EvmMaxGasPriceWei: utils.NewBig(big.NewInt(10000000000)),
-		},
-	}, gasPrice.BigInt())
+	_, err = app.KeyStore.Eth().Update(keys[0].Address.Hex(), 10)
+	require.NoError(t, err)
+	configureSimChain(app, map[string]types.ChainCfg{}, gasPrice.BigInt())
 
 	require.NoError(t, app.Start())
 	vrfkey, err := app.GetKeyStore().VRF().Create()

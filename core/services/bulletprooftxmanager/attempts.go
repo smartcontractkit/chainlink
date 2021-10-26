@@ -14,7 +14,7 @@ import (
 )
 
 func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	maxGasPriceWei := c.getMaxGasPriceWei(etx.FromAddress.Hex())
+	maxGasPriceWei := c.getMaxGasPriceWeiForKey(etx.FromAddress.Hex())
 	if err = validateDynamicFeeGas(c.config, fee, gasLimit, etx, maxGasPriceWei); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
@@ -46,7 +46,7 @@ func (c *ChainKeyStore) NewDynamicFeeAttempt(etx EthTx, fee gas.DynamicFee, gasL
 	return attempt, nil
 }
 
-func (c *ChainKeyStore) getMaxGasPriceWei(ethKeyID string) *big.Int {
+func (c *ChainKeyStore) getMaxGasPriceWeiForKey(ethKeyID string) *big.Int {
 	keyState, err := c.keystore.GetState(ethKeyID)
 	if err == nil && keyState.MaxGasGwei > 0 {
 		return assets.GWei(int64(keyState.MaxGasGwei))
@@ -107,7 +107,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 }
 
 func (c *ChainKeyStore) NewLegacyAttempt(etx EthTx, gasPrice *big.Int, gasLimit uint64) (attempt EthTxAttempt, err error) {
-	maxGasPriceWei := c.getMaxGasPriceWei(etx.FromAddress.Hex())
+	maxGasPriceWei := c.getMaxGasPriceWeiForKey(etx.FromAddress.Hex())
 	if err = validateLegacyGas(c.config, gasPrice, gasLimit, etx, maxGasPriceWei); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}

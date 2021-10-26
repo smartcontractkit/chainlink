@@ -72,7 +72,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		keyState, err := ethKeyStore.GetState(key.ID())
 		require.NoError(t, err)
-		require.Equal(t, 123, keyState.MaxGasGwei)
+		require.Equal(t, uint64(123), keyState.MaxGasGwei)
 	})
 
 	t.Run("RemoveKey", func(t *testing.T) {
