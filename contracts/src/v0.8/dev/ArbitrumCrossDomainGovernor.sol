@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "../interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/DelegateForwarderInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 import "./ArbitrumCrossDomainForwarder.sol";
 import "./CrossDomainDelegateForwarder.sol";
 
@@ -49,8 +50,7 @@ contract ArbitrumCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
     // 1. The call MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     // 2. Make the external call
-    (bool success, bytes memory res) = target.call(data);
-    require(success, string(abi.encode("xDomain call failed:", res)));
+    Address.functionCall(target, data, "Governor call reverted");
   }
 
   /**
@@ -61,7 +61,6 @@ contract ArbitrumCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
     // 1. The delegatecall MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     // 2. Make the external delegatecall
-    (bool success, bytes memory res) = target.delegatecall(data);
-    require(success, string(abi.encode("xDomain delegatecall failed:", res)));
+    Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
   }
 }

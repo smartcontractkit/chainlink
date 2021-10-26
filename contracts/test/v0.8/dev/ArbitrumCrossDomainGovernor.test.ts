@@ -119,7 +119,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         forwarder
           .connect(crossdomainMessenger)
           .forward(greeter.address, setGreetingData),
-      ).to.be.revertedWith('xDomain call failed:')
+      ).to.be.revertedWith('Governor call reverted')
     })
   })
 
@@ -178,7 +178,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         forwarder
           .connect(crossdomainMessenger)
           .forwardDelegate(multisend.address, multisendData),
-      ).to.be.revertedWith('xDomain delegatecall failed:')
+      ).to.be.revertedWith('Governor delegatecall reverted')
 
       const greeting = await greeter.greeting()
       assert.equal(greeting, '') // Unchanged
