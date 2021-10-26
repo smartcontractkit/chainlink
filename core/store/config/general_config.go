@@ -1196,7 +1196,7 @@ func parseUint64(s string) (interface{}, error) {
 
 func parseF32(s string) (interface{}, error) {
 	v, err := strconv.ParseFloat(s, 32)
-	return v, err
+	return float32(v), err
 }
 
 func parseURL(s string) (interface{}, error) {
