@@ -5,7 +5,6 @@ import "../interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/DelegateForwarderInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
-import "./ArbitrumCrossDomainForwarder.sol";
 import "./CrossDomainDelegateForwarder.sol";
 
 /**
