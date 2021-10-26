@@ -15,7 +15,13 @@ const peerIDPrefix = "p2p_"
 type PeerID peer.ID
 
 func (p PeerID) String() string {
-	return fmt.Sprintf("%s%s", peerIDPrefix, peer.ID(p).String())
+	// Handle a zero peerID more gracefully, i.e. print it as empty string rather
+	// than `p2p_`
+	raw := p.Raw()
+	if raw == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", peerIDPrefix, raw)
 }
 
 func (p PeerID) Raw() string {

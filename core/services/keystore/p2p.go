@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+//go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
+
 type P2P interface {
 	Get(id string) (p2pkey.KeyV2, error)
 	GetAll() ([]p2pkey.KeyV2, error)
