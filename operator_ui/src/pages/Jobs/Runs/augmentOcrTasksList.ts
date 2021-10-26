@@ -20,10 +20,9 @@ function assignAttributes(stratify: Stratify): AugmentedStratify {
 }
 
 export function augmentOcrTasksList({ jobRun }: { jobRun: PipelineJobRun }) {
-
   let graph: Stratify[] = []
   try {
-     graph = parseDot(`digraph {${jobRun.pipelineSpec.dotDagSource}}`)
+    graph = parseDot(`digraph {${jobRun.pipelineSpec.dotDagSource}}`)
   } catch (error) {
     console.error(error)
   }
