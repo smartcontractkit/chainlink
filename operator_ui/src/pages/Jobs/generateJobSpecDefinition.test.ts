@@ -70,7 +70,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid Flux Monitor definition', () => {
@@ -134,7 +135,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid Direct Request definition', () => {
@@ -181,7 +183,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid Keeper definition', () => {
@@ -219,7 +222,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid Cron definition', () => {
@@ -261,7 +265,8 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid Webhook definition', () => {
@@ -300,7 +305,8 @@ observationSource = """
 """
 `
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
   })
 
   it('generates a valid vrf definition', () => {
@@ -345,6 +351,83 @@ pollPeriod = ""
 observationSource = ""
 `
     const output = generateTOMLDefinition(jobSpecAttributesInput)
-    expect(output).toEqual(expectedOutput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe('')
+  })
+
+  it('generates a valid OCR definition with values set by environment vars', () => {
+    // const jobSpecAttributesInput: OffChainReportingJob = {
+    const jobSpecAttributesInput: any = {
+      name: 'Job spec v2 with env vars',
+      type: 'offchainreporting',
+      fluxMonitorSpec: null,
+      externalJobID: '0eec7e1d-d0d2-476c-a1a8-72dfb6633f46',
+      directRequestSpec: null,
+      keeperSpec: null,
+      cronSpec: null,
+      webhookSpec: null,
+      schemaVersion: 1,
+      vrfSpec: null,
+      offChainReportingOracleSpec: {
+        contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
+        p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
+        p2pBootstrapPeers: [
+          '/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY',
+        ],
+        isBootstrapPeer: false,
+        keyBundleID:
+          '4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af',
+        monitoringEndpoint: 'chain.link:4321',
+        transmitterAddress: '0x01010CaB43e77116c95745D219af1069fE050d7A',
+        observationTimeout: '10s',
+        observationTimeoutEnv: true,
+        blockchainTimeout: '20s',
+        blockchainTimeoutEnv: true,
+        contractConfigTrackerPollInterval: '1m0s',
+        contractConfigTrackerPollIntervalEnv: true,
+        contractConfigTrackerSubscribeInterval: '2m0s',
+        contractConfigTrackerSubscribeIntervalEnv: true,
+        contractConfigConfirmations: 3,
+        createdAt: '2020-11-17T13:50:13.182669Z',
+        updatedAt: '2020-11-17T13:50:13.182669Z',
+      },
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
+      },
+      errors: [],
+    }
+
+    const expectedOutput = `type = "offchainreporting"
+schemaVersion = 1
+contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
+p2pPeerID = "12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm"
+p2pBootstrapPeers = [
+  "/ip4/139.59.41.32/tcp/12000/p2p/12D3KooWGKhStcrvCr5RBYKaSRNX4ojrxHcmpJuFmHWenT6aAQAY"
+]
+isBootstrapPeer = false
+keyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
+contractConfigConfirmations = 3
+observationSource = """
+    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
+    parse    [type=jsonparse path="data,result"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+"""
+maxTaskDuration = "10s"
+externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+`
+    const expectedEnvOutput = `observationTimeout = "10s"
+blockchainTimeout = "20s"
+contractConfigTrackerPollInterval = "1m0s"
+contractConfigTrackerSubscribeInterval = "2m0s"
+`
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output.definition).toEqual(expectedOutput)
+    expect(output.envAttributesDefinition).toBe(expectedEnvOutput)
   })
 })
