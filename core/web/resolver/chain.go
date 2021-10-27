@@ -3,7 +3,6 @@ package resolver
 import (
 	"context"
 
-	"github.com/graph-gophers/dataloader"
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -49,15 +48,10 @@ func (r *ChainResolver) UpdatedAt() graphql.Time {
 }
 
 func (r *ChainResolver) Nodes(ctx context.Context) ([]*NodeResolver, error) {
-	ldr := loader.For(ctx)
-
-	thunk := ldr.NodesByChainIDLoader.Load(ctx, dataloader.StringKey(r.chain.ID.String()))
-	result, err := thunk()
+	nodes, err := loader.GetNodesByChainID(ctx, r.chain.ID.String())
 	if err != nil {
 		return nil, err
 	}
-
-	nodes := result.([]types.Node)
 
 	return NewNodes(nodes), nil
 }
