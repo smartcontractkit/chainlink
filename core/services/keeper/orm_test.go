@@ -358,15 +358,26 @@ func TestKeeperDB_ExistsPerformUpkeepTx(t *testing.T) {
 	db, csf, orm := setupKeeperDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	thisKey, _ := cltest.MustInsertRandomKey(t, ethKeyStore, 1)
 	_, job := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
+
+	txHash := createTxWithAttempt(t, db, csf, job.ID)
+
+	exists, err := orm.ExistsPerformUpkeepTx(context.Background(), job.ID, cltest.FixtureChainID.Uint64(), txHash.Hex())
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}
+
+func createTxWithAttempt(t *testing.T, db *gorm.DB, csf evmconfig.ChainScopedConfig, jobID int32) common.Hash {
+	t.Helper()
 
 	config := new(bptxmmocks.Config)
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
-	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	thisKey, _ := cltest.MustInsertRandomKey(t, ethKeyStore, 1)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
 
@@ -388,7 +399,7 @@ func TestKeeperDB_ExistsPerformUpkeepTx(t *testing.T) {
 		EncodedPayload: payload,
 		GasLimit:       gasLimit,
 		Meta: &bulletprooftxmanager.EthTxMeta{
-			JobID: job.ID,
+			JobID: jobID,
 		},
 		Strategy: strategy,
 	})
@@ -406,8 +417,5 @@ func TestKeeperDB_ExistsPerformUpkeepTx(t *testing.T) {
 	require.NoError(t, err)
 	err = db.Create(&a).Error
 	require.NoError(t, err)
-
-	exists, err := orm.ExistsPerformUpkeepTx(context.Background(), job.ID, etx.EVMChainID.ToInt().Uint64(), a.Hash.Hex())
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	return a.Hash
 }

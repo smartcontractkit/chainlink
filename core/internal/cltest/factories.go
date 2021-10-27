@@ -451,7 +451,11 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, db *gorm.DB, number int64) eth.Head {
-	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
+	return MustInsertHeadWithHash(t, db, number, utils.NewHash(), utils.NewHash())
+}
+
+func MustInsertHeadWithHash(t *testing.T, db *gorm.DB, number int64, hash, parent common.Hash) eth.Head {
+	h := eth.NewHead(big.NewInt(number), hash, parent, 0, utils.NewBig(&FixtureChainID))
 	err := db.Create(&h).Error
 	require.NoError(t, err)
 	return h
@@ -525,6 +529,7 @@ func MustInsertKeeperJob(t *testing.T, db *gorm.DB, from ethkey.EIP55Address, co
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
+		EVMChainID:      utils.NewBig(&FixtureChainID),
 	}
 	err := db.Create(&keeperSpec).Error
 	require.NoError(t, err)

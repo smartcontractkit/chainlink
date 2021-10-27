@@ -19,6 +19,26 @@ var (
 	_ log.Listener = (*RegistrySynchronizer)(nil)
 )
 
+// MailRoom holds the log mailboxes for all the log types that keeper cares about
+type MailRoom struct {
+	mbUpkeepCanceled   *utils.Mailbox
+	mbSyncRegistry     *utils.Mailbox
+	mbUpkeepPerformed  *utils.Mailbox
+	mbUpkeepRegistered *utils.Mailbox
+}
+
+type RegistrySynchronizerOptions struct {
+	Job                 job.Job
+	Contract            *keeper_registry_wrapper.KeeperRegistry
+	ORM                 ORM
+	JRM                 job.ORM
+	LogBroadcaster      log.Broadcaster
+	SyncInterval        time.Duration
+	MinConfirmations    uint64
+	Logger              logger.Logger
+	SyncUpkeepQueueSize uint32
+}
+
 type RegistrySynchronizer struct {
 	chStop              chan struct{}
 	contract            *keeper_registry_wrapper.KeeperRegistry
@@ -35,26 +55,8 @@ type RegistrySynchronizer struct {
 	utils.StartStopOnce
 }
 
-// MailRoom holds the log mailboxes for all the log types that keeper cares about
-type MailRoom struct {
-	mbUpkeepCanceled   *utils.Mailbox
-	mbSyncRegistry     *utils.Mailbox
-	mbUpkeepPerformed  *utils.Mailbox
-	mbUpkeepRegistered *utils.Mailbox
-}
-
 // NewRegistrySynchronizer is the constructor of RegistrySynchronizer
-func NewRegistrySynchronizer(
-	job job.Job,
-	contract *keeper_registry_wrapper.KeeperRegistry,
-	orm ORM,
-	jrm job.ORM,
-	logBroadcaster log.Broadcaster,
-	syncInterval time.Duration,
-	minConfirmations uint64,
-	logger logger.Logger,
-	syncUpkeepQueueSize uint32,
-) *RegistrySynchronizer {
+func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchronizer {
 	mailRoom := MailRoom{
 		mbUpkeepCanceled:   utils.NewMailbox(50),
 		mbSyncRegistry:     utils.NewMailbox(1),
@@ -63,16 +65,16 @@ func NewRegistrySynchronizer(
 	}
 	return &RegistrySynchronizer{
 		chStop:              make(chan struct{}),
-		contract:            contract,
-		interval:            syncInterval,
-		job:                 job,
-		jrm:                 jrm,
-		logBroadcaster:      logBroadcaster,
+		contract:            opts.Contract,
+		interval:            opts.SyncInterval,
+		job:                 opts.Job,
+		jrm:                 opts.JRM,
+		logBroadcaster:      opts.LogBroadcaster,
 		mailRoom:            mailRoom,
-		minConfirmations:    minConfirmations,
-		orm:                 orm,
-		logger:              logger.Named("RegistrySynchronizer"),
-		syncUpkeepQueueSize: syncUpkeepQueueSize,
+		minConfirmations:    opts.MinConfirmations,
+		orm:                 opts.ORM,
+		logger:              opts.Logger.Named("RegistrySynchronizer"),
+		syncUpkeepQueueSize: opts.SyncUpkeepQueueSize,
 	}
 }
 
