@@ -168,8 +168,8 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 }
 
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
-	rawLog := broadcast.RawLog().TxHash.Hex()
-	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", rawLog)
+	txHash := broadcast.RawLog().TxHash.Hex()
+	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
