@@ -62,7 +62,7 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
         "endpoint": "price"
       }
     },
-		{
+    {
       "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
       "type": "jsonparse",
       "params": {

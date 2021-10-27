@@ -509,7 +509,6 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		return "", nil, errors.Wrapf(err, "failed to generate pipeline from: \n%v", generatedDotDagSource)
 	}
 
-	logger.Warnf("%v", string(generatedDotDagSource))
 	return generatedDotDagSource, p, err
 }
 
