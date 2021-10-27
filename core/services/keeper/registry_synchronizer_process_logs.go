@@ -190,10 +190,6 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	if log.From.Hex() != rs.job.KeeperSpec.FromAddress.Hex() {
-		return
-	}
-
 	// set last run to 0 so that keeper can resume checkUpkeep()
 	err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
 	if err != nil {
