@@ -173,8 +173,13 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 
 	txHash := broadcast.RawLog().TxHash.Hex()
 
+	var evmChainID uint64
+	if rs.job.KeeperSpec.EVMChainID != nil {
+		evmChainID = rs.job.KeeperSpec.EVMChainID.ToInt().Uint64()
+	}
+
 	// Make sure the given transaction exists in the DB
-	exists, err := rs.orm.ExistsPerformUpkeepTx(ctx, rs.job.ID, rs.job.KeeperSpec.EVMChainID.ToInt().Uint64(), txHash)
+	exists, err := rs.orm.ExistsPerformUpkeepTx(ctx, rs.job.ID, evmChainID, txHash)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if transaction exists")
 		return
