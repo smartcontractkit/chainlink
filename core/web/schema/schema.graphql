@@ -6,8 +6,8 @@ schema {
 }
 
 type Query {
-    bridge(name: String!): Bridge!
-    bridges(offset: Int, limit: Int): [Bridge!]!
+    bridge(name: String!): BridgePayload!
+    bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): Chain!
     chains(offset: Int, limit: Int): [Chain!]!
     feedsManager(id: ID!): FeedsManager!

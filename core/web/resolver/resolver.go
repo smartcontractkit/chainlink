@@ -68,7 +68,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 }
 
 // Bridge retrieves a bridges by name.
-func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgeResolver, error) {
+func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
 	name, err := bridges.NewTaskType(args.Name)
 	if err != nil {
 		return nil, err
@@ -76,29 +76,29 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*Bri
 
 	bridge, err := r.App.BridgeORM().FindBridge(name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.New("bridge not found")
+		return NewBridgePayload(bridge, err), nil
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridge(bridge), nil
+	return NewBridgePayload(bridge, nil), nil
 }
 
 // Bridges retrieves a paginated list of bridges.
 func (r *Resolver) Bridges(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
-}) ([]*BridgeResolver, error) {
+}) (*BridgesPayloadResolver, error) {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	bridges, _, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridges(bridges), nil
+	return NewBridgesPayload(bridges, int32(count)), nil
 }
 
 type updateBridgeInput struct {
@@ -141,9 +141,8 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	orm := r.App.BridgeORM()
 	bridge, err := orm.FindBridge(taskType)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.New("bridge not found")
+		return NewUpdateBridgePayload(nil, err), nil
 	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +156,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewUpdateBridgePayload(bridge), nil
+	return NewUpdateBridgePayload(&bridge, nil), nil
 }
 
 // Chain retrieves a chain by id.
