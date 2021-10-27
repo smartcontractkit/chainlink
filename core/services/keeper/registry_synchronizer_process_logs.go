@@ -171,36 +171,27 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
-	txHash := broadcast.RawLog().TxHash.Hex()
+	rawLog := broadcast.RawLog().TxHash.Hex()
 
-	var evmChainID uint64
-	if rs.job.KeeperSpec.EVMChainID != nil {
-		evmChainID = rs.job.KeeperSpec.EVMChainID.ToInt().Uint64()
-	}
-
-	// Make sure the given transaction exists in the DB
-	exists, err := rs.orm.ExistsPerformUpkeepTx(ctx, rs.job.ID, evmChainID, txHash)
-	if err != nil {
-		rs.logger.With("error", err).Warn("unable to check if transaction exists")
-		return
-	}
-
-	if !exists {
-		return
-	}
-
-	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
+	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", rawLog)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
 		return
 	}
+
 	if was {
 		return
 	}
+
 	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
 	if !ok {
 		rs.logger.Errorf("invariant violation, expected UpkeepPerformed log but got %T", log)
+		return
+	}
+
+	fmt.Println("------- handleUpkeepPerformed ----------", log.From.Hex(), rs.job.KeeperSpec.FromAddress.Hex())
+	if log.From.Hex() != rs.job.KeeperSpec.FromAddress.Hex() {
 		return
 	}
 

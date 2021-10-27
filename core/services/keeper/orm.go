@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -139,22 +138,6 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 			upkeepID,
 			jobID,
 		).Error
-}
-
-// ExistsPerformUpkeepTx returns true if a transaction with the given hash exists in the DB.
-func (korm ORM) ExistsPerformUpkeepTx(ctx context.Context, jobID int32, evmChainID uint64, hash string) (exists bool, err error) {
-	hash = strings.TrimPrefix(hash, "0x")
-	err = korm.getDB(ctx).
-		Raw(`SELECT EXISTS(
-			SELECT 1
-			FROM eth_txes et
-			JOIN eth_tx_attempts eta ON et.id = eta.eth_tx_id
-			WHERE et.evm_chain_id = ? AND
-				  encode(eta.hash, 'hex') = ? AND
-				  (et.meta->>'JobID')::INT = ?
-		)`, evmChainID, hash, jobID).
-		Scan(&exists).Error
-	return
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {

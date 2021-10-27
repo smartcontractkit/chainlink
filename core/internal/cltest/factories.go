@@ -451,11 +451,7 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 }
 
 func MustInsertHead(t *testing.T, db *gorm.DB, number int64) eth.Head {
-	return MustInsertHeadWithHash(t, db, number, utils.NewHash(), utils.NewHash())
-}
-
-func MustInsertHeadWithHash(t *testing.T, db *gorm.DB, number int64, hash, parent common.Hash) eth.Head {
-	h := eth.NewHead(big.NewInt(number), hash, parent, 0, utils.NewBig(&FixtureChainID))
+	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	err := db.Create(&h).Error
 	require.NoError(t, err)
 	return h
