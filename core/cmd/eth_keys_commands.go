@@ -33,13 +33,13 @@ func (p *EthKeyPresenter) ToRow() []string {
 	}
 }
 
-var tableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Price Wei"}
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Price Wei"}
 
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
 	rows := [][]string{p.ToRow()}
 
-	renderList(tableHeaders, rows, rt.Writer)
+	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
 	return utils.JustError(rt.Write([]byte("\n")))
 }
@@ -54,7 +54,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(tableHeaders, rows, rt.Writer)
+	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
 	return nil
 }
