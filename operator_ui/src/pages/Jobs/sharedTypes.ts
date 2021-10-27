@@ -55,6 +55,7 @@ export type PipelineJobRun = BaseJobRun & {
 
 export type JobData = {
   job?: JobV2
+  envAttributesDefinition?: string
   recentRuns?: PipelineJobRun[]
   recentRunsCount: number
   externalJobID?: string
