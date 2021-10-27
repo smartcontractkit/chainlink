@@ -354,8 +354,7 @@ observationSource = ""
   })
 
   it('generates a valid OCR definition with values set by environment vars', () => {
-    // const jobSpecAttributesInput: OffChainReportingJob = {
-    const jobSpecAttributesInput: any = {
+    const jobSpecAttributesInput: OffChainReportingJob = {
       name: 'Job spec v2 with env vars',
       type: 'offchainreporting',
       fluxMonitorSpec: null,
