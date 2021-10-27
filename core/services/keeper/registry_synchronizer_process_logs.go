@@ -190,7 +190,6 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	fmt.Println("------- handleUpkeepPerformed ----------", log.From.Hex(), rs.job.KeeperSpec.FromAddress.Hex())
 	if log.From.Hex() != rs.job.KeeperSpec.FromAddress.Hex() {
 		return
 	}
