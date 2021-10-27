@@ -21,7 +21,8 @@ import (
 //go:generate mockery --dir ./proto --name FeedsManagerClient --output ./mocks/ --case=underscore
 
 var (
-	ErrOCRDisabled = errors.New("ocr is disabled")
+	ErrOCRDisabled        = errors.New("ocr is disabled")
+	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
 )
 
 type Service interface {
@@ -105,7 +106,7 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, err
 	}
 	if count >= 1 {
-		return 0, errors.New("only a single feeds manager is supported")
+		return 0, ErrSingleFeedsManager
 	}
 
 	id, err := s.orm.CreateManager(context.Background(), mgr)
