@@ -529,7 +529,6 @@ func MustInsertKeeperJob(t *testing.T, db *gorm.DB, from ethkey.EIP55Address, co
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
-		EVMChainID:      utils.NewBig(&FixtureChainID),
 	}
 	err := db.Create(&keeperSpec).Error
 	require.NoError(t, err)
