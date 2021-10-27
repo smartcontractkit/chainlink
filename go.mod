@@ -48,6 +48,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.2.0
+	github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164
 	github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/wsrpc v0.3.4
@@ -215,7 +216,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.6.0 // indirect

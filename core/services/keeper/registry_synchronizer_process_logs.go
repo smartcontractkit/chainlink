@@ -168,7 +168,22 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(done func()) {
 }
 
 func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	txHash := broadcast.RawLog().TxHash.Hex()
+
+	// Make sure the given transaction exists in the DB
+	exists, err := rs.orm.ExistsPerformUpkeepTx(ctx, rs.job.ID, rs.job.KeeperSpec.EVMChainID.ToInt().Uint64(), txHash)
+	if err != nil {
+		rs.logger.With("error", err).Warn("unable to check if transaction exists")
+		return
+	}
+
+	if !exists {
+		return
+	}
+
 	rs.logger.Debugw("processing UpkeepPerformed log", "txHash", txHash)
 	was, err := rs.logBroadcaster.WasAlreadyConsumed(rs.orm.DB, broadcast)
 	if err != nil {
@@ -183,9 +198,6 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.Errorf("invariant violation, expected UpkeepPerformed log but got %T", log)
 		return
 	}
-
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
 
 	// set last run to 0 so that keeper can resume checkUpkeep()
 	err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)

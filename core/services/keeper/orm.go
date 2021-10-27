@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -29,7 +30,7 @@ func NewORM(db *gorm.DB, txm transmitter, config Config, strategy bulletprooftxm
 	}
 }
 
-// Registries
+// Registries returns all registries
 func (korm ORM) Registries(ctx context.Context) ([]Registry, error) {
 	var registries []Registry
 	err := korm.getDB(ctx).
@@ -38,6 +39,7 @@ func (korm ORM) Registries(ctx context.Context) ([]Registry, error) {
 	return registries, err
 }
 
+// RegistryForJob returns a specific registry for a job with the given ID
 func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (Registry, error) {
 	var registry Registry
 	err := korm.getDB(ctx).
@@ -46,6 +48,7 @@ func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (Registry, erro
 	return registry, err
 }
 
+// UpsertRegistry upserts registry by the given input
 func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 	return korm.getDB(ctx).
 		Clauses(clause.OnConflict{
@@ -58,6 +61,7 @@ func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 		Error
 }
 
+// UpsertUpkeep upserts upkeep by the given input
 func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistration) error {
 	return korm.getDB(ctx).
 		Clauses(clause.OnConflict{
@@ -68,6 +72,7 @@ func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistrati
 		Error
 }
 
+// BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
 func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) (int64, error) {
 	exec := korm.getDB(ctx).
 		Exec(
@@ -134,6 +139,22 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 			upkeepID,
 			jobID,
 		).Error
+}
+
+// ExistsPerformUpkeepTx returns true if a transaction with the given hash exists in the DB.
+func (korm ORM) ExistsPerformUpkeepTx(ctx context.Context, jobID int32, evmChainID uint64, hash string) (exists bool, err error) {
+	hash = strings.TrimPrefix(hash, "0x")
+	err = korm.getDB(ctx).
+		Raw(`SELECT EXISTS(
+			SELECT 1
+			FROM eth_txes et
+			JOIN eth_tx_attempts eta ON et.id = eta.eth_tx_id
+			WHERE et.evm_chain_id = ? AND
+				  encode(eta.hash, 'hex') = ? AND
+				  (et.meta->>'JobID')::INT = ?
+		)`, evmChainID, hash, jobID).
+		Scan(&exists).Error
+	return
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {

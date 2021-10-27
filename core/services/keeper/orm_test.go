@@ -6,17 +6,25 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
 
 var (
@@ -343,4 +351,63 @@ func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	assertLastRunHeight(t, db, upkeep, 100)
 	orm.SetLastRunHeightForUpkeepOnJob(context.Background(), j.ID, upkeep.UpkeepID, 0)
 	assertLastRunHeight(t, db, upkeep, 0)
+}
+
+func TestKeeperDB_ExistsPerformUpkeepTx(t *testing.T) {
+	t.Parallel()
+	db, csf, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+
+	thisKey, _ := cltest.MustInsertRandomKey(t, ethKeyStore, 1)
+	_, job := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
+
+	config := new(bptxmmocks.Config)
+	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
+	config.On("EthTxReaperThreshold").Return(time.Duration(0))
+	config.On("GasEstimatorMode").Return("FixedPrice")
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+
+	lggr := logger.TestLogger(t)
+	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
+
+	fromAddress := thisKey.Address.Address()
+	gasLimit := uint64(1000)
+	toAddress := cltest.NewAddress()
+	payload := []byte{1, 2, 3}
+
+	subject := uuid.NewV4()
+	strategy := new(bptxmmocks.TxStrategy)
+	strategy.Test(t)
+	strategy.On("Simulate").Return(true)
+	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+	strategy.On("PruneQueue", mock.AnythingOfType("*gorm.DB")).Return(int64(0), nil)
+	config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
+	etx, err := bptxm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: payload,
+		GasLimit:       gasLimit,
+		Meta: &bulletprooftxmanager.EthTxMeta{
+			JobID: job.ID,
+		},
+		Strategy: strategy,
+	})
+	assert.NoError(t, err)
+
+	kst := new(ksmocks.Eth)
+	kst.Test(t)
+	tx := types.NewTx(&types.DynamicFeeTx{})
+	kst.On("SignTx", fromAddress, mock.Anything, etx.EVMChainID.ToInt()).Return(tx, nil)
+	cks := bulletprooftxmanager.NewChainKeyStore(*etx.EVMChainID.ToInt(), csf, kst)
+
+	nonce := int64(1)
+	etx.Nonce = &nonce
+	a, err := cks.NewDynamicFeeAttempt(etx, gas.DynamicFee{TipCap: assets.GWei(100), FeeCap: assets.GWei(200)}, 100)
+	require.NoError(t, err)
+	err = db.Create(&a).Error
+	require.NoError(t, err)
+
+	exists, err := orm.ExistsPerformUpkeepTx(context.Background(), job.ID, etx.EVMChainID.ToInt().Uint64(), a.Hash.Hex())
+	assert.NoError(t, err)
+	assert.True(t, exists)
 }

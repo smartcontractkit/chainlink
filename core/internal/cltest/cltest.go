@@ -113,7 +113,7 @@ var (
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	FixtureChainID              = *big.NewInt(0)
+	FixtureChainID              = *big.NewInt(4)
 	source                      rand.Source
 
 	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
