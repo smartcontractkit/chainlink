@@ -15,6 +15,7 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 
 - The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
 - The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
+- CLI command `keys eth list` is updated to display key specific max gas prices.
 
 #### `merge` task type
 

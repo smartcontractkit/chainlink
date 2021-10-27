@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -57,6 +58,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 		r, err := presenters.NewETHKeyResource(key, state,
 			ekc.setEthBalance(c.Request.Context(), state),
 			ekc.setLinkBalance(state),
+			ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
 		)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -267,6 +269,30 @@ func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewE
 		}
 
 		r.LinkBalance = bal
+
+		return nil
+	}
+}
+
+// setKeyMaxGasPriceWei is a custom functional option for NewEthKeyResource which
+// gets the key specific max gas price from the chain config and sets it on the
+// resource.
+func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
+	var price *big.Int
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	if err == nil {
+		price = chain.Config().KeySpecificMaxGasPriceWei(keyAddress)
+	}
+
+	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("error getting EVM Chain: %v", err)
+		}
+
+		r.MaxGasPriceWei = *utils.NewBig(price)
 
 		return nil
 	}

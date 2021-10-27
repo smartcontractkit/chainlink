@@ -1,7 +1,8 @@
 enum ErrorCode {
 	NOT_FOUND
+	INVALID_INPUT
+	UNPROCESSABLE
 }
-
 
 interface Error {
 	message: String!
@@ -11,4 +12,14 @@ interface Error {
 type NotFoundError implements Error {
 	message: String!
 	code: ErrorCode!
+}
+
+type InputError implements Error {
+	message: String!
+	code: ErrorCode!
+	path: String!
+  }
+
+type InputErrors {
+	errors: [InputError!]!
 }

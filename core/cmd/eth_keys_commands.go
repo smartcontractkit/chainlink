@@ -29,15 +29,17 @@ func (p *EthKeyPresenter) ToRow() []string {
 		fmt.Sprintf("%v", p.IsFunding),
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
+		p.MaxGasPriceWei.String(),
 	}
 }
 
+var ethKeysTableHeaders = []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated", "Max Gas Price Wei"}
+
 // RenderTable implements TableRenderer
 func (p *EthKeyPresenter) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{p.ToRow()}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
 	return utils.JustError(rt.Write([]byte("\n")))
 }
@@ -46,14 +48,13 @@ type EthKeyPresenters []EthKeyPresenter
 
 // RenderTable implements TableRenderer
 func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
-	headers := []string{"Address", "EVM Chain ID", "ETH", "LINK", "Is funding", "Created", "Updated"}
 	rows := [][]string{}
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())
 	}
 
-	renderList(headers, rows, rt.Writer)
+	renderList(ethKeysTableHeaders, rows, rt.Writer)
 
 	return nil
 }

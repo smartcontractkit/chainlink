@@ -29,26 +29,28 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		address     = "0x5431F5F973781809D18643b87B44921b11355d81"
-		ethBalance  = assets.NewEth(1)
-		linkBalance = assets.NewLinkFromJuels(2)
-		isFunding   = true
-		createdAt   = time.Now()
-		updatedAt   = time.Now().Add(time.Second)
-		bundleID    = cltest.DefaultOCRKeyBundleID
-		buffer      = bytes.NewBufferString("")
-		r           = cmd.RendererTable{Writer: buffer}
+		address        = "0x5431F5F973781809D18643b87B44921b11355d81"
+		ethBalance     = assets.NewEth(1)
+		linkBalance    = assets.NewLinkFromJuels(2)
+		isFunding      = true
+		createdAt      = time.Now()
+		updatedAt      = time.Now().Add(time.Second)
+		maxGasPriceWei = utils.NewBigI(12345)
+		bundleID       = cltest.DefaultOCRKeyBundleID
+		buffer         = bytes.NewBufferString("")
+		r              = cmd.RendererTable{Writer: buffer}
 	)
 
 	p := cmd.EthKeyPresenter{
 		ETHKeyResource: presenters.ETHKeyResource{
-			JAID:        presenters.NewJAID(bundleID),
-			Address:     address,
-			EthBalance:  ethBalance,
-			LinkBalance: linkBalance,
-			IsFunding:   isFunding,
-			CreatedAt:   createdAt,
-			UpdatedAt:   updatedAt,
+			JAID:           presenters.NewJAID(bundleID),
+			Address:        address,
+			EthBalance:     ethBalance,
+			LinkBalance:    linkBalance,
+			IsFunding:      isFunding,
+			CreatedAt:      createdAt,
+			UpdatedAt:      updatedAt,
+			MaxGasPriceWei: *maxGasPriceWei,
 		},
 	}
 
@@ -62,6 +64,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasPriceWei.String())
 
 	// Render many resources
 	buffer.Reset()
@@ -75,6 +78,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasPriceWei.String())
 }
 
 func TestClient_ListETHKeys(t *testing.T) {
