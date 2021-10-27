@@ -8,12 +8,16 @@ import (
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
 type Resolver struct {
@@ -217,4 +221,61 @@ func (r *Resolver) FeedsManagers() (*FeedsManagersPayloadResolver, error) {
 	}
 
 	return NewFeedsManagersPayload(mgrs), nil
+}
+
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
+}
+
+func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
+	Input *createFeedsManagerInput
+}) (*CreateFeedsManagerPayloadResolver, error) {
+	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
+	if err != nil {
+		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+			"input/publicKey": "invalid hex value",
+		}), nil
+	}
+
+	// convert enum job types
+	jobTypes := pq.StringArray{}
+	for _, jt := range args.Input.JobTypes {
+		jobTypes = append(jobTypes, FromJobTypeInput(jt))
+	}
+
+	mgr := &feeds.FeedsManager{
+		Name:                      args.Input.Name,
+		URI:                       args.Input.URI,
+		PublicKey:                 *publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
+		OCRBootstrapPeerMultiaddr: null.StringFromPtr(args.Input.BootstrapPeerMultiaddr),
+	}
+
+	feedsService := r.App.GetFeedsService()
+
+	id, err := feedsService.RegisterManager(mgr)
+	if err != nil {
+		if errors.Is(err, feeds.ErrSingleFeedsManager) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	mgr, err = feedsService.GetManager(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
 }

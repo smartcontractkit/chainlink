@@ -1,9 +1,14 @@
+enum JobType {
+	FLUX_MONITOR
+	OCR
+}
+
 type FeedsManager {
 	id: ID!
 	name: String!
 	uri: String!
 	publicKey: String!
-	jobTypes: [String!]!
+	jobTypes: [JobType!]!
 	isBootstrapPeer: Boolean!
 	bootstrapPeerMultiaddr: String
 	isConnectionActive: Boolean!
@@ -17,3 +22,29 @@ union FeedsManagerPayload = FeedsManager | NotFoundError
 type FeedsManagersPayload {
     results: [FeedsManager!]!
 }
+
+input CreateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+	jobTypes: [JobType!]!
+	isBootstrapPeer: Boolean!
+	bootstrapPeerMultiaddr: String
+}
+
+# CreateFeedsManagerSuccess defines the success response when creating a feeds
+# manager
+type CreateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+type SingleFeedsManagerError implements Error {
+	message: String!
+	code: ErrorCode!
+}
+
+# CreateFeedsManagerPayload defines the response when creating a feeds manager
+union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
+	| SingleFeedsManagerError
+	| NotFoundError
+	| InputErrors
