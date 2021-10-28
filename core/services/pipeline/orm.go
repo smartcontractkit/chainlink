@@ -43,6 +43,7 @@ func NewORM(db *gorm.DB) *orm {
 	return &orm{db}
 }
 
+// CreateSpec creates a new keeper spec.
 // The tx argument must be an already started transaction.
 func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, pipeline Pipeline, maxTaskDuration models.Interval) (int32, error) {
 	spec := Spec{
@@ -174,7 +175,7 @@ func (o *orm) StoreRun(tx postgres.Queryer, run *Run) (restart bool, err error) 
 	return false, nil
 }
 
-// Used for cleaning up a run that failed and is marked failEarly (should leave no trace of the run)
+// DeleteRun cleans up a run that failed and is marked failEarly (should leave no trace of the run)
 func (o *orm) DeleteRun(id int64) error {
 	db := postgres.UnwrapGormDB(o.db)
 	// NOTE: this will cascade and wipe pipeline_task_runs too
