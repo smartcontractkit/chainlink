@@ -25,11 +25,12 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice versions:
    *
    * - ArbitrumCrossDomainForwarder 0.1.0: initial release
+   * - ArbitrumCrossDomainForwarder 0.2.0: Use OZ Address
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumCrossDomainForwarder 0.1.0";
+    return "ArbitrumCrossDomainForwarder 0.2.0";
   }
 
   /**

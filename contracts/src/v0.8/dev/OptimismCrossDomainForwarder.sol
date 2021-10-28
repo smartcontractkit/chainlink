@@ -6,6 +6,7 @@ import "../interfaces/TypeAndVersionInterface.sol";
 /* ./dev dependencies - to be moved from ./dev after audit */
 import "./CrossDomainForwarder.sol";
 import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
+import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 
 /**
  * @title OptimismCrossDomainForwarder - L1 xDomain account representation
@@ -31,11 +32,12 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice versions:
    *
    * - OptimismCrossDomainForwarder 0.1.0: initial release
+   * - OptimismCrossDomainForwarder 0.2.0: Use OZ Address
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismCrossDomainForwarder 0.1.0";
+    return "OptimismCrossDomainForwarder 0.2.0";
   }
 
   /**
@@ -51,8 +53,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
       "xDomain sender is not the L1 owner"
     );
     // 3. Make the external call
-    (bool success, bytes memory res) = target.call(data);
-    require(success, string(abi.encode("xDomain call failed:", res)));
+    Address.functionCall(target, data, "Forwarder call reverted");
   }
 
   /**
