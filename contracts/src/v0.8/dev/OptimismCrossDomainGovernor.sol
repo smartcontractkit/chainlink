@@ -47,17 +47,32 @@ contract OptimismCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
   }
 
   /**
+   * @notice transfer ownership of this account to a new L1 owner
+   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by the L1 owner (not the L2 owner.)
+   * @param to new L1 owner that will be allowed to call the forward fn
+   */
+  function transferL1Ownership(address to) external override {
+    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+    _setL1Owner(to);
+  }
+
+  /**
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
    * @inheritdoc ForwarderInterface
    */
   function forward(address target, bytes memory data) external override {
-    // 1. The call MUST come from the L1 Messenger
-    require(msg.sender == OVM_CROSS_DOMAIN_MESSENGER, "Sender is not the L2 messenger");
-    // 2. The L1 Messenger's caller MUST be the L1 Owner
+    // 1. The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner
     require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
-      "xDomain sender is not the L1 owner"
+      msg.sender == OVM_CROSS_DOMAIN_MESSENGER || msg.sender == owner(),
+      "Sender is not the L2 messenger or owner"
     );
+    // 2. The L2 Messenger's caller MUST be the L1 Owner
+    if (msg.sender == OVM_CROSS_DOMAIN_MESSENGER) {
+      require(
+        iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
+        "xDomain sender is not the L1 owner"
+      );
+    }
     // 3. Make the external call
     Address.functionCall(target, data, "Governor call reverted");
   }
@@ -67,13 +82,18 @@ contract OptimismCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
    * @inheritdoc DelegateForwarderInterface
    */
   function forwardDelegate(address target, bytes memory data) external override {
-    // 1. The call MUST come from the L1 Messenger
-    require(msg.sender == OVM_CROSS_DOMAIN_MESSENGER, "Sender is not the L2 messenger");
-    // 2. The L1 Messenger's caller MUST be the L1 Owner
+    // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
     require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
-      "xDomain sender is not the L1 owner"
+      msg.sender == OVM_CROSS_DOMAIN_MESSENGER || msg.sender == owner(),
+      "Sender is not the L2 messenger or owner"
     );
+    // 2. The L2 Messenger's caller MUST be the L1 Owner
+    if (msg.sender == OVM_CROSS_DOMAIN_MESSENGER) {
+      require(
+        iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
+        "xDomain sender is not the L1 owner"
+      );
+    }
     // 2. Make the external delegatecall
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
   }
