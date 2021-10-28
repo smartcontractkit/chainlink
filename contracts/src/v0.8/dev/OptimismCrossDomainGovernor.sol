@@ -8,7 +8,7 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
 import "./CrossDomainDelegateForwarder.sol";
 
 /**
- * @title OptimismCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Arbitrum
+ * @title OptimismCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Optimism
  * @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
@@ -35,7 +35,7 @@ contract OptimismCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismCrossDomainForwarder 0.1.0";
+    return "OptimismCrossDomainGovernor 0.1.0";
   }
 
   /**
@@ -53,6 +53,10 @@ contract OptimismCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDele
    */
   function transferL1Ownership(address to) external override {
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+    require(
+      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
+      "xDomain sender is not the L1 owner"
+    );
     _setL1Owner(to);
   }
 
