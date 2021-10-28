@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/pkg/errors"
@@ -110,9 +111,15 @@ func (cli *Client) ExportCSAKey(c *cli.Context) (err error) {
 	}
 
 	ID := c.Args().Get(0)
+	exportUrl := url.URL{
+		Path: "/v2/keys/csa/export/" + c.Args().Get(0),
+	}
 
-	normalizedPassword := normalizePassword(string(newPassword))
-	resp, err := cli.HTTP.Post("/v2/keys/csa/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	query := exportUrl.Query()
+	query.Set("newpassword", normalizePassword(string(newPassword)))
+
+	exportUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(exportUrl.String(), nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
