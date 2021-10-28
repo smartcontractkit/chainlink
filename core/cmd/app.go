@@ -256,6 +256,21 @@ func NewApp(client *Client) *cli.App {
 									Name:  "evmChainID",
 									Usage: "Chain ID for the key. If left blank, default chain will be used.",
 								},
+								cli.Uint64Flag{
+									Name:  "maxGasPriceGWei",
+									Usage: "Optional maximum gas price (GWei) for the creating key.",
+								},
+							},
+						},
+						{
+							Name:   "update",
+							Usage:  "Update the existing key's parameters",
+							Action: client.UpdateETHKey,
+							Flags: []cli.Flag{
+								cli.Uint64Flag{
+									Name:  "maxGasPriceGWei",
+									Usage: "Maximum gas price (GWei) for the specified key.",
+								},
 							},
 						},
 						{
