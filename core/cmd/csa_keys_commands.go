@@ -1,10 +1,17 @@
 package cmd
 
 import (
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
+
+	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 type CSAKeyPresenter struct {
@@ -79,4 +86,60 @@ func (cli *Client) CreateCSAKey(c *cli.Context) (err error) {
 	}()
 
 	return cli.renderAPIResponse(resp, &CSAKeyPresenter{}, "Created CSA key")
+}
+
+// ExportCSAKey exports a CSA key. Key ID must be passed.
+func (cli *Client) ExportCSAKey(c *cli.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+	}
+
+	newPasswordFile := c.String("newpassword")
+	if len(newPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+	}
+
+	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.String("output")
+	if len(filepath) == 0 {
+		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+	}
+
+	ID := c.Args().Get(0)
+
+	normalizedPassword := normalizePassword(string(newPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/csa/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.New("Error exporting"))
+	}
+
+	keyJSON, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+	}
+
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+	}
+
+	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	return nil
 }

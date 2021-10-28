@@ -299,6 +299,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)
