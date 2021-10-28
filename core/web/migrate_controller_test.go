@@ -113,8 +113,8 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	type=bridge
 	];
 	merge_jsonparse [
-	left=<{ "path": "result" }>
-	right="$(decode_cbor)"
+	left="$(decode_cbor)"
+	right=<{ "path": "result" }>
 	type=merge
 	];
 	jsonparse_1 [
@@ -123,8 +123,8 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	type=jsonparse
 	];
 	merge_multiply [
-	left=<{ "times": "100000000" }>
-	right="$(decode_cbor)"
+	left="$(decode_cbor)"
+	right=<{ "times": "100000000" }>
 	type=merge
 	];
 	multiply_2 [

@@ -321,8 +321,8 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		case adapters.TaskTypeJSONParse:
 
 			attrs := map[string]string{
-				"type":  pipeline.TaskTypeMerge.String(),
-				"right": "$(decode_cbor)",
+				"type": pipeline.TaskTypeMerge.String(),
+				"left": "$(decode_cbor)",
 			}
 
 			if ts.Params.Get("path").Exists() {
@@ -342,10 +342,11 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 				replacements["\""+template+"\""] = fmt.Sprintf(`{ "path": "%v" }`, pathString)
-
-				attrs["left"] = template
+				attrs["right"] = template
 			} else {
-				return "", nil, errors.New("no path param on jsonparse task")
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = `{}`
+				attrs["right"] = template
 			}
 
 			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_jsonparse", attrs)
@@ -365,17 +366,18 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		case adapters.TaskTypeMultiply:
 
 			attrs := map[string]string{
-				"type":  pipeline.TaskTypeMerge.String(),
-				"right": "$(decode_cbor)",
+				"type": pipeline.TaskTypeMerge.String(),
+				"left": "$(decode_cbor)",
 			}
-			if ts.Params.Get("times").Exists() {
 
+			if ts.Params.Get("times").Exists() {
 				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 				replacements["\""+template+"\""] = fmt.Sprintf(`{ "times": "%v" }`, ts.Params.Get("times").String())
-
-				attrs["left"] = template
+				attrs["right"] = template
 			} else {
-				return "", nil, errors.New("no times param on multiply task")
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = `{}`
+				attrs["right"] = template
 			}
 
 			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_multiply", attrs)
