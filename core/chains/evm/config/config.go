@@ -74,6 +74,7 @@ type ChainScopedConfig interface {
 	config.GeneralConfig
 	ChainScopedOnlyConfig
 	Validate() error
+	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
 	Configure(config evmtypes.ChainCfg) error
 	PersistedConfig() evmtypes.ChainCfg
 }
