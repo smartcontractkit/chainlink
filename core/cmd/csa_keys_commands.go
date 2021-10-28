@@ -112,7 +112,7 @@ func (cli *Client) ExportCSAKey(c *cli.Context) (err error) {
 
 	ID := c.Args().Get(0)
 	exportUrl := url.URL{
-		Path: "/v2/keys/csa/export/" + c.Args().Get(0),
+		Path: "/v2/keys/csa/export/" + ID,
 	}
 
 	query := exportUrl.Query()
