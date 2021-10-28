@@ -175,9 +175,11 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		rs.logger.With("error", err).Warn("unable to check if log was consumed")
 		return
 	}
+
 	if was {
 		return
 	}
+
 	log, ok := broadcast.DecodedLog().(*keeper_registry_wrapper.KeeperRegistryUpkeepPerformed)
 	if !ok {
 		rs.logger.Errorf("invariant violation, expected UpkeepPerformed log but got %T", log)
