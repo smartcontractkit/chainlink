@@ -45,11 +45,11 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKeys")
 }
 
-// Exports a key
+// Export exports a key
 func (ctrl *CSAKeysController) Export(c *gin.Context) {
 	defer logger.ErrorIfCalling(c.Request.Body.Close)
 
-	keyID := c.Param("keyID")
+	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")
 
 	bytes, err := ctrl.App.GetKeyStore().CSA().Export(keyID, newPassword)
