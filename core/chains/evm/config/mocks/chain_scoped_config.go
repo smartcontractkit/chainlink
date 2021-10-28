@@ -3030,6 +3030,20 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
+// PersistedConfig provides a mock function with given fields:
+func (_m *ChainScopedConfig) PersistedConfig() types.ChainCfg {
+	ret := _m.Called()
+
+	var r0 types.ChainCfg
+	if rf, ok := ret.Get(0).(func() types.ChainCfg); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(types.ChainCfg)
+	}
+
+	return r0
+}
+
 // Port provides a mock function with given fields:
 func (_m *ChainScopedConfig) Port() uint16 {
 	ret := _m.Called()

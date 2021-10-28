@@ -81,6 +81,9 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	if c.IsSet("evmChainID") {
 		query.Set("evmChainID", c.String("evmChainID"))
 	}
+	if c.IsSet("maxGasPriceGWei") {
+		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
+	}
 	resp, err := cli.HTTP.Post("/v2/keys/eth?"+query.Encode(), nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -92,6 +95,34 @@ func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
 	}()
 
 	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key created.\n\n🔑 New key")
+}
+
+// UpdateETHKey updates an Ethereum key's parameters,
+// address of key must be passed as well as at least one parameter to update
+func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the address of the key to be updated"))
+	}
+
+	query := url.Values{}
+	if c.IsSet("maxGasPriceGWei") {
+		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
+	} else {
+		return cli.errorOut(errors.New("Must pass at least one parameter to update"))
+	}
+
+	address := c.Args().Get(0)
+	resp, err := cli.HTTP.Put(fmt.Sprintf("/v2/keys/eth/%s?%s", address, query.Encode()), nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &EthKeyPresenter{}, "ETH key updated.\n\n🔑 Updated key")
 }
 
 // DeleteETHKey deletes an Ethereum key,
