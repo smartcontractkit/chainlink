@@ -90,13 +90,13 @@ describe('ArbitrumCrossDomainGovernor', () => {
   })
 
   describe('#forward', () => {
-    it('should not be callable by unknown crossdomain messenger address', async () => {
+    it('should not be callable by unknown address', async () => {
       await expect(
         forwarder.connect(stranger).forward(greeter.address, '0x'),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
-    it('should be callable by crossdomain messenger address', async () => {
+    it('should be callable by crossdomain messenger address / L1 owner', async () => {
       const newGreeting = 'hello'
       const setGreetingData = greeterFactory.interface.encodeFunctionData(
         'setGreeting',
@@ -105,6 +105,18 @@ describe('ArbitrumCrossDomainGovernor', () => {
       await forwarder
         .connect(crossdomainMessenger)
         .forward(greeter.address, setGreetingData)
+
+      const updatedGreeting = await greeter.greeting()
+      assert.equal(updatedGreeting, newGreeting)
+    })
+
+    it('should be callable by L2 owner', async () => {
+      const newGreeting = 'hello'
+      const setGreetingData = greeterFactory.interface.encodeFunctionData(
+        'setGreeting',
+        [newGreeting],
+      )
+      await forwarder.connect(owner).forward(greeter.address, setGreetingData)
 
       const updatedGreeting = await greeter.greeting()
       assert.equal(updatedGreeting, newGreeting)
@@ -124,13 +136,13 @@ describe('ArbitrumCrossDomainGovernor', () => {
   })
 
   describe('#forwardDelegate', () => {
-    it('should not be callable by unknown crossdomain messenger address', async () => {
+    it('should not be callable by unknown address', async () => {
       await expect(
         forwarder.connect(stranger).forwardDelegate(multisend.address, '0x'),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
-    it('should be callable by crossdomain messenger address', async () => {
+    it('should be callable by crossdomain messenger address / L1 owner', async () => {
       const calls = [
         {
           to: greeter.address,
@@ -150,6 +162,32 @@ describe('ArbitrumCrossDomainGovernor', () => {
       const multisendData = encodeMultisendData(multisend.interface, calls)
       await forwarder
         .connect(crossdomainMessenger)
+        .forwardDelegate(multisend.address, multisendData)
+
+      const updatedGreeting = await greeter.greeting()
+      assert.equal(updatedGreeting, 'bar')
+    })
+
+    it('should be callable by L2 owner', async () => {
+      const calls = [
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'foo',
+          ]),
+          value: 0,
+        },
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'bar',
+          ]),
+          value: 0,
+        },
+      ]
+      const multisendData = encodeMultisendData(multisend.interface, calls)
+      await forwarder
+        .connect(owner)
         .forwardDelegate(multisend.address, multisendData)
 
       const updatedGreeting = await greeter.greeting()
@@ -189,15 +227,23 @@ describe('ArbitrumCrossDomainGovernor', () => {
     it('should not be callable by non-owners', async () => {
       await expect(
         forwarder.connect(stranger).transferL1Ownership(stranger.address),
-      ).to.be.revertedWith('Only callable by owner')
+      ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
-    it('should be callable by Forwarder owner', async () => {
+    it('should not be callable by L2 owner', async () => {
       const forwarderOwner = await forwarder.owner()
       assert.equal(forwarderOwner, owner.address)
 
+      await expect(
+        forwarder.connect(owner).transferL1Ownership(stranger.address),
+      ).to.be.revertedWith('Sender is not the L2 messenger')
+    })
+
+    it('should be callable by current L1 owner', async () => {
       const newL1Owner = stranger.address
-      await forwarder.connect(owner).transferL1Ownership(newL1Owner)
+      await forwarder
+        .connect(crossdomainMessenger)
+        .transferL1Ownership(newL1Owner)
       const updatedL1Owner = await forwarder.l1Owner()
       assert.equal(updatedL1Owner, newL1Owner)
     })
