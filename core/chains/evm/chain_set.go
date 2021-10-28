@@ -226,14 +226,14 @@ func (cll *chainSet) UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) e
 
 	updatedConfig := chain.cfg.PersistedConfig()
 	for _, updater := range updaters {
-		if err := updater(&updatedConfig); err != nil {
+		if err = updater(&updatedConfig); err != nil {
 			return err
 		}
 	}
 
 	_, err = cll.orm.UpdateChain(*bid, dbchain.Enabled, updatedConfig)
 	if err == nil {
-		chain.Config().Configure(updatedConfig)
+		return chain.Config().Configure(updatedConfig)
 	}
 
 	return err
