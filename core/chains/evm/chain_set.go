@@ -209,24 +209,23 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 }
 
 func (cll *chainSet) UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error {
-	cll.chainsMu.RLock()
-	defer cll.chainsMu.RUnlock()
-
 	bid := utils.NewBig(id)
 	dbchain, err := cll.orm.Chain(*bid)
 	if err != nil {
 		return err
 	}
 
-	cid := id.String()
-	chain, exists := cll.chains[cid]
+	cll.chainsMu.RLock()
+	chain, exists := cll.chains[id.String()]
+	cll.chainsMu.RUnlock()
 	if !exists {
 		return errors.New("chain does not exist")
 	}
 
-	updatedConfig := chain.cfg.PersistedConfig()
+	updatedConfig := chain.Config().PersistedConfig()
 	for _, updater := range updaters {
 		if err = updater(&updatedConfig); err != nil {
+			cll.chainsMu.RUnlock()
 			return err
 		}
 	}
@@ -337,7 +336,7 @@ func checkOpts(opts *ChainSetOpts) error {
 }
 
 func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *big.Int) ChainConfigUpdater {
-	return func(config *types.ChainCfg) error { // TODO
+	return func(config *types.ChainCfg) error {
 		keyChainConfig, ok := config.KeySpecific[addr.Hex()]
 		if !ok {
 			keyChainConfig = types.ChainCfg{}

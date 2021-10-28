@@ -77,14 +77,20 @@ func (cli *Client) ListETHKeys(c *cli.Context) (err error) {
 // CreateETHKey creates a new ethereum key with the same password
 // as the one used to unlock the existing key.
 func (cli *Client) CreateETHKey(c *cli.Context) (err error) {
-	query := url.Values{}
+	createUrl := url.URL{
+		Path: "/v2/keys/eth",
+	}
+	query := createUrl.Query()
+
 	if c.IsSet("evmChainID") {
 		query.Set("evmChainID", c.String("evmChainID"))
 	}
 	if c.IsSet("maxGasPriceGWei") {
 		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
 	}
-	resp, err := cli.HTTP.Post("/v2/keys/eth?"+query.Encode(), nil)
+
+	createUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(createUrl.String(), nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -103,16 +109,20 @@ func (cli *Client) UpdateETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to be updated"))
 	}
+	address := c.Args().Get(0)
+	updateUrl := url.URL{
+		Path: "/v2/keys/eth/" + address,
+	}
 
-	query := url.Values{}
+	query := updateUrl.Query()
 	if c.IsSet("maxGasPriceGWei") {
 		query.Set("maxGasPriceGWei", c.String("maxGasPriceGWei"))
 	} else {
 		return cli.errorOut(errors.New("Must pass at least one parameter to update"))
 	}
 
-	address := c.Args().Get(0)
-	resp, err := cli.HTTP.Put(fmt.Sprintf("/v2/keys/eth/%s?%s", address, query.Encode()), nil)
+	updateUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Put(updateUrl.String(), nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -131,22 +141,26 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
 	}
+	address := c.Args().Get(0)
+	deleteUrl := url.URL{
+		Path: "/v2/keys/eth/" + address,
+	}
+	query := deleteUrl.Query()
 
 	if c.Bool("hard") && !confirmAction(c) {
 		return nil
 	}
 
-	var queryStr string
 	var confirmationMsg string
 	if c.Bool("hard") {
-		queryStr = "?hard=true"
+		query.Set("hard", "true")
 		confirmationMsg = "Deleted ETH key"
 	} else {
 		confirmationMsg = "Archived ETH key"
 	}
 
-	address := c.Args().Get(0)
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/keys/eth/%s%s", address, queryStr))
+	deleteUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Delete(deleteUrl.String())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -181,14 +195,19 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	query := url.Values{}
+	importUrl := url.URL{
+		Path: "/v2/keys/eth/import",
+	}
+	query := importUrl.Query()
+
 	query.Set("oldpassword", strings.TrimSpace(string(oldPassword)))
 
 	if c.IsSet("evmChainID") {
 		query.Set("evmChainID", c.String("evmChainID"))
 	}
 
-	resp, err := cli.HTTP.Post("/v2/keys/eth/import?"+query.Encode(), bytes.NewReader(keyJSON))
+	importUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(importUrl.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -223,11 +242,14 @@ func (cli *Client) ExportETHKey(c *cli.Context) (err error) {
 	}
 
 	address := c.Args().Get(0)
-
-	query := url.Values{}
+	exportUrl := url.URL{
+		Path: "/v2/keys/eth/export/" + address,
+	}
+	query := exportUrl.Query()
 	query.Set("newpassword", strings.TrimSpace(string(newPassword)))
 
-	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?"+query.Encode(), nil)
+	exportUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(exportUrl.String(), nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
