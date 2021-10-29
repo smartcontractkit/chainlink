@@ -28,7 +28,7 @@ import { FormHelperText } from '@material-ui/core'
 const logLevels = ['debug', 'info', 'warn', 'error']
 
 type LogConfig = {
-  defaultLogLevel: models.LogConfigLevel
+  defaultLogLevel: string
   level: models.LogConfigLevel
   sqlEnabled: boolean
 }
