@@ -56,24 +56,33 @@ function apiCall({
   return api.v2.chains.createChain(definition)
 }
 
+interface ConfigOverrides {
+  [attr: string]: string | boolean
+}
+
+const defaultKeySpecifics = '{}'
+
 export const New = ({
   classes,
 }: {
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const dispatch = useDispatch()
-  const [overrides, setOverrides] = useState<string>('{}')
+  const [overrides, setOverrides] = useState<ConfigOverrides>({})
+  const [keySpecificOverrides, setKeySpecificOverrides] =
+    useState<string>(defaultKeySpecifics)
   const [chainID, setChainID] = useState<string>('')
-  const [overridesErrorMsg, setOverridesErrorMsg] = useState<string>('')
+  const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
+    useState<string>('')
   const [chainIDErrorMsg, setChainIDErrorMsg] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
 
   function validate({
     chainID,
-    overrides,
+    keySpecificOverrides,
   }: {
     chainID: string
-    overrides: string
+    keySpecificOverrides: string
   }) {
     let valid = true
     if (!(parseInt(chainID, 10) > 0)) {
@@ -81,9 +90,9 @@ export const New = ({
       valid = false
     }
     try {
-      JSON.parse(overrides)
+      JSON.parse(keySpecificOverrides)
     } catch (e) {
-      setOverridesErrorMsg('Invalid job spec')
+      setKeySpecificOverridesErrorMsg('Invalid key specific overrides')
       valid = false
     }
     return valid
@@ -94,23 +103,44 @@ export const New = ({
     setChainIDErrorMsg('')
   }
 
-  function handleOverrideChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setOverrides(event.target.value)
-    setOverridesErrorMsg('')
+  function handleOverrideChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const newOverrides = {
+      ...overrides,
+      [event.target.name]:
+        // Supports setting boolean values, since the checked status is not available on `target.value`
+        event.target.type == 'checkbox'
+          ? event.target.checked
+          : event.target.value,
+    }
+
+    setOverrides(newOverrides)
+  }
+
+  function handleKeySpecificOverrideChange(
+    event: React.ChangeEvent<HTMLTextAreaElement>,
+  ) {
+    setKeySpecificOverrides(event.target.value)
+    setKeySpecificOverridesErrorMsg('')
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isValid = validate({ chainID, overrides })
-
-    // Use the name of the input to actually update the `overrides` object
-    // call: event.currentTarget.name
+    const isValid = validate({ chainID, keySpecificOverrides })
 
     if (isValid) {
       setLoading(true)
+
+      const config: ConfigOverrides = {
+        ...overrides,
+      }
+
+      if (keySpecificOverrides != defaultKeySpecifics) {
+        config.KeySpecific = JSON.parse(keySpecificOverrides)
+      }
+
       apiCall({
+        config,
         chainID,
-        config: JSON.parse(overrides),
       })
         .then(({ data }) => {
           dispatch(notifySuccess(SuccessNotification, data))
@@ -210,7 +240,7 @@ export const New = ({
                         control={
                           <Checkbox
                             name="EvmEIP1559DynamicFees"
-                            // onChange={handleOverrideChange}
+                            onChange={(event) => handleOverrideChange(event)}
                           />
                         }
                         label="EvmEIP1559DynamicFees"
@@ -521,11 +551,12 @@ export const New = ({
 
                   <Grid item xs={12}>
                     <TextField
-                      error={Boolean(overridesErrorMsg)}
-                      value={overrides}
-                      onChange={handleOverrideChange}
+                      error={Boolean(keySpecificOverridesErrorMsg)}
+                      value={keySpecificOverrides}
+                      onChange={handleKeySpecificOverrideChange}
                       helperText={
-                        Boolean(overridesErrorMsg) && overridesErrorMsg
+                        Boolean(keySpecificOverridesErrorMsg) &&
+                        keySpecificOverridesErrorMsg
                       }
                       autoComplete="off"
                       label={'JSON'}
@@ -534,7 +565,7 @@ export const New = ({
                       placeholder={'Paste JSON'}
                       multiline
                       margin="normal"
-                      name="chainConfig"
+                      name="KeySpecific"
                       id="chainConfig"
                       variant="outlined"
                       fullWidth
@@ -549,7 +580,7 @@ export const New = ({
                       size="large"
                       disabled={
                         loading ||
-                        Boolean(overridesErrorMsg) ||
+                        Boolean(keySpecificOverridesErrorMsg) ||
                         Boolean(chainIDErrorMsg)
                       }
                     >
