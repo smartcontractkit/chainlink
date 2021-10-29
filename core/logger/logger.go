@@ -212,7 +212,7 @@ func (l *zapLogger) Sync() error {
 
 // newProductionConfig returns a new production zap.Config.
 func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
-	config := zap.NewProductionConfig()
+	config := newBaseConfig()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
@@ -252,4 +252,17 @@ func NewLogger(c Config) Logger {
 // Not safe for concurrent use. Only to be called from init().
 func InitColor(c bool) {
 	color.NoColor = !c
+}
+
+func newBaseConfig() zap.Config {
+	// Copied from zap.NewProductionConfig with sampling disabled
+	return zap.Config{
+		Level:            zap.NewAtomicLevelAt(zapcore.InfoLevel),
+		Development:      false,
+		Sampling:         nil,
+		Encoding:         "json",
+		EncoderConfig:    zap.NewProductionEncoderConfig(),
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
 }
