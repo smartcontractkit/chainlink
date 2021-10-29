@@ -453,6 +453,7 @@ declare module 'core/store/models' {
     // Stupidly this also returns boolean strings
     logLevel: LogConfigLevel[]
     serviceName: string[]
+    defaultLogLevel: string
   }
 
   export interface LogConfigRequest {

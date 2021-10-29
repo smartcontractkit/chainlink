@@ -41,6 +41,8 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
 	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
+	defaultLogLevel := config.LogLevel{Level: zapcore.WarnLevel}
+	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start())
@@ -53,6 +55,8 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	svcLogConfig := presenters.ServiceLogConfigResource{}
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
+
+	require.Equal(t, "warn", svcLogConfig.DefaultLogLevel)
 
 	for i, svcName := range svcLogConfig.ServiceName {
 
