@@ -7,10 +7,9 @@ import (
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/tidwall/gjson"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -320,23 +319,12 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_%d", i), attrs)
 
 		case adapters.TaskTypeJSONParse:
-			//TODO:----------------------------------
-			//TODO: add merge
 
-			/*
-				merge_1 [
-				        right=<{"path":"......"}>
-				        left="$(cborparse)"
-				        type=merge
-				        ];
-
-				        jsonparse [
-				        path="$(merge_1.path)"
-				        ];
-			*/
 			attrs := map[string]string{
-				"type": pipeline.TaskTypeJSONParse.String(),
+				"type": pipeline.TaskTypeMerge.String(),
+				"left": "$(decode_cbor)",
 			}
+
 			if ts.Params.Get("path").Exists() {
 
 				path := ts.Params.Get("path")
@@ -352,25 +340,62 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 					pathString = strings.Join(pathSegments, ",")
 				}
 
-				attrs["path"] = pathString
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = fmt.Sprintf(`{ "path": "%v" }`, pathString)
+				attrs["right"] = template
 			} else {
-				return "", nil, errors.New("no path param on jsonparse task")
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = `{}`
+				attrs["right"] = template
 			}
-			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs)
 
+			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_jsonparse", attrs)
+			dg.AddNode(n2)
+			if last != nil {
+				dg.SetEdge(dg.NewEdge(last, n2))
+			}
+
+			attrs2 := map[string]string{
+				"type": pipeline.TaskTypeJSONParse.String(),
+				"path": "$(merge_jsonparse.path)",
+				"data": fmt.Sprintf("$(%v)", last.DOTID()),
+			}
+
+			last = n2
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs2)
 		case adapters.TaskTypeMultiply:
-			//TODO:----------------------------------
-			//TODO: add merge
 
 			attrs := map[string]string{
-				"type": pipeline.TaskTypeMultiply.String(),
+				"type": pipeline.TaskTypeMerge.String(),
+				"left": "$(decode_cbor)",
 			}
+
 			if ts.Params.Get("times").Exists() {
-				attrs["times"] = ts.Params.Get("times").String()
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = fmt.Sprintf(`{ "times": "%v" }`, ts.Params.Get("times").String())
+				attrs["right"] = template
 			} else {
-				return "", nil, errors.New("no times param on multiply task")
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = `{}`
+				attrs["right"] = template
 			}
-			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs)
+
+			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_multiply", attrs)
+			dg.AddNode(n2)
+			if last != nil {
+				dg.SetEdge(dg.NewEdge(last, n2))
+			}
+
+			attrs2 := map[string]string{
+				"type":  pipeline.TaskTypeMultiply.String(),
+				"times": "$(merge_multiply.times)",
+				"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
+			}
+
+			last = n2
+
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs2)
+
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2 / DR
 		case adapters.TaskTypeEthTx:
@@ -443,7 +468,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 				dg.SetEdge(dg.NewEdge(last, n))
 			}
 			last = n
-			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+			template := fmt.Sprintf("%%REQ_DATA_second_%v%%", i)
 
 			attrs := map[string]string{
 				"type":        pipeline.TaskTypeBridge.String(),
@@ -453,7 +478,6 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			replacements["\""+template+"\""] = fmt.Sprintf("{ \"data\": $(%v) }", last.DOTID())
 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("send_to_bridge_%d", i), attrs)
-			i++
 		}
 		if n != nil {
 			dg.AddNode(n)
@@ -486,6 +510,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "failed to generate pipeline from: \n%v", generatedDotDagSource)
 	}
+
 	return generatedDotDagSource, p, err
 }
 

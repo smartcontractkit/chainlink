@@ -64,6 +64,13 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
     },
     {
       "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "jsonparse",
+      "params": {
+        "path": "result"
+      }
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
       "type": "multiply",
       "params": {
         "times": 100000000
@@ -105,16 +112,32 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	requestData=<{ "data": $(merge_1) }>
 	type=bridge
 	];
-	multiply_1 [
-	times=100000000
+	merge_jsonparse [
+	left="$(decode_cbor)"
+	right=<{ "path": "result" }>
+	type=merge
+	];
+	jsonparse_1 [
+	data="$(send_to_bridge_1)"
+	path="$(merge_jsonparse.path)"
+	type=jsonparse
+	];
+	merge_multiply [
+	left="$(decode_cbor)"
+	right=<{ "times": "100000000" }>
+	type=merge
+	];
+	multiply_2 [
+	input="$(jsonparse_1)"
+	times="$(merge_multiply.times)"
 	type=multiply
 	];
-	encode_data_4 [
+	encode_data_5 [
 	abi="(uint256 value)"
-	data=<{ "value": $(multiply_1) }>
+	data=<{ "value": $(multiply_2) }>
 	type=ethabiencode
 	];
-	encode_tx_4 [
+	encode_tx_5 [
 	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
 	data=<{
 "requestId":          $(decode_log.requestId),
@@ -122,13 +145,13 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 "callbackAddress":    $(decode_log.callbackAddr),
 "callbackFunctionId": $(decode_log.callbackFunctionId),
 "expiration":         $(decode_log.cancelExpiration),
-"data":               $(encode_data_4)
+"data":               $(encode_data_5)
 }
 >
 	type=ethabiencode
 	];
-	send_tx_4 [
-	data="$(encode_tx_4)"
+	send_tx_5 [
+	data="$(encode_tx_5)"
 	to="0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
 	type=ethtx
 	];
@@ -137,10 +160,13 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	decode_log -> decode_cbor;
 	decode_cbor -> merge_1;
 	merge_1 -> send_to_bridge_1;
-	send_to_bridge_1 -> multiply_1;
-	multiply_1 -> encode_data_4;
-	encode_data_4 -> encode_tx_4;
-	encode_tx_4 -> send_tx_4;
+	send_to_bridge_1 -> merge_jsonparse;
+	merge_jsonparse -> jsonparse_1;
+	jsonparse_1 -> merge_multiply;
+	merge_multiply -> multiply_2;
+	multiply_2 -> encode_data_5;
+	encode_data_5 -> encode_tx_5;
+	encode_tx_5 -> send_tx_5;
 	`
 
 	// Migrate it
