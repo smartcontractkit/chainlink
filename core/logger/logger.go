@@ -211,8 +211,11 @@ func (l *zapLogger) Sync() error {
 }
 
 // newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, toDisk bool) zap.Config {
+func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
 	config := zap.NewProductionConfig()
+	if !unixTS {
+		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	}
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
 	}
@@ -229,13 +232,14 @@ type Config interface {
 	JSONConsole() bool
 	LogToDisk() bool
 	LogLevel() zapcore.Level
+	LogUnixTimestamps() bool
 }
 
 // NewLogger returns a new Logger configured by c with pretty printing to stdout.
 // If LogToDisk is false, the Logger will only log to stdout.
 // Tests should use TestLogger instead.
 func NewLogger(c Config) Logger {
-	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk())
+	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
 	cfg.Level.SetLevel(c.LogLevel())
 	l, err := newZapLogger(cfg)
 	if err != nil {
