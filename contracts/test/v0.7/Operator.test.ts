@@ -118,7 +118,7 @@ describe('Operator', () => {
       'cancelOracleRequestByRequester',
       'distributeFunds',
       'fulfillOracleRequest',
-      'fulfillOracleRequest2',
+      'fulfillOperatorRequest',
       'getAuthorizedSenders',
       'getChainlinkToken',
       'getExpiryTime',
@@ -1461,7 +1461,7 @@ describe('Operator', () => {
     })
   })
 
-  describe('#fulfillOracleRequest2', () => {
+  describe('#fulfillOperatorRequest', () => {
     describe('single word fulfils', () => {
       const response = 'Hi mom!'
       const responseTypes = ['bytes32']
@@ -1494,7 +1494,7 @@ describe('Operator', () => {
           )
           const tx = await operator
             .connect(roles.oracleNode)
-            .fulfillOracleRequest2(...fulfillParams)
+            .fulfillOperatorRequest(...fulfillParams)
           const receipt = await tx.wait()
           assert.equal(receipt.events?.length, 1)
           const responseEvent = receipt.events?.[0]
@@ -1533,7 +1533,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.stranger)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -1550,7 +1550,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -1563,7 +1563,7 @@ describe('Operator', () => {
           it('sets the value on the requested contract', async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1586,7 +1586,7 @@ describe('Operator', () => {
             )
             const tx = await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...fulfillParams)
+              .fulfillOperatorRequest(...fulfillParams)
             const receipt = await tx.wait()
             assert.equal(receipt.events?.length, 3)
             const responseEvent = receipt.events?.[0]
@@ -1599,7 +1599,7 @@ describe('Operator', () => {
             const response2Values = [toBytes32String(response2)]
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1610,7 +1610,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -1638,7 +1638,7 @@ describe('Operator', () => {
 
           it('does not allow the oracle to withdraw the payment', async () => {
             await evmRevert(
-              operator.connect(roles.oracleNode).fulfillOracleRequest2(
+              operator.connect(roles.oracleNode).fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1654,7 +1654,7 @@ describe('Operator', () => {
           })
 
           it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
-            await operator.connect(roles.oracleNode).fulfillOracleRequest2(
+            await operator.connect(roles.oracleNode).fulfillOperatorRequest(
               ...convertFulfill2Params(request, responseTypes, responseValues, {
                 gasLimit: defaultGasLimit,
               }),
@@ -1727,7 +1727,7 @@ describe('Operator', () => {
           it('allows the oracle node to receive their payment', async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1755,7 +1755,7 @@ describe('Operator', () => {
             const response2Values = [toBytes32String(response2)]
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1766,7 +1766,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -1791,7 +1791,7 @@ describe('Operator', () => {
           it('allows the oracle node to receive their payment', async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1831,7 +1831,7 @@ describe('Operator', () => {
           it('allows the oracle node to receive their payment', async () => {
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1862,7 +1862,7 @@ describe('Operator', () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1873,7 +1873,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -1895,7 +1895,7 @@ describe('Operator', () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1919,7 +1919,7 @@ describe('Operator', () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1942,7 +1942,7 @@ describe('Operator', () => {
 
             await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(
+              .fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -1983,7 +1983,7 @@ describe('Operator', () => {
             await evmRevert(
               operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...responseParams),
+                .fulfillOperatorRequest(...responseParams),
               'Cannot call owned contract',
             )
 
@@ -2037,7 +2037,7 @@ describe('Operator', () => {
             )
             const tx = await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...fulfillParams)
+              .fulfillOperatorRequest(...fulfillParams)
             const receipt = await tx.wait()
             assert.equal(receipt.events?.length, 1)
             const responseEvent = receipt.events?.[0]
@@ -2089,7 +2089,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.stranger)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2107,7 +2107,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2120,7 +2120,7 @@ describe('Operator', () => {
             it('sets the value on the requested contract', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2140,7 +2140,7 @@ describe('Operator', () => {
               )
               const tx = await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...fulfillParams)
+                .fulfillOperatorRequest(...fulfillParams)
               const receipt = await tx.wait()
               assert.equal(receipt.events?.length, 3)
               const responseEvent = receipt.events?.[0]
@@ -2154,7 +2154,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2165,7 +2165,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2190,7 +2190,7 @@ describe('Operator', () => {
 
             it('does not allow the oracle to withdraw the payment', async () => {
               await evmRevert(
-                operator.connect(roles.oracleNode).fulfillOracleRequest2(
+                operator.connect(roles.oracleNode).fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2206,7 +2206,7 @@ describe('Operator', () => {
             })
 
             it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
-              await operator.connect(roles.oracleNode).fulfillOracleRequest2(
+              await operator.connect(roles.oracleNode).fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -2284,7 +2284,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2312,7 +2312,7 @@ describe('Operator', () => {
               const response2Values = [stringToBytes(response2)]
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2323,7 +2323,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2348,7 +2348,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2388,7 +2388,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2420,7 +2420,7 @@ describe('Operator', () => {
               const response2Values = [stringToBytes(response2)]
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2431,7 +2431,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2453,7 +2453,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2477,7 +2477,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2500,7 +2500,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2554,7 +2554,7 @@ describe('Operator', () => {
             )
             const tx = await operator
               .connect(roles.oracleNode)
-              .fulfillOracleRequest2(...fulfillParams)
+              .fulfillOperatorRequest(...fulfillParams)
             const receipt = await tx.wait()
             assert.equal(receipt.events?.length, 1)
             const responseEvent = receipt.events?.[0]
@@ -2593,7 +2593,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.stranger)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2611,7 +2611,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2624,7 +2624,7 @@ describe('Operator', () => {
             it('sets the value on the requested contract', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2657,7 +2657,7 @@ describe('Operator', () => {
               )
               const tx = await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(...fulfillParams)
+                .fulfillOperatorRequest(...fulfillParams)
               const receipt = await tx.wait()
               assert.equal(receipt.events?.length, 3)
               const responseEvent = receipt.events?.[0]
@@ -2675,7 +2675,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2686,7 +2686,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2724,7 +2724,7 @@ describe('Operator', () => {
 
             it('does not allow the oracle to withdraw the payment', async () => {
               await evmRevert(
-                operator.connect(roles.oracleNode).fulfillOracleRequest2(
+                operator.connect(roles.oracleNode).fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2740,7 +2740,7 @@ describe('Operator', () => {
             })
 
             it(`${defaultGasLimit} is enough to pass the gas requirement`, async () => {
-              await operator.connect(roles.oracleNode).fulfillOracleRequest2(
+              await operator.connect(roles.oracleNode).fulfillOperatorRequest(
                 ...convertFulfill2Params(
                   request,
                   responseTypes,
@@ -2818,7 +2818,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2850,7 +2850,7 @@ describe('Operator', () => {
               ]
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2861,7 +2861,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2886,7 +2886,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2926,7 +2926,7 @@ describe('Operator', () => {
             it('allows the oracle node to receive their payment', async () => {
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2962,7 +2962,7 @@ describe('Operator', () => {
               ]
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -2973,7 +2973,7 @@ describe('Operator', () => {
               await evmRevert(
                 operator
                   .connect(roles.oracleNode)
-                  .fulfillOracleRequest2(
+                  .fulfillOperatorRequest(
                     ...convertFulfill2Params(
                       request,
                       responseTypes,
@@ -2995,7 +2995,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -3019,7 +3019,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -3042,7 +3042,7 @@ describe('Operator', () => {
 
               await operator
                 .connect(roles.oracleNode)
-                .fulfillOracleRequest2(
+                .fulfillOperatorRequest(
                   ...convertFulfill2Params(
                     request,
                     responseTypes,
@@ -3086,7 +3086,7 @@ describe('Operator', () => {
         await evmRevert(
           operator
             .connect(roles.oracleNode)
-            .fulfillOracleRequest2(...fulfillParams),
+            .fulfillOperatorRequest(...fulfillParams),
           'Response must be > 32 bytes',
         )
       })

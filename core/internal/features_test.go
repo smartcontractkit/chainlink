@@ -324,7 +324,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 }
 
 // Tests both single and multiple word responses -
-// i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
+// i.e. both fulfillOperatorRequest and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
 	tests := []struct {
 		name    string

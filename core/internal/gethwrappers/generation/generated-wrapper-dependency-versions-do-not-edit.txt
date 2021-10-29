@@ -5,7 +5,7 @@ flux_aggregator_wrapper: ../../../contracts/solc/v0.6/FluxAggregator.abi ../../.
 keeper_registry_wrapper: ../../../contracts/solc/v0.7/KeeperRegistry.abi ../../../contracts/solc/v0.7/KeeperRegistry.bin f5c76c6fc35e775da0a4737beea8ebcb6f37ca78db3c21811f17b6f3d5623379
 multiwordconsumer_wrapper: ../../../contracts/solc/v0.7/MultiWordConsumer.abi ../../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
-operator_wrapper: ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin 08965dbb26f62739c1ce4d0941f30c0dd08003648823e7d722900b48270ffc2b
+operator_wrapper: ../../../contracts/solc/v0.7/Operator.abi ../../../contracts/solc/v0.7/Operator.bin 0dc0efd47e949a7b233430772618b2a4804164c06c044479cb8fe07555b696d4
 oracle_wrapper: ../../../contracts/solc/v0.6/Oracle.abi ../../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 solidity_vrf_consumer_interface: ../../../contracts/solc/v0.6/VRFConsumer.abi ../../../contracts/solc/v0.6/VRFConsumer.bin a79da241ca9525f6a96adc5f55651b1f91e1579b85fec7b02a51d06bd6018ee3
 solidity_vrf_consumer_interface_v08: ../../../contracts/solc/v0.8/VRFConsumer.abi ../../../contracts/solc/v0.8/VRFConsumer.bin 38ed0884fe7023cae96077a7881efd7fe236cc471db6ee1fe3934c68a9b7ab9a
@@ -15,7 +15,7 @@ solidity_vrf_request_id_v08: ../../../contracts/solc/v0.8/VRFRequestIDBaseTestHe
 solidity_vrf_v08_verifier_wrapper: ../../../contracts/solc/v0.8/VRFTestHelper.abi ../../../contracts/solc/v0.8/VRFTestHelper.bin c9f113405fc2e57371721c34f112aa3038b18facc25d8124ddeecfa573ea7943
 solidity_vrf_verifier_wrapper: ../../../contracts/solc/v0.6/VRFTestHelper.abi ../../../contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
 vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contracts/solc/v0.8/VRFConsumerV2.bin 8835726d73bb93a6c2fb5464490f23a8de052f57165c09f195b29c25727dd793
-vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin cd957446d58202e3c1b7e5057b4e735f1c2b361b0789d82fb29936ef51ec0a5f
+vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin 65ca8bc514db2e6df67f48e3be2ba737ac038ce7ce603585439fdb0b2e740307
 vrf_external_sub_owner_example: ../../../contracts/solc/v0.8/VRFConsumerExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFConsumerExternalSubOwnerExample.bin edd4556e5583a5484767508be0183ac9f09c547af1164684d1e585df5d5d7377
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin b9fde692c1ebd6d029a21d79da528aa39f92f67ad51aa5c18f4c0605469f287b
 vrf_single_consumer_example: ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin d296ba53d2e9054b122584a9e0e07724eb3e833a3f09c40dcaa1297070b21229

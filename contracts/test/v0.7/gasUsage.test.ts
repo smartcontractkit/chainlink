@@ -119,9 +119,9 @@ describe('Operator Gas Tests [ @skip-coverage ]', () => {
     })
   })
 
-  // Test Operator1.fulfillOracleRequest vs Operator2.fulfillOracleRequest2
+  // Test Operator1.fulfillOracleRequest vs Operator2.fulfillOperatorRequest
   // with single word response
-  describe('Operator #fulfillOracleRequest vs #fulfillOracleRequest2', () => {
+  describe('Operator #fulfillOracleRequest vs #fulfillOperatorRequest', () => {
     const response = 'Hi Mom!'
     let basicConsumer1: Contract
     let basicConsumer2: Contract
@@ -166,7 +166,7 @@ describe('Operator Gas Tests [ @skip-coverage ]', () => {
       const responseValues = [toBytes32String(response)]
       const tx2 = await operator2
         .connect(roles.oracleNode)
-        .fulfillOracleRequest2(
+        .fulfillOperatorRequest(
           ...convertFulfill2Params(request2, responseTypes, responseValues),
         )
 

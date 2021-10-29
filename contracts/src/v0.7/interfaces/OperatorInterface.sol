@@ -15,7 +15,7 @@ interface OperatorInterface is ChainlinkRequestInterface, OracleInterface {
     bytes calldata data
   ) external;
 
-  function fulfillOracleRequest2(
+  function fulfillOperatorRequest(
     bytes32 requestId,
     uint256 payment,
     address callbackAddress,

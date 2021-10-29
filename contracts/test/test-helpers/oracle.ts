@@ -146,7 +146,7 @@ export function convertFufillParams(
 /**
  * Convert the javascript format of the parameters needed to call the
  * ```solidity
- *  function fulfillOracleRequest2(
+ *  function fulfillOperatorRequest(
  *    bytes32 _requestId,
  *    uint256 _payment,
  *    address _callbackAddress,

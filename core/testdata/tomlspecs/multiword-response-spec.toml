@@ -43,7 +43,7 @@ observationSource   = """
                     "eur": $(eur_multiply),
                     "jpy": $(jpy_multiply)}>]
     encode_tx  [type=ethabiencode
-                abi="fulfillOracleRequest2(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
+                abi="fulfillOperatorRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
                 data=<{"requestId": $(decode_log.requestId),
                        "payment":   $(decode_log.payment),
                        "callbackAddress": $(decode_log.callbackAddr),

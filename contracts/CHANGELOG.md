@@ -13,6 +13,8 @@
   multiword requests/response are available through the ChainlinkClient by using
   the newly enabled `buildOperatorRequest` along with `sendOperatorRequest` or
   `sendOperatorRequestTo`.
+- Operator multi-word fulfillment function changed from `fulfillOracleRequest2` to
+  `fulfillOperatorRequest`, following the naming conventions in the `ChainlinkClient`.
 - Updated function comments in `v0.6/interfaces/KeeperCompatibleInterface.sol` and `v0.8/interfaces/KeeperCompatibleInterface.sol` to match the latest in v0.7.
 
 ## 0.2.2 - 2021-09-21
