@@ -121,6 +121,14 @@ func TestClient_ImportExportCsaKey(t *testing.T) {
 
 	require.NoError(t, utils.JustError(app.GetKeyStore().CSA().Delete(key.ID())))
 	requireCSAKeyCount(t, app, 0)
+
+	set = flag.NewFlagSet("test CSA import", 0)
+	set.Parse([]string{keyName})
+	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
+	c = cli.NewContext(nil, set, nil)
+	require.NoError(t, client.ImportCSAKey(c))
+
+	requireCSAKeyCount(t, app, 1)
 }
 
 func requireCSAKeyCount(t *testing.T, app chainlink.Application, length int) []csakey.KeyV2 {
