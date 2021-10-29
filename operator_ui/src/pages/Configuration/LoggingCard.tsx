@@ -82,7 +82,9 @@ const LogConfigurationForm = withStyles(styles)(
         >
           {logLevels.map((level) => (
             <MenuItem key={level} value={level}>
-              {level === initialValues.defaultLogLevel ? `${capitalize(level)} (DEFAULT)` : capitalize(level)}
+              {capitalize(level).concat(
+                level === initialValues.defaultLogLevel ? ' (default)' : '',
+              )}
             </MenuItem>
           ))}
         </TextField>
@@ -141,8 +143,8 @@ export const LoggingCard = () => {
         const logLevel = res.data.attributes.logLevel[
           globalIdx
         ] as models.LogConfigLevel
-        
-        const defaultLogLevel = res.data.attributes.defaultLogLevel as models.LogConfigLevel
+
+        const defaultLogLevel = res.data.attributes.defaultLogLevel
 
         const sqlEnabledIdx = res.data.attributes.serviceName.findIndex(
           (name) => name == 'IsSqlEnabled',
@@ -151,7 +153,7 @@ export const LoggingCard = () => {
         const sqlEnabled = res.data.attributes.logLevel[sqlEnabledIdx] == 'true'
 
         const logCfg = {
-          defaultLogLevel, 
+          defaultLogLevel,
           level: logLevel,
           sqlEnabled,
         }

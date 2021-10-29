@@ -30,6 +30,7 @@ describe('pages/Configuration/LoggingCard', () => {
     const logConfig = logConfigFactory({
       serviceName: ['Global', 'IsSqlEnabled'],
       logLevel: ['info', 'false'],
+      defaultLogLevel: 'warn',
     })
 
     global.fetch.getOnce(globPath('/v2/log'), logConfig)
