@@ -905,7 +905,7 @@ func (c *generalConfig) LogSQLMigrations() bool {
 
 // LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
 func (c *generalConfig) LogUnixTimestamps() bool {
-	return c.viper.GetBool(EnvVarName("LogUnixTimestamps"))
+	return c.viper.GetBool(EnvVarName("LogUnixTS"))
 }
 
 // P2PListenIP is the ip that libp2p willl bind to and listen on
