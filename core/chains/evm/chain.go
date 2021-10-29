@@ -139,8 +139,9 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
 
-	// Log Broadcaster waits for other services' registrations
-	// until app.LogBroadcaster.DependentReady() call (see below)
+	// AddDependent for this chain
+	// log broadcaster will not start until dependent ready is called by a
+	// subsequent routine (job spawner)
 	logBroadcaster.AddDependents(1)
 
 	headBroadcaster.Subscribe(logBroadcaster)
