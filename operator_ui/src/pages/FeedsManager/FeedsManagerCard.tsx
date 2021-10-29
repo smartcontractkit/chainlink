@@ -1,8 +1,6 @@
 import React from 'react'
 import { useHistory } from 'react-router-dom'
 
-import { FeedsManager } from 'core/store/models'
-
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
 import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
@@ -18,6 +16,7 @@ import red from '@material-ui/core/colors/red'
 
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import CancelIcon from '@material-ui/icons/Cancel'
+import { FeedsManagerGQL } from './FeedsManagerScreen'
 
 const cardSubheaderStyles = () => {
   return createStyles({
@@ -72,7 +71,7 @@ const styles = () => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  manager: FeedsManager
+  manager: FeedsManagerGQL
 }
 
 export const FeedsManagerCard = withStyles(styles)(

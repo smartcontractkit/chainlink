@@ -1,11 +1,15 @@
-import { MuiThemeProvider } from '@material-ui/core/styles'
+import React from 'react'
+import { ApolloProvider } from '@apollo/client'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
 import moment from 'moment'
 import promiseFinally from 'promise.prototype.finally'
-import React from 'react'
 import ReactDOM from 'react-dom'
 import { AppContainer } from 'react-hot-loader'
+
+import { MuiThemeProvider } from '@material-ui/core/styles'
+
+import { client } from './apollo'
 import App from './App'
 import { theme } from './theme'
 
@@ -21,11 +25,13 @@ if (typeof document !== 'undefined') {
 
   const render = (Comp) => {
     renderMethod(
-      <AppContainer>
-        <MuiThemeProvider theme={theme}>
-          <Comp />
-        </MuiThemeProvider>
-      </AppContainer>,
+      <ApolloProvider client={client}>
+        <AppContainer>
+          <MuiThemeProvider theme={theme}>
+            <Comp />
+          </MuiThemeProvider>
+        </AppContainer>
+      </ApolloProvider>,
       document.getElementById('root'),
     )
   }

@@ -16,9 +16,11 @@
     "clean": "tsc -b --clean && rimraf -rf artifacts tmp dist",
     "build": "NODE_ENV=production webpack --config webpack.prod.js",
     "setup": "tsc -b",
-    "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
+    "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true",
+    "generate": "graphql-codegen --config codegen.yml"
   },
   "dependencies": {
+    "@apollo/client": "^3.4.16",
     "@iarna/toml": "3.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
@@ -34,6 +36,7 @@
     "formik": "^2.2.6",
     "formik-material-ui": "^3.0.1",
     "graphlib-dot": "^0.6.4",
+    "graphql": "^16.0.0",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.1.0",
     "javascript-stringify": "^2.1.0",
@@ -72,6 +75,11 @@
     "@babel/preset-env": "^7.15.0",
     "@babel/preset-react": "^7.12.5",
     "@babel/preset-typescript": "^7.9.0",
+    "@graphql-codegen/cli": "2.2.1",
+    "@graphql-codegen/fragment-matcher": "3.1.0",
+    "@graphql-codegen/introspection": "^2.1.0",
+    "@graphql-codegen/typescript": "^2.2.4",
+    "@graphql-codegen/typescript-operations": "^2.1.8",
     "@types/classnames": "^2.3.1",
     "@types/cookie": "^0.4.1",
     "@types/d3": "^6.2.0",

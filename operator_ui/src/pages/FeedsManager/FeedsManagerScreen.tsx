@@ -1,44 +1,73 @@
 import React from 'react'
+import { gql, useQuery } from '@apollo/client'
 import { Redirect, Route, useRouteMatch } from 'react-router-dom'
 
-import { v2 } from 'api'
 import Content from 'components/Content'
-import { Resource, FeedsManager } from 'core/store/models'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 
 import { EditFeedsManagerView } from './EditFeedsManagerView'
 import { RegisterFeedsManagerView } from './RegisterFeedsManagerView'
 import { FeedsManagerView } from './FeedsManagerView'
 
+export interface FeedsManagerGQL {
+  id: string
+  name: string
+  uri: string
+  publicKey: string
+  jobTypes: string[]
+  isBootstrapPeer: boolean
+  isConnectionActive: boolean
+  bootstrapPeerMultiaddr: string
+}
+
+interface FetchFeeds {
+  results: FeedsManagerGQL[]
+}
+
+interface FetchFeedsVariables {}
+
+export const FETCH_FEEDS = gql`
+  query FetchFeeds {
+    feedsManagers {
+      results {
+        __typename
+        id
+        name
+        uri
+        publicKey
+        jobTypes
+        isBootstrapPeer
+        isConnectionActive
+        bootstrapPeerMultiaddr
+        createdAt
+      }
+    }
+  }
+`
+
 export const FeedsManagerScreen: React.FC = () => {
   const { path } = useRouteMatch()
-  const { error, ErrorComponent, setError } = useErrorHandler()
-  const [manager, setManager] = React.useState<Resource<FeedsManager>>()
-  const [isLoading, setIsLoading] = React.useState(true)
+  const { ErrorComponent } = useErrorHandler()
 
-  // Fetch the feeds managers.
-  //
+  const {
+    data,
+    loading,
+    error: gqlError,
+    refetch,
+  } = useQuery<FetchFeeds, FetchFeedsVariables>(FETCH_FEEDS)
+
   // We currently only support a single feeds manager, but plan to support more
   // in the future.
-  React.useEffect(() => {
-    v2.feedsManagers
-      .getFeedsManagers()
-      .then((managers) => {
-        if (managers.data.length > 0) {
-          setManager(managers.data[0])
-        }
-      })
-      .catch(setError)
-      .finally(() => {
-        setIsLoading(false)
-      })
-  }, [setError])
+  const manager =
+    data != undefined && data.feedsManagers.results[0]
+      ? data.feedsManagers.results[0]
+      : undefined
 
-  if (isLoading) {
+  if (loading) {
     return null
   }
 
-  if (error) {
+  if (gqlError) {
     return <ErrorComponent />
   }
 
@@ -56,9 +85,7 @@ export const FeedsManagerScreen: React.FC = () => {
               }}
             />
           ) : (
-            <RegisterFeedsManagerView
-              onSuccess={(manager) => setManager(manager)}
-            />
+            <RegisterFeedsManagerView onSuccess={refetch} />
           )
         }
       />
@@ -68,7 +95,7 @@ export const FeedsManagerScreen: React.FC = () => {
         path={path}
         render={({ location }) =>
           manager ? (
-            <FeedsManagerView manager={manager.attributes} />
+            <FeedsManagerView manager={manager} />
           ) : (
             <Redirect
               to={{
@@ -80,15 +107,12 @@ export const FeedsManagerScreen: React.FC = () => {
         }
       />
 
-      <Route
+      {/* <Route
         exact
         path={`${path}/edit`}
         render={({ location }) =>
           manager ? (
-            <EditFeedsManagerView
-              manager={manager}
-              onSuccess={(manager) => setManager(manager)}
-            />
+            <EditFeedsManagerView manager={manager} onSuccess={refetch} />
           ) : (
             <Redirect
               to={{
@@ -98,7 +122,7 @@ export const FeedsManagerScreen: React.FC = () => {
             />
           )
         }
-      />
+      /> */}
     </Content>
   )
 }
