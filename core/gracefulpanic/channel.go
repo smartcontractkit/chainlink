@@ -19,6 +19,9 @@ func NewSignal() Signal {
 }
 
 func (p *signal) Panic() {
+	if HardPanic {
+		panic("panic")
+	}
 	p.panicOnce.Do(func() {
 		go close(p.ch)
 	})

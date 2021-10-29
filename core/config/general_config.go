@@ -57,40 +57,39 @@ type GeneralOnlyConfig interface {
 	BridgeResponseURL() *url.URL
 	CertFile() string
 	ClientNodeURL() string
-	UseLegacyEthEnvVars() bool
 	DatabaseBackupDir() string
 	DatabaseBackupFrequency() time.Duration
 	DatabaseBackupMode() DatabaseBackupMode
 	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
-	DefaultChainID() *big.Int
-	HTTPServerWriteTimeout() time.Duration
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
+	DefaultChainID() *big.Int
 	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	DefaultMaxHTTPAttempts() uint
 	Dev() bool
+	EVMDisabled() bool
 	EthereumDisabled() bool
 	EthereumHTTPURL() *url.URL
 	EthereumSecondaryURLs() []url.URL
 	EthereumURL() string
-	EVMDisabled() bool
 	ExplorerAccessKey() string
 	ExplorerSecret() string
 	ExplorerURL() *url.URL
 	FMDefaultTransactionQueueDepth() uint32
 	FMSimulateTransactions() bool
-	FeatureUICSAKeys() bool
-	FeatureUIFeedsManager() bool
 	FeatureExternalInitiators() bool
 	FeatureOffchainReporting() bool
+	FeatureUICSAKeys() bool
+	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
 	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
 	GlobalLockRetryInterval() models.Duration
+	HTTPServerWriteTimeout() time.Duration
 	InsecureFastScrypt() bool
 	InsecureSkipVerify() bool
 	JSONConsole() bool
@@ -112,6 +111,7 @@ type GeneralOnlyConfig interface {
 	LogSQLMigrations() bool
 	LogSQLStatements() bool
 	LogToDisk() bool
+	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	OCRBlockchainTimeout() time.Duration
 	OCRBootstrapCheckInterval() time.Duration
@@ -153,32 +153,33 @@ type GeneralOnlyConfig interface {
 	P2PV2DeltaReconcile() models.Duration
 	P2PV2ListenAddresses() []string
 	Port() uint16
+	RPID() string
+	RPOrigin() string
 	ReaperExpiration() models.Duration
 	ReplayFromBlock() int64
 	RootDir() string
-	RPID() string
-	RPOrigin() string
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
+	SetDialect(dialects.DialectName)
 	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
 	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
-	SetDialect(dialects.DialectName)
 	StatsPusherLogging() bool
-	TelemetryIngressLogging() bool
-	TelemetryIngressServerPubKey() string
-	TelemetryIngressURL() *url.URL
 	TLSCertPath() string
 	TLSDir() string
 	TLSHost() string
 	TLSKeyPath() string
 	TLSPort() uint16
 	TLSRedirect() bool
+	TelemetryIngressLogging() bool
+	TelemetryIngressServerPubKey() string
+	TelemetryIngressURL() *url.URL
 	TriggerFallbackDBPollInterval() time.Duration
 	UnAuthenticatedRateLimit() int64
 	UnAuthenticatedRateLimitPeriod() models.Duration
+	UseLegacyEthEnvVars() bool
 	Validate() error
 }
 
@@ -900,6 +901,11 @@ func (c *generalConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
 func (c *generalConfig) LogSQLMigrations() bool {
 	return c.viper.GetBool(EnvVarName("LogSQLMigrations"))
+}
+
+// LogUnixTimestamps if set to true will log with timestamp in unix format, otherwise uses ISO8601
+func (c *generalConfig) LogUnixTimestamps() bool {
+	return c.viper.GetBool(EnvVarName("LogUnixTS"))
 }
 
 // P2PListenIP is the ip that libp2p willl bind to and listen on
