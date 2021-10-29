@@ -181,6 +181,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 ### Changed
 
 - Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Logging timestamp output has been changed from unix to ISO8601 to aid in readability. To keep the old unix format, you may set `LOG_UNIX_TS=true`
 - Added WebAuthn support for the Operator UI and corresponding support in the Go backend
 
 #### Async support in external adapters

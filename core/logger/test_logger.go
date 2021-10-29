@@ -79,7 +79,7 @@ func TestLogger(t T) Logger {
 
 func newTestConfig() zap.Config {
 	_ = MemoryLogTestingOnly() // Make sure memory log is created
-	config := zap.NewProductionConfig()
+	config := newBaseConfig()
 	config.Level.SetLevel(envLvl)
 	config.OutputPaths = []string{"pretty://console", "memory://"}
 	return config
