@@ -24,8 +24,8 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v0.0.0-20201113091052-beb923fada29
-	github.com/jackc/pgconn v1.10.0
-	github.com/jackc/pgx/v4 v4.13.0
+	github.com/jackc/pgconn v1.8.1
+	github.com/jackc/pgx/v4 v4.11.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
@@ -65,7 +65,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.7.0
 	go.uber.org/zap v1.18.1
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/text v0.3.7
@@ -134,7 +134,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
-	github.com/jackc/pgtype v1.8.1 // indirect
+	github.com/jackc/pgtype v1.8.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
