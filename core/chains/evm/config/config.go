@@ -74,7 +74,9 @@ type ChainScopedConfig interface {
 	config.GeneralConfig
 	ChainScopedOnlyConfig
 	Validate() error
+	// Both Configure() and PersistedConfig() should be accessed through ChainSet methods only.
 	Configure(config evmtypes.ChainCfg) error
+	PersistedConfig() evmtypes.ChainCfg
 }
 
 var _ ChainScopedConfig = &chainScopedConfig{}
@@ -113,6 +115,10 @@ func (c *chainScopedConfig) Validate() (err error) {
 func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) (err error) {
 	c.persistedCfg = config
 	return nil
+}
+
+func (c *chainScopedConfig) PersistedConfig() evmtypes.ChainCfg {
+	return c.persistedCfg
 }
 
 func (c *chainScopedConfig) validate() (err error) {
@@ -612,7 +618,7 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 		return val
 	}
 	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
-	if keySpecific != nil {
+	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) {
 		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
 		return keySpecific.ToInt()
 	}

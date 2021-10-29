@@ -148,7 +148,49 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 201)
+	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 
 	ethClient.AssertExpectations(t)
+}
+
+func TestETHKeysController_UpdateSuccess(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	config.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
+
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethBalanceInt := big.NewInt(100)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
+	linkBalance := assets.NewLinkFromJuels(42)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
+
+	client := app.NewHTTPClient()
+
+	require.NoError(t, app.Start())
+
+	resp, cleanup := client.Post("/v2/keys/eth", nil)
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, http.StatusCreated)
+	ethClient.AssertExpectations(t)
+
+	keys, err := app.KeyStore.Eth().GetAll()
+	require.NoError(t, err)
+	require.NotEmpty(t, keys)
+
+	key := keys[0]
+	resp, cleanup = client.Put("/v2/keys/eth/"+key.Address.Hex()+"?maxGasPriceGWei=777", nil)
+	defer cleanup()
+
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	chain, err := app.ChainSet.Get(&cltest.FixtureChainID)
+	require.NoError(t, err)
+
+	require.Equal(t, assets.GWei(777), chain.Config().KeySpecificMaxGasPriceWei(key.Address.Address()))
 }
