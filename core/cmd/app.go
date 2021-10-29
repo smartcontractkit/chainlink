@@ -399,6 +399,17 @@ func NewApp(client *Client) *cli.App {
 							Action: client.ListCSAKeys,
 						},
 						{
+							Name:  "import",
+							Usage: format(`Imports a CSA key from a JSON file.`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportCSAKey,
+						},
+						{
 							Name:  "export",
 							Usage: format(`Exports an existing CSA key by its ID.`),
 							Flags: []cli.Flag{
