@@ -52,6 +52,10 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
           : event.target.value,
     }
 
+    if (newOverrides[event.target.name] === '') {
+      delete newOverrides[event.target.name]
+    }
+
     setOverrides(newOverrides)
 
     const isValid = validate(keySpecificOverrides)
