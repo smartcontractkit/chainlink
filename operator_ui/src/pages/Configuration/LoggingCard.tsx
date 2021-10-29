@@ -57,7 +57,11 @@ const LogConfigurationForm = withStyles(styles)(
       initialValues,
       onSubmit: async (values) => {
         try {
-          await v2.logConfig.updateLogConfig(values)
+          const updateData = {
+            level: values.level,
+            sqlEnabled: values.sqlEnabled,
+          }
+          await v2.logConfig.updateLogConfig(updateData)
 
           dispatch(notifySuccess(() => <>Logging Configuration Updated</>, {}))
         } catch (e) {

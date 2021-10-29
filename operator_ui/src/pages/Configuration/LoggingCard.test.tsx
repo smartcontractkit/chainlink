@@ -53,7 +53,7 @@ describe('pages/Configuration/LoggingCard', () => {
     await syncFetch(wrapper)
 
     expect(submit.lastCall()[1].body).toEqual(
-      '{"defaultLogLevel":"warn","level":"debug","sqlEnabled":false}',
+      '{"level":"debug","sqlEnabled":false}',
     )
   })
 })
