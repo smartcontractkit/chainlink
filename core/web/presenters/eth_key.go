@@ -12,13 +12,14 @@ import (
 // representation of the address plus its ETH & LINK balances
 type ETHKeyResource struct {
 	JAID
-	EVMChainID  utils.Big    `json:"evmChainID"`
-	Address     string       `json:"address"`
-	EthBalance  *assets.Eth  `json:"ethBalance"`
-	LinkBalance *assets.Link `json:"linkBalance"`
-	IsFunding   bool         `json:"isFunding"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
+	EVMChainID     utils.Big    `json:"evmChainID"`
+	Address        string       `json:"address"`
+	EthBalance     *assets.Eth  `json:"ethBalance"`
+	LinkBalance    *assets.Link `json:"linkBalance"`
+	IsFunding      bool         `json:"isFunding"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	UpdatedAt      time.Time    `json:"updatedAt"`
+	MaxGasPriceWei utils.Big    `json:"maxGasPriceWei"`
 }
 
 // GetName implements the api2go EntityNamer interface
@@ -70,6 +71,14 @@ func SetETHKeyEthBalance(ethBalance *assets.Eth) NewETHKeyOption {
 func SetETHKeyLinkBalance(linkBalance *assets.Link) NewETHKeyOption {
 	return func(r *ETHKeyResource) error {
 		r.LinkBalance = linkBalance
+
+		return nil
+	}
+}
+
+func SetETHKeyMaxGasPriceWei(maxGasPriceWei utils.Big) NewETHKeyOption {
+	return func(r *ETHKeyResource) error {
+		r.MaxGasPriceWei = maxGasPriceWei
 
 		return nil
 	}

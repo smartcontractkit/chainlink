@@ -15,6 +15,9 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 
 - The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
 - The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
+- CLI command `keys eth list` is updated to display key specific max gas prices.
+- CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
+- CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
 
 #### `merge` task type
 
@@ -178,6 +181,7 @@ Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on
 ### Changed
 
 - Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Logging timestamp output has been changed from unix to ISO8601 to aid in readability. To keep the old unix format, you may set `LOG_UNIX_TS=true`
 - Added WebAuthn support for the Operator UI and corresponding support in the Go backend
 
 #### Async support in external adapters

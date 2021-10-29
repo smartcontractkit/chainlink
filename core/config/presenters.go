@@ -1,7 +1,7 @@
 // Package presenters allow for the specification and result
 // of a Job, its associated TaskSpecs, and every JobRun and TaskRun
 // to be returned in a user friendly human readable format.
-package presenters
+package config
 
 import (
 	"bytes"
@@ -11,9 +11,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -68,7 +65,7 @@ type EnvPrinter struct {
 	KeeperRegistrySyncUpkeepQueueSize          uint32          `json:"KEEPER_REGISTRY_SYNC_UPKEEP_QUEUE_SIZE"`
 	LinkContractAddress                        string          `json:"LINK_CONTRACT_ADDRESS"`
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
-	LogLevel                                   config.LogLevel `json:"LOG_LEVEL"`
+	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQLStatements                           bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
@@ -107,7 +104,7 @@ type EnvPrinter struct {
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
-func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
+func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 	explorerURL := ""
 	if cfg.ExplorerURL() != nil {
 		explorerURL = cfg.ExplorerURL().String()
@@ -150,7 +147,7 @@ func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
 			KeeperDefaultTransactionQueueDepth:    cfg.KeeperDefaultTransactionQueueDepth(),
 			KeeperGasPriceBufferPercent:           cfg.KeeperGasPriceBufferPercent(),
 			KeeperGasTipCapBufferPercent:          cfg.KeeperGasTipCapBufferPercent(),
-			LogLevel:                              config.LogLevel{Level: cfg.LogLevel()},
+			LogLevel:                              LogLevel{Level: cfg.LogLevel()},
 			LogSQLMigrations:                      cfg.LogSQLMigrations(),
 			LogSQLStatements:                      cfg.LogSQLStatements(),
 			LogToDisk:                             cfg.LogToDisk(),
@@ -194,7 +191,7 @@ func NewConfigPrinter(cfg config.GeneralConfig) (ConfigPrinter, error) {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	schemaT := reflect.TypeOf(config.ConfigSchema{})
+	schemaT := reflect.TypeOf(ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
 
@@ -248,49 +245,4 @@ func mapToStringA(in []url.URL) (out []string) {
 // decimal and hexadecimal formats.
 func FriendlyBigInt(n *big.Int) string {
 	return fmt.Sprintf("#%[1]v (0x%[1]x)", n)
-}
-
-// ExternalInitiatorAuthentication includes initiator and authentication details.
-type ExternalInitiatorAuthentication struct {
-	Name           string        `json:"name,omitempty"`
-	URL            models.WebURL `json:"url,omitempty"`
-	AccessKey      string        `json:"incomingAccessKey,omitempty"`
-	Secret         string        `json:"incomingSecret,omitempty"`
-	OutgoingToken  string        `json:"outgoingToken,omitempty"`
-	OutgoingSecret string        `json:"outgoingSecret,omitempty"`
-}
-
-// NewExternalInitiatorAuthentication creates an instance of ExternalInitiatorAuthentication.
-func NewExternalInitiatorAuthentication(
-	ei bridges.ExternalInitiator,
-	eia auth.Token,
-) *ExternalInitiatorAuthentication {
-	var result = &ExternalInitiatorAuthentication{
-		Name:           ei.Name,
-		AccessKey:      ei.AccessKey,
-		Secret:         eia.Secret,
-		OutgoingToken:  ei.OutgoingToken,
-		OutgoingSecret: ei.OutgoingSecret,
-	}
-	if ei.URL != nil {
-		result.URL = *ei.URL
-	}
-	return result
-}
-
-// GetID returns the jsonapi ID.
-func (ei *ExternalInitiatorAuthentication) GetID() string {
-	return ei.Name
-}
-
-// GetName returns the collection name for jsonapi.
-func (*ExternalInitiatorAuthentication) GetName() string {
-	return "external initiators"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
-	ei.Name = name
-	return nil
 }

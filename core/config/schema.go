@@ -32,7 +32,6 @@ type ConfigSchema struct {
 	BridgeResponseURL                          url.URL                       `env:"BRIDGE_RESPONSE_URL"`
 	ChainType                                  string                        `env:"CHAIN_TYPE"`
 	ClientNodeURL                              string                        `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 	DatabaseBackupDir                          string                        `env:"DATABASE_BACKUP_DIR" default:""`
 	DatabaseBackupFrequency                    time.Duration                 `env:"DATABASE_BACKUP_FREQUENCY" default:"1h"`
 	DatabaseBackupMode                         string                        `env:"DATABASE_BACKUP_MODE" default:"none"`
@@ -114,6 +113,7 @@ type ConfigSchema struct {
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
 	LogSQLStatements                           bool                          `env:"LOG_SQL" default:"false"`
 	LogToDisk                                  bool                          `env:"LOG_TO_DISK" default:"false"`
+	LogUnixTS                                  bool                          `env:"LOG_UNIX_TS" default:"false"`
 	MigrateDatabase                            bool                          `env:"MIGRATE_DATABASE" default:"true"`
 	MinIncomingConfirmations                   uint32                        `env:"MIN_INCOMING_CONFIRMATIONS"`
 	MinRequiredOutgoingConfirmations           uint64                        `env:"MIN_OUTGOING_CONFIRMATIONS"`
@@ -154,10 +154,10 @@ type ConfigSchema struct {
 	P2PV2DeltaReconcile                        models.Duration               `env:"P2PV2_DELTA_RECONCILE" default:"1m"`
 	P2PV2ListenAddresses                       []string                      `env:"P2PV2_LISTEN_ADDRESSES"`
 	Port                                       uint16                        `env:"CHAINLINK_PORT" default:"6688"`
-	ReaperExpiration                           models.Duration               `env:"REAPER_EXPIRATION" default:"240h"`
-	ReplayFromBlock                            int64                         `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RPID                                       string                        `env:"MFA_RPID"`
 	RPOrigin                                   string                        `env:"MFA_RPORIGIN"`
+	ReaperExpiration                           models.Duration               `env:"REAPER_EXPIRATION" default:"240h"`
+	ReplayFromBlock                            int64                         `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RootDir                                    string                        `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies                              bool                          `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                             models.Duration               `env:"SESSION_TIMEOUT" default:"15m"`
@@ -173,6 +173,7 @@ type ConfigSchema struct {
 	TriggerFallbackDBPollInterval              time.Duration                 `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	UnAuthenticatedRateLimit                   int64                         `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod             time.Duration                 `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
+	UseLegacyEthEnvVars                        bool                          `env:"USE_LEGACY_ETH_ENV_VARS" default:"true"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

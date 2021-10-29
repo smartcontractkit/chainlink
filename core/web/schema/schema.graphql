@@ -6,15 +6,16 @@ schema {
 }
 
 type Query {
-    bridge(name: String!): Bridge!
-    bridges(offset: Int, limit: Int): [Bridge!]!
+    bridge(name: String!): BridgePayload!
+    bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): Chain!
     chains(offset: Int, limit: Int): [Chain!]!
-    feedsManager(id: ID!): FeedsManager!
-    feedsManagers: [FeedsManager!]!
+    feedsManager(id: ID!): FeedsManagerPayload!
+    feedsManagers: FeedsManagersPayload!
 }
 
 type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
+    createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
 }

@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -393,7 +392,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.NoError(t, client.GetConfiguration(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 
-	cp := *r.Renders[0].(*presenters.ConfigPrinter)
+	cp := *r.Renders[0].(*config.ConfigPrinter)
 	assert.Equal(t, cp.EnvPrinter.BridgeResponseURL, cfg.BridgeResponseURL().String())
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())

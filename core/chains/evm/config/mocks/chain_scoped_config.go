@@ -13,6 +13,8 @@ import (
 
 	context "context"
 
+	coreconfig "github.com/smartcontractkit/chainlink/core/config"
+
 	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -32,8 +34,6 @@ import (
 	p2pkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 
 	sessions "github.com/gin-gonic/contrib/sessions"
-
-	storeconfig "github.com/smartcontractkit/chainlink/core/config"
 
 	time "time"
 
@@ -334,14 +334,14 @@ func (_m *ChainScopedConfig) DatabaseBackupFrequency() time.Duration {
 }
 
 // DatabaseBackupMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupMode() storeconfig.DatabaseBackupMode {
+func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
 	ret := _m.Called()
 
-	var r0 storeconfig.DatabaseBackupMode
-	if rf, ok := ret.Get(0).(func() storeconfig.DatabaseBackupMode); ok {
+	var r0 coreconfig.DatabaseBackupMode
+	if rf, ok := ret.Get(0).(func() coreconfig.DatabaseBackupMode); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(storeconfig.DatabaseBackupMode)
+		r0 = ret.Get(0).(coreconfig.DatabaseBackupMode)
 	}
 
 	return r0
@@ -3025,6 +3025,20 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
 		}
+	}
+
+	return r0
+}
+
+// PersistedConfig provides a mock function with given fields:
+func (_m *ChainScopedConfig) PersistedConfig() types.ChainCfg {
+	ret := _m.Called()
+
+	var r0 types.ChainCfg
+	if rf, ok := ret.Get(0).(func() types.ChainCfg); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(types.ChainCfg)
 	}
 
 	return r0

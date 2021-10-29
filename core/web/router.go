@@ -114,7 +114,6 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
-	fmt.Println(rootSchema)
 	schema := graphql.MustParseSchema(rootSchema, &resolver.Resolver{
 		App: app,
 	})
@@ -279,6 +278,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ekc := ETHKeysController{app}
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
+		authv2.PUT("/keys/eth/:keyID", ekc.Update)
 		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
 		authv2.POST("/keys/eth/import", ekc.Import)
 		authv2.POST("/keys/eth/export/:address", ekc.Export)
@@ -300,6 +300,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		csakc := CSAKeysController{app}
 		authv2.GET("/keys/csa", csakc.Index)
 		authv2.POST("/keys/csa", csakc.Create)
+		authv2.POST("/keys/csa/import", csakc.Import)
+		authv2.POST("/keys/csa/export/:ID", csakc.Export)
 
 		vrfkc := VRFKeysController{app}
 		authv2.GET("/keys/vrf", vrfkc.Index)

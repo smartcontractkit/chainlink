@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -57,6 +58,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 		r, err := presenters.NewETHKeyResource(key, state,
 			ekc.setEthBalance(c.Request.Context(), state),
 			ekc.setLinkBalance(state),
+			ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
 		)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -87,11 +89,29 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		return
 	}
 
+	var maxGasPriceGWei int64
+	if c.Query("maxGasPriceGWei") != "" {
+		maxGasPriceGWei, err = strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+	}
+
 	key, err := ethKeyStore.Create(chain.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	if maxGasPriceGWei > 0 {
+		maxGasPriceWei := assets.GWei(maxGasPriceGWei)
+		updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
+		if err = ekc.App.GetChainSet().UpdateConfig(chain.ID(), updateMaxGasPrice); err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
 	state, err := ethKeyStore.GetState(key.ID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -100,6 +120,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	r, err := presenters.NewETHKeyResource(key, state,
 		ekc.setEthBalance(c.Request.Context(), state),
 		ekc.setLinkBalance(state),
+		ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
 	)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -107,6 +128,56 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, r, "account", http.StatusCreated)
+}
+
+// Update an ETH key's parameters
+// Example:
+// "PUT <application>/keys/eth/:keyID?maxGasPriceGWei=12345"
+func (ekc *ETHKeysController) Update(c *gin.Context) {
+	ethKeyStore := ekc.App.GetKeyStore().Eth()
+
+	if c.Query("maxGasPriceGWei") == "" {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("no parameters passed to update"))
+		return
+	}
+
+	maxGasPriceGWei, err := strconv.ParseInt(c.Query("maxGasPriceGWei"), 10, 64)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	keyID := c.Param("keyID")
+	state, err := ethKeyStore.GetState(keyID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	key, err := ethKeyStore.Get(keyID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	maxGasPriceWei := assets.GWei(maxGasPriceGWei)
+	updateMaxGasPrice := evm.UpdateKeySpecificMaxGasPrice(key.Address.Address(), maxGasPriceWei)
+	if err = ekc.App.GetChainSet().UpdateConfig((*big.Int)(&state.EVMChainID), updateMaxGasPrice); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	r, err := presenters.NewETHKeyResource(key, state,
+		ekc.setEthBalance(c.Request.Context(), state),
+		ekc.setLinkBalance(state),
+		ekc.setKeyMaxGasPriceWei(state, key.Address.Address()),
+	)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, r, "account", http.StatusOK)
 }
 
 // Delete an ETH key bundle
@@ -267,6 +338,30 @@ func (ekc *ETHKeysController) setLinkBalance(state ethkey.State) presenters.NewE
 		}
 
 		r.LinkBalance = bal
+
+		return nil
+	}
+}
+
+// setKeyMaxGasPriceWei is a custom functional option for NewEthKeyResource which
+// gets the key specific max gas price from the chain config and sets it on the
+// resource.
+func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
+	var price *big.Int
+	chain, err := ekc.App.GetChainSet().Get(state.EVMChainID.ToInt())
+	if err == nil {
+		price = chain.Config().KeySpecificMaxGasPriceWei(keyAddress)
+	}
+
+	return func(r *presenters.ETHKeyResource) error {
+		if errors.Cause(err) == evm.ErrNoChains {
+			return nil
+		}
+		if err != nil {
+			return errors.Errorf("error getting EVM Chain: %v", err)
+		}
+
+		r.MaxGasPriceWei = *utils.NewBig(price)
 
 		return nil
 	}

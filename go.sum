@@ -99,8 +99,6 @@ github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q
 github.com/DATA-DOG/go-sqlmock v1.5.0 h1:Shsta01QNfFxHCfpW6YH2STWB0MudeXXEWMr20OEh60=
 github.com/DATA-DOG/go-sqlmock v1.5.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/DATA-DOG/go-txdb v0.1.3/go.mod h1:DhAhxMXZpUJVGnT+p9IbzJoRKvlArO2pkHjnGX7o0n0=
-github.com/DATA-DOG/go-txdb v0.1.4 h1:6On4TAD6V33/QlE6Y5l0A4KngRzYrUQ7bgPsDrFrtQo=
-github.com/DATA-DOG/go-txdb v0.1.4/go.mod h1:DhAhxMXZpUJVGnT+p9IbzJoRKvlArO2pkHjnGX7o0n0=
 github.com/DataDog/zstd v1.3.6-0.20190409195224-796139022798/go.mod h1:1jcaCB/ufaK+sKp1NBhlGmpz41jOoPQ35bpF36t7BBo=
 github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8 h1:Ic3MehOyypWF/AW91Z/6FA2R2vnBzaDjRzoLmkP1DW8=
 github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8/go.mod h1:VHRucFf/9saDXsYg6uzQ8Oo8gUwngtWec9ZJ00H+ZCc=
@@ -1947,6 +1945,8 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
+github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164 h1:gUKeCZCt12Bi+A1nAfWi4Ro7nXOvRAZk8l7H1beipeY=
+github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164/go.mod h1:FQ2spG6UFx1V24tAdp4h+iHG3coFkIx/hBRyE+6DKfY=
 github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b h1:DwCUCl0MmdfIM5D8ymhPLVFMqebLWZliVQFf5jcNRKA=
 github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b/go.mod h1:tYsY0oL0yd48jg15POIZfOZiu66mqWpfDd/nJ28KWyU=
 github.com/smartcontractkit/integrations-framework v0.0.10 h1:vK/UPL53dQ1t/SWVs4fY8XvSo1u4MpDixqCrVj0VMGM=
@@ -1956,8 +1956,8 @@ github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12 h1:3yXjCJg
 github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12/go.mod h1:AQktwBooI+Y/8NWdvIzU+EgGoLzpe3mo+o+jluMonTw=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
-github.com/smartcontractkit/wsrpc v0.3.4 h1:6pG+1BIZPMYcbqhLvTPl0wKzys01msAib9iG1pn/nNM=
-github.com/smartcontractkit/wsrpc v0.3.4/go.mod h1:9ciG9g+0Hb9FgqUmt7MHz3EhTbLjbEoftcq8McErZN0=
+github.com/smartcontractkit/wsrpc v0.3.5 h1:i4SZGK+wKGvb6GQI9tD/mcYoRgfc5xKai3UpePVkcLY=
+github.com/smartcontractkit/wsrpc v0.3.5/go.mod h1:9ciG9g+0Hb9FgqUmt7MHz3EhTbLjbEoftcq8McErZN0=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
 github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=
 github.com/smartystreets/goconvey v1.6.4/go.mod h1:syvi0/a8iFYH4r/RixwvyeAJjdLS9QV7WQ/tjFTllLA=

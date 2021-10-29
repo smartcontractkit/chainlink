@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/connectivity"
 )
 
 //go:generate mockery --name ConnectionsManager --output ./mocks/ --case=underscore
@@ -129,6 +130,26 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		if opts.OnConnect != nil {
 			opts.OnConnect(conn.client)
 		}
+
+		// Detect changes in connection status
+		go func() {
+			for {
+				s := clientConn.GetState()
+
+				clientConn.WaitForStateChange(conn.ctx, s)
+
+				s = clientConn.GetState()
+
+				// Exit the goroutine if we shutdown the connection
+				if s == connectivity.Shutdown {
+					break
+				}
+
+				mgr.mu.Lock()
+				conn.connected = s == connectivity.Ready
+				mgr.mu.Unlock()
+			}
+		}()
 
 		// Wait for close
 		<-conn.ctx.Done()

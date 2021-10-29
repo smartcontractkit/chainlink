@@ -8,12 +8,16 @@ import (
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/lib/pq"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
 type Resolver struct {
@@ -68,7 +72,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 }
 
 // Bridge retrieves a bridges by name.
-func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgeResolver, error) {
+func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
 	name, err := bridges.NewTaskType(args.Name)
 	if err != nil {
 		return nil, err
@@ -76,29 +80,29 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*Bri
 
 	bridge, err := r.App.BridgeORM().FindBridge(name)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.New("bridge not found")
+		return NewBridgePayload(bridge, err), nil
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridge(bridge), nil
+	return NewBridgePayload(bridge, nil), nil
 }
 
 // Bridges retrieves a paginated list of bridges.
 func (r *Resolver) Bridges(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
-}) ([]*BridgeResolver, error) {
+}) (*BridgesPayloadResolver, error) {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	bridges, _, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridges(bridges), nil
+	return NewBridgesPayload(bridges, int32(count)), nil
 }
 
 type updateBridgeInput struct {
@@ -141,9 +145,8 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	orm := r.App.BridgeORM()
 	bridge, err := orm.FindBridge(taskType)
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.New("bridge not found")
+		return NewUpdateBridgePayload(nil, err), nil
 	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +160,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewUpdateBridgePayload(bridge), nil
+	return NewUpdateBridgePayload(&bridge, nil), nil
 }
 
 // Chain retrieves a chain by id.
@@ -193,7 +196,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 }
 
 // FeedsManager retrieves a feeds manager by id.
-func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerResolver, error) {
+func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
 	id, err := strconv.ParseInt(string(args.ID), 10, 32)
 	if err != nil {
 		return nil, err
@@ -202,20 +205,77 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 	mgr, err := r.App.GetFeedsService().GetManager(int64(id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("feeds manager not found")
+			return NewFeedsManagerPayload(nil), nil
 		}
 
 		return nil, err
 	}
 
-	return NewFeedsManager(*mgr), nil
+	return NewFeedsManagerPayload(mgr), nil
 }
 
-func (r *Resolver) FeedsManagers() ([]*FeedsManagerResolver, error) {
+func (r *Resolver) FeedsManagers() (*FeedsManagersPayloadResolver, error) {
 	mgrs, err := r.App.GetFeedsService().ListManagers()
 	if err != nil {
 		return nil, err
 	}
 
-	return NewFeedsManagers(mgrs), nil
+	return NewFeedsManagersPayload(mgrs), nil
+}
+
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
+}
+
+func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
+	Input *createFeedsManagerInput
+}) (*CreateFeedsManagerPayloadResolver, error) {
+	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
+	if err != nil {
+		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+			"input/publicKey": "invalid hex value",
+		}), nil
+	}
+
+	// convert enum job types
+	jobTypes := pq.StringArray{}
+	for _, jt := range args.Input.JobTypes {
+		jobTypes = append(jobTypes, FromJobTypeInput(jt))
+	}
+
+	mgr := &feeds.FeedsManager{
+		Name:                      args.Input.Name,
+		URI:                       args.Input.URI,
+		PublicKey:                 *publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
+		OCRBootstrapPeerMultiaddr: null.StringFromPtr(args.Input.BootstrapPeerMultiaddr),
+	}
+
+	feedsService := r.App.GetFeedsService()
+
+	id, err := feedsService.RegisterManager(mgr)
+	if err != nil {
+		if errors.Is(err, feeds.ErrSingleFeedsManager) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	mgr, err = feedsService.GetManager(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
 }

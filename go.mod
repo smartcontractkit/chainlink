@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink
 go 1.17
 
 require (
-	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/btcsuite/btcd v0.22.0-beta
@@ -48,9 +47,10 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shopspring/decimal v1.2.0
+	github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164
 	github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
-	github.com/smartcontractkit/wsrpc v0.3.4
+	github.com/smartcontractkit/wsrpc v0.3.5
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
