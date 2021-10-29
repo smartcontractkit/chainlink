@@ -27,7 +27,8 @@ import { FormHelperText } from '@material-ui/core'
 
 const logLevels = ['debug', 'info', 'warn', 'error']
 
-type FormValues = {
+type LogConfig = {
+  defaultLogLevel: models.LogConfigLevel
   level: models.LogConfigLevel
   sqlEnabled: boolean
 }
@@ -46,7 +47,7 @@ const styles = (theme: Theme) => {
 }
 
 interface LogConfigurationFormProps extends WithStyles<typeof styles> {
-  initialValues: FormValues
+  initialValues: LogConfig
 }
 
 const LogConfigurationForm = withStyles(styles)(
@@ -74,13 +75,14 @@ const LogConfigurationForm = withStyles(styles)(
           select
           label="Log Level"
           value={formik.values.level}
+          defaultValue={initialValues.defaultLogLevel}
           onChange={formik.handleChange}
           error={formik.touched.level && Boolean(formik.errors.level)}
-          helperText="Override the LOG_LEVEL environment variable"
+          helperText="Override the LOG_LEVEL environment variable, until the node is restarted"
         >
           {logLevels.map((level) => (
             <MenuItem key={level} value={level}>
-              {capitalize(level)}
+              {level === initialValues.defaultLogLevel ? `${capitalize(level)} (DEFAULT)` : capitalize(level)}
             </MenuItem>
           ))}
         </TextField>
@@ -121,11 +123,6 @@ const LogConfigurationForm = withStyles(styles)(
   },
 )
 
-type LogConfig = {
-  level: models.LogConfigLevel
-  sqlEnabled: boolean
-}
-
 export const LoggingCard = () => {
   const [logConfig, setLogConfig] = useState<LogConfig | null>(null)
   const { error, ErrorComponent, setError } = useErrorHandler()
@@ -144,6 +141,8 @@ export const LoggingCard = () => {
         const logLevel = res.data.attributes.logLevel[
           globalIdx
         ] as models.LogConfigLevel
+        
+        const defaultLogLevel = res.data.attributes.defaultLogLevel as models.LogConfigLevel
 
         const sqlEnabledIdx = res.data.attributes.serviceName.findIndex(
           (name) => name == 'IsSqlEnabled',
@@ -152,6 +151,7 @@ export const LoggingCard = () => {
         const sqlEnabled = res.data.attributes.logLevel[sqlEnabledIdx] == 'true'
 
         const logCfg = {
+          defaultLogLevel, 
           level: logLevel,
           sqlEnabled,
         }

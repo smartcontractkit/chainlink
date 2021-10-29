@@ -62,7 +62,7 @@ type Application interface {
 	GetHealthChecker() health.Checker
 	GetDB() *gorm.DB
 	GetConfig() config.GeneralConfig
-	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
+	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
@@ -329,8 +329,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-func (app *ChainlinkApplication) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	if err := app.Config.SetLogLevel(ctx, lvl); err != nil {
+func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
+	if err := app.Config.SetLogLevel(lvl); err != nil {
 		return err
 	}
 	app.logger.SetLogLevel(lvl)

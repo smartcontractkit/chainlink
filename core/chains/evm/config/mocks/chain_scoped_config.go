@@ -491,6 +491,20 @@ func (_m *ChainScopedConfig) DefaultHTTPTimeout() models.Duration {
 	return r0
 }
 
+// DefaultLogLevel provides a mock function with given fields:
+func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
+	ret := _m.Called()
+
+	var r0 zapcore.Level
+	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(zapcore.Level)
+	}
+
+	return r0
+}
+
 // DefaultMaxHTTPAttempts provides a mock function with given fields:
 func (_m *ChainScopedConfig) DefaultMaxHTTPAttempts() uint {
 	ret := _m.Called()
@@ -2375,6 +2389,20 @@ func (_m *ChainScopedConfig) LogToDisk() bool {
 	return r0
 }
 
+// LogUnixTimestamps provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // MigrateDatabase provides a mock function with given fields:
 func (_m *ChainScopedConfig) MigrateDatabase() bool {
 	ret := _m.Called()
@@ -3217,13 +3245,13 @@ func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: ctx, lvl
-func (_m *ChainScopedConfig) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	ret := _m.Called(ctx, lvl)
+// SetLogLevel provides a mock function with given fields: lvl
+func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
+	ret := _m.Called(lvl)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, zapcore.Level) error); ok {
-		r0 = rf(ctx, lvl)
+	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
+		r0 = rf(lvl)
 	} else {
 		r0 = ret.Error(0)
 	}

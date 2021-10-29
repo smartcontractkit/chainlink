@@ -441,13 +441,13 @@ func (_m *Application) SessionORM() sessions.ORM {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: ctx, lvl
-func (_m *Application) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	ret := _m.Called(ctx, lvl)
+// SetLogLevel provides a mock function with given fields: lvl
+func (_m *Application) SetLogLevel(lvl zapcore.Level) error {
+	ret := _m.Called(lvl)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, zapcore.Level) error); ok {
-		r0 = rf(ctx, lvl)
+	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
+		r0 = rf(lvl)
 	} else {
 		r0 = ret.Error(0)
 	}
