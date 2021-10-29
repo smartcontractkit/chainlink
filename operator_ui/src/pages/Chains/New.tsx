@@ -146,223 +146,334 @@ export const New = ({
                       onChange={handleChainIDChange}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <Grid item xs={12}>
-                      <FormLabel>Config Overrides</FormLabel>
-                    </Grid>
 
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Block History Estimator Block Delay"
-                        name="BlockHistoryEstimatorBlockDelay"
-                        placeholder="BlockHistoryEstimatorBlockDelay"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Block History Estimator Block History Size"
-                        name="BlockHistoryEstimatorBlockHistorySize"
-                        placeholder="BlockHistoryEstimatorBlockHistorySize"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Eth Tx Reaper Threshold"
-                        name="EthTxReaperThreshold"
-                        placeholder="EthTxReaperThreshold"
-                        type="text"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Eth Tx Resend After Threshold"
-                        name="EthTxResendAfterThreshold"
-                        placeholder="EthTxResendAfterThreshold"
-                        type="text"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <Checkbox
-                        name="EvmEIP1559DynamicFees"
-                        // onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Finality Depth"
-                        name="EvmFinalityDepth"
-                        placeholder="EvmFinalityDepth"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Bump Percent"
-                        name="EvmGasBumpPercent"
-                        placeholder="EvmGasBumpPercent"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Bump Tx Depth"
-                        name="EvmGasBumpTxDepth"
-                        placeholder="EvmGasBumpTxDepth"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Bump Wei"
-                        name="EvmGasBumpWei"
-                        placeholder="EvmGasBumpWei"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Limit Default"
-                        name="EvmGasLimitDefault"
-                        placeholder="EvmGasLimitDefault"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Limit Multiplier"
-                        name="EvmGasLimitMultiplier"
-                        placeholder="EvmGasLimitMultiplier"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Price Default"
-                        name="EvmGasPriceDefault"
-                        placeholder="EvmGasPriceDefault"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Tip Cap Default"
-                        name="EvmGasTipCapDefault"
-                        placeholder="EvmGasTipCapDefault"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Gas Tip Cap Minimum"
-                        name="EvmGasTipCapMinimum"
-                        placeholder="EvmGasTipCapMinimum"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Head Tracker History Depth"
-                        name="EvmHeadTrackerHistoryDepth"
-                        placeholder="EvmHeadTrackerHistoryDepth"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Head Tracker Max Buffer Size"
-                        name="EvmHeadTrackerMaxBufferSize"
-                        placeholder="EvmHeadTrackerMaxBufferSize"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Head Tracker Sampling Interval"
-                        name="EvmHeadTrackerSamplingInterval"
-                        placeholder="EvmHeadTrackerSamplingInterval"
-                        type="text"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Log Backfill Batch Size"
-                        name="EvmLogBackfillBatchSize"
-                        placeholder="EvmLogBackfillBatchSize"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <TextField
-                        label="Evm Max Gas Price Wei"
-                        name="EvmMaxGasPriceWei"
-                        placeholder="EvmMaxGasPriceWei"
-                        type="number"
-                        fullWidth
-                        onChange={handleOverrideChange}
-                      />
-                    </Grid>
-
-                    <Grid item xs={3}>
-                      <Checkbox
-                        name="EvmNonceAutoSync"
-                        // onChange={handleOverrideChange}
-                      />
-                    </Grid>
+                  <Grid item xs={12} style={{ marginTop: 10 }}>
+                    <FormLabel>Config Overrides</FormLabel>
                   </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Block History Estimator Block Delay"
+                      name="BlockHistoryEstimatorBlockDelay"
+                      placeholder="BlockHistoryEstimatorBlockDelay"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Block History Estimator Block History Size"
+                      name="BlockHistoryEstimatorBlockHistorySize"
+                      placeholder="BlockHistoryEstimatorBlockHistorySize"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Eth Tx Reaper Threshold"
+                      name="EthTxReaperThreshold"
+                      placeholder="EthTxReaperThreshold"
+                      type="text"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Eth Tx Resend After Threshold"
+                      name="EthTxResendAfterThreshold"
+                      placeholder="EthTxResendAfterThreshold"
+                      type="text"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <Checkbox
+                      name="EvmEIP1559DynamicFees"
+                      // onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Finality Depth"
+                      name="EvmFinalityDepth"
+                      placeholder="EvmFinalityDepth"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Bump Percent"
+                      name="EvmGasBumpPercent"
+                      placeholder="EvmGasBumpPercent"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Bump Tx Depth"
+                      name="EvmGasBumpTxDepth"
+                      placeholder="EvmGasBumpTxDepth"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Bump Wei"
+                      name="EvmGasBumpWei"
+                      placeholder="EvmGasBumpWei"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Limit Default"
+                      name="EvmGasLimitDefault"
+                      placeholder="EvmGasLimitDefault"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Limit Multiplier"
+                      name="EvmGasLimitMultiplier"
+                      placeholder="EvmGasLimitMultiplier"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Price Default"
+                      name="EvmGasPriceDefault"
+                      placeholder="EvmGasPriceDefault"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Tip Cap Default"
+                      name="EvmGasTipCapDefault"
+                      placeholder="EvmGasTipCapDefault"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Gas Tip Cap Minimum"
+                      name="EvmGasTipCapMinimum"
+                      placeholder="EvmGasTipCapMinimum"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Head Tracker History Depth"
+                      name="EvmHeadTrackerHistoryDepth"
+                      placeholder="EvmHeadTrackerHistoryDepth"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Head Tracker Max Buffer Size"
+                      name="EvmHeadTrackerMaxBufferSize"
+                      placeholder="EvmHeadTrackerMaxBufferSize"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Head Tracker Sampling Interval"
+                      name="EvmHeadTrackerSamplingInterval"
+                      placeholder="EvmHeadTrackerSamplingInterval"
+                      type="text"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Log Backfill Batch Size"
+                      name="EvmLogBackfillBatchSize"
+                      placeholder="EvmLogBackfillBatchSize"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm Max Gas Price Wei"
+                      name="EvmMaxGasPriceWei"
+                      placeholder="EvmMaxGasPriceWei"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <Checkbox
+                      name="EvmNonceAutoSync"
+                      // onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Evm RPC Default Batch Size"
+                      name="EvmRPCDefaultBatchSize"
+                      placeholder="EvmRPCDefaultBatchSize"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Flags Contract Address"
+                      name="FlagsContractAddress"
+                      placeholder="FlagsContractAddress"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Gas Estimator Mode"
+                      name="GasEstimatorMode"
+                      placeholder="GasEstimatorMode"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Chain Type"
+                      name="ChainType"
+                      placeholder="ChainType"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Min Incoming Confirmations"
+                      name="MinIncomingConfirmations"
+                      placeholder="MinIncomingConfirmations"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Min Required Outgoing Confirmations"
+                      name="MinRequiredOutgoingConfirmations"
+                      placeholder="MinRequiredOutgoingConfirmations"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Minimum Contract Payment"
+                      name="MinimumContractPayment"
+                      placeholder="MinimumContractPayment"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={3}>
+                    <TextField
+                      label="OCR Observation Timeout"
+                      name="OCRObservationTimeout"
+                      placeholder="OCRObservationTimeout"
+                      type="number"
+                      fullWidth
+                      onChange={handleOverrideChange}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12} style={{ marginTop: 10 }}>
+                    <FormLabel>Key Specific Config Overrides</FormLabel>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <TextField
+                      error={Boolean(overridesErrorMsg)}
+                      value={overrides}
+                      onChange={handleOverrideChange}
+                      helperText={
+                        Boolean(overridesErrorMsg) && overridesErrorMsg
+                      }
+                      autoComplete="off"
+                      label={'JSON'}
+                      rows={10}
+                      rowsMax={25}
+                      placeholder={'Paste JSON'}
+                      multiline
+                      margin="normal"
+                      name="chainConfig"
+                      id="chainConfig"
+                      variant="outlined"
+                      fullWidth
+                    />
+                  </Grid>
+
                   <Grid item xs={12}>
                     <Button
                       data-testid="new-chain-config-submit"
