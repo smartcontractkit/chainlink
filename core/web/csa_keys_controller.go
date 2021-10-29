@@ -2,9 +2,11 @@ package web
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -43,6 +45,25 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 		return
 	}
 	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKeys")
+}
+
+// Import imports a CSA key
+func (ctrl *CSAKeysController) Import(c *gin.Context) {
+	defer logger.ErrorIfCalling(c.Request.Body.Close)
+
+	bytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	oldPassword := c.Query("oldpassword")
+	key, err := ctrl.App.GetKeyStore().CSA().Import(bytes, oldPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, presenters.NewCSAKeyResource(key), "csaKey")
 }
 
 // Export exports a key

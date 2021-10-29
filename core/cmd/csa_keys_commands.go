@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -87,6 +88,48 @@ func (cli *Client) CreateCSAKey(c *cli.Context) (err error) {
 	}()
 
 	return cli.renderAPIResponse(resp, &CSAKeyPresenter{}, "Created CSA key")
+}
+
+// ImportCSAKey imports and stores a CSA key. Path to key must be passed.
+func (cli *Client) ImportCSAKey(c *cli.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
+	}
+
+	oldPasswordFile := c.String("oldpassword")
+	if len(oldPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+	}
+	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.Args().Get(0)
+	keyJSON, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	exportUrl := url.URL{
+		Path: "/v2/keys/csa/import",
+	}
+
+	query := exportUrl.Query()
+	query.Set("oldpassword", normalizePassword(string(oldPassword)))
+
+	exportUrl.RawQuery = query.Encode()
+	resp, err := cli.HTTP.Post(exportUrl.String(), bytes.NewReader(keyJSON))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	return cli.renderAPIResponse(resp, &CSAKeyPresenter{}, "🔑 Imported CSA key")
 }
 
 // ExportCSAKey exports a CSA key. Key ID must be passed.
