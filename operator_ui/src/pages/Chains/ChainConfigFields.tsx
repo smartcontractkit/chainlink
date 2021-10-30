@@ -4,6 +4,7 @@ import {
   FormLabel,
   Grid,
   TextField,
+  Typography,
 } from '@material-ui/core'
 import React, { useState } from 'react'
 
@@ -106,6 +107,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 1</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -119,6 +123,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 16</Typography>
         </Grid>
       </Grid>
 
@@ -134,6 +141,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 168 hours</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -147,6 +157,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 1 minute</Typography>
         </Grid>
       </Grid>
 
@@ -164,6 +177,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="EvmEIP1559DynamicFees"
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: false</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -177,6 +193,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 50</Typography>
         </Grid>
       </Grid>
 
@@ -192,6 +211,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 20</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -205,6 +227,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 10</Typography>
         </Grid>
       </Grid>
 
@@ -220,6 +245,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 10</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -233,6 +261,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 500000</Typography>
         </Grid>
       </Grid>
 
@@ -248,6 +279,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 1.0</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -261,6 +295,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 20 gwei</Typography>
         </Grid>
       </Grid>
 
@@ -276,6 +313,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 0</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -289,6 +329,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 0</Typography>
         </Grid>
       </Grid>
 
@@ -304,6 +347,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 100</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -317,6 +363,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 3</Typography>
         </Grid>
       </Grid>
 
@@ -332,6 +381,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 1 second</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -345,6 +397,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 100</Typography>
         </Grid>
       </Grid>
 
@@ -360,6 +415,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 5000 gwei</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -369,12 +427,15 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
               <Checkbox
                 name="EvmNonceAutoSync"
                 value={Boolean(getFieldValue('EvmNonceAutoSync'))}
-                checked={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
+                checked={Boolean(getFieldValue('EvmNonceAutoSync'))}
                 onChange={handleOverrideChange}
               />
             }
             label="Evm Nonce Auto Sync"
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: true</Typography>
         </Grid>
       </Grid>
 
@@ -390,6 +451,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 100</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -402,6 +466,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
         </Grid>
       </Grid>
 
@@ -416,6 +483,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: BlockHistory</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -428,6 +498,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: empty</Typography>
         </Grid>
       </Grid>
 
@@ -443,6 +516,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 3</Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -456,6 +532,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 12</Typography>
         </Grid>
       </Grid>
 
@@ -471,6 +550,11 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             onChange={handleOverrideChange}
           />
         </Grid>
+        <Grid item>
+          <Typography color="secondary">
+            Default: 10000000000000 Juels
+          </Typography>
+        </Grid>
       </Grid>
 
       <Grid item xs={6}>
@@ -484,6 +568,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             fullWidth
             onChange={handleOverrideChange}
           />
+        </Grid>
+        <Grid item>
+          <Typography color="secondary">Default: 12 seconds</Typography>
         </Grid>
       </Grid>
 
