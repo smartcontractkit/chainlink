@@ -82,7 +82,7 @@ const LogConfigurationForm = withStyles(styles)(
           defaultValue={initialValues.defaultLogLevel}
           onChange={formik.handleChange}
           error={formik.touched.level && Boolean(formik.errors.level)}
-          helperText="Override the LOG_LEVEL environment variable, until the node is restarted"
+          helperText="Override the LOG_LEVEL environment variable (until restart)"
         >
           {logLevels.map((level) => (
             <MenuItem key={level} value={level}>
@@ -101,15 +101,18 @@ const LogConfigurationForm = withStyles(styles)(
                 <Checkbox
                   id="sqlEnabled"
                   name="sqlEnabled"
-                  checked={formik.values.sqlEnabled}
+                  disabled={formik.values.level !== 'debug'}
+                  checked={
+                    formik.values.sqlEnabled && formik.values.level === 'debug'
+                  }
                   onChange={formik.handleChange}
                 />
               </>
             }
-            label="Log SQL Statements"
+            label="Log SQL Statements (debug only)"
           />
           <FormHelperText className={classes.logLevelHelperText}>
-            Override the LOG_SQL_STATEMENTS environment variable
+            Override the LOG_SQL_STATEMENTS environment variable (until restart)
           </FormHelperText>
         </FormGroup>
 

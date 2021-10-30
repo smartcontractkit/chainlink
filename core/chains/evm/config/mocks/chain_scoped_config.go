@@ -11,8 +11,6 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	context "context"
-
 	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 
 	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -3259,13 +3257,13 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQLStatements provides a mock function with given fields: ctx, sqlEnabled
-func (_m *ChainScopedConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
-	ret := _m.Called(ctx, sqlEnabled)
+// SetLogSQLStatements provides a mock function with given fields: logSQLStatements
+func (_m *ChainScopedConfig) SetLogSQLStatements(logSQLStatements bool) error {
+	ret := _m.Called(logSQLStatements)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, bool) error); ok {
-		r0 = rf(ctx, sqlEnabled)
+	if rf, ok := ret.Get(0).(func(bool) error); ok {
+		r0 = rf(logSQLStatements)
 	} else {
 		r0 = ret.Error(0)
 	}
