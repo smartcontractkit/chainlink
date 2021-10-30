@@ -30,11 +30,11 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
   initialValues,
   onChange,
 }) => {
-  const initialConfig = { ...(initialValues || {}) }
-
-  const [overrides, setOverrides] = useState<ConfigOverrides>({})
+  const [overrides, setOverrides] = useState<ConfigOverrides>({
+    ...(initialValues || {}),
+  })
   const [keySpecificOverrides, setKeySpecificOverrides] = useState<string>(
-    (initialConfig['KeySpecific'] as string) || '{}',
+    (overrides['KeySpecific'] as string) || '{}',
   )
   const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
     useState<string>('')
@@ -62,7 +62,11 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
           : event.target.value,
     }
 
-    if (newOverrides[event.target.name] === '') {
+    // Removes empty or false default values from the form
+    if (
+      newOverrides[event.target.name] === '' ||
+      newOverrides[event.target.name] === false
+    ) {
       delete newOverrides[event.target.name]
     }
 
@@ -91,7 +95,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
   }
 
   function getFieldValue(fieldName: string): NonNullableJSONPrimitive {
-    return initialConfig[fieldName] as NonNullableJSONPrimitive
+    return (overrides[fieldName] as NonNullableJSONPrimitive) || ''
   }
 
   return (
@@ -174,8 +178,10 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             control={
               <Checkbox
                 name="EvmEIP1559DynamicFees"
-                value={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
-                checked={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
+                value={getFieldValue('EvmEIP1559DynamicFees').toString() || ''}
+                checked={
+                  Boolean(getFieldValue('EvmEIP1559DynamicFees')) || false
+                }
                 onChange={(event) => handleOverrideChange(event)}
               />
             }
@@ -431,8 +437,8 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             control={
               <Checkbox
                 name="EvmNonceAutoSync"
-                value={Boolean(getFieldValue('EvmNonceAutoSync'))}
-                checked={Boolean(getFieldValue('EvmNonceAutoSync'))}
+                value={getFieldValue('EvmNonceAutoSync').toString() || ''}
+                checked={Boolean(getFieldValue('EvmNonceAutoSync')) || false}
                 onChange={handleOverrideChange}
               />
             }
