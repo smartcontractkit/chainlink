@@ -13,7 +13,7 @@ import "./CrossDomainDelegateForwarder.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract ArbitrumCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDelegateForwarder {
+contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVersionInterface {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr tetherhe L1 owner address that will be allowed to call the forward fn

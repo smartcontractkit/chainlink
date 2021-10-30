@@ -13,7 +13,7 @@ import "./CrossDomainDelegateForwarder.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract OptimismCrossDomainGovernor is TypeAndVersionInterface, CrossDomainDelegateForwarder {
+contract OptimismCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVersionInterface {
   // OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007
   address private immutable OVM_CROSS_DOMAIN_MESSENGER;
 
