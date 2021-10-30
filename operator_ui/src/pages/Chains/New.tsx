@@ -87,10 +87,7 @@ export const New = ({
     setChainIDErrorMsg('')
   }
 
-  async function onConfigChange(
-    config: { [attr: string]: string | boolean },
-    error: string,
-  ) {
+  function onConfigChange(config: ConfigOverrides, error: string) {
     if (error) {
       setKeySpecificOverridesErrorMsg(error)
       return
@@ -146,6 +143,8 @@ export const New = ({
                       onChange={handleChainIDChange}
                     />
                   </Grid>
+
+                  <Grid item xs={false} md={12}></Grid>
 
                   <ChainConfigFields onChange={onConfigChange} />
 

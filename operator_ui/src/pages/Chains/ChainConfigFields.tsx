@@ -13,8 +13,10 @@ interface Props {
 }
 
 export interface ConfigOverrides {
-  [attr: string]: string | boolean
+  [attr: string]: JSONPrimitive
 }
+
+type NonNullableJSONPrimitive = string | number | boolean
 
 const defaultKeySpecifics = '{}'
 
@@ -22,10 +24,12 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
   initialValues,
   onChange,
 }) => {
-  const init: ConfigOverrides = { ...(initialValues || {}) }
+  const initialConfig = { ...(initialValues || {}) }
 
   const [overrides, setOverrides] = useState<ConfigOverrides>({})
-  const [keySpecificOverrides, setKeySpecificOverrides] = useState<string>('{}')
+  const [keySpecificOverrides, setKeySpecificOverrides] = useState<string>(
+    (initialConfig['KeySpecific'] as string) || '{}',
+  )
   const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
     useState<string>('')
 
@@ -80,9 +84,13 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
     setKeySpecificOverridesErrorMsg('')
   }
 
+  function getFieldValue(fieldName: string): NonNullableJSONPrimitive {
+    return initialConfig[fieldName] as NonNullableJSONPrimitive
+  }
+
   return (
     <>
-      <Grid item xs={12} style={{ marginTop: 10 }}>
+      <Grid item xs={12}>
         <FormLabel>Config Overrides</FormLabel>
       </Grid>
 
@@ -93,7 +101,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             name="BlockHistoryEstimatorBlockDelay"
             placeholder="BlockHistoryEstimatorBlockDelay"
             type="number"
-            value={init['BlockHistoryEstimatorBlockDelay']}
+            value={getFieldValue('BlockHistoryEstimatorBlockDelay')}
             fullWidth
             onChange={handleOverrideChange}
           />
@@ -106,6 +114,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Block History Estimator Block History Size"
             name="BlockHistoryEstimatorBlockHistorySize"
             placeholder="BlockHistoryEstimatorBlockHistorySize"
+            value={getFieldValue('BlockHistoryEstimatorBlockHistorySize')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -119,6 +128,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Eth Tx Reaper Threshold"
             name="EthTxReaperThreshold"
             placeholder="EthTxReaperThreshold"
+            value={getFieldValue('EthTxReaperThreshold')}
             type="text"
             fullWidth
             onChange={handleOverrideChange}
@@ -132,6 +142,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Eth Tx Resend After Threshold"
             name="EthTxResendAfterThreshold"
             placeholder="EthTxResendAfterThreshold"
+            value={getFieldValue('EthTxResendAfterThreshold')}
             type="text"
             fullWidth
             onChange={handleOverrideChange}
@@ -145,6 +156,8 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             control={
               <Checkbox
                 name="EvmEIP1559DynamicFees"
+                value={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
+                checked={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
                 onChange={(event) => handleOverrideChange(event)}
               />
             }
@@ -159,6 +172,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Finality Depth"
             name="EvmFinalityDepth"
             placeholder="EvmFinalityDepth"
+            value={getFieldValue('EvmFinalityDepth')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -172,6 +186,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Bump Percent"
             name="EvmGasBumpPercent"
             placeholder="EvmGasBumpPercent"
+            value={getFieldValue('EvmGasBumpPercent')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -185,6 +200,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Bump Tx Depth"
             name="EvmGasBumpTxDepth"
             placeholder="EvmGasBumpTxDepth"
+            value={getFieldValue('EvmGasBumpTxDepth')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -198,6 +214,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Bump Wei"
             name="EvmGasBumpWei"
             placeholder="EvmGasBumpWei"
+            value={getFieldValue('EvmGasBumpWei')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -211,6 +228,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Limit Default"
             name="EvmGasLimitDefault"
             placeholder="EvmGasLimitDefault"
+            value={getFieldValue('EvmGasLimitDefault')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -224,6 +242,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Limit Multiplier"
             name="EvmGasLimitMultiplier"
             placeholder="EvmGasLimitMultiplier"
+            value={getFieldValue('EvmGasLimitMultiplier')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -237,6 +256,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Price Default"
             name="EvmGasPriceDefault"
             placeholder="EvmGasPriceDefault"
+            value={getFieldValue('EvmGasPriceDefault')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -250,6 +270,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Tip Cap Default"
             name="EvmGasTipCapDefault"
             placeholder="EvmGasTipCapDefault"
+            value={getFieldValue('EvmGasTipCapDefault')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -263,6 +284,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Gas Tip Cap Minimum"
             name="EvmGasTipCapMinimum"
             placeholder="EvmGasTipCapMinimum"
+            value={getFieldValue('EvmGasTipCapMinimum')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -276,6 +298,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Head Tracker History Depth"
             name="EvmHeadTrackerHistoryDepth"
             placeholder="EvmHeadTrackerHistoryDepth"
+            value={getFieldValue('EvmHeadTrackerHistoryDepth')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -289,6 +312,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Head Tracker Max Buffer Size"
             name="EvmHeadTrackerMaxBufferSize"
             placeholder="EvmHeadTrackerMaxBufferSize"
+            value={getFieldValue('EvmHeadTrackerMaxBufferSize')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -302,6 +326,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Head Tracker Sampling Interval"
             name="EvmHeadTrackerSamplingInterval"
             placeholder="EvmHeadTrackerSamplingInterval"
+            value={getFieldValue('EvmHeadTrackerSamplingInterval')}
             type="text"
             fullWidth
             onChange={handleOverrideChange}
@@ -315,6 +340,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Log Backfill Batch Size"
             name="EvmLogBackfillBatchSize"
             placeholder="EvmLogBackfillBatchSize"
+            value={getFieldValue('EvmLogBackfillBatchSize')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -328,6 +354,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm Max Gas Price Wei"
             name="EvmMaxGasPriceWei"
             placeholder="EvmMaxGasPriceWei"
+            value={getFieldValue('EvmMaxGasPriceWei')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -341,7 +368,9 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             control={
               <Checkbox
                 name="EvmNonceAutoSync"
-                // onChange={handleOverrideChange}
+                value={Boolean(getFieldValue('EvmNonceAutoSync'))}
+                checked={Boolean(getFieldValue('EvmEIP1559DynamicFees'))}
+                onChange={handleOverrideChange}
               />
             }
             label="Evm Nonce Auto Sync"
@@ -355,6 +384,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Evm RPC Default Batch Size"
             name="EvmRPCDefaultBatchSize"
             placeholder="EvmRPCDefaultBatchSize"
+            value={getFieldValue('EvmRPCDefaultBatchSize')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -368,6 +398,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Flags Contract Address"
             name="FlagsContractAddress"
             placeholder="FlagsContractAddress"
+            value={getFieldValue('FlagsContractAddress')}
             fullWidth
             onChange={handleOverrideChange}
           />
@@ -380,6 +411,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Gas Estimator Mode"
             name="GasEstimatorMode"
             placeholder="GasEstimatorMode"
+            value={getFieldValue('GasEstimatorMode')}
             fullWidth
             onChange={handleOverrideChange}
           />
@@ -392,6 +424,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Chain Type"
             name="ChainType"
             placeholder="ChainType"
+            value={getFieldValue('ChainType')}
             fullWidth
             onChange={handleOverrideChange}
           />
@@ -404,6 +437,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Min Incoming Confirmations"
             name="MinIncomingConfirmations"
             placeholder="MinIncomingConfirmations"
+            value={getFieldValue('MinIncomingConfirmations')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -417,6 +451,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Min Required Outgoing Confirmations"
             name="MinRequiredOutgoingConfirmations"
             placeholder="MinRequiredOutgoingConfirmations"
+            value={getFieldValue('MinRequiredOutgoingConfirmations')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -430,6 +465,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="Minimum Contract Payment"
             name="MinimumContractPayment"
             placeholder="MinimumContractPayment"
+            value={getFieldValue('MinimumContractPayment')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
@@ -443,6 +479,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
             label="OCR Observation Timeout"
             name="OCRObservationTimeout"
             placeholder="OCRObservationTimeout"
+            value={getFieldValue('OCRObservationTimeout')}
             type="number"
             fullWidth
             onChange={handleOverrideChange}
