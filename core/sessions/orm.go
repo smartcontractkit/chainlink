@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
 	FindUser() (User, error)
 	AuthorizedUserWithSession(sessionID string) (User, error)

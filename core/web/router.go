@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 	"github.com/smartcontractkit/chainlink/core/web/resolver"
 	"github.com/smartcontractkit/chainlink/core/web/schema"
@@ -46,17 +47,6 @@ func init() {
 func printRoutes(httpMethod, absolutePath, handlerName string, nuHandlers int) {
 	logger.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
 }
-
-const (
-	// SessionName is the session name
-	SessionName = "clsession"
-	// SessionIDKey is the session ID key in the session map
-	SessionIDKey = "clsession_id"
-	// SessionUserKey is the User key in the session map
-	SessionUserKey = "user"
-	// SessionExternalInitiatorKey is the External Initiator key in the session map
-	SessionExternalInitiatorKey = "external_initiator"
-)
 
 // Router listens and responds to requests to the node for valid paths.
 func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engine {
@@ -91,7 +81,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 			config.AuthenticatedRateLimitPeriod().Duration(),
 			config.AuthenticatedRateLimit(),
 		),
-		sessions.Sessions(SessionName, sessionStore),
+		sessions.Sessions(auth.SessionName, sessionStore),
 	)
 
 	metricRoutes(app, api)
@@ -102,7 +92,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	guiAssetRoutes(app.NewBox(), engine, config)
 
 	api.POST("/query",
-		RequireAuth(app.SessionORM(), AuthenticateByToken, AuthenticateBySession),
+		auth.Authenticate(app.SessionORM(), auth.AuthenticateByToken, auth.AuthenticateBySession),
 		loader.Middleware(app),
 		graphqlHandler(app),
 	)
@@ -176,7 +166,7 @@ func secureMiddleware(cfg WebSecurityConfig) gin.HandlerFunc {
 	return secureFunc
 }
 func metricRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	group := r.Group("/debug", RequireAuth(app.SessionORM(), AuthenticateBySession))
+	group := r.Group("/debug", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	group.GET("/vars", expvar.Handler())
 
 	if app.GetConfig().Dev() {
@@ -212,7 +202,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	))
 	sc := SessionsController{app, nil}
 	unauth.POST("/sessions", sc.Create)
-	auth := r.Group("/", RequireAuth(app.SessionORM(), AuthenticateBySession))
+	auth := r.Group("/", auth.Authenticate(app.SessionORM(), auth.AuthenticateBySession))
 	auth.DELETE("/sessions", sc.Destroy)
 }
 
@@ -229,7 +219,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	psec := PipelineJobSpecErrorsController{app}
 	unauthedv2.PATCH("/resume/:runID", prc.Resume)
 
-	authv2 := r.Group("/v2", RequireAuth(app.SessionORM(), AuthenticateByToken, AuthenticateBySession))
+	authv2 := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+		auth.AuthenticateByToken,
+		auth.AuthenticateBySession,
+	))
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
@@ -355,10 +348,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	}
 
 	ping := PingController{app}
-	userOrEI := r.Group("/v2", RequireAuth(app.SessionORM(),
-		AuthenticateExternalInitiator,
-		AuthenticateByToken,
-		AuthenticateBySession,
+	userOrEI := r.Group("/v2", auth.Authenticate(app.SessionORM(),
+		auth.AuthenticateExternalInitiator,
+		auth.AuthenticateByToken,
+		auth.AuthenticateBySession,
 	))
 	userOrEI.GET("/ping", ping.Show)
 	userOrEI.POST("/jobs/:ID/runs", prc.Create)

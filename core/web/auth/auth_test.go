@@ -1,30 +1,30 @@
-package web_test
+package auth_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/web"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/sessions"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
-func authError(web.AuthStorer, *gin.Context) error {
+func authError(*gin.Context, webauth.Authenticator) error {
 	return errors.New("random error")
 }
 
-func authFailure(web.AuthStorer, *gin.Context) error {
+func authFailure(*gin.Context, webauth.Authenticator) error {
 	return auth.ErrorAuthFailed
 }
 
-func authSuccess(web.AuthStorer, *gin.Context) error {
+func authSuccess(*gin.Context, webauth.Authenticator) error {
 	return nil
 }
 
@@ -51,11 +51,11 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
-	store := userFindSuccesser{user: user}
+	authr := userFindSuccesser{user: user}
 
 	called := false
 	router := gin.New()
-	router.Use(web.RequireAuth(store, web.AuthenticateByToken))
+	router.Use(webauth.Authenticate(authr, webauth.AuthenticateByToken))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -63,8 +63,8 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set(web.APIKey, cltest.APIKey)
-	req.Header.Set(web.APISecret, cltest.APISecret)
+	req.Header.Set(webauth.APIKey, cltest.APIKey)
+	req.Header.Set(webauth.APISecret, cltest.APISecret)
 	router.ServeHTTP(w, req)
 
 	assert.True(t, called)
@@ -72,11 +72,11 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 }
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
-	store := userFindFailer{err: auth.ErrorAuthFailed}
+	authr := userFindFailer{err: auth.ErrorAuthFailed}
 
 	called := false
 	router := gin.New()
-	router.Use(web.RequireAuth(store, web.AuthenticateByToken))
+	router.Use(webauth.Authenticate(authr, webauth.AuthenticateByToken))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -84,8 +84,8 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/", nil)
-	req.Header.Set(web.APIKey, cltest.APIKey)
-	req.Header.Set(web.APISecret, "bad-secret")
+	req.Header.Set(webauth.APIKey, cltest.APIKey)
+	req.Header.Set(webauth.APISecret, "bad-secret")
 	router.ServeHTTP(w, req)
 
 	assert.False(t, called)
@@ -94,9 +94,10 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 
 func TestRequireAuth_NoneRequired(t *testing.T) {
 	called := false
-	var store web.AuthStorer
+	var authr webauth.Authenticator
+
 	router := gin.New()
-	router.Use(web.RequireAuth(store))
+	router.Use(webauth.Authenticate(authr))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -112,9 +113,9 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 
 func TestRequireAuth_AuthFailed(t *testing.T) {
 	called := false
-	var store web.AuthStorer
+	var authr webauth.Authenticator
 	router := gin.New()
-	router.Use(web.RequireAuth(store, authFailure))
+	router.Use(webauth.Authenticate(authr, authFailure))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -130,9 +131,9 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 
 func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 	called := false
-	var store web.AuthStorer
+	var authr webauth.Authenticator
 	router := gin.New()
-	router.Use(web.RequireAuth(store, authFailure, authSuccess))
+	router.Use(webauth.Authenticate(authr, authFailure, authSuccess))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")
@@ -148,9 +149,9 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 
 func TestRequireAuth_Error(t *testing.T) {
 	called := false
-	var store web.AuthStorer
+	var authr webauth.Authenticator
 	router := gin.New()
-	router.Use(web.RequireAuth(store, authError, authSuccess))
+	router.Use(webauth.Authenticate(authr, authError, authSuccess))
 	router.GET("/", func(c *gin.Context) {
 		called = true
 		c.String(http.StatusOK, "")

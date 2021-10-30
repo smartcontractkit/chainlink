@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-gonic/contrib/sessions"
+	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsession "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/gin-gonic/contrib/sessions"
-	"github.com/gin-gonic/gin"
 )
 
 // UserController manages the current Session's User User.
@@ -106,7 +107,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 
 func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 	session := sessions.Default(ctx)
-	sessionID, ok := session.Get(SessionIDKey).(string)
+	sessionID, ok := session.Get(webauth.SessionIDKey).(string)
 	if !ok {
 		return "", errors.New("unable to get current session ID")
 	}
