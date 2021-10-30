@@ -3,10 +3,12 @@ import {
   FormControlLabel,
   FormLabel,
   Grid,
+  MenuItem,
   TextField,
   Typography,
 } from '@material-ui/core'
 import React, { useState } from 'react'
+import { capitalize } from '@material-ui/core/utils/helpers'
 
 interface Props {
   initialValues?: ConfigOverrides
@@ -20,6 +22,9 @@ export interface ConfigOverrides {
 type NonNullableJSONPrimitive = string | number | boolean
 
 const defaultKeySpecifics = '{}'
+
+const chainTypes = ['arbitrum', 'exchain', 'optimism', 'xdai']
+const gasEstimatorModes = ['BlockHistory', 'FixedPrice', 'Optimism']
 
 export const ChainConfigFields: React.FunctionComponent<Props> = ({
   initialValues,
@@ -475,13 +480,19 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
       <Grid item xs={6}>
         <Grid item xs={6}>
           <TextField
-            label="Gas Estimator Mode"
             name="GasEstimatorMode"
-            placeholder="GasEstimatorMode"
-            value={getFieldValue('GasEstimatorMode')}
             fullWidth
+            select
+            label="Gas Estimator Mode"
+            value={getFieldValue('GasEstimatorMode') || ''}
             onChange={handleOverrideChange}
-          />
+          >
+            {gasEstimatorModes.map((mode) => (
+              <MenuItem key={mode} value={mode}>
+                {capitalize(mode)}
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
         <Grid item>
           <Typography color="secondary">Default: BlockHistory</Typography>
@@ -491,13 +502,19 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
       <Grid item xs={6}>
         <Grid item xs={6}>
           <TextField
+            fullWidth
+            select
             label="Chain Type"
             name="ChainType"
-            placeholder="ChainType"
-            value={getFieldValue('ChainType')}
-            fullWidth
+            value={getFieldValue('ChainType') || ''}
             onChange={handleOverrideChange}
-          />
+          >
+            {chainTypes.map((type) => (
+              <MenuItem key={type} value={type}>
+                {capitalize(type)}
+              </MenuItem>
+            ))}
+          </TextField>
         </Grid>
         <Grid item>
           <Typography color="secondary">Default: empty</Typography>
@@ -551,9 +568,7 @@ export const ChainConfigFields: React.FunctionComponent<Props> = ({
           />
         </Grid>
         <Grid item>
-          <Typography color="secondary">
-            Default: 10000000000000 Juels
-          </Typography>
+          <Typography color="secondary">Default: 0.00001 LINK</Typography>
         </Grid>
       </Grid>
 
