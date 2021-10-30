@@ -28,7 +28,7 @@ import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
-import { FeedsManagerScreen } from 'pages/FeedsManager/FeedsManagerScreen'
+import FeedsManager from 'src/pages/FeedsManager'
 import { JobProposalScreen } from 'pages/JobProposal/JobProposalScreen'
 import NodesIndex from './pages/NodesIndex/NodesIndex'
 
@@ -154,8 +154,9 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               />
               <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
+
               <PrivateRoute path="/feeds_manager">
-                <FeedsManagerScreen />
+                <FeedsManager />
               </PrivateRoute>
 
               <PrivateRoute path="/job_proposals/:id">

@@ -1,23 +1,24 @@
 import React from 'react'
 
+import Grid from '@material-ui/core/Grid'
+
 import { FeedsManagerCard } from './FeedsManagerCard'
 import { JobProposalsCard } from './JobProposalsCard'
 
-import Grid from '@material-ui/core/Grid'
-import { FeedsManagerGQL } from './FeedsManagerScreen'
+import { FeedsManager } from 'types/feeds_manager'
 
 interface Props {
-  manager: FeedsManagerGQL
+  data: FeedsManager
 }
 
-export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
+export const FeedsManagerView: React.FC<Props> = ({ data }) => {
   return (
     <Grid container>
       <Grid item xs={12} lg={8}>
         <JobProposalsCard />
       </Grid>
       <Grid item xs={12} lg={4}>
-        <FeedsManagerCard manager={manager} />
+        <FeedsManagerCard manager={data} />
       </Grid>
     </Grid>
   )
