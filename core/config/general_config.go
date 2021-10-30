@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -12,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
@@ -166,7 +164,7 @@ type GeneralOnlyConfig interface {
 	SetDB(*gorm.DB)
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
+	SetLogSQLStatements(logSQLStatements bool) error
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -250,6 +248,7 @@ type generalConfig struct {
 	advisoryLockID   int64
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
+	logSQLStatements bool
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -301,6 +300,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		}
 	}
 	config.logLevel = config.defaultLogLevel
+	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
 
 	return config
 }
@@ -878,24 +878,13 @@ func (c *generalConfig) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c *generalConfig) LogSQLStatements() bool {
-	if c.ORM != nil {
-		logSqlStatements, err := c.ORM.GetConfigBoolValue("LogSQLStatements")
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
-		} else if err == nil {
-			return *logSqlStatements
-		}
-	}
-	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+	return c.logSQLStatements
 }
 
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
-	if c.ORM == nil {
-		return errors.New("SetLogSQLStatements: No runtime store installed")
-	}
-
-	return c.ORM.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
+func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+	c.logSQLStatements = logSQLStatements
+	return nil
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
