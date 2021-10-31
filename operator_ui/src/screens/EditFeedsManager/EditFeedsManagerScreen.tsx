@@ -1,38 +1,16 @@
 import React from 'react'
 import { Redirect, useLocation, useHistory } from 'react-router-dom'
-import { gql, useQuery } from '@apollo/client'
 
 import { v2 } from 'api'
 import { EditFeedsManagerView } from './EditFeedsManagerView'
 import { FormValues } from 'components/Forms/FeedsManagerForm'
 
-import { FetchFeeds, FetchFeedsVariables } from 'types/feeds_manager'
-
-export const FETCH_FEEDS = gql`
-  query FetchFeeds {
-    feedsManagers {
-      results {
-        __typename
-        id
-        name
-        uri
-        publicKey
-        jobTypes
-        isBootstrapPeer
-        isConnectionActive
-        bootstrapPeerMultiaddr
-        createdAt
-      }
-    }
-  }
-`
+import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
 
 export const EditFeedsManagerScreen: React.FC = () => {
   const history = useHistory()
   const location = useLocation()
-  const { data, loading, error } = useQuery<FetchFeeds, FetchFeedsVariables>(
-    FETCH_FEEDS,
-  )
+  const { data, loading, error, refetch } = useFetchFeedsManagers()
 
   if (loading) {
     return null
@@ -64,6 +42,7 @@ export const EditFeedsManagerScreen: React.FC = () => {
     try {
       await v2.feedsManagers.updateFeedsManager(manager.id, values)
 
+      refetch()
       history.push('/feeds_manager')
     } catch (e) {
       console.log(e)

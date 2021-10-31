@@ -12,7 +12,9 @@
       "**/typechain",
       "**/typechain/**",
       "**/@typechain/ethers-v5",
-      "**/@typechain/ethers-v5/**"
+      "**/@typechain/ethers-v5/**",
+      "**/@graphql-codegen",
+      "**/@graphql-codegen/**"
     ]
   },
   "engines": {

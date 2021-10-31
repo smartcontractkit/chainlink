@@ -1,4 +1,5 @@
 import { ApolloClient, InMemoryCache, HttpLink } from '@apollo/client'
+import generatedIntrospection from 'src/types/generated/possibleTypes'
 
 const httpLink = new HttpLink({
   uri: `${process.env.CHAINLINK_BASEURL}/query`,
@@ -6,6 +7,8 @@ const httpLink = new HttpLink({
 })
 
 export const client = new ApolloClient({
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    possibleTypes: generatedIntrospection.possibleTypes,
+  }),
   link: httpLink,
 })

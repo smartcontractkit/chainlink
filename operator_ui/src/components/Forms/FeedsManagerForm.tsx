@@ -1,5 +1,5 @@
 import React from 'react'
-import { Field, Form, Formik } from 'formik'
+import { Field, Form, Formik, FormikHelpers } from 'formik'
 import { TextField, CheckboxWithLabel } from 'formik-material-ui'
 import * as Yup from 'yup'
 
@@ -9,21 +9,23 @@ import FormGroup from '@material-ui/core/FormGroup'
 import FormLabel from '@material-ui/core/FormLabel'
 import Grid from '@material-ui/core/Grid'
 
+import { JobType } from 'src/types/generated/graphql'
+
 const jobTypes = [
   {
     label: 'Flux Monitor',
-    value: 'fluxmonitor',
+    value: 'FLUX_MONITOR',
   },
   {
     label: 'OCR',
-    value: 'ocr',
+    value: 'OCR',
   },
 ]
 
 export type FormValues = {
   name: string
   uri: string
-  jobTypes: string[]
+  jobTypes: JobType[]
   publicKey: string
   isBootstrapPeer: boolean
   bootstrapPeerMultiaddr?: string
@@ -41,9 +43,12 @@ const ValidationSchema = Yup.object().shape({
     .nullable(),
 })
 
-interface Props {
+export interface Props {
   initialValues: FormValues
-  onSubmit: (values: FormValues) => void
+  onSubmit: (
+    values: FormValues,
+    formikHelpers: FormikHelpers<FormValues>,
+  ) => void | Promise<any>
 }
 
 export const FeedsManagerForm: React.FC<Props> = ({
@@ -54,9 +59,7 @@ export const FeedsManagerForm: React.FC<Props> = ({
     <Formik
       initialValues={initialValues}
       validationSchema={ValidationSchema}
-      onSubmit={async (values) => {
-        onSubmit(values)
-      }}
+      onSubmit={onSubmit}
     >
       {({ isSubmitting, submitForm, values }) => (
         <Form>

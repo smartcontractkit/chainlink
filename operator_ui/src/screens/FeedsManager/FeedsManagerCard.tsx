@@ -16,7 +16,7 @@ import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
-import { FeedsManager } from 'types/feeds_manager'
+import { FeedsManager } from 'types/generated/graphql'
 
 const cardSubheaderStyles = () => {
   return createStyles({
@@ -77,6 +77,8 @@ interface Props extends WithStyles<typeof styles> {
 export const FeedsManagerCard = withStyles(styles)(
   ({ classes, manager }: Props) => {
     const history = useHistory()
+
+    console.log(manager)
 
     return (
       <Card>

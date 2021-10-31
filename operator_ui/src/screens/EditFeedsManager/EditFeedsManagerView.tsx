@@ -7,7 +7,7 @@ import Grid from '@material-ui/core/Grid'
 
 import { FeedsManagerForm, FormValues } from 'components/Forms/FeedsManagerForm'
 
-import { FeedsManager } from 'types/feeds_manager'
+import { FeedsManager } from 'types/generated/graphql'
 
 interface Props {
   data: FeedsManager
@@ -18,10 +18,12 @@ export const EditFeedsManagerView: React.FC<Props> = ({ data, onSubmit }) => {
   const initialValues: FormValues = {
     name: data.name,
     uri: data.uri,
-    jobTypes: data.jobTypes,
+    jobTypes: [...data.jobTypes],
     publicKey: data.publicKey,
     isBootstrapPeer: data.isBootstrapPeer,
-    bootstrapPeerMultiaddr: data.bootstrapPeerMultiaddr,
+    bootstrapPeerMultiaddr: data.bootstrapPeerMultiaddr
+      ? data.bootstrapPeerMultiaddr
+      : undefined,
   }
 
   return (

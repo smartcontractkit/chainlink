@@ -5,19 +5,21 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Grid from '@material-ui/core/Grid'
 
-import { FeedsManagerForm, FormValues } from 'components/Forms/FeedsManagerForm'
+import {
+  FeedsManagerForm,
+  Props as FormProps,
+} from 'components/Forms/FeedsManagerForm'
 
 const initialValues = {
   name: 'Chainlink Feeds Manager',
-  uri: '',
+  uri: 'localhost:8080',
   jobTypes: [],
-  publicKey: '',
+  publicKey: '1bf8600b908b1411bcef8fc12f6268d9cd4bfb67981895e26502d6870042406e',
   isBootstrapPeer: false,
   bootstrapPeerMultiaddr: undefined,
 }
-interface Props {
-  onSubmit: (values: FormValues) => void
-}
+
+type Props = Pick<FormProps, 'onSubmit'>
 
 export const NewFeedsManagerView: React.FC<Props> = ({ onSubmit }) => {
   return (

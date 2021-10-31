@@ -1,34 +1,12 @@
 import React from 'react'
 import { Redirect, useLocation } from 'react-router-dom'
-import { gql, useQuery } from '@apollo/client'
 
-import { FetchFeeds, FetchFeedsVariables } from 'types/feeds_manager'
 import { FeedsManagerView } from './FeedsManagerView'
-
-export const FETCH_FEEDS = gql`
-  query FetchFeeds {
-    feedsManagers {
-      results {
-        __typename
-        id
-        name
-        uri
-        publicKey
-        jobTypes
-        isBootstrapPeer
-        isConnectionActive
-        bootstrapPeerMultiaddr
-        createdAt
-      }
-    }
-  }
-`
+import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
 
 export const FeedsManagerScreen: React.FC = () => {
   const location = useLocation()
-  const { data, loading, error } = useQuery<FetchFeeds, FetchFeedsVariables>(
-    FETCH_FEEDS,
-  )
+  const { data, loading, error } = useFetchFeedsManagers()
 
   if (loading) {
     return null

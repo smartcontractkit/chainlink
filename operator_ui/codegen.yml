@@ -1,11 +1,26 @@
 overwrite: true
 schema: 'http://localhost:6688/query'
-# documents: 'src/**/*.graphql'
+documents:
+  - '(src|pages|screens)/**/!(*.d).{ts,tsx}'
+  - '**/*.graphql'
 generates:
-  src/types/generated/graphql.ts:
+  src/types/generated/graphql.d.ts:
     plugins:
       - 'typescript'
       - 'typescript-operations'
+    config:
+      immutableTypes: true
+      enumsAsTypes: true
+      flattenGeneratedTypes: true
+      omitOperationSuffix: true
+      globalNamespace: true
+
   ./graphql.schema.json:
     plugins:
       - 'introspection'
+
+  src/types/generated/possibleTypes.ts:
+    plugins:
+      - fragment-matcher
+    config:
+      useExplicitTyping: true

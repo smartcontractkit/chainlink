@@ -1,19 +1,46 @@
 import React from 'react'
+import { FormikHelpers } from 'formik'
+import { useMutation, gql } from '@apollo/client'
 import { Redirect, useHistory, useLocation } from 'react-router-dom'
-import { gql, useQuery } from '@apollo/client'
 
-import { v2 } from 'api'
 import { FormValues } from 'components/Forms/FeedsManagerForm'
 import { NewFeedsManagerView } from './NewFeedsManagerView'
+import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
 
-import { FetchFeeds, FetchFeedsVariables } from 'types/feeds_manager'
+// NOTE: To be refactored to not use redux
+import { useDispatch } from 'react-redux'
+import { notifySuccessMsg, notifyErrorMsg } from 'actionCreators'
 
-export const FETCH_FEEDS = gql`
-  query FetchFeeds {
-    feedsManagers {
-      results {
-        __typename
-        id
+export const CREATE_FEEDS_MANAGER = gql`
+  mutation CreateFeedsManager($input: CreateFeedsManagerInput!) {
+    createFeedsManager(input: $input) {
+      ... on CreateFeedsManagerSuccess {
+        feedsManager {
+          id
+          name
+          uri
+          publicKey
+          jobTypes
+          isBootstrapPeer
+          isConnectionActive
+          bootstrapPeerMultiaddr
+          createdAt
+        }
+      }
+      ... on SingleFeedsManagerError {
+        message
+        code
+      }
+      ... on NotFoundError {
+        message
+        code
+      }
+      ... on InputErrors {
+        errors {
+          path
+          message
+          code
+        }
       }
     }
   }
@@ -22,9 +49,12 @@ export const FETCH_FEEDS = gql`
 export const NewFeedsManagerScreen: React.FC = () => {
   const history = useHistory()
   const location = useLocation()
-  const { data, loading, error } = useQuery<FetchFeeds, FetchFeedsVariables>(
-    FETCH_FEEDS,
-  )
+  const dispatch = useDispatch()
+  const { data, loading, error, refetch } = useFetchFeedsManagers()
+  const [createFeedsManager] = useMutation<
+    CreateFeedsManager,
+    CreateFeedsManagerVariables
+  >(CREATE_FEEDS_MANAGER)
 
   if (loading) {
     return null
@@ -41,13 +71,46 @@ export const NewFeedsManagerScreen: React.FC = () => {
       ? data.feedsManagers.results[0]
       : undefined
 
-  // TODO - Use GQL API
-  const handleSubmit = async (values: FormValues) => {
+  const handleSubmit = async (
+    values: FormValues,
+    { setErrors }: FormikHelpers<FormValues>,
+  ) => {
     try {
-      await v2.feedsManagers.createFeedsManager(values)
+      const result = await createFeedsManager({
+        variables: { input: { ...values } },
+      })
 
-      history.push('/feeds_manager')
+      const payload = result.data?.createFeedsManager
+      switch (payload?.__typename) {
+        case 'CreateFeedsManagerSuccess':
+          await refetch()
+
+          history.push('/feeds_manager')
+
+          dispatch(notifySuccessMsg('Feeds Manager Created'))
+
+          break
+        case 'SingleFeedsManagerError':
+        case 'NotFoundError':
+          dispatch(notifyErrorMsg(payload.message))
+
+          break
+        case 'InputErrors':
+          const errs = payload.errors.reduce((obj, item) => {
+            const key = item['path'].replace(/^input\//, '')
+
+            return {
+              ...obj,
+              [key]: item.message,
+            }
+          }, {})
+
+          setErrors(errs)
+
+          break
+      }
     } catch (e) {
+      // TODO - Handle errors
       console.log(e)
     }
   }

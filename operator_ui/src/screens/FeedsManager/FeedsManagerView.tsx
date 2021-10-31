@@ -3,9 +3,8 @@ import React from 'react'
 import Grid from '@material-ui/core/Grid'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
+import { FeedsManager } from 'types/generated/graphql'
 import { JobProposalsCard } from './JobProposalsCard'
-
-import { FeedsManager } from 'types/feeds_manager'
 
 interface Props {
   data: FeedsManager

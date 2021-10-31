@@ -49,10 +49,20 @@ export const notifySuccess = (component: React.ReactNode, props: object) => {
   }
 }
 
+export const notifySuccessMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_SUCCESS_MSG,
+  msg,
+})
+
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NotifyActionType.NOTIFY_ERROR,
   component,
   error,
+})
+
+export const notifyErrorMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_ERROR_MSG,
+  msg,
 })
 
 /**
