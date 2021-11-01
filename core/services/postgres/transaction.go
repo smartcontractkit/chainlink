@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -107,14 +109,23 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) erro
 	if err != nil {
 		return errors.Wrap(err, "failed to begin transaction")
 	}
-	panicked := false
 
 	defer func() {
-		// Make sure to rollback when panic, Block error or Commit error
-		if panicked || err != nil {
-			if perr := tx.Rollback(); perr != nil {
-				panic(perr)
+		if p := recover(); p != nil {
+			// A panic occurred, rollback and repanic
+			logger.Errorf("panic in transaction, rolling back: %s", p)
+			if rerr := tx.Rollback(); rerr != nil {
+				logger.Error("failed to rollback on panic: %s", rerr)
 			}
+			panic(p)
+		} else if err != nil {
+			// An error occurred, rollback and return error
+			if rerr := tx.Rollback(); rerr != nil {
+				err = multierr.Combine(err, errors.WithStack(rerr))
+			}
+		} else {
+			// All good! Time to commit.
+			err = errors.WithStack(tx.Commit())
 		}
 	}()
 
@@ -123,13 +134,7 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) erro
 		return errors.Wrap(err, "error setting transaction timeouts")
 	}
 
-	panicked = true
 	err = fc(tx)
-	panicked = false
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit())
-	}
 
 	return
 }
