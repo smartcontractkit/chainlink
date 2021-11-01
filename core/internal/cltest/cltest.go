@@ -67,6 +67,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/assert"
@@ -1079,11 +1080,11 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
-	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
+	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
 		return "", err
 	}
-	value, ok := decrypted[web.SessionIDKey].(string)
+	value, ok := decrypted[webauth.SessionIDKey].(string)
 	if !ok {
 		return "", fmt.Errorf("decrypted[web.SessionIDKey] is not a string (%v)", value)
 	}
@@ -1091,13 +1092,13 @@ func DecodeSessionCookie(value string) (string, error) {
 }
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
-	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
+	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
-	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
+	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)
 	}
-	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
+	return sessions.NewCookie(webauth.SessionName, encoded, &sessions.Options{})
 }
 
 func NormalizedJSON(t testing.TB, input []byte) string {
