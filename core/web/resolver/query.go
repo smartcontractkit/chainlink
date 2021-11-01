@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
+
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -19,10 +20,11 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*Bri
 	}
 
 	bridge, err := r.App.BridgeORM().FindBridge(name)
-	if errors.Is(err, sql.ErrNoRows) {
-		return NewBridgePayload(bridge, err), nil
-	}
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewBridgePayload(bridge, err), nil
+		}
+
 		return nil, err
 	}
 
