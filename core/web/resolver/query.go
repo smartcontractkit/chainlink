@@ -143,3 +143,8 @@ func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadReso
 
 	return NewOCRKeyBundlesPayloadResolver(ocrKeyBundles), nil
 }
+
+// Features retrieves each featured enabled by boolean mapping
+func (r *Resolver) Features() (*FeaturesPayloadResolver, error) {
+	return NewFeaturesPayloadResolver(r.App.GetConfig()), nil
+}
