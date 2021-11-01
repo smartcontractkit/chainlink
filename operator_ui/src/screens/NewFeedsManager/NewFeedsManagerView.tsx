@@ -12,9 +12,9 @@ import {
 
 const initialValues = {
   name: 'Chainlink Feeds Manager',
-  uri: 'localhost:8080',
+  uri: '',
   jobTypes: [],
-  publicKey: '1bf8600b908b1411bcef8fc12f6268d9cd4bfb67981895e26502d6870042406e',
+  publicKey: '',
   isBootstrapPeer: false,
   bootstrapPeerMultiaddr: undefined,
 }

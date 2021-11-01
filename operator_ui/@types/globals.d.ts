@@ -3,3 +3,5 @@ declare namespace NodeJS {
     fetch: any
   }
 }
+
+import '@testing-library/jest-dom/extend-expect'

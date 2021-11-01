@@ -3,6 +3,8 @@ import { FormikHelpers } from 'formik'
 import { useMutation, gql } from '@apollo/client'
 import { Redirect, useHistory, useLocation } from 'react-router-dom'
 
+import Typography from '@material-ui/core/Typography'
+
 import { FormValues } from 'components/Forms/FeedsManagerForm'
 import { NewFeedsManagerView } from './NewFeedsManagerView'
 import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
@@ -57,7 +59,7 @@ export const NewFeedsManagerScreen: React.FC = () => {
   >(CREATE_FEEDS_MANAGER)
 
   if (loading) {
-    return null
+    return <Typography variant="body1">Loading...</Typography>
   }
 
   if (error) {

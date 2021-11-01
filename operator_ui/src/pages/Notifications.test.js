@@ -29,13 +29,6 @@ describe('pages/Notifications', () => {
     const errors = [
       { component: ({ msg }) => <span>Error {msg}</span>, props: { msg: '2' } },
     ]
-    const state = {
-      notifications: {
-        successes,
-        errors,
-        currentUrl: null,
-      },
-    }
     const store = mockStore(state)
     const wrapper = mountNotifications(store)
 

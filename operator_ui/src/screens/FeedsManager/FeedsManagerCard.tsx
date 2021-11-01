@@ -78,15 +78,16 @@ export const FeedsManagerCard = withStyles(styles)(
   ({ classes, manager }: Props) => {
     const history = useHistory()
 
-    console.log(manager)
-
     return (
       <Card>
         <CardHeader
           title="Feeds Manager"
           subheader={<CardSubheader isConnected={manager.isConnectionActive} />}
           action={
-            <IconButton onClick={() => history.push('/feeds_manager/edit')}>
+            <IconButton
+              onClick={() => history.push('/feeds_manager/edit')}
+              data-testid="edit"
+            >
               <EditIcon fontSize="small" />
             </IconButton>
           }

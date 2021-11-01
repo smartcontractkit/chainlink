@@ -62,7 +62,7 @@ export const FeedsManagerForm: React.FC<Props> = ({
       onSubmit={onSubmit}
     >
       {({ isSubmitting, submitForm, values }) => (
-        <Form>
+        <Form data-testid="feeds-manager-form">
           <Grid container spacing={16}>
             <Grid item xs={12} md={6}>
               <Field
@@ -125,6 +125,11 @@ export const FeedsManagerForm: React.FC<Props> = ({
               <FormControl>
                 <FormGroup>
                   <div style={{ display: 'flex', flexDirection: 'row' }}>
+                    {/*
+                      This contains a type error for the value which expects a
+                      string but we are providing a boolean. This will be fixed
+                      when we upgrade material ui to the latest version.
+                    */}
                     <Field
                       type="checkbox"
                       component={CheckboxWithLabel}

@@ -477,15 +477,6 @@ declare module 'core/store/models' {
     createdAt: time.Time
   }
 
-  export interface CreateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
   export interface UpdateFeedsManagerRequest {
     name: string
     uri: string

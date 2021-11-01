@@ -9,26 +9,6 @@ export class FeedsManagers {
   constructor(private api: jsonapi.Api) {}
 
   /**
-   * Get the list of Feeds Managers
-   */
-  @boundMethod
-  public getFeedsManagers(): Promise<
-    jsonapi.ApiResponse<models.FeedsManager[]>
-  > {
-    return this.index()
-  }
-
-  /**
-   * Creates a Feeds Manager
-   */
-  @boundMethod
-  public createFeedsManager(
-    request: models.CreateFeedsManagerRequest,
-  ): Promise<jsonapi.ApiResponse<models.FeedsManager>> {
-    return this.create(request)
-  }
-
-  /**
    * Updates a Feeds Manager
    */
   @boundMethod
@@ -38,14 +18,6 @@ export class FeedsManagers {
   ): Promise<jsonapi.ApiResponse<models.FeedsManager>> {
     return this.update(request, { id })
   }
-
-  private index = this.api.fetchResource<{}, models.FeedsManager[], {}>(
-    ENDPOINT,
-  )
-  private create = this.api.createResource<
-    models.CreateFeedsManagerRequest,
-    models.FeedsManager
-  >(ENDPOINT)
 
   private update = this.api.updateResource<
     models.UpdateFeedsManagerRequest,
