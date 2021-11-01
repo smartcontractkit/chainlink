@@ -128,7 +128,7 @@ func ExampleRun_bridges() {
 	//    create   Create a new Bridge to an External Adapter
 	//    destroy  Destroys the Bridge for an External Adapter
 	//    list     List all Bridges to External Adapters
-	//    show     Show an Bridge's details
+	//    show     Show a Bridge's details
 	//
 	// OPTIONS:
 	//    --help, -h  show help
@@ -204,7 +204,7 @@ func ExampleRun_keys_eth() {
 	//    core.test keys eth command [command options] [arguments...]
 	//
 	// COMMANDS:
-	//    create  Create an key in the node's keystore alongside the existing key; to create an original key, just run the node
+	//    create  Create a key in the node's keystore alongside the existing key; to create an original key, just run the node
 	//    update  Update the existing key's parameters
 	//    list    List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata
 	//    delete  Delete the ETH key by address
@@ -306,7 +306,7 @@ func ExampleRun_node() {
 	// COMMANDS:
 	//    deleteuser                Erase the *local node's* user and corresponding session to force recreation on next node launch.
 	//    setnextnonce              Manually set the next nonce for a key. This should NEVER be necessary during normal operation. USE WITH CAUTION: Setting this incorrectly can break your node.
-	//    start, node, n            Run the chainlink node
+	//    start, node, n            Run the Chainlink node
 	//    rebroadcast-transactions  Manually rebroadcast txs matching nonce range with the specified gas price. This is useful in emergencies e.g. high gas prices and/or network congestion to forcibly clear out the pending TX queue
 	//    status                    Displays the health of various services running inside the node.
 	//    db                        Commands for managing the database.
@@ -319,7 +319,7 @@ func ExampleRun_node_start() {
 	run("node", "start", "--help")
 	// Output:
 	// NAME:
-	//    core.test node start - Run the chainlink node
+	//    core.test node start - Run the Chainlink node
 	//
 	// USAGE:
 	//    core.test node start [command options] [arguments...]
@@ -328,7 +328,7 @@ func ExampleRun_node_start() {
 	//    --api value, -a value            text file holding the API email and password, each on a line
 	//    --debug, -d                      set logger level to debug
 	//    --password value, -p value       text file holding the password for the node's account
-	//    --vrfpassword value, --vp value  textfile holding the password for the vrf keys; enables chainlink VRF oracle
+	//    --vrfpassword value, --vp value  text file holding the password for the vrf keys; enables Chainlink VRF oracle
 }
 
 func ExampleRun_node_db() {
