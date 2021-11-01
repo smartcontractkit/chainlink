@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
@@ -71,38 +70,61 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
 }
 
-// Bridge retrieves a bridges by name.
-func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
-	name, err := bridges.NewTaskType(args.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	bridge, err := r.App.BridgeORM().FindBridge(name)
-	if errors.Is(err, sql.ErrNoRows) {
-		return NewBridgePayload(bridge, err), nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return NewBridgePayload(bridge, nil), nil
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
 }
 
-// Bridges retrieves a paginated list of bridges.
-func (r *Resolver) Bridges(ctx context.Context, args struct {
-	Offset *int
-	Limit  *int
-}) (*BridgesPayloadResolver, error) {
-	offset := pageOffset(args.Offset)
-	limit := pageLimit(args.Limit)
-
-	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
+	Input *createFeedsManagerInput
+}) (*CreateFeedsManagerPayloadResolver, error) {
+	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
+		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+			"input/publicKey": "invalid hex value",
+		}), nil
+	}
+
+	// convert enum job types
+	jobTypes := pq.StringArray{}
+	for _, jt := range args.Input.JobTypes {
+		jobTypes = append(jobTypes, FromJobTypeInput(jt))
+	}
+
+	mgr := &feeds.FeedsManager{
+		Name:                      args.Input.Name,
+		URI:                       args.Input.URI,
+		PublicKey:                 *publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
+		OCRBootstrapPeerMultiaddr: null.StringFromPtr(args.Input.BootstrapPeerMultiaddr),
+	}
+
+	feedsService := r.App.GetFeedsService()
+
+	id, err := feedsService.RegisterManager(mgr)
+	if err != nil {
+		if errors.Is(err, feeds.ErrSingleFeedsManager) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
 		return nil, err
 	}
 
-	return NewBridgesPayload(bridges, int32(count)), nil
+	mgr, err = feedsService.GetManager(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
 }
 
 type updateBridgeInput struct {
@@ -163,67 +185,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	return NewUpdateBridgePayload(&bridge, nil), nil
 }
 
-// Chain retrieves a chain by id.
-func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainResolver, error) {
-	id := utils.Big{}
-	err := id.UnmarshalText([]byte(args.ID))
-	if err != nil {
-		return nil, err
-	}
-
-	chain, err := r.App.EVMORM().Chain(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewChain(chain), nil
-}
-
-// Chains retrieves a paginated list of chains.
-func (r *Resolver) Chains(ctx context.Context, args struct {
-	Offset *int
-	Limit  *int
-}) ([]*ChainResolver, error) {
-	offset := pageOffset(args.Offset)
-	limit := pageLimit(args.Limit)
-
-	page, _, err := r.App.EVMORM().Chains(offset, limit)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewChains(page), nil
-}
-
-// FeedsManager retrieves a feeds manager by id.
-func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
-	id, err := strconv.ParseInt(string(args.ID), 10, 32)
-	if err != nil {
-		return nil, err
-	}
-
-	mgr, err := r.App.GetFeedsService().GetManager(int64(id))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewFeedsManagerPayload(nil), nil
-		}
-
-		return nil, err
-	}
-
-	return NewFeedsManagerPayload(mgr), nil
-}
-
-func (r *Resolver) FeedsManagers() (*FeedsManagersPayloadResolver, error) {
-	mgrs, err := r.App.GetFeedsService().ListManagers()
-	if err != nil {
-		return nil, err
-	}
-
-	return NewFeedsManagersPayload(mgrs), nil
-}
-
-type createFeedsManagerInput struct {
+type updateFeedsManagerInput struct {
 	Name                   string
 	URI                    string
 	PublicKey              string
@@ -232,12 +194,18 @@ type createFeedsManagerInput struct {
 	BootstrapPeerMultiaddr *string
 }
 
-func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
-	Input *createFeedsManagerInput
-}) (*CreateFeedsManagerPayloadResolver, error) {
+func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input *updateFeedsManagerInput
+}) (*UpdateFeedsManagerPayloadResolver, error) {
+	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	if err != nil {
+		return nil, err
+	}
+
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
-		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+		return NewUpdateFeedsManagerPayload(nil, nil, map[string]string{
 			"input/publicKey": "invalid hex value",
 		}), nil
 	}
@@ -249,8 +217,9 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 	}
 
 	mgr := &feeds.FeedsManager{
-		Name:                      args.Input.Name,
+		ID:                        id,
 		URI:                       args.Input.URI,
+		Name:                      args.Input.Name,
 		PublicKey:                 *publicKey,
 		JobTypes:                  jobTypes,
 		IsOCRBootstrapPeer:        args.Input.IsBootstrapPeer,
@@ -259,23 +228,19 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 
 	feedsService := r.App.GetFeedsService()
 
-	id, err := feedsService.RegisterManager(mgr)
+	err = feedsService.UpdateFeedsManager(ctx, *mgr)
 	if err != nil {
-		if errors.Is(err, feeds.ErrSingleFeedsManager) {
-			return NewCreateFeedsManagerPayload(nil, err, nil), nil
-		}
-
 		return nil, err
 	}
 
 	mgr, err = feedsService.GetManager(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewCreateFeedsManagerPayload(nil, err, nil), nil
+			return NewUpdateFeedsManagerPayload(nil, err, nil), nil
 		}
 
 		return nil, err
 	}
 
-	return NewCreateFeedsManagerPayload(mgr, nil, nil), nil
+	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
 }
