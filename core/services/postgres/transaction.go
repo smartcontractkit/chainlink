@@ -119,6 +119,7 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) erro
 			}
 			panic(p)
 		} else if err != nil {
+			logger.Debugf("error in transaction, rolling back: %s", err)
 			// An error occurred, rollback and return error
 			if rerr := tx.Rollback(); rerr != nil {
 				err = multierr.Combine(err, errors.WithStack(rerr))
