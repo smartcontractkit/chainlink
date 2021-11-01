@@ -48,18 +48,18 @@ func (_m *P2P) Create() (p2pkey.KeyV2, error) {
 }
 
 // Delete provides a mock function with given fields: id
-func (_m *P2P) Delete(id string) (p2pkey.KeyV2, error) {
+func (_m *P2P) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ret := _m.Called(id)
 
 	var r0 p2pkey.KeyV2
-	if rf, ok := ret.Get(0).(func(string) p2pkey.KeyV2); ok {
+	if rf, ok := ret.Get(0).(func(p2pkey.PeerID) p2pkey.KeyV2); ok {
 		r0 = rf(id)
 	} else {
 		r0 = ret.Get(0).(p2pkey.KeyV2)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
+	if rf, ok := ret.Get(1).(func(p2pkey.PeerID) error); ok {
 		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
@@ -97,11 +97,11 @@ func (_m *P2P) EnsureKey() (p2pkey.KeyV2, bool, error) {
 }
 
 // Export provides a mock function with given fields: id, password
-func (_m *P2P) Export(id string, password string) ([]byte, error) {
+func (_m *P2P) Export(id p2pkey.PeerID, password string) ([]byte, error) {
 	ret := _m.Called(id, password)
 
 	var r0 []byte
-	if rf, ok := ret.Get(0).(func(string, string) []byte); ok {
+	if rf, ok := ret.Get(0).(func(p2pkey.PeerID, string) []byte); ok {
 		r0 = rf(id, password)
 	} else {
 		if ret.Get(0) != nil {
@@ -110,7 +110,7 @@ func (_m *P2P) Export(id string, password string) ([]byte, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+	if rf, ok := ret.Get(1).(func(p2pkey.PeerID, string) error); ok {
 		r1 = rf(id, password)
 	} else {
 		r1 = ret.Error(1)
@@ -120,18 +120,18 @@ func (_m *P2P) Export(id string, password string) ([]byte, error) {
 }
 
 // Get provides a mock function with given fields: id
-func (_m *P2P) Get(id string) (p2pkey.KeyV2, error) {
+func (_m *P2P) Get(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ret := _m.Called(id)
 
 	var r0 p2pkey.KeyV2
-	if rf, ok := ret.Get(0).(func(string) p2pkey.KeyV2); ok {
+	if rf, ok := ret.Get(0).(func(p2pkey.PeerID) p2pkey.KeyV2); ok {
 		r0 = rf(id)
 	} else {
 		r0 = ret.Get(0).(p2pkey.KeyV2)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
+	if rf, ok := ret.Get(1).(func(p2pkey.PeerID) error); ok {
 		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
@@ -164,18 +164,18 @@ func (_m *P2P) GetAll() ([]p2pkey.KeyV2, error) {
 }
 
 // GetOrFirst provides a mock function with given fields: id
-func (_m *P2P) GetOrFirst(id string) (p2pkey.KeyV2, error) {
+func (_m *P2P) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	ret := _m.Called(id)
 
 	var r0 p2pkey.KeyV2
-	if rf, ok := ret.Get(0).(func(string) p2pkey.KeyV2); ok {
+	if rf, ok := ret.Get(0).(func(p2pkey.PeerID) p2pkey.KeyV2); ok {
 		r0 = rf(id)
 	} else {
 		r0 = ret.Get(0).(p2pkey.KeyV2)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
+	if rf, ok := ret.Get(1).(func(p2pkey.PeerID) error); ok {
 		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)

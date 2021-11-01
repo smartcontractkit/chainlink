@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	ErrNoSuchPeerID             = errors.New("no such peer id exists")
 	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
 	ErrNoSuchPublicKey          = errors.New("no such public key exists")
@@ -134,12 +133,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 				_, err := o.keyStore.OCR().Get(jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-				}
-			}
-			if jb.OffchainreportingOracleSpec.P2PPeerID != nil {
-				_, err := o.keyStore.P2P().Get(jb.OffchainreportingOracleSpec.P2PPeerID.Raw())
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchPeerID, "%v", jb.OffchainreportingOracleSpec.P2PPeerID)
 				}
 			}
 			if jb.OffchainreportingOracleSpec.TransmitterAddress != nil {
@@ -348,7 +341,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			err := o.LoadEnvConfigVars(&jobs[i])
+			err = o.LoadEnvConfigVars(&jobs[i])
 			if err != nil {
 				return err
 			}
@@ -453,10 +446,21 @@ func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec
 }
 
 func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
-	if os.P2PPeerID == nil {
+
+	if os.P2PPeerID == "" {
 		os.P2PPeerIDEnv = true
-		peerID := cfg.P2PPeerID()
-		os.P2PPeerID = &peerID
+		os.P2PPeerID = cfg.P2PPeerID()
+	}
+
+	key, err := p2pStore.GetOrFirst(os.P2PPeerID)
+	if errors.Cause(err) != keystore.ErrNoP2PKey {
+		if err != nil {
+			return nil, err
+		}
+		if key.PeerID().String() != os.P2PPeerID.String() {
+			os.P2PPeerIDEnv = true
+			os.P2PPeerID = key.PeerID()
+		}
 	}
 
 	if os.TransmitterAddress == nil {
