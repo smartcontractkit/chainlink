@@ -75,7 +75,7 @@ func SqlxTransaction(ctx context.Context, q Queryer, fc func(q Queryer) error, t
 		// nested transaction: just use the outer transaction
 		err = fc(db)
 	case *sqlx.DB:
-		err = sqlxTransaction(ctx, db, fc, txOpts...)
+		err = sqlxTransactionQ(ctx, db, fc, txOpts...)
 	default:
 		if AllowUnknownQueryerTypeInTransaction {
 			err = fc(q)
