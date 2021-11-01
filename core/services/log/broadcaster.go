@@ -151,7 +151,7 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, logger logger.
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
-		b.wgDone.Add(2)
+		b.wgDone.Add(1)
 		go b.awaitInitialSubscribers()
 		return nil
 	})
@@ -195,6 +195,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 		case <-b.DependentAwaiter.AwaitDependents():
 			// ensure that any queued dependent subscriptions are registered first
 			b.onAddSubscribers()
+			b.wgDone.Add(1)
 			go b.startResubscribeLoop()
 			return
 
