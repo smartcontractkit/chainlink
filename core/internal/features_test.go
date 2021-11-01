@@ -501,7 +501,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 
-	config.Overrides.P2PPeerID = &peerID
+	config.Overrides.P2PPeerID = peerID
 	config.Overrides.P2PListenPort = null.IntFrom(int64(port))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 

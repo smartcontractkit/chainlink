@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/sqlx"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -33,7 +35,12 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 		contractAddress = cltest.NewEIP55Address()
 	)
 
+	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
+	require.NoError(t, err)
+	nonExistentP2PPeerID, err := p2ppeer.Decode("12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9")
+	require.NoError(t, err)
 	randomBytes := cltest.Random32Byte()
+	oCRKeyBundleID := "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 
 	var tt = []struct {
 		name        string
@@ -44,21 +51,21 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}{
 		{
 			name:        "invalid keybundle",
-			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
+			pid:         p2pkey.PeerID(peerID),
 			kb:          hex.EncodeToString(randomBytes[:]),
 			taExists:    true,
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
 			name:        "invalid peerID",
-			pid:         p2pkey.PeerID(cltest.NonExistentP2PPeerID),
-			kb:          cltest.DefaultOCRKeyBundleID,
+			pid:         p2pkey.PeerID(nonExistentP2PPeerID),
+			kb:          oCRKeyBundleID,
 			taExists:    true,
-			expectedErr: job.ErrNoSuchPeerID,
+			expectedErr: keystore.ErrMissingP2PKey,
 		},
 		{
 			name:        "invalid transmitter address",
-			pid:         p2pkey.PeerID(cltest.DefaultP2PPeerID),
+			pid:         p2pkey.PeerID(peerID),
 			kb:          cltest.DefaultOCRKeyBundleID,
 			taExists:    false,
 			expectedErr: job.ErrNoSuchTransmitterAddress,
@@ -76,7 +83,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				address = cltest.NewEIP55Address()
 			}
 
-			ta.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+			// ta.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 			ta.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
@@ -153,7 +160,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NoError(t, err)
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
-				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PPeerID, resource.OffChainReportingSpec.P2PPeerID)
+				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
+				assert.True(t, resource.OffChainReportingSpec.P2PPeerIDEnv)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
 				assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)

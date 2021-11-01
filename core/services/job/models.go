@@ -181,7 +181,7 @@ func (pr *PipelineRun) SetID(value string) error {
 type OffchainReportingOracleSpec struct {
 	ID                                        int32                `toml:"-" gorm:"primary_key"`
 	ContractAddress                           ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                                 *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null" db:"p2p_peer_id"`
+	P2PPeerID                                 p2pkey.PeerID        `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null" db:"p2p_peer_id"`
 	P2PPeerIDEnv                              bool                 `gorm:"-"`
 	P2PBootstrapPeers                         pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]" db:"p2p_bootstrap_peers"`
 	IsBootstrapPeer                           bool                 `toml:"isBootstrapPeer"`

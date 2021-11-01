@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -27,9 +26,7 @@ import (
 
 const (
 	// RootDir the root directory for test
-	RootDir = "/tmp/chainlink_test"
-	// DefaultPeerID is the peer ID of the default p2p key
-	DefaultPeerID              = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+	RootDir                    = "/tmp/chainlink_test"
 	HeadSamplingIntervalInTest = 0 * time.Millisecond
 )
 
@@ -94,7 +91,7 @@ type GeneralConfigOverrides struct {
 	OCRTransmitterAddress                     *ethkey.EIP55Address
 	P2PBootstrapPeers                         []string
 	P2PListenPort                             null.Int
-	P2PPeerID                                 *p2pkey.PeerID
+	P2PPeerID                                 p2pkey.PeerID
 	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
@@ -201,12 +198,10 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 }
 
 func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
-	if c.Overrides.P2PPeerID != nil {
-		return *c.Overrides.P2PPeerID
+	if c.Overrides.P2PPeerID.String() != "" {
+		return c.Overrides.P2PPeerID
 	}
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
-	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID)
+	return ""
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {

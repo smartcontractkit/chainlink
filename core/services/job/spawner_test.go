@@ -58,7 +58,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})

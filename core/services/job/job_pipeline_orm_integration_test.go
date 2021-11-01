@@ -57,7 +57,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	var specID int32
 

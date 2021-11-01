@@ -111,7 +111,8 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 // OffChainReportingSpec defines the spec details of a OffChainReporting Job
 type OffChainReportingSpec struct {
 	ContractAddress                           ethkey.EIP55Address  `json:"contractAddress"`
-	P2PPeerID                                 *p2pkey.PeerID       `json:"p2pPeerID"`
+	P2PPeerID                                 p2pkey.PeerID        `json:"p2pPeerID"`
+	P2PPeerIDEnv                              bool                 `json:"p2pPeerIDEnv,omitempty"`
 	P2PBootstrapPeers                         pq.StringArray       `json:"p2pBootstrapPeers"`
 	IsBootstrapPeer                           bool                 `json:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `json:"keyBundleID"`
@@ -136,6 +137,7 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 	return &OffChainReportingSpec{
 		ContractAddress:                           spec.ContractAddress,
 		P2PPeerID:                                 spec.P2PPeerID,
+		P2PPeerIDEnv:                              spec.P2PPeerIDEnv,
 		P2PBootstrapPeers:                         spec.P2PBootstrapPeers,
 		IsBootstrapPeer:                           spec.IsBootstrapPeer,
 		EncryptedOCRKeyBundleID:                   spec.EncryptedOCRKeyBundleID,
