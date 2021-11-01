@@ -164,7 +164,9 @@ func GetAuthenticatedUser(c *gin.Context) (*clsessions.User, bool) {
 		return nil, false
 	}
 
-	return obj.(*clsessions.User), ok
+	user, ok := obj.(*clsessions.User)
+
+	return user, ok
 }
 
 // GetAuthenticatedExternalInitiator extracts the external initiator from the
