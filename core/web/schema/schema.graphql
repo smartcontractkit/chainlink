@@ -18,4 +18,5 @@ type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
+    updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }
