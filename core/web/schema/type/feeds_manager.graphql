@@ -48,3 +48,23 @@ union CreateFeedsManagerPayload = CreateFeedsManagerSuccess
 	| SingleFeedsManagerError
 	| NotFoundError
 	| InputErrors
+
+input UpdateFeedsManagerInput {
+	name: String!
+	uri: String!
+	publicKey: String!
+	jobTypes: [JobType!]!
+	isBootstrapPeer: Boolean!
+	bootstrapPeerMultiaddr: String
+}
+
+# UpdateFeedsManagerSuccess defines the success response when updating a feeds
+# manager
+type UpdateFeedsManagerSuccess {
+    feedsManager: FeedsManager!
+}
+
+# UpdateFeedsManagerPayload defines the response when updating a feeds manager
+union UpdateFeedsManagerPayload = UpdateFeedsManagerSuccess
+	| NotFoundError
+	| InputErrors
