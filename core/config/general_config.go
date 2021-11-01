@@ -249,6 +249,7 @@ type generalConfig struct {
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
 	logSQLStatements bool
+	logMutex         sync.RWMutex
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -301,6 +302,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 	}
 	config.logLevel = config.defaultLogLevel
 	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
+	config.logMutex = sync.RWMutex{}
 
 	return config
 }
@@ -857,6 +859,8 @@ func (c *generalConfig) ORMMaxIdleConns() int {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c *generalConfig) LogLevel() zapcore.Level {
+	c.logMutex.RLock()
+	defer c.logMutex.RUnlock()
 	return c.logLevel
 }
 
@@ -867,6 +871,8 @@ func (c *generalConfig) DefaultLogLevel() zapcore.Level {
 
 // SetLogLevel saves a runtime value for the default logger level
 func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
+	c.logMutex.Lock()
+	defer c.logMutex.Unlock()
 	c.logLevel = lvl
 	return nil
 }
@@ -878,11 +884,15 @@ func (c *generalConfig) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c *generalConfig) LogSQLStatements() bool {
+	c.logMutex.RLock()
+	defer c.logMutex.RUnlock()
 	return c.logSQLStatements
 }
 
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
 func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+	c.logMutex.Lock()
+	defer c.logMutex.Unlock()
 	c.logSQLStatements = logSQLStatements
 	return nil
 }
