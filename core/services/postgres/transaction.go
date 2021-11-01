@@ -94,13 +94,19 @@ func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
 }
 
 func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	db := WrapDbWithSqlx(rdb)
+	return sqlxTransaction(ctx, db, fc, txOpts...)
+}
+
+func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
 	opts := &DefaultSqlTxOptions
 	if len(txOpts) > 0 {
 		opts = &txOpts[0]
 	}
-	db := WrapDbWithSqlx(rdb)
-
 	tx, err := db.BeginTxx(ctx, opts)
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
 	panicked := false
 
 	defer func() {

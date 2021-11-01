@@ -79,6 +79,9 @@ func (txm *gormTransactionManager) TransactWithContext(ctx context.Context, fn T
 
 	// Start the transaction and insert it into the context.
 	tx := txm.db.Begin(&opts.txOpts)
+	if err = tx.Error; err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
 	ctx = InjectTxIntoContext(ctx, tx)
 
 	// Ensure that a deadline is set unless disabled by an option.
