@@ -46,7 +46,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
 		logger.Errorf("error in BeginWebAuthnRegistration: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
@@ -58,7 +58,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	// This should never be nil at this stage (if it registration will surely fail)
 	if c.InProgressRegistrationsStore == nil {
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("Registration was unsuccessful"))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
 
@@ -82,13 +82,13 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
 		logger.Errorf("error in FinishWebAuthnRegistration: %s", err)
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("Registration was unsuccessful"))
+		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
 
 	if c.addCredentialToUser(user, credential) != nil {
 		logger.Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
