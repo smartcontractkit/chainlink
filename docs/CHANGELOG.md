@@ -177,6 +177,8 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 - Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
 
 
+Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
+
 ### Changed
 
 - Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
