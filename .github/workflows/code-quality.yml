@@ -1,5 +1,13 @@
 name: Code Quality
-on: pull_request
+
+on:
+  push:
+    branches:
+      - auto
+      - try
+      - rollup
+  pull_request:
+
 jobs:
   lint:
     name: Lint
