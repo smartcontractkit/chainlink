@@ -15,6 +15,7 @@ import {
   CircularProgress,
   Grid,
   TextField,
+  Typography,
 } from '@material-ui/core'
 import {
   ChainConfigFields,
@@ -66,6 +67,7 @@ export const New = ({
 
   const [chainID, setChainID] = useState<string>('')
   const [overrides, setOverrides] = useState<ConfigOverrides>({})
+  const [serverErrorMsg, setServerErrorMsg] = useState<string>('')
   const [chainIDErrorMsg, setChainIDErrorMsg] = useState<string>('')
   const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
     useState<string>('')
@@ -103,6 +105,7 @@ export const New = ({
 
     if (isValid) {
       setLoading(true)
+      setServerErrorMsg('')
 
       apiCall({
         chainID,
@@ -114,7 +117,9 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setChainIDErrorMsg('Invalid ChainID')
+            setServerErrorMsg('Invalid ChainID')
+          } else {
+            setServerErrorMsg(error.toString())
           }
         })
         .finally(() => {
@@ -132,10 +137,16 @@ export const New = ({
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
+                  {Boolean(serverErrorMsg) && (
+                    <Grid item xs={12}>
+                      <Typography variant="body1">{serverErrorMsg}</Typography>
+                    </Grid>
+                  )}
+
                   <Grid item xs={12}>
                     <TextField
                       error={Boolean(chainIDErrorMsg)}
-                      helperText={Boolean(chainIDErrorMsg) && chainIDErrorMsg}
+                      helperText={Boolean(chainIDErrorMsg)}
                       label="Chain ID"
                       name="ID"
                       placeholder="ID"
