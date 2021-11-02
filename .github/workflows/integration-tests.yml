@@ -7,7 +7,13 @@ on:
       - master
       - main
       - develop
+      - release*
   pull_request:
+    branches:
+      - master
+      - main
+      - develop
+      - release*
 jobs:
   build-chainlink:
     name: Build Chainlink Image
