@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 // ORM implements ORM layer using PostgreSQL
@@ -141,5 +140,5 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 }
 
 func (korm ORM) getDB(ctx context.Context) *gorm.DB {
-	return postgres.TxFromContext(ctx, korm.DB).WithContext(ctx)
+	return korm.DB.WithContext(ctx)
 }

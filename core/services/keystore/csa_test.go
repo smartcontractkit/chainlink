@@ -11,12 +11,13 @@ import (
 )
 
 func Test_CSAKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.CSA()
 	reset := func() {
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		_, err := db.Exec("DELETE FROM encrypted_key_rings")
+		require.NoError(t, err)
 		keyStore.ResetXXXTestOnly()
 		keyStore.Unlock(cltest.Password)
 	}

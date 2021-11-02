@@ -35,9 +35,10 @@ func setupDB(t *testing.T) (*gorm.DB, *sql.DB) {
 
 func Test_DB_ReadWriteState(t *testing.T) {
 	gormDB, sqlDB := setupDB(t)
+	db := postgres.UnwrapGormDB(gormDB)
 
 	configDigest := cltest.MakeConfigDigest(t)
-	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
 
@@ -115,6 +116,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 func Test_DB_ReadWriteConfig(t *testing.T) {
 	gormDB, sqlDB := setupDB(t)
+	db := postgres.UnwrapGormDB(gormDB)
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
@@ -124,7 +126,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
 	transmitterAddress := key.Address.Address()
@@ -195,7 +197,8 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 
 func Test_DB_PendingTransmissions(t *testing.T) {
 	gormDB, sqlDB := setupDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, gormDB).Eth()
+	sqlxDB := postgres.UnwrapGormDB(gormDB)
+	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, gormDB, key.Address)
@@ -415,9 +418,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := postgres.GormTransactionWithDefaultContext(gormDB, func(tx *gorm.DB) error {
-			return db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), rr)
-		})
+		err := db.SaveLatestRoundRequested(postgres.WrapDbWithSqlx(sqlDB), rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -431,9 +432,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = postgres.GormTransactionWithDefaultContext(gormDB, func(tx *gorm.DB) error {
-			return db.SaveLatestRoundRequested(postgres.MustSQLTx(tx), rr)
-		})
+		err = db.SaveLatestRoundRequested(postgres.WrapDbWithSqlx(sqlDB), rr)
 		require.NoError(t, err)
 	})
 

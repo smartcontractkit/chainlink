@@ -8,18 +8,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestORM_MarkBroadcastConsumed(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
+	specV2 := cltest.MustInsertV2JobSpec(t, gdb, addr)
 
 	tests := []struct {
 		name     string
@@ -37,17 +39,17 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 
 			var consumed struct{ Consumed bool }
 			var err error
-			err = db.Raw(`
+			err = gdb.Raw(`
 				SELECT consumed FROM log_broadcasts
 				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
 			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
 			require.NoError(t, err)
 			require.False(t, consumed.Consumed)
 
-			err = orm.MarkBroadcastConsumed(db, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+			err = orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 			require.NoError(t, err)
 
-			err = db.Raw(`
+			err = gdb.Raw(`
 				SELECT consumed FROM log_broadcasts
 				WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
 			`, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
@@ -60,14 +62,15 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 func TestORM_WasBroadcastConsumed(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	t.Run("returns the correct value", func(t *testing.T) {
 		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-		specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
+		specV2 := cltest.MustInsertV2JobSpec(t, gdb, addr)
 
 		tests := []struct {
 			name     string
@@ -82,14 +85,14 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				was, err := orm.WasBroadcastConsumed(db, rawLog.BlockHash, rawLog.Index, listener.JobID())
+				was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 				require.False(t, was)
 
-				err = orm.MarkBroadcastConsumed(db, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
+				err = orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 
-				was, err = orm.WasBroadcastConsumed(db, rawLog.BlockHash, rawLog.Index, listener.JobID())
+				was, err = orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 				require.True(t, was)
 			})
@@ -98,7 +101,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 	t.Run("does not error if the record doesn't exist", func(t *testing.T) {
 		_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-		specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
+		specV2 := cltest.MustInsertV2JobSpec(t, gdb, addr)
 
 		tests := []struct {
 			name     string
@@ -113,7 +116,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				_, err := orm.WasBroadcastConsumed(db, rawLog.BlockHash, rawLog.Index, listener.JobID())
+				_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
 				require.NoError(t, err)
 			})
 		}

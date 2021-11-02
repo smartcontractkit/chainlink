@@ -6,16 +6,17 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status JobProposalStatus) error
-	CancelJobProposal(ctx context.Context, id int64) error
+	// TODO: Replace all with sqlx/queryer model
+	// https://app.shortcut.com/chainlinklabs/story/8781/remove-dependency-on-gorm
+	ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...postgres.QOpt) error
+	CancelJobProposal(id int64, qopts ...postgres.QOpt) error
 	CountJobProposals(ctx context.Context) (int64, error)
 	CountManagers(ctx context.Context) (int64, error)
 	CreateJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
@@ -27,7 +28,7 @@ type ORM interface {
 	ListJobProposals(ctx context.Context) ([]JobProposal, error)
 	ListManagers(ctx context.Context) ([]FeedsManager, error)
 	UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error
-	UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error
+	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...postgres.QOpt) error
 	UpdateManager(ctx context.Context, mgr FeedsManager) error
 	UpsertJobProposal(ctx context.Context, jp *JobProposal) (int64, error)
 }
@@ -112,7 +113,6 @@ WHERE id = ?;
 }
 
 func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) error {
-	tx := postgres.TxFromContext(ctx, o.db)
 	now := time.Now()
 
 	stmt := `
@@ -127,7 +127,7 @@ SET name = ?,
 WHERE id = ?;
 `
 
-	result := tx.Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, now, mgr.ID)
+	result := o.db.WithContext(ctx).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, now, mgr.ID)
 	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -264,24 +264,27 @@ func (o *orm) getJobProposal(ctx context.Context, stmt string, values ...interfa
 }
 
 // UpdateJobProposalStatus updates the status of a job proposal by id.
-func (o *orm) UpdateJobProposalStatus(ctx context.Context, id int64, status JobProposalStatus) error {
-	tx := postgres.TxFromContext(ctx, o.db)
-
+func (o *orm) UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...postgres.QOpt) error {
 	now := time.Now()
 
 	stmt := `
 UPDATE job_proposals
-SET status = ?,
-	updated_at = ?
-WHERE id = ?;
+SET status = $1,
+	updated_at = $2
+WHERE id = $3;
 `
 
-	result := tx.Exec(stmt, status, now, id)
-	if result.RowsAffected == 0 {
-		return sql.ErrNoRows
+	result, err := postgres.NewQ(postgres.UnwrapGormDB(o.db), qopts...).Exec(stmt, status, now, id)
+	if err != nil {
+		return err
 	}
-	if result.Error != nil {
-		return result.Error
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 
 	return nil
@@ -289,7 +292,6 @@ WHERE id = ?;
 
 // UpdateJobProposalSpec updates the spec of a job proposal by id.
 func (o *orm) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	tx := postgres.TxFromContext(ctx, o.db)
 	now := time.Now()
 
 	stmt := `
@@ -299,7 +301,7 @@ SET spec = ?,
 WHERE id = ?;
 `
 
-	result := tx.Exec(stmt, spec, now, id)
+	result := o.db.WithContext(ctx).Exec(stmt, spec, now, id)
 	if result.RowsAffected == 0 {
 		return sql.ErrNoRows
 	}
@@ -311,47 +313,55 @@ WHERE id = ?;
 }
 
 // ApproveJobProposal updates the job proposal as approved.
-func (o *orm) ApproveJobProposal(ctx context.Context, id int64, externalJobID uuid.UUID, status JobProposalStatus) error {
-	tx := postgres.TxFromContext(ctx, o.db)
+func (o *orm) ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...postgres.QOpt) error {
 	now := time.Now()
 
 	stmt := `
 UPDATE job_proposals
-SET status = ?,
-	external_job_id = ?,
-	updated_at = ?
-WHERE id = ?;
+SET status = $1,
+	external_job_id = $2,
+	updated_at = $3
+WHERE id = $4;
 `
 
-	result := tx.Exec(stmt, status, externalJobID, now, id)
-	if result.RowsAffected == 0 {
-		return sql.ErrNoRows
+	result, err := postgres.NewQ(postgres.UnwrapGormDB(o.db), qopts...).Exec(stmt, status, externalJobID, now, id)
+	if err != nil {
+		return err
 	}
-	if result.Error != nil {
-		return result.Error
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 
 	return nil
 }
 
 // CancelJobProposal cancels a job proposal.
-func (o *orm) CancelJobProposal(ctx context.Context, id int64) error {
-	tx := postgres.TxFromContext(ctx, o.db)
+func (o *orm) CancelJobProposal(id int64, qopts ...postgres.QOpt) error {
 	now := time.Now()
 	stmt := `
 UPDATE job_proposals
-SET status = ?,
-	external_job_id = ?,
-	updated_at = ?
-WHERE id = ?;
+SET status = $1,
+	external_job_id = $2,
+	updated_at = $3
+WHERE id = $4;
 `
 
-	result := tx.Exec(stmt, JobProposalStatusCancelled, nil, now, id)
-	if result.RowsAffected == 0 {
-		return sql.ErrNoRows
+	result, err := postgres.NewQ(postgres.UnwrapGormDB(o.db), qopts...).Exec(stmt, JobProposalStatusCancelled, nil, now, id)
+	if err != nil {
+		return err
 	}
-	if result.Error != nil {
-		return result.Error
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 
 	return nil

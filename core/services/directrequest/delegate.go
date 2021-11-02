@@ -242,9 +242,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 		if !ok {
 			panic(errors.Errorf("DirectRequest: invariant violation, expected log.Broadcast but got %T", lb))
 		}
-		ctx, cancel := postgres.DefaultQueryCtx()
-		was, err := l.logBroadcaster.WasAlreadyConsumed(l.db.WithContext(ctx), lb)
-		cancel()
+		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
 			l.logger.Errorw("DirectRequest: could not determine if log was already consumed", "error", err)
 			return
@@ -255,7 +253,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
 			l.logger.Debugw("DirectRequest: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
-			l.markLogConsumed(nil, lb)
+			l.markLogConsumed(lb)
 			return
 		}
 
@@ -308,7 +306,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
-		l.markLogConsumed(nil, lb)
+		l.markLogConsumed(lb)
 		return
 	}
 
@@ -325,7 +323,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
-			l.markLogConsumed(nil, lb)
+			l.markLogConsumed(lb)
 			return
 		}
 	}
@@ -358,8 +356,8 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx *gorm.DB) error {
-		l.markLogConsumed(tx, lb)
+	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx postgres.Queryer) error {
+		l.markLogConsumed(lb, postgres.WithQueryer(tx))
 		return nil
 	})
 	if ctx.Err() != nil {
@@ -387,16 +385,11 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	if loaded {
 		close(runCloserChannelIf.(chan struct{}))
 	}
-	l.markLogConsumed(nil, lb)
+	l.markLogConsumed(lb)
 }
 
-func (l *listener) markLogConsumed(db *gorm.DB, lb log.Broadcast) {
-	if db == nil {
-		ctx, cancel := postgres.DefaultQueryCtx()
-		defer cancel()
-		db = l.db.WithContext(ctx)
-	}
-	if err := l.logBroadcaster.MarkConsumed(db, lb); err != nil {
+func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...postgres.QOpt) {
+	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
 		l.logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }

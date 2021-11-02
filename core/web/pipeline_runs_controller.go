@@ -41,7 +41,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 	var err error
 
 	if id == "" {
-		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(offset, size)
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(nil, offset, size)
 	} else {
 		jobSpec := job.Job{}
 		err = jobSpec.SetID(c.Param("ID"))
@@ -50,7 +50,7 @@ func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int)
 			return
 		}
 
-		pipelineRuns, count, err = prc.App.JobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
+		pipelineRuns, count, err = prc.App.JobORM().PipelineRuns(&jobSpec.ID, offset, size)
 	}
 
 	if err != nil {

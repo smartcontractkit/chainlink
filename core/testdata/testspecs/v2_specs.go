@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -18,6 +19,18 @@ ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
 ds_multiply [type=multiply times=100];
 ds -> ds_parse -> ds_multiply;
+"""
+`
+	DirectRequestSpecNoExternalJobID = `
+type                = "directrequest"
+schemaVersion       = 1
+name                = "%s"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+observationSource   = """
+    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+    ds1_parse    [type=jsonparse path="USD"];
+    ds1_multiply [type=multiply times=100];
+    ds1 -> ds1_parse -> ds1_multiply;
 """
 `
 	DirectRequestSpec = `
@@ -76,6 +89,33 @@ ds1 -> ds1_parse -> answer1;
 ds2 -> ds2_parse -> answer1;
 
 answer1 [type=median index=0];
+"""
+`
+
+	WebhookSpecNoBody = `
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F53"
+observationSource   = """
+    fetch          [type=bridge name="%s"]
+    parse_request  [type=jsonparse path="data,result"];
+    multiply       [type=multiply times="100"];
+    submit         [type=bridge name="%s" includeInputAtKey="result"];
+
+    fetch -> parse_request -> multiply -> submit;
+"""
+`
+
+	WebhookSpecWithBody = `
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F54"
+observationSource   = """
+    parse_request  [type=jsonparse path="data,result" data="$(jobRun.requestBody)"];
+    multiply       [type=multiply times="100"];
+    send_to_bridge [type=bridge name="%s" includeInputAtKey="result" ];
+
+    parse_request -> multiply -> send_to_bridge;
 """
 `
 )
@@ -258,6 +298,8 @@ type OCRSpecParams struct {
 	JobID              string
 	Name               string
 	TransmitterAddress string
+	DS1BridgeName      string
+	DS2BridgeName      string
 }
 
 type OCRSpec struct {
@@ -282,6 +324,14 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
+	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	if params.DS1BridgeName != "" {
+		ds1BridgeName = params.DS1BridgeName
+	}
+	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	if params.DS2BridgeName != "" {
+		ds2BridgeName = params.DS2BridgeName
+	}
 	template := `
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -303,7 +353,7 @@ contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
     // data source 1
-    ds1          [type=bridge name=voter_turnout];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="one,two"];
     ds1_multiply [type=multiply times=1.23];
 
@@ -316,14 +366,16 @@ observationSource = """
     ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
     answer1 [type=median                      index=0];
-    answer2 [type=bridge name=election_winner index=1];
+    answer2 [type=bridge name="%s" index=1];
 """
 `
 	return OCRSpec{OCRSpecParams: OCRSpecParams{
 		JobID:              jobID,
 		Name:               name,
 		TransmitterAddress: transmitterAddress,
-	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress)}
+		DS1BridgeName:      ds1BridgeName,
+		DS2BridgeName:      ds2BridgeName,
+	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
 }
 
 type WebhookSpecParams struct {

@@ -8,10 +8,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //
@@ -26,8 +26,8 @@ type BridgeTask struct {
 	IncludeInputAtKey string `json:"includeInputAtKey"`
 	Async             string `json:"async"`
 
-	db     *gorm.DB
-	config Config
+	queryer postgres.Queryer
+	config  Config
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -143,7 +143,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 
 func (t BridgeTask) getBridgeURLFromName(name StringParam) (URLParam, error) {
 	var bt bridges.BridgeType
-	err := t.db.First(&bt, "name = ?", string(name)).Error
+	err := t.queryer.Get(&bt, "SELECT * FROM bridge_types WHERE name = $1", string(name))
 	if err != nil {
 		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}

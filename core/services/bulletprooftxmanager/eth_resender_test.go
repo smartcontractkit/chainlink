@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,7 +26,7 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
@@ -72,7 +73,7 @@ func Test_EthResender_Start(t *testing.T) {
 
 	db := pgtest.NewGormDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 	// This can be anything as long as it isn't zero
 	d := 42 * time.Hour
 	cfg.Overrides.GlobalEthTxResendAfterThreshold = &d

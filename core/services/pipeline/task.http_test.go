@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -149,7 +149,8 @@ func TestHTTPTask_Variables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			db := pgtest.NewGormDB(t)
+			gdb := pgtest.NewGormDB(t)
+			db := postgres.UnwrapGormDB(gdb)
 			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
@@ -157,19 +158,15 @@ func TestHTTPTask_Variables(t *testing.T) {
 
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
-			feedWebURL := (*models.WebURL)(feedURL)
+
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
 
 			task := pipeline.BridgeTask{
 				BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
-				Name:        "foo",
+				Name:        bridge.Name.String(),
 				RequestData: test.requestData,
 			}
 			task.HelperSetDependencies(cfg, db, uuid.UUID{})
-
-			// Insert bridge
-			_, bridge := cltest.NewBridgeType(t, task.Name)
-			bridge.URL = *feedWebURL
-			require.NoError(t, db.Create(&bridge).Error)
 
 			test.vars.Set("meta", test.meta)
 			result, runInfo := task.Run(context.Background(), logger.TestLogger(t), test.vars, test.inputs)

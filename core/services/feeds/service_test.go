@@ -37,6 +37,11 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+func init() {
+	// AllowUnknownQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
+	postgres.AllowUnknownQueryerTypeInTransaction = true
+}
+
 const TestSpec = `
 type              = "fluxmonitor"
 schemaVersion     = 1
@@ -65,7 +70,6 @@ type TestService struct {
 	orm         *mocks.ORM
 	jobORM      *jobmocks.ORM
 	connMgr     *mocks.ConnectionsManager
-	txm         *pgmocks.TransactionManager
 	spawner     *jobmocks.Spawner
 	fmsClient   *mocks.FeedsManagerClient
 	csaKeystore *ksmocks.CSA
@@ -78,8 +82,8 @@ func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
 		jobORM      = &jobmocks.ORM{}
+		queryer     = &pgmocks.Queryer{}
 		connMgr     = &mocks.ConnectionsManager{}
-		txm         = &pgmocks.TransactionManager{}
 		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
 		csaKeystore = &ksmocks.CSA{}
@@ -91,8 +95,8 @@ func setupTestService(t *testing.T) *TestService {
 		mock.AssertExpectationsForObjects(t,
 			orm,
 			jobORM,
+			queryer,
 			connMgr,
-			txm,
 			spawner,
 			fmsClient,
 			csaKeystore,
@@ -104,7 +108,7 @@ func setupTestService(t *testing.T) *TestService {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
-	svc := feeds.NewService(orm, jobORM, txm, spawner, csaKeystore, ethKeystore, cfg, cc, logger.TestLogger(t), "1.0.0")
+	svc := feeds.NewService(orm, jobORM, queryer, spawner, csaKeystore, ethKeystore, cfg, cc, logger.TestLogger(t), "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -112,7 +116,6 @@ func setupTestService(t *testing.T) *TestService {
 		orm:         orm,
 		jobORM:      jobORM,
 		connMgr:     connMgr,
-		txm:         txm,
 		spawner:     spawner,
 		fmsClient:   fmsClient,
 		csaKeystore: csaKeystore,
@@ -328,7 +331,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 						Status:         feeds.JobProposalStatusApproved,
 					}, nil)
 			},
-			wantErr: "cannot repropose a job that has already been approved",
+			wantErr: "cannot re-propose a job that has already been approved",
 		},
 	}
 
@@ -414,8 +417,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	ctx = mockTransactWithContext(ctx, svc.txm)
-	svc.orm.On("UpdateManager", ctx, mgr).Return(nil)
+	svc.orm.On("UpdateManager", mock.Anything, mgr).Return(nil)
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
@@ -497,9 +499,6 @@ answer1 [type=median index=0];
 			FeedsManagerID: 2,
 			Spec:           spec,
 		}
-		jb = job.Job{
-			ID: int32(1),
-		}
 	)
 
 	testCases := []struct {
@@ -512,25 +511,24 @@ answer1 [type=median index=0];
 			name: "pending job success",
 			id:   pendingProposal.ID,
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, pendingProposal.ID).Return(pendingProposal, nil)
+				svc.orm.On("GetJobProposal", mock.Anything, pendingProposal.ID).Return(pendingProposal, nil)
 				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
-				ctx = mockTransactWithContext(ctx, svc.txm)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
 				svc.spawner.
 					On("CreateJob",
-						ctx,
-						mock.MatchedBy(func(j job.Job) bool {
-							return true
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
-						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+						mock.Anything,
 					).
-					Return(jb, nil)
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
 				svc.orm.On("ApproveJobProposal",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					pendingProposal.ID,
 					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
 					feeds.JobProposalStatusApproved,
+					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
@@ -546,23 +544,22 @@ answer1 [type=median index=0];
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposal", ctx, cancelledProposal.ID).Return(cancelledProposal, nil)
 				svc.connMgr.On("GetClient", cancelledProposal.FeedsManagerID).Return(svc.fmsClient, nil)
-				ctx = mockTransactWithContext(ctx, svc.txm)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
 				svc.spawner.
 					On("CreateJob",
-						ctx,
-						mock.MatchedBy(func(j job.Job) bool {
-							return true
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
-						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+						mock.Anything,
 					).
-					Return(jb, nil)
+					Run(func(args mock.Arguments) { (args.Get(0).(*job.Job)).ID = 1 }).
+					Return(nil)
 				svc.orm.On("ApproveJobProposal",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					cancelledProposal.ID,
 					uuid.Must(uuid.FromString("00000000-0000-0000-0000-000000000001")),
 					feeds.JobProposalStatusApproved,
+					mock.Anything,
 				).Return(nil)
 				svc.fmsClient.On("ApprovedJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
@@ -611,18 +608,16 @@ answer1 [type=median index=0];
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposal", ctx, pendingProposal.ID).Return(pendingProposal, nil)
 				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
-				ctx = mockTransactWithContext(ctx, svc.txm)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
 				svc.spawner.
 					On("CreateJob",
-						ctx,
-						mock.MatchedBy(func(j job.Job) bool {
-							return true
+						mock.MatchedBy(func(j *job.Job) bool {
+							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
-						null.StringFrom("LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"),
+						mock.Anything,
 					).
-					Return(job.Job{}, errors.New("could not save"))
+					Return(errors.New("could not save"))
 			},
 			wantErr: "could not approve job proposal: could not save",
 		},
@@ -663,11 +658,10 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 	svc := setupTestService(t)
 
 	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
-	ctx = mockTransactWithContext(ctx, svc.txm)
 	svc.orm.On("UpdateJobProposalStatus",
-		mock.MatchedBy(func(ctx context.Context) bool { return true }),
 		jp.ID,
 		feeds.JobProposalStatusRejected,
+		mock.Anything,
 	).Return(nil)
 	svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 	svc.fmsClient.On("RejectedJob",
@@ -705,16 +699,16 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "success",
 			beforeFn: func(svc *TestService) {
-				ctx := mockTransactWithContext(context.Background(), svc.txm)
+				ctx := context.Background()
 
 				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("CancelJobProposal",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					jp.ID,
+					mock.Anything,
 				).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", ctx, externalJobID).Return(j, nil)
-				svc.spawner.On("DeleteJob", ctx, j.ID).Return(nil)
+				svc.jobORM.On("FindJobByExternalJobID", mock.AnythingOfType("*context.timerCtx"), externalJobID).Return(j, nil)
+				svc.spawner.On("DeleteJob", mock.AnythingOfType("*context.timerCtx"), j.ID).Return(nil)
 
 				svc.fmsClient.On("CancelledJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),
@@ -902,18 +896,4 @@ func Test_Service_StartStop(t *testing.T) {
 	require.NoError(t, err)
 
 	svc.Close()
-}
-
-func mockTransactWithContext(ctx context.Context, txm *pgmocks.TransactionManager) context.Context {
-	call := txm.On("TransactWithContext",
-		mock.MatchedBy(func(ctx context.Context) bool { return true }),
-		mock.Anything,
-	)
-	call.Run(func(args mock.Arguments) {
-		arg := args.Get(1).(postgres.TxFn)
-		err := arg(ctx)
-		call.Return(err)
-	})
-
-	return ctx
 }

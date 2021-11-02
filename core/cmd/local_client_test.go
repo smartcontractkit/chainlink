@@ -36,8 +36,8 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	debug := config.LogLevel{Level: zapcore.DebugLevel}
 	cfg.Overrides.LogLevel = &debug
 	cfg.Overrides.LogToDisk = null.BoolFrom(true)
-	db := pgtest.NewGormDB(t)
-	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+	db := pgtest.NewSqlxDB(t)
+	sessionORM := sessions.NewORM(db, time.Minute)
 	keyStore := cltest.NewKeyStore(t, db)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -108,9 +108,9 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
-			db := pgtest.NewGormDB(t)
+			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
-			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+			sessionORM := sessions.NewORM(db, time.Minute)
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
 	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -220,7 +220,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
-			keyStore := cltest.NewKeyStore(t, db)
+			keyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
 			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -294,8 +294,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, _, db := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
-	keyStore := cltest.NewKeyStore(t, db)
+	config, sqlxDB, db := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
+	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	beginningNonce := uint(7)
@@ -364,10 +364,10 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, _, db := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, sqlxDB, db := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
 			config.SetDialect(dialects.Postgres)
 
-			keyStore := cltest.NewKeyStore(t, db)
+			keyStore := cltest.NewKeyStore(t, sqlxDB)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -419,8 +419,8 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, _, db := heavyweight.FullTestDB(t, "setnextnonce", true, true)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	config, sqlxDB, db := heavyweight.FullTestDB(t, "setnextnonce", true, true)
+	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
 
 	client := cmd.Client{
 		Config: config,
