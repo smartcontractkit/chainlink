@@ -547,10 +547,8 @@ func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 	orm := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
 	defer orm.Close()
 
-	_, bridge := cltest.NewBridgeType(t)
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t)
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,

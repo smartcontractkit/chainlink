@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -124,7 +124,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	b1, b2 := setupBridges(t, app.GetDB())
+	b1, b2 := setupBridges(t, app.GetSqlxDB())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	pks, err := app.KeyStore.VRF().GetAll()
@@ -303,16 +303,14 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "fetch_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge = cltest.NewBridgeType(t, "submit_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-no-body.toml")
+	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+		TOML: tomlStr,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
@@ -455,11 +453,9 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupBridges(t *testing.T, db *gorm.DB) (b1, b2 string) {
-	_, bridge := cltest.NewBridgeType(t)
-	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t)
-	require.NoError(t, db.Create(bridge2).Error)
+func setupBridges(t *testing.T, db *sqlx.DB) (b1, b2 string) {
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	return bridge.Name.String(), bridge2.Name.String()
 }
 
@@ -481,10 +477,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t)
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t)
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 

@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
@@ -74,25 +75,42 @@ func Random32Byte() (b [32]byte) {
 	return b
 }
 
+type BridgeOpts struct {
+	Name string
+	URL  string
+}
+
 // NewBridgeType create new bridge type given info slice
-func NewBridgeType(t testing.TB, info ...string) (*bridges.BridgeTypeAuthentication, *bridges.BridgeType) {
+func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentication, *bridges.BridgeType) {
 	btr := &bridges.BridgeTypeRequest{}
 
 	// Must randomise default to avoid unique constraint conflicts with other parallel tests
 	rnd := uuid.NewV4().String()
-	if len(info) > 0 {
-		btr.Name = bridges.MustNewTaskType(info[0])
+
+	if opts.Name != "" {
+		btr.Name = bridges.MustNewTaskType(opts.Name)
 	} else {
 		btr.Name = bridges.MustNewTaskType(fmt.Sprintf("test_bridge_%s", rnd))
 	}
 
-	if len(info) > 1 {
-		btr.URL = WebURL(t, info[1])
+	if opts.URL != "" {
+		btr.URL = WebURL(t, opts.URL)
 	} else {
 		btr.URL = WebURL(t, fmt.Sprintf("https://bridge.example.com/api?%s", rnd))
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)
+	require.NoError(t, err)
+	return bta, bt
+}
+
+// MustCreateBridge creates a bridge
+// Be careful not to specify a name here unless you ABSOLUTELY need to
+// This is because name is a unique index and identical names used across transactional tests will lock/deadlock
+func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
+	bta, bt = NewBridgeType(t, opts)
+	orm := bridges.NewORM(db)
+	err := orm.CreateBridgeType(bt)
 	require.NoError(t, err)
 	return bta, bt
 }

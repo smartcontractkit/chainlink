@@ -91,6 +91,33 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `
+
+	WebhookSpecNoBody = `
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F53"
+observationSource   = """
+    fetch          [type=bridge name="%s"]
+    parse_request  [type=jsonparse path="data,result"];
+    multiply       [type=multiply times="100"];
+    submit         [type=bridge name="%s" includeInputAtKey="result"];
+
+    fetch -> parse_request -> multiply -> submit;
+"""
+`
+
+	WebhookSpecWithBody = `
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F54"
+observationSource   = """
+    parse_request  [type=jsonparse path="data,result" data="$(jobRun.requestBody)"];
+    multiply       [type=multiply times="100"];
+    send_to_bridge [type=bridge name="%s" includeInputAtKey="result" ];
+
+    parse_request -> multiply -> send_to_bridge;
+"""
+`
 )
 
 type KeeperSpecParams struct {
