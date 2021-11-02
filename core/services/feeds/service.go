@@ -53,11 +53,11 @@ type service struct {
 
 	orm         ORM
 	jobORM      job.ORM
+	queryer     postgres.Queryer
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
 	jobSpawner  job.Spawner
 	cfg         Config
-	txm         postgres.TransactionManager
 	connMgr     ConnectionsManager
 	chainSet    evm.ChainSet
 	lggr        logger.Logger
@@ -68,7 +68,7 @@ type service struct {
 func NewService(
 	orm ORM,
 	jobORM job.ORM,
-	txm postgres.TransactionManager,
+	queryer postgres.Queryer,
 	jobSpawner job.Spawner,
 	csaKeyStore keystore.CSA,
 	ethKeyStore keystore.Eth,
@@ -81,7 +81,7 @@ func NewService(
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
-		txm:         txm,
+		queryer:     queryer,
 		jobSpawner:  jobSpawner,
 		csaKeyStore: csaKeyStore,
 		ethKeyStore: ethKeyStore,
@@ -186,19 +186,9 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-
-	err := s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
-		err := s.orm.UpdateManager(ctx, mgr)
-		if err != nil {
-			return errors.Wrap(err, "could not update manager")
-		}
-
-		return nil
-	})
+	err := s.orm.UpdateManager(ctx, mgr)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not update manager")
 	}
 
 	s.lggr.Infof("Restarting connection")
@@ -349,23 +339,19 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending or cancelled job proposal")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-
 	j, err := s.generateJob(jp.Spec)
 	if err != nil {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
 		// Create the job
-		_, err = s.jobSpawner.CreateJob(ctx, *j, j.Name)
-		if err != nil {
+		if err = s.jobSpawner.CreateJob(j, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
 
 		// Approve the job
-		if err = s.orm.ApproveJobProposal(ctx, id, j.ExternalJobID, JobProposalStatusApproved); err != nil {
+		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -400,10 +386,8 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
-		if err = s.orm.UpdateJobProposalStatus(ctx, id, JobProposalStatusRejected); err != nil {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -443,8 +427,8 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	err = s.txm.TransactWithContext(ctx, func(ctx context.Context) error {
-		if err = s.orm.CancelJobProposal(ctx, id); err != nil {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+		if err = s.orm.CancelJobProposal(id, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -541,7 +525,7 @@ func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
 	return keys[0].Raw(), nil
 }
 
-// Unsafe_SetFMSClient sets the FMSClient on the service.
+// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
 //
 // We need to be able to inject a mock for the client to facilitate integration
 // tests.

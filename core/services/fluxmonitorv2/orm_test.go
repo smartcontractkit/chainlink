@@ -1,7 +1,6 @@
 package fluxmonitorv2_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -80,8 +79,9 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	cfg.SetDB(db)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
+	cfg.SetDB(gdb)
 
 	keyStore := cltest.NewKeyStore(t, db)
 
@@ -89,24 +89,23 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// for the foreign key constraint of the stats record
 	pipelineORM := pipeline.NewORM(db)
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: gdb})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
-	orm := fluxmonitorv2.NewORM(db, nil, nil)
+	orm := fluxmonitorv2.NewORM(gdb, nil, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
 
-	j := makeJob(t)
-	jb, err := jobORM.CreateJob(context.Background(), j, pipeline.Pipeline{})
+	jb := makeJob(t)
+	err := jobORM.CreateJob(jb)
 	require.NoError(t, err)
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
-		runID, err := pipelineORM.InsertFinishedRun(
-			postgres.UnwrapGormDB(db),
-			pipeline.Run{
+		run :=
+			&pipeline.Run{
 				State:          pipeline.RunStatusCompleted,
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
@@ -124,17 +123,18 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 						FinishedAt: null.TimeFrom(f),
 					},
 				},
-			}, true)
+			}
+		err := pipelineORM.InsertFinishedRun(run, true)
 		require.NoError(t, err)
 
-		err = orm.UpdateFluxMonitorRoundStats(db, address, roundID, runID, 0)
+		err = orm.UpdateFluxMonitorRoundStats(address, roundID, run.ID, 0)
 		require.NoError(t, err)
 
 		stats, err := orm.FindOrCreateFluxMonitorRoundStats(address, roundID, 0)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, stats.NumSubmissions)
 		require.True(t, stats.PipelineRunID.Valid)
-		require.Equal(t, runID, stats.PipelineRunID.Int64)
+		require.Equal(t, run.ID, stats.PipelineRunID.Int64)
 	}
 }
 
@@ -163,14 +163,15 @@ func makeJob(t *testing.T) *job.Job {
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(db, txm, strategy)
+		orm = fluxmonitorv2.NewORM(gdb, txm, strategy)
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
@@ -178,7 +179,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint64(21000)
 	)
 
-	txm.On("CreateEthTransaction", db, bulletprooftxmanager.NewTx{
+	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
@@ -187,7 +188,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(bulletprooftxmanager.EthTx{}, nil).Once()
 
-	orm.CreateEthTransaction(db, from, to, payload, gasLimit)
+	orm.CreateEthTransaction(from, to, payload, gasLimit)
 
 	txm.AssertExpectations(t)
 }

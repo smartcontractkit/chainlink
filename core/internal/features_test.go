@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -220,8 +221,8 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t))
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB())
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t))
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -606,7 +607,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start()
 			require.NoError(t, err)
 
-			ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
+			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -614,7 +615,8 @@ contractAddress    = "%s"
 isBootstrapPeer    = true
 `, ocrContractAddress))
 			require.NoError(t, err)
-			_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
+			jb.Name = null.NewString("boot", true)
+			err = appBootstrap.AddJobV2(context.Background(), &jb)
 			require.NoError(t, err)
 
 			// Raising flags to initiate hibernation
@@ -670,7 +672,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -702,7 +704,8 @@ observationSource = """
 """
 `, ocrContractAddress, bootstrapNodePort, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
-				jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+				jb.Name = null.NewString("testocr", true)
+				err = apps[i].AddJobV2(context.Background(), &jb)
 				require.NoError(t, err)
 				jids = append(jids, jb.ID)
 			}
@@ -726,7 +729,7 @@ observationSource = """
 			}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
-				jobs, _, err := app.JobORM().JobsV2(0, 1000)
+				jobs, _, err := app.JobORM().FindJobs(0, 1000)
 				require.NoError(t, err)
 				// No spec errors
 				for _, j := range jobs {
@@ -760,7 +763,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan chan<- *eth.Head, 1)
 
 	db := pgtest.NewGormDB(t)
-	kst := cltest.NewKeyStore(t, db)
+	kst := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{

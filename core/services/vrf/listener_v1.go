@@ -8,6 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	heaps "github.com/theodesp/go-heaps"
+	"github.com/theodesp/go-heaps/pairing"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -20,9 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	heaps "github.com/theodesp/go-heaps"
-	"github.com/theodesp/go-heaps/pairing"
-	"gorm.io/gorm"
 )
 
 var (
@@ -283,9 +284,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 }
 
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lsn.db.WithContext(ctx), lb)
+	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
 		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
@@ -295,10 +294,7 @@ func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
 }
 
 func (lsn *listenerV1) markLogAsConsumed(lb log.Broadcast) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
-	err := lsn.logBroadcaster.MarkConsumed(lsn.db.WithContext(ctx), lb)
+	err := lsn.logBroadcaster.MarkConsumed(lb)
 	lsn.l.ErrorIf(err, fmt.Sprintf("Unable to mark log %v as consumed", lb.String()))
 }
 
@@ -379,9 +375,9 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx *gorm.DB) error {
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx postgres.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(tx, lb); err != nil {
+		if err = lsn.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx)); err != nil {
 			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil
