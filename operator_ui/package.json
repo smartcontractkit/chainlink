@@ -53,7 +53,7 @@
     "react-jss": "^8.6.1",
     "react-redux": "^7.2.1",
     "react-resize-detector": "^4.2.1",
-    "react-router-dom": "^5.0.1",
+    "react-router-dom": "^5.3.0",
     "react-syntax-highlighter": "^15.4.4",
     "react-time-ago": "6.2.2",
     "redux": "^4.1.0",
