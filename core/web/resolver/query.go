@@ -14,6 +14,10 @@ import (
 
 // Bridge retrieves a bridges by name.
 func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	name, err := bridges.NewTaskType(args.Name)
 	if err != nil {
 		return nil, err
@@ -36,6 +40,10 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
 }) (*BridgesPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
@@ -49,6 +57,10 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 
 // Chain retrieves a chain by id.
 func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	id := utils.Big{}
 	err := id.UnmarshalText([]byte(args.ID))
 	if err != nil {
@@ -68,6 +80,10 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
 }) ([]*ChainResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
@@ -81,6 +97,10 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 
 // FeedsManager retrieves a feeds manager by id.
 func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	id, err := strconv.ParseInt(string(args.ID), 10, 32)
 	if err != nil {
 		return nil, err
@@ -98,7 +118,11 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 	return NewFeedsManagerPayload(mgr), nil
 }
 
-func (r *Resolver) FeedsManagers() (*FeedsManagersPayloadResolver, error) {
+func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	mgrs, err := r.App.GetFeedsService().ListManagers()
 	if err != nil {
 		return nil, err

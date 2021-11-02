@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -45,7 +44,8 @@ func newRunner(t testing.TB, gdb *gorm.DB, cfg *configtest.TestGeneralConfig) (p
 }
 
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
+	gdb := pgtest.GormDBFromSql(t, db.DB)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -56,11 +56,8 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -71,10 +68,10 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	s5 := httptest.NewServer(fakeStringResponder(t, "bar-index-2"))
 	defer s5.Close()
 
-	r, _ := newRunner(t, db, cfg)
+	r, _ := newRunner(t, gdb, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -93,7 +90,7 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	d, err := pipeline.Parse(s)
 	require.NoError(t, err)
 
@@ -129,7 +126,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 	t.Parallel()
 
 	specTemplate := `
-        ds1 [type=bridge name="example-bridge" timeout=0 requestData=<{"data": $(foo)}>]
+        ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": $(foo)}>]
         ds1_parse [type=jsonparse lax=false  path="data,result" data="$(ds1)"]
         ds1_multiply [type=multiply input="$(ds1_parse.result)" times="$(ds1_parse.times)"]
 
@@ -148,7 +145,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
         median [type=median values=<[ $(ds1_multiply), $(ds2_multiply), $(ds3_multiply) ]> index=0]
         ds4 [type=http method="GET" url="%s" index=1]
 
-        submit [type=bridge name="submit"
+        submit [type=bridge name="%s"
                 includeInputAtKey="%s"
                 requestData=<{
                     "median": $(median),
@@ -200,7 +197,8 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			db := pgtest.NewGormDB(t)
+			gdb := pgtest.NewGormDB(t)
+			db := postgres.UnwrapGormDB(gdb)
 			cfg := cltest.NewTestGeneralConfig(t)
 
 			expectedRequestDS1 := map[string]interface{}{"data": test.vars["foo"]}
@@ -220,7 +218,7 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			}
 
 			// 1. Setup bridge
-			ds1 := makeBridge(t, db, "example-bridge", expectedRequestDS1, map[string]interface{}{
+			ds1, bridgeName := makeBridge(t, db, expectedRequestDS1, map[string]interface{}{
 				"data": map[string]interface{}{
 					"result": map[string]interface{}{
 						"result": decimal.NewFromInt(9700),
@@ -243,11 +241,11 @@ func Test_PipelineRunner_ExecuteTaskRunsWithVars(t *testing.T) {
 			defer ds4.Close()
 
 			// 3. Setup final bridge task
-			submit := makeBridge(t, db, "submit", expectedRequestSubmit, map[string]interface{}{"ok": true})
+			submit, submitBridgeName := makeBridge(t, db, expectedRequestSubmit, map[string]interface{}{"ok": true})
 			defer submit.Close()
 
-			runner, _ := newRunner(t, db, cfg)
-			specStr := fmt.Sprintf(specTemplate, ds2.URL, ds4.URL, test.includeInputAtKey)
+			runner, _ := newRunner(t, gdb, cfg)
+			specStr := fmt.Sprintf(specTemplate, bridgeName, ds2.URL, ds4.URL, submitBridgeName, test.includeInputAtKey)
 			p, err := pipeline.Parse(specStr)
 			require.NoError(t, err)
 
@@ -532,7 +530,8 @@ ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 }
 
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -557,11 +556,8 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -573,10 +569,10 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	defer s5.Close()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	r, orm := newRunner(t, db, cfg)
+	r, orm := newRunner(t, gdb, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -595,7 +591,7 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	_, err = pipeline.Parse(s)
 	require.NoError(t, err)
 
@@ -659,7 +655,8 @@ ds5 [type=http method="GET" url="%s" index=2]
 }
 
 func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
@@ -684,11 +681,8 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, "example-bridge")
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
+	bt, _ := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()})
 
 	// 2. Setup success HTTP
 	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
@@ -700,10 +694,10 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	defer s5.Close()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	r, orm := newRunner(t, db, cfg)
+	r, orm := newRunner(t, gdb, cfg)
 
 	s := fmt.Sprintf(`
-ds1 [type=bridge async=true name="example-bridge" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
+ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"data": {"coin": "BTC", "market": "USD"}}>]
 ds1_parse [type=jsonparse lax=false  path="data,result"]
 ds1_multiply [type=multiply times=1000000000000000000]
 
@@ -722,7 +716,7 @@ ds3->ds3_parse->ds3_multiply->median;
 median [type=median index=0]
 ds4 [type=http method="GET" url="%s" index=1]
 ds5 [type=http method="GET" url="%s" index=2]
-`, s2.URL, s4.URL, s5.URL)
+`, bt.Name.String(), s2.URL, s4.URL, s5.URL)
 	_, err = pipeline.Parse(s)
 	require.NoError(t, err)
 
