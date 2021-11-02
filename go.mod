@@ -18,7 +18,6 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -65,7 +64,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.7.0
 	go.uber.org/zap v1.18.1
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/text v0.3.7
@@ -74,8 +73,8 @@ require (
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/datatypes v1.0.0
-	gorm.io/driver/postgres v1.0.8
-	gorm.io/gorm v1.20.12
+	gorm.io/driver/postgres v1.2.1
+	gorm.io/gorm v1.22.0
 )
 
 require (
@@ -140,7 +139,7 @@ require (
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
-	github.com/jinzhu/now v1.1.1 // indirect
+	github.com/jinzhu/now v1.1.2 // indirect
 	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/karrick/godirwalk v1.10.12 // indirect
