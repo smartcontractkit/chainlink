@@ -416,10 +416,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	_, bridge := cltest.NewBridgeType(t)
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t)
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})

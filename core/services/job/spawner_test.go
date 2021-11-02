@@ -61,10 +61,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
@@ -96,7 +94,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		jobA := cltest.MakeDirectRequestJobSpec(t)
-		jobB := makeOCRJobSpec(t, address)
+		jobB := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db), keyStore)
 		eventuallyA := cltest.NewAwaiter()
@@ -160,7 +158,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	clearDB(t, gdb)
 
 	t.Run("starts and stops job services from the DB when .Start()/.Stop() is called", func(t *testing.T) {
-		jobA := makeOCRJobSpec(t, address)
+		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -195,7 +193,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	clearDB(t, gdb)
 
 	t.Run("closes job services on 'DeleteJob()'", func(t *testing.T) {
-		jobA := makeOCRJobSpec(t, address)
+		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		eventuallyStart := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
