@@ -27,14 +27,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
 
-func newRunner(t testing.TB, db *gorm.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+func newRunner(t testing.TB, gdb *gorm.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
+
+	db := postgres.UnwrapGormDB(gdb)
 	orm.On("DB").Return(db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
@@ -420,12 +423,17 @@ answer1 [type=median                      index=0];
 }
 
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 	orm := new(mocks.ORM)
 	orm.On("DB").Return(db)
-	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).Return(int64(1), nil)
+	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			args.Get(0).(*pipeline.Run).ID = 1
+		}).
+		Return(nil)
 	cfg := cltest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: cfg})
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
@@ -451,9 +459,9 @@ succeed2 -> final;
 }
 
 func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, db, cfg)
+	r, _ := newRunner(t, gdb, cfg)
 	input := map[string]interface{}{"val": 2}
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
@@ -596,11 +604,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	lggr := logger.TestLogger(t)
 	incomplete, err := r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
@@ -610,7 +618,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// TODO: test a pending run that's not marked async=true, that is not allowed
 
 	// Trigger run resumption with no new data
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, true, incomplete) // still incomplete
@@ -623,7 +631,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		Valid: true,
 	}
 	// Trigger run resumption
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	incomplete, err = r.Run(context.Background(), &run, lggr, false, nil)
 	require.NoError(t, err)
 	require.Equal(t, false, incomplete) // done
@@ -723,13 +731,13 @@ ds5 [type=http method="GET" url="%s" index=2]
 	// Start a new run
 	run := pipeline.NewRun(spec, pipeline.NewVarsFrom(nil))
 	// we should receive a call to CreateRun because it's contains an async task
-	orm.On("CreateRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("CreateRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		run.ID = 1 // give it a valid "id"
 	}).Once()
 	// Simulate updated task run data
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
-		run := args.Get(1).(*pipeline.Run)
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(true, nil).Run(func(args mock.Arguments) {
+		run := args.Get(0).(*pipeline.Run)
 		// Now simulate a new result coming in while we were running
 		task := run.ByDotID("ds1")
 		task.Error = null.NewString("", false)
@@ -739,7 +747,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 		}
 	}).Once()
 	// StoreRun is called again to store the final result
-	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
+	orm.On("StoreRun", mock.AnythingOfType("*pipeline.Run"), mock.Anything).Return(false, nil).Once()
 	incomplete, err := r.Run(context.Background(), &run, logger.TestLogger(t), false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)

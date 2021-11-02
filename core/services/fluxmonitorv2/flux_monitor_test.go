@@ -287,17 +287,17 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupStoreWithKey(t *testing.T) (*gorm.DB, common.Address) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	return db, nodeAddr
+	return pgtest.GormDBFromSql(t, db.DB), nodeAddr
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*gorm.DB, common.Address) {
-	_, _, db := heavyweight.FullTestDB(t, name, true, true)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	_, sqlxDB, db := heavyweight.FullTestDB(t, name, true, true)
+	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -478,19 +478,22 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			if tc.expectedToSubmit {
 				tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(int64(1), nil).
+					Return(nil).
+					Run(func(args mock.Arguments) {
+						args.Get(0).(*pipeline.Run).ID = 1
+					}).
 					Once()
 				tm.contractSubmitter.
-					On("Submit", mock.Anything, big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer)).
+					On("Submit", big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer)).
 					Return(nil).
 					Once()
 
 				tm.orm.
 					On("UpdateFluxMonitorRoundStats",
-						mock.Anything,
 						contractAddress,
 						uint32(reportableRoundID),
 						int64(1),
+						mock.Anything,
 						mock.Anything,
 					).
 					Return(nil)
@@ -613,18 +616,21 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		}, nil)
 	tm.pipelineRunner.
 		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(int64(1), nil)
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			args.Get(0).(*pipeline.Run).ID = 1
+		})
 	tm.contractSubmitter.
-		On("Submit", mock.Anything, big.NewInt(1), big.NewInt(fetchedValue)).
+		On("Submit", big.NewInt(1), big.NewInt(fetchedValue)).
 		Return(nil).
 		Once()
 
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
-			mock.Anything,
 			contractAddress,
 			uint32(1),
 			mock.AnythingOfType("int64"), //int64(1),
+			mock.Anything,
 			mock.Anything,
 		).
 		Return(nil).Once()
@@ -649,17 +655,20 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		}, nil)
 	tm.pipelineRunner.
 		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(int64(2), nil)
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			args.Get(0).(*pipeline.Run).ID = 2
+		})
 	tm.contractSubmitter.
-		On("Submit", mock.Anything, big.NewInt(3), big.NewInt(fetchedValue)).
+		On("Submit", big.NewInt(3), big.NewInt(fetchedValue)).
 		Return(nil).
 		Once()
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
-			mock.Anything,
 			contractAddress,
 			uint32(3),
 			mock.AnythingOfType("int64"), //int64(2),
+			mock.Anything,
 			mock.Anything,
 		).
 		Return(nil).Once()
@@ -684,17 +693,20 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		}, nil)
 	tm.pipelineRunner.
 		On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Return(int64(3), nil)
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			args.Get(0).(*pipeline.Run).ID = 3
+		})
 	tm.contractSubmitter.
-		On("Submit", mock.Anything, big.NewInt(4), big.NewInt(fetchedValue)).
+		On("Submit", big.NewInt(4), big.NewInt(fetchedValue)).
 		Return(nil).
 		Once()
 	tm.orm.
 		On("UpdateFluxMonitorRoundStats",
-			mock.Anything,
 			contractAddress,
 			uint32(4),
 			mock.AnythingOfType("int64"), //int64(3),
+			mock.Anything,
 			mock.Anything,
 		).
 		Return(nil).
@@ -1547,16 +1559,19 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil)
 		tm.pipelineRunner.
 			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
+			Return(nil).
+			Run(func(args mock.Arguments) {
+				args.Get(0).(*pipeline.Run).ID = 1
+			})
 		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
-		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
-				mock.Anything,
 				contractAddress,
 				uint32(roundID),
 				int64(1),
 				uint(1),
+				mock.Anything,
 			).
 			Return(nil)
 
@@ -1671,15 +1686,18 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil)
 		tm.pipelineRunner.
 			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
-		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
+			Return(nil).
+			Run(func(args mock.Arguments) {
+				args.Get(0).(*pipeline.Run).ID = 1
+			})
+		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
-				mock.Anything,
 				contractAddress,
 				uint32(roundID),
 				int64(1),
 				uint(0),
+				mock.Anything,
 			).
 			Return(nil).
 			Once()
@@ -1764,15 +1782,18 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil)
 		tm.pipelineRunner.
 			On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(int64(1), nil)
-		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
+			Return(nil).
+			Run(func(args mock.Arguments) {
+				args.Get(0).(*pipeline.Run).ID = 1
+			})
+		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
-				mock.Anything,
 				contractAddress,
 				uint32(roundID),
 				int64(1),
 				uint(0),
+				mock.Anything,
 			).
 			Return(nil).
 			Once()
@@ -1838,15 +1859,15 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		// and that should result in a new submission
-		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(olderRoundID), big.NewInt(answer)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", big.NewInt(olderRoundID), big.NewInt(answer)).Return(nil).Once()
 
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
-				mock.Anything,
 				contractAddress,
 				uint32(olderRoundID),
 				int64(1),
 				uint(1),
+				mock.Anything,
 			).
 			Return(nil).
 			Once()
@@ -1941,15 +1962,18 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			Once()
 
 		tm.pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(runID, nil).
+			Return(nil).
+			Run(func(args mock.Arguments) {
+				args.Get(0).(*pipeline.Run).ID = runID
+			}).
 			Once()
 		tm.contractSubmitter.
-			On("Submit", mock.Anything, big.NewInt(int64(roundID)), answerBigInt).
+			On("Submit", big.NewInt(int64(roundID)), answerBigInt).
 			Return(nil).
 			Once()
 
 		tm.orm.
-			On("UpdateFluxMonitorRoundStats", mock.Anything, contractAddress, roundID, runID, mock.Anything).
+			On("UpdateFluxMonitorRoundStats", contractAddress, roundID, runID, mock.Anything, mock.Anything).
 			Return(nil).
 			Once()
 	}

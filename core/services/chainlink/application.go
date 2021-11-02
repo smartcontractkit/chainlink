@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -61,6 +60,7 @@ type Application interface {
 	GetLogger() logger.Logger
 	GetHealthChecker() health.Checker
 	GetDB() *gorm.DB
+	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
@@ -80,7 +80,7 @@ type Application interface {
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
 	BPTXMORM() bulletprooftxmanager.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
+	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
@@ -151,7 +151,7 @@ type ApplicationOpts struct {
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []service.Service
 	db := opts.GormDB
-	gormTxm := postgres.NewGormTransactionManager(db)
+	sqlxDB := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
@@ -192,12 +192,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db)
-		bridgeORM      = bridges.NewORM(opts.SqlxDB)
-		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
+		pipelineORM    = pipeline.NewORM(sqlxDB)
+		bridgeORM      = bridges.NewORM(sqlxDB)
+		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(opts.SqlxDB)
+		jobORM         = job.NewORM(sqlxDB, chainSet, pipelineORM, keyStore, globalLogger)
+		bptxmORM       = bulletprooftxmanager.NewORM(sqlxDB)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -273,7 +273,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chainSet.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)
@@ -285,7 +285,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = feeds.NewService(feedsORM, jobORM, sqlxDB, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
@@ -302,7 +302,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(opts.SqlxDB.DB, cfg),
+		SessionReaper:            sessions.NewSessionReaper(sqlxDB.DB, cfg),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
@@ -310,7 +310,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
 
-		sqlxDB: opts.SqlxDB,
+		sqlxDB: sqlxDB,
 		gormDB: opts.GormDB,
 
 		advisoryLock: opts.AdvisoryLock,
@@ -527,8 +527,8 @@ func (app *ChainlinkApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
-	return app.jobSpawner.CreateJob(ctx, j, name)
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
+	return app.jobSpawner.CreateJob(j, postgres.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
@@ -609,11 +609,6 @@ func (app *ChainlinkApplication) RunJobV2(
 			}
 		}
 		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.logger, saveTasks)
-	} else {
-		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
-		// TODO: Once all jobs have a pipeline this can be removed
-		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.GetDB().WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }
@@ -655,6 +650,10 @@ func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster
 
 func (app *ChainlinkApplication) GetDB() *gorm.DB {
 	return app.gormDB
+}
+
+func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
+	return app.sqlxDB
 }
 
 // Returns the configuration to use for creating and authenticating

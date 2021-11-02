@@ -23,14 +23,15 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	db := app.GetDB()
+	gdb := app.GetDB()
+	db := app.GetSqlxDB()
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 4, 4, from)        // tx3
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
@@ -38,7 +39,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, db.Create(&attempt).Error)
+	require.NoError(t, gdb.Create(&attempt).Error)
 
 	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)

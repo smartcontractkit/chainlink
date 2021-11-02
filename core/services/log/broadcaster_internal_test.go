@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -75,7 +76,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).
 		Return(nil, nil)
 	db := pgtest.NewGormDB(t)
-	dborm := NewORM(db, *ethClient.ChainID())
+	dborm := NewORM(postgres.UnwrapGormDB(db), *ethClient.ChainID())
 	lb := NewTestBroadcaster(dborm, ethClient, tc{}, logger.TestLogger(t), nil)
 	lb.Start()
 	defer lb.Close()

@@ -153,7 +153,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.Job {
 //
 // https://github.com/stretchr/testify/issues/984
 func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
-	t.Helper()
+	require.NotNil(t, expected.OffchainreportingOracleSpec)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)

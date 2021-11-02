@@ -29,6 +29,7 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
@@ -50,28 +51,29 @@ func setup(t *testing.T) (
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-	db := pgtest.NewGormDB(t)
-	cfg.SetDB(db)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
+	cfg.SetDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	registry, job := cltest.MustInsertKeeperRegistry(t, db, keyStore.Eth())
+	registry, job := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
 	txm := new(bptxmmocks.TxManager)
 	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: gdb, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(db, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(gdb, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, gdb, ch.Config(), registry)
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
-	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
+	return gdb, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
 }
 
 var checkUpkeepResponse = struct {
@@ -106,7 +108,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		ethTxCreated := cltest.NewAwaiter()
 		txm.On("CreateEthTransaction",
-			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{
@@ -146,7 +148,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		}
 		gasLimit := upkeep.ExecuteGas + config.KeeperRegistryPerformGasOverhead()
 		txm.On("CreateEthTransaction",
-			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).
@@ -176,7 +178,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		head = *cltest.Head(40)
 
 		txm.On("CreateEthTransaction",
-			mock.Anything, mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
+			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
 		).
 			Once().
 			Return(bulletprooftxmanager.EthTx{}, nil).

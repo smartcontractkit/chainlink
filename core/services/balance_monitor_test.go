@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
-	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 var nilBigInt *big.Int
@@ -25,7 +26,7 @@ var nilBigInt *big.Int
 func TestBalanceMonitor_Start(t *testing.T) {
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -56,7 +57,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("handles nil head", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -78,7 +79,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("recovers on error", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -103,7 +104,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -164,7 +165,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

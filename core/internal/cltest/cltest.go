@@ -70,6 +70,7 @@ import (
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -178,7 +179,7 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	prm := pipeline.NewORM(db)
 	lggr := logger.TestLogger(t)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr)
@@ -379,7 +380,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		chainORM = evm.NewORM(sqlxDB)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(sqlxDB, utils.FastScryptParams, lggr)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
@@ -610,7 +611,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
+func NewKeyStore(t testing.TB, db *sqlx.DB) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
@@ -898,7 +899,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 	var pr []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
+		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
 		require.NoError(t, err)
 
 		var matched []pipeline.Run

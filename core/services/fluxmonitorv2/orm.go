@@ -4,11 +4,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
 )
 
 type transmitter interface {
-	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...postgres.QOpt) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -18,8 +19,8 @@ type ORM interface {
 	MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error)
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
-	UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint) error
-	CreateEthTransaction(db *gorm.DB, fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
+	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...postgres.QOpt) error
+	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
 }
 
 type orm struct {
@@ -79,18 +80,19 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (o *orm) UpdateFluxMonitorRoundStats(db *gorm.DB, aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint) error {
-	err := db.Exec(`
+func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...postgres.QOpt) error {
+	q := postgres.NewQ(postgres.UnwrapGormDB(o.db), qopts...)
+	_, err := q.Exec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (
-            ?, ?, ?, ?, 1
+            $1, $2, $3, $4, 1
         ) ON CONFLICT (aggregator, round_id)
         DO UPDATE SET
-          num_new_round_logs = flux_monitor_round_stats_v2.num_new_round_logs + ?,
+          num_new_round_logs = flux_monitor_round_stats_v2.num_new_round_logs + $5,
 					num_submissions    = flux_monitor_round_stats_v2.num_submissions + 1,
 					pipeline_run_id    = EXCLUDED.pipeline_run_id
-    `, aggregator, roundID, runID, newRoundLogsAddition, newRoundLogsAddition).Error
+    `, aggregator, roundID, runID, newRoundLogsAddition, newRoundLogsAddition)
 	return errors.Wrapf(err, "Failed to insert round stats for roundID=%v, runID=%v, newRoundLogsAddition=%v", roundID, runID, newRoundLogsAddition)
 }
 
@@ -104,13 +106,12 @@ func (o *orm) CountFluxMonitorRoundStats() (int, error) {
 
 // CreateEthTransaction creates an ethereum transaction for the BPTXM to pick up
 func (o *orm) CreateEthTransaction(
-	db *gorm.DB,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
 ) (err error) {
-	_, err = o.txm.CreateEthTransaction(db, bulletprooftxmanager.NewTx{
+	_, err = o.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,
