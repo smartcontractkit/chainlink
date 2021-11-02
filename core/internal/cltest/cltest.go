@@ -67,8 +67,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -177,7 +179,7 @@ type JobPipelineV2TestHelper struct {
 	Pr  pipeline.Runner
 }
 
-func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *gorm.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	prm := pipeline.NewORM(db)
 	lggr := logger.TestLogger(t)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr)
@@ -378,7 +380,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		chainORM = evm.NewORM(sqlxDB)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(sqlxDB, utils.FastScryptParams, lggr)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
@@ -609,7 +611,7 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *gorm.DB) keystore.Master {
+func NewKeyStore(t testing.TB, db *sqlx.DB) keystore.Master {
 	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
@@ -897,7 +899,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 	var pr []pipeline.Run
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
+		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
 		require.NoError(t, err)
 
 		var matched []pipeline.Run
@@ -1079,11 +1081,11 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
-	err := securecookie.DecodeMulti(web.SessionName, value, &decrypted, codecs...)
+	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
 		return "", err
 	}
-	value, ok := decrypted[web.SessionIDKey].(string)
+	value, ok := decrypted[webauth.SessionIDKey].(string)
 	if !ok {
 		return "", fmt.Errorf("decrypted[web.SessionIDKey] is not a string (%v)", value)
 	}
@@ -1091,13 +1093,13 @@ func DecodeSessionCookie(value string) (string, error) {
 }
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
-	decrypted := map[interface{}]interface{}{web.SessionIDKey: value}
+	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
 	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
-	encoded, err := securecookie.EncodeMulti(web.SessionName, decrypted, codecs...)
+	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)
 	}
-	return sessions.NewCookie(web.SessionName, encoded, &sessions.Options{})
+	return sessions.NewCookie(webauth.SessionName, encoded, &sessions.Options{})
 }
 
 func NormalizedJSON(t testing.TB, input []byte) string {

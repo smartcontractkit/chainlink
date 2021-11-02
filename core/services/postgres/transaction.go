@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -31,7 +33,7 @@ var (
 )
 
 // WARNING: Only use for nested txes inside ORM methods where you expect db to already have a ctx with a deadline.
-func GormTransactionWithoutContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
+func GormTransactionWithoutContext(db *gorm.DB, fn func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
 		txOpts = txOptss[0]
@@ -43,12 +45,12 @@ func GormTransactionWithoutContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOp
 		if err != nil {
 			return errors.Wrap(err, "error setting transaction timeouts")
 		}
-		return fc(tx)
+		return fn(tx)
 	}, &txOpts)
 }
 
 // DEPRECATED: Use the transaction manager instead.
-func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
+func GormTransaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
 		txOpts = txOptss[0]
@@ -63,12 +65,12 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 		if err != nil {
 			return errors.Wrap(err, "error setting transaction timeouts")
 		}
-		return fc(tx)
+		return fn(tx)
 	}, &txOpts)
 }
 
 // DEPRECATED: Use the transaction manager instead.
-func GormTransactionWithDefaultContext(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) error {
+func GormTransactionWithDefaultContext(db *gorm.DB, fn func(tx *gorm.DB) error, txOptss ...sql.TxOptions) error {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
 		txOpts = txOptss[0]
@@ -82,33 +84,71 @@ func GormTransactionWithDefaultContext(db *gorm.DB, fc func(tx *gorm.DB) error, 
 		if err != nil {
 			return errors.Wrap(err, "error setting transaction timeouts")
 		}
-		return fc(tx)
+		return fn(tx)
 	}, &txOpts)
 	return err
 }
 
-func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
+func DBWithDefaultContext(db *gorm.DB, fn func(db *gorm.DB) error) error {
 	ctx, cancel := DefaultQueryCtx()
 	defer cancel()
-	return fc(db.WithContext(ctx))
+	return fn(db.WithContext(ctx))
 }
 
-func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func SqlTransaction(ctx context.Context, rdb *sql.DB, fn func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	db := WrapDbWithSqlx(rdb)
+	return sqlxTransaction(ctx, db, fn, txOpts...)
+}
+
+func sqlxTransaction(ctx context.Context, db *sqlx.DB, fn func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	wrapFn := func(q Queryer) error {
+		tx, ok := q.(*sqlx.Tx)
+		if !ok {
+			panic(fmt.Sprintf("expected q to be %T but got %T", tx, q))
+		}
+		return fn(tx)
+	}
+	return sqlxTransactionQ(ctx, db, wrapFn, txOpts...)
+}
+
+// Pls wen go generics
+// Duplicates logic above, unfortuantely necessary because the callback has a different signature
+func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, fn func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	opts := &DefaultSqlTxOptions
 	if len(txOpts) > 0 {
 		opts = &txOpts[0]
 	}
-	db := WrapDbWithSqlx(rdb)
-
 	tx, err := db.BeginTxx(ctx, opts)
-	panicked := false
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
 
 	defer func() {
-		// Make sure to rollback when panic, Block error or Commit error
-		if panicked || err != nil {
-			if perr := tx.Rollback(); perr != nil {
-				panic(perr)
+		if p := recover(); p != nil {
+			// A panic occurred, rollback and repanic
+			logger.Errorf("panic in transaction, rolling back: %s", p)
+			done := make(chan struct{})
+			go func() {
+				if rerr := tx.Rollback(); rerr != nil {
+					logger.Error("failed to rollback on panic: %s", rerr)
+				}
+				close(done)
+			}()
+			select {
+			case <-done:
+				panic(p)
+			case <-time.After(10 * time.Second):
+				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
 			}
+		} else if err != nil {
+			logger.Debugf("error in transaction, rolling back: %s", err)
+			// An error occurred, rollback and return error
+			if rerr := tx.Rollback(); rerr != nil {
+				err = multierr.Combine(err, errors.WithStack(rerr))
+			}
+		} else {
+			// All good! Time to commit.
+			err = errors.WithStack(tx.Commit())
 		}
 	}()
 
@@ -117,13 +157,7 @@ func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error
 		return errors.Wrap(err, "error setting transaction timeouts")
 	}
 
-	panicked = true
-	err = fc(tx)
-	panicked = false
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit())
-	}
+	err = fn(tx)
 
 	return
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,7 +65,7 @@ func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink s
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(postgres.UnwrapGormDB(db), utils.FastScryptParams, lggr)
 	require.NoError(t, ks.Unlock("blah"))
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)

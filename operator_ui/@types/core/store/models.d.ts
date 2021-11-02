@@ -270,6 +270,7 @@ declare module 'core/store/models' {
       contractAddress: common.Address
       minIncomingConfirmations: number | null
       createdAt: time.Time
+      requesters: common.Address[]
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -453,6 +454,7 @@ declare module 'core/store/models' {
     // Stupidly this also returns boolean strings
     logLevel: LogConfigLevel[]
     serviceName: string[]
+    defaultLogLevel: string
   }
 
   export interface LogConfigRequest {

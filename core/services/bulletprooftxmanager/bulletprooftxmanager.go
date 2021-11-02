@@ -3,10 +3,19 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -20,14 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -69,7 +70,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error)
+	CreateEthTransaction(newTx NewTx, qopts ...postgres.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
 }
@@ -270,36 +271,37 @@ type NewTx struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error) {
-	err = CheckEthTxQueueCapacity(db, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
+func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.QOpt) (etx EthTx, err error) {
+	q := postgres.NewQ(postgres.UnwrapGormDB(b.db), qs...)
+
+	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
 
 	value := 0
-	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
+	err = q.Transaction(func(tx postgres.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
-			err = tx.Raw(`SELECT * FROM eth_txes WHERE pipeline_task_run_id = ? AND evm_chain_id = ?`, newTx.PipelineTaskRunID, b.chainID.String()).Scan(&etx).Error
-			if err != nil {
-				return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
-			}
-
-			// if a previous transaction for this task run exists, immediately return it
-			if etx.ID != 0 {
+			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
+			// If no eth_tx matches (the common case) then continue
+			if !errors.Is(err, sql.ErrNoRows) {
+				if err != nil {
+					return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+				}
+				// if a previous transaction for this task run exists, immediately return it
 				return nil
 			}
 		}
 		if err = b.checkStateExists(tx, newTx.FromAddress); err != nil {
 			return err
 		}
-		res := tx.Raw(`
+		err := tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?,?
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate()).Scan(&etx)
-		err = res.Error
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate())
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
 		}
@@ -316,10 +318,10 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *BulletproofTxManager) checkStateExists(tx *gorm.DB, addr common.Address) error {
+func (b *BulletproofTxManager) checkStateExists(q postgres.Queryer, addr common.Address) error {
 	var state ethkey.State
-	err := tx.First(&state, "address = ?", addr).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
+	if errors.Is(err, sql.ErrNoRows) {
 		return errors.Errorf("no eth key exists with address %s", addr.Hex())
 	} else if err != nil {
 		return errors.Wrap(err, "failed to query state")
@@ -505,12 +507,12 @@ func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state E
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
-func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
+func CheckEthTxQueueCapacity(q postgres.Queryer, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
 	var count uint64
-	err = db.Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unstarted' AND evm_chain_id = ?`, fromAddress, chainID.String()).Scan(&count).Error
+	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress, chainID.String())
 	if err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckEthTxQueueCapacity query failed")
 		return
@@ -532,7 +534,7 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
 func (n *NullTxManager) Start() error                                { return nil }
 func (n *NullTxManager) Close() error                                { return nil }
 func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(NewTx, ...postgres.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }

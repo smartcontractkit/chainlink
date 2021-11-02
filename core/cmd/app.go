@@ -128,7 +128,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "show",
-					Usage:  "Show an Bridge's details",
+					Usage:  "Show a Bridge's details",
 					Action: client.ShowBridge,
 				},
 			},
@@ -249,7 +249,7 @@ func NewApp(client *Client) *cli.App {
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
-							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
+							Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
 							Flags: []cli.Flag{
 								cli.StringFlag{
@@ -590,10 +590,10 @@ func NewApp(client *Client) *cli.App {
 						},
 						cli.StringFlag{
 							Name:  "vrfpassword, vp",
-							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
+							Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 						},
 					},
-					Usage:  "Run the chainlink node",
+					Usage:  "Run the Chainlink node",
 					Action: client.RunNode,
 				},
 				{

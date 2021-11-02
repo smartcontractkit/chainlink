@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -12,7 +11,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strconv"
 	"sync"
 	"time"
 
@@ -108,6 +106,7 @@ type GeneralOnlyConfig interface {
 	KeeperRegistrySyncUpkeepQueueSize() uint32
 	KeyFile() string
 	LogLevel() zapcore.Level
+	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
 	LogSQLStatements() bool
 	LogToDisk() bool
@@ -164,8 +163,8 @@ type GeneralOnlyConfig interface {
 	SessionTimeout() models.Duration
 	SetDB(*gorm.DB)
 	SetDialect(dialects.DialectName)
-	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
-	SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error
+	SetLogLevel(lvl zapcore.Level) error
+	SetLogSQLStatements(logSQLStatements bool) error
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -247,6 +246,10 @@ type generalConfig struct {
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
 	advisoryLockID   int64
+	logLevel         zapcore.Level
+	defaultLogLevel  zapcore.Level
+	logSQLStatements bool
+	logMutex         sync.RWMutex
 }
 
 // NewGeneralConfig returns the config with the environment variables set to their
@@ -274,6 +277,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 	config := &generalConfig{
 		viper:            v,
 		randomP2PPortMtx: new(sync.RWMutex),
+		defaultLogLevel:  DefaultLogLevel.Level,
 	}
 
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -286,6 +290,19 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 	if err != nil && reflect.TypeOf(err) != configFileNotFoundError {
 		logger.Warnf("Unable to load config file: %v\n", err)
 	}
+
+	if v.IsSet(EnvVarName("LogLevel")) {
+		str := v.GetString(EnvVarName("LogLevel"))
+		ll, err := ParseLogLevel(str)
+		if err != nil {
+			logger.Errorf("error parsing log level: %s, falling back to %s", str, DefaultLogLevel.Level)
+		} else {
+			config.defaultLogLevel = ll.(LogLevel).Level
+		}
+	}
+	config.logLevel = config.defaultLogLevel
+	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
+	config.logMutex = sync.RWMutex{}
 
 	return config
 }
@@ -842,33 +859,22 @@ func (c *generalConfig) ORMMaxIdleConns() int {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c *generalConfig) LogLevel() zapcore.Level {
-	// FIXME: This is confusing, everywhere else the env var overrides the DB value but this is the reverse
-	if c.ORM != nil {
-		var value LogLevel
-		if err := c.ORM.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
-		} else if err == nil {
-			return value.Level
-		}
-	}
-	if c.viper.IsSet(EnvVarName("LogLevel")) {
-		str := c.viper.GetString(EnvVarName("LogLevel"))
-		ll, err := ParseLogLevel(str)
-		if err != nil {
-			logger.Errorf("error parsing log level: %s, falling back to %s", str, DefaultLogLevel)
-			return DefaultLogLevel.Level
-		}
-		return ll.(LogLevel).Level
-	}
-	return DefaultLogLevel.Level
+	c.logMutex.RLock()
+	defer c.logMutex.RUnlock()
+	return c.logLevel
+}
+
+// DefaultLogLevel returns default log level.
+func (c *generalConfig) DefaultLogLevel() zapcore.Level {
+	return c.defaultLogLevel
 }
 
 // SetLogLevel saves a runtime value for the default logger level
-func (c *generalConfig) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	if c.ORM == nil {
-		return errors.New("SetLogLevel: No runtime store installed")
-	}
-	return c.ORM.SetConfigStrValue(ctx, "LogLevel", lvl.String())
+func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
+	c.logMutex.Lock()
+	defer c.logMutex.Unlock()
+	c.logLevel = lvl
+	return nil
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -878,24 +884,17 @@ func (c *generalConfig) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c *generalConfig) LogSQLStatements() bool {
-	if c.ORM != nil {
-		logSqlStatements, err := c.ORM.GetConfigBoolValue("LogSQLStatements")
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
-		} else if err == nil {
-			return *logSqlStatements
-		}
-	}
-	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+	c.logMutex.RLock()
+	defer c.logMutex.RUnlock()
+	return c.logSQLStatements
 }
 
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
-	if c.ORM == nil {
-		return errors.New("SetLogSQLStatements: No runtime store installed")
-	}
-
-	return c.ORM.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
+func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+	c.logMutex.Lock()
+	defer c.logMutex.Unlock()
+	c.logSQLStatements = logSQLStatements
+	return nil
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger

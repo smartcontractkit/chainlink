@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -54,7 +55,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		sqlxdb := postgres.UnwrapGormDB(db)
+		ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
