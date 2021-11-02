@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -419,7 +420,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
-		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
+		consumed, err := log.NewORM(postgres.UnwrapGormDB(db), fa.evmChainID).WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed

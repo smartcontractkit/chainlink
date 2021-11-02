@@ -1,6 +1,7 @@
 package auth_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,7 +27,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	r.Use(auth.AuthenticateGQL(sessionORM))
 
 	r.GET("/", func(c *gin.Context) {
-		user, ok := auth.GetAuthenticatedUser(c)
+		user, ok := auth.GetGQLAuthenticatedUser(c)
 		assert.False(t, ok)
 		assert.Nil(t, user)
 
@@ -50,7 +51,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	r.Use(auth.AuthenticateGQL(sessionORM))
 
 	r.GET("/", func(c *gin.Context) {
-		user, ok := auth.GetAuthenticatedUser(c)
+		user, ok := auth.GetGQLAuthenticatedUser(c.Request.Context())
 		assert.True(t, ok)
 		assert.NotNil(t, user)
 
@@ -65,4 +66,17 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	req.AddCookie(cookie)
 
 	r.ServeHTTP(w, req)
+}
+
+func Test_GetAndSetGQLAuthenticatedUser(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	user := clsessions.User{}
+
+	ctx = auth.SetGQLAuthenticatedUser(ctx, user)
+
+	actual, ok := auth.GetGQLAuthenticatedUser(ctx)
+	assert.True(t, ok)
+	assert.Equal(t, &user, actual)
 }

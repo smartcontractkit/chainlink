@@ -269,7 +269,7 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-func TestClient_ListJobsV2(t *testing.T) {
+func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
@@ -364,7 +364,7 @@ func TestClient_DeleteJob(t *testing.T) {
 
 	requireJobsCount(t, app.JobORM(), 1)
 
-	jobs, _, err := app.JobORM().JobsV2(0, 1000)
+	jobs, _, err := app.JobORM().FindJobs(0, 1000)
 	require.NoError(t, err)
 	jobID := jobs[0].ID
 	cltest.AwaitJobActive(t, app.JobSpawner(), jobID, 3*time.Second)
@@ -383,7 +383,7 @@ func TestClient_DeleteJob(t *testing.T) {
 }
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
-	jobs, _, err := orm.JobsV2(0, 1000)
+	jobs, _, err := orm.FindJobs(0, 1000)
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
 }

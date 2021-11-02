@@ -92,7 +92,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	guiAssetRoutes(app.NewBox(), engine, config)
 
 	api.POST("/query",
-		auth.Authenticate(app.SessionORM(), auth.AuthenticateByToken, auth.AuthenticateBySession),
+		auth.AuthenticateGQL(app.SessionORM()),
 		loader.Middleware(app),
 		graphqlHandler(app),
 	)

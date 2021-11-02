@@ -87,7 +87,7 @@ func TestEthTx_GetID(t *testing.T) {
 }
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})

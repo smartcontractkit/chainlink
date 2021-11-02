@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -298,7 +297,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{NewResultRunSaver(
-			postgres.UnwrapGormDB(d.db),
 			runResults,
 			d.pipelineRunner,
 			make(chan struct{}),

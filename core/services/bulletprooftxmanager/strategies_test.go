@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,7 +42,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	subj1 := uuid.NewV4()
 	subj2 := uuid.NewV4()
@@ -69,7 +70,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 	t.Run("with queue size of 2, removes everything except the newest two transactions for the given subject, ignoring fromAddress", func(t *testing.T) {
 		s := bulletprooftxmanager.NewDropOldestStrategy(subj1, 2, false)
 
-		n, err := s.PruneQueue(db)
+		n, err := s.PruneQueue(postgres.UnwrapGormDB(db))
 		require.NoError(t, err)
 		assert.Equal(t, int64(2), n)
 

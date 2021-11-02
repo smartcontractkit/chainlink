@@ -8,15 +8,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -92,8 +93,38 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}
 }
 
+func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
+	t.Skip("TODO: fix this: https://app.shortcut.com/chainlinklabs/story/15334/orm-failed-to-load-unclaimed-job-specs-context-timeout")
+	app, client := setupJobsControllerTests(t)
+	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
+	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
+
+	n := 10
+
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			body, err := json.Marshal(web.CreateJobRequest{
+				TOML: fmt.Sprintf(testspecs.DirectRequestSpecNoExternalJobID, i),
+			})
+			require.NoError(t, err)
+
+			t.Logf("POSTing %d", i)
+			r, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+			defer cleanup()
+			require.Equal(t, http.StatusOK, r.StatusCode)
+		}(i)
+	}
+	wg.Wait()
+	cltest.AssertCount(t, app.GetDB(), job.DirectRequestSpec{}, int64(n))
+}
+
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
+	b1, b2 := setupBridges(t, app.GetSqlxDB())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	pks, err := app.KeyStore.VRF().GetAll()
@@ -108,6 +139,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "offchain reporting",
 			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 				TransmitterAddress: app.Key.Address.Hex(),
+				DS1BridgeName:      b1,
+				DS2BridgeName:      b2,
 			}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -270,16 +303,14 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "fetch_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge = cltest.NewBridgeType(t, "submit_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-no-body.toml")
+	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+		TOML: tomlStr,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
@@ -422,14 +453,16 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
+func setupBridges(t *testing.T, db *sqlx.DB) (b1, b2 string) {
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	return bridge.Name.String(), bridge2.Name.String()
+}
+
+func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
@@ -444,28 +477,27 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFileDB job.Job
-	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
-	require.NoError(t, err)
-	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
+	var jb job.Job
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OffchainReportingOracleSpec
-	err = tree.Unmarshal(&ocrSpec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
-	ocrJobSpecFromFileDB.OffchainreportingOracleSpec = &ocrSpec
-	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
-	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
-
-	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	jb.OffchainreportingOracleSpec = &ocrSpec
+	jb.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
+	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
-	jb2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return app, client, ocrJobSpecFromFileDB, jb.ID, ereJobSpecFromFileDB, jb2.ID
+	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	require.NoError(t, err)
+	err = app.AddJobV2(context.Background(), &erejb)
+	require.NoError(t, err)
+
+	return app, client, jb, jb.ID, erejb, erejb.ID
 }
