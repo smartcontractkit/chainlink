@@ -100,6 +100,7 @@ export const New = ({
   const [value, setValue] = useState<string>(initialValues.jobSpec)
   const [valid, setValid] = useState<boolean>(true)
   const [valueErrorMsg, setValueErrorMsg] = useState<string>('')
+  const [serverErrorMsg, setServerErrorMsg] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [tasks, setTasks] = useState(() =>
     getTaskList({ value: initialValues.jobSpec }),
@@ -139,6 +140,7 @@ export const New = ({
 
     if (isValid) {
       setLoading(true)
+      setServerErrorMsg('')
 
       apiCall({
         value,
@@ -149,9 +151,9 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setValueErrorMsg('Invalid job spec')
+            setServerErrorMsg('Invalid job spec')
           } else {
-            setValueErrorMsg(error.toString())
+            setServerErrorMsg(error.toString())
           }
 
           setValid(false)
@@ -184,7 +186,7 @@ export const New = ({
                       error={!valid}
                       value={value}
                       onChange={handleValueChange}
-                      helperText={!valid && valueErrorMsg}
+                      helperText={(!valid && valueErrorMsg) || serverErrorMsg}
                       autoComplete="off"
                       label={'TOML blob'}
                       rows={10}
@@ -204,7 +206,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading}
+                      disabled={loading || Boolean(valueErrorMsg)}
                     >
                       Create Job
                       {loading && (
