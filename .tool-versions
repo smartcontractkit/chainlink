@@ -1,3 +1,4 @@
 golang 1.17.2
 mockery 2.8.0
 nodejs 12.18.4
+postgres 13.3
