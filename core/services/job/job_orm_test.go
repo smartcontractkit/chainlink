@@ -43,12 +43,10 @@ func TestORM(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	jb := makeOCRJobSpec(t, address)
+	jb := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 	t.Run("it creates job specs", func(t *testing.T) {
 		err := orm.CreateJob(jb)
@@ -63,7 +61,7 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("autogenerates external job ID if missing", func(t *testing.T) {
-		jb2 := makeOCRJobSpec(t, address)
+		jb2 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		jb2.ExternalJobID = uuid.UUID{}
 		err := orm.CreateJob(jb2)
 		require.NoError(t, err)
@@ -90,7 +88,7 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
-		jb3 := makeOCRJobSpec(t, address)
+		jb3 := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 		err := orm.CreateJob(jb3)
 		require.NoError(t, err)
 		var jobSpec job.Job
@@ -167,13 +165,15 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-		require.NoError(t, gdb.Create(bridge).Error)
-		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-		require.NoError(t, gdb.Create(bridge2).Error)
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{TransmitterAddress: address.Hex()}).Toml())
+		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml())
 		require.NoError(t, err)
 
 		err = orm.CreateJob(&jb)
@@ -260,10 +260,8 @@ func Test_FindJob(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -271,6 +269,8 @@ func Test_FindJob(t *testing.T) {
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
 	)
 	require.NoError(t, err)
@@ -323,10 +323,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -334,6 +332,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
 	)
 	require.NoError(t, err)
@@ -383,10 +383,8 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -394,6 +392,8 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
 	)
 	require.NoError(t, err)

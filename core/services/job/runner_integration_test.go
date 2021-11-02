@@ -71,37 +71,29 @@ func TestRunner(t *testing.T) {
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
-		{
-			mockElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
-				func(header http.Header, s string) {
-					var md bridges.BridgeMetaDataJSON
-					require.NoError(t, json.Unmarshal([]byte(s), &md))
-					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
-					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
-				})
-			mockVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
-				func(header http.Header, s string) {
-					var md bridges.BridgeMetaDataJSON
-					require.NoError(t, json.Unmarshal([]byte(s), &md))
-					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
-					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
-				},
-			)
-			mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
+		mockElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+			func(header http.Header, s string) {
+				var md bridges.BridgeMetaDataJSON
+				require.NoError(t, json.Unmarshal([]byte(s), &md))
+				assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+				assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+			})
+		mockVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+			func(header http.Header, s string) {
+				var md bridges.BridgeMetaDataJSON
+				require.NoError(t, json.Unmarshal([]byte(s), &md))
+				assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+				assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+			},
+		)
+		mockHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 
-			_, bridgeER := cltest.NewBridgeType(t, "election_winner", mockElectionWinner.URL)
-			err := gdb.Create(bridgeER).Error
-			require.NoError(t, err)
-
-			_, bridgeVT := cltest.NewBridgeType(t, "voter_turnout", mockVoterTurnout.URL)
-			err = gdb.Create(bridgeVT).Error
-			require.NoError(t, err)
-
-			httpURL = mockHTTP.URL
-		}
+		httpURL = mockHTTP.URL
+		_, bridgeER := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockElectionWinner.URL})
+		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL})
 
 		// Need a job in order to create a run
-		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL)
+		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		require.NotNil(t, jb.PipelineSpec)
@@ -151,15 +143,14 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "testbridge", "http://blah.com")
-		require.NoError(t, gdb.Create(bridge).Error)
-		jb := makeOCRJobSpecFromToml(t, gdb, `
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		jb := makeOCRJobSpecFromToml(t, gdb, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
-				ds1          [type=bridge name="testbridge"];
+				ds1          [type=bridge name="%s"];
 			"""
-		`)
+		`, bridge.Name.String()))
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		// Should not be able to delete a bridge in use.
@@ -175,15 +166,14 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "testbridge2", "http://blah.com")
-		require.NoError(t, gdb.Create(bridge).Error)
-		jb := makeOCRJobSpecFromToml(t, gdb, `
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		jb := makeOCRJobSpecFromToml(t, gdb, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
-				ds1          [type=bridge name="testbridge2"];
+				ds1          [type=bridge name="%s"];
 			"""
-		`)
+		`, bridge.Name.String()))
 		err := jobORM.CreateJob(jb)
 		require.Error(t,
 			pipeline.ErrNoSuchBridge,
@@ -750,6 +740,7 @@ func TestRunner_AsyncJob(t *testing.T) {
 
 	// Create the bridge on the Core node
 	bridgeCalled := make(chan struct{}, 1)
+	var bridgeName string
 	{
 		bridgeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer r.Body.Close()
@@ -767,11 +758,8 @@ func TestRunner_AsyncJob(t *testing.T) {
 			io.WriteString(w, `{"pending": true}`)
 			bridgeCalled <- struct{}{}
 		}))
-		u, _ := url.Parse(bridgeServer.URL)
-		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.TaskType("bridge"),
-			URL:  models.WebURL(*u),
-		})
+		_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: bridgeServer.URL})
+		bridgeName = bridge.Name.String()
 		defer bridgeServer.Close()
 	}
 
@@ -792,13 +780,13 @@ externalInitiators = [
 ]
 observationSource   = """
     parse  [type=jsonparse path="result" data="$(jobRun.requestBody)"]
-	ds1 [type=bridge async=true name="bridge" timeout=0 requestData=<{"value": $(parse)}>]
+	ds1 [type=bridge async=true name="%s" timeout=0 requestData=<{"value": $(parse)}>]
 	ds1_parse [type=jsonparse lax=false  path="data,result"]
 	ds1_multiply [type=multiply times=1000000000000000000 index=0]
 
 	parse->ds1->ds1_parse->ds1_multiply;
 """
-    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec))
+    `, jobUUID, eiName, cltest.MustJSONMarshal(t, eiSpec), bridgeName)
 
 		_, err := webhook.ValidatedWebhookSpec(tomlSpec, app.GetExternalInitiatorManager())
 		require.NoError(t, err)

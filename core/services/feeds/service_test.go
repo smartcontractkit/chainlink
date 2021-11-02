@@ -331,7 +331,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 						Status:         feeds.JobProposalStatusApproved,
 					}, nil)
 			},
-			wantErr: "cannot repropose a job that has already been approved",
+			wantErr: "cannot re-propose a job that has already been approved",
 		},
 	}
 
