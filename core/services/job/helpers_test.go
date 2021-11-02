@@ -44,7 +44,7 @@ observationSource = """
 `
 	voterTurnoutDataSourceTemplate = `
 // data source 1
-ds1          [type=bridge name=voter_turnout];
+ds1          [type=bridge name="%s"];
 ds1_parse    [type=jsonparse path="data,result"];
 ds1_multiply [type=multiply times=100];
 
@@ -57,7 +57,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
 answer1 [type=median                      index=0];
-answer2 [type=bridge name=election_winner index=1];
+answer2 [type=bridge name="%s" index=1];
 `
 
 	simpleFetchDataSourceTemplate = `
@@ -110,7 +110,7 @@ contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
     // data source 1
-    ds1          [type=bridge name=voter_turnout];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="one,two"];
     ds1_multiply [type=multiply times=1.23];
 
@@ -123,17 +123,17 @@ observationSource = """
     ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
     answer1 [type=median                      index=0];
-    answer2 [type=bridge name=election_winner index=1];
+    answer2 [type=bridge name="%s" index=1];
 """
 `
 )
 
-func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.Job {
+func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 string) *job.Job {
 	t.Helper()
 
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
 		ExternalJobID: uuid.NewV4(),
@@ -194,16 +194,16 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *gorm.DB, cfg config.GeneralConf
 	return &os
 }
 
-func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) *job.Job {
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address, b1, b2 string) *job.Job {
 	t.Helper()
-	return MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar")
+	return MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar", b1, b2)
 }
 
-func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) *job.Job {
+func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL, b1, b2 string) *job.Job {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
+	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, b1, httpURL, b2)
 	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
