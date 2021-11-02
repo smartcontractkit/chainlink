@@ -102,7 +102,7 @@ jobs:
   performance:
     name: Performance and Chaos Integration Tests
     # Only run performance tests on significant PRs / merges to main
-    if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop') || contains(github.ref, 'master')
+    if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop') || contains(github.ref, 'master') || contains(github.ref, 'release') 
     needs: build-chainlink
     runs-on: ubuntu-latest
     env:
