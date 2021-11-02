@@ -1,12 +1,6 @@
 package resolver
 
-import (
-	"github.com/graph-gophers/graphql-go/gqltesting"
-	"github.com/stretchr/testify/mock"
-	"testing"
-
-	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
-)
+import "testing"
 
 func Test_ToFeatures(t *testing.T) {
 	query := `
@@ -19,26 +13,26 @@ func Test_ToFeatures(t *testing.T) {
 		}
 	}`
 
-	f := setupFramework(t)
-	cfg := &configMocks.GeneralConfig{}
-	t.Cleanup(func() {
-		mock.AssertExpectationsForObjects(t, cfg)
-	})
-
-	f.App.On("GetConfig").Return(cfg)
-	cfg.On("FeatureUICSAKeys").Return(false)
-	cfg.On("FeatureUIFeedsManager").Return(true)
-
-	gqltesting.RunTest(t, &gqltesting.Test{
-		Context: f.Ctx,
-		Schema:  f.RootSchema,
-		Query:   query,
-		ExpectedResult: `
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "features"),
 		{
-			"features": {
-				"csa": false,
-				"feedsManager": true
-			}
-		}`,
-	})
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.Mocks.cfg.On("FeatureUICSAKeys").Return(false)
+				f.Mocks.cfg.On("FeatureUIFeedsManager").Return(true)
+			},
+			query: query,
+			result: `
+			{
+				"features": {
+					"csa": false,
+					"feedsManager": true
+				}
+			}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
 }
