@@ -1,7 +1,6 @@
 package cron_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -25,12 +25,14 @@ func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
 	cfg := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
-	orm := pipeline.NewORM(db)
-	jobORM := job.NewORM(db, cc, orm, keyStore, logger.TestLogger(t))
+	sqlxdb := postgres.UnwrapGormDB(db)
 
-	spec := &job.Job{
+	keyStore := cltest.NewKeyStore(t, sqlxdb)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
+	orm := pipeline.NewORM(sqlxdb)
+	jobORM := job.NewORM(sqlxdb, cc, orm, keyStore, logger.TestLogger(t))
+
+	jb := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
@@ -39,9 +41,9 @@ func TestCronV2Pipeline(t *testing.T) {
 	}
 	delegate := cron.NewDelegate(runner, logger.TestLogger(t))
 
-	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	err := jobORM.CreateJob(jb)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(jb)
+	serviceArray, err := delegate.ServicesForSpec(*jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]

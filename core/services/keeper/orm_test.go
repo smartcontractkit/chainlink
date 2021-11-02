@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 var (
@@ -66,7 +67,7 @@ func assertLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistra
 func TestKeeperDB_Registries(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -79,7 +80,7 @@ func TestKeeperDB_Registries(t *testing.T) {
 func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	upkeep := keeper.UpkeepRegistration{
@@ -116,7 +117,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 
@@ -139,7 +140,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	blockheight := int64(63)
 	gracePeriod := int64(10)
@@ -190,7 +191,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	blockheight := int64(120)
 	gracePeriod := int64(100)
@@ -220,7 +221,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	registry.NumKeepers = 5
@@ -250,7 +251,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	registry.NumKeepers = 5
@@ -283,7 +284,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	registry2, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -306,7 +307,7 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 
@@ -334,7 +335,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, j := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)

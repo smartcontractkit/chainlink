@@ -574,8 +574,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
 			ch = reflect.ValueOf(ctxTimeout.Done())
 		default:
-			logger.Errorf("utils.CombinedContext cannot accept a value of type %T, skipping", sig)
-			continue
+			panic(fmt.Sprintf("utils.CombinedContext cannot accept a value of type %T, skipping", sig))
 		}
 		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
 	}

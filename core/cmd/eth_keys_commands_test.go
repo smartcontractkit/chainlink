@@ -296,6 +296,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
 
+	cltest.AssertCount(t, app.GetDB(), ethkey.State{}, 0)
+
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
 	set.String("oldpassword", "../internal/fixtures/incorrect_password.txt", "")
