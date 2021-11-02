@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -94,17 +97,30 @@ func (txm *gormTransactionManager) TransactWithContext(ctx context.Context, fn T
 	// Handle rollback/commits
 	defer func() {
 		if p := recover(); p != nil {
-			// A panic occurred, rollback and repanic. We are ignoring the error
-			// here since we are panicking.
-			tx.Rollback()
-			panic(p)
+			// A panic occurred, rollback and repanic
+			logger.Errorf("panic in transaction, rolling back: %s", p)
+			done := make(chan struct{})
+			go func() {
+				if rerr := tx.Rollback().Error; rerr != nil {
+					logger.Error("failed to rollback on panic: %s", rerr)
+				}
+				close(done)
+			}()
+			select {
+			case <-done:
+				panic(p)
+			case <-time.After(10 * time.Second):
+				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
+			}
 		} else if err != nil {
-			// Something went wrong, rollback. We are ignoring the error here
-			// because we want the error that caused the rollback to be exposed.
-			tx.Rollback()
+			logger.Debugf("error in transaction, rolling back: %s", err)
+			// An error occurred, rollback and return error
+			if rerr := tx.Rollback().Error; rerr != nil {
+				err = multierr.Combine(err, errors.WithStack(rerr))
+			}
 		} else {
 			// All good! Time to commit.
-			err = tx.Commit().Error
+			err = errors.WithStack(tx.Commit().Error)
 		}
 	}()
 
