@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +20,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
@@ -41,24 +41,20 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// Setup the bridge
-	{
-		mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
-			defer r.Body.Close()
-			bs, err := ioutil.ReadAll(r.Body)
-			require.NoError(t, err)
-			require.Equal(t, `{"result":"12345"}`, string(bs))
-		})
+	mockServer := cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+		defer r.Body.Close()
+		bs, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, `{"result":"12345"}`, string(bs))
+	})
 
-		_, bridge := cltest.NewBridgeType(t, "my_bridge", mockServer.URL)
-		require.NoError(t, app.GetDB().Create(bridge).Error)
-	}
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
 	var uuid uuid.UUID
 	{
-		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-with-body.toml")
-		require.NoError(t, err)
-		jb, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
+		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(context.Background(), &jb)
@@ -105,29 +101,24 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	// Setup the bridges
-	{
-		mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
+	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
 
-		_, bridge := cltest.NewBridgeType(t, "fetch_bridge", mockServer.URL)
-		require.NoError(t, app.GetDB().Create(bridge).Error)
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
-		mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
-			defer r.Body.Close()
-			bs, err := ioutil.ReadAll(r.Body)
-			require.NoError(t, err)
-			require.Equal(t, `{"result":"12345"}`, string(bs))
-		})
+	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
+		defer r.Body.Close()
+		bs, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.Equal(t, `{"result":"12345"}`, string(bs))
+	})
 
-		_, bridge = cltest.NewBridgeType(t, "submit_bridge", mockServer.URL)
-		require.NoError(t, app.GetDB().Create(bridge).Error)
-	}
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL})
 
 	// Add the job
 	var uuid uuid.UUID
 	{
-		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-no-body.toml")
-		require.NoError(t, err)
-		jb, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
+		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(context.Background(), &jb)

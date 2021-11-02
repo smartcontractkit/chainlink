@@ -5,6 +5,8 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -23,8 +25,14 @@ import (
 var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
+
+	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_job_proposal_requests",
+		Help: "Metric to track job proposal requests",
+	})
 )
 
+// Service represents a behavior of the feeds service
 type Service interface {
 	Start() error
 	Close() error
@@ -266,6 +274,9 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 	ctx := context.Background()
 
+	// Track the given job proposal request
+	promJobProposalRequest.Inc()
+
 	// Validate the job spec
 	err := s.validateJobProposal(jp)
 	if err != nil {
@@ -287,14 +298,20 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 		}
 
 		if existing.Status == JobProposalStatusApproved {
-			return 0, errors.New("cannot repropose a job that has already been approved")
+			return 0, errors.New("cannot re-propose a job that has already been approved")
 		}
 	}
 
 	// Reset the job proposal
 	jp.Status = JobProposalStatusPending
 
-	return s.orm.UpsertJobProposal(ctx, jp)
+	// Upsert job proposal
+	id, err := s.orm.UpsertJobProposal(ctx, jp)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to upsert job proposal")
+	}
+
+	return id, nil
 }
 
 // GetJobProposal gets a job proposal by id.
