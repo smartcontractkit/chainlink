@@ -18,7 +18,6 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -46,7 +45,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/scylladb/go-reflectx v1.0.1
-	github.com/shopspring/decimal v1.2.0
+	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164
 	github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
