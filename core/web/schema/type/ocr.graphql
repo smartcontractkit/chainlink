@@ -1,0 +1,9 @@
+type OCRKey {
+    configPublicKey: String!
+    offChainPublicKey: String!
+    onChainSigningAddress: String!
+}
+
+type OCRKeysPayload {
+    keys: [OCRKey!]!
+}
