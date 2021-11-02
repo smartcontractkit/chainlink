@@ -116,10 +116,19 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) erro
 		if p := recover(); p != nil {
 			// A panic occurred, rollback and repanic
 			logger.Errorf("panic in transaction, rolling back: %s", p)
-			if rerr := tx.Rollback(); rerr != nil {
-				logger.Error("failed to rollback on panic: %s", rerr)
+			done := make(chan struct{})
+			go func() {
+				if rerr := tx.Rollback(); rerr != nil {
+					logger.Error("failed to rollback on panic: %s", rerr)
+				}
+				close(done)
+			}()
+			select {
+			case <-done:
+				panic(p)
+			case <-time.After(10 * time.Second):
+				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
 			}
-			panic(p)
 		} else if err != nil {
 			logger.Debugf("error in transaction, rolling back: %s", err)
 			// An error occurred, rollback and return error
