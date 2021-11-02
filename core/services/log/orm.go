@@ -86,7 +86,7 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 	`
 	err := o.db.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
 	if err != nil {
-		return make([]LogBroadcast, 0), err
+		return nil, errors.Wrap(err, "failed to find log broadcasts")
 	}
 	return broadcasts, err
 }
@@ -98,17 +98,13 @@ func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logInde
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	if err != nil {
-		return errors.Wrap(err, "while creating log broadcast")
-	}
-	if err != nil {
-		return errors.Wrap(err, "while creating log broadcast")
+		return errors.Wrap(err, "failed to create log broadcast")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "CreateBroadcast failed")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrap(err, "while marking log broadcast as consumed")
+		return err
+	} else if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -122,14 +118,13 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, l
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
 	if err != nil {
-		return errors.Wrap(err, "while marking log broadcast as consumed")
+		return errors.Wrap(err, "failed to mark log broadcast as consumed")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "MarkBroadcastConsumed failed")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrap(err, "while marking log broadcast as consumed")
+		return err
+	} else if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -165,14 +160,13 @@ func (o *orm) SetBroadcastsPending(blockNumber *int64, qopts ...postgres.QOpt) e
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
     `, o.evmChainID, null.IntFromPtr(blockNumber), null.IntFromPtr(blockNumber))
 	if err != nil {
-		return errors.Wrap(err, "while setting pending broadcast block number")
+		return errors.Wrap(err, "failed to set pending broadcast block number")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "SetBroadcastsPending failed")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrap(err, "while setting pending broadcast block number")
+		return err
+	} else if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }
@@ -223,14 +217,13 @@ func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
 			AND block_number IS NOT NULL
     `, o.evmChainID)
 	if err != nil {
-		return errors.Wrap(err, "while deleting unconsumed broadcasts")
+		return errors.Wrap(err, "failed to delete unconsumed broadcasts")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "while deleting unconsumed broadcasts")
-	}
-	if rowsAffected == 0 {
-		return errors.Wrap(err, "while deleting unconsumed broadcasts")
+		return err
+	} else if rowsAffected == 0 {
+		return sql.ErrNoRows
 	}
 	return nil
 }
