@@ -1,5 +1,13 @@
 name: Solidity
-on: [push]
+
+on:
+  push:
+    branches:
+      - auto
+      - try
+      - rollup
+  pull_request:
+
 jobs:
   solidity-coverage:
     name: Solidity Coverage
