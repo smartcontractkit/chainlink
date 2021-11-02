@@ -270,6 +270,7 @@ declare module 'core/store/models' {
       contractAddress: common.Address
       minIncomingConfirmations: number | null
       createdAt: time.Time
+      requesters: common.Address[]
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
