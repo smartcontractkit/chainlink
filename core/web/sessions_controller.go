@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
 // SessionsController manages session requests.
@@ -40,7 +41,7 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
 	if err != nil {
 		logger.Errorf("Error loading user WebAuthn data: %s", err)
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
@@ -72,7 +73,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 
 	session := sessions.Default(c)
 	defer session.Clear()
-	sessionID, ok := session.Get(SessionIDKey).(string)
+	sessionID, ok := session.Get(auth.SessionIDKey).(string)
 	if !ok {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
@@ -86,7 +87,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
-	session.Set(SessionIDKey, sessionID)
+	session.Set(auth.SessionIDKey, sessionID)
 	return session.Save()
 }
 

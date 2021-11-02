@@ -52,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -256,8 +257,8 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)
-	headers[web.APIKey] = cltest.APIKey
-	headers[web.APISecret] = cltest.APISecret
+	headers[webauth.APIKey] = cltest.APIKey
+	headers[webauth.APISecret] = cltest.APISecret
 	buf := bytes.NewBufferString(`{"ethGasPriceDefault":150000000000}`)
 
 	resp, cleanup := cltest.UnauthenticatedPatch(t, url, buf, headers)

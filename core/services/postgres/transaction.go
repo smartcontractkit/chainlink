@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
+	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -94,21 +96,37 @@ func DBWithDefaultContext(db *gorm.DB, fc func(db *gorm.DB) error) error {
 }
 
 func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+	db := WrapDbWithSqlx(rdb)
+	return sqlxTransaction(ctx, db, fc, txOpts...)
+}
+
+func sqlxTransaction(ctx context.Context, db *sqlx.DB, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
 	opts := &DefaultSqlTxOptions
 	if len(txOpts) > 0 {
 		opts = &txOpts[0]
 	}
-	db := WrapDbWithSqlx(rdb)
-
 	tx, err := db.BeginTxx(ctx, opts)
-	panicked := false
+	if err != nil {
+		return errors.Wrap(err, "failed to begin transaction")
+	}
 
 	defer func() {
-		// Make sure to rollback when panic, Block error or Commit error
-		if panicked || err != nil {
-			if perr := tx.Rollback(); perr != nil {
-				panic(perr)
+		if p := recover(); p != nil {
+			// A panic occurred, rollback and repanic
+			logger.Errorf("panic in transaction, rolling back: %s", p)
+			if rerr := tx.Rollback(); rerr != nil {
+				logger.Error("failed to rollback on panic: %s", rerr)
 			}
+			panic(p)
+		} else if err != nil {
+			logger.Debugf("error in transaction, rolling back: %s", err)
+			// An error occurred, rollback and return error
+			if rerr := tx.Rollback(); rerr != nil {
+				err = multierr.Combine(err, errors.WithStack(rerr))
+			}
+		} else {
+			// All good! Time to commit.
+			err = errors.WithStack(tx.Commit())
 		}
 	}()
 
@@ -117,13 +135,7 @@ func SqlTransaction(ctx context.Context, rdb *sql.DB, fc func(tx *sqlx.Tx) error
 		return errors.Wrap(err, "error setting transaction timeouts")
 	}
 
-	panicked = true
 	err = fc(tx)
-	panicked = false
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit())
-	}
 
 	return
 }
