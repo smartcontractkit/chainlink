@@ -26,12 +26,10 @@ var (
 	ErrOCRDisabled        = errors.New("ocr is disabled")
 	ErrSingleFeedsManager = errors.New("only a single feeds manager is supported")
 
-	promJobProposalRequest = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "feeds_job_proposal_request",
+	promJobProposalRequest = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "feeds_job_proposal_requests",
 		Help: "Metric to track job proposal requests",
-	},
-		[]string{"remoteUUID"},
-	)
+	})
 )
 
 // Service represents a behavior of the feeds service
@@ -277,9 +275,7 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 	ctx := context.Background()
 
 	// Track the given job proposal request
-	promJobProposalRequest.
-		WithLabelValues(jp.RemoteUUID.String()).
-		Inc()
+	promJobProposalRequest.Inc()
 
 	// Validate the job spec
 	err := s.validateJobProposal(jp)
