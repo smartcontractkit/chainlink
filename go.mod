@@ -18,7 +18,6 @@ require (
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/gobuffalo/packr v1.30.1
-	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -35,7 +34,7 @@ require (
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.2
-	github.com/multiformats/go-multiaddr v0.3.3
+	github.com/multiformats/go-multiaddr v0.4.1
 	github.com/okex/exchain-ethereum-compatible v1.0.2
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.14.0
