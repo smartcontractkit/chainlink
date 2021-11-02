@@ -9,16 +9,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_P2PKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
+	gdb := pgtest.GormDBFromSql(t, db.DB)
+
 	keyStore := keystore.ExposedNewMaster(t, db)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.P2P()
 	reset := func() {
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
 		keyStore.Unlock(cltest.Password)
 	}
@@ -129,11 +132,11 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 			Addr:   cltest.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),
 		}
-		require.NoError(t, db.Create(&p2pPeer1).Error)
-		require.NoError(t, db.Create(&p2pPeer2).Error)
-		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 2)
+		require.NoError(t, gdb.Create(&p2pPeer1).Error)
+		require.NoError(t, gdb.Create(&p2pPeer2).Error)
+		cltest.AssertCount(t, gdb, offchainreporting.P2PPeer{}, 2)
 		ks.Delete(key.ID())
-		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 1)
+		cltest.AssertCount(t, gdb, offchainreporting.P2PPeer{}, 1)
 	})
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {

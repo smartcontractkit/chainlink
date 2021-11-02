@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -28,7 +27,7 @@ func Test_PipelineORM_CreateSpec(t *testing.T) {
 		Source: source,
 	}
 
-	id, err := orm.CreateSpec(context.Background(), db, p, maxTaskDuration)
+	id, err := orm.CreateSpec(p, maxTaskDuration)
 	require.NoError(t, err)
 
 	actual := pipeline.Spec{}
@@ -68,7 +67,7 @@ func setupORM(t *testing.T) (*gorm.DB, pipeline.ORM) {
 	t.Helper()
 
 	db := pgtest.NewGormDB(t)
-	orm := pipeline.NewORM(db)
+	orm := pipeline.NewORM(postgres.UnwrapGormDB(db))
 
 	return db, orm
 }
@@ -92,7 +91,7 @@ answer2 [type=bridge name=election_winner index=1];
 	require.NotNil(t, p)
 
 	maxTaskDuration := models.Interval(1 * time.Minute)
-	specID, err := orm.CreateSpec(context.Background(), db, *p, maxTaskDuration)
+	specID, err := orm.CreateSpec(*p, maxTaskDuration)
 	require.NoError(t, err)
 
 	run := &pipeline.Run{
@@ -102,8 +101,7 @@ answer2 [type=bridge name=election_winner index=1];
 		CreatedAt:      time.Now(),
 	}
 
-	sqlxDB := postgres.UnwrapGormDB(db)
-	err = orm.CreateRun(sqlxDB, run)
+	err = orm.CreateRun(run)
 	require.NoError(t, err)
 	return run
 }
@@ -113,8 +111,6 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	db, orm := setupORM(t)
 
 	run := mustInsertAsyncRun(t, orm, db)
-
-	sqlxDB := postgres.UnwrapGormDB(db)
 
 	now := time.Now()
 
@@ -139,7 +135,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(sqlxDB, run)
+	restart, err := orm.StoreRun(run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -170,7 +166,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err = orm.StoreRun(sqlxDB, run)
+	restart, err = orm.StoreRun(run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)
@@ -241,7 +237,7 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 		},
 	}
 
-	restart, err := orm.StoreRun(sqlxDB, run)
+	restart, err := orm.StoreRun(run)
 	require.NoError(t, err)
 	// new data available! immediately restart the run
 	require.Equal(t, true, restart)
@@ -257,7 +253,6 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 
 func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	db, orm := setupORM(t)
-	sqlxDB := postgres.UnwrapGormDB(db)
 
 	run := mustInsertAsyncRun(t, orm, db)
 
@@ -289,7 +284,7 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// Now store a partial run
-	restart, err := orm.StoreRun(sqlxDB, run)
+	restart, err := orm.StoreRun(run)
 	require.NoError(t, err)
 	require.False(t, restart)
 	// assert that run should be in "paused" state
@@ -315,8 +310,6 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 
 	run := mustInsertAsyncRun(t, orm, db)
 
-	sqlxDB := postgres.UnwrapGormDB(db)
-
 	now := time.Now()
 
 	run.PipelineTaskRuns = []pipeline.TaskRun{
@@ -340,7 +333,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 			FinishedAt:    null.TimeFrom(now),
 		},
 	}
-	restart, err := orm.StoreRun(sqlxDB, run)
+	restart, err := orm.StoreRun(run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
 	require.Equal(t, false, restart)

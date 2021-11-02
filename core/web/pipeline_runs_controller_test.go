@@ -58,13 +58,13 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-with-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
+		jb, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
+		err = app.AddJobV2(context.Background(), &jb)
 		require.NoError(t, err)
 
-		uuid = webhookJobSpecFromFile.ExternalJobID
+		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -127,13 +127,13 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	{
 		tree, err := toml.LoadFile("../testdata/tomlspecs/webhook-job-spec-no-body.toml")
 		require.NoError(t, err)
-		webhookJobSpecFromFile, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
+		jb, err := webhook.ValidatedWebhookSpec(tree.String(), app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
-		_, err = app.AddJobV2(context.Background(), webhookJobSpecFromFile, null.String{})
+		err = app.AddJobV2(context.Background(), &jb)
 		require.NoError(t, err)
 
-		uuid = webhookJobSpecFromFile.ExternalJobID
+		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -299,15 +299,15 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 		answer [type=median index=0];
 	"""
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex())
-	var ocrJobSpec job.Job
-	err := toml.Unmarshal([]byte(sp), &ocrJobSpec)
+	var jb job.Job
+	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)
 	var os job.OffchainReportingOracleSpec
 	err = toml.Unmarshal([]byte(sp), &os)
 	require.NoError(t, err)
-	ocrJobSpec.OffchainreportingOracleSpec = &os
+	jb.OffchainreportingOracleSpec = &os
 
-	jb, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
+	err = app.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 
 	firstRunID, err := app.RunJobV2(context.Background(), jb.ID, nil)

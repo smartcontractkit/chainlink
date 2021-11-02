@@ -13,6 +13,11 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -24,10 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 )
 
 var (
@@ -419,19 +420,19 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.GetDB().Create(bridge2).Error)
 
-	var ocrJobSpecFromFile job.Job
+	var jb job.Job
 	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	err = tree.Unmarshal(&jb)
 	require.NoError(t, err)
 	var ocrSpec job.OffchainReportingOracleSpec
 	err = tree.Unmarshal(&ocrSpec)
 	require.NoError(t, err)
-	ocrJobSpecFromFile.OffchainreportingOracleSpec = &ocrSpec
+	jb.OffchainreportingOracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
-	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
+	jb.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
-	jb, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+	err = app.AddJobV2(context.Background(), &jb)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
@@ -465,7 +466,8 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
+	err := client.TriggerPipelineRun(c)
+	assert.Contains(t, err.Error(), "parseResponse error: Error; job ID 1")
 }
 
 func TestClient_AutoLogin(t *testing.T) {

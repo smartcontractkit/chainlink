@@ -4,18 +4,31 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/pkg/errors"
-
 	"github.com/jmoiron/sqlx/reflectx"
+	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
 )
 
+// AllowUnknownQueryerTypeInTransaction can be set by tests to allow a mock to be passed as a Queryer
+var AllowUnknownQueryerTypeInTransaction bool
+
+//go:generate mockery --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext
+	sqlx.Preparer
+	sqlx.PreparerContext
+	sqlx.Queryer
+	Select(dest interface{}, query string, args ...interface{}) error
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	PrepareNamed(query string) (*sqlx.NamedStmt, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
+	Get(dest interface{}, query string, args ...interface{}) error
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	NamedExec(query string, arg interface{}) (sql.Result, error)
+	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
 }
 
 func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
@@ -50,22 +63,25 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	return UnwrapGormDB(db)
 }
 
-func SqlxTransactionWithDefaultCtx(q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransactionWithDefaultCtx(q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	ctx, cancel := DefaultQueryCtx()
 	defer cancel()
 	return SqlxTransaction(ctx, q, fc, txOpts...)
 }
 
-func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction
 		err = fc(db)
-
 	case *sqlx.DB:
-		return sqlxTransaction(ctx, db, fc, txOpts...)
+		err = sqlxTransactionQ(ctx, db, fc, txOpts...)
 	default:
-		err = errors.Errorf("invalid db type")
+		if AllowUnknownQueryerTypeInTransaction {
+			err = fc(q)
+		} else {
+			err = errors.Errorf("invalid db type")
+		}
 	}
 
 	return

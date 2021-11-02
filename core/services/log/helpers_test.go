@@ -1,7 +1,6 @@
 package log_test
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
@@ -66,7 +66,8 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 }
 
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highestSeenHead *eth.Head) *broadcasterHelper {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
 	globalConfig := cltest.NewTestGeneralConfig(t)
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
@@ -77,7 +78,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  config,
-		DB:             db,
+		DB:             gdb,
 		LogBroadcaster: &log.NullBroadcaster{},
 	})
 	kst := cltest.NewKeyStore(t, db)
@@ -86,7 +87,7 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 	return &broadcasterHelper{
 		t:              t,
 		lb:             lb,
-		db:             db,
+		db:             gdb,
 		globalConfig:   globalConfig,
 		config:         config,
 		pipelineHelper: pipelineHelper,
@@ -217,14 +218,14 @@ type simpleLogListener struct {
 func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogListener {
 	t := helper.t
 	db := helper.db
-	job := &job.Job{
+	jb := &job.Job{
 		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:  &pipeline.Spec{},
 		ExternalJobID: uuid.NewV4(),
 	}
-	_, err := helper.pipelineHelper.Jrm.CreateJob(context.Background(), job, job.Pipeline)
+	err := helper.pipelineHelper.Jrm.CreateJob(jb)
 	require.NoError(t, err)
 
 	var rec received
@@ -233,7 +234,7 @@ func (helper *broadcasterHelper) newLogListenerWithJob(name string) *simpleLogLi
 		name:     name,
 		received: &rec,
 		t:        t,
-		jobID:    job.ID,
+		jobID:    jb.ID,
 	}
 }
 
@@ -304,10 +305,10 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broad
 }
 
 func (listener *simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(listener.db, cltest.FixtureChainID).WasBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(postgres.UnwrapGormDB(listener.db), cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
 func (listener *simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
-	return log.NewORM(listener.db, cltest.FixtureChainID).MarkBroadcastConsumed(db, broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+	return log.NewORM(postgres.UnwrapGormDB(listener.db), cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

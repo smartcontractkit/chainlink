@@ -160,7 +160,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		return nil, errors.Wrap(err, "error acquiring lock")
 	}
 
-	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), appLggr)
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
 	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM

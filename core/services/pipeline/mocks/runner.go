@@ -5,10 +5,7 @@ package mocks
 import (
 	context "context"
 
-	gorm "gorm.io/gorm"
-
 	logger "github.com/smartcontractkit/chainlink/core/logger"
-
 	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -109,25 +106,25 @@ func (_m *Runner) Healthy() error {
 	return r0
 }
 
-// InsertFinishedRun provides a mock function with given fields: db, run, saveSuccessfulTaskRuns
-func (_m *Runner) InsertFinishedRun(db postgres.Queryer, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(db, run, saveSuccessfulTaskRuns)
+// InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
+func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run, saveSuccessfulTaskRuns)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(postgres.Queryer, pipeline.Run, bool) int64); ok {
-		r0 = rf(db, run, saveSuccessfulTaskRuns)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...postgres.QOpt) error); ok {
+		r0 = rf(run, saveSuccessfulTaskRuns, qopts...)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(postgres.Queryer, pipeline.Run, bool) error); ok {
-		r1 = rf(db, run, saveSuccessfulTaskRuns)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // OnRunFinished provides a mock function with given fields: _a0
@@ -164,18 +161,18 @@ func (_m *Runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) erro
 }
 
 // Run provides a mock function with given fields: ctx, run, l, saveSuccessfulTaskRuns, fn
-func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(*gorm.DB) error) (bool, error) {
+func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(postgres.Queryer) error) (bool, error) {
 	ret := _m.Called(ctx, run, l, saveSuccessfulTaskRuns, fn)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(*gorm.DB) error) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(postgres.Queryer) error) bool); ok {
 		r0 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(*gorm.DB) error) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(postgres.Queryer) error) error); ok {
 		r1 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
 	} else {
 		r1 = ret.Error(1)
@@ -196,25 +193,4 @@ func (_m *Runner) Start() error {
 	}
 
 	return r0
-}
-
-// TestInsertFinishedRun provides a mock function with given fields: db, jobID, jobName, jobType, specID
-func (_m *Runner) TestInsertFinishedRun(db *gorm.DB, jobID int32, jobName string, jobType string, specID int32) (int64, error) {
-	ret := _m.Called(db, jobID, jobName, jobType, specID)
-
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(*gorm.DB, int32, string, string, int32) int64); ok {
-		r0 = rf(db, jobID, jobName, jobType, specID)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*gorm.DB, int32, string, string, int32) error); ok {
-		r1 = rf(db, jobID, jobName, jobType, specID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
 }

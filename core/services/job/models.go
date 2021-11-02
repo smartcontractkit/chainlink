@@ -107,6 +107,7 @@ type Job struct {
 	Name                          null.String
 	MaxTaskDuration               models.Interval
 	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
+	CreatedAt                     time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -180,8 +181,8 @@ func (pr *PipelineRun) SetID(value string) error {
 type OffchainReportingOracleSpec struct {
 	ID                                     int32                `toml:"-" gorm:"primary_key"`
 	ContractAddress                        ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
-	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
+	P2PPeerID                              *p2pkey.PeerID       `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null" db:"p2p_peer_id"`
+	P2PBootstrapPeers                      pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]" db:"p2p_bootstrap_peers"`
 	IsBootstrapPeer                        bool                 `toml:"isBootstrapPeer"`
 	EncryptedOCRKeyBundleID                *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
 	TransmitterAddress                     *ethkey.EIP55Address `toml:"transmitterAddress"`
@@ -190,7 +191,7 @@ type OffchainReportingOracleSpec struct {
 	ContractConfigTrackerSubscribeInterval models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
 	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
 	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
-	EVMChainID                             *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	EVMChainID                             *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
 }
@@ -261,7 +262,7 @@ type DirectRequestSpec struct {
 	MinIncomingConfirmations clnull.Uint32            `toml:"minIncomingConfirmations"`
 	Requesters               models.AddressCollection `toml:"requesters"`
 	MinContractPayment       *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID               *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	EVMChainID               *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
 	CreatedAt                time.Time                `toml:"-"`
 	UpdatedAt                time.Time                `toml:"-"`
 }
@@ -340,7 +341,7 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *assets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	EVMChainID          *utils.Big `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
 	CreatedAt           time.Time  `toml:"-"`
 	UpdatedAt           time.Time  `toml:"-"`
 }
@@ -349,7 +350,7 @@ type KeeperSpec struct {
 	ID              int32               `toml:"-" gorm:"primary_key"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 	FromAddress     ethkey.EIP55Address `toml:"fromAddress"`
-	EVMChainID      *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	EVMChainID      *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
 	CreatedAt       time.Time           `toml:"-"`
 	UpdatedAt       time.Time           `toml:"-"`
 }
@@ -359,7 +360,7 @@ type VRFSpec struct {
 	CoordinatorAddress ethkey.EIP55Address  `toml:"coordinatorAddress"`
 	PublicKey          secp256k1.PublicKey  `toml:"publicKey"`
 	Confirmations      uint32               `toml:"confirmations"`
-	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id"`
+	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
 	FromAddress        *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod         *time.Duration       `toml:"pollPeriod"` // For v2 jobs
 	CreatedAt          time.Time            `toml:"-"`

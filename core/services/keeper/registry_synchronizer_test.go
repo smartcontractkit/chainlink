@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -55,15 +56,16 @@ func setupRegistrySync(t *testing.T) (
 	job.Job,
 ) {
 	config := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	config.SetDB(db)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
+	config.SetDB(gdb)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
 	lbMock.On("AddDependents", 1).Maybe()
-	j := cltest.MustInsertKeeperJob(t, db, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	j := cltest.MustInsertKeeperJob(t, gdb, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg := cltest.NewTestGeneralConfig(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	keyStore := cltest.NewKeyStore(t, db)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
@@ -79,7 +81,7 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(db, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(gdb, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                 j,
 		Contract:            contract,
@@ -91,7 +93,7 @@ func setupRegistrySync(t *testing.T) (
 		Logger:              logger.TestLogger(t),
 		SyncUpkeepQueueSize: syncUpkeepQueueSize,
 	})
-	return db, synchronizer, ethClient, lbMock, j
+	return gdb, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {

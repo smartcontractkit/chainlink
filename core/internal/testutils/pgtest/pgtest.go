@@ -42,7 +42,6 @@ func init() {
 	}
 
 	// Disable SavePoints because they cause random errors for reasons I cannot fathom.
-	// It's probably gorm's fault.
 	// NOTE: That this will cause transaction BEGIN/ROLLBACK to effectively be
 	// a no-op, this should have no negative impact on normal test operation.
 	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
@@ -56,10 +55,14 @@ func init() {
 
 func NewGormDB(t *testing.T) *gorm.DB {
 	sqlDB := NewSqlDB(t)
+	return GormDBFromSql(t, sqlDB)
+}
+
+func GormDBFromSql(t *testing.T, db *sql.DB) *gorm.DB {
 	logAllQueries := os.Getenv("LOG_SQL") == "true"
 	newLogger := logger.NewGormWrapper(logger.TestLogger(t), logAllQueries, 0)
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: sqlDB,
+		Conn: db,
 		DSN:  uuid.NewV4().String(),
 	}), &gorm.Config{Logger: newLogger})
 
