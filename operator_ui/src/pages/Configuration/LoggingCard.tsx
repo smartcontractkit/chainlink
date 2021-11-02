@@ -27,7 +27,8 @@ import { FormHelperText } from '@material-ui/core'
 
 const logLevels = ['debug', 'info', 'warn', 'error']
 
-type FormValues = {
+type LogConfig = {
+  defaultLogLevel: string
   level: models.LogConfigLevel
   sqlEnabled: boolean
 }
@@ -46,7 +47,7 @@ const styles = (theme: Theme) => {
 }
 
 interface LogConfigurationFormProps extends WithStyles<typeof styles> {
-  initialValues: FormValues
+  initialValues: LogConfig
 }
 
 const LogConfigurationForm = withStyles(styles)(
@@ -56,7 +57,11 @@ const LogConfigurationForm = withStyles(styles)(
       initialValues,
       onSubmit: async (values) => {
         try {
-          await v2.logConfig.updateLogConfig(values)
+          const updateData = {
+            level: values.level,
+            sqlEnabled: values.sqlEnabled,
+          }
+          await v2.logConfig.updateLogConfig(updateData)
 
           dispatch(notifySuccess(() => <>Logging Configuration Updated</>, {}))
         } catch (e) {
@@ -74,13 +79,16 @@ const LogConfigurationForm = withStyles(styles)(
           select
           label="Log Level"
           value={formik.values.level}
+          defaultValue={initialValues.defaultLogLevel}
           onChange={formik.handleChange}
           error={formik.touched.level && Boolean(formik.errors.level)}
-          helperText="Override the LOG_LEVEL environment variable"
+          helperText="Override the LOG_LEVEL environment variable (until restart)"
         >
           {logLevels.map((level) => (
             <MenuItem key={level} value={level}>
-              {capitalize(level)}
+              {capitalize(level).concat(
+                level === initialValues.defaultLogLevel ? ' (default)' : '',
+              )}
             </MenuItem>
           ))}
         </TextField>
@@ -93,15 +101,18 @@ const LogConfigurationForm = withStyles(styles)(
                 <Checkbox
                   id="sqlEnabled"
                   name="sqlEnabled"
-                  checked={formik.values.sqlEnabled}
+                  disabled={formik.values.level !== 'debug'}
+                  checked={
+                    formik.values.sqlEnabled && formik.values.level === 'debug'
+                  }
                   onChange={formik.handleChange}
                 />
               </>
             }
-            label="Log SQL Statements"
+            label="Log SQL Statements (debug only)"
           />
           <FormHelperText className={classes.logLevelHelperText}>
-            Override the LOG_SQL_STATEMENTS environment variable
+            Override the LOG_SQL_STATEMENTS environment variable (until restart)
           </FormHelperText>
         </FormGroup>
 
@@ -120,11 +131,6 @@ const LogConfigurationForm = withStyles(styles)(
     )
   },
 )
-
-type LogConfig = {
-  level: models.LogConfigLevel
-  sqlEnabled: boolean
-}
 
 export const LoggingCard = () => {
   const [logConfig, setLogConfig] = useState<LogConfig | null>(null)
@@ -145,6 +151,8 @@ export const LoggingCard = () => {
           globalIdx
         ] as models.LogConfigLevel
 
+        const defaultLogLevel = res.data.attributes.defaultLogLevel
+
         const sqlEnabledIdx = res.data.attributes.serviceName.findIndex(
           (name) => name == 'IsSqlEnabled',
         )
@@ -152,6 +160,7 @@ export const LoggingCard = () => {
         const sqlEnabled = res.data.attributes.logLevel[sqlEnabledIdx] == 'true'
 
         const logCfg = {
+          defaultLogLevel,
           level: logLevel,
           sqlEnabled,
         }
