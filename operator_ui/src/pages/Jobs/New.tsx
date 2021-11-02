@@ -204,7 +204,7 @@ export const New = ({
                       variant="primary"
                       type="submit"
                       size="large"
-                      disabled={loading || Boolean(valueErrorMsg)}
+                      disabled={loading}
                     >
                       Create Job
                       {loading && (
