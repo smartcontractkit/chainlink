@@ -47,8 +47,9 @@ func (cc *LogController) Get(c *gin.Context) {
 		JAID: presenters.JAID{
 			ID: "log",
 		},
-		ServiceName: svcs,
-		LogLevel:    lvls,
+		ServiceName:     svcs,
+		LogLevel:        lvls,
+		DefaultLogLevel: cc.App.GetConfig().DefaultLogLevel().String(),
 	}
 
 	jsonAPIResponse(c, response, "log")
@@ -79,7 +80,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		if err := cc.App.SetLogLevel(ctx, ll); err != nil {
+		if err := cc.App.SetLogLevel(ll); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
@@ -88,7 +89,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(ctx, *request.SqlEnabled); err != nil {
+		if err := cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
