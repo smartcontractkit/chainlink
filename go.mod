@@ -37,7 +37,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/okex/exchain-ethereum-compatible v1.0.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.14.0
+	github.com/onsi/gomega v1.16.0
 	github.com/pelletier/go-toml v1.9.4
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.1.0
