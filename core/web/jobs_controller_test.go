@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -123,6 +124,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
+	b1, b2 := setupBridges(t, app.GetSqlxDB())
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 	pks, err := app.KeyStore.VRF().GetAll()
@@ -137,6 +139,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			name: "offchain reporting",
 			toml: testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 				TransmitterAddress: app.Key.Address.Hex(),
+				DS1BridgeName:      b1,
+				DS2BridgeName:      b2,
 			}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -299,16 +303,14 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "fetch_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge = cltest.NewBridgeType(t, "submit_bridge", "http://foo.bar")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-no-body.toml")
+	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+		TOML: tomlStr,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
@@ -451,14 +453,16 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
+func setupBridges(t *testing.T, db *sqlx.DB) (b1, b2 string) {
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	return bridge.Name.String(), bridge2.Name.String()
+}
+
+func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
@@ -473,20 +477,17 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.P2P().Add(cltest.DefaultP2PKey))
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, app.GetDB().Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
 
 	client := app.NewHTTPClient()
 
 	var jb job.Job
-	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
-	require.NoError(t, err)
-	err = tree.Unmarshal(&jb)
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OffchainReportingOracleSpec
-	err = tree.Unmarshal(&ocrSpec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
 	jb.OffchainreportingOracleSpec = &ocrSpec
 	jb.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address

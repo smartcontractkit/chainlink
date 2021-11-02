@@ -22,7 +22,8 @@ import (
 
 func clearJobsDb(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
+	// Ordering matters here to avoid deadlocks
+	err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
 	require.NoError(t, err)
 }
 
@@ -96,10 +97,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, gdb.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, gdb)
@@ -131,7 +130,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore)
 
-		dbSpec := makeVoterTurnoutOCRJobSpec(t, gdb, transmitterAddress)
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, gdb, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(dbSpec)
