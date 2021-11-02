@@ -78,16 +78,18 @@ func Random32Byte() (b [32]byte) {
 func NewBridgeType(t testing.TB, info ...string) (*bridges.BridgeTypeAuthentication, *bridges.BridgeType) {
 	btr := &bridges.BridgeTypeRequest{}
 
+	// Must randomise default to avoid unique constraint conflicts with other parallel tests
+	rnd := uuid.NewV4().String()
 	if len(info) > 0 {
 		btr.Name = bridges.MustNewTaskType(info[0])
 	} else {
-		btr.Name = bridges.MustNewTaskType("defaultFixtureBridgeType")
+		btr.Name = bridges.MustNewTaskType(fmt.Sprintf("test_bridge_%s", rnd))
 	}
 
 	if len(info) > 1 {
 		btr.URL = WebURL(t, info[1])
 	} else {
-		btr.URL = WebURL(t, "https://bridge.example.com/api")
+		btr.URL = WebURL(t, fmt.Sprintf("https://bridge.example.com/api?%s", rnd))
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)

@@ -22,7 +22,8 @@ import (
 
 func clearJobsDb(t *testing.T, db *gorm.DB) {
 	t.Helper()
-	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
+	// Ordering matters here to avoid deadlocks
+	err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
 	require.NoError(t, err)
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -270,6 +271,8 @@ type OCRSpecParams struct {
 	JobID              string
 	Name               string
 	TransmitterAddress string
+	DS1BridgeName      string
+	DS2BridgeName      string
 }
 
 type OCRSpec struct {
@@ -294,6 +297,14 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
+	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	if params.DS1BridgeName != "" {
+		ds1BridgeName = params.DS1BridgeName
+	}
+	ds2BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.NewV4().String())
+	if params.DS2BridgeName != "" {
+		ds2BridgeName = params.DS2BridgeName
+	}
 	template := `
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -315,7 +326,7 @@ contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
     // data source 1
-    ds1          [type=bridge name=voter_turnout];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="one,two"];
     ds1_multiply [type=multiply times=1.23];
 
@@ -328,14 +339,16 @@ observationSource = """
     ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
     answer1 [type=median                      index=0];
-    answer2 [type=bridge name=election_winner index=1];
+    answer2 [type=bridge name="%s" index=1];
 """
 `
 	return OCRSpec{OCRSpecParams: OCRSpecParams{
 		JobID:              jobID,
 		Name:               name,
 		TransmitterAddress: transmitterAddress,
-	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress)}
+		DS1BridgeName:      ds1BridgeName,
+		DS2BridgeName:      ds2BridgeName,
+	}, toml: fmt.Sprintf(template, name, jobID, transmitterAddress, ds1BridgeName, ds2BridgeName)}
 }
 
 type WebhookSpecParams struct {
