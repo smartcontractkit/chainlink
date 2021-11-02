@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
@@ -415,18 +416,17 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	_, bridge := cltest.NewBridgeType(t)
 	require.NoError(t, app.GetDB().Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	_, bridge2 := cltest.NewBridgeType(t)
 	require.NoError(t, app.GetDB().Create(bridge2).Error)
 
 	var jb job.Job
-	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
-	require.NoError(t, err)
-	err = tree.Unmarshal(&jb)
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
+	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OffchainReportingOracleSpec
-	err = tree.Unmarshal(&ocrSpec)
+	err = toml.Unmarshal([]byte(ocrspec.Toml()), &ocrspec)
 	require.NoError(t, err)
 	jb.OffchainreportingOracleSpec = &ocrSpec
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())

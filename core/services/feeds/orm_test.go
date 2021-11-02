@@ -547,9 +547,9 @@ func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 	orm := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
 	defer orm.Close()
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
+	_, bridge := cltest.NewBridgeType(t)
 	require.NoError(t, gdb.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
+	_, bridge2 := cltest.NewBridgeType(t)
 	require.NoError(t, gdb.Create(bridge2).Error)
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -557,6 +557,8 @@ func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
 	)
 	require.NoError(t, err)
