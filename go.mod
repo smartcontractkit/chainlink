@@ -25,7 +25,6 @@ require (
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v0.0.0-20201113091052-beb923fada29
 	github.com/jackc/pgconn v1.10.0
-	github.com/jackc/pgx/v4 v4.13.0
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/jpillora/backoff v1.0.0
 	github.com/kylelemons/godebug v1.1.0
@@ -38,7 +37,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.3
 	github.com/okex/exchain-ethereum-compatible v1.0.2
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/onsi/gomega v1.14.0
+	github.com/onsi/gomega v1.16.0
 	github.com/pelletier/go-toml v1.9.3
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.1.0
@@ -135,6 +134,7 @@ require (
 	github.com/jackc/pgproto3/v2 v2.1.1 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.8.1 // indirect
+	github.com/jackc/pgx/v4 v4.13.0 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
