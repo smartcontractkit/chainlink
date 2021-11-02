@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,11 +42,15 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 func TestORM_GetConfigBoolValue(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewGormDB(t)
-	cfg := cltest.NewTestGeneralConfig(t)
-	cfg.SetDB(db)
+	orm := config.NewORM(db)
 
+	fieldName := "LogSQLStatements"
 	isSqlStatementEnabled := true
-	err := cfg.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)
+
+	err := orm.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
 	require.NoError(t, err)
-	assert.Equal(t, isSqlStatementEnabled, cfg.LogSQLStatements())
+
+	res, err := orm.GetConfigBoolValue(fieldName)
+	require.NoError(t, err)
+	require.True(t, *res)
 }
