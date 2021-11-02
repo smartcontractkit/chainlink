@@ -9,6 +9,7 @@ export function logConfigFactory(config: Partial<LogConfig>) {
       attributes: {
         serviceName: config.serviceName || ['Global', 'IsSqlEnabled'],
         logLevel: config.logLevel || ['info', 'true'],
+        defaultLogLevel: config.defaultLogLevel || 'info',
       },
     },
   } as ApiResponse<LogConfig>

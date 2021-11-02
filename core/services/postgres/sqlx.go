@@ -3,20 +3,32 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
-
-	"github.com/pkg/errors"
 
 	"github.com/jmoiron/sqlx/reflectx"
+	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
 )
 
+// AllowUnknownQueryerTypeInTransaction can be set by tests to allow a mock to be passed as a Queryer
+var AllowUnknownQueryerTypeInTransaction bool
+
+//go:generate mockery --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
 	sqlx.Ext
 	sqlx.ExtContext
+	sqlx.Preparer
+	sqlx.PreparerContext
+	sqlx.Queryer
+	Select(dest interface{}, query string, args ...interface{}) error
+	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	PrepareNamed(query string) (*sqlx.NamedStmt, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
+	Get(dest interface{}, query string, args ...interface{}) error
+	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
+	NamedExec(query string, arg interface{}) (sql.Result, error)
+	NamedQuery(query string, arg interface{}) (*sqlx.Rows, error)
 }
 
 func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
@@ -51,51 +63,25 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	return UnwrapGormDB(db)
 }
 
-func SqlxTransactionWithDefaultCtx(q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransactionWithDefaultCtx(q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	ctx, cancel := DefaultQueryCtx()
 	defer cancel()
 	return SqlxTransaction(ctx, q, fc, txOpts...)
 }
 
-func SqlxTransaction(ctx context.Context, q Queryer, fc func(tx *sqlx.Tx) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction
 		err = fc(db)
-
 	case *sqlx.DB:
-		opts := &DefaultSqlTxOptions
-		if len(txOpts) > 0 {
-			opts = &txOpts[0]
-		}
-
-		var tx *sqlx.Tx
-		tx, err = db.BeginTxx(ctx, opts)
-		panicked := false
-
-		defer func() {
-			// Make sure to rollback when panic, Block error or Commit error
-			if panicked || err != nil {
-				if perr := tx.Rollback(); perr != nil {
-					panic(perr)
-				}
-			}
-		}()
-
-		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds()))
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction timeouts")
-		}
-
-		panicked = true
-		err = fc(tx)
-		panicked = false
-
-		if err == nil {
-			err = errors.WithStack(tx.Commit())
-		}
+		err = sqlxTransactionQ(ctx, db, fc, txOpts...)
 	default:
-		err = errors.Errorf("invalid db type")
+		if AllowUnknownQueryerTypeInTransaction {
+			err = fc(q)
+		} else {
+			err = errors.Errorf("invalid db type")
+		}
 	}
 
 	return

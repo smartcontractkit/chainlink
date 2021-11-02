@@ -20,7 +20,7 @@ import (
 )
 
 func TestMarshaledProof(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	key := cltest.DefaultVRFKey
 	keyStore.VRF().Add(key)

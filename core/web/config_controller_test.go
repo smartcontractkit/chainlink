@@ -1,11 +1,12 @@
 package web_test
 
 import (
-	"github.com/smartcontractkit/chainlink/core/config"
 	"math/big"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/config"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/stretchr/testify/assert"

@@ -32,7 +32,6 @@ type ETHTxTask struct {
 	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
 	Simulate         string `json:"simulate" mapstructure:"simulate"`
 
-	db       *gorm.DB
 	keyStore ETHKeyStore
 	chainSet evm.ChainSet
 }
@@ -148,7 +147,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		newTx.MinConfirmations = null.Uint32From(uint32(minConfirmations))
 	}
 
-	_, err = txManager.CreateEthTransaction(t.db, newTx)
+	_, err = txManager.CreateEthTransaction(newTx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}

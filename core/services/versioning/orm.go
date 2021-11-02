@@ -44,7 +44,7 @@ func (o *orm) UpsertNodeVersion(version NodeVersion) error {
 		return errors.Wrapf(err, "%q is not valid semver", version.Version)
 	}
 
-	return postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx *sqlx.Tx) error {
+	return postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
 		if err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}

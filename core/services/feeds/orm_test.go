@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
@@ -395,7 +396,7 @@ func Test_ORM_UpdateJobProposalStatus(t *testing.T) {
 	actualCreated, err := orm.GetJobProposal(context.Background(), id)
 	require.NoError(t, err)
 
-	err = orm.UpdateJobProposalStatus(ctx, id, feeds.JobProposalStatusRejected)
+	err = orm.UpdateJobProposalStatus(id, feeds.JobProposalStatusRejected)
 	require.NoError(t, err)
 
 	actual, err := orm.GetJobProposal(context.Background(), id)
@@ -434,7 +435,7 @@ func Test_ORM_ApproveJobProposal(t *testing.T) {
 	actualCreated, err := orm.GetJobProposal(context.Background(), id)
 	require.NoError(t, err)
 
-	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	err = orm.ApproveJobProposal(id, externalJobID.UUID, feeds.JobProposalStatusApproved)
 	require.NoError(t, err)
 
 	actual, err := orm.GetJobProposal(context.Background(), id)
@@ -473,10 +474,10 @@ func Test_ORM_CancelJobProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Approve the job proposal
-	err = orm.ApproveJobProposal(ctx, id, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	err = orm.ApproveJobProposal(id, externalJobID.UUID, feeds.JobProposalStatusApproved)
 	require.NoError(t, err)
 
-	err = orm.CancelJobProposal(ctx, id)
+	err = orm.CancelJobProposal(id)
 	require.NoError(t, err)
 
 	actual, err := orm.GetJobProposal(context.Background(), id)
@@ -510,7 +511,7 @@ func Test_ORM_IsJobManaged(t *testing.T) {
 	jpID, err := orm.CreateJobProposal(ctx, jp)
 	require.NoError(t, err)
 
-	err = orm.ApproveJobProposal(ctx, jpID, externalJobID.UUID, feeds.JobProposalStatusApproved)
+	err = orm.ApproveJobProposal(jpID, externalJobID.UUID, feeds.JobProposalStatusApproved)
 	require.NoError(t, err)
 
 	isManaged, err = orm.IsJobManaged(context.Background(), int64(j.ID))
@@ -534,33 +535,34 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	return id
 }
 
-func createJob(t *testing.T, db *gorm.DB, externalJobID uuid.UUID) *job.Job {
+func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 	config := cltest.NewTestGeneralConfig(t)
+	db := postgres.UnwrapGormDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	pipelineORM := pipeline.NewORM(db)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
 	defer orm.Close()
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
-	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
-	require.NoError(t, db.Create(bridge2).Error)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
 		}).Toml(),
 	)
 	require.NoError(t, err)
 
-	j, err := orm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	err = orm.CreateJob(&jb)
 	require.NoError(t, err)
 
-	return &j
+	return &jb
 }

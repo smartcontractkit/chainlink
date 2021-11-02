@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
 type ORM interface {
 	FindUser() (User, error)
 	AuthorizedUserWithSession(sessionID string) (User, error)
@@ -82,7 +84,7 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 func (o *orm) DeleteUser() error {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	return postgres.SqlxTransaction(ctx, o.db, func(tx *sqlx.Tx) error {
+	return postgres.SqlxTransaction(ctx, o.db, func(tx postgres.Queryer) error {
 		if _, err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}

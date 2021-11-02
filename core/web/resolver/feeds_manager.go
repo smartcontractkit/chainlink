@@ -251,3 +251,64 @@ func (r *SingleFeedsManagerErrorResolver) Message() string {
 func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
 	return ErrorCodeUnprocessable
 }
+
+// -- UpdateFeedsManager Mutation --
+
+// UpdateFeedsManagerPayloadResolver
+type UpdateFeedsManagerPayloadResolver struct {
+	mgr       *feeds.FeedsManager
+	err       error
+	inputErrs map[string]string
+}
+
+func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *UpdateFeedsManagerPayloadResolver {
+	return &UpdateFeedsManagerPayloadResolver{
+		mgr:       mgr,
+		err:       err,
+		inputErrs: inputErrs,
+	}
+}
+
+func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*UpdateFeedsManagerSuccessResolver, bool) {
+	if r.mgr != nil {
+		return NewUpdateFeedsManagerSuccessResolver(*r.mgr), true
+	}
+
+	return nil, false
+}
+
+func (r *UpdateFeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
+		return NewNotFoundError("feeds manager not found"), true
+	}
+
+	return nil, false
+}
+
+func (r *UpdateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		errs := []*InputErrorResolver{}
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
+}
+
+type UpdateFeedsManagerSuccessResolver struct {
+	mgr feeds.FeedsManager
+}
+
+func NewUpdateFeedsManagerSuccessResolver(mgr feeds.FeedsManager) *UpdateFeedsManagerSuccessResolver {
+	return &UpdateFeedsManagerSuccessResolver{
+		mgr: mgr,
+	}
+}
+
+func (r *UpdateFeedsManagerSuccessResolver) FeedsManager() *FeedsManagerResolver {
+	return NewFeedsManager(r.mgr)
+}
