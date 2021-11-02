@@ -30,7 +30,7 @@ var (
 		Name: "feeds_job_proposal_request",
 		Help: "Metric to track job proposal requests",
 	},
-		[]string{"jobProposalID"},
+		[]string{"remoteUUID"},
 	)
 )
 
