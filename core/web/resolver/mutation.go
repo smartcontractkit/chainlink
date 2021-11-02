@@ -32,6 +32,10 @@ type createBridgeInput struct {
 
 // Bridge retrieves a bridges by name.
 func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBridgeInput }) (*CreateBridgePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	var webURL models.WebURL
 	if len(args.Input.URL) != 0 {
 		url, err := url.ParseRequestURI(args.Input.URL)
@@ -82,6 +86,10 @@ type createFeedsManagerInput struct {
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 	Input *createFeedsManagerInput
 }) (*CreateFeedsManagerPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
 		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
@@ -138,6 +146,10 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	Name  string
 	Input updateBridgeInput
 }) (*UpdateBridgePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	var webURL models.WebURL
 	if len(args.Input.URL) != 0 {
 		url, err := url.ParseRequestURI(args.Input.URL)
@@ -198,6 +210,10 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input *updateFeedsManagerInput
 }) (*UpdateFeedsManagerPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
 	id, err := strconv.ParseInt(string(args.ID), 10, 32)
 	if err != nil {
 		return nil, err

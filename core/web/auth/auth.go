@@ -157,7 +157,7 @@ func Authenticate(store Authenticator, methods ...authMethod) gin.HandlerFunc {
 	}
 }
 
-// GetAuthenticatedUser extracts the authentication user from the contextx.
+// GetAuthenticatedUser extracts the authentication user from the context.
 func GetAuthenticatedUser(c *gin.Context) (*clsessions.User, bool) {
 	obj, ok := c.Get(SessionUserKey)
 	if !ok {
