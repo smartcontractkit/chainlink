@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
+
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 )
 
