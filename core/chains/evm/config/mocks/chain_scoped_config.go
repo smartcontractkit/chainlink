@@ -389,6 +389,20 @@ func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duratio
 	return r0
 }
 
+// DatabaseLockingMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseLockingMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // DatabaseMaximumTxDuration provides a mock function with given fields:
 func (_m *ChainScopedConfig) DatabaseMaximumTxDuration() time.Duration {
 	ret := _m.Called()

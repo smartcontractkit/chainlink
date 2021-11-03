@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	null "gopkg.in/guregu/null.v4"
 
@@ -66,7 +67,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	cfg.Overrides.DefaultChainID = chainId
 
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t))
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)

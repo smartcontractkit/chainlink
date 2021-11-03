@@ -1470,7 +1470,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 
 	ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	eventBroadcaster := postgres.NewEventBroadcaster(evmcfg.DatabaseURL(), 0, 0, logger.TestLogger(t))
+	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.DatabaseURL())
 	require.NoError(t, eventBroadcaster.Start())
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 

@@ -629,3 +629,8 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
 	c.Overrides.Dialect = d
 }
+
+// There is no need for any database application locking in tests
+func (c *TestGeneralConfig) DatabaseLockingMode() string {
+	return "none"
+}
