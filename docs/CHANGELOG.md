@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Duplicate Job Configuration
+
+When duplicating a job, the new job's configuration settings that have not been overridden by the user, can still reflect the chainlink node configuration.
+
+### Log to Disk
+
+This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
 ### Added
 
@@ -176,6 +183,8 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 - Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
 - Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
 
+
+Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
 
 ### Changed
 

@@ -62,7 +62,7 @@ type Application interface {
 	GetDB() *gorm.DB
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
-	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
+	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
@@ -285,7 +285,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, sqlxDB, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = feeds.NewService(feedsORM, jobORM, sqlxDB, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
@@ -329,8 +329,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-func (app *ChainlinkApplication) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	if err := app.Config.SetLogLevel(ctx, lvl); err != nil {
+func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
+	if err := app.Config.SetLogLevel(lvl); err != nil {
 		return err
 	}
 	app.logger.SetLogLevel(lvl)

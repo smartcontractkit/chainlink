@@ -3,7 +3,6 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -158,7 +157,6 @@ func (jpc *JobProposalsController) Cancel(c *gin.Context) {
 			return
 		}
 
-		fmt.Println(err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
