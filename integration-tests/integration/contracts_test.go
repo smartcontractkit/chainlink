@@ -26,7 +26,9 @@ var _ = Describe("Basic Contract Interactions @contract", func() {
 			var err error
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(0),
-				client.DefaultNetworkFromConfig,
+				actions.EVMNetworkFromConfigHook,
+				actions.EthereumDeployerHook,
+				actions.EthereumClientHook,
 				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())

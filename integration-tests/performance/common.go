@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/integrations-framework/actions"
-	"github.com/smartcontractkit/integrations-framework/client"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/montanaflynn/stats"
 	"github.com/onsi/ginkgo"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/integrations-framework/actions"
+	"github.com/smartcontractkit/integrations-framework/client"
+	"golang.org/x/sync/errgroup"
 )
 
 // Test is the interface to be implemented for performance tests

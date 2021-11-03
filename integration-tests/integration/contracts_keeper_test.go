@@ -34,7 +34,9 @@ var _ = Describe("Keeper suite @keeper", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				// need to register at least 5 nodes to perform upkeep
 				environment.NewChainlinkCluster(5),
-				client.DefaultNetworkFromConfig,
+				actions.EVMNetworkFromConfigHook,
+				actions.EthereumDeployerHook,
+				actions.EthereumClientHook,
 				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())

@@ -16,20 +16,22 @@ import (
 
 var _ = Describe("Performance tests @perf-flux", func() {
 	var (
-		suiteSetup  actions.SuiteSetup
-		networkInfo actions.NetworkInfo
-		nodes       []client.Chainlink
-		perfTest    Test
-		err         error
+		suiteSetup     actions.SuiteSetup
+		networkInfo    actions.NetworkInfo
+		nodes          []client.Chainlink
+		perfTest       Test
+		err            error
+		numberOfRounds int = 5
+		numberOfNodes  int = 5
 	)
-	numberOfRounds := 5
-	numberOfNodes := 5
 
 	BeforeEach(func() {
 		By("Deploying the environment", func() {
 			suiteSetup, err = actions.SingleNetworkSetup(
 				environment.NewChainlinkCluster(numberOfNodes),
-				client.NewNetworkFromConfigWithDefault(client.NetworkGethPerformance),
+				actions.EVMNetworkFromConfigHook,
+				actions.EthereumDeployerHook,
+				actions.EthereumClientHook,
 				"../",
 			)
 			Expect(err).ShouldNot(HaveOccurred())

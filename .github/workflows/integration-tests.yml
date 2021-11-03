@@ -106,7 +106,7 @@ jobs:
           path: ./integration-tests/logs
 
   performance:
-    name: Performance and Chaos Integration Tests
+    name: Performance Tests
     # Only run performance tests on significant PRs / merges to main
     if: startsWith(github.ref, 'v') || contains(github.ref, 'main') || contains(github.ref, 'develop') || contains(github.ref, 'master') || contains(github.ref, 'release') 
     needs: build-chainlink
