@@ -117,7 +117,7 @@ var _ = Describe("FluxAggregator ETH Refill @refill", func() {
 		})
 
 		By("Funding ETH for a single round", func() {
-			submissionGasUsed, err := networkInfo.Network.FluxMonitorSubmissionGasUsed()
+			submissionGasUsed := big.NewInt(400000)
 			Expect(err).ShouldNot(HaveOccurred())
 			txCost, err := networkInfo.Client.CalculateTxGas(submissionGasUsed)
 			Expect(err).ShouldNot(HaveOccurred())
