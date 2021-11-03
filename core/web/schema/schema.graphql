@@ -12,6 +12,7 @@ type Query {
     chains(offset: Int, limit: Int): [Chain!]!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
+    ocrKeyBundles: OCRKeyBundlesPayload!
 }
 
 type Mutation {
