@@ -6,8 +6,10 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -34,12 +36,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db *gorm.DB
+	db   *gorm.DB
+	lggr logger.Logger
 }
 
-func NewORM(db *gorm.DB) *orm {
+func NewORM(db *gorm.DB, lggr logger.Logger) *orm {
 	return &orm{
-		db: db,
+		db:   db,
+		lggr: lggr.Named("FeedsORM"),
 	}
 }
 

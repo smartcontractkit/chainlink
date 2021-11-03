@@ -741,7 +741,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(newRoundLogger, func(tx postgres.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, false, postgres.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -970,7 +970,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(l, func(tx postgres.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err2 != nil {
 			return err2
 		}

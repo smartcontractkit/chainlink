@@ -192,7 +192,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB)
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger)
 		bridgeORM      = bridges.NewORM(sqlxDB)
 		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
@@ -273,10 +273,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chainSet.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db)
+	feedsORM := feeds.NewORM(db, globalLogger)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm

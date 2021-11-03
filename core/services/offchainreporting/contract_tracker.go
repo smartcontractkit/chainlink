@@ -289,7 +289,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = postgres.NewQ(postgres.UnwrapGormDB(t.gdb)).Transaction(func(tx postgres.Queryer) error {
+			err = postgres.NewQ(postgres.UnwrapGormDB(t.gdb)).Transaction(t.logger, func(tx postgres.Queryer) error {
 				if err = t.db.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}

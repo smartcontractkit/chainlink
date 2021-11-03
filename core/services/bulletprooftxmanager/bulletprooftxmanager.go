@@ -285,7 +285,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.
 	}
 
 	value := 0
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(b.logger, func(tx postgres.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
 			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
 			// If no eth_tx matches (the common case) then continue

@@ -100,7 +100,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 	}
 
 	var jobID int32
-	err := q.Transaction(func(tx postgres.Queryer) error {
+	err := q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		// Autogenerate a job ID if not specified
 		if jb.ExternalJobID == (uuid.UUID{}) {
 			jb.ExternalJobID = uuid.NewV4()
@@ -213,7 +213,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 				}
 			}
 		default:
-			logger.Fatalf("Unsupported jb.Type: %v", jb.Type)
+			o.lggr.Fatalf("Unsupported jb.Type: %v", jb.Type)
 		}
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, postgres.WithQueryer(tx))
@@ -323,7 +323,7 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		sql := `SELECT count(*) FROM jobs;`
 		err = tx.QueryRowx(sql).Scan(&count)
 		if err != nil {
@@ -509,7 +509,7 @@ func (o *orm) FindJobByExternalJobID(ctx context.Context, externalJobID uuid.UUI
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	err := q.Transaction(func(tx postgres.Queryer) error {
+	err := q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
@@ -529,7 +529,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...postgres.QO
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		query := `SELECT jobs.id, dot_dag_source FROM jobs JOIN pipeline_specs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
 		var rows *sqlx.Rows
 		rows, err = tx.Queryx(query, name)
@@ -571,7 +571,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		var args []interface{}
 		var where string
 		if jobID != nil {

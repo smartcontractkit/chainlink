@@ -203,7 +203,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB); err != nil {
+		if err = migrate.Migrate(db.DB, appLggr); err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
 	}

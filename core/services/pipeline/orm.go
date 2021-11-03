@@ -9,6 +9,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -34,13 +35,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db *sqlx.DB
+	db   *sqlx.DB
+	lggr logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB) *orm {
-	return &orm{db}
+func NewORM(db *sqlx.DB, lggr logger.Logger) *orm {
+	return &orm{db, lggr}
 }
 
 func (o *orm) CreateSpec(pipeline Pipeline, maxTaskDuration models.Interval, qopts ...postgres.QOpt) (id int32, err error) {
@@ -58,7 +60,7 @@ func (o *orm) CreateRun(run *Run, qopts ...postgres.QOpt) (err error) {
 	}
 
 	q := postgres.NewQ(o.db, qopts...)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, inputs, created_at, state)
 		VALUES (:pipeline_spec_id, :meta, :inputs, :created_at, :state)
 		RETURNING id`
@@ -95,7 +97,7 @@ func (o *orm) CreateRun(run *Run, qopts ...postgres.QOpt) (err error) {
 // If `restart` is true, then new task run data is available and the run should be resumed immediately.
 func (o *orm) StoreRun(run *Run, qopts ...postgres.QOpt) (restart bool, err error) {
 	q := postgres.NewQ(o.db, qopts...)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		finished := run.FinishedAt.Valid
 		if !finished {
 			// Lock the current run. This prevents races with /v2/resume
@@ -182,7 +184,7 @@ func (o *orm) DeleteRun(id int64) error {
 
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error) {
 	q := postgres.NewQ(o.db)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
 		FROM pipeline_runs
@@ -240,7 +242,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	}
 
 	q := postgres.NewQ(o.db, qopts...)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
@@ -281,7 +283,7 @@ func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) 
 func (o *orm) FindRun(id int64) (r Run, err error) {
 	var runs []Run
 	q := postgres.NewQ(o.db)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		if err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE id = $1 LIMIT 1`, id); err != nil {
 			return errors.Wrap(err, "failed to load runs")
 		}
@@ -295,7 +297,7 @@ func (o *orm) FindRun(id int64) (r Run, err error) {
 
 func (o *orm) GetAllRuns() (runs []Run, err error) {
 	q := postgres.NewQ(o.db)
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		err = tx.Select(&runs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
 		if err != nil {
 			return errors.Wrap(err, "failed to load runs")
@@ -311,7 +313,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 	return postgres.Batch(func(offset, limit uint) (count uint, err error) {
 		var runs []Run
 
-		err = q.Transaction(func(tx postgres.Queryer) error {
+		err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 			err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE state = $1 AND created_at < $2 ORDER BY created_at ASC, id ASC OFFSET $3 LIMIT $4`, RunStatusRunning, now, offset, limit)
 			if err != nil {
 				return errors.Wrap(err, "failed to load runs")
