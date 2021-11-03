@@ -5,8 +5,8 @@
   "license": "MIT",
   "workspaces": {
     "nohoist": [
-      "yargs-parser",
-      "yargs-parser/**"
+      "yargs",
+      "yargs/**"
     ]
   },
   "engines": {
@@ -42,7 +42,7 @@
     "formik": "^2.2.6",
     "formik-material-ui": "^3.0.1",
     "graphlib-dot": "^0.6.4",
-    "graphql": "^16.0.0",
+    "graphql": "^15.7.2",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.1.0",
     "javascript-stringify": "^2.1.0",
