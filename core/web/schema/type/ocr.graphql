@@ -1,0 +1,10 @@
+type OCRKeyBundle {
+    id: String!
+    configPublicKey: String!
+    offChainPublicKey: String!
+    onChainSigningAddress: String!
+}
+
+type OCRKeyBundlesPayload {
+    results: [OCRKeyBundle!]!
+}

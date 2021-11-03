@@ -130,3 +130,16 @@ func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadReso
 
 	return NewFeedsManagersPayload(mgrs), nil
 }
+
+func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	ocrKeyBundles, err := r.App.GetKeyStore().OCR().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCRKeyBundlesPayloadResolver(ocrKeyBundles), nil
+}
