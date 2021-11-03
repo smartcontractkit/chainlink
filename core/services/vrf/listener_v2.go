@@ -15,7 +15,6 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -104,12 +104,12 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go gracefulpanic.WrapRecover(lsn.l, func() {
+		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
 		})
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go gracefulpanic.WrapRecover(lsn.l, func() {
+		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runRequestHandler(spec.PollPeriod)
 		})
 		return nil

@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -52,6 +53,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 	app.On("Start").Return(nil)
 	app.On("Stop").Return(nil)
+	app.On("ID").Return(uuid.NewV4())
 
 	runner := cltest.BlockedRunner{Done: make(chan struct{})}
 	client := cmd.Client{
@@ -121,6 +123,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+			app.On("ID").Maybe().Return(uuid.NewV4())
 
 			ethClient := cltest.NewEthClientMock(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
@@ -168,6 +171,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, cltest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 	app.On("Start").Maybe().Return(nil)
 	app.On("Stop").Maybe().Return(nil)
+	app.On("ID").Maybe().Return(uuid.NewV4())
 
 	ethClient := cltest.NewEthClientMock(t)
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -234,6 +238,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))).Maybe()
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+			app.On("ID").Maybe().Return(uuid.NewV4())
 
 			prompter := new(cmdMocks.Prompter)
 			prompter.On("IsTerminal").Return(false).Once().Maybe()
@@ -318,6 +323,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	app.On("GetDB").Return(db)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
+	app.On("ID").Maybe().Return(uuid.NewV4())
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
@@ -387,6 +393,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			app.On("GetDB").Return(db)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
+			app.On("ID").Maybe().Return(uuid.NewV4())
 			ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			app.On("GetChainSet").Return(cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))).Maybe()
