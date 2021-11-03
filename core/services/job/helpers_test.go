@@ -25,7 +25,6 @@ const (
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
@@ -71,7 +70,6 @@ ds1 -> ds1_parse -> ds1_multiply;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pPeerID          = "%s"
 		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 		isBootstrapPeer    = false
 		transmitterAddress = "%s"
@@ -87,7 +85,6 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		p2pPeerID          = "%s"
 		p2pBootstrapPeers  = []
 		isBootstrapPeer    = true
 `
@@ -95,7 +92,6 @@ ds1 -> ds1_parse;
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
-p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
@@ -131,9 +127,8 @@ observationSource = """
 func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address, b1, b2 string) *job.Job {
 	t.Helper()
 
-	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex(), b1, b2)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), b1, b2)
 
 	dbSpec := job.Job{
 		ExternalJobID: uuid.NewV4(),
@@ -167,7 +162,7 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, db *gorm.DB, cfg config.GeneralConfig, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
+func makeMinimalHTTPOracleSpec(t *testing.T, db *gorm.DB, cfg config.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	var ocrSpec = job.OffchainReportingOracleSpec{
 		P2PBootstrapPeers:                      pq.StringArray{},
 		ObservationTimeout:                     models.Interval(10 * time.Second),
@@ -182,7 +177,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *gorm.DB, cfg config.GeneralConf
 		SchemaVersion: 1,
 		ExternalJobID: uuid.NewV4(),
 	}
-	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: cltest.NewEthClientMockWithDefaultChain(t), GeneralConfig: cfg})
 	_, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 	require.NoError(t, err)
@@ -201,19 +196,17 @@ func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress co
 
 func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL, b1, b2 string) *job.Job {
 	t.Helper()
-	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, b1, httpURL, b2)
-	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
+	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
 
 func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) *job.Job {
 	t.Helper()
-	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
-	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
+	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecFromToml(t, db, simpleFetchJobSpec)
 }
 

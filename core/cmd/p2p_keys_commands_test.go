@@ -152,7 +152,7 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 	require.NoError(t, client.ExportP2PKey(c))
 	require.NoError(t, utils.JustError(os.Stat(keyName)))
 
-	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(key.ID())))
+	require.NoError(t, utils.JustError(app.GetKeyStore().P2P().Delete(key.PeerID())))
 	requireP2PKeyCount(t, app, 0)
 
 	set = flag.NewFlagSet("test P2P import", 0)
