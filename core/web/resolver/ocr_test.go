@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	coreMocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	coreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
 
 func TestOCR(t *testing.T) {
@@ -16,6 +17,7 @@ func TestOCR(t *testing.T) {
 		query GetOCRKeys {
 			ocrKeys {
 				keys {
+					id
 					configPublicKey
 					offChainPublicKey
 					onChainSigningAddress
@@ -31,6 +33,7 @@ func TestOCR(t *testing.T) {
 		assert.NoError(t, err)
 		fakeKeys = append(fakeKeys, k)
 		expectedKeys = append(expectedKeys, map[string]string{
+			"id":                    k.ID(),
 			"configPublicKey":       ocrkey.ConfigPublicKey(k.PublicKeyConfig()).String(),
 			"offChainPublicKey":     k.OffChainSigning.PublicKey().String(),
 			"onChainSigningAddress": k.OnChainSigning.Address().String(),

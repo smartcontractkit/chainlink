@@ -3,9 +3,14 @@ package resolver
 import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 
 type OCRKey struct {
+	id                    string
 	configPublicKey       ocrkey.ConfigPublicKey
 	offChainPublicKey     ocrkey.OffChainPublicKey
 	onChainSigningAddress ocrkey.OnChainSigningAddress
+}
+
+func (k OCRKey) ID() string {
+	return k.id
 }
 
 func (k OCRKey) ConfigPublicKey() string {
@@ -32,6 +37,7 @@ func (r *OCRKeysPayloadResolver) Keys() []OCRKey {
 	viewKeys := []OCRKey{}
 	for _, k := range r.keys {
 		viewKeys = append(viewKeys, OCRKey{
+			id:                    k.ID(),
 			configPublicKey:       k.PublicKeyConfig(),
 			offChainPublicKey:     k.OffChainSigning.PublicKey(),
 			onChainSigningAddress: k.OnChainSigning.Address(),
