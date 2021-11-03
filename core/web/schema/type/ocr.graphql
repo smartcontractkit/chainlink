@@ -1,4 +1,5 @@
 type OCRKey {
+    id: String!
     configPublicKey: String!
     offChainPublicKey: String!
     onChainSigningAddress: String!
