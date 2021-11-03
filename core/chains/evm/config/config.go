@@ -83,15 +83,18 @@ var _ ChainScopedConfig = &chainScopedConfig{}
 
 type chainScopedConfig struct {
 	config.GeneralConfig
-	logger       logger.Logger
-	orm          *chainScopedConfigORM
+	logger     logger.Logger
+	defaultSet chainSpecificConfigDefaultSet
+
 	persistedCfg evmtypes.ChainCfg
-	defaultSet   chainSpecificConfigDefaultSet
-	knownID      bool
-	id           *big.Int
 	persistMu    sync.RWMutex
-	onceMap      map[string]struct{}
-	onceMapMu    sync.RWMutex
+	orm          *chainScopedConfigORM // calls should be paired with persistedCfg updates while holding write lock
+
+	id      *big.Int
+	knownID bool // part of the default set
+
+	onceMap   map[string]struct{}
+	onceMapMu sync.RWMutex
 }
 
 func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.ChainConfigORM, lggr logger.Logger, gcfg config.GeneralConfig) ChainScopedConfig {
@@ -101,7 +104,15 @@ func NewChainScopedConfig(chainID *big.Int, cfg evmtypes.ChainCfg, orm evmtypes.
 		logger.Warnf("Unrecognised chain %d, falling back to generic default configuration", chainID)
 		defaultSet = fallbackDefaultSet
 	}
-	css := chainScopedConfig{gcfg, lggr, csorm, cfg, defaultSet, exists, chainID, sync.RWMutex{}, make(map[string]struct{}), sync.RWMutex{}}
+	css := chainScopedConfig{
+		GeneralConfig: gcfg,
+		logger:        lggr,
+		defaultSet:    defaultSet,
+		orm:           csorm,
+		id:            chainID,
+		knownID:       exists,
+		onceMap:       make(map[string]struct{})}
+	_ = css.Configure(cfg)
 	return &css
 }
 
@@ -113,11 +124,15 @@ func (c *chainScopedConfig) Validate() (err error) {
 }
 
 func (c *chainScopedConfig) Configure(config evmtypes.ChainCfg) (err error) {
+	c.persistMu.Lock()
+	defer c.persistMu.Unlock()
 	c.persistedCfg = config
 	return nil
 }
 
 func (c *chainScopedConfig) PersistedConfig() evmtypes.ChainCfg {
+	c.persistMu.RLock()
+	defer c.persistMu.RUnlock()
 	return c.persistedCfg
 }
 
@@ -277,9 +292,12 @@ func (c *chainScopedConfig) EvmGasBumpWei() *big.Int {
 		c.logEnvOverrideOnce("EvmGasBumpWei", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasBumpWei != nil {
-		c.logPersistedOverrideOnce("EvmGasBumpWei", c.persistedCfg.EvmGasBumpWei)
-		return c.persistedCfg.EvmGasBumpWei.ToInt()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasBumpWei
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmGasBumpWei", p)
+		return p.ToInt()
 	}
 	n := c.defaultSet.gasBumpWei
 	return &n
@@ -305,9 +323,12 @@ func (c *chainScopedConfig) EvmMaxGasPriceWei() *big.Int {
 		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
 		return val
 	}
-	if c.persistedCfg.EvmMaxGasPriceWei != nil {
-		c.logPersistedOverrideOnce("EvmMaxGasPriceWei", c.persistedCfg.EvmMaxGasPriceWei)
-		return c.persistedCfg.EvmMaxGasPriceWei.ToInt()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmMaxGasPriceWei
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmMaxGasPriceWei", p)
+		return p.ToInt()
 	}
 	n := c.defaultSet.maxGasPriceWei
 	return &n
@@ -345,9 +366,12 @@ func (c *chainScopedConfig) EvmGasLimitDefault() uint64 {
 		c.logEnvOverrideOnce("EvmGasLimitDefault", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasLimitDefault.Valid {
-		c.logPersistedOverrideOnce("EvmGasLimitDefault", c.persistedCfg.EvmGasLimitDefault.Int64)
-		return uint64(c.persistedCfg.EvmGasLimitDefault.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasLimitDefault
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasLimitDefault", p.Int64)
+		return uint64(p.Int64)
 	}
 	return c.defaultSet.gasLimitDefault
 }
@@ -370,10 +394,11 @@ func (c *chainScopedConfig) EvmGasPriceDefault() *big.Int {
 		return val
 	}
 	c.persistMu.RLock()
-	defer c.persistMu.RUnlock()
-	if c.persistedCfg.EvmGasPriceDefault != nil {
-		c.logPersistedOverrideOnce("EvmGasPriceDefault", c.persistedCfg.EvmGasPriceDefault)
-		return c.persistedCfg.EvmGasPriceDefault.ToInt()
+	p := c.persistedCfg.EvmGasPriceDefault
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmGasPriceDefault", p)
+		return p.ToInt()
 	}
 	n := c.defaultSet.gasPriceDefault
 	return &n
@@ -428,9 +453,12 @@ func (c *chainScopedConfig) EvmFinalityDepth() uint32 {
 		c.logEnvOverrideOnce("EvmFinalityDepth", val)
 		return val
 	}
-	if c.persistedCfg.EvmFinalityDepth.Valid {
-		c.logPersistedOverrideOnce("EvmFinalityDepth", c.persistedCfg.EvmFinalityDepth.Int64)
-		return uint32(c.persistedCfg.EvmFinalityDepth.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmFinalityDepth
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmFinalityDepth", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.finalityDepth
 }
@@ -445,9 +473,12 @@ func (c *chainScopedConfig) EvmHeadTrackerHistoryDepth() uint32 {
 		c.logEnvOverrideOnce("EvmHeadTrackerHistoryDepth", val)
 		return val
 	}
-	if c.persistedCfg.EvmHeadTrackerHistoryDepth.Valid {
-		c.logPersistedOverrideOnce("EvmHeadTrackerHistoryDepth", c.persistedCfg.EvmHeadTrackerHistoryDepth.Int64)
-		return uint32(c.persistedCfg.EvmHeadTrackerHistoryDepth.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmHeadTrackerHistoryDepth
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmHeadTrackerHistoryDepth", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.headTrackerHistoryDepth
 }
@@ -461,9 +492,12 @@ func (c *chainScopedConfig) EvmHeadTrackerSamplingInterval() time.Duration {
 		c.logEnvOverrideOnce("EvmHeadTrackerSamplingInterval", val)
 		return val
 	}
-	if c.persistedCfg.EvmHeadTrackerSamplingInterval != nil {
-		c.logPersistedOverrideOnce("EvmHeadTrackerSamplingInterval", c.persistedCfg.EvmHeadTrackerSamplingInterval.Duration())
-		return c.persistedCfg.EvmHeadTrackerSamplingInterval.Duration()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmHeadTrackerSamplingInterval
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmHeadTrackerSamplingInterval", p.Duration())
+		return p.Duration()
 	}
 	return c.defaultSet.headTrackerSamplingInterval
 }
@@ -491,9 +525,12 @@ func (c *chainScopedConfig) EthTxResendAfterThreshold() time.Duration {
 		c.logEnvOverrideOnce("EthTxResendAfterThreshold", val)
 		return val
 	}
-	if c.persistedCfg.EthTxResendAfterThreshold != nil {
-		c.logPersistedOverrideOnce("EthTxResendAfterThreshold", c.persistedCfg.EthTxResendAfterThreshold.Duration())
-		return c.persistedCfg.EthTxResendAfterThreshold.Duration()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EthTxResendAfterThreshold
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EthTxResendAfterThreshold", p.Duration())
+		return p.Duration()
 	}
 	return c.defaultSet.ethTxResendAfterThreshold
 }
@@ -541,9 +578,12 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockDelay() uint16 {
 		logger.Warn("GAS_UPDATER_BLOCK_DELAY is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_DELAY instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
-	if c.persistedCfg.BlockHistoryEstimatorBlockDelay.Valid {
-		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockDelay", c.persistedCfg.BlockHistoryEstimatorBlockDelay.Int64)
-		return uint16(c.persistedCfg.BlockHistoryEstimatorBlockDelay.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.BlockHistoryEstimatorBlockDelay
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockDelay", p.Int64)
+		return uint16(p.Int64)
 	}
 	return c.defaultSet.blockHistoryEstimatorBlockDelay
 }
@@ -562,9 +602,12 @@ func (c *chainScopedConfig) BlockHistoryEstimatorBlockHistorySize() uint16 {
 		logger.Warn("GAS_UPDATER_BLOCK_HISTORY_SIZE is deprecated, please use BLOCK_HISTORY_ESTIMATOR_BLOCK_HISTORY_SIZE instead (or simply remove to use the default)")
 		return valLegacy.(uint16)
 	}
-	if c.persistedCfg.BlockHistoryEstimatorBlockHistorySize.Valid {
-		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", c.persistedCfg.BlockHistoryEstimatorBlockHistorySize.Int64)
-		return uint16(c.persistedCfg.BlockHistoryEstimatorBlockHistorySize.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.BlockHistoryEstimatorBlockHistorySize
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("BlockHistoryEstimatorBlockHistorySize", p.Int64)
+		return uint16(p.Int64)
 	}
 	return c.defaultSet.blockHistoryEstimatorBlockHistorySize
 }
@@ -604,9 +647,12 @@ func (c *chainScopedConfig) GasEstimatorMode() string {
 		logger.Warn("GAS_UPDATER_ENABLED has been deprecated, to disable the block history estimator, please use GAS_ESTIMATOR_MODE=FixedPrice instead (or simply remove to use the default)")
 		return "FixedPrice"
 	}
-	if c.persistedCfg.GasEstimatorMode.Valid {
-		c.logPersistedOverrideOnce("GasEstimatorMode", c.persistedCfg.GasEstimatorMode.String)
-		return c.persistedCfg.GasEstimatorMode.String
+	c.persistMu.RLock()
+	p := c.persistedCfg.GasEstimatorMode
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("GasEstimatorMode", p.String)
+		return p.String
 	}
 	return c.defaultSet.gasEstimatorMode
 }
@@ -617,7 +663,9 @@ func (c *chainScopedConfig) KeySpecificMaxGasPriceWei(addr gethcommon.Address) *
 		c.logEnvOverrideOnce("EvmMaxGasPriceWei", val)
 		return val
 	}
+	c.persistMu.RLock()
 	keySpecific := c.persistedCfg.KeySpecific[addr.Hex()].EvmMaxGasPriceWei
+	c.persistMu.RUnlock()
 	if keySpecific != nil && !keySpecific.Equal(utils.NewBigI(0)) {
 		c.logKeySpecificOverrideOnce("EvmMaxGasPriceWei", addr, keySpecific)
 		return keySpecific.ToInt()
@@ -631,10 +679,12 @@ func (c *chainScopedConfig) ChainType() chains.ChainType {
 		c.logEnvOverrideOnce("ChainType", val)
 		return chains.ChainType(val)
 	}
-
-	if c.persistedCfg.ChainType.Valid {
-		c.logPersistedOverrideOnce("ChainType", c.persistedCfg.ChainType.String)
-		return chains.ChainType(c.persistedCfg.ChainType.String)
+	c.persistMu.RLock()
+	p := c.persistedCfg.ChainType
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("ChainType", p.String)
+		return chains.ChainType(p.String)
 	}
 	return c.defaultSet.chainType
 }
@@ -670,9 +720,12 @@ func (c *chainScopedConfig) MinIncomingConfirmations() uint32 {
 		c.logEnvOverrideOnce("MinIncomingConfirmations", val)
 		return val
 	}
-	if c.persistedCfg.MinIncomingConfirmations.Valid {
-		c.logPersistedOverrideOnce("MinIncomingConfirmations", c.persistedCfg.MinIncomingConfirmations.Int64)
-		return uint32(c.persistedCfg.MinIncomingConfirmations.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.MinIncomingConfirmations
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("MinIncomingConfirmations", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.minIncomingConfirmations
 }
@@ -688,9 +741,12 @@ func (c *chainScopedConfig) MinRequiredOutgoingConfirmations() uint64 {
 		c.logEnvOverrideOnce("MinRequiredOutgoingConfirmations", val)
 		return val
 	}
-	if c.persistedCfg.MinRequiredOutgoingConfirmations.Valid {
-		c.logPersistedOverrideOnce("MinRequiredOutgoingConfirmations", c.persistedCfg.MinRequiredOutgoingConfirmations.Int64)
-		return uint64(c.persistedCfg.MinRequiredOutgoingConfirmations.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.MinRequiredOutgoingConfirmations
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("MinRequiredOutgoingConfirmations", p.Int64)
+		return uint64(p.Int64)
 	}
 	return c.defaultSet.minRequiredOutgoingConfirmations
 }
@@ -703,9 +759,12 @@ func (c *chainScopedConfig) MinimumContractPayment() *assets.Link {
 		c.logEnvOverrideOnce("MinimumContractPayment", val)
 		return val
 	}
-	if c.persistedCfg.MinimumContractPayment != nil {
-		c.logPersistedOverrideOnce("MinimumContractPayment", c.persistedCfg.MinimumContractPayment)
-		return c.persistedCfg.MinimumContractPayment
+	c.persistMu.RLock()
+	p := c.persistedCfg.MinimumContractPayment
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("MinimumContractPayment", p)
+		return p
 	}
 	return c.defaultSet.minimumContractPayment
 }
@@ -718,9 +777,12 @@ func (c *chainScopedConfig) EvmGasBumpTxDepth() uint16 {
 		c.logEnvOverrideOnce("EvmGasBumpTxDepth", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasBumpTxDepth.Valid {
-		c.logPersistedOverrideOnce("EvmGasBumpTxDepth", c.persistedCfg.EvmGasBumpTxDepth.Int64)
-		return uint16(c.persistedCfg.EvmGasBumpTxDepth.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasBumpTxDepth
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasBumpTxDepth", p.Int64)
+		return uint16(p.Int64)
 	}
 	return c.defaultSet.gasBumpTxDepth
 }
@@ -744,9 +806,12 @@ func (c *chainScopedConfig) EvmGasBumpPercent() uint16 {
 		c.logEnvOverrideOnce("EvmGasBumpPercent", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasBumpPercent.Valid {
-		c.logPersistedOverrideOnce("EvmGasBumpPercent", c.persistedCfg.EvmGasBumpPercent.Int64)
-		return uint16(c.persistedCfg.EvmGasBumpPercent.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasBumpPercent
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasBumpPercent", p.Int64)
+		return uint16(p.Int64)
 	}
 	return c.defaultSet.gasBumpPercent
 }
@@ -758,9 +823,12 @@ func (c *chainScopedConfig) EvmNonceAutoSync() bool {
 		c.logEnvOverrideOnce("EvmNonceAutoSync", val)
 		return val
 	}
-	if c.persistedCfg.EvmNonceAutoSync.Valid {
-		c.logPersistedOverrideOnce("EvmNonceAutoSync", c.persistedCfg.EvmNonceAutoSync.Bool)
-		return c.persistedCfg.EvmNonceAutoSync.Bool
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmNonceAutoSync
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmNonceAutoSync", p.Bool)
+		return p.Bool
 	}
 	return c.defaultSet.nonceAutoSync
 }
@@ -777,9 +845,12 @@ func (c *chainScopedConfig) EvmGasLimitMultiplier() float32 {
 		c.logEnvOverrideOnce("EvmGasLimitMultiplier", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasLimitMultiplier.Valid {
-		c.logPersistedOverrideOnce("EvmGasLimitMultiplier", c.persistedCfg.EvmGasLimitMultiplier.Float64)
-		return float32(c.persistedCfg.EvmGasLimitMultiplier.Float64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasLimitMultiplier
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmGasLimitMultiplier", p.Float64)
+		return float32(p.Float64)
 	}
 	return c.defaultSet.gasLimitMultiplier
 }
@@ -794,9 +865,12 @@ func (c *chainScopedConfig) EvmHeadTrackerMaxBufferSize() uint32 {
 		c.logEnvOverrideOnce("EvmHeadTrackerMaxBufferSize", val)
 		return val
 	}
-	if c.persistedCfg.EvmHeadTrackerMaxBufferSize.Valid {
-		c.logPersistedOverrideOnce("EvmHeadTrackerMaxBufferSize", c.persistedCfg.EvmHeadTrackerMaxBufferSize.Int64)
-		return uint32(c.persistedCfg.EvmHeadTrackerMaxBufferSize.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmHeadTrackerMaxBufferSize
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmHeadTrackerMaxBufferSize", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.headTrackerMaxBufferSize
 }
@@ -826,9 +900,12 @@ func (c *chainScopedConfig) EthTxReaperThreshold() time.Duration {
 		c.logEnvOverrideOnce("EthTxReaperThreshold", val)
 		return val
 	}
-	if c.persistedCfg.EthTxReaperThreshold != nil {
-		c.logPersistedOverrideOnce("EthTxReaperThreshold", c.persistedCfg.EthTxReaperThreshold.Duration())
-		return c.persistedCfg.EthTxReaperThreshold.Duration()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EthTxReaperThreshold
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EthTxReaperThreshold", p.Duration())
+		return p.Duration()
 	}
 	return c.defaultSet.ethTxReaperThreshold
 }
@@ -840,9 +917,12 @@ func (c *chainScopedConfig) EvmLogBackfillBatchSize() uint32 {
 		c.logEnvOverrideOnce("EvmLogBackfillBatchSize", val)
 		return val
 	}
-	if c.persistedCfg.EvmLogBackfillBatchSize.Valid {
-		c.logPersistedOverrideOnce("EvmLogBackfillBatchSize", c.persistedCfg.EvmLogBackfillBatchSize.Int64)
-		return uint32(c.persistedCfg.EvmLogBackfillBatchSize.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmLogBackfillBatchSize
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmLogBackfillBatchSize", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.logBackfillBatchSize
 }
@@ -855,9 +935,12 @@ func (c *chainScopedConfig) EvmRPCDefaultBatchSize() uint32 {
 		c.logEnvOverrideOnce("EvmRPCDefaultBatchSize", val)
 		return val
 	}
-	if c.persistedCfg.EvmRPCDefaultBatchSize.Valid {
-		c.logPersistedOverrideOnce("EvmRPCDefaultBatchSize", c.persistedCfg.EvmRPCDefaultBatchSize.Int64)
-		return uint32(c.persistedCfg.EvmRPCDefaultBatchSize.Int64)
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmRPCDefaultBatchSize
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmRPCDefaultBatchSize", p.Int64)
+		return uint32(p.Int64)
 	}
 	return c.defaultSet.rpcDefaultBatchSize
 }
@@ -869,9 +952,12 @@ func (c *chainScopedConfig) FlagsContractAddress() string {
 		c.logEnvOverrideOnce("FlagsContractAddress", val)
 		return val
 	}
-	if c.persistedCfg.FlagsContractAddress.Valid {
-		c.logPersistedOverrideOnce("FlagsContractAddress", c.persistedCfg.FlagsContractAddress.String)
-		return c.persistedCfg.FlagsContractAddress.String
+	c.persistMu.RLock()
+	p := c.persistedCfg.FlagsContractAddress
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("FlagsContractAddress", p.String)
+		return p.String
 	}
 	return c.defaultSet.flagsContractAddress
 }
@@ -894,9 +980,12 @@ func (c *chainScopedConfig) EvmEIP1559DynamicFees() bool {
 		c.logEnvOverrideOnce("EvmEIP1559DynamicFees", val)
 		return val
 	}
-	if c.persistedCfg.EvmEIP1559DynamicFees.Valid {
-		c.logPersistedOverrideOnce("EvmEIP1559DynamicFees", c.persistedCfg.EvmEIP1559DynamicFees.Bool)
-		return c.persistedCfg.EvmEIP1559DynamicFees.Bool
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmEIP1559DynamicFees
+	c.persistMu.RUnlock()
+	if p.Valid {
+		c.logPersistedOverrideOnce("EvmEIP1559DynamicFees", p.Bool)
+		return p.Bool
 	}
 	return c.defaultSet.eip1559DynamicFees
 }
@@ -916,9 +1005,12 @@ func (c *chainScopedConfig) EvmGasTipCapDefault() *big.Int {
 		c.logEnvOverrideOnce("EvmGasTipCapDefault", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasTipCapDefault != nil {
-		c.logPersistedOverrideOnce("EvmGasTipCapDefault", c.persistedCfg.EvmGasTipCapDefault)
-		return c.persistedCfg.EvmGasTipCapDefault.ToInt()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasTipCapDefault
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapDefault", p)
+		return p.ToInt()
 	}
 	return &c.defaultSet.gasTipCapDefault
 }
@@ -931,9 +1023,12 @@ func (c *chainScopedConfig) EvmGasTipCapMinimum() *big.Int {
 		c.logEnvOverrideOnce("EvmGasTipCapMinimum", val)
 		return val
 	}
-	if c.persistedCfg.EvmGasTipCapMinimum != nil {
-		c.logPersistedOverrideOnce("EvmGasTipCapMinimum", c.persistedCfg.EvmGasTipCapMinimum)
-		return c.persistedCfg.EvmGasTipCapMinimum.ToInt()
+	c.persistMu.RLock()
+	p := c.persistedCfg.EvmGasTipCapMinimum
+	c.persistMu.RUnlock()
+	if p != nil {
+		c.logPersistedOverrideOnce("EvmGasTipCapMinimum", p)
+		return p.ToInt()
 	}
 	return &c.defaultSet.gasTipCapMinimum
 }
