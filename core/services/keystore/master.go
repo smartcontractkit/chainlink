@@ -19,8 +19,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-//go:generate mockery --name Master --output ./mocks/ --case=underscore
-
 var ErrLocked = errors.New("Keystore is locked")
 
 //go:generate mockery --name Master --output ./mocks/ --case=underscore
