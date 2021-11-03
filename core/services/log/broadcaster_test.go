@@ -296,7 +296,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, c)
 
-	// Backfill pool and broadcast two, but only confirm one
+	// Backfill pool and broadcast two, but only consume one
 	helper = helperCfg.new(t, 4, 2, logs)
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
 	listener = helper.newLogListenerWithJob("one")
@@ -337,7 +337,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, c)
 
-	// Backfill pool, broadcast and confirm one
+	// Backfill pool, broadcast and consume one
 	helper = helperCfg.new(t, 7, 2, logs[1:])
 	helper.globalConfig.Overrides.GlobalEvmFinalityDepth = null.IntFrom(confs)
 	listener = helper.newLogListenerWithJob("one")
@@ -363,7 +363,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			return assert.NoError(t, err) && blockNum == nil
 		}, cltest.DefaultWaitTimeout, time.Second)
 	}()
-	// Pool empty and both consumed
+	// Pool empty, one broadcasted and consumed
 	blockNum, err = orm.GetBroadcastsPending()
 	require.NoError(t, err)
 	require.Nil(t, blockNum)
