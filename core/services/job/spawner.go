@@ -205,7 +205,6 @@ func (js *spawner) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 		err := js.orm.CreateJob(jb, postgres.WithQueryer(tx))
 		if err != nil {
 			logger.Errorw("Error creating job", "type", jb.Type, "error", err)
-
 			return err
 		}
 

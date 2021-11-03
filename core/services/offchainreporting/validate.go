@@ -13,10 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 )
 
 type ValidationConfig interface {
 	ChainID() *big.Int
+	ChainType() chains.ChainType
 	Dev() bool
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
@@ -24,9 +27,11 @@ type ValidationConfig interface {
 	OCRContractSubscribeInterval() time.Duration
 	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDatabaseTimeout() time.Duration
-	OCRObservationTimeout() time.Duration
+	OCRKeyBundleID() (string, error)
 	OCRObservationGracePeriod() time.Duration
-	ChainType() chains.ChainType
+	OCRObservationTimeout() time.Duration
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	P2PPeerID() p2pkey.PeerID
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

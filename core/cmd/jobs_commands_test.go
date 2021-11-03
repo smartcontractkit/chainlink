@@ -272,7 +272,9 @@ func TestJob_ToRows(t *testing.T) {
 func TestClient_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job
@@ -293,7 +295,9 @@ func TestClient_ListFindJobs(t *testing.T) {
 func TestClient_ShowJob(t *testing.T) {
 	t.Parallel()
 
-	app := startNewApplication(t)
+	app := startNewApplication(t, withConfigSet(func(c *configtest.TestGeneralConfig) {
+		c.Overrides.EVMDisabled = null.BoolFrom(false)
+	}))
 	client, r := app.NewClientAndRenderer()
 
 	// Create the job

@@ -343,7 +343,6 @@ func Test_JobProposalsController_Cancel(t *testing.T) {
 
 				jp1ID, err := fsvc.CreateJobProposal(&jp1)
 				require.NoError(t, err)
-				fmt.Println(jp1ID)
 
 				ctrl.connMgr.On("GetClient", jp1.FeedsManagerID).Return(rpcClient, nil)
 				rpcClient.On("ApprovedJob", mock.MatchedBy(func(c context.Context) bool { return true }), &pb.ApprovedJobRequest{
