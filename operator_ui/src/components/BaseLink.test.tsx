@@ -1,29 +1,41 @@
 import React from 'react'
-import render from '../../support/test-helpers/renderWithinRouter'
+import { MemoryRouter } from 'react-router-dom'
+import { render, screen } from '@testing-library/react'
 import BaseLink from '../../src/components/BaseLink'
+
+const { queryByText } = screen
+
+const renderBaseLink = (link: React.ReactNode) =>
+  render(<MemoryRouter>{link}</MemoryRouter>)
 
 describe('components/BaseLink', () => {
   it('renders an anchor', () => {
-    const component = render(<BaseLink href="/foo">My Link</BaseLink>)
-    expect(component.text()).toContain('My Link')
-    expect(component.prop('href')).toEqual('/foo')
+    renderBaseLink(<BaseLink href="/foo">My Link</BaseLink>)
+
+    expect(queryByText('My Link')).toBeInTheDocument()
+    expect(queryByText('My Link')?.closest('a')).toHaveAttribute('href', '/foo')
   })
 
   it('can render an id', () => {
-    const component = render(
+    renderBaseLink(
       <BaseLink id="my-id" href="/foo">
         My Link
       </BaseLink>,
     )
-    expect(component.prop('id')).toEqual('my-id')
+
+    expect(queryByText('My Link')?.closest('a')).toHaveAttribute('id', 'my-id')
   })
 
   it('can render a css class', () => {
-    const component = render(
+    renderBaseLink(
       <BaseLink className="my-css-class" href="/foo">
         My Link
       </BaseLink>,
     )
-    expect(component.prop('class')).toEqual('my-css-class')
+
+    expect(queryByText('My Link')?.closest('a')).toHaveAttribute(
+      'class',
+      'my-css-class',
+    )
   })
 })

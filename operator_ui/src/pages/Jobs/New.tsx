@@ -156,10 +156,8 @@ export const New = ({
             setServerErrorMsg(error.toString())
           }
 
-          setValid(false)
-        })
-        .finally(() => {
           setLoading(false)
+          setValid(false)
         })
     }
   }
@@ -202,7 +200,6 @@ export const New = ({
                   </Grid>
                   <Grid item xs={12}>
                     <Button
-                      data-testid="new-job-spec-submit"
                       variant="primary"
                       type="submit"
                       size="large"

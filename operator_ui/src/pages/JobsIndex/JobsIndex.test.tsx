@@ -11,11 +11,12 @@ import {
   webJobResource,
   vrfJobResource,
 } from 'support/factories/jsonApiJobs'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import JobsIndex, { simpleJobFilter, JobResource } from './JobsIndex'
 import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/jobs'
+import { renderWithRouter, screen } from 'support/test-utils'
+
+const { findByText, findAllByRole } = screen
 
 describe('pages/JobsIndex/JobsIndex', () => {
   it('renders the list of jobs', async () => {
@@ -53,44 +54,34 @@ describe('pages/JobsIndex/JobsIndex', () => {
       ]),
     )
 
-    const wrapper = mountWithProviders(<Route component={JobsIndex} />)
-
-    await syncFetch(wrapper)
-
-    // OCR V2 Job
-    expect(wrapper.text()).toContain('1000000')
-
-    // Flux Monitor V2 Job
-    expect(wrapper.text()).toContain('2000000')
-
-    // Direct Request V2 Job
-    expect(wrapper.text()).toContain('3000000')
-
-    // Keeper V2 Job
-    expect(wrapper.text()).toContain('4000000')
-  })
-
-  it('allows searching', async () => {
-    global.fetch.getOnce(
-      globPath(OCR_ENDPOINT),
-      jsonApiJobSpecsV2([
-        ocrJobResource({
-          id: 'OcrId',
-          createdAt: new Date().toISOString(),
-        }),
-        fluxMonitorJobResource({
-          id: 'FluxMonitorId',
-          createdAt: new Date().toISOString(),
-        }),
-      ]),
+    renderWithRouter(
+      <Route>
+        <JobsIndex />
+      </Route>,
     )
 
-    const wrapper = mountWithProviders(<Route component={JobsIndex} />)
+    expect(await findAllByRole('row')).toHaveLength(8) // Includes header
 
-    await syncFetch(wrapper)
+    // OCR V2 Job
+    expect(await findByText('1000000')).toBeInTheDocument()
 
-    // Expect to have 2 jobs
-    expect(wrapper.find('tbody').children().length).toEqual(2)
+    // Flux Monitor V2 Job
+    expect(await findByText('2000000')).toBeInTheDocument()
+
+    // Direct Request V2 Job
+    expect(await findByText('3000000')).toBeInTheDocument()
+
+    // Keeper Job
+    expect(await findByText('4000000')).toBeInTheDocument()
+
+    // Cron Job
+    expect(await findByText('5000000')).toBeInTheDocument()
+
+    // Web Job
+    expect(await findByText('6000000')).toBeInTheDocument()
+
+    // VRF Job
+    expect(await findByText('7000000')).toBeInTheDocument()
   })
 
   describe('simpleJobFilter', () => {

@@ -1,76 +1,88 @@
 /* eslint-env jest */
-import createStore from 'createStore'
-import { ConnectedIndex as Index } from 'pages/Bridges/Index'
-import { mount } from 'enzyme'
-import bridgesFactory from 'factories/bridges'
-import React from 'react'
-import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
-import clickNextPage from 'test-helpers/clickNextPage'
-import clickPreviousPage from 'test-helpers/clickPreviousPage'
-import syncFetch from 'test-helpers/syncFetch'
-import globPath from 'test-helpers/globPath'
 
-const classes = {}
-const mountIndex = (opts = {}) =>
-  mount(
-    <Provider store={createStore()}>
-      <MemoryRouter>
-        <Index classes={classes} pageSize={opts.pageSize} />
-      </MemoryRouter>
-    </Provider>,
-  )
+import React from 'react'
+import {
+  renderWithRouter,
+  screen,
+  waitFor,
+  waitForElementToBeRemoved,
+} from 'test-utils'
+import userEvent from '@testing-library/user-event'
+import globPath from 'test-helpers/globPath'
+import bridgesFactory from 'factories/bridges'
+
+import { ConnectedIndex as Index } from 'pages/Bridges/Index'
 
 describe('pages/Bridges/Index', () => {
-  it('renders the list of bridges', async () => {
-    expect.assertions(2)
+  const { getAllByRole, getByRole } = screen
 
+  it('renders the list of bridges', async () => {
     const bridgesResponse = bridgesFactory([
       {
         name: 'reggaeIsntThatGood',
         url: 'butbobistho.com',
       },
     ])
+
     global.fetch.getOnce(globPath('/v2/bridge_types'), bridgesResponse)
 
-    const wrapper = mountIndex()
+    renderWithRouter(<Index pageSize={1} />)
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('reggaeIsntThatGood')
-    expect(wrapper.text()).toContain('butbobistho.com')
+    await waitFor(() => getByRole('heading'))
+
+    const row = getAllByRole('row')[1]
+    expect(row).toHaveTextContent('reggaeIsntThatGood')
+    expect(row).toHaveTextContent('butbobistho.com')
   })
 
   it('can page through the list of bridges', async () => {
-    expect.assertions(6)
+    const { getAllByRole, getAllByText, getByRole } = screen
 
+    // Page 1
     const pageOneResponse = bridgesFactory(
       [{ name: 'ID-ON-FIRST-PAGE', url: 'bridge.com' }],
       2,
     )
     global.fetch.getOnce(globPath('/v2/bridge_types'), pageOneResponse)
 
-    const wrapper = mountIndex({ pageSize: 1 })
+    renderWithRouter(<Index pageSize={1} />)
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
-    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+    await waitFor(() => getByRole('heading'))
 
+    let row = getAllByRole('row')[1]
+    expect(row).toHaveTextContent('ID-ON-FIRST-PAGE')
+    expect(row).toHaveTextContent('bridge.com')
+
+    // Page 2
     const pageTwoResponse = bridgesFactory(
       [{ name: 'ID-ON-SECOND-PAGE', url: 'bridge.com' }],
       2,
     )
     global.fetch.getOnce(globPath('/v2/bridge_types'), pageTwoResponse)
-    clickNextPage(wrapper)
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
-    expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
+    userEvent.click(getByRole('button', { name: /Next Page/i }))
 
+    await waitForElementToBeRemoved(() => [
+      getAllByText('ID-ON-FIRST-PAGE'),
+      getAllByText('bridge.com'),
+    ])
+
+    row = getAllByRole('row')[1]
+    expect(row).toHaveTextContent('ID-ON-SECOND-PAGE')
+    expect(row).toHaveTextContent('bridge.com')
+
+    // Page 1
     global.fetch.getOnce(globPath('/v2/bridge_types'), pageOneResponse)
-    clickPreviousPage(wrapper)
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('ID-ON-FIRST-PAGE')
-    expect(wrapper.text()).not.toContain('ID-ON-SECOND-PAGE')
+    userEvent.click(getByRole('button', { name: /Previous Page/i }))
+
+    await waitForElementToBeRemoved(() => [
+      getAllByText('ID-ON-SECOND-PAGE'),
+      getAllByText('bridge.com'),
+    ])
+
+    row = getAllByRole('row')[1]
+    expect(row).toHaveTextContent('ID-ON-FIRST-PAGE')
+    expect(row).toHaveTextContent('bridge.com')
   })
 })

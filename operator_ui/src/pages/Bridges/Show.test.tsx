@@ -1,13 +1,15 @@
 import React from 'react'
-import { syncFetch } from 'test-helpers/syncFetch'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { Route } from 'react-router-dom'
-import { Show } from 'pages/Bridges/Show'
+import { renderWithRouter, screen, waitFor } from 'test-utils'
+import userEvent from '@testing-library/user-event'
 import globPath from 'test-helpers/globPath'
+
+import { Show } from 'pages/Bridges/Show'
+
+const { getAllByText, getByRole, getByText } = screen
 
 describe('pages/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
-    expect.assertions(5)
     const response = {
       data: {
         id: 'tallbridge',
@@ -23,19 +25,20 @@ describe('pages/Bridges/Show', () => {
 
     global.fetch.getOnce(globPath(`/v2/bridge_types/tallbridge`), response)
 
-    const wrapper = mountWithProviders(
-      <Route path="/bridges/:bridgeId" component={Show} />,
-      {
-        initialEntries: [`/bridges/tallbridge`],
-      },
+    renderWithRouter(
+      <Route path="/bridges/:bridgeId">
+        <Show />
+      </Route>,
+      { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Tall Bridge')
-    expect(wrapper.text()).toContain('Confirmations')
-    expect(wrapper.text()).toContain('https://localhost.com:712/endpoint')
-    expect(wrapper.text()).toContain('outgoingToken')
-    expect(wrapper.text()).toContain('9')
+    await waitFor(() => getByText('Bridge Info'))
+
+    expect(getByText('Tall Bridge')).toBeInTheDocument()
+    expect(getByText('9')).toBeInTheDocument()
+    expect(getByText('https://localhost.com:712/endpoint')).toBeInTheDocument()
+    expect(getByText('outgoingToken')).toBeInTheDocument()
+    expect(getByText('Tall Bridge')).toBeInTheDocument()
   })
 
   it('deletes a bridge', async () => {
@@ -54,37 +57,30 @@ describe('pages/Bridges/Show', () => {
 
     global.fetch.getOnce(globPath(`/v2/bridge_types/tallbridge`), response)
 
-    const wrapper = mountWithProviders(
-      <Route path="/bridges/:bridgeId" component={Show} />,
-      {
-        initialEntries: [`/bridges/tallbridge`],
-      },
+    renderWithRouter(
+      <>
+        <Route path="/bridges/:bridgeId">
+          <Show />
+        </Route>
+
+        <Route exact path="/bridges">
+          Redirect Success
+        </Route>
+      </>,
+      { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await syncFetch(wrapper)
+    await waitFor(() => getByText('Bridge Info'))
 
-    wrapper
-      .find('Button')
-      .find({ children: 'Delete' })
-      .first()
-      .simulate('click')
+    userEvent.click(getByRole('button', { name: /Delete/i }))
 
-    await syncFetch(wrapper)
+    await waitFor(() => getByText('Confirm'))
 
     global.fetch.deleteOnce(globPath(`/v2/bridge_types/tallbridge`), {})
 
-    wrapper
-      .find('Button')
-      .find({ children: 'Confirm' })
-      .first()
-      .simulate('click')
+    userEvent.click(getByRole('button', { name: /Confirm/i }))
 
-    await syncFetch(wrapper)
-
-    const routerComponentProps: any = wrapper.find('Router').props()
-    expect(routerComponentProps?.history?.location?.pathname).toEqual(
-      '/bridges',
-    )
+    await waitFor(() => getAllByText('Redirect Success'))
   })
 
   it('fails to delete a bridge', async () => {
@@ -103,22 +99,24 @@ describe('pages/Bridges/Show', () => {
 
     global.fetch.getOnce(globPath(`/v2/bridge_types/tallbridge`), response)
 
-    const wrapper = mountWithProviders(
-      <Route path="/bridges/:bridgeId" component={Show} />,
-      {
-        initialEntries: [`/bridges/tallbridge`],
-      },
+    renderWithRouter(
+      <>
+        <Route path="/bridges/:bridgeId">
+          <Show />
+        </Route>
+
+        <Route exact path="/bridges">
+          Redirect Success
+        </Route>
+      </>,
+      { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await syncFetch(wrapper)
+    await waitFor(() => getByText('Bridge Info'))
 
-    wrapper
-      .find('Button')
-      .find({ children: 'Delete' })
-      .first()
-      .simulate('click')
+    userEvent.click(getByRole('button', { name: /Delete/i }))
 
-    await syncFetch(wrapper)
+    await waitFor(() => getByText('Confirm'))
 
     global.fetch.deleteOnce(globPath(`/v2/bridge_types/tallbridge`), {
       body: {
@@ -131,17 +129,8 @@ describe('pages/Bridges/Show', () => {
       status: 409,
     })
 
-    wrapper
-      .find('Button')
-      .find({ children: 'Confirm' })
-      .first()
-      .simulate('click')
+    userEvent.click(getByRole('button', { name: /Confirm/i }))
 
-    await syncFetch(wrapper)
-
-    const routerComponentProps: any = wrapper.find('Router').props()
-    expect(routerComponentProps?.history?.location?.pathname).toEqual(
-      '/bridges/tallbridge',
-    )
+    await waitFor(() => getAllByText("can't remove the bridge"))
   })
 })
