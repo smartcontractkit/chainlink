@@ -265,7 +265,7 @@ func (b *broadcaster) startResubscribeLoop() {
 	}
 
 	// Remove leftover unconsumed logs, maybe update pending broadcasts, and backfill sooner if necessary.
-	if backfillStart, abort := b.removeUnconsumedSetPending(); abort {
+	if backfillStart, abort := b.reinitialize(); abort {
 		return
 	} else if backfillStart != nil {
 		if !b.backfillBlockNumber.Valid || *backfillStart < b.backfillBlockNumber.Int64 {
@@ -323,15 +323,15 @@ func (b *broadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *broadcaster) removeUnconsumedSetPending() (backfillStart *int64, abort bool) {
+func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
 	ctx, cancel := utils.ContextFromChan(b.chStop)
 	defer cancel()
 
 	utils.RetryWithBackoff(ctx, func() bool {
 		var err error
-		backfillStart, err = b.orm.RemoveUnconsumedSetPending(postgres.WithParentCtx(ctx))
+		backfillStart, err = b.orm.Reinitialize(postgres.WithParentCtx(ctx))
 		if err != nil {
-			b.logger.Errorw("LogBroadcaster: Failed to remove unconsumed and update pending", "err", err)
+			b.logger.Errorw("LogBroadcaster: Failed to reinitialize database", "err", err)
 			return true
 		}
 		return false
@@ -415,7 +415,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
-		if err := b.orm.SetBroadcastsPending(&blockNumber, postgres.WithParentCtx(ctx)); err != nil {
+		if err := b.orm.SetPendingMinBlock(&blockNumber, postgres.WithParentCtx(ctx)); err != nil {
 			b.logger.Errorw("LogBroadcaster: Failed to set pending broadcasts number", "blockNumber", log.BlockNumber, "err", err)
 		}
 	}
@@ -471,7 +471,7 @@ func (b *broadcaster) onNewHeads() {
 					return
 				}
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
-				if err := b.orm.SetBroadcastsPending(nil, postgres.WithParentCtx(ctx)); err != nil {
+				if err := b.orm.SetPendingMinBlock(nil, postgres.WithParentCtx(ctx)); err != nil {
 					b.logger.Errorw("LogBroadcaster: Failed to set pending broadcasts number null", "err", err)
 				}
 			}
@@ -488,7 +488,7 @@ func (b *broadcaster) onNewHeads() {
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
 			}
 			newMin := b.logPool.deleteOlderLogs(keptDepth)
-			if err := b.orm.SetBroadcastsPending(newMin); err != nil {
+			if err := b.orm.SetPendingMinBlock(newMin); err != nil {
 				b.logger.Errorw("LogBroadcaster: Failed to set pending broadcasts number", "blockNumber", keptDepth, "err", err)
 			}
 		}

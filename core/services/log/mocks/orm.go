@@ -59,8 +59,8 @@ func (_m *ORM) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]log.LogBr
 	return r0, r1
 }
 
-// GetBroadcastsPending provides a mock function with given fields: qopts
-func (_m *ORM) GetBroadcastsPending(qopts ...postgres.QOpt) (*int64, error) {
+// GetPendingMinBlock provides a mock function with given fields: qopts
+func (_m *ORM) GetPendingMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -109,8 +109,8 @@ func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, 
 	return r0
 }
 
-// RemoveUnconsumedSetPending provides a mock function with given fields: qopts
-func (_m *ORM) RemoveUnconsumedSetPending(qopts ...postgres.QOpt) (*int64, error) {
+// Reinitialize provides a mock function with given fields: qopts
+func (_m *ORM) Reinitialize(qopts ...postgres.QOpt) (*int64, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -138,20 +138,20 @@ func (_m *ORM) RemoveUnconsumedSetPending(qopts ...postgres.QOpt) (*int64, error
 	return r0, r1
 }
 
-// SetBroadcastsPending provides a mock function with given fields: lowestBlockNum, qopts
-func (_m *ORM) SetBroadcastsPending(lowestBlockNum *int64, qopts ...postgres.QOpt) error {
+// SetPendingMinBlock provides a mock function with given fields: blockNum, qopts
+func (_m *ORM) SetPendingMinBlock(blockNum *int64, qopts ...postgres.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, lowestBlockNum)
+	_ca = append(_ca, blockNum)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*int64, ...postgres.QOpt) error); ok {
-		r0 = rf(lowestBlockNum, qopts...)
+		r0 = rf(blockNum, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

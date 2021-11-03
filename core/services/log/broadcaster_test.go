@@ -242,13 +242,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		<-headsDone
 
 		require.Eventually(t, func() bool {
-			blockNum, err := orm.GetBroadcastsPending()
+			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum != nil && *blockNum == int64(log1.BlockNumber)
 		}, cltest.DefaultWaitTimeout, time.Second)
 	}()
 
 	// Pool min block in DB and neither listener received a broadcast
-	blockNum, err := orm.GetBroadcastsPending()
+	blockNum, err := orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.NotNil(t, blockNum)
 	require.Equal(t, int64(log1.BlockNumber), *blockNum)
@@ -280,13 +280,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		})
 
 		require.Eventually(t, func() bool {
-			blockNum, err := orm.GetBroadcastsPending()
+			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum != nil && *blockNum == int64(log2.BlockNumber)
 		}, cltest.DefaultWaitTimeout, time.Second)
 	}()
 
 	// Pool min block in DB and one listener received but didn't consume
-	blockNum, err = orm.GetBroadcastsPending()
+	blockNum, err = orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.NotNil(t, blockNum)
 	require.Equal(t, int64(log2.BlockNumber), *blockNum)
@@ -319,13 +319,13 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		})
 
 		require.Eventually(t, func() bool {
-			blockNum, err := orm.GetBroadcastsPending()
+			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum == nil
 		}, cltest.DefaultWaitTimeout, time.Second)
 	}()
 
 	// Pool empty and one consumed but other didn't
-	blockNum, err = orm.GetBroadcastsPending()
+	blockNum, err = orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.Nil(t, blockNum)
 	require.NotEmpty(t, listener.getUniqueLogs())
@@ -359,12 +359,12 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 		})
 
 		require.Eventually(t, func() bool {
-			blockNum, err := orm.GetBroadcastsPending()
+			blockNum, err := orm.GetPendingMinBlock()
 			return assert.NoError(t, err) && blockNum == nil
 		}, cltest.DefaultWaitTimeout, time.Second)
 	}()
 	// Pool empty, one broadcasted and consumed
-	blockNum, err = orm.GetBroadcastsPending()
+	blockNum, err = orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.Nil(t, blockNum)
 	require.Empty(t, listener.getUniqueLogs())

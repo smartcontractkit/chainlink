@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,18 +28,17 @@ type ORM interface {
 	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error
 	// WasBroadcastConsumed returns true if jobID consumed the log broadcast.
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...postgres.QOpt) (bool, error)
-	// MarkBroadCastConsumed marks the log broadcast as consumed by jobID.
+	// MarkBroadcastConsumed marks the log broadcast as consumed by jobID.
 	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error
 
-	// SetBroadcastsPending creates or updates the lowest block num for which there are pending broadcasts in the pool,
-	// or nil if empty.
-	SetBroadcastsPending(lowestBlockNum *int64, qopts ...postgres.QOpt) error
-	// GetBroadcastsPending returns the pending broadcasts block number, or null if none exists.
-	GetBroadcastsPending(qopts ...postgres.QOpt) (lowestBlockNum *int64, err error)
+	// SetPendingMinBlock sets the minimum block number for which there are pending broadcasts in the pool, or nil if empty.
+	SetPendingMinBlock(blockNum *int64, qopts ...postgres.QOpt) error
+	// GetPendingMinBlock returns the minimum block number for which there were pending broadcasts in the pool, or nil if it was empty.
+	GetPendingMinBlock(qopts ...postgres.QOpt) (blockNumber *int64, err error)
 
-	// RemoveUnconsumedSetPending cleans up the database by removing any unconsumed broadcasts and updating the pending
-	// broadcasts block number if necessary, which is returned as well.
-	RemoveUnconsumedSetPending(qopts ...postgres.QOpt) (lowestBlockNum *int64, err error)
+	// Reinitialize cleans up the database by removing any unconsumed broadcasts, then updating (if necessary) and
+	// returning the pending minimum block number.
+	Reinitialize(qopts ...postgres.QOpt) (blockNumber *int64, err error)
 }
 
 type orm struct {
@@ -93,139 +91,103 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 
 func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	res, err := q.Exec(`
+	_, err := q.Exec(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
-	if err != nil {
-		return errors.Wrap(err, "failed to create log broadcast")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	} else if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return errors.Wrap(err, "failed to create log broadcast")
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	res, err := q.Exec(`
+	_, err := q.Exec(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
 		ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
-	if err != nil {
-		return errors.Wrap(err, "failed to mark log broadcast as consumed")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	} else if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return errors.Wrap(err, "failed to mark log broadcast as consumed")
 }
 
-func (o *orm) RemoveUnconsumedSetPending(qopts ...postgres.QOpt) (*int64, error) {
+func (o *orm) Reinitialize(qopts ...postgres.QOpt) (*int64, error) {
+	// Minimum block number from the set of unconsumed logs, which we'll remove later.
 	minUnconsumed, err := o.getUnconsumedMinBlock(qopts...)
 	if err != nil {
 		return nil, err
 	}
-	minPending, err := o.GetBroadcastsPending(qopts...)
+	// Minimum block number from the set of pending logs in the pool.
+	minPending, err := o.GetPendingMinBlock(qopts...)
 	if err != nil {
 		return nil, err
 	}
 	if minUnconsumed == nil {
+		// Nothing unconsumed to consider or cleanup, and pending minimum block number still stands.
 		return minPending, nil
 	}
 	if minPending == nil || *minUnconsumed < *minPending {
+		// Use the lesser minUnconsumed.
 		minPending = minUnconsumed
-		if err := o.SetBroadcastsPending(minPending, qopts...); err != nil {
+		// Update the db so that we can safely delete the unconsumed entries.
+		if err := o.SetPendingMinBlock(minPending, qopts...); err != nil {
 			return nil, err
 		}
 	}
+	// Safe to delete old unconsumed entries since the pending minimum block covers this range.
 	if err := o.removeUnconsumed(qopts...); err != nil {
 		return nil, err
 	}
 	return minPending, nil
 }
 
-func (o *orm) SetBroadcastsPending(blockNumber *int64, qopts ...postgres.QOpt) error {
+func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	res, err := q.Exec(`
+	_, err := q.Exec(`
         INSERT INTO log_broadcasts_pending (evm_chain_id, block_number, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
-    `, o.evmChainID, null.IntFromPtr(blockNumber), null.IntFromPtr(blockNumber))
-	if err != nil {
-		return errors.Wrap(err, "failed to set pending broadcast block number")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	} else if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+    `, o.evmChainID, blockNumber, blockNumber)
+	return errors.Wrap(err, "failed to set pending broadcast block number")
 }
 
-func (o *orm) GetBroadcastsPending(qopts ...postgres.QOpt) (*int64, error) {
+func (o *orm) GetPendingMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 	q := postgres.NewQ(o.db, qopts...)
-	var blockNumber null.Int
-	err := q.QueryRowx(`
+	var blockNumber *int64
+	err := q.Get(&blockNumber, `
         SELECT block_number FROM log_broadcasts_pending WHERE evm_chain_id = $1
-    `, o.evmChainID).Scan(&blockNumber)
+    `, o.evmChainID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "failed to get broadcasts pending number")
 	}
-	if blockNumber.Valid {
-		return &blockNumber.Int64, nil
-	}
-	return nil, nil
+	return blockNumber, nil
 }
 
 func (o *orm) getUnconsumedMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 	q := postgres.NewQ(o.db, qopts...)
-	var blockNumber null.Int
-	err := q.QueryRowx(`
+	var blockNumber *int64
+	err := q.Get(&blockNumber, `
         SELECT min(block_number) FROM log_broadcasts
 			WHERE evm_chain_id = $1
 			AND consumed = false
 			AND block_number IS NOT NULL
-    `, o.evmChainID).Scan(&blockNumber)
+    `, o.evmChainID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Wrap(err, "failed to get unconsumed broadcasts min block number")
 	}
-	if blockNumber.Valid {
-		return &blockNumber.Int64, nil
-	}
-	return nil, nil
+	return blockNumber, nil
 }
 
 func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	res, err := q.Exec(`
+	_, err := q.Exec(`
         DELETE FROM log_broadcasts
 			WHERE evm_chain_id = $1
 			AND consumed = false
 			AND block_number IS NOT NULL
     `, o.evmChainID)
-	if err != nil {
-		return errors.Wrap(err, "failed to delete unconsumed broadcasts")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	} else if rowsAffected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
 }
 
 // LogBroadcast - gorm-compatible receive data from log_broadcasts table columns

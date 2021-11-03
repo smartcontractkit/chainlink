@@ -82,27 +82,27 @@ func TestORM_pending(t *testing.T) {
 	db := postgres.UnwrapGormDB(gdb)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
-	num, err := orm.GetBroadcastsPending()
+	num, err := orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.Nil(t, num)
 
 	var num10 int64 = 10
-	err = orm.SetBroadcastsPending(&num10)
+	err = orm.SetPendingMinBlock(&num10)
 	require.NoError(t, err)
 
-	num, err = orm.GetBroadcastsPending()
+	num, err = orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.Equal(t, num10, *num)
 
-	err = orm.SetBroadcastsPending(nil)
+	err = orm.SetPendingMinBlock(nil)
 	require.NoError(t, err)
 
-	num, err = orm.GetBroadcastsPending()
+	num, err = orm.GetPendingMinBlock()
 	require.NoError(t, err)
 	require.Nil(t, num)
 }
 
-func TestORM_RemoveUnconsumedSetPending(t *testing.T) {
+func TestORM_Reinitialize(t *testing.T) {
 	type TestLogBroadcast struct {
 		BlockNumber big.Int
 		log.LogBroadcast
@@ -167,14 +167,14 @@ func TestORM_RemoveUnconsumedSetPending(t *testing.T) {
 				}
 			}
 			if tt.pendingBlockNum != nil {
-				require.NoError(t, orm.SetBroadcastsPending(tt.pendingBlockNum))
+				require.NoError(t, orm.SetPendingMinBlock(tt.pendingBlockNum))
 			}
 
-			pendingBlockNum, err := orm.RemoveUnconsumedSetPending()
+			pendingBlockNum, err := orm.Reinitialize()
 			require.NoError(t, err)
 			assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
 
-			pendingBlockNum, err = orm.GetBroadcastsPending()
+			pendingBlockNum, err = orm.GetPendingMinBlock()
 			if assert.NoError(t, err) {
 				assert.Equal(t, tt.expPendingBlockNum, pendingBlockNum)
 			}
