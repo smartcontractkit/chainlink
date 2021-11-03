@@ -83,7 +83,6 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				address = cltest.NewEIP55Address()
 			}
 
-			// ta.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 			ta.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
