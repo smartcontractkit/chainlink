@@ -8,3 +8,14 @@ type OCRKeyBundle {
 type OCRKeyBundlesPayload {
     results: [OCRKeyBundle!]!
 }
+
+type OCRKeyBundlePayload {
+    bundle: OCRKeyBundle!
+}
+
+type OCRError implements Error {
+    message: String!
+	code: ErrorCode!
+}
+
+union DeleteOCRKeyBundlePayload = OCRKeyBundlePayload | OCRError

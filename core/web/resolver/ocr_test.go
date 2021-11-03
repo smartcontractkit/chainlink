@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -59,6 +60,133 @@ func TestOCR(t *testing.T) {
 			},
 			query:  query,
 			result: expected,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestOCRCreateBundle(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation CreateOCRKeyBundle {
+			createOCRKeyBundle {
+				bundle {
+					id
+					configPublicKey
+					offChainPublicKey
+					onChainSigningAddress
+				}
+			}
+		}
+	`
+
+	fakeKey, err := ocrkey.NewV2()
+	assert.NoError(t, err)
+
+	d, err := json.Marshal(map[string]interface{}{
+		"createOCRKeyBundle": map[string]interface{}{
+			"bundle": map[string]interface{}{
+				"id":                    fakeKey.ID(),
+				"configPublicKey":       ocrkey.ConfigPublicKey(fakeKey.PublicKeyConfig()).String(),
+				"offChainPublicKey":     fakeKey.OffChainSigning.PublicKey().String(),
+				"onChainSigningAddress": fakeKey.OnChainSigning.Address().String(),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation}, "createOCRKeyBundle"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr.On("Create").Return(fakeKey, nil)
+				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:  mutation,
+			result: expected,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestOCRDeleteBundle(t *testing.T) {
+	t.Parallel()
+
+	fakeKey, err := ocrkey.NewV2()
+	assert.NoError(t, err)
+
+	mutation := `
+		mutation DeleteOCRKeyBundle($id: String!) {
+			deleteOCRKeyBundle(id: $id) {
+				... on OCRKeyBundlePayload {
+					bundle {
+						id
+						configPublicKey
+						offChainPublicKey
+						onChainSigningAddress
+					}
+				}
+				... on OCRError {
+					message
+					code
+				}
+			}
+		}
+	`
+	variables := map[string]interface{}{
+		"id": fakeKey.ID(),
+	}
+
+	d, err := json.Marshal(map[string]interface{}{
+		"deleteOCRKeyBundle": map[string]interface{}{
+			"bundle": map[string]interface{}{
+				"id":                    fakeKey.ID(),
+				"configPublicKey":       ocrkey.ConfigPublicKey(fakeKey.PublicKeyConfig()).String(),
+				"offChainPublicKey":     fakeKey.OffChainSigning.PublicKey().String(),
+				"onChainSigningAddress": fakeKey.OnChainSigning.Address().String(),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteOCRKeyBundle"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr.On("Delete", fakeKey.ID()).Return(fakeKey, nil)
+				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.ocr.On("Delete", fakeKey.ID()).Return(ocrkey.KeyV2{}, errors.New("some error"))
+				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `{
+				"deleteOCRKeyBundle": {
+					"code":"UNPROCESSABLE",
+					"message":"some error"
+				}
+			}`,
 		},
 	}
 

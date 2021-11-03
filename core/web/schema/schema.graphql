@@ -18,6 +18,8 @@ type Query {
 type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createOCRKeyBundle: OCRKeyBundlePayload!
+    deleteOCRKeyBundle(id: String!): DeleteOCRKeyBundlePayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }

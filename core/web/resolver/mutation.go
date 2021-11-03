@@ -260,3 +260,29 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 
 	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
 }
+
+func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*OCRKeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().OCR().Create()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewOCRKeyBundleResolver(key), nil
+}
+
+func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
+	ID string
+}) (*DeleteOCRKeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	// NOTE: err could be non-nil here. What should we consider server errors
+	// and what should we consider to be other kinds of errors?
+	deletedKey, err := r.App.GetKeyStore().OCR().Delete(args.ID)
+	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, err), nil
+}
