@@ -14,6 +14,7 @@ import (
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
+	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
@@ -24,6 +25,8 @@ type mocks struct {
 	bridgeORM *bridgeORMMocks.ORM
 	evmORM    *evmORMMocks.ORM
 	feedsSvc  *feedsMocks.Service
+	ocr       *keystoreMocks.OCR
+	keystore  *keystoreMocks.Master
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -62,6 +65,8 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		bridgeORM: &bridgeORMMocks.ORM{},
 		evmORM:    &evmORMMocks.ORM{},
 		feedsSvc:  &feedsMocks.Service{},
+		ocr:       &keystoreMocks.OCR{},
+		keystore:  &keystoreMocks.Master{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -71,6 +76,8 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.bridgeORM,
 			m.evmORM,
 			m.feedsSvc,
+			m.ocr,
+			m.keystore,
 		)
 	})
 
