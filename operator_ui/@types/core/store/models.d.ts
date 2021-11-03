@@ -466,26 +466,6 @@ declare module 'core/store/models' {
     publicKey: string
   }
 
-  export interface FeedsManager {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    isConnectionActive: boolean
-    bootstrapPeerMultiaddr?: string
-    createdAt: time.Time
-  }
-
-  export interface UpdateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
   export interface JobProposal {
     spec: string
     status: string
