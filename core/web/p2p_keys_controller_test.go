@@ -61,7 +61,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 
 	var peerID p2pkey.PeerID
 	peerID.UnmarshalText([]byte(resource.PeerID))
-	_, err = keyStore.P2P().Get(peerID.Raw())
+	_, err = keyStore.P2P().Get(peerID)
 	require.NoError(t, err)
 }
 
@@ -70,10 +70,21 @@ func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 
 	client, _ := setupP2PKeysControllerTests(t)
 
-	nonExistentP2PKeyID := "1234567890"
+	nonExistentP2PKeyID := "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6a"
 	response, cleanup := client.Delete("/v2/keys/p2p/" + nonExistentP2PKeyID)
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
+	t.Parallel()
+
+	client, _ := setupP2PKeysControllerTests(t)
+
+	nonExistentP2PKeyID := "1234567890"
+	response, cleanup := client.Delete("/v2/keys/p2p/" + nonExistentP2PKeyID)
+	t.Cleanup(cleanup)
+	assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 }
 
 func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
@@ -88,7 +99,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/p2p/%s", key.ID()))
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(keyStore.P2P().Get(key.ID())))
+	assert.Error(t, utils.JustError(keyStore.P2P().Get(key.PeerID())))
 
 	keys, _ = keyStore.P2P().GetAll()
 	assert.Equal(t, initialLength, len(keys))
