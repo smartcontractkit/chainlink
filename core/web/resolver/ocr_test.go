@@ -13,8 +13,8 @@ func TestOCR(t *testing.T) {
 	t.Parallel()
 
 	query := `
-		query GetOCRKeys {
-			ocrKeys {
+		query GetOCRKeyBundles {
+			ocrKeyBundles {
 				results {
 					id
 					configPublicKey
@@ -26,12 +26,12 @@ func TestOCR(t *testing.T) {
 	`
 
 	fakeKeys := []ocrkey.KeyV2{}
-	expectedKeys := []map[string]string{}
+	expectedBundles := []map[string]string{}
 	for i := 0; i < 2; i++ {
 		k, err := ocrkey.NewV2()
 		assert.NoError(t, err)
 		fakeKeys = append(fakeKeys, k)
-		expectedKeys = append(expectedKeys, map[string]string{
+		expectedBundles = append(expectedBundles, map[string]string{
 			"id":                    k.ID(),
 			"configPublicKey":       ocrkey.ConfigPublicKey(k.PublicKeyConfig()).String(),
 			"offChainPublicKey":     k.OffChainSigning.PublicKey().String(),
@@ -40,15 +40,15 @@ func TestOCR(t *testing.T) {
 	}
 
 	d, err := json.Marshal(map[string]interface{}{
-		"ocrKeys": map[string]interface{}{
-			"results": expectedKeys,
+		"ocrKeyBundles": map[string]interface{}{
+			"results": expectedBundles,
 		},
 	})
 	assert.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
-		unauthorizedTestCase(GQLTestCase{query: query}, "ocrKeys"),
+		unauthorizedTestCase(GQLTestCase{query: query}, "ocrKeyBundles"),
 		{
 			name:          "success",
 			authenticated: true,
