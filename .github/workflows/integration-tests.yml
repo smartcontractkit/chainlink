@@ -97,7 +97,8 @@ jobs:
         uses: mikepenz/action-junit-report@v2
         if: always()
         with:
-          report_paths: 'integration-tests/logs/tests-*.xml'
+          report_paths: '**/integration-tests/logs/tests-*.xml'
+          check_name: 'Smoke Test Results'
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
@@ -163,6 +164,7 @@ jobs:
         if: always()
         with:
           report_paths: 'integration-tests/logs/tests-*.xml'
+          check_name: 'Performance Test Results'
       - name: Publish Artifacts
         if: failure()
         uses: actions/upload-artifact@v1
