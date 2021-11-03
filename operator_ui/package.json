@@ -5,8 +5,8 @@
   "license": "MIT",
   "workspaces": {
     "nohoist": [
-      "yargs",
-      "yargs/**"
+      "yargs-parser",
+      "yargs-parser/**"
     ]
   },
   "engines": {

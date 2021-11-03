@@ -6,7 +6,7 @@ import { EditFeedsManagerScreen } from '../../screens/EditFeedsManager/EditFeeds
 import { FeedsManagerScreen } from '../../screens/FeedsManager/FeedsManagerScreen'
 import { NewFeedsManagerScreen } from '../../screens/NewFeedsManager/NewFeedsManagerScreen'
 
-export default function () {
+const FeedsManager = function () {
   const { path } = useRouteMatch()
 
   return (
@@ -25,3 +25,5 @@ export default function () {
     </Content>
   )
 }
+
+export default FeedsManager
