@@ -137,6 +137,7 @@ export type Mutation = {
   readonly createBridge: CreateBridgePayload;
   readonly createFeedsManager: CreateFeedsManagerPayload;
   readonly updateBridge: UpdateBridgePayload;
+  readonly updateFeedsManager: UpdateFeedsManagerPayload;
 };
 
 
@@ -153,6 +154,12 @@ export type MutationCreateFeedsManagerArgs = {
 export type MutationUpdateBridgeArgs = {
   input: UpdateBridgeInput;
   name: Scalars['String'];
+};
+
+
+export type MutationUpdateFeedsManagerArgs = {
+  id: Scalars['ID'];
+  input: UpdateFeedsManagerInput;
 };
 
 export type Node = {
@@ -241,12 +248,41 @@ export type UpdateBridgeSuccess = {
   readonly bridge: Bridge;
 };
 
+export type UpdateFeedsManagerInput = {
+  readonly bootstrapPeerMultiaddr?: Maybe<Scalars['String']>;
+  readonly isBootstrapPeer: Scalars['Boolean'];
+  readonly jobTypes: ReadonlyArray<JobType>;
+  readonly name: Scalars['String'];
+  readonly publicKey: Scalars['String'];
+  readonly uri: Scalars['String'];
+};
+
+/** UpdateFeedsManagerPayload defines the response when updating a feeds manager */
+export type UpdateFeedsManagerPayload = InputErrors | NotFoundError | UpdateFeedsManagerSuccess;
+
+/**
+ * UpdateFeedsManagerSuccess defines the success response when updating a feeds
+ * manager
+ */
+export type UpdateFeedsManagerSuccess = {
+  readonly __typename?: 'UpdateFeedsManagerSuccess';
+  readonly feedsManager: FeedsManager;
+};
+
 
     declare global {
       export type FetchFeedsManagersVariables = Exact<{ [key: string]: never; }>;
 
 
 export type FetchFeedsManagers = { readonly __typename?: 'Query', readonly feedsManagers: { readonly __typename?: 'FeedsManagersPayload', readonly results: ReadonlyArray<{ readonly __typename: 'FeedsManager', readonly id: string, readonly name: string, readonly uri: string, readonly publicKey: string, readonly jobTypes: ReadonlyArray<JobType>, readonly isBootstrapPeer: boolean, readonly isConnectionActive: boolean, readonly bootstrapPeerMultiaddr?: string | null | undefined, readonly createdAt: any }> } };
+
+export type UpdateFeedsManagerVariables = Exact<{
+  id: Scalars['ID'];
+  input: UpdateFeedsManagerInput;
+}>;
+
+
+export type UpdateFeedsManager = { readonly __typename?: 'Mutation', readonly updateFeedsManager: { readonly __typename?: 'InputErrors', readonly errors: ReadonlyArray<{ readonly __typename?: 'InputError', readonly path: string, readonly message: string, readonly code: ErrorCode }> } | { readonly __typename?: 'NotFoundError', readonly message: string, readonly code: ErrorCode } | { readonly __typename?: 'UpdateFeedsManagerSuccess', readonly feedsManager: { readonly __typename?: 'FeedsManager', readonly id: string, readonly name: string, readonly uri: string, readonly publicKey: string, readonly jobTypes: ReadonlyArray<JobType>, readonly isBootstrapPeer: boolean, readonly isConnectionActive: boolean, readonly bootstrapPeerMultiaddr?: string | null | undefined, readonly createdAt: any } } };
 
 export type CreateFeedsManagerVariables = Exact<{
   input: CreateFeedsManagerInput;

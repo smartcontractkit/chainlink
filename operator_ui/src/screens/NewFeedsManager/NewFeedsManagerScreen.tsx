@@ -3,11 +3,13 @@ import { FormikHelpers } from 'formik'
 import { useMutation, gql } from '@apollo/client'
 import { Redirect, useHistory, useLocation } from 'react-router-dom'
 
-import Typography from '@material-ui/core/Typography'
-
 import { FormValues } from 'components/Forms/FeedsManagerForm'
+import { Loading } from 'src/components/Feedback/Loading'
 import { NewFeedsManagerView } from './NewFeedsManagerView'
-import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
+import {
+  FETCH_FEEDS_MANAGERS,
+  useFetchFeedsManagers,
+} from 'src/hooks/useFetchFeedsManager'
 
 // NOTE: To be refactored to not use redux
 import { useDispatch } from 'react-redux'
@@ -52,14 +54,16 @@ export const NewFeedsManagerScreen: React.FC = () => {
   const history = useHistory()
   const location = useLocation()
   const dispatch = useDispatch()
-  const { data, loading, error, refetch } = useFetchFeedsManagers()
+  const { data, loading, error } = useFetchFeedsManagers()
   const [createFeedsManager] = useMutation<
     CreateFeedsManager,
     CreateFeedsManagerVariables
-  >(CREATE_FEEDS_MANAGER)
+  >(CREATE_FEEDS_MANAGER, {
+    refetchQueries: [FETCH_FEEDS_MANAGERS],
+  })
 
   if (loading) {
-    return <Typography variant="body1">Loading...</Typography>
+    return <Loading />
   }
 
   if (error) {
@@ -85,8 +89,6 @@ export const NewFeedsManagerScreen: React.FC = () => {
       const payload = result.data?.createFeedsManager
       switch (payload?.__typename) {
         case 'CreateFeedsManagerSuccess':
-          await refetch()
-
           history.push('/feeds_manager')
 
           dispatch(notifySuccessMsg('Feeds Manager Created'))

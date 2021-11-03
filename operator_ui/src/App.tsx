@@ -1,6 +1,5 @@
 import React, { PureComponent } from 'react'
 import { Provider } from 'react-redux'
-import { SnackbarProvider } from 'material-ui-snackbar-provider'
 import createStore from './createStore'
 import './index.css'
 import Layout from './Layout'
@@ -28,16 +27,9 @@ class App extends PureComponent {
 
   public render(): JSX.Element {
     return (
-      <SnackbarProvider
-        SnackbarProps={{
-          autoHideDuration: 4000,
-          anchorOrigin: { vertical: 'bottom', horizontal: 'right' },
-        }}
-      >
-        <Provider store={store}>
-          <Layout />
-        </Provider>
-      </SnackbarProvider>
+      <Provider store={store}>
+        <Layout />
+      </Provider>
     )
   }
 }

@@ -3,13 +3,14 @@ import { Redirect, useLocation } from 'react-router-dom'
 
 import { FeedsManagerView } from './FeedsManagerView'
 import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
+import { Loading } from 'src/components/Feedback/Loading'
 
 export const FeedsManagerScreen: React.FC = () => {
   const location = useLocation()
   const { data, loading, error } = useFetchFeedsManagers()
 
   if (loading) {
-    return null
+    return <Loading />
   }
 
   if (error) {

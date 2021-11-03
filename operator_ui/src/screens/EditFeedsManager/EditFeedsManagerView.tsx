@@ -5,17 +5,19 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Grid from '@material-ui/core/Grid'
 
-import { FeedsManagerForm, FormValues } from 'components/Forms/FeedsManagerForm'
+import {
+  FeedsManagerForm,
+  Props as FormProps,
+} from 'components/Forms/FeedsManagerForm'
 
 import { FeedsManager } from 'types/generated/graphql'
 
-interface Props {
+type Props = {
   data: FeedsManager
-  onSubmit: (values: FormValues) => void
-}
+} & Pick<FormProps, 'onSubmit'>
 
 export const EditFeedsManagerView: React.FC<Props> = ({ data, onSubmit }) => {
-  const initialValues: FormValues = {
+  const initialValues = {
     name: data.name,
     uri: data.uri,
     jobTypes: [...data.jobTypes],

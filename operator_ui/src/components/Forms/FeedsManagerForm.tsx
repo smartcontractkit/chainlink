@@ -72,6 +72,7 @@ export const FeedsManagerForm: React.FC<Props> = ({
                 label="Name"
                 required
                 fullWidth
+                FormHelperTextProps={{ 'data-testid': 'name-helper-text' }}
               />
             </Grid>
 
@@ -86,6 +87,7 @@ export const FeedsManagerForm: React.FC<Props> = ({
                 required
                 fullWidth
                 helperText="Provided by the Feeds Manager operator"
+                FormHelperTextProps={{ 'data-testid': 'uri-helper-text' }}
               />
             </Grid>
 
@@ -98,6 +100,7 @@ export const FeedsManagerForm: React.FC<Props> = ({
                 required
                 fullWidth
                 helperText="Provided by the Feeds Manager operator"
+                FormHelperTextProps={{ 'data-testid': 'publicKey-helper-text' }}
               />
             </Grid>
 
@@ -152,12 +155,16 @@ export const FeedsManagerForm: React.FC<Props> = ({
                   label="Bootstrap Peer Multiaddress"
                   fullWidth
                   helperText=""
+                  FormHelperTextProps={{
+                    'data-testid': 'bootstrapPeerMultiaddr-helper-text',
+                  }}
                 />
               </Grid>
             )}
 
             <Grid item xs={12}>
               <Button
+                data-testid="create-submit"
                 variant="contained"
                 color="primary"
                 disabled={isSubmitting}

@@ -3,7 +3,7 @@ import generatedIntrospection from 'src/types/generated/possibleTypes'
 
 const httpLink = new HttpLink({
   uri: `${process.env.CHAINLINK_BASEURL}/query`,
-  credentials: 'same-origin',
+  credentials: 'include',
 })
 
 export const client = new ApolloClient({

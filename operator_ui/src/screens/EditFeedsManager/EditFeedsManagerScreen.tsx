@@ -1,19 +1,65 @@
 import React from 'react'
+import { useMutation, gql } from '@apollo/client'
+import { FormikHelpers } from 'formik'
 import { Redirect, useLocation, useHistory } from 'react-router-dom'
 
-import { v2 } from 'api'
 import { EditFeedsManagerView } from './EditFeedsManagerView'
 import { FormValues } from 'components/Forms/FeedsManagerForm'
+import { Loading } from 'components/Feedback/Loading'
+import {
+  useFetchFeedsManagers,
+  FETCH_FEEDS_MANAGERS,
+} from 'src/hooks/useFetchFeedsManager'
 
-import { useFetchFeedsManagers } from 'src/hooks/useFetchFeedsManager'
+// NOTE: To be refactored to not use redux
+import { useDispatch } from 'react-redux'
+import { notifySuccessMsg, notifyErrorMsg } from 'actionCreators'
+
+export const UPDATE_FEEDS_MANAGER = gql`
+  mutation UpdateFeedsManager($id: ID!, $input: UpdateFeedsManagerInput!) {
+    updateFeedsManager(id: $id, input: $input) {
+      ... on UpdateFeedsManagerSuccess {
+        feedsManager {
+          id
+          name
+          uri
+          publicKey
+          jobTypes
+          isBootstrapPeer
+          isConnectionActive
+          bootstrapPeerMultiaddr
+          createdAt
+        }
+      }
+      ... on NotFoundError {
+        message
+        code
+      }
+      ... on InputErrors {
+        errors {
+          path
+          message
+          code
+        }
+      }
+    }
+  }
+`
 
 export const EditFeedsManagerScreen: React.FC = () => {
   const history = useHistory()
   const location = useLocation()
-  const { data, loading, error, refetch } = useFetchFeedsManagers()
+  const dispatch = useDispatch()
+  const { data, loading, error } = useFetchFeedsManagers()
+  const [updateFeedsManager] = useMutation<
+    UpdateFeedsManager,
+    UpdateFeedsManagerVariables
+  >(UPDATE_FEEDS_MANAGER, {
+    refetchQueries: [FETCH_FEEDS_MANAGERS],
+  })
 
   if (loading) {
-    return null
+    return <Loading />
   }
 
   if (error) {
@@ -38,13 +84,43 @@ export const EditFeedsManagerScreen: React.FC = () => {
     )
   }
 
-  const handleSubmit = async (values: FormValues) => {
+  const handleSubmit = async (
+    values: FormValues,
+    { setErrors }: FormikHelpers<FormValues>,
+  ) => {
     try {
-      await v2.feedsManagers.updateFeedsManager(manager.id, values)
+      const result = await updateFeedsManager({
+        variables: { id: manager.id, input: { ...values } },
+      })
 
-      refetch()
-      history.push('/feeds_manager')
+      const payload = result.data?.updateFeedsManager
+      switch (payload?.__typename) {
+        case 'UpdateFeedsManagerSuccess':
+          history.push('/feeds_manager')
+
+          dispatch(notifySuccessMsg('Feeds Manager Updated'))
+
+          break
+        case 'NotFoundError':
+          dispatch(notifyErrorMsg(payload.message))
+
+          break
+        case 'InputErrors':
+          const errs = payload.errors.reduce((obj, item) => {
+            const key = item['path'].replace(/^input\//, '')
+
+            return {
+              ...obj,
+              [key]: item.message,
+            }
+          }, {})
+
+          setErrors(errs)
+
+          break
+      }
     } catch (e) {
+      // TODO - Handle errors
       console.log(e)
     }
   }
