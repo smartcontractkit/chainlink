@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -506,11 +505,9 @@ func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Ad
 func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
-	pid := p2pkey.PeerID(DefaultP2PPeerID)
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
-		P2PPeerID:                              &pid,
 		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &ocrKeyID,

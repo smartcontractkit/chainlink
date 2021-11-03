@@ -6,16 +6,16 @@ import (
 )
 
 func NewLocalConfig(cfg ValidationConfig, spec job.OffchainReportingOracleSpec) ocrtypes.LocalConfig {
-	spec = *job.LoadDynamicConfigVars(cfg, spec)
+	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
 	lc := ocrtypes.LocalConfig{
-		BlockchainTimeout:                      spec.BlockchainTimeout.Duration(),
-		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
+		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
+		ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
 		SkipContractConfigConfirmations:        cfg.ChainType().IsL2(),
-		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval.Duration(),
-		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval.Duration(),
+		ContractConfigTrackerPollInterval:      concreteSpec.ContractConfigTrackerPollInterval.Duration(),
+		ContractConfigTrackerSubscribeInterval: concreteSpec.ContractConfigTrackerSubscribeInterval.Duration(),
 		ContractTransmitterTransmitTimeout:     cfg.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        cfg.OCRDatabaseTimeout(),
-		DataSourceTimeout:                      spec.ObservationTimeout.Duration(),
+		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
 		DataSourceGracePeriod:                  cfg.OCRObservationGracePeriod(),
 	}
 	if cfg.Dev() {
