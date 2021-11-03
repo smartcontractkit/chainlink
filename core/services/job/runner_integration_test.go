@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -67,7 +66,6 @@ func TestRunner(t *testing.T) {
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
-	keyStore.P2P().Add(cltest.DefaultP2PKey)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -355,16 +353,12 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal bootstrap", func(t *testing.T) {
-		key, err := keyStore.P2P().Create()
-		require.NoError(t, err)
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
 `
-		peerID := key.PeerID()
-		config.Overrides.P2PPeerID = &peerID
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
@@ -394,8 +388,6 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
-		key, err := keyStore.P2P().Create()
-		require.NoError(t, err)
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		s := `
@@ -411,9 +403,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		peerID := key.PeerID()
 		tAddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
-		config.Overrides.P2PPeerID = &peerID
 		config.Overrides.P2PBootstrapPeers = []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju", "/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"}
 		config.Overrides.OCRKeyBundleID = null.NewString(kb.ID(), true)
 		config.Overrides.OCRTransmitterAddress = &tAddress
@@ -450,12 +440,10 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		key, err := keyStore.P2P().Create()
-		require.NoError(t, err)
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
 		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
@@ -466,10 +454,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
-		peerID := key.PeerID()
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
 		lggr := logger.TestLogger(t)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
 		require.NoError(t, pw.Start())
@@ -488,9 +474,7 @@ ds1 -> ds1_parse;
 	})
 
 	t.Run("test min bootstrap", func(t *testing.T) {
-		key, err := keyStore.P2P().Create()
-		require.NoError(t, err)
-		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), key.PeerID())
+		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
 		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
@@ -499,9 +483,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
-		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
 		lggr := logger.TestLogger(t)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
 		require.NoError(t, pw.Start())
@@ -521,11 +503,9 @@ ds1 -> ds1_parse;
 
 	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
-		key, err := keyStore.P2P().Create()
-		require.NoError(t, err)
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), key.PeerID(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		jb := makeOCRJobSpecFromToml(t, gdb, spec)
 
 		// Create an OCR job
@@ -533,9 +513,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Required to create job spawner delegate.
-		peerID := key.PeerID()
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
-		config.Overrides.P2PPeerID = &peerID
 		lggr := logger.TestLogger(t)
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
 		require.NoError(t, pw.Start())
@@ -601,7 +579,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jb := makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jb := makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
@@ -610,7 +588,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
@@ -620,7 +598,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.FatalErrors[0])
 
 		// Job specified task timeout should fail.
-		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), configtest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb.MaxTaskDuration = models.Interval(time.Duration(1))
 		jb.Name = null.NewString("a job 3", true)
 		err = jobORM.CreateJob(jb)

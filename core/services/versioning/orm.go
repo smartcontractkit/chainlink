@@ -23,8 +23,7 @@ type ORM interface {
 }
 
 type orm struct {
-	db     *sqlx.DB
-	logger logger.Logger
+	db *sqlx.DB
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger) *orm {

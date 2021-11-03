@@ -431,6 +431,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	jb.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
 	err = app.AddJobV2(context.Background(), &jb)
+	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{strconv.FormatInt(int64(jb.ID), 10)})
