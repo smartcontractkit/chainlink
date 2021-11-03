@@ -374,11 +374,11 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	taskTimeout, isSet := taskRun.task.TaskTimeout()
 	if isSet {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+		ctx, cancel = utils.CombinedContext(ctx, r.chStop, taskTimeout)
 		defer cancel()
 	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
+		ctx, cancel = utils.CombinedContext(ctx, r.chStop, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
 
