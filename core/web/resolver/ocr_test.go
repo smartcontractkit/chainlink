@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
-	coreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 )
 
 func TestOCR(t *testing.T) {
@@ -16,7 +15,7 @@ func TestOCR(t *testing.T) {
 	query := `
 		query GetOCRKeys {
 			ocrKeys {
-				keys {
+				results {
 					id
 					configPublicKey
 					offChainPublicKey
@@ -42,7 +41,7 @@ func TestOCR(t *testing.T) {
 
 	d, err := json.Marshal(map[string]interface{}{
 		"ocrKeys": map[string]interface{}{
-			"keys": expectedKeys,
+			"results": expectedKeys,
 		},
 	})
 	assert.NoError(t, err)
@@ -54,12 +53,9 @@ func TestOCR(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-
-				mockOCR := &coreMocks.OCR{}
-				mockOCR.On("GetAll").Return(fakeKeys, nil)
-				mockKeyStore := &coreMocks.Master{}
-				mockKeyStore.On("OCR").Return(mockOCR)
-				f.App.On("GetKeyStore").Return(mockKeyStore)
+				f.Mocks.ocr.On("GetAll").Return(fakeKeys, nil)
+				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
 			query:  query,
 			result: expected,

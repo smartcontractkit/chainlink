@@ -33,7 +33,7 @@ func NewOCRKeysPayloadResolver(keys []ocrkey.KeyV2) *OCRKeysPayloadResolver {
 	return &OCRKeysPayloadResolver{keys}
 }
 
-func (r *OCRKeysPayloadResolver) Keys() []OCRKey {
+func (r *OCRKeysPayloadResolver) Results() []OCRKey {
 	viewKeys := []OCRKey{}
 	for _, k := range r.keys {
 		viewKeys = append(viewKeys, OCRKey{

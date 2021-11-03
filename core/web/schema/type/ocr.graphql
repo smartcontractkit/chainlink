@@ -6,5 +6,5 @@ type OCRKey {
 }
 
 type OCRKeysPayload {
-    keys: [OCRKey!]!
+    results: [OCRKey!]!
 }
