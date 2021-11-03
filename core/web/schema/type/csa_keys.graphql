@@ -1,0 +1,8 @@
+type CSAKey {
+    version: Int!
+    pubKey: String!
+}
+
+type CSAKeysPayload {
+    results: [CSAKey!]!
+}
