@@ -32,7 +32,6 @@ func setupKeeperDB(t *testing.T) (
 ) {
 	gcfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
-	gcfg.SetDB(db)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	orm := keeper.NewORM(db, nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
 	return db, cfg, orm
