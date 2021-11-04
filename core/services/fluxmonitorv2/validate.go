@@ -48,6 +48,7 @@ func ValidatedFluxMonitorSpec(config ValidationConfig, ts string) (job.Job, erro
 			DrumbeatRandomDelay: specIntThreshold.DrumbeatRandomDelay,
 			DrumbeatEnabled:     specIntThreshold.DrumbeatEnabled,
 			MinPayment:          specIntThreshold.MinPayment,
+			EVMChainID:          specIntThreshold.EVMChainID,
 		}
 	}
 	jb.FluxMonitorSpec = &spec
