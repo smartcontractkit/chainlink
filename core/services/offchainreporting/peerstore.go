@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -70,7 +70,7 @@ func (p *Pstorewrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not start peerstore wrapper")
 		}
-		go gracefulpanic.WrapRecover(p.lggr, func() {
+		go shutdown.WrapRecover(p.lggr, func() {
 			p.dbLoop()
 		})
 		return nil
@@ -125,7 +125,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
-	defer p.lggr.ErrorIfCalling(rows.Close)
+	defer p.lggr.ErrorIfClosing(rows, "p2p_peers rows")
 
 	peers = make([]P2PPeer, 0)
 

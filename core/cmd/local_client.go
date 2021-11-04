@@ -52,7 +52,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	lggr := cli.Logger.Named("boot")
-	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
+	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	if cli.Config.Dev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
@@ -127,7 +127,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
 		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
@@ -147,7 +147,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	lggr.Infof("Chainlink booted in %s", time.Since(static.InitTime))
+	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
@@ -453,7 +453,7 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(db.DB, version); err != nil {
+	if err := migrate.Rollback(db.DB, cli.Logger, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -467,7 +467,7 @@ func (cli *Client) VersionDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(db.DB)
+	version, err := migrate.Current(db.DB, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
@@ -483,7 +483,7 @@ func (cli *Client) StatusDatabase(c *clipkg.Context) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(db.DB); err != nil {
+	if err = migrate.Status(db.DB, cli.Logger); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -556,7 +556,7 @@ func migrateDB(config config.GeneralConfig, lggr logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Migrate(db.DB); err != nil {
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -567,10 +567,10 @@ func downAndUpDB(cfg config.GeneralConfig, lggr logger.Logger, baseVersionID int
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Rollback(db.DB, null.IntFrom(baseVersionID)); err != nil {
+	if err = migrate.Rollback(db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(db.DB); err != nil {
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()
