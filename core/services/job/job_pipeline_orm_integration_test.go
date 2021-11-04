@@ -49,7 +49,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	config.SetDB(gdb)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	keyStore := cltest.NewKeyStore(t, db)

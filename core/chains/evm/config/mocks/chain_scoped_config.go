@@ -17,8 +17,6 @@ import (
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
-	gorm "gorm.io/gorm"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -3231,11 +3229,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 	}
 
 	return r0
-}
-
-// SetDB provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetDB(_a0 *gorm.DB) {
-	_m.Called(_a0)
 }
 
 // SetDialect provides a mock function with given fields: _a0
