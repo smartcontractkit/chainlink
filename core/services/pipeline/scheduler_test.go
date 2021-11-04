@@ -129,12 +129,11 @@ func Test_Scheduler(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		ctx := context.Background()
 		p, err := Parse(test.spec)
 		require.NoError(t, err)
 		vars := NewVarsFrom(nil)
 		run := NewRun(Spec{}, vars)
-		s := newScheduler(ctx, p, &run, vars)
+		s := newScheduler(p, &run, vars)
 
 		go s.Run()
 
