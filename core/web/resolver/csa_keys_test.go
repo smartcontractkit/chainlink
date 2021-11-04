@@ -3,10 +3,12 @@ package resolver
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type expectedKey struct {
