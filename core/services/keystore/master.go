@@ -21,6 +21,8 @@ import (
 
 var ErrLocked = errors.New("Keystore is locked")
 
+//go:generate mockery --name Master --output ./mocks/ --case=underscore
+
 type Master interface {
 	CSA() CSA
 	Eth() Eth

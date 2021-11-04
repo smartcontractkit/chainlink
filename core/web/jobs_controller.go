@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
@@ -133,7 +134,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == keystore.ErrMissingP2PKey || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

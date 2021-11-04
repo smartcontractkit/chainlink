@@ -220,7 +220,7 @@ func (u *WebAuthnUser) LoadWebAuthnCredentials(uwas []WebAuthn) error {
 		var credential webauthn.Credential
 		err := v.PublicKeyData.Unmarshal(&credential)
 		if err != nil {
-			return fmt.Errorf("Error unmarshalling provided PublicKeyData: %s", err)
+			return fmt.Errorf("error unmarshalling provided PublicKeyData: %s", err)
 		}
 		u.WACredentials = append(u.WACredentials, credential)
 	}
