@@ -8,12 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type DirectRequestToml struct {
 	ContractAddress    ethkey.EIP55Address      `toml:"contractAddress"`
 	Requesters         models.AddressCollection `toml:"requesters"`
 	MinContractPayment *assets.Link             `toml:"minContractPaymentLinkJuels"`
+	EVMChainID         *utils.Big               `toml:"evmChainID"`
 }
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
@@ -35,6 +37,7 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 		ContractAddress:    spec.ContractAddress,
 		Requesters:         spec.Requesters,
 		MinContractPayment: spec.MinContractPayment,
+		EVMChainID:         spec.EVMChainID,
 	}
 
 	if jb.Type != job.DirectRequest {
