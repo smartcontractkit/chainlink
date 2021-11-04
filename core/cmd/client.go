@@ -17,9 +17,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Depado/ginprom"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	clipkg "github.com/urfave/cli"
+	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -28,18 +36,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/Depado/ginprom"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	clipkg "github.com/urfave/cli"
-	"go.uber.org/multierr"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/sync/errgroup"
 )
 
 var prometheus *ginprom.Prometheus
@@ -102,6 +103,9 @@ func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout t
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
+	lggr = lggr.Named("AdvisoryLock")
+	lggr.Debug("Taking advisory lock...")
+
 	initCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	lock, err := postgres.NewLock(initCtx, lockID, db)
@@ -135,15 +139,19 @@ func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout t
 		}
 	}
 
+	lggr.Debug("Got advisory lock")
+
 	return &lock, nil
 }
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
 	appLggr := logger.NewLogger(cfg)
+	appID := uuid.NewV4()
 
-	shutdownSignal := gracefulpanic.NewSignal()
+	shutdownSignal := shutdown.NewSignal()
 	uri := cfg.DatabaseURL()
+	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
 		Logger:           appLggr,
@@ -155,12 +163,27 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		return nil, err
 	}
 
+	appLggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
+
+	// Lease will be explicitly released on application stop
+	// Take the lease before any other DB operations
+	var leaseLock postgres.LeaseLock
+	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
+		leaseLock = postgres.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		if err = leaseLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrap(err, "failed to take initial lease on database")
+		}
+	}
+
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	advisoryLock, err := AdvisoryLock(ctx, appLggr, db.DB, time.Second)
-	if err != nil {
-		return nil, errors.Wrap(err, "error acquiring lock")
+	var advisoryLock postgres.Locker
+	if cfg.DatabaseLockingMode() == "advisoryLock" || cfg.DatabaseLockingMode() == "dual" {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		advisoryLock, err = AdvisoryLock(ctx, appLggr, db.DB, time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "error acquiring lock")
+		}
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
@@ -222,8 +245,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
-		cfg.DatabaseListenerMaxReconnectDuration(), appLggr)
+	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
@@ -250,6 +272,8 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 		AdvisoryLock:             advisoryLock,
+		LeaseLock:                leaseLock,
+		ID:                       appID,
 	})
 }
 

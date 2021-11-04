@@ -1,7 +1,7 @@
 package offchainreporting
 
 import (
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -30,7 +30,7 @@ func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.R
 
 func (r *RunResultSaver) Start() error {
 	return r.StartOnce("RunResultSaver", func() error {
-		go gracefulpanic.WrapRecover(r.logger, func() {
+		go shutdown.WrapRecover(r.logger, func() {
 			for {
 				select {
 				case run := <-r.runResults:

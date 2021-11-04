@@ -18,6 +18,7 @@ import (
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
 	"gorm.io/gorm"
@@ -26,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -63,6 +63,7 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
+	DatabaseLockingMode() string
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
@@ -353,6 +354,12 @@ func (c *generalConfig) Validate() error {
 			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
+
+	switch c.DatabaseLockingMode() {
+	case "dual", "lease", "advisorylock", "none":
+	default:
+		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
+	}
 	return nil
 }
 
@@ -495,7 +502,7 @@ func (c *generalConfig) DatabaseURL() url.URL {
 	if uri.String() == "" {
 		return *uri
 	}
-	static.SetConsumerName(uri, "Default")
+	static.SetConsumerName(uri, "Default", nil)
 	return *uri
 }
 
@@ -1565,4 +1572,10 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
 func (c *generalConfig) UseLegacyEthEnvVars() bool {
 	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
+}
+
+// DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
+// It controls which mode to use to enforce that only one Chainlink application can use the database
+func (c *generalConfig) DatabaseLockingMode() string {
+	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
 }

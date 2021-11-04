@@ -12,7 +12,6 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -23,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -131,10 +131,10 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go gracefulpanic.WrapRecover(lsn.l, func() {
+		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
 		})
-		go gracefulpanic.WrapRecover(lsn.l, func() {
+		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		})
 		return nil
