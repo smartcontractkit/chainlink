@@ -111,7 +111,8 @@ encode_mwr [type=ethabiencode
         parentIds: ['encode_data'],
         attributes: {
           type: 'ethabiencode',
-          abi: 'fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)',
+          abi:
+            'fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)',
         },
       },
       {
