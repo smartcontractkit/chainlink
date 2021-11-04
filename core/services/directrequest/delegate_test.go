@@ -75,12 +75,11 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
-	orm := pipeline.NewORM(db)
+	lggr := logger.TestLogger(t)
+	orm := pipeline.NewORM(db, lggr)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(postgres.UnwrapGormDB(gdb), cc, orm, keyStore, logger.TestLogger(t))
-
-	lggr := logger.TestLogger(t)
+	jobORM := job.NewORM(postgres.UnwrapGormDB(gdb), cc, orm, keyStore, lggr)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, gdb, cc)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)

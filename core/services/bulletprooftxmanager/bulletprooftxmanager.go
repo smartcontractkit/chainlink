@@ -104,6 +104,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 }
 
 func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
@@ -141,9 +142,9 @@ func (b *BulletproofTxManager) Start() (merr error) {
 		}
 
 		if len(keyStates) > 0 {
-			b.logger.Debugw(fmt.Sprintf("BulletproofTxManager: booting with %d keys", len(keyStates)), "keys", keyStates)
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(keyStates)), "keys", keyStates)
 		} else {
-			b.logger.Warnf("BulletproofTxManager: chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
+			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
@@ -208,25 +209,29 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case <-b.chStop:
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
+			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 			return
 		case <-keysChanged:
 			keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
-				b.logger.Errorf("BulletproofTxManager: failed to reload key states after key change")
+				b.logger.Errorf("Failed to reload key states after key change")
 				continue
 			}
-			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keyStates", keyStates)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
 
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
+			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 
 			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
-			b.logger.ErrorIfCalling(eb.Start)
-			b.logger.ErrorIfCalling(ec.Start)
+			if err := eb.Start(); err != nil {
+				b.logger.Errorw("Failed to start EthBroadcaster", "error", err)
+			}
+			if err := ec.Start(); err != nil {
+				b.logger.Errorw("Failed to start EthConfirmer", "error", err)
+			}
 		}
 	}
 }
@@ -241,11 +246,11 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.H
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			b.logger.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.logger.Errorw("Timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
-		b.logger.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
+		b.logger.Debugw("Not started; ignoring head", "head", head, "state", b.State())
 	}
 }
 
@@ -280,7 +285,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.
 	}
 
 	value := 0
-	err = q.Transaction(func(tx postgres.Queryer) error {
+	err = q.Transaction(b.logger, func(tx postgres.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
 			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
 			// If no eth_tx matches (the common case) then continue
@@ -311,7 +316,7 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
-			b.logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
+			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
 		}
 		return nil
 	})
@@ -409,10 +414,10 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 	err = errors.WithStack(err)
 
 	a.EthTx = e // for logging
-	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
+	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugw("transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
+		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
 	}
 	return eth.NewSendError(err)

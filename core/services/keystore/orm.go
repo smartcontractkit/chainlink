@@ -3,6 +3,7 @@ package keystore
 import (
 	"database/sql"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -14,18 +15,20 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func NewORM(db *sqlx.DB) ksORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger) ksORM {
 	return ksORM{
-		db: db,
+		db:   db,
+		lggr: lggr.Named("KeystoreORM"),
 	}
 }
 
 type ksORM struct {
-	db *sqlx.DB
+	db   *sqlx.DB
+	lggr logger.Logger
 }
 
 func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(postgres.Queryer) error) error {
-	return postgres.NewQ(orm.db).Transaction(func(tx postgres.Queryer) error {
+	return postgres.NewQ(orm.db).Transaction(orm.lggr, func(tx postgres.Queryer) error {
 		_, err := tx.Exec(`
 		UPDATE encrypted_key_rings
 		SET encrypted_keys = $1

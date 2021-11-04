@@ -8,6 +8,8 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -77,6 +79,7 @@ var _ Queryer = Q{}
 // can do.
 type Q struct {
 	Queryer
+	lggr      logger.Logger
 	ParentCtx context.Context
 }
 
@@ -112,10 +115,10 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return DefaultQueryCtxWithParent(q.ParentCtx)
 }
 
-func (q Q) Transaction(fc func(q Queryer) error) error {
+func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, fc)
+	return SqlxTransaction(ctx, q.Queryer, lggr, fc)
 }
 func (q Q) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	ctx, cancel := q.Context()

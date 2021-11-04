@@ -212,7 +212,7 @@ func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		fluxmonitorv2.NewPaymentChecker(assets.NewLinkFromJuels(1), nil),
 		contractAddress,
 		tm.contractSubmitter,
-		fluxmonitorv2.NewDeviationChecker(threshold, absoluteThreshold),
+		fluxmonitorv2.NewDeviationChecker(threshold, absoluteThreshold, lggr),
 		fluxmonitorv2.NewSubmissionChecker(big.NewInt(0), big.NewInt(100000000000)),
 		options.flags,
 		tm.fluxAggregator,

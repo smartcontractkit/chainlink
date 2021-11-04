@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 )
 
 type outsideDeviationRow struct {
@@ -52,7 +54,7 @@ func TestDeviationChecker_OutsideDeviation(t *testing.T) {
 	}
 
 	c := func(tc outsideDeviationRow) {
-		checker := fluxmonitorv2.NewDeviationChecker(tc.threshold, tc.absoluteThreshold)
+		checker := fluxmonitorv2.NewDeviationChecker(tc.threshold, tc.absoluteThreshold, logger.TestLogger(t))
 
 		assert.Equal(t, tc.expectation,
 			checker.OutsideDeviation(tc.curPrice, tc.nextPrice),

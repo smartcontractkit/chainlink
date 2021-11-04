@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -67,7 +67,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/import"
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import ")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -88,7 +88,7 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/export"
 func (p2pkc *P2PKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
 	keyID, err := p2pkey.MakePeerID(c.Param("ID"))
 	if err != nil {
