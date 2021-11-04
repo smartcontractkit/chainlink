@@ -269,6 +269,7 @@ declare module 'core/store/models' {
       initiator: 'runlog'
       contractAddress: common.Address
       minIncomingConfirmations: number | null
+      minIncomingConfirmationsEnv?: boolean
       createdAt: time.Time
       requesters: common.Address[]
     }
@@ -316,10 +317,15 @@ declare module 'core/store/models' {
       monitoringEndpoint: string
       transmitterAddress: common.Address
       observationTimeout: string
+      observationTimeoutEnv?: boolean
       blockchainTimeout: string
+      blockchainTimeoutEnv?: boolean
       contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerSubscribeIntervalEnv?: boolean
       contractConfigTrackerPollInterval: string
+      contractConfigTrackerPollIntervalEnv?: boolean
       contractConfigConfirmations: number
+      contractConfigConfirmationsEnv?: boolean
       createdAt: time.Time
       updatedAt: time.Time
     }
@@ -506,14 +512,12 @@ declare module 'core/store/models' {
   /**
    * Request to begin the process of registering a new MFA token
    */
-   export interface BeginWebAuthnRegistrationV2Request {
-  }
+  export interface BeginWebAuthnRegistrationV2Request {}
 
   /**
    * Request to begin the process of registering a new MFA token
    */
-  export interface BeginWebAuthnRegistrationV2 {
-  }
+  export interface BeginWebAuthnRegistrationV2 {}
 
   /**
    * Request to begin the process of registering a new MFA token
