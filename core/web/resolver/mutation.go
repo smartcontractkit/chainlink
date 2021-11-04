@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"net/url"
 	"strconv"
 
