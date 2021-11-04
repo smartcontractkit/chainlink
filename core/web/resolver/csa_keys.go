@@ -1,10 +1,10 @@
 package resolver
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
-
-	"github.com/pkg/errors"
 )
 
 // CSAKeyResolver resolves the single CSA Key object
