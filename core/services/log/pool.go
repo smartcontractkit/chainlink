@@ -29,14 +29,18 @@ func newLogPool() *logPool {
 	}
 }
 
-func (pool *logPool) addLog(log types.Log) {
+// addLog adds log to the pool and returns true if its block number is a new minimum.
+func (pool *logPool) addLog(log types.Log) bool {
 	_, exists := pool.hashesByBlockNumbers[log.BlockNumber]
 	if !exists {
 		pool.hashesByBlockNumbers[log.BlockNumber] = make(map[common.Hash]struct{})
 	}
 	pool.hashesByBlockNumbers[log.BlockNumber][log.BlockHash] = struct{}{}
 	pool.logsByBlockHash[log.BlockHash] = append(pool.logsByBlockHash[log.BlockHash], log)
+	min := pool.heap.FindMin()
 	pool.heap.Insert(Uint64(log.BlockNumber))
+	// first or new min
+	return min == nil || log.BlockNumber < uint64(min.(Uint64))
 }
 
 func (pool *logPool) getAndDeleteAll() ([]logsOnBlock, int64, int64) {
@@ -90,16 +94,12 @@ func (pool *logPool) getLogsToSend(latestBlockNum int64) ([]logsOnBlock, int64) 
 }
 
 // deleteOlderLogs - deleting all logs for block numbers under 'keptDepth'
-func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
-	for {
-		item := pool.heap.FindMin()
-		if item == nil {
-			break
-		}
-
+func (pool *logPool) deleteOlderLogs(keptDepth int64) *int64 {
+	min := pool.heap.FindMin
+	for item := min(); item != nil; item = min() {
 		blockNum := uint64(item.(Uint64))
-		if blockNum >= keptDepth {
-			break
+		if i := int64(blockNum); i >= keptDepth {
+			return &i
 		}
 		pool.heap.DeleteMin()
 
@@ -108,6 +108,7 @@ func (pool *logPool) deleteOlderLogs(keptDepth uint64) {
 		}
 		delete(pool.hashesByBlockNumbers, blockNum)
 	}
+	return nil
 }
 
 func (pool *logPool) removeLog(log types.Log) {
@@ -119,7 +120,7 @@ func (pool *logPool) removeLog(log types.Log) {
 	}
 }
 
-type Uint64 int
+type Uint64 uint64
 
 func (a Uint64) Compare(b heaps.Item) int {
 	a1 := a
