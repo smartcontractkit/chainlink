@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
-	"sync"
 	"testing"
 	"time"
 
@@ -1369,69 +1368,54 @@ func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
-	BackfillDepth        int64
-	Interval             time.Duration
-	Timeout              time.Duration
 	HeadTrackables       []httypes.HeadTrackable
 	Blocks               *Blocks
 }
 
-func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
+// SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
+func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done chan struct{}) {
 	t.Helper()
-	lggr := logger.TestLogger(t)
+	lggr := logger.TestLogger(t).Named("SimulateIncomingHeads")
 	lggr.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
 
-	if args.BackfillDepth == 0 {
-		t.Fatal("BackfillDepth must be > 0")
+	if args.EndBlock > args.StartBlock {
+		if l := 1 + args.EndBlock - args.StartBlock; l > int64(len(args.Blocks.Heads)) {
+			t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(args.Blocks.Heads), l)
+		}
 	}
 
 	// Build the full chain of heads
 	heads := args.Blocks.Heads
-	if args.Timeout == 0 {
-		args.Timeout = 60 * time.Second
-	}
-	if args.Interval == 0 {
-		args.Interval = 250 * time.Millisecond
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), args.Timeout)
-	defer cancel()
-	chTimeout := time.After(args.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	t.Cleanup(cancel)
+	done = make(chan struct{})
+	go func(t *testing.T) {
+		defer close(done)
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
 
-	chDone := make(chan struct{})
-	go func() {
-		current := args.StartBlock
-		for {
+		for current := args.StartBlock; ; current++ {
 			select {
-			case <-chDone:
+			case <-ctx.Done():
 				return
-			case <-chTimeout:
-				return
-			default:
+			case <-ticker.C:
 				_, exists := heads[current]
 				if !exists {
-					lggr.Fatalf("Head %v does not exist", current)
+					lggr.Infof("Out of heads: %d does not exist", current)
+					return
 				}
 
+				lggr.Infof("Sending head: %d", current)
 				for _, ht := range args.HeadTrackables {
 					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
-					chDone <- struct{}{}
 					return
 				}
-				current++
-				time.Sleep(args.Interval)
 			}
 		}
-	}()
-	var once sync.Once
-	cleanup := func() {
-		once.Do(func() {
-			close(chDone)
-			cancel()
-		})
-	}
-	return cleanup, chDone
+	}(t)
+	return done
 }
 
 // Blocks - a helper logic to construct a range of linked heads
