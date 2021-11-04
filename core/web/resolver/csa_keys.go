@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 )
 
@@ -45,4 +47,61 @@ func NewCSAKeys(keys []csakey.KeyV2) []*CSAKeyResolver {
 	}
 
 	return resolvers
+}
+
+// -- CreateCSAKey Mutation --
+
+type CreateCSAKeyPayloadResolver struct {
+	key *csakey.KeyV2
+	err error
+}
+
+func NewCreateCSAKeyPayload(key *csakey.KeyV2, err error) *CreateCSAKeyPayloadResolver {
+	return &CreateCSAKeyPayloadResolver{key, err}
+}
+
+func (r *CreateCSAKeyPayloadResolver) ToCreateCSAKeySuccess() (*CreateCSAKeySuccessResolver, bool) {
+	if r.key != nil {
+		return NewCreateCSAKeySuccessResolver(r.key), true
+	}
+
+	return nil, false
+}
+
+func (r *CreateCSAKeyPayloadResolver) ToCSAKeyExistsError() (*CSAKeyExistsErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, keystore.ErrCSAKeyExists) {
+		return NewCSAKeyExistsError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
+type CreateCSAKeySuccessResolver struct {
+	key *csakey.KeyV2
+}
+
+func NewCreateCSAKeySuccessResolver(key *csakey.KeyV2) *CreateCSAKeySuccessResolver {
+	return &CreateCSAKeySuccessResolver{key}
+}
+
+func (r *CreateCSAKeySuccessResolver) CSAKey() *CSAKeyResolver {
+	return NewCSAKey(*r.key)
+}
+
+type CSAKeyExistsErrorResolver struct {
+	message string
+}
+
+func NewCSAKeyExistsError(message string) *CSAKeyExistsErrorResolver {
+	return &CSAKeyExistsErrorResolver{
+		message: message,
+	}
+}
+
+func (r *CSAKeyExistsErrorResolver) Message() string {
+	return r.message
+}
+
+func (r *CSAKeyExistsErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
 }

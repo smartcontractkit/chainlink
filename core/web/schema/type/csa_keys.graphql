@@ -6,3 +6,14 @@ type CSAKey {
 type CSAKeysPayload {
     results: [CSAKey!]!
 }
+
+type CreateCSAKeySuccess {
+    csaKey: CSAKey!
+}
+
+type CSAKeyExistsError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+union CreateCSAKeyPayload = CreateCSAKeySuccess | CSAKeyExistsError

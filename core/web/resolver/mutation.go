@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"net/url"
 	"strconv"
 
@@ -83,6 +84,23 @@ type createFeedsManagerInput struct {
 	JobTypes               []JobType
 	IsBootstrapPeer        bool
 	BootstrapPeerMultiaddr *string
+}
+
+func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().CSA().Create()
+	if err != nil {
+		if errors.Is(err, keystore.ErrCSAKeyExists) {
+			return NewCreateCSAKeyPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateCSAKeyPayload(&key, nil), nil
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {

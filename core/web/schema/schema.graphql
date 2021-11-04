@@ -19,6 +19,8 @@ type Query {
 
 type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
+    # Creating a CSA Key requires no input, see csa_keys_controller.go:36
+    createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     deleteOCRKeyBundle(id: String!): DeleteOCRKeyBundlePayload!
