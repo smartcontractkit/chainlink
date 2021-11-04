@@ -54,7 +54,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	config.SetDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
