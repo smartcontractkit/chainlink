@@ -80,10 +80,11 @@ func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInter
 func (l *leaseLock) TakeAndHold() error {
 	l.logger.Debug("Taking initial lease...")
 	retryCount := 0
+	isInitial := true
 	for {
 		ctx, cancel := utils.ContextFromChan(l.chStop)
 		ctx, cancel2 := DefaultQueryCtxWithParent(ctx)
-		gotLease, err := l.getLease(ctx)
+		gotLease, err := l.getLease(ctx, isInitial)
 		cancel2()
 		cancel()
 		if err != nil {
@@ -92,6 +93,7 @@ func (l *leaseLock) TakeAndHold() error {
 		if gotLease {
 			break
 		}
+		isInitial = false
 		l.logRetry(retryCount)
 		retryCount++
 		select {
@@ -134,7 +136,7 @@ func (l *leaseLock) loop() {
 		case <-ticker.C:
 			ctx, cancel := utils.ContextFromChan(l.chStop)
 			ctx, cancel2 := context.WithTimeout(ctx, l.refreshInterval)
-			gotLease, err := l.getLease(ctx)
+			gotLease, err := l.getLease(ctx, false)
 			cancel2()
 			cancel()
 			if err != nil {
@@ -146,11 +148,16 @@ func (l *leaseLock) loop() {
 	}
 }
 
+var initialSQL = []string{
+	`CREATE TABLE IF NOT EXISTS lease_lock (client_id uuid NOT NULL, expires_at timestamptz NOT NULL)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS only_one_lease_lock ON lease_lock ((client_id IS NOT NULL))`,
+}
+
 // GetLease tries to get a lease from the DB
 // If successful, returns true
 // If the lease is currently held by someone else, returns false
 // If some other error occurred, returns the error
-func (l *leaseLock) getLease(ctx context.Context) (gotLease bool, err error) {
+func (l *leaseLock) getLease(ctx context.Context, isInitial bool) (gotLease bool, err error) {
 	leaseDuration := fmt.Sprintf("%f seconds", l.leaseDuration.Seconds())
 
 	// Set short timeouts to prevent some kind of pathological situation
@@ -162,6 +169,13 @@ func (l *leaseLock) getLease(ctx context.Context) (gotLease bool, err error) {
 	// NOTE: Uses database time for all calculations since it's conceivable
 	// that node local times might be skewed compared to each other
 	err = SqlxTransaction(ctx, l.db, l.logger, func(tx Queryer) error {
+		if isInitial {
+			for _, query := range initialSQL {
+				if _, err = tx.Exec(query); err != nil {
+					return errors.Wrap(err, "failed to create initial lease_lock table")
+				}
+			}
+		}
 		if _, err = tx.Exec(`LOCK TABLE lease_lock`); err != nil {
 			return errors.Wrap(err, "failed to lock lease_lock table")
 		}

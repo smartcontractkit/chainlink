@@ -177,7 +177,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
 	var advisoryLock postgres.Locker
-	if cfg.DatabaseLockingMode() == "advisoryLock" || cfg.DatabaseLockingMode() == "dual" {
+	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		advisoryLock, err = AdvisoryLock(ctx, appLggr, db.DB, time.Second)
