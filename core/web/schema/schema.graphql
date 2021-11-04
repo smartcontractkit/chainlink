@@ -10,6 +10,7 @@ type Query {
     bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): Chain!
     chains(offset: Int, limit: Int): [Chain!]!
+    features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!

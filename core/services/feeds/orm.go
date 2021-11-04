@@ -6,8 +6,9 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
