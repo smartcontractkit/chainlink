@@ -28,7 +28,6 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewGormDB(t)
-	cfg.SetDB(db)
 	logger := logger.TestLogger(t)
 
 	sub := new(mocks.Subscription)

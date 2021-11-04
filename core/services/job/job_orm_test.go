@@ -32,7 +32,6 @@ func TestORM(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	gdb := pgtest.GormDBFromSql(t, db.DB)
-	config.SetDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 

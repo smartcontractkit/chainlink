@@ -365,7 +365,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if ethClient == nil {
 		ethClient = eth.NewNullClient(nil, lggr)
 	}
-	cfg.SetDB(db)
 	if chainORM == nil {
 		chainORM = evm.NewORM(sqlxDB)
 	}
