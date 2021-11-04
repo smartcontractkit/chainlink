@@ -186,7 +186,8 @@ WHERE (
 		if err != nil {
 			return errors.Wrap(err, "failed to update lease_lock")
 		}
-		rowsAffected, err := res.RowsAffected()
+		var rowsAffected int64
+		rowsAffected, err = res.RowsAffected()
 		if err != nil {
 			return errors.Wrap(err, "failed to update lease_lock (RowsAffected)")
 		}
