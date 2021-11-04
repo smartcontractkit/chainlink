@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - .........
+
 ### New locking mode: 'lease'
 
 Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
