@@ -9,13 +9,12 @@ type OCRKeyBundlesPayload {
     results: [OCRKeyBundle!]!
 }
 
-type OCRKeyBundlePayload {
+type CreateOCRKeyBundlePayload {
     bundle: OCRKeyBundle!
 }
 
-type OCRError implements Error {
-    message: String!
-	code: ErrorCode!
+type DeleteOCRKeyBundleSuccess {
+    bundle: OCRKeyBundle!
 }
 
-union DeleteOCRKeyBundlePayload = OCRKeyBundlePayload | OCRError
+union DeleteOCRKeyBundlePayload = DeleteOCRKeyBundleSuccess | NotFoundError

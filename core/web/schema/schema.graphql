@@ -18,7 +18,7 @@ type Query {
 type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
-    createOCRKeyBundle: OCRKeyBundlePayload!
+    createOCRKeyBundle: CreateOCRKeyBundlePayload!
     deleteOCRKeyBundle(id: String!): DeleteOCRKeyBundlePayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!

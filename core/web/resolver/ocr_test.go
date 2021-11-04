@@ -2,11 +2,11 @@ package resolver
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
@@ -125,7 +125,7 @@ func TestOCRDeleteBundle(t *testing.T) {
 	mutation := `
 		mutation DeleteOCRKeyBundle($id: String!) {
 			deleteOCRKeyBundle(id: $id) {
-				... on OCRKeyBundlePayload {
+				... on DeleteOCRKeyBundleSuccess {
 					bundle {
 						id
 						configPublicKey
@@ -133,7 +133,7 @@ func TestOCRDeleteBundle(t *testing.T) {
 						onChainSigningAddress
 					}
 				}
-				... on OCRError {
+				... on NotFoundError {
 					message
 					code
 				}
@@ -172,10 +172,10 @@ func TestOCRDeleteBundle(t *testing.T) {
 			result:    expected,
 		},
 		{
-			name:          "error",
+			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.ocr.On("Delete", fakeKey.ID()).Return(ocrkey.KeyV2{}, errors.New("some error"))
+				f.Mocks.ocr.On("Delete", fakeKey.ID()).Return(ocrkey.KeyV2{}, keystore.KeyNotFoundError{ID: "helloWorld"})
 				f.Mocks.keystore.On("OCR").Return(f.Mocks.ocr)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 			},
@@ -183,8 +183,8 @@ func TestOCRDeleteBundle(t *testing.T) {
 			variables: variables,
 			result: `{
 				"deleteOCRKeyBundle": {
-					"code":"UNPROCESSABLE",
-					"message":"some error"
+					"code":"NOT_FOUND",
+					"message":"unable to find OCR key with id helloWorld"
 				}
 			}`,
 		},

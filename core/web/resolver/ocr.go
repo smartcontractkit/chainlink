@@ -48,15 +48,15 @@ func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundle {
 	return bundles
 }
 
-type OCRKeyBundlePayloadResolver struct {
+type CreateOCRKeyBundlePayloadResolver struct {
 	key ocrkey.KeyV2
 }
 
-func NewOCRKeyBundleResolver(key ocrkey.KeyV2) *OCRKeyBundlePayloadResolver {
-	return &OCRKeyBundlePayloadResolver{key}
+func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundlePayloadResolver {
+	return &CreateOCRKeyBundlePayloadResolver{key}
 }
 
-func (r *OCRKeyBundlePayloadResolver) Bundle() OCRKeyBundle {
+func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundle {
 	return OCRKeyBundle{
 		id:                    r.key.ID(),
 		configPublicKey:       r.key.PublicKeyConfig(),
@@ -65,20 +65,22 @@ func (r *OCRKeyBundlePayloadResolver) Bundle() OCRKeyBundle {
 	}
 }
 
-// OCRErrorResolver resolves errors that could arise from interacting with the OCR
-// resource. Possible errors may include key not found errors or unprocessable errors
-// (i.e, the keystore is locked), but there could be many more failure modes.
-type OCRErrorResolver struct {
-	message string
-	code    ErrorCode
+type DeleteOCRKeyBundleSuccessResolver struct {
+	key ocrkey.KeyV2
 }
 
-func NewOCRErrorResolver(message string, code ErrorCode) *OCRErrorResolver {
-	return &OCRErrorResolver{message, code}
+func NewDeleteOCRKeyBundleSuccessResolver(key ocrkey.KeyV2) *DeleteOCRKeyBundleSuccessResolver {
+	return &DeleteOCRKeyBundleSuccessResolver{key}
 }
 
-func (r *OCRErrorResolver) Message() string { return r.message }
-func (r *OCRErrorResolver) Code() ErrorCode { return r.code }
+func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundle {
+	return OCRKeyBundle{
+		id:                    r.key.ID(),
+		configPublicKey:       r.key.PublicKeyConfig(),
+		offChainPublicKey:     r.key.OffChainSigning.PublicKey(),
+		onChainSigningAddress: r.key.OnChainSigning.Address(),
+	}
+}
 
 type DeleteOCRKeyBundlePayloadResolver struct {
 	key ocrkey.KeyV2
@@ -89,16 +91,16 @@ func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOC
 	return &DeleteOCRKeyBundlePayloadResolver{key, err}
 }
 
-func (r *DeleteOCRKeyBundlePayloadResolver) ToOCRKeyBundlePayload() (*OCRKeyBundlePayloadResolver, bool) {
+func (r *DeleteOCRKeyBundlePayloadResolver) ToDeleteOCRKeyBundleSuccess() (*DeleteOCRKeyBundleSuccessResolver, bool) {
 	if r.err == nil {
-		return &OCRKeyBundlePayloadResolver{r.key}, true
+		return &DeleteOCRKeyBundleSuccessResolver{r.key}, true
 	}
 	return nil, false
 }
 
-func (r *DeleteOCRKeyBundlePayloadResolver) ToOCRError() (*OCRErrorResolver, bool) {
+func (r *DeleteOCRKeyBundlePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
 	if r.err != nil {
-		return NewOCRErrorResolver(r.err.Error(), ErrorCodeUnprocessable), true
+		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }
