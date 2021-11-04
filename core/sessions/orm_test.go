@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -17,7 +18,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	return db, orm
 }
@@ -59,7 +60,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, test.sessionDuration)
+			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t))
 
 			user := cltest.MustNewUser(t, "have@email", "password")
 			require.NoError(t, orm.CreateUser(&user))

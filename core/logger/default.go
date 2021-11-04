@@ -2,6 +2,7 @@ package logger
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -84,24 +85,14 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	helper.Errorw(msg, keysAndValues...)
 }
 
-// Infof formats and then logs the message.
-func Infof(format string, values ...interface{}) {
-	helper.Infof(format, values...)
-}
-
-// Debugf formats and then logs the message.
-func Debugf(format string, values ...interface{}) {
-	helper.Debugf(format, values...)
+// Debugf formats and then logs the message as Debug.
+func Debugf(msg string, keysAndValues ...interface{}) {
+	helper.Debugf(msg, keysAndValues...)
 }
 
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
 	helper.Warnf(format, values...)
-}
-
-// Debug logs a debug message.
-func Debug(args ...interface{}) {
-	helper.Debug(args...)
 }
 
 // Warn logs a message at the warn level.
@@ -114,8 +105,8 @@ func Error(args ...interface{}) {
 	helper.Error(args...)
 }
 
-func ErrorIfCalling(f func() error) {
-	helper.ErrorIfCalling(f)
+func ErrorIfClosing(c io.Closer, name string) {
+	helper.ErrorIfClosing(c, name)
 }
 
 // Errorf logs a message at the error level using Sprintf.

@@ -541,10 +541,11 @@ func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
+	lggr := logger.TestLogger(t)
 
-	pipelineORM := pipeline.NewORM(db)
+	pipelineORM := pipeline.NewORM(db, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
+	orm := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
 	defer orm.Close()
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})

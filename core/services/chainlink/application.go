@@ -188,13 +188,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(postgres.MustSQLDB(db))
+	promReporter := services.NewPromReporter(postgres.MustSQLDB(db), globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB)
+		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger)
 		bridgeORM      = bridges.NewORM(sqlxDB)
-		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration())
+		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
 		jobORM         = job.NewORM(sqlxDB, chainSet, pipelineORM, keyStore, globalLogger)
 		bptxmORM       = bulletprooftxmanager.NewORM(sqlxDB)
@@ -273,7 +273,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chainSet.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)
