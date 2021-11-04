@@ -53,7 +53,6 @@ func setup(t *testing.T) (
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	cfg.SetDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
