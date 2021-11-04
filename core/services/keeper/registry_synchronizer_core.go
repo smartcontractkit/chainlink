@@ -34,7 +34,7 @@ type RegistrySynchronizerOptions struct {
 	JRM                 job.ORM
 	LogBroadcaster      log.Broadcaster
 	SyncInterval        time.Duration
-	MinConfirmations    uint64
+	MinConfirmations    uint32
 	Logger              logger.Logger
 	SyncUpkeepQueueSize uint32
 }
@@ -47,7 +47,7 @@ type RegistrySynchronizer struct {
 	jrm                 job.ORM
 	logBroadcaster      log.Broadcaster
 	mailRoom            MailRoom
-	minConfirmations    uint64
+	minConfirmations    uint32
 	orm                 ORM
 	logger              logger.Logger
 	wgDone              sync.WaitGroup

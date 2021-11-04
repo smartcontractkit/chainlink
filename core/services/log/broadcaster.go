@@ -118,7 +118,7 @@ type (
 		ParseLog ParseLogFunc
 
 		// Minimum number of block confirmations before the log is received
-		NumConfirmations uint64
+		NumConfirmations uint32
 	}
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
@@ -446,7 +446,7 @@ func (b *broadcaster) onNewHeads() {
 
 		b.lastSeenHeadNumber.Store(latestHead.Number)
 
-		keptLogsDepth := uint64(b.config.EvmFinalityDepth())
+		keptLogsDepth := uint32(b.config.EvmFinalityDepth())
 		if b.registrations.highestNumConfirmations > keptLogsDepth {
 			keptLogsDepth = b.registrations.highestNumConfirmations
 		}

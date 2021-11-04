@@ -101,7 +101,6 @@ type GeneralOnlyConfig interface {
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
-	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
@@ -680,12 +679,6 @@ func (c *generalConfig) KeeperGasTipCapBufferPercent() uint32 {
 // sync of the keeper registry contract it is tracking
 func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", ParseDuration).(time.Duration)
-}
-
-// KeeperMinimumRequiredConfirmations is the minimum number of confirmations that a keeper registry log
-// needs before it is handled by the RegistrySynchronizer
-func (c *generalConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
 }
 
 // KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
