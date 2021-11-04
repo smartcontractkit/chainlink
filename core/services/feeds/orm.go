@@ -8,7 +8,6 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
@@ -36,14 +35,12 @@ type ORM interface {
 }
 
 type orm struct {
-	db   *gorm.DB
-	lggr logger.Logger
+	db *gorm.DB
 }
 
-func NewORM(db *gorm.DB, lggr logger.Logger) *orm {
+func NewORM(db *gorm.DB) *orm {
 	return &orm{
-		db:   db,
-		lggr: lggr.Named("FeedsORM"),
+		db: db,
 	}
 }
 

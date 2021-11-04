@@ -42,7 +42,7 @@ func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	db := pgtest.NewGormDB(t)
-	orm := feeds.NewORM(db, logger.TestLogger(t))
+	orm := feeds.NewORM(db)
 
 	return &TestORM{ORM: orm, db: db}
 }

@@ -276,7 +276,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db, globalLogger)
+	feedsORM := feeds.NewORM(db)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
