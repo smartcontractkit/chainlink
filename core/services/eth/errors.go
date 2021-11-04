@@ -84,6 +84,7 @@ var geth = ClientErrors{
 var arbitrumFatal = regexp.MustCompile(`(: |^)(invalid message format|forbidden sender address|execution reverted: error code)$`)
 var arbitrum = ClientErrors{
 	// TODO: Arbitrum returns this in case of low or high nonce. Update this when Arbitrum fix it
+	// https://app.shortcut.com/chainlinklabs/story/16801/add-full-support-for-incorrect-nonce-on-arbitrum
 	NonceTooLow: regexp.MustCompile(`(: |^)invalid transaction nonce$`),
 	// TODO: Is it terminally or replacement?
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gas price too low$`),
@@ -96,7 +97,13 @@ var optimism = ClientErrors{
 	FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism}
+// Substrate (Moonriver)
+var substrate = ClientErrors{
+	NonceTooLow:                 regexp.MustCompile(`(: |^)Pool\(Stale\)$`),
+	TransactionAlreadyInMempool: regexp.MustCompile(`(: |^)Pool\(AlreadyImported\)$`),
+}
+
+var clients = []ClientErrors{parity, geth, arbitrum, optimism, substrate}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {
