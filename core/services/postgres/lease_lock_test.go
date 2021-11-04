@@ -15,7 +15,7 @@ import (
 )
 
 func newLeaseLock(t *testing.T, db *sqlx.DB) postgres.LeaseLock {
-	return postgres.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), 10*time.Millisecond, 1*time.Second)
+	return postgres.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), 1*time.Second, 5*time.Second)
 }
 
 func Test_LeaseLock(t *testing.T) {
