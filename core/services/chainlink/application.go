@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"os/signal"
 	"reflect"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -48,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -93,6 +91,9 @@ type Application interface {
 
 	// ReplayFromBlock of blocks
 	ReplayFromBlock(chainID *big.Int, number uint64) error
+
+	// ID is unique to this particular application instance
+	ID() uuid.UUID
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -116,7 +117,7 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	shutdownSignal           gracefulpanic.Signal
+	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
@@ -124,6 +125,8 @@ type ChainlinkApplication struct {
 	sqlxDB                   *sqlx.DB
 	gormDB                   *gorm.DB
 	advisoryLock             postgres.Locker
+	leaseLock                postgres.LeaseLock
+	id                       uuid.UUID
 
 	started     bool
 	startStopMu sync.Mutex
@@ -132,7 +135,7 @@ type ChainlinkApplication struct {
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         postgres.EventBroadcaster
-	ShutdownSignal           gracefulpanic.Signal
+	ShutdownSignal           shutdown.Signal
 	GormDB                   *gorm.DB
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
@@ -141,6 +144,8 @@ type ApplicationOpts struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
 	AdvisoryLock             postgres.Locker
+	LeaseLock                postgres.LeaseLock
+	ID                       uuid.UUID
 }
 
 // NewApplication initializes a new store if one is not already
@@ -309,11 +314,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		logger:                   globalLogger,
+		id:                       opts.ID,
 
 		sqlxDB: sqlxDB,
 		gormDB: opts.GormDB,
 
 		advisoryLock: opts.AdvisoryLock,
+		leaseLock:    opts.LeaseLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -365,13 +372,8 @@ func (app *ChainlinkApplication) Start() error {
 		panic("application is already started")
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		select {
-		case <-sigs:
-		case <-app.shutdownSignal.Wait():
-		}
+		<-app.shutdownSignal.Wait()
 		app.logger.ErrorIf(app.Stop(), "Error stopping application")
 		app.Exiter(0)
 	}()
@@ -453,6 +455,11 @@ func (app *ChainlinkApplication) stop() (err error) {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
 				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
+			}
+
+			// Let go of the lease
+			if app.leaseLock != nil {
+				app.leaseLock.Release()
 			}
 
 			// DB should pretty much always be closed last
@@ -673,4 +680,8 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 		RPID:     rpid,
 		RPOrigin: rporigin,
 	}
+}
+
+func (app *ChainlinkApplication) ID() uuid.UUID {
+	return app.id
 }
