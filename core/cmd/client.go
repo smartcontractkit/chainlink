@@ -187,7 +187,6 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
-	cfg.SetDB(gormDB)
 
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)

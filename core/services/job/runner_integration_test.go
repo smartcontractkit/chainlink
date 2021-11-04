@@ -46,7 +46,6 @@ func TestRunner(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	config.SetDB(gdb)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
 	keyStore := cltest.NewKeyStore(t, db)
