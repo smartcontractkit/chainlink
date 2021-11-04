@@ -22,6 +22,7 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 - CLI command `keys eth list` is updated to display key specific max gas prices.
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
+- Add partial support for Moonriver chain
 
 #### `merge` task type
 
