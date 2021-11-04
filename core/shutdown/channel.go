@@ -32,7 +32,7 @@ func NewSignal() Signal {
 
 func (p *signal) Stop() {
 	p.stopOnce.Do(func() {
-		go close(p.ch)
+		close(p.ch)
 	})
 }
 

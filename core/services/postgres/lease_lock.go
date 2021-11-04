@@ -57,6 +57,7 @@ var _ LeaseLock = &leaseLock{}
 
 type leaseLock struct {
 	// TODO: Use a "master" application parent ctx that is cancelled on stop?
+	// https://app.shortcut.com/chainlinklabs/story/20770/application-should-have-base-context-that-cancels-on-stop
 	id              uuid.UUID
 	db              *sqlx.DB
 	refreshInterval time.Duration
