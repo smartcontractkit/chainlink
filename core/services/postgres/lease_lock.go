@@ -69,8 +69,8 @@ type leaseLock struct {
 
 // NewLeaseLock creates a "leaseLock" - an entity that tries to take an exclusive lease on the database
 func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, refreshInterval, leaseDuration time.Duration) LeaseLock {
-	if refreshInterval > leaseDuration {
-		panic("refresh interval must be <= lease duration")
+	if refreshInterval > leaseDuration/2 {
+		panic("refresh interval must be <= half the lease duration")
 	}
 	return &leaseLock{appID, db, refreshInterval, leaseDuration, lggr.Named("LeaseLock").With("appID", appID), make(chan struct{}), sync.WaitGroup{}}
 }
