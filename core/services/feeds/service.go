@@ -362,7 +362,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, postgres.WithQueryer(tx)); err != nil {
 			return err
@@ -404,7 +404,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
@@ -445,7 +445,7 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		if err = s.orm.CancelJobProposal(id, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}

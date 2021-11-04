@@ -125,7 +125,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
-	defer p.lggr.ErrorIfCalling(rows.Close)
+	defer p.lggr.ErrorIfClosing(rows, "p2p_peers rows")
 
 	peers = make([]P2PPeer, 0)
 

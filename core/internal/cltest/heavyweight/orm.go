@@ -40,8 +40,9 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
+	lggr := logger.TestLogger(t)
 	db, gormDB, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), postgres.Config{
-		Logger:           logger.TestLogger(t),
+		Logger:           lggr,
 		LogSQLStatements: gcfg.LogSQLStatements(),
 		MaxOpenConns:     gcfg.ORMMaxOpenConns(),
 		MaxIdleConns:     gcfg.ORMMaxIdleConns(),
@@ -54,7 +55,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	postgres.SetLogAllQueries(gormDB, gcfg.LogSQLMigrations())
 	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
-		require.NoError(t, migrations.Migrate(db.DB))
+		require.NoError(t, migrations.Migrate(db.DB, lggr))
 	}
 	if loadFixtures {
 		_, filename, _, ok := runtime.Caller(0)

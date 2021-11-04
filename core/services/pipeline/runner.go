@@ -457,7 +457,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = postgres.NewQ(r.orm.DB(), postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(r.orm.DB(), postgres.WithParentCtx(ctx)).Transaction(r.lggr, func(tx postgres.Queryer) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()

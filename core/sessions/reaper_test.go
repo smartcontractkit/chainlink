@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -29,7 +30,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
-	orm := sessions.NewORM(db, config.SessionTimeout().Duration())
+	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), logger.TestLogger(t))
 
 	r := sessions.NewSessionReaper(db.DB, config)
 	defer r.Stop()

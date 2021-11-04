@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -77,7 +76,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 func (ekc *ETHKeysController) Create(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
 
-	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	chain, err := getChain(ekc.App.GetChainSet(), c.Query("evmChainID"))
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -234,7 +233,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 // Import imports a key
 func (ekc *ETHKeysController) Import(c *gin.Context) {
 	ethKeyStore := ekc.App.GetKeyStore().Eth()
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -242,7 +241,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 	oldPassword := c.Query("oldpassword")
-	chain, err := getChain(c, ekc.App.GetChainSet(), c.Query("evmChainID"))
+	chain, err := getChain(ekc.App.GetChainSet(), c.Query("evmChainID"))
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -279,7 +278,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 }
 
 func (ekc *ETHKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer ekc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
 	address := c.Param("address")
 	newPassword := c.Query("newpassword")
