@@ -57,7 +57,7 @@ type scheduler struct {
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *scheduler {
+func newScheduler(p *Pipeline, run *Run, vars Vars) *scheduler {
 	dependencies := make(map[int]uint, len(p.Tasks))
 
 	for id, task := range p.Tasks {
@@ -65,7 +65,7 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		dependencies[id] = uint(len)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &scheduler{
 		ctx:          ctx,
@@ -158,11 +158,8 @@ func (s *scheduler) Run() {
 		// pipeline is completely empty
 
 		result := <-s.resultCh
-		// var result TaskRunResult
-		// select {
-		// case result = <-s.resultCh:
-		// case <-s.ctx.Done():
-		// }
+		// TODO: if for some reason the cleanup didn't succeed and we're stuck waiting for reports forever
+		// we should be able to timeout and finish shutting down
 
 		s.waiting--
 
