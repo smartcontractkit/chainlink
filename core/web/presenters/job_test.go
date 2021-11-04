@@ -179,7 +179,7 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PPeerID:                              &peerID,
+					P2PPeerID:                              peerID,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -212,7 +212,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "offchainreporting",
 						"maxTaskDuration": "1m0s",
-					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+					  "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",

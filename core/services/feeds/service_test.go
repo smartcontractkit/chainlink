@@ -88,6 +88,7 @@ func setupTestService(t *testing.T) *TestService {
 		fmsClient   = &mocks.FeedsManagerClient{}
 		csaKeystore = &ksmocks.CSA{}
 		ethKeystore = &ksmocks.Eth{}
+		p2pKeystore = &ksmocks.P2P{}
 		cfg         = &mocks.Config{}
 	)
 
@@ -108,7 +109,11 @@ func setupTestService(t *testing.T) *TestService {
 	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
-	svc := feeds.NewService(orm, jobORM, queryer, spawner, csaKeystore, ethKeystore, cfg, cc, logger.TestLogger(t), "1.0.0")
+	keyStore := new(ksmocks.Master)
+	keyStore.On("CSA").Return(csaKeystore)
+	keyStore.On("Eth").Return(ethKeystore)
+	keyStore.On("P2P").Return(p2pKeystore)
+	svc := feeds.NewService(orm, jobORM, queryer, spawner, keyStore, cfg, cc, logger.TestLogger(t), "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
