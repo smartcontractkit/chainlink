@@ -13,10 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+//go:generate mockery --name SendOnlyNode --output ./mocks/ --case=underscore
+
 // SendOnlyNode represents one ethereum node used as a sendonly
 type SendOnlyNode interface {
 	Dial(context.Context) error
 	Verify(ctx context.Context, expectedChainID *big.Int) (err error)
+	ChainID(ctx context.Context) (chainID *big.Int, err error)
 
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -38,8 +41,7 @@ type sendOnlyNode struct {
 func NewSendOnlyNode(lggr logger.Logger, httpuri url.URL, name string) SendOnlyNode {
 	s := new(sendOnlyNode)
 	s.name = name
-	s.log = lggr.With(
-		"nodeName", name,
+	s.log = lggr.Named("SendOnlyNode").Named(name).With(
 		"nodeTier", "sendonly",
 	)
 	s.uri = httpuri
