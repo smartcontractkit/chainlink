@@ -55,7 +55,6 @@ func setupRegistrySync(t *testing.T) (
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
-	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
