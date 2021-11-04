@@ -16,19 +16,3 @@ func NewTestBroadcaster(orm ORM, ethClient eth.Client, config Config, lggr logge
 func (b *broadcaster) ExportedAppendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
 	return b.appendLogChannel(ch1, ch2)
 }
-
-// Pause pauses the eventLoop until Resume is called.
-func (b *broadcaster) Pause() {
-	select {
-	case b.testPause <- struct{}{}:
-	case <-b.chStop:
-	}
-}
-
-// Resume resumes the eventLoop after calling Pause.
-func (b *broadcaster) Resume() {
-	select {
-	case b.testResume <- struct{}{}:
-	case <-b.chStop:
-	}
-}
