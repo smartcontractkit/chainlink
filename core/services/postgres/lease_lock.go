@@ -138,7 +138,7 @@ func (l *leaseLock) loop() {
 			cancel2()
 			cancel()
 			if err != nil {
-				l.logger.Error("Error trying to refresh database lease", "err", err)
+				l.logger.Errorw("Error trying to refresh database lease", "err", err)
 			} else if !gotLease {
 				panic("another node has taken the lease")
 			}
