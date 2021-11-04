@@ -125,6 +125,7 @@ type GeneralOnlyConfig interface {
 	LogLevel() zapcore.Level
 	LogSQL() bool
 	LogToDisk() bool
+	LogToSplunk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
 	ORMMaxIdleConns() int
@@ -820,6 +821,12 @@ func (c *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 // LogToDisk configures disk preservation of logs.
 func (c *generalConfig) LogToDisk() bool {
 	return c.getEnvWithFallback(envvar.LogToDisk).(bool)
+}
+
+
+// LogToSplunk configures sending logs to Splunk.
+func (c *generalConfig) LogToSplunk() bool {
+	return c.viper.GetBool(EnvVarName("LogToSplunk"))
 }
 
 // LogSQL tells chainlink to log all SQL statements made using the default logger

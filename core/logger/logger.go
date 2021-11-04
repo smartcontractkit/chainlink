@@ -115,13 +115,16 @@ func GetLogServices() []string {
 }
 
 // newProductionConfig returns a new production zap.Config.
-func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool) zap.Config {
+func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool, toSplunk bool) zap.Config {
 	config := newBaseConfig()
 	if !unixTS {
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	if !jsonConsole {
 		config.OutputPaths = []string{"pretty://console"}
+	}
+	if toSplunk {
+		config.OutputPaths = append(config.OutputPaths, "splunk://hec")
 	}
 	if toDisk {
 		destination := logFileURI(dir)
@@ -131,6 +134,7 @@ func newProductionConfig(dir string, jsonConsole bool, toDisk bool, unixTS bool)
 	return config
 }
 
+<<<<<<< HEAD
 // NewLogger returns a new Logger configured from environment variables, and logs any parsing errors.
 // Tests should use TestLogger.
 func NewLogger() Logger {
@@ -179,13 +183,14 @@ type Config struct {
 	Dir         string
 	JsonConsole bool
 	ToDisk      bool // if false, the Logger will only log to stdout.
+	ToSplunk    bool
 	UnixTS      bool
 }
 
 // New returns a new Logger with pretty printing to stdout, prometheus counters, and sentry forwarding.
 // Tests should use TestLogger.
 func (c *Config) New() Logger {
-	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS)
+	cfg := newProductionConfig(c.Dir, c.JsonConsole, c.ToDisk, c.UnixTS, c.ToSplunk)
 	cfg.Level.SetLevel(c.LogLevel)
 	l, err := newZapLogger(cfg)
 	if err != nil {
