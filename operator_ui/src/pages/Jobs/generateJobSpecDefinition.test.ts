@@ -34,6 +34,7 @@ describe('generateTOMLDefinition', () => {
         contractConfigConfirmations: 3,
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
+        evmChainID: '42',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -59,6 +60,7 @@ blockchainTimeout = "20s"
 contractConfigTrackerSubscribeInterval = "2m0s"
 contractConfigTrackerPollInterval = "1m0s"
 contractConfigConfirmations = 3
+evmChainID = "42"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
@@ -95,6 +97,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         threshold: 0.5,
         updatedAt: '2021-02-19T16:00:01.115227+08:00',
         minPayment: null,
+        evmChainID: '42',
       },
       vrfSpec: null,
       keeperSpec: null,
@@ -132,6 +135,7 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+evmChainID = "42"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -156,6 +160,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         minIncomingConfirmations: 3,
         createdAt: '2021-02-19T16:00:01.115227+08:00',
         requesters: ['0x59bbE8CFC79c76857fE0eC27e67E4957370d72B5'],
+        evmChainID: '42',
       },
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -180,6 +185,7 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+evmChainID = "42"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -199,6 +205,7 @@ externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         fromAddress: '0xa8037A20989AFcBC51798de9762b351D63ff462e',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
+        evmChainID: '42',
       },
       cronSpec: null,
       vrfSpec: null,
@@ -219,6 +226,7 @@ name = "Keeper Job Spec"
 contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 externalJobID = "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46"
+evmChainID = "42"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
@@ -328,6 +336,7 @@ observationSource = """
         pollPeriod: '',
         createdAt: '2021-04-05T15:21:30.392021+08:00',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
+        evmChainID: '42',
       },
       directRequestSpec: null,
       pipelineSpec: {
@@ -349,6 +358,7 @@ publicKey = "0x92594ee04c179eb7d439ff1baacd98b81a7d7a6ed55c86ca428fa025bd9c91430
 fromAddress = ""
 pollPeriod = ""
 observationSource = ""
+evmChainID = "42"
 `
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output.definition).toEqual(expectedOutput)
@@ -389,6 +399,7 @@ observationSource = ""
         contractConfigConfirmations: 3,
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
+        evmChainID: '42',
       },
       maxTaskDuration: '10s',
       pipelineSpec: {
@@ -410,6 +421,7 @@ keyBundleID = "4ee612467c3caea7bdab57ab62937adfc4d195516c30139a737f85098b35d9af"
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x01010CaB43e77116c95745D219af1069fE050d7A"
 contractConfigConfirmations = 3
+evmChainID = "42"
 observationSource = """
     fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
     parse    [type=jsonparse path="data,result"];
