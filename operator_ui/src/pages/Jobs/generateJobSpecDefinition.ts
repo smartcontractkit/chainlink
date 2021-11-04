@@ -11,9 +11,14 @@ import {
 } from 'core/store/models'
 import { stringifyJobSpec } from './utils'
 
+export interface GeneratedTOMLDefinition {
+  definition: string
+  envAttributesDefinition: string
+}
+
 export const generateTOMLDefinition = (
   jobSpecAttributes: ApiResponse<Job>['data']['attributes'],
-): string => {
+): GeneratedTOMLDefinition => {
   switch (jobSpecAttributes.type) {
     case 'directrequest':
       return generateDirectRequestDefinition(jobSpecAttributes)
@@ -30,20 +35,57 @@ export const generateTOMLDefinition = (
     case 'vrf':
       return generateVRFDefinition(jobSpecAttributes)
     default:
-      return ''
+      return { definition: '', envAttributesDefinition: '' }
+  }
+}
+
+const envAttributesRegex = /Env$/
+
+const generateEnvAttributesDefinition = (jobSpec: {
+  [value: string]: any
+}): {
+  envDefinition: string
+  cleanedJobSpec: { [value: string]: any }
+} => {
+  const spec: { [value: string]: any } = {
+    ...jobSpec,
+  }
+  const envAttributesObject: { [value: string]: any } = {}
+
+  for (const specAttributeName in spec) {
+    if (!specAttributeName.match(envAttributesRegex)) {
+      continue
+    }
+
+    const attributeName = specAttributeName.replace(envAttributesRegex, '')
+    envAttributesObject[attributeName] = spec[attributeName]
+
+    delete spec[attributeName]
+    delete spec[specAttributeName]
+  }
+
+  return {
+    cleanedJobSpec: spec,
+    envDefinition: stringifyJobSpec({
+      value: envAttributesObject,
+    }),
   }
 }
 
 function generateOCRDefinition(
   attrs: ApiResponse<OffChainReportingJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
+  const spec = generateEnvAttributesDefinition(
+    attrs.offChainReportingOracleSpec,
+  )
+
   const ocrSpecWithoutDates = {
-    ...attrs.offChainReportingOracleSpec,
+    ...spec.cleanedJobSpec,
     createdAt: undefined,
     updatedAt: undefined,
   }
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type: attrs.type,
       schemaVersion: attrs.schemaVersion,
@@ -53,11 +95,13 @@ function generateOCRDefinition(
       externalJobID: attrs.externalJobID,
     },
   })
+
+  return { definition, envAttributesDefinition: spec.envDefinition }
 }
 
 function generateFluxMonitorDefinition(
   attrs: ApiResponse<FluxMonitorJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const {
     fluxMonitorSpec,
     name,
@@ -82,7 +126,7 @@ function generateFluxMonitorDefinition(
     minPayment,
   } = fluxMonitorSpec
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -104,11 +148,13 @@ function generateFluxMonitorDefinition(
       externalJobID,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
 
 function generateDirectRequestDefinition(
   attrs: ApiResponse<DirectRequestJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const {
     directRequestSpec,
     name,
@@ -121,7 +167,7 @@ function generateDirectRequestDefinition(
   const { contractAddress, minIncomingConfirmations, requesters } =
     directRequestSpec
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -134,15 +180,17 @@ function generateDirectRequestDefinition(
       externalJobID,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
 
 function generateKeeperDefinition(
   attrs: ApiResponse<KeeperJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const { keeperSpec, name, schemaVersion, type, externalJobID } = attrs
   const { contractAddress, fromAddress } = keeperSpec
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -152,16 +200,18 @@ function generateKeeperDefinition(
       externalJobID,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
 
 function generateCronDefinition(
   attrs: ApiResponse<CronJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const { cronSpec, pipelineSpec, name, schemaVersion, type, externalJobID } =
     attrs
   const { schedule } = cronSpec
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -171,14 +221,16 @@ function generateCronDefinition(
       externalJobID,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
 
 function generateWebhookDefinition(
   attrs: ApiResponse<WebhookJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const { pipelineSpec, name, schemaVersion, type, externalJobID } = attrs
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -187,11 +239,13 @@ function generateWebhookDefinition(
       observationSource: pipelineSpec.dotDagSource,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
 
 function generateVRFDefinition(
   attrs: ApiResponse<VRFJob>['data']['attributes'],
-) {
+): GeneratedTOMLDefinition {
   const { vrfSpec, name, schemaVersion, type, externalJobID, pipelineSpec } =
     attrs
   const {
@@ -202,7 +256,7 @@ function generateVRFDefinition(
     pollPeriod,
   } = vrfSpec
 
-  return stringifyJobSpec({
+  const definition = stringifyJobSpec({
     value: {
       type,
       schemaVersion,
@@ -216,4 +270,6 @@ function generateVRFDefinition(
       observationSource: pipelineSpec.dotDagSource,
     },
   })
+
+  return { definition, envAttributesDefinition: '' }
 }
