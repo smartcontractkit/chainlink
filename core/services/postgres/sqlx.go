@@ -65,13 +65,13 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	return UnwrapGormDB(db)
 }
 
-func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
 	ctx, cancel := DefaultQueryCtx()
 	defer cancel()
 	return SqlxTransaction(ctx, q, lggr, fc, txOpts...)
 }
 
-func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction

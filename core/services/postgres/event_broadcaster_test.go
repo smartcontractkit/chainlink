@@ -8,15 +8,15 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestEventBroadcaster(t *testing.T) {
 	config, _, _ := heavyweight.FullTestDB(t, "event_broadcaster", true, false)
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0, logger.TestLogger(t))
+	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
 	require.NoError(t, eventBroadcaster.Start())
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
