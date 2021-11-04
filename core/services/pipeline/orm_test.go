@@ -5,14 +5,16 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func Test_PipelineORM_CreateSpec(t *testing.T) {
@@ -67,7 +69,7 @@ func setupORM(t *testing.T) (*gorm.DB, pipeline.ORM) {
 	t.Helper()
 
 	db := pgtest.NewGormDB(t)
-	orm := pipeline.NewORM(postgres.UnwrapGormDB(db))
+	orm := pipeline.NewORM(postgres.UnwrapGormDB(db), logger.TestLogger(t))
 
 	return db, orm
 }

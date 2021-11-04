@@ -7,8 +7,10 @@ import (
 	"github.com/jmoiron/sqlx/reflectx"
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
-	"github.com/smartcontractkit/sqlx"
 	"gorm.io/gorm"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // AllowUnknownQueryerTypeInTransaction can be set by tests to allow a mock to be passed as a Queryer
@@ -63,19 +65,19 @@ func UnwrapGorm(db *gorm.DB) Queryer {
 	return UnwrapGormDB(db)
 }
 
-func SqlxTransactionWithDefaultCtx(q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	ctx, cancel := DefaultQueryCtx()
 	defer cancel()
-	return SqlxTransaction(ctx, q, fc, txOpts...)
+	return SqlxTransaction(ctx, q, lggr, fc, txOpts...)
 }
 
-func SqlxTransaction(ctx context.Context, q Queryer, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
+func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...sql.TxOptions) (err error) {
 	switch db := q.(type) {
 	case *sqlx.Tx:
 		// nested transaction: just use the outer transaction
 		err = fc(db)
 	case *sqlx.DB:
-		err = sqlxTransactionQ(ctx, db, fc, txOpts...)
+		err = sqlxTransactionQ(ctx, db, lggr, fc, txOpts...)
 	default:
 		if AllowUnknownQueryerTypeInTransaction {
 			err = fc(q)

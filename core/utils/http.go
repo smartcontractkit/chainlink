@@ -59,7 +59,7 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 		logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, nil, err
 	}
-	defer logger.ErrorIfCalling(r.Body.Close)
+	defer logger.ErrorIfClosing(r.Body, "SendRequest response body")
 
 	statusCode = r.StatusCode
 	elapsed := time.Since(start)
