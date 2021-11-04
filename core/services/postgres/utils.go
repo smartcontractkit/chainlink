@@ -31,14 +31,6 @@ func IsSerializationAnomaly(err error) bool {
 	return strings.Contains(errors.Cause(err).Error(), "could not serialize access due to concurrent update")
 }
 
-var (
-	DefaultSqlTxOptions = sql.TxOptions{
-		// NOTE: This is the default level in Postgres anyway, we just make it
-		// explicit here
-		Isolation: sql.LevelReadCommitted,
-	}
-)
-
 // MustSQLDB panics if there is an error getting the underlying SQL TX
 func MustSQLTx(db *gorm.DB) *sql.Tx {
 	sqlTx, ok := db.Statement.ConnPool.(*sql.Tx)

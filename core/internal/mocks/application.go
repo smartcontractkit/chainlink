@@ -302,6 +302,22 @@ func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 	return r0
 }
 
+// ID provides a mock function with given fields:
+func (_m *Application) ID() uuid.UUID {
+	ret := _m.Called()
+
+	var r0 uuid.UUID
+	if rf, ok := ret.Get(0).(func() uuid.UUID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUID)
+		}
+	}
+
+	return r0
+}
+
 // JobORM provides a mock function with given fields:
 func (_m *Application) JobORM() job.ORM {
 	ret := _m.Called()

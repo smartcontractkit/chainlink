@@ -1,4 +1,4 @@
-package gracefulpanic
+package shutdown
 
 import (
 	"os"
