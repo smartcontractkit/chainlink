@@ -23,12 +23,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db *sqlx.DB
+	db   *sqlx.DB
+	lggr logger.Logger
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger) *orm {
 	return &orm{
-		db: db,
+		db:   db,
+		lggr: lggr.Named("VersioningORM"),
 	}
 }
 
@@ -43,7 +45,7 @@ func (o *orm) UpsertNodeVersion(version NodeVersion) error {
 		return errors.Wrapf(err, "%q is not valid semver", version.Version)
 	}
 
-	return postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	return postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		if err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}

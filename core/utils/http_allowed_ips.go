@@ -72,7 +72,7 @@ func restrictedDialContext(ctx context.Context, network, address string) (net.Co
 		a, _ := con.RemoteAddr().(*net.TCPAddr)
 
 		if isRestrictedIP(a.IP) {
-			defer logger.ErrorIfCalling(con.Close)
+			defer logger.ErrorIfClosing(con, "connection")
 			return nil, errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String())
 		}
 	}

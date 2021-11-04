@@ -84,15 +84,16 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cfg.SetDB(gdb)
 
 	keyStore := cltest.NewKeyStore(t, db)
+	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	pipelineORM := pipeline.NewORM(db)
+	pipelineORM := pipeline.NewORM(db, lggr)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: gdb})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
 	orm := fluxmonitorv2.NewORM(gdb, nil, nil)
 
 	address := cltest.NewAddress()
