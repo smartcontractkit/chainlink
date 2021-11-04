@@ -71,7 +71,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 
 	// Don't mock db interactions
 	sqlxdb := postgres.UnwrapGormDB(db)
-	prm := pipeline.NewORM(sqlxdb)
+	prm := pipeline.NewORM(sqlxdb, lggr)
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(sqlxdb, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})

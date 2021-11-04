@@ -30,7 +30,7 @@ func NewProductionClient() *cmd.Client {
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
 	sr := sessions.SessionRequest{}
-	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
+	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder(lggr)
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)

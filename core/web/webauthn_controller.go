@@ -9,7 +9,6 @@ import (
 	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -20,12 +19,12 @@ import (
 // with those keys
 type WebAuthnController struct {
 	App                          chainlink.Application
-	InProgressRegistrationsStore *sessions.WebAuthnSessionStore
+	inProgressRegistrationsStore *sessions.WebAuthnSessionStore
 }
 
 func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
-	if c.InProgressRegistrationsStore == nil {
-		c.InProgressRegistrationsStore = sessions.NewWebAuthnSessionStore()
+	if c.inProgressRegistrationsStore == nil {
+		c.inProgressRegistrationsStore = sessions.NewWebAuthnSessionStore()
 	}
 
 	orm := c.App.SessionORM()
@@ -43,9 +42,9 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
+	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.inProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
-		logger.Errorf("error in BeginWebAuthnRegistration: %s", err)
+		c.App.GetLogger().Errorf("error in BeginWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
@@ -57,7 +56,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	// This should never be nil at this stage (if it registration will surely fail)
-	if c.InProgressRegistrationsStore == nil {
+	if c.inProgressRegistrationsStore == nil {
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
@@ -65,29 +64,29 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
 	user, err := orm.FindUser()
 	if err != nil {
-		logger.Errorf("error finding user: %s", err)
+		c.App.GetLogger().Errorf("error finding user: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user record: %+v", err))
 		return
 	}
 
 	uwas, err := orm.GetUserWebAuthn(user.Email)
 	if err != nil {
-		logger.Errorf("error in GetUserWebAuthn: %s", err)
+		c.App.GetLogger().Errorf("error in GetUserWebAuthn: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, fmt.Errorf("failed to obtain current user MFA tokens: %+v", err))
 		return
 	}
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.InProgressRegistrationsStore, ctx, webAuthnConfig)
+	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.inProgressRegistrationsStore, ctx, webAuthnConfig)
 	if err != nil {
-		logger.Errorf("error in FinishWebAuthnRegistration: %s", err)
+		c.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
 		return
 	}
 
 	if c.addCredentialToUser(user, credential) != nil {
-		logger.Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
+		c.App.GetLogger().Errorf("Could not save WebAuthn credential to DB for user: %s", user.Email)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
@@ -107,7 +106,7 @@ func (c *WebAuthnController) addCredentialToUser(user sessions.User, credential 
 	}
 	err = c.App.SessionORM().SaveWebAuthn(&token)
 	if err != nil {
-		logger.Errorf("Database error: %v", err)
+		c.App.GetLogger().Errorf("Database error: %v", err)
 	}
 	return err
 }

@@ -302,7 +302,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(func(tx postgres.Queryer) error {
+		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(lsn.l, func(tx postgres.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err != nil {
 				return err
 			}

@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 
 	"github.com/stretchr/testify/assert"
@@ -138,7 +139,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute)
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 			mock := &cltest.MockCountingPrompter{EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
@@ -168,7 +169,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	initialUser := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initialUser))
@@ -197,11 +198,11 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, time.Minute)
+			orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture user
 			orm.DeleteUser()
 
-			tfi := cmd.NewFileAPIInitializer(test.file)
+			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
 			user, err := tfi.Initialize(orm)
 			if test.wantError {
 				assert.Error(t, err)
@@ -220,7 +221,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	tests := []struct {
 		name      string
@@ -233,7 +234,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tfi := cmd.NewFileAPIInitializer(test.file)
+			tfi := cmd.NewFileAPIInitializer(test.file, logger.TestLogger(t))
 			user, err := tfi.Initialize(orm)
 			assert.NoError(t, err)
 			assert.Equal(t, cltest.APIEmail, user.Email)
@@ -267,7 +268,7 @@ func TestPromptingSessionRequestBuilder(t *testing.T) {
 func TestFileSessionRequestBuilder(t *testing.T) {
 	t.Parallel()
 
-	builder := cmd.NewFileSessionRequestBuilder()
+	builder := cmd.NewFileSessionRequestBuilder(logger.TestLogger(t))
 	tests := []struct {
 		name, file, wantEmail string
 		wantError             bool

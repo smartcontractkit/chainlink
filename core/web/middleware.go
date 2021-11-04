@@ -170,7 +170,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Find the best acceptable file, including trying uncompressed
 	if file, info, err := f.findBestFile(w, r, fpath); err == nil {
 		http.ServeContent(w, r, fpath, info.ModTime(), file)
-		logger.ErrorIfCalling(file.Close)
+		logger.ErrorIfClosing(file, "file")
 		return
 	}
 

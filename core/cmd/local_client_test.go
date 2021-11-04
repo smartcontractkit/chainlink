@@ -37,7 +37,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg.Overrides.LogLevel = &debug
 	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
-	sessionORM := sessions.NewORM(db, time.Minute)
+	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, db)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db)
-			sessionORM := sessions.NewORM(db, time.Minute)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
@@ -157,7 +157,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
-	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute, logger.TestLogger(t))
 	keyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewGormDB(t)
-			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute)
+			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
