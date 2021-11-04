@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -116,7 +115,7 @@ func (ht *HeadTracker) Start() error {
 		if err != nil {
 			return err
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(ctx, *initialHead); err != nil {
+			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -156,13 +155,10 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h eth.Head) error {
+func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
 	return ht.headSaver.Save(ctx, h)
 }
 
-func (ht *HeadTracker) Chain(hash common.Hash) *eth.Head {
-	return ht.headSaver.Chain(hash)
-}
 func (ht *HeadTracker) LatestChain() *eth.Head {
 	return ht.headSaver.LatestChain()
 }
@@ -305,7 +301,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.ParentHash)
 		if existingHead != nil {
-			head = *existingHead
+			head = existingHead.Copy()
 			continue
 		}
 		head, err = ht.fetchAndSaveHead(ctx, i)
@@ -328,14 +324,14 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head,
 	} else if head == nil {
 		return eth.Head{}, errors.New("got nil head")
 	}
-	err = ht.headSaver.Save(ctx, *head)
+	err = ht.headSaver.Save(ctx, head)
 	if err != nil {
 		return eth.Head{}, err
 	}
 	return *head, nil
 }
 
-func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
+func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
 	prevHead := ht.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
@@ -358,9 +354,8 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 		if headWithChain == nil {
 			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
-
-		ht.backfillMB.Deliver(*headWithChain)
-		ht.callbackMB.Deliver(*headWithChain)
+		ht.backfillMB.Deliver(headWithChain.Copy())
+		ht.callbackMB.Deliver(headWithChain.Copy())
 		return nil
 	}
 	if head.Number == prevHead.Number {

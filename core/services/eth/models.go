@@ -43,16 +43,20 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 	}
 }
 
+// Copy returns a deep copy, excluding Parent.
+func (h *Head) Copy() Head {
+	c := *h
+	c.EVMChainID = utils.New(h.EVMChainID)
+	c.BaseFeePerGas = utils.New(h.BaseFeePerGas)
+	return c
+}
+
 // EarliestInChain recurses through parents until it finds the earliest one
 func (h *Head) EarliestInChain() Head {
-	for {
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
+	for h.Parent != nil {
+		h = h.Parent
 	}
-	return *h
+	return h.Copy()
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain
