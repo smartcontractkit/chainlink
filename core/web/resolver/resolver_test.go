@@ -12,6 +12,7 @@ import (
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
@@ -25,6 +26,7 @@ type mocks struct {
 	bridgeORM *bridgeORMMocks.ORM
 	evmORM    *evmORMMocks.ORM
 	feedsSvc  *feedsMocks.Service
+	cfg       *configMocks.GeneralConfig
 	ocr       *keystoreMocks.OCR
 	keystore  *keystoreMocks.Master
 }
@@ -65,6 +67,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		bridgeORM: &bridgeORMMocks.ORM{},
 		evmORM:    &evmORMMocks.ORM{},
 		feedsSvc:  &feedsMocks.Service{},
+		cfg:       &configMocks.GeneralConfig{},
 		ocr:       &keystoreMocks.OCR{},
 		keystore:  &keystoreMocks.Master{},
 	}
@@ -76,6 +79,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.bridgeORM,
 			m.evmORM,
 			m.feedsSvc,
+			m.cfg,
 			m.ocr,
 			m.keystore,
 		)

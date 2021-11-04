@@ -85,10 +85,13 @@ export const JobsShow = () => {
               break
           }
 
+          const { definition, envAttributesDefinition } =
+            generateTOMLDefinition(jobSpec.attributes)
+
           const job: JobV2 = {
             ...jobSpec.attributes.pipelineSpec,
             id: jobSpec.id,
-            definition: generateTOMLDefinition(jobSpec.attributes),
+            definition,
             type: 'v2',
             name: jobSpec.attributes.name,
             specType: jobSpec.attributes.type,
@@ -98,9 +101,10 @@ export const JobsShow = () => {
 
           return {
             ...s,
-            jobSpec,
             job,
+            jobSpec,
             externalJobID,
+            envAttributesDefinition,
           }
         })
       })
