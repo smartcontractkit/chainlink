@@ -183,7 +183,7 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 
 - Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
 - Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
-
+- Propagating `evmChainID` parameter in job specs supporting this parameter.
 
 Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
 

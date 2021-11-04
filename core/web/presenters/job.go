@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // JobSpecType defines the the the spec type of the job
@@ -43,6 +44,7 @@ type DirectRequestSpec struct {
 	Initiator                   string                   `json:"initiator"`
 	CreatedAt                   time.Time                `json:"createdAt"`
 	UpdatedAt                   time.Time                `json:"updatedAt"`
+	EVMChainID                  *utils.Big               `json:"evmChainID"`
 }
 
 // NewDirectRequestSpec initializes a new DirectRequestSpec from a
@@ -56,9 +58,10 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 		Requesters:                  spec.Requesters,
 		// This is hardcoded to runlog. When we support other intiators, we need
 		// to change this
-		Initiator: "runlog",
-		CreatedAt: spec.CreatedAt,
-		UpdatedAt: spec.UpdatedAt,
+		Initiator:  "runlog",
+		CreatedAt:  spec.CreatedAt,
+		UpdatedAt:  spec.UpdatedAt,
+		EVMChainID: spec.EVMChainID,
 	}
 }
 
@@ -77,6 +80,7 @@ type FluxMonitorSpec struct {
 	MinPayment          *assets.Link        `json:"minPayment"`
 	CreatedAt           time.Time           `json:"createdAt"`
 	UpdatedAt           time.Time           `json:"updatedAt"`
+	EVMChainID          *utils.Big          `json:"evmChainID"`
 }
 
 // NewFluxMonitorSpec initializes a new DirectFluxMonitorSpec from a
@@ -105,6 +109,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		MinPayment:          spec.MinPayment,
 		CreatedAt:           spec.CreatedAt,
 		UpdatedAt:           spec.UpdatedAt,
+		EVMChainID:          spec.EVMChainID,
 	}
 }
 
@@ -129,6 +134,7 @@ type OffChainReportingSpec struct {
 	ContractConfigConfirmationsEnv            bool                 `json:"contractConfigConfirmationsEnv,omitempty"`
 	CreatedAt                                 time.Time            `json:"createdAt"`
 	UpdatedAt                                 time.Time            `json:"updatedAt"`
+	EVMChainID                                *utils.Big           `json:"evmChainID"`
 }
 
 // NewOffChainReportingSpec initializes a new OffChainReportingSpec from a
@@ -154,6 +160,7 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 		ContractConfigConfirmationsEnv:            spec.ContractConfigConfirmationsEnv,
 		CreatedAt:                                 spec.CreatedAt,
 		UpdatedAt:                                 spec.UpdatedAt,
+		EVMChainID:                                spec.EVMChainID,
 	}
 }
 
@@ -179,6 +186,7 @@ type KeeperSpec struct {
 	FromAddress     ethkey.EIP55Address `json:"fromAddress"`
 	CreatedAt       time.Time           `json:"createdAt"`
 	UpdatedAt       time.Time           `json:"updatedAt"`
+	EVMChainID      *utils.Big          `json:"evmChainID"`
 }
 
 // NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
@@ -188,6 +196,7 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 		FromAddress:     spec.FromAddress,
 		CreatedAt:       spec.CreatedAt,
 		UpdatedAt:       spec.UpdatedAt,
+		EVMChainID:      spec.EVMChainID,
 	}
 }
 
@@ -229,6 +238,7 @@ type VRFSpec struct {
 	Confirmations      uint32               `json:"confirmations"`
 	CreatedAt          time.Time            `json:"createdAt"`
 	UpdatedAt          time.Time            `json:"updatedAt"`
+	EVMChainID         *utils.Big           `json:"evmChainID"`
 }
 
 func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
@@ -240,6 +250,7 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 		Confirmations:      spec.Confirmations,
 		CreatedAt:          spec.CreatedAt,
 		UpdatedAt:          spec.UpdatedAt,
+		EVMChainID:         spec.EVMChainID,
 	}
 }
 
