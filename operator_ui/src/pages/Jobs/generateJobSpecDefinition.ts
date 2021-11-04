@@ -124,6 +124,7 @@ function generateFluxMonitorDefinition(
     drumbeatSchedule,
     drumbeatRandomDelay,
     minPayment,
+    evmChainID,
   } = fluxMonitorSpec
 
   const definition = stringifyJobSpec({
@@ -146,6 +147,7 @@ function generateFluxMonitorDefinition(
       minPayment,
       observationSource: pipelineSpec.dotDagSource,
       externalJobID,
+      evmChainID,
     },
   })
 
@@ -164,7 +166,7 @@ function generateDirectRequestDefinition(
     maxTaskDuration,
     externalJobID,
   } = attrs
-  const { contractAddress, minIncomingConfirmations, requesters } =
+  const { contractAddress, minIncomingConfirmations, requesters, evmChainID } =
     directRequestSpec
 
   const definition = stringifyJobSpec({
@@ -178,6 +180,7 @@ function generateDirectRequestDefinition(
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
       externalJobID,
+      evmChainID,
     },
   })
 
@@ -188,7 +191,7 @@ function generateKeeperDefinition(
   attrs: ApiResponse<KeeperJob>['data']['attributes'],
 ): GeneratedTOMLDefinition {
   const { keeperSpec, name, schemaVersion, type, externalJobID } = attrs
-  const { contractAddress, fromAddress } = keeperSpec
+  const { contractAddress, fromAddress, evmChainID } = keeperSpec
 
   const definition = stringifyJobSpec({
     value: {
@@ -198,6 +201,7 @@ function generateKeeperDefinition(
       contractAddress,
       fromAddress,
       externalJobID,
+      evmChainID,
     },
   })
 
@@ -254,6 +258,7 @@ function generateVRFDefinition(
     publicKey,
     fromAddress,
     pollPeriod,
+    evmChainID,
   } = vrfSpec
 
   const definition = stringifyJobSpec({
@@ -268,6 +273,7 @@ function generateVRFDefinition(
       fromAddress,
       pollPeriod,
       observationSource: pipelineSpec.dotDagSource,
+      evmChainID,
     },
   })
 

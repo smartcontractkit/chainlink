@@ -64,7 +64,7 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer logger.ErrorIfCalling(f.Close)
+	defer logger.ErrorIfClosing(f, "file")
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
 		return err
@@ -80,13 +80,13 @@ func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	if err != nil {
 		return errors.Wrap(err, "could not open source file")
 	}
-	defer logger.ErrorIfCalling(src.Close)
+	defer logger.ErrorIfClosing(src, "source")
 
 	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return errors.Wrap(err, "could not open destination file")
 	}
-	defer logger.ErrorIfCalling(dst.Close)
+	defer logger.ErrorIfClosing(dst, "destination")
 
 	err = EnsureFileMaxPerms(dst, perms)
 	if err != nil {
@@ -117,7 +117,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
 	if err != nil {
 		return err
 	}
-	defer logger.ErrorIfCalling(dst.Close)
+	defer logger.ErrorIfClosing(dst, "file")
 
 	return EnsureFileMaxPerms(dst, perms)
 }
@@ -128,7 +128,7 @@ func FilesInDir(dir string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	defer logger.ErrorIfCalling(f.Close)
+	defer logger.ErrorIfClosing(f, "directory")
 
 	r, err := f.Readdirnames(-1)
 	if err != nil {

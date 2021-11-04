@@ -332,6 +332,7 @@ type FluxMonitorSpecIntThreshold struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *assets.Link
+	EVMChainID          *utils.Big `toml:"evmChainID"`
 }
 
 type FluxMonitorSpec struct {

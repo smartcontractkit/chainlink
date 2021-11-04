@@ -22,6 +22,7 @@ export type JobV2 = BaseJob & {
   dotDagSource: string
   type: 'v2'
   specType: JobSpecType
+  evmChainID: string | null
 }
 
 export type BaseJobRun = {

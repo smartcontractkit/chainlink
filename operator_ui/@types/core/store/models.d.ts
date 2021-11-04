@@ -272,6 +272,7 @@ declare module 'core/store/models' {
       minIncomingConfirmationsEnv?: boolean
       createdAt: time.Time
       requesters: common.Address[]
+      evmChainID: string
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -297,6 +298,7 @@ declare module 'core/store/models' {
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -328,6 +330,7 @@ declare module 'core/store/models' {
       contractConfigConfirmationsEnv?: boolean
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -344,6 +347,7 @@ declare module 'core/store/models' {
       fromAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -393,6 +397,7 @@ declare module 'core/store/models' {
       pollPeriod: string
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     directRequestSpec: null

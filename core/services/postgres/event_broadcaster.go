@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
 
@@ -51,14 +52,14 @@ type Event struct {
 	Payload string
 }
 
-func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxReconnectDuration time.Duration, lggr logger.Logger) *eventBroadcaster {
+func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxReconnectDuration time.Duration, lggr logger.Logger, appID uuid.UUID) *eventBroadcaster {
 	if minReconnectInterval == time.Duration(0) {
 		minReconnectInterval = 1 * time.Second
 	}
 	if maxReconnectDuration == time.Duration(0) {
 		maxReconnectDuration = 1 * time.Minute
 	}
-	static.SetConsumerName(&uri, "EventBroadcaster")
+	static.SetConsumerName(&uri, "EventBroadcaster", &appID)
 	return &eventBroadcaster{
 		uri:                  uri.String(),
 		minReconnectInterval: minReconnectInterval,

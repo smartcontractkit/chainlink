@@ -10,10 +10,9 @@ package logger
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
-	"reflect"
-	"runtime"
 
 	"github.com/fatih/color"
 	"go.uber.org/zap"
@@ -71,8 +70,8 @@ type Logger interface {
 	ErrorIf(err error, msg string)
 	PanicIf(err error, msg string)
 
-	// ErrorIfCalling calls fn and logs any returned error along with func name.
-	ErrorIfCalling(fn func() error)
+	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
+	ErrorIfClosing(c io.Closer, name string)
 
 	// Sync flushes any buffered log entries.
 	// Some insignificant errors are suppressed.
@@ -177,11 +176,9 @@ func (l *zapLogger) ErrorIf(err error, msg string) {
 	}
 }
 
-func (l *zapLogger) ErrorIfCalling(fn func() error) {
-	err := fn()
-	if err != nil {
-		fnName := runtime.FuncForPC(reflect.ValueOf(fn).Pointer()).Name()
-		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error calling %s", fnName), "err", err)
+func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
+	if err := c.Close(); err != nil {
+		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
 	}
 }
 
