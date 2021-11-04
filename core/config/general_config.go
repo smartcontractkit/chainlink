@@ -34,6 +34,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
+//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+
 // this permission grants read / write accccess to file owners only
 const readWritePerms = os.FileMode(0600)
 
