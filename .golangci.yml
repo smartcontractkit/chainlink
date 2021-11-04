@@ -6,7 +6,6 @@ linters:
     - goimports
     - gosec
     - rowserrcheck
-    - contextcheck
   disable:
     # These are all considered deprecated: https://github.com/golangci/golangci-lint/issues/1841
     - deadcode

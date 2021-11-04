@@ -146,7 +146,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 
 // Call mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
-func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
+func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	switch method {
 	case "eth_call":
 		callArgs, _, err := c.checkEthCallArgs(args)
@@ -154,7 +154,7 @@ func (c *SimulatedBackendClient) Call(result interface{}, method string, args ..
 			return err
 		}
 		callMsg := ethereum.CallMsg{To: &callArgs.To, Data: callArgs.Data}
-		b, err := c.b.CallContract(context.TODO(), callMsg, nil /* always latest block */)
+		b, err := c.b.CallContract(ctx, callMsg, nil /* always latest block */)
 		if err != nil {
 			return errors.Wrapf(err, "while calling contract at address %x with "+
 				"data %x", callArgs.To, callArgs.Data)
@@ -410,8 +410,8 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	return err
 }
 
-func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return c.Call(result, method, args)
+func (c *SimulatedBackendClient) Call(result interface{}, method string, args ...interface{}) error {
+	return c.CallContext(context.Background(), result, method, args)
 }
 
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
