@@ -24,7 +24,12 @@ type NonNullableJSONPrimitive = string | number | boolean
 const defaultKeySpecifics = '{}'
 
 const chainTypes = ['arbitrum', 'exchain', 'optimism', 'xdai']
-const gasEstimatorModes = ['BlockHistory', 'FixedPrice', 'Optimism']
+const gasEstimatorModes = [
+  'BlockHistory',
+  'FixedPrice',
+  'Optimism',
+  'Optimism2',
+]
 
 export const ChainConfigFields: React.FunctionComponent<Props> = ({
   initialValues,
