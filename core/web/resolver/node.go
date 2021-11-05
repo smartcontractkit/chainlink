@@ -66,3 +66,31 @@ func (r *NodeResolver) CreatedAt() graphql.Time {
 func (r *NodeResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.node.UpdatedAt}
 }
+
+// -- Node Query --
+
+type NodePayloadResolver struct {
+	node *types.Node
+	err  error
+}
+
+func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
+	return &NodePayloadResolver{node, err}
+}
+
+func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
+	if r.node != nil {
+		return NewNode(*r.node), true
+	}
+
+	return nil, false
+}
+
+// ToNotFoundError implements the NotFoundError union type of the payload
+func (r *NodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil {
+		return NewNotFoundError("node not found"), true
+	}
+
+	return nil, false
+}
