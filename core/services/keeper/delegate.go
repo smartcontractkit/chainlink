@@ -90,15 +90,15 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	}
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
-		Job:                 spec,
-		Contract:            contract,
-		ORM:                 orm,
-		JRM:                 d.jrm,
-		LogBroadcaster:      chain.LogBroadcaster(),
-		SyncInterval:        chain.Config().KeeperRegistrySyncInterval(),
-		MinConfirmations:    minIncomingConfirmations,
-		Logger:              svcLogger,
-		SyncUpkeepQueueSize: chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
+		Job:                      spec,
+		Contract:                 contract,
+		ORM:                      orm,
+		JRM:                      d.jrm,
+		LogBroadcaster:           chain.LogBroadcaster(),
+		SyncInterval:             chain.Config().KeeperRegistrySyncInterval(),
+		MinIncomingConfirmations: minIncomingConfirmations,
+		Logger:                   svcLogger,
+		SyncUpkeepQueueSize:      chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	})
 	upkeepExecuter := NewUpkeepExecuter(
 		spec,
