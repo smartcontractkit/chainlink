@@ -14,7 +14,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -30,9 +29,9 @@ import (
 // FullTestDB creates an DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
-func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB, *gorm.DB) {
+func FullTestDB(t testing.TB, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB, *gorm.DB) {
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator: cltest.MockSecretGenerator{},
+		SecretGenerator: configtest.MockSecretGenerator{},
 	}
 	gcfg := configtest.NewTestGeneralConfigWithOverrides(t, overrides)
 	gcfg.SetDialect(dialects.Postgres)

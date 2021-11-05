@@ -41,6 +41,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -94,8 +95,6 @@ const (
 	// Password just a password we use everywhere for testing
 	Password    = "p4SsW0rD1!@#_"
 	VRFPassword = "testingpassword"
-	// SessionSecret is the hardcoded secret solely used for test
-	SessionSecret = "clsession_test_secret"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
@@ -250,7 +249,7 @@ func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptes
 
 func NewTestGeneralConfig(t testing.TB) *configtest.TestGeneralConfig {
 	overrides := configtest.GeneralConfigOverrides{
-		SecretGenerator: MockSecretGenerator{},
+		SecretGenerator: configtest.MockSecretGenerator{},
 		Dialect:         dialects.TransactionWrappedPostgres,
 		AdvisoryLockID:  null.IntFrom(NewRandomInt64()),
 	}
@@ -326,14 +325,15 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
 	shutdownSignal := shutdown.NewSignal()
 
-	url := cfg.DatabaseURL()
-	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
-	})
-	require.NoError(t, err)
+	// url := cfg.DatabaseURL()
+	// sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+	//     Logger:           lggr,
+	//     LogSQLStatements: cfg.LogSQLStatements(),
+	//     MaxOpenConns:     cfg.ORMMaxOpenConns(),
+	//     MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	// })
+	_, sqlxDB, db := heavyweight.FullTestDB(t, "tmp_foo", true, true)
+	// require.NoError(t, err)
 	// t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
 
 	var ethClient eth.Client
@@ -1070,7 +1070,7 @@ func AssertServerResponse(t testing.TB, resp *http.Response, expectedStatusCode 
 
 func DecodeSessionCookie(value string) (string, error) {
 	var decrypted map[interface{}]interface{}
-	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
+	codecs := securecookie.CodecsFromPairs([]byte(configtest.SessionSecret))
 	err := securecookie.DecodeMulti(webauth.SessionName, value, &decrypted, codecs...)
 	if err != nil {
 		return "", err
@@ -1084,7 +1084,7 @@ func DecodeSessionCookie(value string) (string, error) {
 
 func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
 	decrypted := map[interface{}]interface{}{webauth.SessionIDKey: value}
-	codecs := securecookie.CodecsFromPairs([]byte(SessionSecret))
+	codecs := securecookie.CodecsFromPairs([]byte(configtest.SessionSecret))
 	encoded, err := securecookie.EncodeMulti(webauth.SessionName, decrypted, codecs...)
 	if err != nil {
 		logger.TestLogger(t).Panic(err)

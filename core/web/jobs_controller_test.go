@@ -105,7 +105,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	n := 10
+	n := 100
 
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {

@@ -433,12 +433,6 @@ func (m *MockSessionRequestBuilder) Build(string) (sessions.SessionRequest, erro
 	return sessions.SessionRequest{Email: APIEmail, Password: Password}, nil
 }
 
-type MockSecretGenerator struct{}
-
-func (m MockSecretGenerator) Generate(string) ([]byte, error) {
-	return []byte(SessionSecret), nil
-}
-
 type MockChangePasswordPrompter struct {
 	web.UpdatePasswordRequest
 	err error

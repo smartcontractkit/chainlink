@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -43,7 +44,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	t.Parallel()
 
 	sessionORM := &mocks.ORM{}
-	sessionStore := sessions.NewCookieStore([]byte(cltest.SessionSecret))
+	sessionStore := sessions.NewCookieStore([]byte(configtest.SessionSecret))
 	sessionID := "sessionID"
 
 	r := gin.Default()
