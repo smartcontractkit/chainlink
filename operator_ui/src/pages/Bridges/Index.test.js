@@ -1,12 +1,7 @@
 /* eslint-env jest */
 
 import React from 'react'
-import {
-  renderWithRouter,
-  screen,
-  waitFor,
-  waitForElementToBeRemoved,
-} from 'test-utils'
+import { renderWithRouter, screen, waitForElementToBeRemoved } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 import globPath from 'test-helpers/globPath'
 import bridgesFactory from 'factories/bridges'
