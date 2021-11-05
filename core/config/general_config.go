@@ -35,7 +35,7 @@ import (
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
 
-// this permission grants read / write accccess to file owners only
+// this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
 var (
@@ -101,7 +101,6 @@ type GeneralOnlyConfig interface {
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
-	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
@@ -377,7 +376,7 @@ func (c *generalConfig) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
-// AdminCredentialsFile points to text file containing admnn credentials for logging in
+// AdminCredentialsFile points to text file containing admin credentials for logging in
 func (c *generalConfig) AdminCredentialsFile() string {
 	fieldName := "AdminCredentialsFile"
 	file := c.viper.GetString(EnvVarName(fieldName))
@@ -424,7 +423,6 @@ func (c *generalConfig) FeatureUICSAKeys() bool {
 	return c.getWithFallback("FeatureUICSAKeys", ParseBool).(bool)
 }
 
-// FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUIFeedsManager() bool {
 	return c.getWithFallback("FeatureUIFeedsManager", ParseBool).(bool)
 }
@@ -471,7 +469,7 @@ func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
 }
 
-// DatabaseTimeout represents how long to tolerate non response from the DB.
+// DatabaseTimeout represents how long to tolerate non-response from the DB.
 func (c *generalConfig) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", ParseDuration).(time.Duration))
 }
@@ -616,7 +614,7 @@ func (c *generalConfig) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-// InsecureSkipVerify disables SSL certificiate verification when connection to
+// InsecureSkipVerify disables SSL certificate verification when connection to
 // a chainlink client using the remote client, i.e. when executing most remote
 // commands in the CLI.
 //
@@ -682,12 +680,6 @@ func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", ParseDuration).(time.Duration)
 }
 
-// KeeperMinimumRequiredConfirmations is the minimum number of confirmations that a keeper registry log
-// needs before it is handled by the RegistrySynchronizer
-func (c *generalConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
-}
-
 // KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
 // an upkeep before it resumes checking that upkeep
 func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
@@ -741,7 +733,7 @@ func (c *generalConfig) TelemetryIngressURL() *url.URL {
 	}
 }
 
-// TelemetryServerPubKey returns the public key to authenticate the telemetry ingress server
+// TelemetryIngressServerPubKey returns the public key to authenticate the telemetry ingress server
 func (c *generalConfig) TelemetryIngressServerPubKey() string {
 	return c.viper.GetString(EnvVarName("TelemetryIngressServerPubKey"))
 }
@@ -1111,12 +1103,12 @@ func (c *generalConfig) RootDir() string {
 	return c.getWithFallback("RootDir", ParseHomeDir).(string)
 }
 
-// Fetch the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
+// RPID Fetches the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
 func (c *generalConfig) RPID() string {
 	return c.viper.GetString(EnvVarName("RPID"))
 }
 
-// Fetch the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
+// RPOrigin Fetches the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
 // the origin URL where WebAuthn requests initiate (http://localhost:6688/)
 func (c *generalConfig) RPOrigin() string {
 	return c.viper.GetString(EnvVarName("RPOrigin"))
@@ -1201,7 +1193,7 @@ func (c *generalConfig) SessionSecret() ([]byte, error) {
 	return c.secretGenerator.Generate(c.RootDir())
 }
 
-// SessionOptions returns the sesssions.Options struct used to configure
+// SessionOptions returns the sessions.Options struct used to configure
 // the session store.
 func (c *generalConfig) SessionOptions() sessions.Options {
 	return sessions.Options{
