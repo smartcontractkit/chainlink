@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -309,4 +310,19 @@ func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
 	}
 
 	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, nil), nil
+}
+
+func (r *Resolver) CreateNode(ctx context.Context, args struct {
+	Input *types.NewNode
+}) (*CreateNodePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	node, err := r.App.EVMORM().CreateNode(*args.Input)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateNodePayloadResolver(&node), nil
 }
