@@ -111,7 +111,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// backfill will trigger sync on startup
 			config.Overrides.BlockBackfillDepth = null.IntFrom(0)
 			// disable reorg protection for this test
-			config.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+			config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 			// avoid waiting to re-submit for upkeeps
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 			// helps prevent missed heads

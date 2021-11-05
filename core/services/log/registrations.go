@@ -33,14 +33,14 @@ import (
 // The registrations' methods are NOT thread-safe.
 type (
 	registrations struct {
-		subscribers map[uint64]*subscribers
+		subscribers map[uint32]*subscribers
 		decoders    map[common.Address]ParseLogFunc
 		logger      logger.Logger
 		evmChainID  big.Int
 
 		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EvmFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
-		highestNumConfirmations uint64
+		highestNumConfirmations uint32
 	}
 
 	subscribers struct {
@@ -63,7 +63,7 @@ type (
 
 func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 	return &registrations{
-		subscribers: make(map[uint64]*subscribers),
+		subscribers: make(map[uint32]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
 		evmChainID:  evmChainID,
 		logger:      logger,
@@ -105,7 +105,7 @@ func (r *registrations) removeSubscriber(reg registration) (needsResubscribe boo
 
 // reset the number tracking highest num confirmations among all subscribers
 func (r *registrations) resetHighestNumConfirmationsValue() {
-	highestNumConfirmations := uint64(0)
+	highestNumConfirmations := uint32(0)
 
 	for numConfirmations := range r.subscribers {
 		if numConfirmations > highestNumConfirmations {
@@ -146,14 +146,14 @@ func (r *registrations) sendLogs(logsToSend []logsOnBlock, latestHead eth.Head, 
 	for _, logsPerBlock := range logsToSend {
 		for numConfirmations, subscribers := range r.subscribers {
 
-			if numConfirmations != 0 && latestBlockNumber < numConfirmations {
+			if numConfirmations != 0 && latestBlockNumber < uint64(numConfirmations) {
 				// Skipping send because the block is definitely too young
 				continue
 			}
 
 			// We attempt the send multiple times per log
 			// so here we need to see if this particular listener actually should receive it at this depth
-			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+numConfirmations-1) <= latestBlockNumber
+			isOldEnough := numConfirmations == 0 || (logsPerBlock.BlockNumber+uint64(numConfirmations)-1) <= latestBlockNumber
 			if !isOldEnough {
 				continue
 			}
