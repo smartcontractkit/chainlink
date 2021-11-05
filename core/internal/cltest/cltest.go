@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -726,6 +727,28 @@ func ReadLogs(cfg config.GeneralConfig) (string, error) {
 	logFile := fmt.Sprintf("%s/log.jsonl", cfg.RootDir())
 	b, err := ioutil.ReadFile(logFile)
 	return string(b), err
+}
+
+// FindLogMessage returns the message from the first JSON log line for which test returns true.
+func FindLogMessage(logs string, test func(msg string) bool) string {
+	for _, l := range strings.Split(logs, "\n") {
+		var line map[string]interface{}
+		if json.Unmarshal([]byte(l), &line) != nil {
+			continue
+		}
+		m, ok := line["msg"]
+		if !ok {
+			continue
+		}
+		ms, ok := m.(string)
+		if !ok {
+			continue
+		}
+		if test(ms) {
+			return ms
+		}
+	}
+	return ""
 }
 
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
