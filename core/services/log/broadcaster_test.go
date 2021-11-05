@@ -154,10 +154,10 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
-	helper.register(listener, newMockContract(), uint64(maxNumConfirmations))
+	helper.register(listener, newMockContract(), uint32(maxNumConfirmations))
 
 	listener2 := helper.newLogListenerWithJob("two")
-	helper.register(listener2, newMockContract(), uint64(2))
+	helper.register(listener2, newMockContract(), uint32(2))
 
 	blockBackfillDepth := helper.config.BlockBackfillDepth()
 
@@ -400,10 +400,10 @@ func TestBroadcaster_ShallowBackfillOnNodeStart(t *testing.T) {
 	var backfillCount atomic.Int64
 
 	listener := helper.newLogListenerWithJob("one")
-	helper.register(listener, newMockContract(), uint64(10))
+	helper.register(listener, newMockContract(), uint32(10))
 
 	listener2 := helper.newLogListenerWithJob("two")
-	helper.register(listener2, newMockContract(), uint64(2))
+	helper.register(listener2, newMockContract(), uint32(2))
 
 	// the backfill does not use the height from DB because BlockBackfillSkip is true
 	mockEth.checkFilterLogs = func(fromBlock int64, toBlock int64) {
@@ -1441,7 +1441,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	contract.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
 	contract.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
 
-	helper.register(logListener, contract, uint64(5))
+	helper.register(logListener, contract, uint32(5))
 
 	headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     3,

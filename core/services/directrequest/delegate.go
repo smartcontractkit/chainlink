@@ -100,7 +100,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox(),
 		mbOracleCancelRequests:   utils.NewHighCapacityMailbox(),
-		minIncomingConfirmations: uint64(concreteSpec.MinIncomingConfirmations.Uint32),
+		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
@@ -129,7 +129,7 @@ type listener struct {
 	shutdownWaitGroup        sync.WaitGroup
 	mbOracleRequests         *utils.Mailbox
 	mbOracleCancelRequests   *utils.Mailbox
-	minIncomingConfirmations uint64
+	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
 	chStop                   chan struct{}
