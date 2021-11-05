@@ -43,7 +43,6 @@ describe('pages/SignIn', () => {
   })
 
   it('unauthenticated user inputs wrong credentials', async () => {
-    // const store = createStore()
     global.fetch.postOnce(
       globPath('/sessions'),
       { authenticated: false, errors: [{ detail: 'Invalid email' }] },
