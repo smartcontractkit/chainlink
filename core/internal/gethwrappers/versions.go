@@ -9,9 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // ContractVersion records information about the solidity compiler artifact a
@@ -100,7 +99,7 @@ func ReadVersionsDB() (*IntegratedVersion, error) {
 
 var stripTrailingColon = regexp.MustCompile(":$").ReplaceAllString
 
-func WriteVersionsDB(db *IntegratedVersion) error {
+func WriteVersionsDB(db *IntegratedVersion) (err error) {
 	versionsDBPath, err := dbPath()
 	if err != nil {
 		return errors.Wrap(err, "could not construct path to versions DB")
@@ -109,7 +108,11 @@ func WriteVersionsDB(db *IntegratedVersion) error {
 	if err != nil {
 		return errors.Wrapf(err, "while opening %s", versionsDBPath)
 	}
-	defer logger.ErrorIfCalling(f.Close)
+	defer func() {
+		if cerr := f.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
 	gethLine := "GETH_VERSION: " + db.GethVersion + "\n"
 	n, err := f.WriteString(gethLine)
 	if err != nil {

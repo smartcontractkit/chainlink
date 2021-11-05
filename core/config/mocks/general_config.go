@@ -13,8 +13,6 @@ import (
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
-	gorm "gorm.io/gorm"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -250,6 +248,20 @@ func (_m *GeneralConfig) DatabaseListenerMinReconnectInterval() time.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseLockingMode provides a mock function with given fields:
+func (_m *GeneralConfig) DatabaseLockingMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -2561,11 +2573,6 @@ func (_m *GeneralConfig) SessionTimeout() models.Duration {
 	}
 
 	return r0
-}
-
-// SetDB provides a mock function with given fields: _a0
-func (_m *GeneralConfig) SetDB(_a0 *gorm.DB) {
-	_m.Called(_a0)
 }
 
 // SetDialect provides a mock function with given fields: _a0

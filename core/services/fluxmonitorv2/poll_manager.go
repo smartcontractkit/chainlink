@@ -91,7 +91,7 @@ func NewPollManager(cfg PollManagerConfig, logger logger.Logger) (*PollManager, 
 
 	return &PollManager{
 		cfg:    cfg,
-		logger: logger,
+		logger: logger.Named("PollManager"),
 
 		isHibernating:    atomic.NewBool(cfg.IsHibernating),
 		hibernationTimer: utils.NewResettableTimer(),

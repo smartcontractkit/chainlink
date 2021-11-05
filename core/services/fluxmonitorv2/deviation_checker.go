@@ -15,40 +15,35 @@ type DeviationThresholds struct {
 // answer.
 type DeviationChecker struct {
 	Thresholds DeviationThresholds
+	lggr       logger.Logger
 }
 
 // NewDeviationChecker constructs a new deviation checker with thresholds.
-func NewDeviationChecker(rel, abs float64) *DeviationChecker {
+func NewDeviationChecker(rel, abs float64, lggr logger.Logger) *DeviationChecker {
 	return &DeviationChecker{
 		Thresholds: DeviationThresholds{
 			Rel: rel,
 			Abs: abs,
 		},
+		lggr: lggr.Named("DeviationChecker").With("threshold", rel, "absoluteThreshold", abs),
 	}
 }
 
 // NewZeroDeviationChecker constructs a new deviation checker with 0 as thresholds.
-func NewZeroDeviationChecker() *DeviationChecker {
-	return &DeviationChecker{
-		Thresholds: DeviationThresholds{
-			Rel: 0,
-			Abs: 0,
-		},
-	}
+func NewZeroDeviationChecker(lggr logger.Logger) *DeviationChecker {
+	return NewDeviationChecker(0, 0, lggr)
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.
 func (c *DeviationChecker) OutsideDeviation(curAnswer, nextAnswer decimal.Decimal) bool {
 	loggerFields := []interface{}{
-		"threshold", c.Thresholds.Rel,
-		"absoluteThreshold", c.Thresholds.Abs,
 		"currentAnswer", curAnswer,
 		"nextAnswer", nextAnswer,
 	}
 
 	if c.Thresholds.Rel == 0 && c.Thresholds.Abs == 0 {
-		logger.Debugw(
+		c.lggr.Debugw(
 			"Deviation thresholds both zero; short-circuiting deviation checker to "+
 				"true, regardless of feed values", loggerFields...)
 		return true
@@ -57,16 +52,16 @@ func (c *DeviationChecker) OutsideDeviation(curAnswer, nextAnswer decimal.Decima
 	loggerFields = append(loggerFields, "absoluteDeviation", diff)
 
 	if !diff.GreaterThan(decimal.NewFromFloat(c.Thresholds.Abs)) {
-		logger.Debugw("Absolute deviation threshold not met", loggerFields...)
+		c.lggr.Debugw("Absolute deviation threshold not met", loggerFields...)
 		return false
 	}
 
 	if curAnswer.IsZero() {
 		if nextAnswer.IsZero() {
-			logger.Debugw("Relative deviation is undefined; can't satisfy threshold", loggerFields...)
+			c.lggr.Debugw("Relative deviation is undefined; can't satisfy threshold", loggerFields...)
 			return false
 		}
-		logger.Infow("Threshold met: relative deviation is ∞", loggerFields...)
+		c.lggr.Infow("Threshold met: relative deviation is ∞", loggerFields...)
 		return true
 	}
 
@@ -76,9 +71,9 @@ func (c *DeviationChecker) OutsideDeviation(curAnswer, nextAnswer decimal.Decima
 	loggerFields = append(loggerFields, "percentage", percentage)
 
 	if percentage.LessThan(decimal.NewFromFloat(c.Thresholds.Rel)) {
-		logger.Debugw("Relative deviation threshold not met", loggerFields...)
+		c.lggr.Debugw("Relative deviation threshold not met", loggerFields...)
 		return false
 	}
-	logger.Infow("Relative and absolute deviation thresholds both met", loggerFields...)
+	c.lggr.Infow("Relative and absolute deviation thresholds both met", loggerFields...)
 	return true
 }

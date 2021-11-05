@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### New locking mode: 'lease'
+
+Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
+
+- `dual` (the default - uses both locking types for backwards and forwards compatibility)
+- `advisorylock` (advisory lock only)
+- `lease` (lease lock only)
+- `none` (no locking at all - useful for certain deployment environments when you can be sure that only one instance of chainlink will ever be running)
+
+The database lock ensures that only one instance of Chainlink can be run on the database at a time. Running multiple instances of Chainlink on a single database at the same time would likely to lead to strange errors and possibly even data integrity failures and should not be allowed.
+
+With that being said, a very common use case is to run multiple Chainlink instances in failover mode. The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
+
+Traditionally Chainlink has used an advisory lock to manage this. However, advisory locks come with several problems, notably:
+- Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers
+- The advisory lock can silently disappear on postgres upgrade
+- Advisory locks do not play nicely with pooling tools such as pgbouncer
+- If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it
+
+For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
+- Have one row in a database which is updated periodically with the client ID
+- CL node A will run a background process on start that updates this e.g. once per second
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than, say, 5s without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second
+- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will panic and quit immediately
+
+The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
+
 ### Duplicate Job Configuration
 
 When duplicating a job, the new job's configuration settings that have not been overridden by the user, can still reflect the chainlink node configuration.
@@ -22,6 +49,7 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 - CLI command `keys eth list` is updated to display key specific max gas prices.
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
+- Add partial support for Moonriver chain
 
 #### `merge` task type
 
@@ -182,7 +210,7 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 
 - Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
 - Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
-
+- Propagating `evmChainID` parameter in job specs supporting this parameter.
 
 Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
 

@@ -17,12 +17,11 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -63,6 +62,7 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
+	DatabaseLockingMode() string
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
@@ -163,7 +163,6 @@ type GeneralOnlyConfig interface {
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
-	SetDB(*gorm.DB)
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQLStatements(logSQLStatements bool) error
@@ -243,7 +242,6 @@ type GeneralConfig interface {
 type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
-	ORM              *ORM
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
@@ -353,13 +351,13 @@ func (c *generalConfig) Validate() error {
 			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
-	return nil
-}
 
-// SetDB provides a database connection to use for runtime configuration values
-func (c *generalConfig) SetDB(db *gorm.DB) {
-	orm := NewORM(db)
-	c.ORM = orm
+	switch c.DatabaseLockingMode() {
+	case "dual", "lease", "advisorylock", "none":
+	default:
+		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
+	}
+	return nil
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -495,7 +493,7 @@ func (c *generalConfig) DatabaseURL() url.URL {
 	if uri.String() == "" {
 		return *uri
 	}
-	static.SetConsumerName(uri, "Default")
+	static.SetConsumerName(uri, "Default", nil)
 	return *uri
 }
 
@@ -1565,4 +1563,10 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
 func (c *generalConfig) UseLegacyEthEnvVars() bool {
 	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
+}
+
+// DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
+// It controls which mode to use to enforce that only one Chainlink application can use the database
+func (c *generalConfig) DatabaseLockingMode() string {
+	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
 }

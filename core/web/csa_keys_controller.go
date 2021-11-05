@@ -7,7 +7,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -49,7 +48,7 @@ func (ctrl *CSAKeysController) Create(c *gin.Context) {
 
 // Import imports a CSA key
 func (ctrl *CSAKeysController) Import(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -68,7 +67,7 @@ func (ctrl *CSAKeysController) Import(c *gin.Context) {
 
 // Export exports a key
 func (ctrl *CSAKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer ctrl.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
 	keyID := c.Param("ID")
 	newPassword := c.Query("newpassword")

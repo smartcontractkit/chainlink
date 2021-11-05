@@ -196,7 +196,7 @@ WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer logger.ErrorIfCalling(rows.Close)
+	defer logger.ErrorIfClosing(rows, "offchainreporting_pending_transmissions rows")
 
 	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
 

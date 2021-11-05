@@ -49,7 +49,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	config.SetDB(gdb)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -102,7 +101,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, gdb)
 
-		orm := pipeline.NewORM(db)
+		orm := pipeline.NewORM(db, logger.TestLogger(t))
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
@@ -123,7 +122,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		clearJobsDb(t, gdb)
-		orm := pipeline.NewORM(db)
+		orm := pipeline.NewORM(db, logger.TestLogger(t))
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: gdb, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
 		defer runner.Close()

@@ -29,8 +29,9 @@ func TestCronV2Pipeline(t *testing.T) {
 
 	keyStore := cltest.NewKeyStore(t, sqlxdb)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
-	orm := pipeline.NewORM(sqlxdb)
-	jobORM := job.NewORM(sqlxdb, cc, orm, keyStore, logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	orm := pipeline.NewORM(sqlxdb, lggr)
+	jobORM := job.NewORM(sqlxdb, cc, orm, keyStore, lggr)
 
 	jb := &job.Job{
 		Type:          job.Cron,
@@ -39,7 +40,7 @@ func TestCronV2Pipeline(t *testing.T) {
 		PipelineSpec:  &pipeline.Spec{},
 		ExternalJobID: uuid.NewV4(),
 	}
-	delegate := cron.NewDelegate(runner, logger.TestLogger(t))
+	delegate := cron.NewDelegate(runner, lggr)
 
 	err := jobORM.CreateJob(jb)
 	require.NoError(t, err)
