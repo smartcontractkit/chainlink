@@ -67,7 +67,7 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 		o.evmChainID,
 	}
 	q := postgres.NewQ(o.db, qopts...)
-	err = q.QueryRowx(query, args...).Scan(&consumed)
+	err = q.Get(&consumed, query, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -91,21 +91,23 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 
 func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	_, err := q.Exec(`
+	_, cancel, err := q.CtxExec(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
+	cancel()
 	return errors.Wrap(err, "failed to create log broadcast")
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	_, err := q.Exec(`
+	_, cancel, err := q.CtxExec(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
 		ON CONFLICT (job_id, block_hash, log_index, evm_chain_id) DO UPDATE
 		SET consumed = true, updated_at = NOW()
     `, blockHash, blockNumber, logIndex, jobID, o.evmChainID)
+	cancel()
 	return errors.Wrap(err, "failed to mark log broadcast as consumed")
 }
 
@@ -141,10 +143,11 @@ func (o *orm) Reinitialize(qopts ...postgres.QOpt) (*int64, error) {
 
 func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	_, err := q.Exec(`
+	_, cancel, err := q.CtxExec(`
         INSERT INTO log_broadcasts_pending (evm_chain_id, block_number, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
     `, o.evmChainID, blockNumber, blockNumber)
+	cancel()
 	return errors.Wrap(err, "failed to set pending broadcast block number")
 }
 
@@ -181,12 +184,13 @@ func (o *orm) getUnconsumedMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 
 func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	_, err := q.Exec(`
+	_, cancel, err := q.CtxExec(`
         DELETE FROM log_broadcasts
 			WHERE evm_chain_id = $1
 			AND consumed = false
 			AND block_number IS NOT NULL
     `, o.evmChainID)
+	cancel()
 	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
 }
 

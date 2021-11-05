@@ -50,7 +50,7 @@ func (o *orm) CreateSpec(pipeline Pipeline, maxTaskDuration models.Interval, qop
 	sql := `INSERT INTO pipeline_specs (dot_dag_source, max_task_duration, created_at)
 	VALUES ($1, $2, NOW())
 	RETURNING id;`
-	err = q.QueryRowx(sql, pipeline.Source, maxTaskDuration).Scan(&id)
+	err = q.Get(&id, sql, pipeline.Source, maxTaskDuration)
 	return id, errors.WithStack(err)
 }
 
@@ -276,7 +276,8 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
 	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
-	_, err := q.Exec(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
+	_, cancel, err := q.CtxExec(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
+	cancel()
 	return errors.Wrap(err, "DeleteRunsOlderThan failed")
 }
 

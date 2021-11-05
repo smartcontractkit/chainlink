@@ -82,7 +82,7 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 // at the given round. If one already exists, it increments the num_submissions column.
 func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(postgres.UnwrapGormDB(o.db), qopts...)
-	_, err := q.Exec(`
+	_, cancel, err := q.CtxExec(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
         ) VALUES (
@@ -93,6 +93,7 @@ func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uin
 					num_submissions    = flux_monitor_round_stats_v2.num_submissions + 1,
 					pipeline_run_id    = EXCLUDED.pipeline_run_id
     `, aggregator, roundID, runID, newRoundLogsAddition, newRoundLogsAddition)
+	cancel()
 	return errors.Wrapf(err, "Failed to insert round stats for roundID=%v, runID=%v, newRoundLogsAddition=%v", roundID, runID, newRoundLogsAddition)
 }
 
