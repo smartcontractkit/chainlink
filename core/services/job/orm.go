@@ -89,7 +89,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 
 			sql := `SELECT EXISTS(SELECT 1 FROM bridge_types WHERE name = $1);`
 			var exists bool
-			err := q.QueryRowx(sql, name).Scan(&exists)
+			err := q.Get(&exists, sql, name)
 			if err != nil {
 				return errors.Wrap(err, "CreateJob failed to check bridge")
 			}
@@ -274,7 +274,8 @@ func (o *orm) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
-	res, err := q.Exec(query, id)
+	res, cancel, err := q.ExecQIter(query, id)
+	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
 	}
@@ -295,7 +296,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	ON CONFLICT (job_id, description) DO UPDATE SET
 	occurrences = job_spec_errors.occurrences + 1,
 	updated_at = excluded.updated_at`
-	_, err := q.Exec(sql, jobID, description, time.Now())
+	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
 	pqErr, ok := err.(*pgconn.PgError)
 	if err != nil && ok && pqErr.Code == "23503" {
@@ -308,7 +309,8 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
 	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
-	res, err := q.Exec("DELETE FROM job_spec_errors WHERE id = $1", ID)
+	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
+	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "failed to dismiss error")
 	}
