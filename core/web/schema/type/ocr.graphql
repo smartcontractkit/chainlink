@@ -8,3 +8,13 @@ type OCRKeyBundle {
 type OCRKeyBundlesPayload {
     results: [OCRKeyBundle!]!
 }
+
+type CreateOCRKeyBundlePayload {
+    bundle: OCRKeyBundle!
+}
+
+type DeleteOCRKeyBundleSuccess {
+    bundle: OCRKeyBundle!
+}
+
+union DeleteOCRKeyBundlePayload = DeleteOCRKeyBundleSuccess | NotFoundError
