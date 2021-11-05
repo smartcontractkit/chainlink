@@ -7,10 +7,11 @@ import (
 	"math/big"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	null "gopkg.in/guregu/null.v4"
 )
 
 type NewNode struct {
@@ -38,6 +39,7 @@ type ORM interface {
 	DeleteNode(id int64) error
 	GetChainsByIDs(ids []utils.Big) (chains []Chain, err error)
 	GetNodesByChainIDs(chainIDs []utils.Big) (nodes []Node, err error)
+	Node(id int32) (Node, error)
 	Nodes(offset, limit int) ([]Node, int, error)
 	NodesForChain(chainID utils.Big, offset, limit int) ([]Node, int, error)
 	ChainConfigORM

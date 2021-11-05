@@ -16,6 +16,7 @@ type Query {
     feedsManagers: FeedsManagersPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
+    node(id: ID!): Node!
     ocrKeyBundles: OCRKeyBundlesPayload!
 }
 

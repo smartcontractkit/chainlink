@@ -209,3 +209,21 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 
 	return NewFeaturesPayloadResolver(r.App.GetConfig()), nil
 }
+
+func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*NodeResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	node, err := r.App.EVMORM().Node(int32(id))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewNode(node), nil
+}
