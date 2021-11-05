@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 )
 
 func init() {
@@ -51,6 +52,9 @@ func init() {
 	// https://app.clubhouse.io/chainlinklabs/story/8781/remove-dependency-on-gorm
 	txdb.Register("txdb", "pgx", dbURL, txdb.SavePointOption(nil))
 	sqlx.BindDriver("txdb", sqlx.DOLLAR)
+
+	// Always hard panic in any test that requires the DB
+	shutdown.HardPanic = true
 }
 
 func NewGormDB(t *testing.T) *gorm.DB {

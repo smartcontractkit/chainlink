@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 	"github.com/smartcontractkit/chainlink/core/web/resolver"
@@ -55,13 +56,16 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 		prometheus.Use(engine)
 	}
 
-	engine.Use(
+	middleware := []gin.HandlerFunc{
 		limits.RequestSizeLimiter(config.DefaultHTTPLimit()),
 		loggerFunc(app.GetLogger()),
-		gin.Recovery(),
 		cors,
 		secureMiddleware(config),
-	)
+	}
+	if !shutdown.HardPanic {
+		middleware = append(middleware, gin.Recovery())
+	}
+	engine.Use(middleware...)
 	if prometheus != nil {
 		engine.Use(prometheus.Instrument())
 	}
