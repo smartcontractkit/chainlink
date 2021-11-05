@@ -13,7 +13,6 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"github.com/smartcontractkit/go-txdb"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -81,7 +80,7 @@ func GormDBFromSql(t *testing.T, db *sql.DB) *gorm.DB {
 func NewSqlDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	// t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	// There is a bug to do with context cancellation somewhere in txdb, sql or
 	// gorm. If you try to use the DB "too quickly" using a .WithContext then
@@ -102,7 +101,7 @@ func NewSqlDB(t *testing.T) *sql.DB {
 func NewSqlxDB(t *testing.T) *sqlx.DB {
 	db, err := sqlx.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	// t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 

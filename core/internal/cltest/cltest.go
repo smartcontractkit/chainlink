@@ -334,7 +334,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
+	// t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
 
 	var ethClient eth.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager

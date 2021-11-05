@@ -111,7 +111,7 @@ func (b *eventBroadcaster) Close() error {
 		defer b.subscriptionsMu.RUnlock()
 		b.subscriptions = nil
 
-		err = multierr.Append(err, b.db.Close())
+		// err = multierr.Append(err, b.db.Close())
 		err = multierr.Append(err, b.listener.Close())
 		close(b.chStop)
 		<-b.chDone

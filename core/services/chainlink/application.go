@@ -464,7 +464,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 
 			// DB should pretty much always be closed last
 			app.logger.Debug("Closing DB...")
-			merr = multierr.Append(merr, app.sqlxDB.Close())
+			// merr = multierr.Append(merr, app.sqlxDB.Close())
 
 			app.logger.Info("Exited all services")
 
