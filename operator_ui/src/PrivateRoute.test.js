@@ -1,21 +1,24 @@
 /* eslint-env jest */
 import React from 'react'
 import configureStore from 'redux-mock-store'
-import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Route, Switch } from 'react-router-dom'
 import { MemoryRouter } from 'react-router-dom'
 import PrivateRoute from 'PrivateRoute'
+import { render, screen } from '@testing-library/react'
+
+const { getByText } = screen
 
 const mockStore = configureStore()
 const PrivatePage = () => <div>Behind authentication</div>
 const AuthenticatedApp = () => (
   <Switch>
     <PrivateRoute exact path="/" component={PrivatePage} />
+    <Route path="/signin">Redirect Success</Route>
   </Switch>
 )
 const mountAuthenticatedApp = (store) =>
-  mount(
+  render(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/']}>
         <Route component={AuthenticatedApp} />
@@ -24,18 +27,17 @@ const mountAuthenticatedApp = (store) =>
   )
 
 describe('PrivateRoute', () => {
-  it('redirects when user is NOT autheticated', () => {
+  it('redirects when user is NOT autheticated', async () => {
     const state = { authentication: { allowed: false } }
-    const wrapper = mountAuthenticatedApp(mockStore(state))
-    expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe(
-      '/signin',
-    )
+    mountAuthenticatedApp(mockStore(state))
+
+    expect(getByText('Redirect Success')).toBeInTheDocument()
   })
 
   it('goes to destination when user is autheticated', async () => {
     const state = { authentication: { allowed: true } }
-    const wrapper = mountAuthenticatedApp(mockStore(state))
-    expect(wrapper.find(AuthenticatedApp).props().location.pathname).toBe('/')
-    expect(wrapper.text()).toContain('Behind authentication')
+    mountAuthenticatedApp(mockStore(state))
+
+    expect(getByText('Behind authentication')).toBeInTheDocument()
   })
 })

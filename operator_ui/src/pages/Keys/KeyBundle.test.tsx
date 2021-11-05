@@ -1,6 +1,8 @@
 import React from 'react'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
+import { render, screen } from 'support/test-utils'
 import { KeyBundle } from './KeyBundle'
+
+const { getByText } = screen
 
 describe('pages/Keys/KeyBundle', () => {
   it('renders key bundle cell', async () => {
@@ -9,12 +11,12 @@ describe('pages/Keys/KeyBundle', () => {
       'Secondary information 1',
       'Secondary information 2',
     ]
-    const wrapper = mountWithProviders(
+    render(
       <KeyBundle primary={expectedPrimary} secondary={expectedSecondary} />,
     )
 
-    expect(wrapper.text()).toContain(expectedPrimary)
-    expect(wrapper.text()).toContain(expectedSecondary[0])
-    expect(wrapper.text()).toContain(expectedSecondary[1])
+    expect(getByText(expectedPrimary)).toBeInTheDocument()
+    expect(getByText(expectedSecondary[0])).toBeInTheDocument()
+    expect(getByText(expectedSecondary[1])).toBeInTheDocument()
   })
 })

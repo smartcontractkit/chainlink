@@ -78,7 +78,6 @@ type GeneralConfigOverrides struct {
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
 	KeeperMaximumGracePeriod                  null.Int
-	KeeperMinimumRequiredConfirmations        null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LogLevel                                  *config.LogLevel
@@ -380,13 +379,6 @@ func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 		return uint64(c.Overrides.BlockBackfillDepth.Int64)
 	}
 	return c.GeneralConfig.BlockBackfillDepth()
-}
-
-func (c *TestGeneralConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	if c.Overrides.KeeperMinimumRequiredConfirmations.Valid {
-		return uint64(c.Overrides.KeeperMinimumRequiredConfirmations.Int64)
-	}
-	return c.GeneralConfig.KeeperMinimumRequiredConfirmations()
 }
 
 func (c *TestGeneralConfig) KeeperMaximumGracePeriod() int64 {

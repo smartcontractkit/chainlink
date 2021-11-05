@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/sqlx"
 )
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
@@ -120,26 +119,37 @@ func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error) error {
 	defer cancel()
 	return SqlxTransaction(ctx, q.Queryer, lggr, fc)
 }
-func (q Q) Query(query string, args ...interface{}) (*sql.Rows, error) {
+
+// CAUTION: A subtle problem lurks here, because the following code is buggy:
+//
+//     ctx, cancel := context.WithCancel(context.Background())
+//     rows, err := db.QueryContext(ctx, "SELECT foo")
+//     cancel() // canceling here "poisons" the scan below
+//     for rows.Next() {
+//       rows.Scan(...)
+//     }
+//
+// We must cancel the context only after we have completely finished using the
+// returned rows or result from the query/exec
+//
+// For this reasons, the following functions return a context.CancelFunc and it
+// is up to the caller to ensure that cancel is called after it has finished
+//
+// Generally speaking, it makes more sense to use Get/Select in most cases,
+// which avoids this problem
+func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
-	defer cancel()
-	return q.Queryer.QueryContext(ctx, query, args...)
+	res, err := q.Queryer.ExecContext(ctx, query, args...)
+	return res, cancel, err
 }
-func (q Q) Queryx(query string, args ...interface{}) (*sqlx.Rows, error) {
-	ctx, cancel := q.Context()
-	defer cancel()
-	return q.Queryer.QueryxContext(ctx, query, args...)
+func (q Q) ExecQ(query string, args ...interface{}) error {
+	_, cancel, err := q.ExecQIter(query, args...)
+	cancel()
+	return err
 }
-func (q Q) QueryRowx(query string, args ...interface{}) *sqlx.Row {
-	ctx, cancel := q.Context()
-	defer cancel()
-	return q.Queryer.QueryRowxContext(ctx, query, args...)
-}
-func (q Q) Exec(query string, args ...interface{}) (sql.Result, error) {
-	ctx, cancel := q.Context()
-	defer cancel()
-	return q.Queryer.ExecContext(ctx, query, args...)
-}
+
+// Select and Get are safe to wrap the context cancellation because the rows
+// are entirely consumed within the call
 func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
@@ -150,7 +160,6 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	defer cancel()
 	return q.Queryer.GetContext(ctx, dest, query, args...)
 }
-
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {
