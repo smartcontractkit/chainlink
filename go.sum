@@ -1491,8 +1491,6 @@ github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
-github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164 h1:gUKeCZCt12Bi+A1nAfWi4Ro7nXOvRAZk8l7H1beipeY=
-github.com/smartcontractkit/go-txdb v0.1.4-0.20211026134358-1c83fe89b164/go.mod h1:FQ2spG6UFx1V24tAdp4h+iHG3coFkIx/hBRyE+6DKfY=
 github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b h1:DwCUCl0MmdfIM5D8ymhPLVFMqebLWZliVQFf5jcNRKA=
 github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b/go.mod h1:tYsY0oL0yd48jg15POIZfOZiu66mqWpfDd/nJ28KWyU=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=

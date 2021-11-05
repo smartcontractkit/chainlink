@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
 	"gorm.io/gorm"
 )
 
@@ -129,38 +128,41 @@ func sqlxTransaction(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn fu
 
 func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn func(q Queryer) error, optss ...TxOptions) (err error) {
 	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
+	fmt.Println(txOpts)
 
-	tx, err := db.BeginTxx(ctx, &txOpts)
-	if err != nil {
-		return errors.Wrap(err, "failed to begin transaction")
-	}
+	// tx, err := db.BeginTxx(ctx, &txOpts)
+	// if err != nil {
+	//     return errors.Wrap(err, "failed to begin transaction")
+	// }
+	tx := db
 
 	defer func() {
-		if p := recover(); p != nil {
-			// A panic occurred, rollback and repanic
-			lggr.Errorf("Panic in transaction, rolling back: %s", p)
-			done := make(chan struct{})
-			go func() {
-				if rerr := tx.Rollback(); rerr != nil {
-					lggr.Errorf("Failed to rollback on panic: %s", rerr)
-				}
-				close(done)
-			}()
-			select {
-			case <-done:
-				panic(p)
-			case <-time.After(10 * time.Second):
-				panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
-			}
-		} else if err != nil {
-			lggr.Debugf("Error in transaction, rolling back: %s", err)
-			// An error occurred, rollback and return error
-			if rerr := tx.Rollback(); rerr != nil {
-				err = multierr.Combine(err, errors.WithStack(rerr))
-			}
-		} else {
+		// if p := recover(); p != nil {
+		//     // A panic occurred, rollback and repanic
+		//     lggr.Errorf("Panic in transaction, rolling back: %s", p)
+		//     done := make(chan struct{})
+		//     go func() {
+		//         if rerr := tx.Rollback(); rerr != nil {
+		//             lggr.Errorf("Failed to rollback on panic: %s", rerr)
+		//         }
+		//         close(done)
+		//     }()
+		//     select {
+		//     case <-done:
+		//         panic(p)
+		//     case <-time.After(10 * time.Second):
+		//         panic(fmt.Sprintf("panic in transaction; aborting rollback that took longer than 10s: %s", p))
+		//     }
+		// } else if err != nil {
+		//     lggr.Debugf("Error in transaction, rolling back: %s", err)
+		//     // An error occurred, rollback and return error
+		//     if rerr := tx.Rollback(); rerr != nil {
+		//         err = multierr.Combine(err, errors.WithStack(rerr))
+		//     }
+		// } else {
+		if err == nil {
 			// All good! Time to commit.
-			err = errors.WithStack(tx.Commit())
+			// err = errors.WithStack(tx.Commit())
 		}
 	}()
 

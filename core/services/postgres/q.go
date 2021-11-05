@@ -6,6 +6,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -104,6 +105,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 	if err != nil {
 		return errors.Wrap(err, "error preparing named statement")
 	}
+	fmt.Printf("BALLS q %#v\n", q)
 	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
 }
 
@@ -115,9 +117,9 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 }
 
 func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error) error {
-	ctx, cancel := q.Context()
-	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, lggr, fc)
+	// ctx, cancel := q.Context()
+	// defer cancel()
+	return SqlxTransaction(context.Background(), q.Queryer, lggr, fc)
 }
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:

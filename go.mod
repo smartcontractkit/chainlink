@@ -253,3 +253,5 @@ replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+in
 // Use our fork that supports out-of-order migrations
 // https://github.com/pressly/goose/issues/262
 replace github.com/pressly/goose/v3 => github.com/smartcontractkit/goose/v3 v3.1.1-0.20210921045349-e8cd8fc6557b
+
+replace github.com/smartcontractkit/go-txdb => /Users/sam/code/smartcontractkit/go-txdb

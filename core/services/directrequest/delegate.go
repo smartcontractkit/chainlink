@@ -81,6 +81,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
 	}
 
+	if jb.PipelineSpec == nil {
+		panic("BALLS PipelineSpec nil")
+	}
 	svcLogger := d.logger.
 		With(
 			"contract", concreteSpec.ContractAddress.Address().String(),
