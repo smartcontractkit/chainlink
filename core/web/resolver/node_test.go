@@ -7,6 +7,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_NodeQuery(t *testing.T) {
@@ -80,6 +81,81 @@ func Test_NodeQuery(t *testing.T) {
 					"code": "NOT_FOUND"
 				}
 			}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func Test_CreateNodeMutation(t *testing.T) {
+	mutation := `
+		mutation CreateNode($input: CreateNodeInput!) {
+			createNode(input: $input) {
+				... on CreateNodeSuccess {
+					node {
+						name
+						wsURL
+						httpURL
+						chain {
+							id
+							enabled
+						}
+					}
+				}
+			}
+		}`
+	createNodeInput := types.NewNode{
+		Name:       "node-name",
+		EVMChainID: *utils.NewBigI(1),
+		WSURL:      null.StringFrom("ws://some-url"),
+		HTTPURL:    null.StringFrom("http://some-url"),
+		SendOnly:   true,
+	}
+	input := map[string]interface{}{
+		"input": map[string]interface{}{
+			"name":       createNodeInput.Name,
+			"evmChainID": createNodeInput.EVMChainID,
+			"wsURL":      createNodeInput.WSURL,
+			"httpURL":    createNodeInput.HTTPURL,
+			"sendOnly":   createNodeInput.SendOnly,
+		},
+	}
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: input}, "createNode"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("CreateNode", createNodeInput).Return(types.Node{
+					ID:         int32(1),
+					Name:       createNodeInput.Name,
+					EVMChainID: createNodeInput.EVMChainID,
+					WSURL:      createNodeInput.WSURL,
+					HTTPURL:    createNodeInput.HTTPURL,
+					SendOnly:   createNodeInput.SendOnly,
+				}, nil)
+				f.Mocks.evmORM.On("GetChainsByIDs", []utils.Big{createNodeInput.EVMChainID}).Return([]types.Chain{
+					{ID: *utils.NewBigI(1), Enabled: true},
+				}, nil)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+			},
+			query:     mutation,
+			variables: input,
+			result: `
+				{
+					"createNode": {
+						"node": {
+							"name":       "node-name",
+							"wsURL":      "ws://some-url",
+							"httpURL":    "http://some-url",
+							"chain": {
+								"id": "1",
+								"enabled": true
+							}
+						}
+					}
+				}`,
 		},
 	}
 

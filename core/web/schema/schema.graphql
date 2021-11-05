@@ -24,6 +24,7 @@ type Mutation {
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
+    createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!

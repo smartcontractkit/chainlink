@@ -9,3 +9,17 @@ type Node {
 }
 
 union NodePayload = Node | NotFoundError
+
+input CreateNodeInput {
+    name: String!
+    evmChainID: Int!
+    wsURL: String!
+    httpURL: String!
+    sendOnly: Boolean!
+}
+
+type CreateNodeSuccess {
+    node: Node!
+}
+
+union CreateNodePayload = CreateNodeSuccess

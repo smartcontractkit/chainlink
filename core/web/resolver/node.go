@@ -78,6 +78,7 @@ func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
 	return &NodePayloadResolver{node, err}
 }
 
+// ToNode resolves the Node object to be returned if it is found
 func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
 	if r.node != nil {
 		return NewNode(*r.node), true
@@ -93,4 +94,34 @@ func (r *NodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
 	}
 
 	return nil, false
+}
+
+// -- CreateNode Mutation --
+
+type CreateNodePayloadResolver struct {
+	node *types.Node
+}
+
+func NewCreateNodePayloadResolver(node *types.Node) *CreateNodePayloadResolver {
+	return &CreateNodePayloadResolver{node}
+}
+
+func (r *CreateNodePayloadResolver) ToCreateNodeSuccess() (*CreateNodeSuccessResolve, bool) {
+	if r.node != nil {
+		return NewCreateNodeSuccessResolve(*r.node), true
+	}
+
+	return nil, false
+}
+
+type CreateNodeSuccessResolve struct {
+	node types.Node
+}
+
+func NewCreateNodeSuccessResolve(node types.Node) *CreateNodeSuccessResolve {
+	return &CreateNodeSuccessResolve{node}
+}
+
+func (r *CreateNodeSuccessResolve) Node() *NodeResolver {
+	return NewNode(r.node)
 }
