@@ -98,8 +98,6 @@
     "compression-webpack-plugin": "^8.0.1",
     "css-loader": "^3.6.0",
     "depcheck": "^0.9.2",
-    "enzyme": "^3.11.0",
-    "enzyme-adapter-react-16": "^1.15.5",
     "fetch-mock": "^9.11.0",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.3.2",

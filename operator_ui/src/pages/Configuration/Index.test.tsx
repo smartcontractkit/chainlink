@@ -1,12 +1,12 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { renderWithRouter, screen, waitFor } from 'support/test-utils'
+import { renderWithRouter, screen } from 'support/test-utils'
 import globPath from 'test-helpers/globPath'
 import configurationFactory from 'factories/configuration'
 
 import Configuration from 'pages/Configuration/Index'
 
-const { getByText } = screen
+const { findByText, queryByText } = screen
 
 describe('pages/Configuration', () => {
   it('renders the list of configuration options', async () => {
@@ -20,11 +20,11 @@ describe('pages/Configuration', () => {
       initialEntries: ['/config'],
     })
 
-    await waitFor(() => getByText('Configuration'))
+    expect(await findByText('Configuration')).toBeInTheDocument()
 
-    expect(getByText('BAND')).toBeInTheDocument()
-    expect(getByText('Major Lazer')).toBeInTheDocument()
-    expect(getByText('SINGER')).toBeInTheDocument()
-    expect(getByText('Bob Marley')).toBeInTheDocument()
+    expect(queryByText('BAND')).toBeInTheDocument()
+    expect(queryByText('Major Lazer')).toBeInTheDocument()
+    expect(queryByText('SINGER')).toBeInTheDocument()
+    expect(queryByText('Bob Marley')).toBeInTheDocument()
   })
 })

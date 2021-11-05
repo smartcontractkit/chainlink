@@ -1,12 +1,12 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { renderWithRouter, screen, waitFor } from 'test-utils'
+import { renderWithRouter, screen } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 import globPath from 'test-helpers/globPath'
 
 import { Show } from 'pages/Bridges/Show'
 
-const { getAllByText, getByRole, getByText } = screen
+const { findByText, getByRole, getByText } = screen
 
 describe('pages/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
@@ -32,7 +32,7 @@ describe('pages/Bridges/Show', () => {
       { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await waitFor(() => getByText('Bridge Info'))
+    await findByText('Bridge Info')
 
     expect(getByText('Tall Bridge')).toBeInTheDocument()
     expect(getByText('9')).toBeInTheDocument()
@@ -70,17 +70,17 @@ describe('pages/Bridges/Show', () => {
       { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await waitFor(() => getByText('Bridge Info'))
+    await findByText('Bridge Info')
 
     userEvent.click(getByRole('button', { name: /Delete/i }))
 
-    await waitFor(() => getByText('Confirm'))
+    await findByText('Confirm')
 
     global.fetch.deleteOnce(globPath(`/v2/bridge_types/tallbridge`), {})
 
     userEvent.click(getByRole('button', { name: /Confirm/i }))
 
-    await waitFor(() => getAllByText('Redirect Success'))
+    expect(await findByText('Redirect Success')).toBeInTheDocument()
   })
 
   it('fails to delete a bridge', async () => {
@@ -112,11 +112,11 @@ describe('pages/Bridges/Show', () => {
       { initialEntries: [`/bridges/tallbridge`] },
     )
 
-    await waitFor(() => getByText('Bridge Info'))
+    await findByText('Bridge Info')
 
     userEvent.click(getByRole('button', { name: /Delete/i }))
 
-    await waitFor(() => getByText('Confirm'))
+    await findByText('Confirm')
 
     global.fetch.deleteOnce(globPath(`/v2/bridge_types/tallbridge`), {
       body: {
@@ -131,6 +131,6 @@ describe('pages/Bridges/Show', () => {
 
     userEvent.click(getByRole('button', { name: /Confirm/i }))
 
-    await waitFor(() => getAllByText("can't remove the bridge"))
+    expect(await findByText("can't remove the bridge")).toBeInTheDocument()
   })
 })

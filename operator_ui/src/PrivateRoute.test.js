@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import PrivateRoute from 'PrivateRoute'
 import { render, screen } from '@testing-library/react'
 
-const { findByText } = screen
+const { getByText } = screen
 
 const mockStore = configureStore()
 const PrivatePage = () => <div>Behind authentication</div>
@@ -31,13 +31,13 @@ describe('PrivateRoute', () => {
     const state = { authentication: { allowed: false } }
     mountAuthenticatedApp(mockStore(state))
 
-    expect(await findByText('Redirect Success')).toBeInTheDocument()
+    expect(getByText('Redirect Success')).toBeInTheDocument()
   })
 
   it('goes to destination when user is autheticated', async () => {
     const state = { authentication: { allowed: true } }
     mountAuthenticatedApp(mockStore(state))
 
-    expect(await findByText('Behind authentication')).toBeInTheDocument()
+    expect(getByText('Behind authentication')).toBeInTheDocument()
   })
 })

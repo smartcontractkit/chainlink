@@ -16,7 +16,7 @@ import JobsIndex, { simpleJobFilter, JobResource } from './JobsIndex'
 import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/jobs'
 import { renderWithRouter, screen } from 'support/test-utils'
 
-const { findByText, findAllByRole } = screen
+const { findAllByRole, queryByText } = screen
 
 describe('pages/JobsIndex/JobsIndex', () => {
   it('renders the list of jobs', async () => {
@@ -63,25 +63,25 @@ describe('pages/JobsIndex/JobsIndex', () => {
     expect(await findAllByRole('row')).toHaveLength(8) // Includes header
 
     // OCR V2 Job
-    expect(await findByText('1000000')).toBeInTheDocument()
+    expect(queryByText('1000000')).toBeInTheDocument()
 
     // Flux Monitor V2 Job
-    expect(await findByText('2000000')).toBeInTheDocument()
+    expect(queryByText('2000000')).toBeInTheDocument()
 
     // Direct Request V2 Job
-    expect(await findByText('3000000')).toBeInTheDocument()
+    expect(queryByText('3000000')).toBeInTheDocument()
 
     // Keeper Job
-    expect(await findByText('4000000')).toBeInTheDocument()
+    expect(queryByText('4000000')).toBeInTheDocument()
 
     // Cron Job
-    expect(await findByText('5000000')).toBeInTheDocument()
+    expect(queryByText('5000000')).toBeInTheDocument()
 
     // Web Job
-    expect(await findByText('6000000')).toBeInTheDocument()
+    expect(queryByText('6000000')).toBeInTheDocument()
 
     // VRF Job
-    expect(await findByText('7000000')).toBeInTheDocument()
+    expect(queryByText('7000000')).toBeInTheDocument()
   })
 
   describe('simpleJobFilter', () => {

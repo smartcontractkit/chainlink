@@ -13,9 +13,9 @@ import bridgesFactory from 'factories/bridges'
 
 import { ConnectedIndex as Index } from 'pages/Bridges/Index'
 
-describe('pages/Bridges/Index', () => {
-  const { getAllByRole, getByRole } = screen
+const { getAllByRole, getAllByText, findByRole, getByRole } = screen
 
+describe('pages/Bridges/Index', () => {
   it('renders the list of bridges', async () => {
     const bridgesResponse = bridgesFactory([
       {
@@ -28,7 +28,7 @@ describe('pages/Bridges/Index', () => {
 
     renderWithRouter(<Index pageSize={1} />)
 
-    await waitFor(() => getByRole('heading'))
+    expect(await findByRole('heading')).toBeInTheDocument()
 
     const row = getAllByRole('row')[1]
     expect(row).toHaveTextContent('reggaeIsntThatGood')
@@ -36,8 +36,6 @@ describe('pages/Bridges/Index', () => {
   })
 
   it('can page through the list of bridges', async () => {
-    const { getAllByRole, getAllByText, getByRole } = screen
-
     // Page 1
     const pageOneResponse = bridgesFactory(
       [{ name: 'ID-ON-FIRST-PAGE', url: 'bridge.com' }],
@@ -47,7 +45,7 @@ describe('pages/Bridges/Index', () => {
 
     renderWithRouter(<Index pageSize={1} />)
 
-    await waitFor(() => getByRole('heading'))
+    expect(await findByRole('heading')).toBeInTheDocument()
 
     let row = getAllByRole('row')[1]
     expect(row).toHaveTextContent('ID-ON-FIRST-PAGE')
