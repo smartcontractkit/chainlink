@@ -8,6 +8,7 @@ import {
   waitForElementToBeRemoved,
 } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
+import Notifications from 'pages/Notifications'
 
 const { findByText, getByRole, getByText, getByTestId } = screen
 
@@ -40,7 +41,12 @@ describe('pages/Configuration/LoggingCard', () => {
     global.fetch.getOnce(globPath('/v2/log'), logConfig)
     global.fetch.patchOnce(globPath('/v2/log'), logConfig)
 
-    renderWithRouter(<LoggingCard />)
+    renderWithRouter(
+      <>
+        <Notifications />
+        <LoggingCard />
+      </>,
+    )
 
     await waitForElementToBeRemoved(getByText('Loading...'))
 

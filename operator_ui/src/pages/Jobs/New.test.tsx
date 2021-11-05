@@ -6,6 +6,8 @@ import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
 import { renderWithRouter, screen } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
+import { act } from 'react-dom/test-utils'
+import Notifications from 'pages/Notifications'
 
 const { getByPlaceholderText, getByRole, findByText } = screen
 
@@ -21,9 +23,15 @@ describe('pages/Jobs/New', () => {
       data: { id: 1 },
     })
 
-    renderWithRouter(<Route path="/jobs/new" component={New} />, {
-      initialEntries: [`/jobs/new`],
-    })
+    renderWithRouter(
+      <>
+        <Notifications />
+        <Route path="/jobs/new" component={New} />
+      </>,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
 
     userEvent.paste(
       getByRole('textbox', { name: /TOML blob/i }),
@@ -35,6 +43,7 @@ describe('pages/Jobs/New', () => {
     expect(submit.lastCall()[1].body).toEqual(
       JSON.stringify({ toml: expectedSubmit }),
     )
+    expect(await findByText('Successfully created job')).toBeInTheDocument()
   })
 
   it('loads TOML spec definition from search param', () => {
@@ -56,56 +65,84 @@ describe('pages/Jobs/New', () => {
     })
   })
 
-  it('updates toml preview task list', async () => {
-    const jobSpec1 =
-      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
-    // const jobSpec2 =
-    //   'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
-
-    renderWithRouter(<Route path="/jobs/new" component={New} />, {
-      initialEntries: [`/jobs/new`],
+  describe('preview task list', () => {
+    // Using timers because the preview is set with a debounce
+    beforeEach(() => {
+      jest.useFakeTimers()
     })
 
-    userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), jobSpec1)
-
-    // Wait a second for the preview to update
-    expect(
-      await findByText('ds_parse', {}, { timeout: 1000 }),
-    ).toBeInTheDocument()
-    expect(await findByText('ds', {}, { timeout: 1000 })).toBeInTheDocument()
-
-    // This tests the update of the textbox but it doesn't currently work
-    // userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), jobSpec2)
-
-    // expect(
-    //   await findByText('ds_multiple', {}, { timeout: 1000 }),
-    // ).toBeInTheDocument()
-    // expect(await findByText('ds_parse')).toBeInTheDocument()
-    // expect(await findByText('ds')).toBeInTheDocument()
-  })
-
-  it('shows "Tasks not found" on job spec errors', async () => {
-    const tomlSpec =
-      'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
-
-    renderWithRouter(<Route path="/jobs/new" component={New} />, {
-      initialEntries: [`/jobs/new`],
+    afterEach(() => {
+      jest.runOnlyPendingTimers()
+      jest.useRealTimers()
     })
 
-    userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+    it('updates toml preview task list', async () => {
+      const jobSpec1 =
+        'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
+      const jobSpec2 =
+        'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
 
-    expect(await findByText('Tasks not found')).toBeInTheDocument()
-  })
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
+        initialEntries: [`/jobs/new`],
+      })
 
-  it('shows "Tasks not found" on empty job spec', async () => {
-    const tomlSpec = 'observationSource = """  """'
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), jobSpec1)
 
-    renderWithRouter(<Route path="/jobs/new" component={New} />, {
-      initialEntries: [`/jobs/new`],
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(
+        await findByText('ds_parse', {}, { timeout: 1000 }),
+      ).toBeInTheDocument()
+      expect(await findByText('ds', {}, { timeout: 1000 })).toBeInTheDocument()
+
+      const input = getByRole('textbox', { name: /TOML blob/i })
+      userEvent.clear(input)
+      userEvent.paste(input, jobSpec2)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(
+        await findByText('ds_multiply', {}, { timeout: 1000 }),
+      ).toBeInTheDocument()
+      expect(await findByText('ds_parse')).toBeInTheDocument()
+      expect(await findByText('ds')).toBeInTheDocument()
     })
 
-    userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+    it('shows "Tasks not found" on job spec errors', async () => {
+      const tomlSpec =
+        'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
 
-    expect(await findByText('Tasks not found')).toBeInTheDocument()
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
+        initialEntries: [`/jobs/new`],
+      })
+
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(await findByText('Tasks not found')).toBeInTheDocument()
+    })
+
+    it('shows "Tasks not found" on empty job spec', async () => {
+      const tomlSpec = 'observationSource = """  """'
+
+      renderWithRouter(<Route path="/jobs/new" component={New} />, {
+        initialEntries: [`/jobs/new`],
+      })
+
+      userEvent.paste(getByRole('textbox', { name: /TOML blob/i }), tomlSpec)
+
+      act(() => {
+        jest.runOnlyPendingTimers()
+      })
+
+      expect(await findByText('Tasks not found')).toBeInTheDocument()
+    })
   })
 })

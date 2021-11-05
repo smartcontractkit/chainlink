@@ -6,7 +6,6 @@ import { render, RenderOptions, RenderResult } from '@testing-library/react'
 import { MuiThemeProvider } from '@material-ui/core/styles'
 
 import createStore from 'src/createStore'
-import Notifications from 'pages/Notifications'
 import { theme } from 'src/theme'
 
 const AllTheProviders: React.FC = ({ children }) => {
@@ -41,11 +40,7 @@ const renderWithRouter = (
 ): RenderResult => {
   return {
     ...customRender(
-      <MemoryRouter initialEntries={initialEntries}>
-        {/* Notifications are added here because they can display a link */}
-        <Notifications />
-        {ui}
-      </MemoryRouter>,
+      <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>,
       options,
     ),
   }

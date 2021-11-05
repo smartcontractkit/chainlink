@@ -142,7 +142,7 @@ export const New = ({
       setLoading(true)
       setServerErrorMsg('')
 
-      apiCall({
+      await apiCall({
         value,
       })
         .then(({ data }) => {
@@ -156,8 +156,10 @@ export const New = ({
             setServerErrorMsg(error.toString())
           }
 
-          setLoading(false)
           setValid(false)
+        })
+        .finally(() => {
+          setLoading(false)
         })
     }
   }

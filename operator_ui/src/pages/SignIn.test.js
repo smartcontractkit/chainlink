@@ -5,7 +5,7 @@ import globPath from 'test-helpers/globPath'
 import { renderWithRouter, screen } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
 
-const { findAllByText, findByText, getByLabelText, getByRole } = screen
+const { findByText, getByLabelText, getByRole } = screen
 
 const RedirectApp = () => <div>Behind authentication</div>
 const mountSignIn = () =>
@@ -52,14 +52,8 @@ describe('pages/SignIn', () => {
     mountSignIn()
     submitForm()
 
-    // Because our notifications are setup in the renderWithRouter and it is also
-    // set up in sign in, this renders twice in tests.
-    //
-    // TODO - Fix this when we refactor to GQL
     expect(
-      await findAllByText(
-        'Your email or password is incorrect. Please try again',
-      ),
-    ).toHaveLength(2)
+      await findByText('Your email or password is incorrect. Please try again'),
+    ).toBeInTheDocument()
   })
 })

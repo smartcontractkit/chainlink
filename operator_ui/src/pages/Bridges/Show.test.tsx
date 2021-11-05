@@ -3,6 +3,7 @@ import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 import globPath from 'test-helpers/globPath'
+import Notifications from 'pages/Notifications'
 
 import { Show } from 'pages/Bridges/Show'
 
@@ -59,6 +60,7 @@ describe('pages/Bridges/Show', () => {
 
     renderWithRouter(
       <>
+        <Notifications />
         <Route path="/bridges/:bridgeId">
           <Show />
         </Route>
@@ -101,6 +103,7 @@ describe('pages/Bridges/Show', () => {
 
     renderWithRouter(
       <>
+        <Notifications />
         <Route path="/bridges/:bridgeId">
           <Show />
         </Route>
