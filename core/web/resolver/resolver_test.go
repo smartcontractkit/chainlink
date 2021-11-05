@@ -15,6 +15,7 @@ import (
 	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
+	jobMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
@@ -26,6 +27,7 @@ type mocks struct {
 	bridgeORM *bridgeORMMocks.ORM
 	evmORM    *evmORMMocks.ORM
 	feedsSvc  *feedsMocks.Service
+	jobORM    *jobMocks.ORM
 	cfg       *configMocks.GeneralConfig
 	ocr       *keystoreMocks.OCR
 	csa       *keystoreMocks.CSA
@@ -68,6 +70,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		bridgeORM: &bridgeORMMocks.ORM{},
 		evmORM:    &evmORMMocks.ORM{},
 		feedsSvc:  &feedsMocks.Service{},
+		jobORM:    &jobMocks.ORM{},
 		cfg:       &configMocks.GeneralConfig{},
 		ocr:       &keystoreMocks.OCR{},
 		csa:       &keystoreMocks.CSA{},
@@ -81,6 +84,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.bridgeORM,
 			m.evmORM,
 			m.feedsSvc,
+			m.jobORM,
 			m.cfg,
 			m.ocr,
 			m.csa,

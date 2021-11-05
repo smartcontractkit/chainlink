@@ -100,7 +100,6 @@ func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 		&resolver.Resolver{
 			App: app,
 		},
-		graphql.MaxDepth(5),
 	)
 
 	h := relay.Handler{Schema: schema}

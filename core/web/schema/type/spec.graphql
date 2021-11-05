@@ -1,7 +1,8 @@
-union JobSpec = CronSpec | DirectRequestSpec | FluxMonitorSpec | OCRSpec #|  |  | KeeperSpec | VRFSpec
+union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec
 
 type CronSpec {
-
+	schedule: String!
+	createdAt: Time!
 }
 
 type DirectRequestSpec {
@@ -31,6 +32,10 @@ type FluxMonitorSpec {
 }
 
 type KeeperSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String!
 }
 
 type OCRSpec {
@@ -56,12 +61,11 @@ type OCRSpec {
 }
 
 type VRFSpec {
-
+    confirmations: Int!
+    coordinatorAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String
+    pollPeriod: String!
+    publicKey: String!
 }
-
-
-
-# type JobResource struct {
-# 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
-# 	Errors                []JobError             `json:"errors"`
-# }

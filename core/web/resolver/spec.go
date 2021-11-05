@@ -13,6 +13,14 @@ func NewSpec(j job.Job) *SpecResolver {
 	return &SpecResolver{j: j}
 }
 
+func (r *SpecResolver) ToCronSpec() (*CronSpecResolver, bool) {
+	if r.j.Type != job.Cron {
+		return nil, false
+	}
+
+	return &CronSpecResolver{spec: *r.j.CronSpec}, true
+}
+
 func (r *SpecResolver) ToDirectRequestSpec() (*DirectRequestSpecResolver, bool) {
 	if r.j.Type != job.DirectRequest {
 		return nil, false
@@ -29,12 +37,41 @@ func (r *SpecResolver) ToFluxMonitorSpec() (*FluxMonitorSpecResolver, bool) {
 	return &FluxMonitorSpecResolver{spec: *r.j.FluxMonitorSpec}, true
 }
 
+func (r *SpecResolver) ToKeeperSpec() (*KeeperSpecResolver, bool) {
+	if r.j.Type != job.Keeper {
+		return nil, false
+	}
+
+	return &KeeperSpecResolver{spec: *r.j.KeeperSpec}, true
+}
+
 func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
 	if r.j.Type != job.OffchainReporting {
 		return nil, false
 	}
 
 	return &OCRSpecResolver{spec: *r.j.OffchainreportingOracleSpec}, true
+}
+
+func (r *SpecResolver) ToVRFSpec() (*VRFSpecResolver, bool) {
+	if r.j.Type != job.VRF {
+		return nil, false
+	}
+
+	return &VRFSpecResolver{spec: *r.j.VRFSpec}, true
+}
+
+type CronSpecResolver struct {
+	spec job.CronSpec
+}
+
+func (r *CronSpecResolver) Schedule() string {
+	return r.spec.CronSchedule
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *CronSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
 type DirectRequestSpecResolver struct {
@@ -177,6 +214,36 @@ func (r *FluxMonitorSpecResolver) Threshold() float64 {
 	return float64(r.spec.Threshold)
 }
 
+type KeeperSpecResolver struct {
+	spec job.KeeperSpec
+}
+
+// ContractAddress resolves the spec's contract address.
+func (r *KeeperSpecResolver) ContractAddress() string {
+	return r.spec.ContractAddress.String()
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *KeeperSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *KeeperSpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
+}
+
+// FromAddress resolves the spec's from contract address.
+func (r *KeeperSpecResolver) FromAddress() string {
+	return r.spec.FromAddress.String()
+}
+
 type OCRSpecResolver struct {
 	spec job.OffchainReportingOracleSpec
 }
@@ -298,4 +365,54 @@ func (r *OCRSpecResolver) TransmitterAddress() *string {
 
 	addr := r.spec.TransmitterAddress.String()
 	return &addr
+}
+
+type VRFSpecResolver struct {
+	spec job.VRFSpec
+}
+
+// CreatedAt resolves the spec's confirmations.
+func (r *VRFSpecResolver) Confirmations() int32 {
+	return int32(r.spec.Confirmations)
+}
+
+// CoordinatorAddress resolves the spec's coordinator address.
+func (r *VRFSpecResolver) CoordinatorAddress() string {
+	return r.spec.CoordinatorAddress.String()
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *VRFSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *VRFSpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
+}
+
+// FromAddress resolves the spec's from address.
+func (r *VRFSpecResolver) FromAddress() *string {
+	if r.spec.FromAddress == nil {
+		return nil
+	}
+
+	addr := r.spec.FromAddress.String()
+	return &addr
+}
+
+// PollPeriod resolves the spec's poll period.
+func (r *VRFSpecResolver) PollPeriod() string {
+	return r.spec.PollPeriod.String()
+}
+
+// PublicKey resolves the spec's public key.
+func (r *VRFSpecResolver) PublicKey() string {
+	return r.spec.PublicKey.String()
 }
