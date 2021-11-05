@@ -1,10 +1,10 @@
 import React from 'react'
 
-import { FeedsManagerCard } from './FeedsManagerCard'
-import { JobProposalsCard } from './JobProposalsCard'
-import { FeedsManager } from 'core/store/models'
-
 import Grid from '@material-ui/core/Grid'
+
+import { FeedsManagerCard } from './FeedsManagerCard'
+import { FeedsManager } from 'types/generated/graphql'
+import { JobProposalsCard } from './JobProposalsCard'
 
 interface Props {
   manager: FeedsManager

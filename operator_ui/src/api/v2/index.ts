@@ -5,7 +5,6 @@ import { Chains } from './chains'
 import { CSAKeys } from './csaKeys'
 import { Config } from './config'
 import { Features } from './features'
-import { FeedsManagers } from './feedsManagers'
 import { Jobs } from './jobs'
 import { JobProposals } from './jobProposals'
 import { OcrKeys } from './ocrKeys'
@@ -26,7 +25,6 @@ export class V2 {
   public csaKeys = new CSAKeys(this.api)
   public config = new Config(this.api)
   public features = new Features(this.api)
-  public feedsManagers = new FeedsManagers(this.api)
   public logConfig = new LogConfig(this.api)
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
