@@ -1,6 +1,8 @@
 import React from 'react'
 import StatusCard from './StatusCard'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import { cleanup, render, screen } from 'support/test-utils'
+
+const { queryByText } = screen
 
 describe('components/StatusCard', () => {
   const start = '2020-01-03T22:45:00.166261Z'
@@ -27,22 +29,19 @@ describe('components/StatusCard', () => {
     finishedAt: end1m,
   }
   it('converts the given title to title case', () => {
-    const component = mountWithTheme(
-      <StatusCard title={'pending_incoming_confirmations'} />,
-    )
-    expect(component.text()).toContain('Pending Incoming Confirmations')
+    render(<StatusCard title={'pending_incoming_confirmations'} />)
+
+    expect(queryByText('Pending Incoming Confirmations')).toBeInTheDocument()
   })
 
   it('can display the elapsed time for finished jobruns', () => {
-    const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" {...erroredRun} />,
-    )
-    const completedStatus = mountWithTheme(
-      <StatusCard title="completed" {...completedRun} />,
-    )
+    render(<StatusCard title="errored" {...erroredRun} />)
+    expect(queryByText('1m0s')).toBeInTheDocument()
 
-    expect(erroredStatus.text()).toContain('1m')
-    expect(completedStatus.text()).toContain('1m')
+    cleanup()
+
+    render(<StatusCard title="completed" {...completedRun} />)
+    expect(queryByText('1m0s')).toBeInTheDocument()
   })
 
   it('displays a live elapsed time for pending job runs', () => {
@@ -52,28 +51,25 @@ describe('components/StatusCard', () => {
       .spyOn(Date, 'now')
       .mockImplementationOnce(() => new Date(now2m).valueOf())
 
-    const pendingStatus = mountWithTheme(
-      <StatusCard title="pending" {...pendingRun} />,
-    )
+    render(<StatusCard title="pending" {...pendingRun} />)
 
-    expect(pendingStatus.html()).toContain('2m')
+    expect(queryByText('2m0s')).toBeInTheDocument()
   })
 
   it('can display link earned for completed jobs', () => {
-    const completedStatus = mountWithTheme(
-      <StatusCard title="completed" {...completedRun} />,
-    )
-    expect(completedStatus.text()).toContain('+2 Link')
+    render(<StatusCard title="completed" {...completedRun} />)
+    expect(queryByText('+2 Link')).toBeInTheDocument()
   })
 
   it('will not display link earned for errored or pending jobs', () => {
-    const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" {...erroredRun} />,
-    )
-    const pendingStatus = mountWithTheme(
+    render(<StatusCard title="errored" {...erroredRun} />)
+    expect(queryByText('Link')).not.toBeInTheDocument()
+
+    cleanup()
+
+    render(
       <StatusCard title="pending_incoming_confirmations" {...pendingRun} />,
     )
-    expect(erroredStatus.text()).not.toContain('Link')
-    expect(pendingStatus.text()).not.toContain('Link')
+    expect(queryByText('Link')).not.toBeInTheDocument()
   })
 })
