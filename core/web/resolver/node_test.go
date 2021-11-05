@@ -2,15 +2,20 @@ package resolver
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func Test_NodeQuery(t *testing.T) {
+	t.Parallel()
+
 	query := `
 		query GetNode {
 			node(id: "200") {
@@ -67,7 +72,7 @@ func Test_NodeQuery(t *testing.T) {
 			}`,
 		},
 		{
-			name:          "not found",
+			name:          "not found error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.evmORM.On("Node", int32(1)).Return(types.Node{}, sql.ErrNoRows)
@@ -88,6 +93,8 @@ func Test_NodeQuery(t *testing.T) {
 }
 
 func Test_CreateNodeMutation(t *testing.T) {
+	t.Parallel()
+
 	mutation := `
 		mutation CreateNode($input: CreateNodeInput!) {
 			createNode(input: $input) {
@@ -154,6 +161,107 @@ func Test_CreateNodeMutation(t *testing.T) {
 								"enabled": true
 							}
 						}
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func Test_DeleteNodeMutation(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation DeleteNode($id: ID!) {
+			deleteNode(id: $id) {
+				... on DeleteNodeSuccess {
+					node {
+						name
+						wsURL
+						httpURL
+					}
+				}
+				... on NotFoundError {
+					message
+					code
+				}
+			}
+		}`
+
+	fakeID := int32(2)
+	fakeNode := types.Node{
+		ID:         fakeID,
+		Name:       "node-name",
+		EVMChainID: *utils.NewBigI(1),
+		WSURL:      null.StringFrom("ws://some-url"),
+		HTTPURL:    null.StringFrom("http://some-url"),
+		SendOnly:   true,
+	}
+
+	variables := map[string]interface{}{
+		"id": fakeID,
+	}
+
+	d, err := json.Marshal(map[string]interface{}{
+		"deleteNode": map[string]interface{}{
+			"node": map[string]interface{}{
+				"name":    fakeNode.Name,
+				"wsURL":   fakeNode.WSURL,
+				"httpURL": fakeNode.HTTPURL,
+			},
+		},
+	})
+	assert.NoError(t, err)
+
+	expected := string(d)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteNode"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Node", fakeID).Return(fakeNode, nil)
+				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(nil)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "not found error on fetch",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Node", fakeID).Return(types.Node{}, sql.ErrNoRows)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteNode": {
+						"code": "NOT_FOUND",
+						"message": "node not found"
+					}
+				}`,
+		},
+		{
+			name:          "not found error on delete",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Node", fakeID).Return(fakeNode, nil)
+				f.Mocks.evmORM.On("DeleteNode", int64(2)).Return(evm.ErrNoRowsAffected)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteNode": {
+						"code": "NOT_FOUND",
+						"message": "node not found"
 					}
 				}`,
 		},
