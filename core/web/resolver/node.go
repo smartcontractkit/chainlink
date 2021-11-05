@@ -125,3 +125,42 @@ func NewCreateNodeSuccessResolve(node types.Node) *CreateNodeSuccessResolve {
 func (r *CreateNodeSuccessResolve) Node() *NodeResolver {
 	return NewNode(r.node)
 }
+
+// -- DeleteNode Mutation --
+
+type DeleteNodePayloadResolver struct {
+	node *types.Node
+	err  error
+}
+
+func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
+	return &DeleteNodePayloadResolver{node, err}
+}
+
+func (r *DeleteNodePayloadResolver) ToDeleteNodeSuccess() (*DeleteNodeSuccessResolver, bool) {
+	if r.node != nil {
+		return NewDeleteNodeSuccessResolver(r.node), true
+	}
+
+	return nil, false
+}
+
+func (r *DeleteNodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil {
+		return NewNotFoundError("node not found"), true
+	}
+
+	return nil, false
+}
+
+type DeleteNodeSuccessResolver struct {
+	node *types.Node
+}
+
+func NewDeleteNodeSuccessResolver(node *types.Node) *DeleteNodeSuccessResolver {
+	return &DeleteNodeSuccessResolver{node}
+}
+
+func (r *DeleteNodeSuccessResolver) Node() *NodeResolver {
+	return NewNode(*r.node)
+}

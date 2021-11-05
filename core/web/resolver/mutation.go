@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
@@ -325,4 +326,31 @@ func (r *Resolver) CreateNode(ctx context.Context, args struct {
 	}
 
 	return NewCreateNodePayloadResolver(&node), nil
+}
+
+func (r *Resolver) DeleteNode(ctx context.Context, args struct {
+	ID int32
+}) (*DeleteNodePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	node, err := r.App.EVMORM().Node(args.ID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteNodePayloadResolver(nil, err), nil
+		}
+		return nil, err
+	}
+
+	err = r.App.EVMORM().DeleteNode(int64(args.ID))
+	if err != nil {
+		if errors.Is(err, evm.ErrNoRowsAffected) {
+			return NewDeleteNodePayloadResolver(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteNodePayloadResolver(&node, nil), nil
 }
