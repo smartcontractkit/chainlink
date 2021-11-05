@@ -136,6 +136,9 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 		}
 		peers = append(peers, peer)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return peers, nil
 }
