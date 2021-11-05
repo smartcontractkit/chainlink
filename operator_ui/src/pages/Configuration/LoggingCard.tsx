@@ -71,7 +71,7 @@ const LogConfigurationForm = withStyles(styles)(
     })
 
     return (
-      <form onSubmit={formik.handleSubmit}>
+      <form onSubmit={formik.handleSubmit} data-testid="logging-form">
         <TextField
           id="select-level"
           name="level"

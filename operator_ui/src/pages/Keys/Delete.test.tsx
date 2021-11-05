@@ -1,6 +1,9 @@
+import userEvent from '@testing-library/user-event'
 import React from 'react'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
+import { render, screen } from 'support/test-utils'
 import { Delete } from './Delete'
+
+const { getByRole, getByText } = screen
 
 describe('pages/Keys/Delete', () => {
   it('open modal and confirm delete', async () => {
@@ -8,7 +11,7 @@ describe('pages/Keys/Delete', () => {
     const expectedKeyValue = 'keyValue'
     const expectedOnDelete = jest.fn()
 
-    const wrapper = mountWithProviders(
+    render(
       <Delete
         onDelete={expectedOnDelete}
         keyId={expectedKeyId}
@@ -16,14 +19,11 @@ describe('pages/Keys/Delete', () => {
       />,
     )
 
-    wrapper.find('[data-testid="keys-delete-dialog"]').first().simulate('click')
+    userEvent.click(getByRole('button', { name: 'Delete' }))
 
-    expect(wrapper.text()).toContain(expectedKeyValue)
+    expect(getByText(expectedKeyValue)).toBeInTheDocument()
 
-    wrapper
-      .find('[data-testid="keys-delete-confirm"]')
-      .first()
-      .simulate('click')
+    userEvent.click(getByRole('button', { name: 'Yes' }))
 
     expect(expectedOnDelete).toBeCalledWith(expectedKeyId)
   })

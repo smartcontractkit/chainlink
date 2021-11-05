@@ -123,7 +123,7 @@ type abigenContract interface {
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 }
 
-func (helper *broadcasterHelper) register(listener log.Listener, contract abigenContract, numConfirmations uint64) {
+func (helper *broadcasterHelper) register(listener log.Listener, contract abigenContract, numConfirmations uint32) {
 	logs := []generated.AbigenLog{
 		flux_aggregator_wrapper.FluxAggregatorNewRound{},
 		flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
@@ -131,7 +131,7 @@ func (helper *broadcasterHelper) register(listener log.Listener, contract abigen
 	helper.registerWithTopics(listener, contract, logs, numConfirmations)
 }
 
-func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract abigenContract, logs []generated.AbigenLog, numConfirmations uint64) {
+func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract abigenContract, logs []generated.AbigenLog, numConfirmations uint32) {
 	logsWithTopics := make(map[common.Hash][][]log.Topic)
 	for _, log := range logs {
 		logsWithTopics[log.Topic()] = nil
@@ -139,7 +139,7 @@ func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contr
 	helper.registerWithTopicValues(listener, contract, numConfirmations, logsWithTopics)
 }
 
-func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract abigenContract, numConfirmations uint64,
+func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, contract abigenContract, numConfirmations uint32,
 	topics map[common.Hash][][]log.Topic) {
 
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
