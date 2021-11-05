@@ -1675,20 +1675,6 @@ func (_m *GeneralConfig) KeeperMaximumGracePeriod() int64 {
 	return r0
 }
 
-// KeeperMinimumRequiredConfirmations provides a mock function with given fields:
-func (_m *GeneralConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
 // KeeperRegistryCheckGasOverhead provides a mock function with given fields:
 func (_m *GeneralConfig) KeeperRegistryCheckGasOverhead() uint64 {
 	ret := _m.Called()

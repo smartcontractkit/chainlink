@@ -123,7 +123,7 @@ func (lsn *listenerV1) Start() error {
 			// would depend on the order in which their OnNewLongestChain callbacks got called.
 			// We listen one block early so that the log can be stored in pendingRequests
 			// to avoid this.
-			NumConfirmations: uint64(spec.Confirmations - 1),
+			NumConfirmations: uint32(spec.Confirmations - 1),
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.

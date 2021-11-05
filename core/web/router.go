@@ -221,7 +221,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
-		wa := WebAuthnController{app, nil}
+		wa := NewWebAuthnController(app)
 		authv2.GET("/enroll_webauthn", wa.BeginRegistration)
 		authv2.POST("/enroll_webauthn", wa.FinishRegistration)
 
