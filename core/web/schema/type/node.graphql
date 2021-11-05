@@ -7,3 +7,5 @@ type Node {
     createdAt: Time!
     updatedAt: Time!
 }
+
+union NodePayload = Node | NotFoundError
