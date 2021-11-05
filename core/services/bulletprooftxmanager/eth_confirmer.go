@@ -638,7 +638,7 @@ RETURNING e0.id, e0.nonce, e0.from_address`, ErrCouldNotGetReceipt, cutoff, ec.c
 			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64), "ethTxID", ethTxID, "nonce", nonce, "fromAddress", fromAddress)
 	}
 
-	return nil
+	return rows.Err()
 }
 
 func (ec *EthConfirmer) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {

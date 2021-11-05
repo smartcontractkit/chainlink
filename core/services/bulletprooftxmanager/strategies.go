@@ -64,7 +64,9 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 }
 
 func (s DropOldestStrategy) PruneQueue(q postgres.Queryer) (n int64, err error) {
-	res, err := q.Exec(`
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	res, err := q.ExecContext(ctx, `
 DELETE FROM eth_txes
 WHERE state = 'unstarted' AND subject = $1 AND
 id < (
