@@ -124,7 +124,7 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lggr := o.lggr.With("user", user)
+	lggr := o.lggr.With("user", user.Email)
 	lggr.Debugw("Found user")
 
 	// Do email and password check first to prevent extra database look up

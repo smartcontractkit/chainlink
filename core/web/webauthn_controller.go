@@ -22,11 +22,14 @@ type WebAuthnController struct {
 	inProgressRegistrationsStore *sessions.WebAuthnSessionStore
 }
 
-func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
-	if c.inProgressRegistrationsStore == nil {
-		c.inProgressRegistrationsStore = sessions.NewWebAuthnSessionStore()
+func NewWebAuthnController(app chainlink.Application) WebAuthnController {
+	return WebAuthnController{
+		App:                          app,
+		inProgressRegistrationsStore: sessions.NewWebAuthnSessionStore(),
 	}
+}
 
+func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 	orm := c.App.SessionORM()
 	user, err := orm.FindUser()
 	if err != nil {
@@ -42,7 +45,7 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	options, err := sessions.BeginWebAuthnRegistration(user, uwas, c.inProgressRegistrationsStore, ctx, webAuthnConfig)
+	options, err := c.inProgressRegistrationsStore.BeginWebAuthnRegistration(user, uwas, webAuthnConfig)
 	if err != nil {
 		c.App.GetLogger().Errorf("error in BeginWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("internal Server Error"))
@@ -55,12 +58,6 @@ func (c *WebAuthnController) BeginRegistration(ctx *gin.Context) {
 }
 
 func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
-	// This should never be nil at this stage (if it registration will surely fail)
-	if c.inProgressRegistrationsStore == nil {
-		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
-		return
-	}
-
 	orm := c.App.SessionORM()
 	user, err := orm.FindUser()
 	if err != nil {
@@ -78,7 +75,7 @@ func (c *WebAuthnController) FinishRegistration(ctx *gin.Context) {
 
 	webAuthnConfig := c.App.GetWebAuthnConfiguration()
 
-	credential, err := sessions.FinishWebAuthnRegistration(user, uwas, c.inProgressRegistrationsStore, ctx, webAuthnConfig)
+	credential, err := c.inProgressRegistrationsStore.FinishWebAuthnRegistration(user, uwas, ctx.Request, webAuthnConfig)
 	if err != nil {
 		c.App.GetLogger().Errorf("error in FinishWebAuthnRegistration: %s", err)
 		jsonAPIError(ctx, http.StatusBadRequest, errors.New("registration was unsuccessful"))
