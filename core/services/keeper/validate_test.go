@@ -16,12 +16,12 @@ func TestValidatedKeeperSpec(t *testing.T) {
 		tomlString string
 	}
 	type want struct {
-		id            int32
-		contractAddr  string
-		fromAddr      string
-		confirmations uint32
-		createdAt     time.Time
-		updatedAt     time.Time
+		id                       int32
+		contractAddr             string
+		fromAddr                 string
+		minIncomingConfirmations uint32
+		createdAt                time.Time
+		updatedAt                time.Time
 	}
 	tests := []struct {
 		name    string
@@ -38,12 +38,12 @@ func TestValidatedKeeperSpec(t *testing.T) {
 				}).Toml(),
 			},
 			want: want{
-				id:            0,
-				contractAddr:  "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
-				fromAddr:      "0xa8037A20989AFcBC51798de9762b351D63ff462e",
-				confirmations: 0,
-				createdAt:     time.Time{},
-				updatedAt:     time.Time{},
+				id:                       0,
+				contractAddr:             "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+				fromAddr:                 "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+				minIncomingConfirmations: 0,
+				createdAt:                time.Time{},
+				updatedAt:                time.Time{},
 			},
 			wantErr: false,
 		},
@@ -51,14 +51,14 @@ func TestValidatedKeeperSpec(t *testing.T) {
 			name: "valid job spec with reordered fields",
 			args: args{
 				tomlString: `
-type            = "keeper"
-schemaVersion   = 2
-name            = "example keeper spec"
-contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-evmChainID      = 4
-externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
-confirmations   = 2
+type            			= "keeper"
+schemaVersion   			= 2
+name            			= "example keeper spec"
+contractAddress 			= "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+fromAddress     			= "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+evmChainID      			= 4
+externalJobID   			=  "123e4567-e89b-12d3-a456-426655440002"
+minIncomingConfirmations	= 2
 
 
 observationSource = """
@@ -89,12 +89,12 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `,
 			},
 			want: want{
-				id:            0,
-				contractAddr:  "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
-				fromAddr:      "0xa8037A20989AFcBC51798de9762b351D63ff462e",
-				confirmations: 2,
-				createdAt:     time.Time{},
-				updatedAt:     time.Time{},
+				id:                       0,
+				contractAddr:             "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+				fromAddr:                 "0xa8037A20989AFcBC51798de9762b351D63ff462e",
+				minIncomingConfirmations: 2,
+				createdAt:                time.Time{},
+				updatedAt:                time.Time{},
 			},
 			wantErr: false,
 		},
@@ -153,7 +153,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 			require.Equal(t, tt.want.id, got.ID)
 			require.Equal(t, tt.want.contractAddr, got.KeeperSpec.ContractAddress.Hex())
 			require.Equal(t, tt.want.fromAddr, got.KeeperSpec.FromAddress.Hex())
-			require.Equal(t, tt.want.confirmations, uint32(*got.KeeperSpec.Confirmations))
+			require.Equal(t, tt.want.minIncomingConfirmations, *got.KeeperSpec.MinIncomingConfirmations)
 			require.Equal(t, tt.want.createdAt, got.KeeperSpec.CreatedAt)
 			require.Equal(t, tt.want.updatedAt, got.KeeperSpec.UpdatedAt)
 		})

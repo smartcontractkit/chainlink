@@ -84,9 +84,9 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		"registryAddress", contractAddress.Hex(),
 	)
 
-	minConfirmations := chain.Config().MinIncomingConfirmations()
-	if spec.KeeperSpec.Confirmations != nil {
-		minConfirmations = *spec.KeeperSpec.Confirmations
+	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
+	if spec.KeeperSpec.MinIncomingConfirmations != nil {
+		minIncomingConfirmations = *spec.KeeperSpec.MinIncomingConfirmations
 	}
 
 	registrySynchronizer := NewRegistrySynchronizer(RegistrySynchronizerOptions{
@@ -96,7 +96,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		JRM:                 d.jrm,
 		LogBroadcaster:      chain.LogBroadcaster(),
 		SyncInterval:        chain.Config().KeeperRegistrySyncInterval(),
-		MinConfirmations:    minConfirmations,
+		MinConfirmations:    minIncomingConfirmations,
 		Logger:              svcLogger,
 		SyncUpkeepQueueSize: chain.Config().KeeperRegistrySyncUpkeepQueueSize(),
 	})

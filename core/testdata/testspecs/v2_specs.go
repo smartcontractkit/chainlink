@@ -121,10 +121,10 @@ observationSource   = """
 )
 
 type KeeperSpecParams struct {
-	ContractAddress string
-	FromAddress     string
-	EvmChainID      int
-	Confirmations   int
+	ContractAddress          string
+	FromAddress              string
+	EvmChainID               int
+	minIncomingConfirmations int
 }
 
 type KeeperSpec struct {
@@ -138,14 +138,14 @@ func (os KeeperSpec) Toml() string {
 
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
-type            = "keeper"
-schemaVersion   = 2
-name            = "example keeper spec"
-contractAddress = "%s"
-fromAddress     = "%s"
-evmChainID      = %d
-confirmations   = %d
-externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
+type            		 	= "keeper"
+schemaVersion   		 	= 2
+name            		 	= "example keeper spec"
+contractAddress 		 	= "%s"
+fromAddress     		 	= "%s"
+evmChainID      		 	= %d
+minIncomingConfirmations	= %d
+externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
 
 
 observationSource = """
@@ -177,7 +177,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.Confirmations),
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.minIncomingConfirmations),
 	}
 }
 

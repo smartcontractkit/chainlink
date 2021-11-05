@@ -357,13 +357,13 @@ type FluxMonitorSpec struct {
 }
 
 type KeeperSpec struct {
-	ID              int32               `toml:"-" gorm:"primary_key"`
-	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
-	Confirmations   *uint32             `toml:"confirmations"`
-	FromAddress     ethkey.EIP55Address `toml:"fromAddress"`
-	EVMChainID      *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
-	CreatedAt       time.Time           `toml:"-"`
-	UpdatedAt       time.Time           `toml:"-"`
+	ID                       int32               `toml:"-" gorm:"primary_key"`
+	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
+	MinIncomingConfirmations *uint32             `toml:"minIncomingConfirmations"`
+	FromAddress              ethkey.EIP55Address `toml:"fromAddress"`
+	EVMChainID               *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	CreatedAt                time.Time           `toml:"-"`
+	UpdatedAt                time.Time           `toml:"-"`
 }
 
 type VRFSpec struct {
