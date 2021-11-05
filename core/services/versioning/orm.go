@@ -68,7 +68,7 @@ created_at = EXCLUDED.created_at
 func CheckVersion(q postgres.Queryer, lggr logger.Logger, appVersion string) error {
 	lggr = lggr.Named("Version")
 	var dbVersion string
-	err := q.QueryRowx(`SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`).Scan(&dbVersion)
+	err := q.Get(&dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
 	if errors.Is(err, sql.ErrNoRows) {
 		lggr.Debug("No previous version set")
 		return nil
