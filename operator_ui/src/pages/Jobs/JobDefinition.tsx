@@ -55,7 +55,11 @@ export const JobDefinition = withStyles(definitionStyles)(
             <CardHeader title="Definition" />
             <CardContent>
               <Typography style={{ margin: 0 }} variant="body1" component="pre">
-                <SyntaxHighlighter language="toml" style={prism}>
+                <SyntaxHighlighter
+                  language="toml"
+                  style={prism}
+                  data-testid="definition"
+                >
                   {job.definition}
                 </SyntaxHighlighter>
               </Typography>

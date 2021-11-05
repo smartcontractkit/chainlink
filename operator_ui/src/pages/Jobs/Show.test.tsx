@@ -4,8 +4,6 @@ import { JobsShow } from 'pages/Jobs/Show'
 
 import { jobRunsAPIResponse } from 'factories/jsonApiOcrJobRun'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 import {
@@ -13,6 +11,10 @@ import {
   fluxMonitorJobResource,
   webJobResource,
 } from 'support/factories/jsonApiJobs'
+import { renderWithRouter, screen } from 'support/test-utils'
+import userEvent from '@testing-library/user-event'
+
+const { findAllByRole, getByRole, findByText } = screen
 
 const JOB_ID = '200'
 
@@ -39,19 +41,17 @@ describe('pages/Jobs/Show', () => {
     )
     global.fetch.getOnce(globPath(`/v2/jobs/${JOB_ID}`), jobResponse)
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_ID}`],
-      },
-    )
-    await syncFetch(wrapper)
+    renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+      initialEntries: [`/jobs/${JOB_ID}`],
+    })
 
-    expect(wrapper.text()).toContain(JOB_ID)
-    expect(wrapper.text()).toContain('fluxmonitor')
-    expect(wrapper.text()).toContain('Created 1 minute ago')
-    expect(wrapper.text()).toContain('runA')
-    expect(wrapper.text()).toContain('runB')
+    expect(await findByText(JOB_ID, { exact: true })).toBeInTheDocument()
+    expect(await findByText('fluxmonitor', { exact: true })).toBeInTheDocument()
+    expect(
+      await findByText('1 minute ago', { exact: true }),
+    ).toBeInTheDocument()
+    expect(await findByText('runA', { exact: true })).toBeInTheDocument()
+    expect(await findByText('runB', { exact: true })).toBeInTheDocument()
   })
 
   describe('RegionalNav', () => {
@@ -71,34 +71,30 @@ describe('pages/Jobs/Show', () => {
       )
       global.fetch.getOnce(globPath(`/v2/jobs/${JOB_ID}`), jobResponse)
 
-      const wrapper = mountWithProviders(
-        <Route path="/jobs/:jobId" component={JobsShow} />,
-        {
-          initialEntries: [`/jobs/${JOB_ID}`],
-        },
-      )
-      await syncFetch(wrapper)
+      renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+        initialEntries: [`/jobs/${JOB_ID}`],
+      })
 
-      expect(wrapper.find('tbody').first().children().length).toEqual(1)
+      let rows = await findAllByRole('row')
+      expect(rows.length).toEqual(1)
 
       // Prep before "Run" button click
       global.fetch.postOnce(
         globPath(`/v2/jobs/${jobResponse.data.attributes.externalJobID}/runs`),
-        {},
+        { data: { id: '1', attributes: { jobId: JOB_ID } } },
       )
       global.fetch.getOnce(
         globPath(`/v2/jobs/${JOB_ID}/runs`),
         jobRunsAPIResponse(runs.concat([{ id: 'runB', jobId: JOB_ID }])),
       )
 
-      wrapper.find('Button').find({ children: 'Run' }).first().simulate('click')
-      wrapper
-        .find('RunJobModal')
-        .find({ children: 'Run job' })
-        .first()
-        .simulate('click')
-      await syncFetch(wrapper)
-      expect(wrapper.find('tbody').first().children().length).toEqual(2)
+      userEvent.click(getByRole('button', { name: 'Run' }))
+
+      // Click the modal confirmation button
+      userEvent.click(getByRole('button', { name: 'Run job' }))
+
+      rows = await findAllByRole('row')
+      expect(rows.length).toEqual(2)
     })
   })
 })

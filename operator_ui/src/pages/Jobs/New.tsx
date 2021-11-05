@@ -142,7 +142,7 @@ export const New = ({
       setLoading(true)
       setServerErrorMsg('')
 
-      apiCall({
+      await apiCall({
         value,
       })
         .then(({ data }) => {
@@ -202,7 +202,6 @@ export const New = ({
                   </Grid>
                   <Grid item xs={12}>
                     <Button
-                      data-testid="new-job-spec-submit"
                       variant="primary"
                       type="submit"
                       size="large"

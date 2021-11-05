@@ -1,8 +1,10 @@
 import React from 'react'
 import { MemoryRouter } from 'react-router-dom'
-import { render } from 'enzyme'
+import { render, screen } from '@testing-library/react'
 import RecentlyCreated from 'components/Jobs/RecentlyCreated'
 import isoDate, { MINUTE_MS, TWO_MINUTES_MS } from 'test-helpers/isoDate'
+
+const { queryByText } = screen
 
 const renderComponent = (jobs) =>
   render(
@@ -24,18 +26,21 @@ describe('components/Jobs/RecentlyCreated', () => {
       createdAt: twoMinutesAgo,
     }
 
-    const wrapper = renderComponent([jobB, jobA])
-    expect(wrapper.text()).toContain('job_bCreated 1 minute ago')
-    expect(wrapper.text()).toContain('job_aCreated 2 minutes ago')
+    renderComponent([jobB, jobA])
+
+    expect(queryByText('job_a')).toBeInTheDocument()
+    expect(queryByText('2 minutes ago')).toBeInTheDocument()
+    expect(queryByText('job_b')).toBeInTheDocument()
+    expect(queryByText('1 minute ago')).toBeInTheDocument()
   })
 
   it('shows a loading indicator', () => {
-    const wrapper = renderComponent(null)
-    expect(wrapper.text()).toContain('...')
+    renderComponent(null)
+    expect(queryByText('...')).toBeInTheDocument()
   })
 
   it('shows a message for no jobs', () => {
-    const wrapper = renderComponent([])
-    expect(wrapper.text()).toContain('No recently created jobs')
+    renderComponent([])
+    expect(queryByText('No recently created jobs')).toBeInTheDocument()
   })
 })

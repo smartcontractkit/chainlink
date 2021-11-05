@@ -1,15 +1,21 @@
 import React from 'react'
 import { JobsShow } from 'pages/Jobs/Show'
 import { Route } from 'react-router-dom'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import {
   jsonApiJob,
   fluxMonitorJobResource,
 } from 'support/factories/jsonApiJobs'
 
+import {
+  renderWithRouter,
+  screen,
+  waitForElementToBeRemoved,
+} from 'support/test-utils'
+
 const JOB_ID = '200'
+
+const { getAllByRole, getByText } = screen
 
 const errors = [
   {
@@ -42,18 +48,20 @@ describe('pages/Jobs/Errors', () => {
         errors,
       }),
     )
+
     global.fetch.getOnce(globPath(`/v2/jobs/${JOB_ID}`), jobResponse)
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_ID}/errors`],
-      },
-    )
+    renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+      initialEntries: [`/jobs/${JOB_ID}/errors`],
+    })
 
-    await syncFetch(wrapper)
+    await waitForElementToBeRemoved(() => getByText('Loading...'))
 
-    expect(wrapper.text()).toContain('Unable to start job subscription')
-    expect(wrapper.find('tbody').children().length).toEqual(3)
+    const rows = getAllByRole('row')
+    expect(rows).toHaveLength(4) // Includes the header row
+
+    expect(rows[1]).toHaveTextContent('Unable to start job subscription')
+    expect(rows[2]).toHaveTextContent('2nd error')
+    expect(rows[3]).toHaveTextContent('3rd error')
   })
 })
