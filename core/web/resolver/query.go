@@ -131,6 +131,32 @@ func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadReso
 	return NewFeedsManagersPayload(mgrs), nil
 }
 
+func (r *Resolver) Jobs(ctx context.Context, args struct {
+	Offset *int
+	Limit  *int
+}) (*JobsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	// return NewBridgesPayload(bridges, int32(count)), nil
+	// Temporary: if no size is passed in, use a large page size. Remove once frontend can handle pagination
+	// if c.Query("size") == "" {
+	// 	size = 1000
+	// }
+
+	jobs, count, err := r.App.JobORM().FindJobs(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobsPayload(jobs, int32(count)), nil
+
+}
+
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

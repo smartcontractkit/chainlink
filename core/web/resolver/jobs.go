@@ -1,0 +1,89 @@
+package resolver
+
+import (
+	"strconv"
+
+	"github.com/graph-gophers/graphql-go"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+)
+
+// JobResolver resolves the Job type.
+type JobResolver struct {
+	j job.Job
+}
+
+func NewJob(j job.Job) *JobResolver {
+	return &JobResolver{j: j}
+}
+
+func NewJobs(jobs []job.Job) []*JobResolver {
+	resolvers := []*JobResolver{}
+	for _, j := range jobs {
+		resolvers = append(resolvers, NewJob(j))
+	}
+
+	return resolvers
+}
+
+// ID resolves the job's id.
+func (r *JobResolver) ID() graphql.ID {
+	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
+}
+
+// Name resolves the job's name.
+func (r *JobResolver) Name() string {
+	if r.j.Name.IsZero() {
+		return "No name"
+
+	}
+
+	return r.j.Name.ValueOrZero()
+}
+
+// SchemaVersion resolves the job's schema version.
+func (r *JobResolver) SchemaVersion() int32 {
+	return int32(r.j.SchemaVersion)
+}
+
+// MaxTaskDuration resolves the job's max task duration.
+func (r *JobResolver) MaxTaskDuration() string {
+	return r.j.MaxTaskDuration.Duration().String()
+}
+
+// ExternalJobID resolves the job's external job id.
+func (r *JobResolver) ExternalJobID() string {
+	return r.j.ExternalJobID.String()
+}
+
+// Spec resolves the job's spec.
+func (r *JobResolver) Spec() *SpecResolver {
+	return NewSpec(r.j)
+}
+
+// CreatedAt resolves the job's created at timestamp.
+func (r *JobResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.j.CreatedAt}
+}
+
+// JobsPayloadResolver resolves a page of jobs
+type JobsPayloadResolver struct {
+	jobs  []job.Job
+	total int32
+}
+
+func NewJobsPayload(jobs []job.Job, total int32) *JobsPayloadResolver {
+	return &JobsPayloadResolver{
+		jobs:  jobs,
+		total: total,
+	}
+}
+
+// Results returns the bridges.
+func (r *JobsPayloadResolver) Results() []*JobResolver {
+	return NewJobs(r.jobs)
+}
+
+// Metadata returns the pagination metadata.
+func (r *JobsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
+}

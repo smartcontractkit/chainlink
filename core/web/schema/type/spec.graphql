@@ -1,0 +1,49 @@
+union JobSpec = DirectRequestSpec | FluxMonitorSpec | OCRSpec #| CronSpec |  | KeeperSpec | VRFSpec
+
+type CronSpec {
+
+}
+
+type DirectRequestSpec {
+	contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    minIncomingConfirmations: Int
+	minIncomingConfirmationsEnv: Boolean!
+	minContractPayment: String!
+	requesters: [String!]!
+}
+
+type FluxMonitorSpec {
+    absoluteThreshold: Float!
+    contractAddress: String!
+    createdAt: Time!
+    drumbeatEnabled: Boolean!
+    drumbeatRandomDelay: String
+    drumbeatSchedule: String
+    evmChainID: String
+    idleTimerDisabled: Boolean!
+    idleTimerPeriod: String!
+    minPayment: String
+    pollTimerDisabled: Boolean!
+    pollTimerPeriod: String!
+    threshold: Float!
+}
+
+type KeeperSpec {
+}
+
+type OCRSpec {
+
+}
+
+type VRFSpec {
+
+}
+
+
+
+# type JobResource struct {
+# 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
+# 	Errors                []JobError             `json:"errors"`
+# }

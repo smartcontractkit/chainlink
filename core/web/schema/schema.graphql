@@ -15,6 +15,7 @@ type Query {
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    jobs(offset: Int, limit: Int): JobsPayload!
 }
 
 type Mutation {

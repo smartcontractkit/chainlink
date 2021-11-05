@@ -1,0 +1,16 @@
+type Job {
+    id: ID!
+    name: String!
+    schemaVersion: Int!
+    maxTaskDuration: String!
+    externalJobID: String!
+    spec: JobSpec!
+
+    createdAt: Time!
+}
+
+# JobsPayload defines the response when fetching a page of jobs
+type JobsPayload implements PaginatedPayload {
+    results: [Job!]!
+    metadata: PaginationMetadata!
+}
