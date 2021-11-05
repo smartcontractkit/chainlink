@@ -144,6 +144,19 @@ func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadReso
 	return NewOCRKeyBundlesPayloadResolver(ocrKeyBundles), nil
 }
 
+func (r *Resolver) CSAKeys(ctx context.Context) (*CSAKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().CSA().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCSAKeysResolver(keys), nil
+}
+
 // Features retrieves each featured enabled by boolean mapping
 func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
