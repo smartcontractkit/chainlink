@@ -1,0 +1,5 @@
+{
+    "gopls": {
+        "formatting.local": "github.com/smartcontractkit/feeds-manager",
+    },
+}

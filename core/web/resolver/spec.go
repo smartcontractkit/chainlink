@@ -29,6 +29,14 @@ func (r *SpecResolver) ToFluxMonitorSpec() (*FluxMonitorSpecResolver, bool) {
 	return &FluxMonitorSpecResolver{spec: *r.j.FluxMonitorSpec}, true
 }
 
+func (r *SpecResolver) ToOCRSpec() (*OCRSpecResolver, bool) {
+	if r.j.Type != job.OffchainReporting {
+		return nil, false
+	}
+
+	return &OCRSpecResolver{spec: *r.j.OffchainreportingOracleSpec}, true
+}
+
 type DirectRequestSpecResolver struct {
 	spec job.DirectRequestSpec
 }
@@ -167,4 +175,127 @@ func (r *FluxMonitorSpecResolver) PollTimerPeriod() string {
 // Threshold resolves the spec's deviation threshold.
 func (r *FluxMonitorSpecResolver) Threshold() float64 {
 	return float64(r.spec.Threshold)
+}
+
+type OCRSpecResolver struct {
+	spec job.OffchainReportingOracleSpec
+}
+
+// BlockchainTimeout resolves the spec's blockchain timeout.
+func (r *OCRSpecResolver) BlockchainTimeout() string {
+	return r.spec.BlockchainTimeout.Duration().String()
+}
+
+// BlockchainTimeoutEnv resolves whether the spec's blockchain timeout comes
+// from an env var.
+func (r *OCRSpecResolver) BlockchainTimeoutEnv() bool {
+	return r.spec.BlockchainTimeoutEnv
+}
+
+// ContractAddress resolves the spec's contract address.
+func (r *OCRSpecResolver) ContractAddress() string {
+	return r.spec.ContractAddress.String()
+}
+
+// ContractConfigConfirmations resolves the spec's confirmations config.
+func (r *OCRSpecResolver) ContractConfigConfirmations() int32 {
+	return int32(r.spec.ContractConfigConfirmations)
+}
+
+// ContractConfigConfirmationsEnv resolves whether spec's confirmations
+// config comes from an env var.
+func (r *OCRSpecResolver) ContractConfigConfirmationsEnv() bool {
+	return r.spec.ContractConfigConfirmationsEnv
+}
+
+// ContractConfigTrackerPollInterval resolves the spec's contract tracker poll
+// interval config.
+func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() string {
+	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+}
+
+// ContractConfigTrackerPollIntervalEnv resolves the whether spec's tracker poll
+// config comes from an env var.
+func (r *OCRSpecResolver) ContractConfigTrackerPollIntervalEnv() bool {
+	return r.spec.ContractConfigConfirmationsEnv
+}
+
+// ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
+// interval config.
+func (r *OCRSpecResolver) ContractConfigTrackerSubscribeInterval() string {
+	return r.spec.ContractConfigTrackerPollInterval.Duration().String()
+}
+
+// ContractConfigTrackerSubscribeIntervalEnv resolves whether spec's tracker
+// subscribe interval config comes from an env var.
+func (r *OCRSpecResolver) ContractConfigTrackerSubscribeIntervalEnv() bool {
+	return r.spec.ContractConfigTrackerSubscribeIntervalEnv
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *OCRSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// EVMChainID resolves the spec's evm chain id.
+func (r *OCRSpecResolver) EVMChainID() *string {
+	if r.spec.EVMChainID == nil {
+		return nil
+	}
+
+	chainID := r.spec.EVMChainID.String()
+
+	return &chainID
+}
+
+// IsBootstrapPeer resolves whether spec is a bootstrap peer.
+func (r *OCRSpecResolver) IsBootstrapPeer() bool {
+	return r.spec.IsBootstrapPeer
+}
+
+// KeyBundleID resolves the spec's key bundle id.
+func (r *OCRSpecResolver) KeyBundleID() *string {
+	if r.spec.EncryptedOCRKeyBundleID == nil {
+		return nil
+	}
+
+	bundleID := r.spec.EncryptedOCRKeyBundleID.String()
+
+	return &bundleID
+}
+
+// ObservationTimeout resolves the spec's observation timeout
+func (r *OCRSpecResolver) ObservationTimeout() string {
+	return r.spec.ObservationTimeout.Duration().String()
+}
+
+// ObservationTimeoutEnv resolves whether spec's observation timeout comes
+// from an env var.
+func (r *OCRSpecResolver) ObservationTimeoutEnv() bool {
+	return r.spec.ObservationTimeoutEnv
+}
+
+// P2PPeerID resolves the spec's p2p peer id
+func (r *OCRSpecResolver) P2PPeerID() string {
+	return r.spec.P2PPeerID.String()
+}
+
+// P2PPeerID resolves the whether spec's p2p peer id comes from an env var
+func (r *OCRSpecResolver) P2PPeerIDEnv() bool {
+	return r.spec.P2PPeerIDEnv
+}
+
+// P2PBootstrapPeers resolves the spec's p2p bootstrap peers
+func (r *OCRSpecResolver) P2PBootstrapPeers() []string {
+	return r.spec.P2PBootstrapPeers
+}
+
+// TransmitterAddress resolves the spec's transmitter address
+func (r *OCRSpecResolver) TransmitterAddress() *string {
+	if r.spec.TransmitterAddress == nil {
+		return nil
+	}
+
+	addr := r.spec.TransmitterAddress.String()
+	return &addr
 }

@@ -1,4 +1,4 @@
-union JobSpec = DirectRequestSpec | FluxMonitorSpec | OCRSpec #| CronSpec |  | KeeperSpec | VRFSpec
+union JobSpec = CronSpec | DirectRequestSpec | FluxMonitorSpec | OCRSpec #|  |  | KeeperSpec | VRFSpec
 
 type CronSpec {
 
@@ -34,7 +34,25 @@ type KeeperSpec {
 }
 
 type OCRSpec {
-
+	blockchainTimeout: String!
+	blockchainTimeoutEnv: Boolean!
+    contractAddress: String!
+    contractConfigConfirmations: Int!
+    contractConfigConfirmationsEnv: Boolean!
+	contractConfigTrackerPollInterval: String!
+	contractConfigTrackerPollIntervalEnv: Boolean!
+	contractConfigTrackerSubscribeInterval: String!
+	contractConfigTrackerSubscribeIntervalEnv: Boolean!
+    createdAt: Time!
+    evmChainID: String
+    isBootstrapPeer: Boolean!
+    keyBundleID: String
+    observationTimeout: String!
+    observationTimeoutEnv: Boolean!
+    p2pPeerID: String!
+    p2pPeerIDEnv: Boolean!
+    p2pBootstrapPeers: [String!]!
+    transmitterAddress: String
 }
 
 type VRFSpec {

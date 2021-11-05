@@ -96,9 +96,12 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 func graphqlHandler(app chainlink.Application) gin.HandlerFunc {
 	rootSchema := schema.MustGetRootSchema()
 
-	schema := graphql.MustParseSchema(rootSchema, &resolver.Resolver{
-		App: app,
-	})
+	schema := graphql.MustParseSchema(rootSchema,
+		&resolver.Resolver{
+			App: app,
+		},
+		graphql.MaxDepth(5),
+	)
 
 	h := relay.Handler{Schema: schema}
 
