@@ -276,8 +276,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 
 func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) error {
 	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
-	_, cancel, err := q.CtxExec(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
-	cancel()
+	err := q.ExecQ(`DELETE FROM pipeline_runs WHERE finished_at < $1`, time.Now().Add(-threshold))
 	return errors.Wrap(err, "DeleteRunsOlderThan failed")
 }
 

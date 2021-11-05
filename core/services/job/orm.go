@@ -274,7 +274,7 @@ func (o *orm) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
-	res, cancel, err := q.CtxExec(query, id)
+	res, cancel, err := q.ExecQIter(query, id)
 	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
@@ -296,8 +296,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	ON CONFLICT (job_id, description) DO UPDATE SET
 	occurrences = job_spec_errors.occurrences + 1,
 	updated_at = excluded.updated_at`
-	_, cancel, err := q.CtxExec(sql, jobID, description, time.Now())
-	defer cancel()
+	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
 	pqErr, ok := err.(*pgconn.PgError)
 	if err != nil && ok && pqErr.Code == "23503" {
@@ -310,7 +309,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
 	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
-	res, cancel, err := q.CtxExec("DELETE FROM job_spec_errors WHERE id = $1", ID)
+	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
 	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "failed to dismiss error")
