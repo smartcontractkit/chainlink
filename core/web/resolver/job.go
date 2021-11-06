@@ -33,6 +33,19 @@ func (r *JobResolver) ID() graphql.ID {
 	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
 }
 
+// CreatedAt resolves the job's created at timestamp.
+func (r *JobResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.j.CreatedAt}
+}
+
+// Errors resolves the job's top level errors.
+//
+// This could potentially be moved into a dataloader if only resolver code uses
+// it.
+func (r *JobResolver) Errors() []*JobErrorResolver {
+	return NewJobErrors(r.j.JobSpecErrors)
+}
+
 // ExternalJobID resolves the job's external job id.
 func (r *JobResolver) ExternalJobID() string {
 	return r.j.ExternalJobID.String()
@@ -69,11 +82,6 @@ func (r *JobResolver) SchemaVersion() int32 {
 // Spec resolves the job's spec.
 func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
-}
-
-// CreatedAt resolves the job's created at timestamp.
-func (r *JobResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.j.CreatedAt}
 }
 
 // JobsPayloadResolver resolves a page of jobs

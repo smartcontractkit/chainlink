@@ -6,22 +6,9 @@ type Job {
     externalJobID: String!
     spec: JobSpec!
     observationSource: String!
-    # errors: [JobError!]!
+    errors: [JobError!]!
     createdAt: Time!
 }
-
-type JobError {
-    id: ID!
-	description: String!
-	occurrences: Int!
-	createdAt: Time!
-}
-
-type PipelineSpec {
-    id: ID!
-    graph: String!
-}
-
 
 # JobsPayload defines the response when fetching a page of jobs
 type JobsPayload implements PaginatedPayload {
