@@ -178,7 +178,7 @@ func TestHeadTracker_Start_NewHeads(t *testing.T) {
 
 func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db := pgtest.NewGormDB(t)
 	config := newCfg(t)
@@ -213,7 +213,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 
 func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db := pgtest.NewGormDB(t)
 	config := newCfg(t)
@@ -245,7 +245,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 
 func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db := pgtest.NewGormDB(t)
 	config := newCfg(t)
@@ -439,7 +439,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 		headers <- h
 	}
 
-	gomega.NewGomegaWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
+	cltest.NewGomegaWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
 	require.NoError(t, ht.Stop())
 	assert.Equal(t, int64(5), ht.headTracker.LatestChain().Number)
 
@@ -593,7 +593,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 		headers <- h
 	}
 
-	gomega.NewGomegaWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
+	cltest.NewGomegaWithT(t).Eventually(lastHead).Should(gomega.BeClosed())
 	require.NoError(t, ht.Stop())
 	assert.Equal(t, int64(5), ht.headTracker.LatestChain().Number)
 

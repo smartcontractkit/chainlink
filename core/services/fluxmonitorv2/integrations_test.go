@@ -101,6 +101,9 @@ func WithMinMaxSubmission(min, max *big.Int) func(cfg *fluxAggregatorUniverseCon
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAggregatorUniverseConfig)) fluxAggregatorUniverse {
+	if testing.Short() {
+		t.Skip("skipping due to VRFCoordinatorV2Universe")
+	}
 	cfg := &fluxAggregatorUniverseConfig{
 		MinSubmission: big.NewInt(0),
 		MaxSubmission: big.NewInt(100000000000),
@@ -416,7 +419,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 	t.Helper()
 	logger.TestLogger(t).Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
@@ -440,7 +443,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			g := gomega.NewGomegaWithT(t)
+			g := cltest.NewGomegaWithT(t)
 			fa := setupFluxAggregatorUniverse(t)
 
 			// - add oracles
@@ -608,7 +611,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -714,7 +717,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles

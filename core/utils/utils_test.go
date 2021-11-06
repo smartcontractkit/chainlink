@@ -258,6 +258,7 @@ func TestWaitGroupChan(t *testing.T) {
 }
 
 func TestDependentAwaiter(t *testing.T) {
+	t.Parallel()
 	da := utils.NewDependentAwaiter()
 	da.AddDependents(2)
 
@@ -391,6 +392,7 @@ func TestEVMBytesToUint64(t *testing.T) {
 }
 
 func TestCombinedContext(t *testing.T) {
+	t.Parallel()
 	t.Run("cancels when an inner context is canceled", func(t *testing.T) {
 		innerCtx, innerCancel := context.WithCancel(context.Background())
 		defer innerCancel()

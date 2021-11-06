@@ -142,6 +142,15 @@ func init() {
 	source = rand.NewSource(seed)
 }
 
+func NewGomegaWithT(t testing.TB) *gomega.WithT {
+	g := gomega.NewWithT(t)
+	g.SetDefaultEventuallyTimeout(DefaultWaitTimeout)
+	g.SetDefaultEventuallyPollingInterval(DBPollingInterval)
+	g.SetDefaultConsistentlyDuration(time.Second)
+	g.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
+	return g
+}
+
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
@@ -793,7 +802,7 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 	require.Eventually(t, func() bool {
 		_, exists := jobSpawner.ActiveJobs()[jobID]
 		return exists
-	}, waitFor, 10*time.Millisecond)
+	}, waitFor, 100*time.Millisecond)
 }
 
 func CreateJobRunViaExternalInitiatorV2(
@@ -886,7 +895,7 @@ const (
 func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
 		err := db.
@@ -911,7 +920,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 	t.Helper()
 
 	var pr []pipeline.Run
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
 		require.NoError(t, err)
 
@@ -948,7 +957,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
 func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
@@ -964,7 +973,7 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, wa
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
 func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
@@ -1611,7 +1620,7 @@ func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 
 func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
@@ -1623,7 +1632,7 @@ func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 
 func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
@@ -1635,7 +1644,7 @@ func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) 
 
 func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	g.Eventually(func() bool {
 		err := db.Find(model).Error
 		require.NoError(t, err, "unable to find record in DB")
