@@ -221,7 +221,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyStart.AwaitOrFail(t)
 
 		// Wait for the claim lock to be taken
-		gomega.NewGomegaWithT(t).Eventually(func() bool {
+		cltest.NewGomegaWithT(t).Eventually(func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
@@ -237,7 +237,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
-		gomega.NewGomegaWithT(t).Eventually(func() bool {
+		cltest.NewGomegaWithT(t).Eventually(func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists

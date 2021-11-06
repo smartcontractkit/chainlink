@@ -30,7 +30,7 @@ import (
 )
 
 func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	const blockHeight int64 = 123
 	helper := newBroadcasterHelper(t, blockHeight, 1)
@@ -105,8 +105,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, time.Second)
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 100*time.Millisecond)
 	helper.unsubscribeAll()
@@ -121,8 +121,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.register(listenerLast, newMockContract(), 1)
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, time.Second)
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
+	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.DefaultWaitTimeout, time.Second)
 
@@ -482,7 +482,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	const (
 		lastStoredBlockHeight int64 = 10
 
@@ -1463,7 +1463,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 }
 
 func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	const startBlockHeight int64 = 0
 	helper := newBroadcasterHelper(t, startBlockHeight, 1)
@@ -1552,7 +1552,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
@@ -1615,7 +1615,7 @@ func (s sub) Err() <-chan error {
 }
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
-	gm := gomega.NewGomegaWithT(t)
+	gm := cltest.NewGomegaWithT(t)
 
 	ethClient := new(ethmocks.Client)
 	ethClient.Test(t)
