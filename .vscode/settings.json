@@ -1,5 +1,0 @@
-{
-    "gopls": {
-        "formatting.local": "github.com/smartcontractkit/chainlink",
-    },
-}
