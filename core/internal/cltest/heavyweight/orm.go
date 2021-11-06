@@ -31,6 +31,9 @@ import (
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
 func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB, *gorm.DB) {
+	if testing.Short() {
+		t.Skip("skipping due to use of FullTestDB")
+	}
 	overrides := configtest.GeneralConfigOverrides{
 		SecretGenerator: cltest.MockSecretGenerator{},
 	}

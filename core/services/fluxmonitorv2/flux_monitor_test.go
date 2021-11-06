@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,9 +14,16 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -34,11 +39,6 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 const oracleCount uint8 = 17
@@ -165,6 +165,9 @@ type setupOptions struct {
 // functional options to configure the setup
 func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping")
+	}
 
 	tm := setupMocks(t)
 	options := setupOptions{
@@ -742,7 +745,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	testCases := []struct {
 		name              string
@@ -836,7 +839,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
 
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1052,7 +1055,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1158,7 +1161,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 
 	var (
@@ -1206,7 +1209,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
@@ -1272,7 +1275,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
@@ -1356,7 +1359,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 

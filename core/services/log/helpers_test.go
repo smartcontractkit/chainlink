@@ -81,6 +81,9 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient eth.Client, highe
 }
 
 func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Client) *broadcasterHelper {
+	if testing.Short() {
+		t.Skip("skipping due to broadcasterHelper")
+	}
 	if c.gdb == nil {
 		c.gdb = pgtest.NewGormDB(t)
 	}

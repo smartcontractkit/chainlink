@@ -526,6 +526,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 }
 
 func TestIntegration_OCR(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	const bootstrapNodePort = 19999
 	tests := []struct {
 		name    string
@@ -538,7 +541,7 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := gomega.NewGomegaWithT(t)
+			g := cltest.NewGomegaWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
@@ -853,7 +856,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)
 
-	gomega.NewGomegaWithT(t).Eventually(func() string {
+	cltest.NewGomegaWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()

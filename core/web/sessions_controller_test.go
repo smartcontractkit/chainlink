@@ -90,7 +90,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var s []sessions.Session
-	gomega.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+	cltest.NewGomegaWithT(t).Eventually(func() []sessions.Session {
 		s, err = app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
 		return s
@@ -164,7 +164,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	gomega.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+	cltest.NewGomegaWithT(t).Eventually(func() []sessions.Session {
 		sessions, err := app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
 		return sessions

@@ -59,7 +59,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemIngressClient.Send(telemPayload)
 
 	// Wait for the telemetry to be handled
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	cltest.NewGomegaWithT(t).Eventually(func() bool {
 		return called.IsSet()
 	}).Should(gomega.BeTrue())
 }

@@ -26,7 +26,7 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 	require.NoError(t, app.Start())
 	syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	cltest.NewGomegaWithT(t).Eventually(func() bool {
 		return completed.IsSet()
 	}).Should(gomega.BeTrue())
 }
