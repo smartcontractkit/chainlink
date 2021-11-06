@@ -121,6 +121,7 @@ func TestResolver_Job(t *testing.T) {
 	)
 
 	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: query}, "job"),
 		{
 			name:          "success",
 			authenticated: true,

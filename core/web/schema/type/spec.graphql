@@ -1,18 +1,18 @@
 union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec
 
 type CronSpec {
-	schedule: String!
-	createdAt: Time!
+    schedule: String!
+    createdAt: Time!
 }
 
 type DirectRequestSpec {
-	contractAddress: String!
+    contractAddress: String!
     createdAt: Time!
     evmChainID: String
     minIncomingConfirmations: Int
-	minIncomingConfirmationsEnv: Boolean!
-	minContractPayment: String!
-	requesters: [String!]!
+    minIncomingConfirmationsEnv: Boolean!
+    minContractPayment: String!
+    requesters: [String!]!
 }
 
 type FluxMonitorSpec {
@@ -39,15 +39,15 @@ type KeeperSpec {
 }
 
 type OCRSpec {
-	blockchainTimeout: String!
-	blockchainTimeoutEnv: Boolean!
+    blockchainTimeout: String!
+    blockchainTimeoutEnv: Boolean!
     contractAddress: String!
     contractConfigConfirmations: Int!
     contractConfigConfirmationsEnv: Boolean!
-	contractConfigTrackerPollInterval: String!
-	contractConfigTrackerPollIntervalEnv: Boolean!
-	contractConfigTrackerSubscribeInterval: String!
-	contractConfigTrackerSubscribeIntervalEnv: Boolean!
+    contractConfigTrackerPollInterval: String!
+    contractConfigTrackerPollIntervalEnv: Boolean!
+    contractConfigTrackerSubscribeInterval: String!
+    contractConfigTrackerSubscribeIntervalEnv: Boolean!
     createdAt: Time!
     evmChainID: String
     isBootstrapPeer: Boolean!

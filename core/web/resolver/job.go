@@ -59,8 +59,7 @@ func (r *JobResolver) MaxTaskDuration() string {
 // Name resolves the job's name.
 func (r *JobResolver) Name() string {
 	if r.j.Name.IsZero() {
-		return "No name"
-
+		return "undefined"
 	}
 
 	return r.j.Name.ValueOrZero()

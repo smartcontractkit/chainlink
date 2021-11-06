@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
-// JobErrors are only embedded on the job are are not fetchable by id, so we
-// test the job error resolvers by fetching a job by id.
+// JobErrors are only embedded on the job and are not fetchable by it's own id,
+// so we test the job error resolvers by fetching a job by id.
 
 func TestResolver_JobErrors(t *testing.T) {
 	var (
