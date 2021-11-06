@@ -29,3 +29,5 @@ type JobsPayload implements PaginatedPayload {
     metadata: PaginationMetadata!
 }
 
+# JobPayload defines the response when a job
+union JobPayload = Job | NotFoundError

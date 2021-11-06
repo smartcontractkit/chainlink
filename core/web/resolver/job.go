@@ -1,9 +1,12 @@
 package resolver
 
 import (
+	"database/sql"
+	"errors"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -86,4 +89,34 @@ func (r *JobsPayloadResolver) Results() []*JobResolver {
 // Metadata returns the pagination metadata.
 func (r *JobsPayloadResolver) Metadata() *PaginationMetadataResolver {
 	return NewPaginationMetadata(r.total)
+}
+
+type JobPayloadResolver struct {
+	job *job.Job
+	err error
+}
+
+func NewJobPayload(j *job.Job, err error) *JobPayloadResolver {
+	return &JobPayloadResolver{
+		job: j,
+		err: err,
+	}
+}
+
+// ToJob implements the JobPayload union type of the payload
+func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
+	if r.job != nil {
+		return NewJob(*r.job), true
+	}
+
+	return nil, false
+}
+
+// ToNotFoundError implements the NotFoundError union type of the payload
+func (r *JobPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
+		return NewNotFoundError("job not found"), true
+	}
+
+	return nil, false
 }

@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -240,8 +241,16 @@ func (r *KeeperSpecResolver) EVMChainID() *string {
 }
 
 // FromAddress resolves the spec's from contract address.
-func (r *KeeperSpecResolver) FromAddress() string {
-	return r.spec.FromAddress.String()
+//
+// Because VRF has an non required field of the same name, we have to be
+// consistent in our return value of using a *string instead of a string even
+// though this is a required field for the KeeperSpec.
+//
+// http://spec.graphql.org/draft/#sec-Field-Selection-Merging
+func (r *KeeperSpecResolver) FromAddress() *string {
+	addr := r.spec.FromAddress.String()
+
+	return &addr
 }
 
 type OCRSpecResolver struct {
@@ -284,7 +293,7 @@ func (r *OCRSpecResolver) ContractConfigTrackerPollInterval() string {
 // ContractConfigTrackerPollIntervalEnv resolves the whether spec's tracker poll
 // config comes from an env var.
 func (r *OCRSpecResolver) ContractConfigTrackerPollIntervalEnv() bool {
-	return r.spec.ContractConfigConfirmationsEnv
+	return r.spec.ContractConfigTrackerPollIntervalEnv
 }
 
 // ContractConfigTrackerSubscribeInterval resolves the spec's tracker subscribe
