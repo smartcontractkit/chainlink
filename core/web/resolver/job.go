@@ -33,6 +33,16 @@ func (r *JobResolver) ID() graphql.ID {
 	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
 }
 
+// ExternalJobID resolves the job's external job id.
+func (r *JobResolver) ExternalJobID() string {
+	return r.j.ExternalJobID.String()
+}
+
+// MaxTaskDuration resolves the job's max task duration.
+func (r *JobResolver) MaxTaskDuration() string {
+	return r.j.MaxTaskDuration.Duration().String()
+}
+
 // Name resolves the job's name.
 func (r *JobResolver) Name() string {
 	if r.j.Name.IsZero() {
@@ -43,19 +53,17 @@ func (r *JobResolver) Name() string {
 	return r.j.Name.ValueOrZero()
 }
 
+// ObservationSource resolves the job's observation source.
+//
+// This could potentially by moved to a dataloader in the future as we are
+// fetching it from a relationship.
+func (r *JobResolver) ObservationSource() string {
+	return r.j.PipelineSpec.DotDagSource
+}
+
 // SchemaVersion resolves the job's schema version.
 func (r *JobResolver) SchemaVersion() int32 {
 	return int32(r.j.SchemaVersion)
-}
-
-// MaxTaskDuration resolves the job's max task duration.
-func (r *JobResolver) MaxTaskDuration() string {
-	return r.j.MaxTaskDuration.Duration().String()
-}
-
-// ExternalJobID resolves the job's external job id.
-func (r *JobResolver) ExternalJobID() string {
-	return r.j.ExternalJobID.String()
 }
 
 // Spec resolves the job's spec.

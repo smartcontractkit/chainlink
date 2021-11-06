@@ -9,6 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -23,14 +24,15 @@ func TestResolver_Jobs(t *testing.T) {
 				jobs {
 					results {
 						id
+						createdAt
+						externalJobID
+						maxTaskDuration
 						name
 						schemaVersion
-						maxTaskDuration
-						externalJobID
-						createdAt
 						spec {
 							__typename
 						}
+						observationSource
 					}
 					metadata {
 						total
@@ -56,6 +58,9 @@ func TestResolver_Jobs(t *testing.T) {
 						CreatedAt:                   f.Timestamp(),
 						Type:                        job.OffchainReporting,
 						OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{},
+						PipelineSpec: &pipeline.Spec{
+							DotDagSource: "ds1 [type=bridge name=voter_turnout];",
+						},
 					},
 				}, 1, nil)
 			},
@@ -65,14 +70,15 @@ func TestResolver_Jobs(t *testing.T) {
 					"jobs": {
 						"results": [{
 							"id": "1",
+							"createdAt": "2021-01-01T00:00:00Z",
+							"externalJobID": "00000000-0000-0000-0000-000000000001",
+							"maxTaskDuration": "1s",
 							"name": "job1",
 							"schemaVersion": 1,
-							"maxTaskDuration": "1s",
-							"externalJobID": "00000000-0000-0000-0000-000000000001",
-							"createdAt": "2021-01-01T00:00:00Z",
 							"spec": {
 								"__typename": "OCRSpec"
-							}
+							},
+							"observationSource": "ds1 [type=bridge name=voter_turnout];"
 						}],
 						"metadata": {
 							"total": 1
@@ -95,18 +101,19 @@ func TestResolver_Job(t *testing.T) {
 				job(id: "1") {
 					... on Job {
 						id
+						createdAt
+						externalJobID
+						maxTaskDuration
 						name
 						schemaVersion
-						maxTaskDuration
-						externalJobID
-						createdAt
 						spec {
 							__typename
 						}
+						observationSource
 					}
 					... on NotFoundError {
-						message
 						code
+						message
 					}
 				}
 			}
@@ -128,6 +135,9 @@ func TestResolver_Job(t *testing.T) {
 					CreatedAt:                   f.Timestamp(),
 					Type:                        job.OffchainReporting,
 					OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{},
+					PipelineSpec: &pipeline.Spec{
+						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
+					},
 				}, nil)
 			},
 			query: query,
@@ -135,14 +145,15 @@ func TestResolver_Job(t *testing.T) {
 				{
 					"job": {
 						"id": "1",
+						"createdAt": "2021-01-01T00:00:00Z",
+						"externalJobID": "00000000-0000-0000-0000-000000000001",
+						"maxTaskDuration": "1s",
 						"name": "job1",
 						"schemaVersion": 1,
-						"maxTaskDuration": "1s",
-						"externalJobID": "00000000-0000-0000-0000-000000000001",
-						"createdAt": "2021-01-01T00:00:00Z",
 						"spec": {
 							"__typename": "OCRSpec"
-						}
+						},
+						"observationSource": "ds1 [type=bridge name=voter_turnout];"
 					}
 				}
 			`,
