@@ -39,7 +39,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	db := tc.App.GetDB()
+	db := tc.App.GetSqlxDB()
 
 	etx, err := bulletprooftxmanager.SendEther(db, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {

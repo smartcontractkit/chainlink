@@ -186,7 +186,7 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 	}
 }
 
-func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
+func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
 	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start()
@@ -202,7 +202,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster 
 	return postgres.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
-func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
+func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
 		gas.NewFixedPriceEstimator(config), fn, logger.TestLogger(t))
