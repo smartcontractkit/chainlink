@@ -169,9 +169,7 @@ func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types
 }
 
 func (o *orm) Node(id int32) (node types.Node, err error) {
-	if err = o.db.Get(&node, "SELECT * FROM nodes WHERE id = $1;", id); err != nil {
-		return
-	}
+	err = o.db.Get(&node, "SELECT * FROM nodes WHERE id = $1;", id)
 
 	return
 }
