@@ -398,7 +398,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
-	app.On("GetDB").Return(db)
+	app.Test(t)
+	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("Stop").Return(nil)
 	app.On("ID").Maybe().Return(uuid.NewV4())
@@ -468,7 +469,9 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)
+			app.Test(t)
 			app.On("GetDB").Return(db)
+			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
 			app.On("ID").Maybe().Return(uuid.NewV4())
