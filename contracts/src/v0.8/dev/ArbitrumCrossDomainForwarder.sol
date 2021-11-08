@@ -17,15 +17,13 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {
-    // noop
-  }
+  constructor(address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {}
 
   /**
    * @notice versions:
    *
    * - ArbitrumCrossDomainForwarder 0.1.0: initial release
-   * - ArbitrumCrossDomainForwarder 0.2.0: Use OZ Address
+   * - ArbitrumCrossDomainForwarder 0.2.0: Use OZ Address, CrossDomainOwnable
    *
    * @inheritdoc TypeAndVersionInterface
    */
@@ -42,23 +40,25 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
 
   /**
    * @notice transfer ownership of this account to a new L1 owner
-   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by the L1 owner (not the L2 owner.)
    * @param to new L1 owner that will be allowed to call the forward fn
    */
   function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
-    super.transferL1Ownership(to);
+    super._transferL1Ownership(to);
   }
 
+  /**
+   * @notice accept ownership of this account to a new L1 owner
+   */
   function acceptL1Ownership() external virtual override {
     require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed owner");
-    _setL1Owner(s_l1PendingOwner);
+    super._setL1Owner(s_l1PendingOwner);
   }
 
   /**
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external override onlyCrossDomainMessenger {
+  function forward(address target, bytes memory data) external virtual override onlyCrossDomainMessenger {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
 

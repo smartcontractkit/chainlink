@@ -32,7 +32,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice versions:
    *
    * - OptimismCrossDomainForwarder 0.1.0: initial release
-   * - OptimismCrossDomainForwarder 0.2.0: Use OZ Address
+   * - OptimismCrossDomainForwarder 0.2.0: Use OZ Address, CrossDomainOwnable
    *
    * @inheritdoc TypeAndVersionInterface
    */
@@ -44,7 +44,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external override onlyCrossDomainMessenger {
+  function forward(address target, bytes memory data) external virtual override onlyCrossDomainMessenger {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
 
@@ -56,12 +56,28 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
+   * @notice transfer ownership of this account to a new L1 owner
+   * @param to new L1 owner that will be allowed to call the forward fn
+   */
+  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
+    super._transferL1Ownership(to);
+  }
+
+  /**
+   * @notice accept ownership of this account to a new L1 owner
+   */
+  function acceptL1Ownership() external virtual override {
+    require(iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner, "Must be proposed owner");
+    super._setL1Owner(s_l1PendingOwner);
+  }  
+
+  /**
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
    */
   modifier onlyCrossDomainMessenger() {
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == l1Owner(),
+      iOVM_CrossDomainMessenger(crossDomainMessenger()).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
     );
     _;

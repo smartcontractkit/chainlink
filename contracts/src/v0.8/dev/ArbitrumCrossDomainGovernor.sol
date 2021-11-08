@@ -17,9 +17,7 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address l1OwnerAddr) ArbitrumCrossDomainForwarder(l1OwnerAddr) {
-    // noop
-  }
+  constructor(address l1OwnerAddr) ArbitrumCrossDomainForwarder(l1OwnerAddr) {}
 
   /**
    * @notice versions:
