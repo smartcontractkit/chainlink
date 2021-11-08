@@ -16,7 +16,7 @@ import "./CrossDomainDelegateForwarder.sol";
 contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVersionInterface {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
-   * @param l1OwnerAddr tetherhe L1 owner address that will be allowed to call the forward fn
+   * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
   constructor(address l1OwnerAddr) CrossDomainDelegateForwarder(l1OwnerAddr) {
     // noop

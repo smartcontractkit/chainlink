@@ -8,7 +8,7 @@ import "./interfaces/ForwarderInterface.sol";
  * @title CrossDomainForwarder - L1 xDomain account representation
  * @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
- *   can be considered to be owned by the `l1Owner`
+ *   can consider that position to be held by the `l1Owner`
  */
 abstract contract CrossDomainForwarder is ForwarderInterface, ConfirmedOwner {
   address private s_l1Owner;
