@@ -7,6 +7,14 @@ import (
 	"syscall"
 )
 
+var HardPanic bool
+
+func init() {
+	if os.Getenv("ENABLE_HARD_PANIC") == "true" {
+		HardPanic = true
+	}
+}
+
 type signal struct {
 	ch       chan struct{}
 	stopOnce sync.Once
