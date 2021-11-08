@@ -1,30 +1,33 @@
 package resolver
 
 import (
+	"github.com/graph-gophers/graphql-go"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
-type OCRKeyBundle struct {
-	id                    string
-	configPublicKey       ocrkey.ConfigPublicKey
-	offChainPublicKey     ocrkey.OffChainPublicKey
-	onChainSigningAddress ocrkey.OnChainSigningAddress
+type OCRKeyBundleResolver struct {
+	key ocrkey.KeyV2
 }
 
-func (k OCRKeyBundle) ID() string {
-	return k.id
+func NewOCRKeyBundleResolver(key ocrkey.KeyV2) OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{key}
 }
 
-func (k OCRKeyBundle) ConfigPublicKey() string {
-	return k.configPublicKey.String()
+func (k OCRKeyBundleResolver) ID() graphql.ID {
+	return graphql.ID(k.key.ID())
 }
 
-func (k OCRKeyBundle) OffChainPublicKey() string {
-	return k.offChainPublicKey.String()
+func (k OCRKeyBundleResolver) ConfigPublicKey() string {
+	return ocrkey.ConfigPublicKey(k.key.PublicKeyConfig()).String()
 }
 
-func (k OCRKeyBundle) OnChainSigningAddress() string {
-	return k.onChainSigningAddress.String()
+func (k OCRKeyBundleResolver) OffChainPublicKey() string {
+	return k.key.OffChainSigning.PublicKey().String()
+}
+
+func (k OCRKeyBundleResolver) OnChainSigningAddress() string {
+	return k.key.OnChainSigning.Address().String()
 }
 
 type OCRKeyBundlesPayloadResolver struct {
@@ -35,15 +38,10 @@ func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadR
 	return &OCRKeyBundlesPayloadResolver{keys}
 }
 
-func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundle {
-	bundles := []OCRKeyBundle{}
+func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
+	bundles := []OCRKeyBundleResolver{}
 	for _, k := range r.keys {
-		bundles = append(bundles, OCRKeyBundle{
-			id:                    k.ID(),
-			configPublicKey:       k.PublicKeyConfig(),
-			offChainPublicKey:     k.OffChainSigning.PublicKey(),
-			onChainSigningAddress: k.OnChainSigning.Address(),
-		})
+		bundles = append(bundles, NewOCRKeyBundleResolver(k))
 	}
 	return bundles
 }
@@ -56,13 +54,8 @@ func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundleP
 	return &CreateOCRKeyBundlePayloadResolver{key}
 }
 
-func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundle {
-	return OCRKeyBundle{
-		id:                    r.key.ID(),
-		configPublicKey:       r.key.PublicKeyConfig(),
-		offChainPublicKey:     r.key.OffChainSigning.PublicKey(),
-		onChainSigningAddress: r.key.OnChainSigning.Address(),
-	}
+func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{r.key}
 }
 
 type DeleteOCRKeyBundleSuccessResolver struct {
@@ -73,13 +66,8 @@ func NewDeleteOCRKeyBundleSuccessResolver(key ocrkey.KeyV2) *DeleteOCRKeyBundleS
 	return &DeleteOCRKeyBundleSuccessResolver{key}
 }
 
-func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundle {
-	return OCRKeyBundle{
-		id:                    r.key.ID(),
-		configPublicKey:       r.key.PublicKeyConfig(),
-		offChainPublicKey:     r.key.OffChainSigning.PublicKey(),
-		onChainSigningAddress: r.key.OnChainSigning.Address(),
-	}
+func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{r.key}
 }
 
 type DeleteOCRKeyBundlePayloadResolver struct {
