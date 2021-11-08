@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/onsi/gomega"
@@ -39,7 +40,7 @@ func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
 	require.Panics(t, func() {
 		sleeper.WakeUp()
 	})
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
+	cltest.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(0))
 }
 
 func TestSleeperTask_CallingStopTwiceFails(t *testing.T) {
@@ -58,7 +59,7 @@ func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
 	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
+	cltest.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
 	require.NoError(t, sleeper.Stop())
 }
 
@@ -93,8 +94,8 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 	worker.ignoreSignals = true
 	worker.allowResumeWork <- struct{}{}
 
-	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
-	gomega.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
+	cltest.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
+	cltest.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
 	require.NoError(t, sleeper.Stop())
 }
 
