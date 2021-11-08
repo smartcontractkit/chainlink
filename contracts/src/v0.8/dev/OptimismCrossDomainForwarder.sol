@@ -67,9 +67,12 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice accept ownership of this account to a new L1 owner
    */
   function acceptL1Ownership() external virtual override {
-    require(iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner, "Must be proposed owner");
+    require(
+      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner,
+      "Must be proposed owner"
+    );
     super._setL1Owner(s_l1PendingOwner);
-  }  
+  }
 
   /**
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.

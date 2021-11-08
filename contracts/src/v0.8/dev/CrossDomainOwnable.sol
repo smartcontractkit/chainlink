@@ -31,7 +31,7 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
    * @notice Allows an ownership transfer to be completed by the recipient.
    * @dev The following has to be implemented per-chain because msg.sender is translated to a cross-domain messenger address.
    */
-  function acceptL1Ownership() external virtual override; 
+  function acceptL1Ownership() external virtual override;
 
   /**
    * @notice Get the current owner

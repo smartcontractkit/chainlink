@@ -18,7 +18,9 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address crossDomainMessengerAddr, address l1OwnerAddr) OptimismCrossDomainForwarder(crossDomainMessengerAddr, l1OwnerAddr) {}
+  constructor(address crossDomainMessengerAddr, address l1OwnerAddr)
+    OptimismCrossDomainForwarder(crossDomainMessengerAddr, l1OwnerAddr)
+  {}
 
   /**
    * @notice versions:
@@ -52,10 +54,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    */
   modifier onlyCrossDomainOwners() {
     // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    require(
-      msg.sender == crossDomainMessenger() || msg.sender == owner(),
-      "Sender is not the L2 messenger or owner"
-    );
+    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
     // 2. The L2 Messenger's caller MUST be the L1 Owner
     if (msg.sender == crossDomainMessenger()) {
       require(
