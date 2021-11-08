@@ -131,6 +131,50 @@ func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadReso
 	return NewFeedsManagersPayload(mgrs), nil
 }
 
+// Job retrieves a job by id.
+func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	j, err := r.App.JobORM().FindJobTx(int32(id))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewJobPayload(nil, err), nil
+
+		}
+
+		return nil, err
+	}
+
+	return NewJobPayload(&j, nil), nil
+}
+
+// Jobs fetches a paginated list of jobs
+func (r *Resolver) Jobs(ctx context.Context, args struct {
+	Offset *int
+	Limit  *int
+}) (*JobsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	jobs, count, err := r.App.JobORM().FindJobs(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobsPayload(jobs, int32(count)), nil
+}
+
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
