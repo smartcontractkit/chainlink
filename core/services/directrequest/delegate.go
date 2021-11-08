@@ -146,7 +146,7 @@ func (l *listener) Start() error {
 				operator_wrapper.OperatorOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 				operator_wrapper.OperatorCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 			},
-			NumConfirmations: l.minIncomingConfirmations,
+			MinIncomingConfirmations: l.minIncomingConfirmations,
 		})
 		l.shutdownWaitGroup.Add(3)
 		go l.processOracleRequests()

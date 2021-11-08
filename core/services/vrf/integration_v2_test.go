@@ -235,13 +235,13 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		jid := uuid.NewV4()
 		incomingConfs := 2
 		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-			JobID:              jid.String(),
-			Name:               fmt.Sprintf("vrf-primary-%d", i),
-			CoordinatorAddress: uni.rootContractAddress.String(),
-			Confirmations:      incomingConfs,
-			PublicKey:          vrfkey.PublicKey.String(),
-			FromAddress:        key.Address.String(),
-			V2:                 true,
+			JobID:                    jid.String(),
+			Name:                     fmt.Sprintf("vrf-primary-%d", i),
+			CoordinatorAddress:       uni.rootContractAddress.String(),
+			MinIncomingConfirmations: incomingConfs,
+			PublicKey:                vrfkey.PublicKey.String(),
+			FromAddress:              key.Address.String(),
+			V2:                       true,
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
@@ -408,13 +408,13 @@ func TestIntegrationVRFV2(t *testing.T) {
 	jid := uuid.NewV4()
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		JobID:              jid.String(),
-		Name:               "vrf-primary",
-		CoordinatorAddress: uni.rootContractAddress.String(),
-		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.PublicKey.String(),
-		FromAddress:        keys[0].Address.String(),
-		V2:                 true,
+		JobID:                    jid.String(),
+		Name:                     "vrf-primary",
+		CoordinatorAddress:       uni.rootContractAddress.String(),
+		MinIncomingConfirmations: incomingConfs,
+		PublicKey:                vrfkey.PublicKey.String(),
+		FromAddress:              keys[0].Address.String(),
+		V2:                       true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
@@ -460,7 +460,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	_, err = uni.consumerContract.TestRequestRandomness(uni.carol, vrfkey.PublicKey.MustHash(), subId, uint16(requestedIncomingConfs), uint32(gasRequested), uint32(nw))
 	require.NoError(t, err)
 
-	// Oracle tries to withdraw before its fullfilled should fail
+	// Oracle tries to withdraw before its fulfilled should fail
 	_, err = uni.rootContract.OracleWithdraw(uni.nallory, uni.nallory.From, big.NewInt(1000))
 	require.Error(t, err)
 
@@ -474,9 +474,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	cltest.NewGomegaWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
-		// It possible that we send the test request
+		// It is possible that we send the test request
 		// before the job spawner has started the vrf services, which is fine
-		// the lb will backfill the logs. However we need to
+		// the lb will backfill the logs. However, we need to
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
@@ -583,12 +583,12 @@ func TestMaliciousConsumer(t *testing.T) {
 	jid := uuid.NewV4()
 	incomingConfs := 2
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		JobID:              jid.String(),
-		Name:               "vrf-primary",
-		CoordinatorAddress: uni.rootContractAddress.String(),
-		Confirmations:      incomingConfs,
-		PublicKey:          vrfkey.PublicKey.String(),
-		V2:                 true,
+		JobID:                    jid.String(),
+		Name:                     "vrf-primary",
+		CoordinatorAddress:       uni.rootContractAddress.String(),
+		MinIncomingConfirmations: incomingConfs,
+		PublicKey:                vrfkey.PublicKey.String(),
+		V2:                       true,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
