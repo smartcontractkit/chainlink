@@ -340,6 +340,7 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDeleteNodePayloadResolver(nil, err), nil
 		}
+
 		return nil, err
 	}
 
