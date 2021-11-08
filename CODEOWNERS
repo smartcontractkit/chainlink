@@ -37,3 +37,4 @@
 /core/store @archseer @samsondav @jmank88
 /core/chains @samsondav
 /core/logger @jmank88
+/core/internal @samsondav @jmank88 @archseer
