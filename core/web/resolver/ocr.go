@@ -6,23 +6,27 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
-type OCRKeyBundle struct {
+type OCRKeyBundleResolver struct {
 	key ocrkey.KeyV2
 }
 
-func (k OCRKeyBundle) ID() graphql.ID {
+func NewOCRKeyBundleResolver(key ocrkey.KeyV2) OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{key}
+}
+
+func (k OCRKeyBundleResolver) ID() graphql.ID {
 	return graphql.ID(k.key.ID())
 }
 
-func (k OCRKeyBundle) ConfigPublicKey() string {
+func (k OCRKeyBundleResolver) ConfigPublicKey() string {
 	return ocrkey.ConfigPublicKey(k.key.PublicKeyConfig()).String()
 }
 
-func (k OCRKeyBundle) OffChainPublicKey() string {
+func (k OCRKeyBundleResolver) OffChainPublicKey() string {
 	return k.key.OffChainSigning.PublicKey().String()
 }
 
-func (k OCRKeyBundle) OnChainSigningAddress() string {
+func (k OCRKeyBundleResolver) OnChainSigningAddress() string {
 	return k.key.OnChainSigning.Address().String()
 }
 
@@ -34,10 +38,10 @@ func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadR
 	return &OCRKeyBundlesPayloadResolver{keys}
 }
 
-func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundle {
-	bundles := []OCRKeyBundle{}
+func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
+	bundles := []OCRKeyBundleResolver{}
 	for _, k := range r.keys {
-		bundles = append(bundles, OCRKeyBundle{k})
+		bundles = append(bundles, NewOCRKeyBundleResolver(k))
 	}
 	return bundles
 }
@@ -50,8 +54,8 @@ func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundleP
 	return &CreateOCRKeyBundlePayloadResolver{key}
 }
 
-func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundle {
-	return OCRKeyBundle{r.key}
+func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{r.key}
 }
 
 type DeleteOCRKeyBundleSuccessResolver struct {
@@ -62,8 +66,8 @@ func NewDeleteOCRKeyBundleSuccessResolver(key ocrkey.KeyV2) *DeleteOCRKeyBundleS
 	return &DeleteOCRKeyBundleSuccessResolver{key}
 }
 
-func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundle {
-	return OCRKeyBundle{r.key}
+func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundleResolver {
+	return OCRKeyBundleResolver{r.key}
 }
 
 type DeleteOCRKeyBundlePayloadResolver struct {
