@@ -390,7 +390,7 @@ declare module 'core/store/models' {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
-      confirmations: number
+      minIncomingConfirmations: number
       publicKey: string
       coordinatorAddress: common.Address
       fromAddress: string
