@@ -119,10 +119,8 @@ func Test_EVMORM_GetNodesByChainIDs(t *testing.T) {
 	require.Len(t, nodes, 1)
 
 	actual := nodes[0]
-	require.Equal(t, node.EVMChainID, actual.EVMChainID)
-	require.Equal(t, node.WSURL, actual.WSURL)
-	require.Equal(t, node.HTTPURL, actual.HTTPURL)
-	require.Equal(t, node.SendOnly, actual.SendOnly)
+
+	require.Equal(t, node, actual)
 }
 
 func Test_EVMORM_Node(t *testing.T) {
@@ -133,8 +131,5 @@ func Test_EVMORM_Node(t *testing.T) {
 	actual, err := orm.Node(node.ID)
 	assert.NoError(t, err)
 
-	require.Equal(t, node.EVMChainID, actual.EVMChainID)
-	require.Equal(t, node.WSURL, actual.WSURL)
-	require.Equal(t, node.HTTPURL, actual.HTTPURL)
-	require.Equal(t, node.SendOnly, actual.SendOnly)
+	require.Equal(t, node, actual)
 }
