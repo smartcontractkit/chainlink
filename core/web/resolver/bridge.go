@@ -1,7 +1,10 @@
 package resolver
 
 import (
+	"database/sql"
+
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 )
@@ -227,7 +230,7 @@ func (r *DeleteBridgePayloadResolver) ToDeleteBridgeInvalidNameError() (*DeleteB
 }
 
 func (r *DeleteBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
+	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
 		return NewNotFoundError("bridge not found"), true
 	}
 

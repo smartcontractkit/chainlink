@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -380,11 +381,10 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 
 	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(args.Name)
 	if err != nil {
-		if len(jobsUsingBridge) > 0 {
-			return NewDeleteBridgePayload(nil, err), nil
-		}
-
 		return nil, err
+	}
+	if len(jobsUsingBridge) > 0 {
+		return NewDeleteBridgePayload(nil, fmt.Errorf("bridge has jobs associated with it")), nil
 	}
 
 	if err = orm.DeleteBridgeType(&bt); err != nil {
