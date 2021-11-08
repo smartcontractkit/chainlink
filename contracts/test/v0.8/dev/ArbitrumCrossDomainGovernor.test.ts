@@ -13,6 +13,8 @@ let owner: SignerWithAddress
 let stranger: SignerWithAddress
 let l1OwnerAddress: string
 let crossdomainMessenger: SignerWithAddress
+let newL1OwnerAddress: string
+let newOwnerCrossdomainMessenger: SignerWithAddress
 let forwarderFactory: ContractFactory
 let greeterFactory: ContractFactory
 let multisendFactory: ContractFactory
@@ -32,6 +34,14 @@ before(async () => {
   )
   await owner.sendTransaction({
     to: crossdomainMessenger.address,
+    value: ethers.utils.parseEther('1.0'),
+  })
+  newL1OwnerAddress = stranger.address
+  newOwnerCrossdomainMessenger = await impersonateAs(
+    toArbitrumL2AliasAddress(newL1OwnerAddress),
+  )
+  await owner.sendTransaction({
+    to: newOwnerCrossdomainMessenger.address,
     value: ethers.utils.parseEther('1.0'),
   })
 
@@ -65,10 +75,11 @@ describe('ArbitrumCrossDomainGovernor', () => {
       'forwardDelegate',
       'l1Owner',
       'transferL1Ownership',
+      'acceptL1Ownership',
       // ConfirmedOwner methods:
-      'acceptOwnership',
       'owner',
       'transferOwnership',
+      'acceptOwnership',
     ])
   })
 
@@ -240,12 +251,37 @@ describe('ArbitrumCrossDomainGovernor', () => {
     })
 
     it('should be callable by current L1 owner', async () => {
-      const newL1Owner = stranger.address
+      const currentL1Owner = await forwarder.l1Owner()
+      await expect(
+        forwarder
+          .connect(crossdomainMessenger)
+          .transferL1Ownership(newL1OwnerAddress),
+      )
+        .to.emit(forwarder, 'L1OwnershipTransferRequested')
+        .withArgs(currentL1Owner, newL1OwnerAddress)
+    })
+  })
+
+  describe('#acceptL1Ownership', () => {
+    it('should not be callable by non pending-owners', async () => {
+      await expect(
+        forwarder.connect(crossdomainMessenger).acceptL1Ownership(),
+      ).to.be.revertedWith('Must be proposed owner')
+    })
+
+    it('should be callable by pending L1 owner', async () => {
+      const currentL1Owner = await forwarder.l1Owner()
       await forwarder
         .connect(crossdomainMessenger)
-        .transferL1Ownership(newL1Owner)
+        .transferL1Ownership(newL1OwnerAddress)
+      await expect(
+        forwarder.connect(newOwnerCrossdomainMessenger).acceptL1Ownership(),
+      )
+        .to.emit(forwarder, 'L1OwnershipTransferred')
+        .withArgs(currentL1Owner, newL1OwnerAddress)
+
       const updatedL1Owner = await forwarder.l1Owner()
-      assert.equal(updatedL1Owner, newL1Owner)
+      assert.equal(updatedL1Owner, newL1OwnerAddress)
     })
   })
 })
