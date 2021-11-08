@@ -76,7 +76,7 @@ func (r *BridgePayloadResolver) ToBridge() (*BridgeResolver, bool) {
 	return nil, false
 }
 
-// ToBridge implements the NotFoundError union type of the payload
+// ToNotFoundError implements the NotFoundError union type of the payload
 func (r *BridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
 	if r.err != nil {
 		return NewNotFoundError("bridge not found"), true
@@ -189,4 +189,91 @@ func NewUpdateBridgeSuccess(bridge bridges.BridgeType) *UpdateBridgeSuccessResol
 // Bridge resolves the success payload's bridge.
 func (r *UpdateBridgeSuccessResolver) Bridge() *BridgeResolver {
 	return NewBridge(r.bridge)
+}
+
+// -- DeleteBridge mutation --
+
+type DeleteBridgePayloadResolver struct {
+	bridge *bridges.BridgeType
+	err    error
+}
+
+func NewDeleteBridgePayload(bridge *bridges.BridgeType, err error) *DeleteBridgePayloadResolver {
+	return &DeleteBridgePayloadResolver{bridge, err}
+}
+
+func (r *DeleteBridgePayloadResolver) ToDeleteBridgeSuccess() (*DeleteBridgeSuccessResolver, bool) {
+	if r.bridge != nil {
+		return NewDeleteBridgeSuccess(r.bridge), true
+	}
+
+	return nil, false
+}
+
+func (r *DeleteBridgePayloadResolver) ToDeleteBridgeConflictError() (*DeleteBridgeConflictErrorResolver, bool) {
+	if r.err != nil {
+		return NewDeleteBridgeConflictError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
+func (r *DeleteBridgePayloadResolver) ToDeleteBridgeInvalidNameError() (*DeleteBridgeInvalidNameErrorResolver, bool) {
+	if r.err != nil {
+		return NewDeleteBridgeInvalidNameError(r.err.Error()), true
+	}
+
+	return nil, false
+}
+
+func (r *DeleteBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil {
+		return NewNotFoundError("bridge not found"), true
+	}
+
+	return nil, false
+}
+
+type DeleteBridgeSuccessResolver struct {
+	bridge *bridges.BridgeType
+}
+
+func NewDeleteBridgeSuccess(bridge *bridges.BridgeType) *DeleteBridgeSuccessResolver {
+	return &DeleteBridgeSuccessResolver{bridge}
+}
+
+func (r *DeleteBridgeSuccessResolver) Bridge() *BridgeResolver {
+	return NewBridge(*r.bridge)
+}
+
+type DeleteBridgeConflictErrorResolver struct {
+	message string
+}
+
+func NewDeleteBridgeConflictError(message string) *DeleteBridgeConflictErrorResolver {
+	return &DeleteBridgeConflictErrorResolver{message}
+}
+
+func (r *DeleteBridgeConflictErrorResolver) Message() string {
+	return r.message
+}
+
+func (r *DeleteBridgeConflictErrorResolver) Code() ErrorCode {
+	return ErrorCodeStatusConflict
+}
+
+type DeleteBridgeInvalidNameErrorResolver struct {
+	message string
+}
+
+func NewDeleteBridgeInvalidNameError(message string) *DeleteBridgeInvalidNameErrorResolver {
+	return &DeleteBridgeInvalidNameErrorResolver{message}
+}
+
+func (r *DeleteBridgeInvalidNameErrorResolver) Message() string {
+	return r.message
+}
+
+func (r *DeleteBridgeInvalidNameErrorResolver) Code() ErrorCode {
+	return ErrorCodeUnprocessable
 }
