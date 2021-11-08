@@ -285,8 +285,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-				assert.Equal(t, uint32(6), resource.VRFSpec.Confirmations)
-				assert.Equal(t, jb.VRFSpec.Confirmations, resource.VRFSpec.Confirmations)
+				assert.Equal(t, uint32(6), resource.VRFSpec.MinIncomingConfirmations)
+				assert.Equal(t, jb.VRFSpec.MinIncomingConfirmations, resource.VRFSpec.MinIncomingConfirmations)
 				assert.Equal(t, "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7", resource.VRFSpec.CoordinatorAddress.Hex())
 				assert.Equal(t, jb.VRFSpec.CoordinatorAddress.Hex(), resource.VRFSpec.CoordinatorAddress.Hex())
 			},

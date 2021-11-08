@@ -87,11 +87,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: err}, runInfo
 	}
 
-	var minConfirmations uint64
+	var minOutgoingConfirmations uint64
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
-		minConfirmations = min
+		minOutgoingConfirmations = min
 	} else {
-		minConfirmations = cfg.MinRequiredOutgoingConfirmations()
+		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
 	var txMeta bulletprooftxmanager.EthTxMeta
@@ -141,10 +141,10 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		Strategy:       strategy,
 	}
 
-	if minConfirmations > 0 {
-		// Store the task run ID so we can resume the pipeline when tx is confirmed
+	if minOutgoingConfirmations > 0 {
+		// Store the task run ID, so we can resume the pipeline when tx is confirmed
 		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = null.Uint32From(uint32(minConfirmations))
+		newTx.MinConfirmations = null.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
 	_, err = txManager.CreateEthTransaction(newTx)
@@ -152,7 +152,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
-	if minConfirmations > 0 {
+	if minOutgoingConfirmations > 0 {
 		return Result{}, pendingRunInfo()
 	}
 

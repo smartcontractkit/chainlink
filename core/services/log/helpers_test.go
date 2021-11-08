@@ -143,10 +143,10 @@ func (helper *broadcasterHelper) registerWithTopicValues(listener log.Listener, 
 	topics map[common.Hash][][]log.Topic) {
 
 	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
-		Contract:         contract.Address(),
-		ParseLog:         contract.ParseLog,
-		LogsWithTopics:   topics,
-		NumConfirmations: numConfirmations,
+		Contract:                 contract.Address(),
+		ParseLog:                 contract.ParseLog,
+		LogsWithTopics:           topics,
+		MinIncomingConfirmations: numConfirmations,
 	})
 
 	helper.toUnsubscribe = append(helper.toUnsubscribe, unsubscribe)

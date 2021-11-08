@@ -254,7 +254,7 @@ function generateVRFDefinition(
     attrs
   const {
     coordinatorAddress,
-    confirmations,
+    minIncomingConfirmations,
     publicKey,
     fromAddress,
     pollPeriod,
@@ -268,7 +268,7 @@ function generateVRFDefinition(
       name,
       externalJobID,
       coordinatorAddress,
-      confirmations,
+      minIncomingConfirmations,
       publicKey,
       fromAddress,
       pollPeriod,

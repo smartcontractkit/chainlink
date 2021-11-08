@@ -74,30 +74,30 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 	addr := reg.opts.Contract
 	r.decoders[addr] = reg.opts.ParseLog
 
-	if _, exists := r.subscribers[reg.opts.NumConfirmations]; !exists {
-		r.subscribers[reg.opts.NumConfirmations] = newSubscribers(r.evmChainID)
+	if _, exists := r.subscribers[reg.opts.MinIncomingConfirmations]; !exists {
+		r.subscribers[reg.opts.MinIncomingConfirmations] = newSubscribers(r.evmChainID)
 	}
 
-	needsResubscribe = r.subscribers[reg.opts.NumConfirmations].addSubscriber(reg)
+	needsResubscribe = r.subscribers[reg.opts.MinIncomingConfirmations].addSubscriber(reg)
 
 	// increase the variable for highest number of confirmations among all subscribers,
 	// if the new subscriber has a higher value
-	if reg.opts.NumConfirmations > r.highestNumConfirmations {
-		r.highestNumConfirmations = reg.opts.NumConfirmations
+	if reg.opts.MinIncomingConfirmations > r.highestNumConfirmations {
+		r.highestNumConfirmations = reg.opts.MinIncomingConfirmations
 	}
 	return
 }
 
 func (r *registrations) removeSubscriber(reg registration) (needsResubscribe bool) {
-	subscribers, exists := r.subscribers[reg.opts.NumConfirmations]
+	subscribers, exists := r.subscribers[reg.opts.MinIncomingConfirmations]
 	if !exists {
 		return
 	}
 
 	needsResubscribe = subscribers.removeSubscriber(reg)
 
-	if len(r.subscribers[reg.opts.NumConfirmations].handlers) == 0 {
-		delete(r.subscribers, reg.opts.NumConfirmations)
+	if len(r.subscribers[reg.opts.MinIncomingConfirmations].handlers) == 0 {
+		delete(r.subscribers, reg.opts.MinIncomingConfirmations)
 		r.resetHighestNumConfirmationsValue()
 	}
 	return
@@ -193,8 +193,8 @@ func newSubscribers(evmChainID big.Int) *subscribers {
 func (r *subscribers) addSubscriber(reg registration) (needsResubscribe bool) {
 	addr := reg.opts.Contract
 
-	if reg.opts.NumConfirmations <= 0 {
-		reg.opts.NumConfirmations = 1
+	if reg.opts.MinIncomingConfirmations <= 0 {
+		reg.opts.MinIncomingConfirmations = 1
 	}
 
 	if _, exists := r.handlers[addr]; !exists {

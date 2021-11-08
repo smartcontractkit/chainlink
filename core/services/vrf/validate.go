@@ -44,8 +44,8 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if bytes.Equal(spec.PublicKey[:], empty[:]) {
 		return jb, errors.Wrap(ErrKeyNotSet, "publicKey")
 	}
-	if spec.Confirmations == 0 {
-		return jb, errors.Wrap(ErrKeyNotSet, "confirmations")
+	if spec.MinIncomingConfirmations == 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "minIncomingConfirmations")
 	}
 	if spec.CoordinatorAddress.String() == "" {
 		return jb, errors.Wrap(ErrKeyNotSet, "coordinatorAddress")
