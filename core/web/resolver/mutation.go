@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -354,4 +355,41 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 	}
 
 	return NewDeleteNodePayloadResolver(&node, nil), nil
+}
+
+func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
+	Name string
+}) (*DeleteBridgePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	taskType, err := bridges.NewTaskType(args.Name)
+	if err != nil {
+		return NewDeleteBridgePayload(nil, err), nil
+	}
+
+	orm := r.App.BridgeORM()
+	bt, err := orm.FindBridge(taskType)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteBridgePayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(args.Name)
+	if err != nil {
+		return nil, err
+	}
+	if len(jobsUsingBridge) > 0 {
+		return NewDeleteBridgePayload(nil, fmt.Errorf("bridge has jobs associated with it")), nil
+	}
+
+	if err = orm.DeleteBridgeType(&bt); err != nil {
+		return nil, err
+	}
+
+	return NewDeleteBridgePayload(&bt, nil), nil
 }
