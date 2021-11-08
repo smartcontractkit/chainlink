@@ -35,10 +35,23 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
 
   /**
    * @notice The L2 xDomain `msg.sender`, generated from L1 sender address
-   * @inheritdoc CrossDomainForwarder
    */
-  function crossDomainMessenger() public view virtual override returns (address) {
+  function crossDomainMessenger() public view returns (address) {
     return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
+  }
+
+  /**
+   * @notice transfer ownership of this account to a new L1 owner
+   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by the L1 owner (not the L2 owner.)
+   * @param to new L1 owner that will be allowed to call the forward fn
+   */
+  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
+    super.transferL1Ownership(to);
+  }
+
+  function acceptL1Ownership() external virtual override {
+    require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed owner");
+    _setL1Owner(s_l1PendingOwner);
   }
 
   /**
