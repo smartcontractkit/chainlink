@@ -5,10 +5,10 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type orm struct {
@@ -164,6 +164,12 @@ func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types
 	if err = o.db.Select(&nodes, sql, chainID, limit, offset); err != nil {
 		return
 	}
+
+	return
+}
+
+func (o *orm) Node(id int32) (node types.Node, err error) {
+	err = o.db.Get(&node, "SELECT * FROM nodes WHERE id = $1;", id)
 
 	return
 }

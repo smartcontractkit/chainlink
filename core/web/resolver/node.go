@@ -66,3 +66,101 @@ func (r *NodeResolver) CreatedAt() graphql.Time {
 func (r *NodeResolver) UpdatedAt() graphql.Time {
 	return graphql.Time{Time: r.node.UpdatedAt}
 }
+
+// -- Node Query --
+
+type NodePayloadResolver struct {
+	node *types.Node
+	err  error
+}
+
+func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
+	return &NodePayloadResolver{node, err}
+}
+
+// ToNode resolves the Node object to be returned if it is found
+func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
+	if r.node != nil {
+		return NewNode(*r.node), true
+	}
+
+	return nil, false
+}
+
+// ToNotFoundError implements the NotFoundError union type of the payload
+func (r *NodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil {
+		return NewNotFoundError("node not found"), true
+	}
+
+	return nil, false
+}
+
+// -- CreateNode Mutation --
+
+type CreateNodePayloadResolver struct {
+	node *types.Node
+}
+
+func NewCreateNodePayloadResolver(node *types.Node) *CreateNodePayloadResolver {
+	return &CreateNodePayloadResolver{node}
+}
+
+func (r *CreateNodePayloadResolver) ToCreateNodeSuccess() (*CreateNodeSuccessResolve, bool) {
+	if r.node != nil {
+		return NewCreateNodeSuccessResolve(*r.node), true
+	}
+
+	return nil, false
+}
+
+type CreateNodeSuccessResolve struct {
+	node types.Node
+}
+
+func NewCreateNodeSuccessResolve(node types.Node) *CreateNodeSuccessResolve {
+	return &CreateNodeSuccessResolve{node}
+}
+
+func (r *CreateNodeSuccessResolve) Node() *NodeResolver {
+	return NewNode(r.node)
+}
+
+// -- DeleteNode Mutation --
+
+type DeleteNodePayloadResolver struct {
+	node *types.Node
+	err  error
+}
+
+func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
+	return &DeleteNodePayloadResolver{node, err}
+}
+
+func (r *DeleteNodePayloadResolver) ToDeleteNodeSuccess() (*DeleteNodeSuccessResolver, bool) {
+	if r.node != nil {
+		return NewDeleteNodeSuccessResolver(r.node), true
+	}
+
+	return nil, false
+}
+
+func (r *DeleteNodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil {
+		return NewNotFoundError("node not found"), true
+	}
+
+	return nil, false
+}
+
+type DeleteNodeSuccessResolver struct {
+	node *types.Node
+}
+
+func NewDeleteNodeSuccessResolver(node *types.Node) *DeleteNodeSuccessResolver {
+	return &DeleteNodeSuccessResolver{node}
+}
+
+func (r *DeleteNodeSuccessResolver) Node() *NodeResolver {
+	return NewNode(*r.node)
+}

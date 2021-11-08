@@ -48,3 +48,22 @@ type UpdateBridgeSuccess {
 
 # CreateBridgeInput defines the response when updating a bridge
 union UpdateBridgePayload = UpdateBridgeSuccess | NotFoundError
+
+type DeleteBridgeSuccess {
+    bridge: Bridge!
+}
+
+type DeleteBridgeInvalidNameError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+type DeleteBridgeConflictError implements Error {
+    code: ErrorCode!
+    message: String!
+}
+
+union DeleteBridgePayload = DeleteBridgeSuccess
+    | DeleteBridgeInvalidNameError
+    | DeleteBridgeConflictError
+    | NotFoundError

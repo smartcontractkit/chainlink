@@ -220,6 +220,27 @@ func (_m *ORM) GetNodesByChainIDs(chainIDs []utils.Big) ([]types.Node, error) {
 	return r0, r1
 }
 
+// Node provides a mock function with given fields: id
+func (_m *ORM) Node(id int32) (types.Node, error) {
+	ret := _m.Called(id)
+
+	var r0 types.Node
+	if rf, ok := ret.Get(0).(func(int32) types.Node); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Get(0).(types.Node)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int32) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Nodes provides a mock function with given fields: offset, limit
 func (_m *ORM) Nodes(offset int, limit int) ([]types.Node, int, error) {
 	ret := _m.Called(offset, limit)
