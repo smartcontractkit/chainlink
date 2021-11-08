@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/shutdown"
-
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
@@ -70,9 +68,7 @@ func (p *Pstorewrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not start peerstore wrapper")
 		}
-		go shutdown.WrapRecover(p.lggr, func() {
-			p.dbLoop()
-		})
+		go p.dbLoop()
 		return nil
 	})
 }

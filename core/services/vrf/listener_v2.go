@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -103,14 +102,14 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		})
+		}()
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runRequestHandler(spec.PollPeriod)
-		})
+		}()
 		return nil
 	})
 }

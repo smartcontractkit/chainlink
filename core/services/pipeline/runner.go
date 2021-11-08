@@ -3,7 +3,6 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -183,6 +182,8 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
+// Be careful with the ctx passed in here: it applies to requests in individual
+// tasks but should _not_ apply to the scheduler or run itself
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
@@ -259,7 +260,7 @@ func (r *runner) run(
 ) (TaskRunResults, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
 
-	scheduler := newScheduler(pipeline, run, vars)
+	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
 
 	// This is "just in case" for cleaning up any stray reports.
@@ -267,23 +268,14 @@ func (r *runner) run(
 	reportCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	if pipelineTimeout := r.config.JobPipelineMaxRunDuration(); pipelineTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, pipelineTimeout)
+		defer cancel()
+	}
+
 	for taskRun := range scheduler.taskCh {
 		// execute
 		go func(taskRun *memoryTaskRun) {
-			defer func() {
-				if err := recover(); err != nil {
-					l.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
-
-					t := time.Now()
-					scheduler.report(reportCtx, TaskRunResult{
-						ID:         uuid.NewV4(),
-						Task:       taskRun.task,
-						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: null.TimeFrom(t),
-						CreatedAt:  t, // TODO: more accurate start time
-					})
-				}
-			}()
 			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
 			logTaskRunToPrometheus(result, run.PipelineSpec)
@@ -371,18 +363,24 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		"taskType", taskRun.task.Type(),
 		"attempt", taskRun.attempts)
 
-	// Order of precedence for task timeout:
+	// Task timeout will be whichever of the following timesout/cancels first:
+	// - Pipeline-level timeout
 	// - Specific task timeout (task.TaskTimeout)
 	// - Job level task timeout (spec.MaxTaskDuration)
 	// - Passed in context
-	taskTimeout, isSet := taskRun.task.TaskTimeout()
-	if isSet {
-		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(ctx, r.chStop, taskTimeout)
+
+	// CAUTION: Think twice before changing any of the context handling code
+	// below. It has already been changed several times trying to "fix" a bug,
+	// but actually introducing new ones. Please leave it as-is unless you have
+	// an extremely good reason to change it.
+	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
+	defer cancel()
+	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet {
+		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
 		defer cancel()
-	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
-		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(ctx, r.chStop, time.Duration(spec.MaxTaskDuration))
+	}
+	if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
 
