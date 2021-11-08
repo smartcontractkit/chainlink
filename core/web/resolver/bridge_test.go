@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -355,10 +354,11 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 
 	name := bridges.TaskType("bridge1")
 
-	bridgeURL := cltest.WebURL(t, "https://test-url.com")
+	bridgeURL, err := url.Parse("https://test-url.com")
+	require.NoError(t, err)
 
 	link := assets.Link{}
-	err := json.Unmarshal([]byte(`"1"`), &link)
+	err = json.Unmarshal([]byte(`"1"`), &link)
 	assert.NoError(t, err)
 
 	mutation := `
@@ -400,7 +400,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 			before: func(f *gqlTestFramework) {
 				bridge := bridges.BridgeType{
 					Name:                   name,
-					URL:                    bridgeURL,
+					URL:                    models.WebURL(*bridgeURL),
 					Confirmations:          1,
 					OutgoingToken:          "some-token",
 					MinimumContractPayment: &link,
