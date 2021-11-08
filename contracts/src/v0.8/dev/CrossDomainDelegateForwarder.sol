@@ -13,8 +13,7 @@ import "./interfaces/DelegateForwarderInterface.sol";
  */
 abstract contract CrossDomainDelegateForwarder is DelegateForwarderInterface, CrossDomainOwnable {
   /**
-   * @notice creates a new xDomain Forwarder contract
-   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`.
+   * @notice creates a new xDomain DelegateForwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
   constructor(address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {}

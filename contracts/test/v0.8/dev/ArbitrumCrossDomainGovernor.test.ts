@@ -15,10 +15,10 @@ let l1OwnerAddress: string
 let crossdomainMessenger: SignerWithAddress
 let newL1OwnerAddress: string
 let newOwnerCrossdomainMessenger: SignerWithAddress
-let forwarderFactory: ContractFactory
+let governorFactory: ContractFactory
 let greeterFactory: ContractFactory
 let multisendFactory: ContractFactory
-let forwarder: Contract
+let governor: Contract
 let greeter: Contract
 let multisend: Contract
 
@@ -27,7 +27,7 @@ before(async () => {
   owner = accounts[0]
   stranger = accounts[1]
 
-  // Forwarder config
+  // governor config
   l1OwnerAddress = owner.address
   crossdomainMessenger = await impersonateAs(
     toArbitrumL2AliasAddress(l1OwnerAddress),
@@ -46,7 +46,7 @@ before(async () => {
   })
 
   // Contract factories
-  forwarderFactory = await ethers.getContractFactory(
+  governorFactory = await ethers.getContractFactory(
     'src/v0.8/dev/ArbitrumCrossDomainGovernor.sol:ArbitrumCrossDomainGovernor',
     owner,
   )
@@ -62,13 +62,13 @@ before(async () => {
 
 describe('ArbitrumCrossDomainGovernor', () => {
   beforeEach(async () => {
-    forwarder = await forwarderFactory.deploy(l1OwnerAddress)
-    greeter = await greeterFactory.deploy(forwarder.address)
+    governor = await governorFactory.deploy(l1OwnerAddress)
+    greeter = await greeterFactory.deploy(governor.address)
     multisend = await multisendFactory.deploy()
   })
 
   it('has a limited public interface [ @skip-coverage ]', async () => {
-    publicAbi(forwarder, [
+    publicAbi(governor, [
       'typeAndVersion',
       'crossDomainMessenger',
       'forward',
@@ -85,25 +85,30 @@ describe('ArbitrumCrossDomainGovernor', () => {
 
   describe('#constructor', () => {
     it('should set the owner correctly', async () => {
-      const response = await forwarder.owner()
+      const response = await governor.owner()
       assert.equal(response, owner.address)
     })
 
     it('should set the l1Owner correctly', async () => {
-      const response = await forwarder.l1Owner()
+      const response = await governor.l1Owner()
       assert.equal(response, l1OwnerAddress)
     })
 
     it('should set the crossdomain messenger correctly', async () => {
-      const response = await forwarder.crossDomainMessenger()
+      const response = await governor.crossDomainMessenger()
       assert.equal(response, crossdomainMessenger.address)
+    })
+
+    it('should set the typeAndVersion correctly', async () => {
+      const response = await governor.typeAndVersion()
+      assert.equal(response, 'ArbitrumCrossDomainGovernor 1.0.0')
     })
   })
 
   describe('#forward', () => {
     it('should not be callable by unknown address', async () => {
       await expect(
-        forwarder.connect(stranger).forward(greeter.address, '0x'),
+        governor.connect(stranger).forward(greeter.address, '0x'),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
@@ -113,7 +118,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         'setGreeting',
         [newGreeting],
       )
-      await forwarder
+      await governor
         .connect(crossdomainMessenger)
         .forward(greeter.address, setGreetingData)
 
@@ -127,7 +132,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         'setGreeting',
         [newGreeting],
       )
-      await forwarder.connect(owner).forward(greeter.address, setGreetingData)
+      await governor.connect(owner).forward(greeter.address, setGreetingData)
 
       const updatedGreeting = await greeter.greeting()
       assert.equal(updatedGreeting, newGreeting)
@@ -139,7 +144,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         [''],
       )
       await expect(
-        forwarder
+        governor
           .connect(crossdomainMessenger)
           .forward(greeter.address, setGreetingData),
       ).to.be.revertedWith('Governor call reverted')
@@ -149,7 +154,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
   describe('#forwardDelegate', () => {
     it('should not be callable by unknown address', async () => {
       await expect(
-        forwarder.connect(stranger).forwardDelegate(multisend.address, '0x'),
+        governor.connect(stranger).forwardDelegate(multisend.address, '0x'),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
@@ -171,7 +176,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         },
       ]
       const multisendData = encodeMultisendData(multisend.interface, calls)
-      await forwarder
+      await governor
         .connect(crossdomainMessenger)
         .forwardDelegate(multisend.address, multisendData)
 
@@ -197,7 +202,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         },
       ]
       const multisendData = encodeMultisendData(multisend.interface, calls)
-      await forwarder
+      await governor
         .connect(owner)
         .forwardDelegate(multisend.address, multisendData)
 
@@ -224,7 +229,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
       ]
       const multisendData = encodeMultisendData(multisend.interface, calls)
       await expect(
-        forwarder
+        governor
           .connect(crossdomainMessenger)
           .forwardDelegate(multisend.address, multisendData),
       ).to.be.revertedWith('Governor delegatecall reverted')
@@ -237,27 +242,27 @@ describe('ArbitrumCrossDomainGovernor', () => {
   describe('#transferL1Ownership', () => {
     it('should not be callable by non-owners', async () => {
       await expect(
-        forwarder.connect(stranger).transferL1Ownership(stranger.address),
+        governor.connect(stranger).transferL1Ownership(stranger.address),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
     it('should not be callable by L2 owner', async () => {
-      const forwarderOwner = await forwarder.owner()
-      assert.equal(forwarderOwner, owner.address)
+      const governorOwner = await governor.owner()
+      assert.equal(governorOwner, owner.address)
 
       await expect(
-        forwarder.connect(owner).transferL1Ownership(stranger.address),
+        governor.connect(owner).transferL1Ownership(stranger.address),
       ).to.be.revertedWith('Sender is not the L2 messenger')
     })
 
     it('should be callable by current L1 owner', async () => {
-      const currentL1Owner = await forwarder.l1Owner()
+      const currentL1Owner = await governor.l1Owner()
       await expect(
-        forwarder
+        governor
           .connect(crossdomainMessenger)
           .transferL1Ownership(newL1OwnerAddress),
       )
-        .to.emit(forwarder, 'L1OwnershipTransferRequested')
+        .to.emit(governor, 'L1OwnershipTransferRequested')
         .withArgs(currentL1Owner, newL1OwnerAddress)
     })
   })
@@ -265,22 +270,22 @@ describe('ArbitrumCrossDomainGovernor', () => {
   describe('#acceptL1Ownership', () => {
     it('should not be callable by non pending-owners', async () => {
       await expect(
-        forwarder.connect(crossdomainMessenger).acceptL1Ownership(),
+        governor.connect(crossdomainMessenger).acceptL1Ownership(),
       ).to.be.revertedWith('Must be proposed owner')
     })
 
     it('should be callable by pending L1 owner', async () => {
-      const currentL1Owner = await forwarder.l1Owner()
-      await forwarder
+      const currentL1Owner = await governor.l1Owner()
+      await governor
         .connect(crossdomainMessenger)
         .transferL1Ownership(newL1OwnerAddress)
       await expect(
-        forwarder.connect(newOwnerCrossdomainMessenger).acceptL1Ownership(),
+        governor.connect(newOwnerCrossdomainMessenger).acceptL1Ownership(),
       )
-        .to.emit(forwarder, 'L1OwnershipTransferred')
+        .to.emit(governor, 'L1OwnershipTransferred')
         .withArgs(currentL1Owner, newL1OwnerAddress)
 
-      const updatedL1Owner = await forwarder.l1Owner()
+      const updatedL1Owner = await governor.l1Owner()
       assert.equal(updatedL1Owner, newL1OwnerAddress)
     })
   })

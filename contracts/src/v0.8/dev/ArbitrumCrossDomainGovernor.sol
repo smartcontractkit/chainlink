@@ -22,12 +22,12 @@ contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCros
   /**
    * @notice versions:
    *
-   * - ArbitrumCrossDomainGovernor 0.1.0: initial release
+   * - ArbitrumCrossDomainGovernor 1.0.0: initial release
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "ArbitrumCrossDomainGovernor 0.1.0";
+    return "ArbitrumCrossDomainGovernor 1.0.0";
   }
 
   /**

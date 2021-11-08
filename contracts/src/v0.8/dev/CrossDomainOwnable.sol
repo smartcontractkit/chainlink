@@ -20,12 +20,9 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
   }
 
   /**
-   * @notice Allows an owner to begin transferring ownership to a new address,
-   * pending.
+   * @notice Allows an owner to begin transferring ownership to a new address as a pending owner.
    */
-  function transferL1Ownership(address to) external virtual override onlyOwner {
-    _transferL1Ownership(to);
-  }
+  function transferL1Ownership(address to) external virtual override;
 
   /**
    * @notice Allows an ownership transfer to be completed by the recipient.
