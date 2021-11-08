@@ -484,13 +484,13 @@ func TestResolver_VRFSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
 					Type: job.VRF,
 					VRFSpec: &job.VRFSpec{
-						Confirmations:      1,
-						CoordinatorAddress: coordinatorAddress,
-						CreatedAt:          f.Timestamp(),
-						EVMChainID:         utils.NewBigI(42),
-						FromAddress:        &fromAddress,
-						PollPeriod:         1 * time.Minute,
-						PublicKey:          pubKey,
+						MinIncomingConfirmations: 1,
+						CoordinatorAddress:       coordinatorAddress,
+						CreatedAt:                f.Timestamp(),
+						EVMChainID:               utils.NewBigI(42),
+						FromAddress:              &fromAddress,
+						PollPeriod:               1 * time.Minute,
+						PublicKey:                pubKey,
 					},
 				}, nil)
 			},
@@ -501,11 +501,11 @@ func TestResolver_VRFSpec(t *testing.T) {
 							spec {
 								__typename
 								... on VRFSpec {
-									confirmations
 									coordinatorAddress
 									createdAt
 									evmChainID
 									fromAddress
+									minIncomingConfirmations
 									pollPeriod
 									publicKey
 								}
@@ -519,11 +519,11 @@ func TestResolver_VRFSpec(t *testing.T) {
 					"job": {
 						"spec": {
 							"__typename": "VRFSpec",
-							"confirmations": 1,
 							"coordinatorAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
+							"minIncomingConfirmations": 1,
 							"pollPeriod": "1m0s",
 							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01"
 						}

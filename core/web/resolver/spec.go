@@ -380,9 +380,9 @@ type VRFSpecResolver struct {
 	spec job.VRFSpec
 }
 
-// CreatedAt resolves the spec's confirmations.
-func (r *VRFSpecResolver) Confirmations() int32 {
-	return int32(r.spec.Confirmations)
+// CreatedAt resolves the spec's min incoming confirmations.
+func (r *VRFSpecResolver) MinIncomingConfirmations() int32 {
+	return int32(r.spec.MinIncomingConfirmations)
 }
 
 // CoordinatorAddress resolves the spec's coordinator address.

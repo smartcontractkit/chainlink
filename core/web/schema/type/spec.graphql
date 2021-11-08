@@ -61,11 +61,11 @@ type OCRSpec {
 }
 
 type VRFSpec {
-    confirmations: Int!
     coordinatorAddress: String!
     createdAt: Time!
     evmChainID: String
     fromAddress: String
+    minIncomingConfirmations: Int!
     pollPeriod: String!
     publicKey: String!
 }
