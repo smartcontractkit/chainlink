@@ -11,7 +11,6 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -763,19 +762,6 @@ func WrapIfError(err *error, msg string) {
 func LogIfError(err *error, msg string) {
 	if *err != nil {
 		logger.Errorf(msg+": %+v", *err)
-	}
-}
-
-// DebugPanic logs a panic exception being called
-func DebugPanic() {
-	//revive:disable:defer
-	if err := recover(); err != nil {
-		pc := make([]uintptr, 10) // at least 1 entry needed
-		runtime.Callers(5, pc)
-		f := runtime.FuncForPC(pc[0])
-		file, line := f.FileLine(pc[0])
-		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
-		panic(err)
 	}
 }
 

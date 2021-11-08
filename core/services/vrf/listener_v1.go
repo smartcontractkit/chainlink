@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -131,12 +130,12 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		})
-		go shutdown.WrapRecover(lsn.l, func() {
+		}()
+		go func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		}()
 		return nil
 	})
 }

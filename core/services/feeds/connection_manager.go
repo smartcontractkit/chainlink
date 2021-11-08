@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/connectivity"
 )
@@ -93,7 +92,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	mgr.connections[opts.FeedsManagerID] = conn
 	mgr.mu.Unlock()
 
-	go shutdown.WrapRecover(mgr.lggr, func() {
+	go func() {
 		defer mgr.wgClosed.Done()
 
 		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
@@ -153,7 +152,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 
 		// Wait for close
 		<-conn.ctx.Done()
-	})
+	}()
 }
 
 // Disconnect closes a single connection

@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -265,9 +264,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go shutdown.WrapRecover(fm.logger, func() {
-			fm.consume()
-		})
+		go fm.consume()
 
 		return nil
 	})
