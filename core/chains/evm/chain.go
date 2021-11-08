@@ -112,7 +112,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		txm = &bulletprooftxmanager.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenTxManager == nil {
-		txm = bulletprooftxmanager.NewBulletproofTxManager(db, client, cfg, opts.KeyStore, opts.EventBroadcaster, l)
+		txm = bulletprooftxmanager.NewBulletproofTxManager(postgres.UnwrapGormDB(db), client, cfg, opts.KeyStore, opts.EventBroadcaster, l)
 	} else {
 		txm = opts.GenTxManager(dbchain)
 	}
