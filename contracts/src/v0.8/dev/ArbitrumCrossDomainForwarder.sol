@@ -45,10 +45,15 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external override {
-    // 1. The call MUST come from the L2 Messenger (deterministically generated from the L1 xDomain sender address)
-    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
-    // 2. Make the external call
+  function forward(address target, bytes memory data) external override onlyCrossDomainMessenger {
     Address.functionCall(target, data, "Forwarder call reverted");
+  }
+
+  /**
+   * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
+   */
+  modifier onlyCrossDomainMessenger() {
+    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+    _;
   }
 }
