@@ -50,9 +50,8 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
 
   /**
    * @notice This is always the address of the OVM_L2CrossDomainMessenger contract
-   * @inheritdoc CrossDomainForwarder
    */
-  function crossDomainMessenger() public view virtual override returns (address) {
+  function crossDomainMessenger() public view returns (address) {
     return OVM_CROSS_DOMAIN_MESSENGER;
   }
 

@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/TypeAndVersionInterface.sol";
 import "./interfaces/DelegateForwarderInterface.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
-import "./CrossDomainDelegateForwarder.sol";
+import "./ArbitrumCrossDomainForwarder.sol";
 
 /**
  * @title ArbitrumCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Arbitrum
@@ -13,12 +12,12 @@ import "./CrossDomainDelegateForwarder.sol";
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be owned by the `l1Owner`
  */
-contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVersionInterface {
+contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCrossDomainForwarder {
   /**
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address l1OwnerAddr) CrossDomainDelegateForwarder(l1OwnerAddr) {
+  constructor(address l1OwnerAddr) ArbitrumCrossDomainForwarder(l1OwnerAddr) {
     // noop
   }
 
@@ -31,23 +30,6 @@ contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVer
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "ArbitrumCrossDomainGovernor 0.1.0";
-  }
-
-  /**
-   * @notice The L2 xDomain `msg.sender`, generated from L1 sender address
-   * @inheritdoc CrossDomainForwarder
-   */
-  function crossDomainMessenger() public view virtual override returns (address) {
-    return AddressAliasHelper.applyL1ToL2Alias(l1Owner());
-  }
-
-  /**
-   * @notice transfer ownership of this account to a new L1 owner
-   * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by the L1 owner (not the L2 owner.)
-   * @param to new L1 owner that will be allowed to call the forward fn
-   */
-  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
-    _setL1Owner(to);
   }
 
   /**
@@ -64,14 +46,6 @@ contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVer
    */
   function forwardDelegate(address target, bytes memory data) external override onlyCrossDomainOwners {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
-  }
-
-  /**
-   * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
-   */
-  modifier onlyCrossDomainMessenger() {
-    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
-    _;
   }
 
   /**
