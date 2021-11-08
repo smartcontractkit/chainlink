@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -22,9 +23,9 @@ func init() {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
 
-	jsonConsole := os.Getenv("JSON_CONSOLE") == "true"
-	unixTS := os.Getenv("LOG_UNIX_TS") == "true"
-	toDisk := os.Getenv("LOG_TO_DISK") == "true"
+	jsonConsole, _ := strconv.ParseBool(os.Getenv("JSON_CONSOLE"))
+	unixTS, _ := strconv.ParseBool(os.Getenv("LOG_UNIX_TS"))
+	toDisk, _ := strconv.ParseBool(os.Getenv("LOG_TO_DISK"))
 
 	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS)
 	InitLogger(l)
