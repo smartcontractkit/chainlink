@@ -27,16 +27,11 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
     _transferL1Ownership(to);
   }
 
-// Note: the following has to be implemented per-chain because msg.sender is translated to a cross-domain messenger address.
-//   /**
-//    * @notice Allows an ownership transfer to be completed by the recipient.
-//    */
+  /**
+   * @notice Allows an ownership transfer to be completed by the recipient.
+   * @dev The following has to be implemented per-chain because msg.sender is translated to a cross-domain messenger address.
+   */
   function acceptL1Ownership() external virtual override; 
-//   {
-//     address to = msg.sender;
-//     require(to == s_l1PendingOwner, "Must be proposed owner");
-//     _setL1Owner(to);
-//   }
 
   /**
    * @notice Get the current owner
@@ -48,7 +43,8 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
   /**
    * @notice validate, transfer ownership, and emit relevant events
    */
-  function _transferL1Ownership(address to) private {
+  function _transferL1Ownership(address to) internal {
+    require(to != address(0), "Cannot transfer to zero address");
     require(to != msg.sender, "Cannot transfer to self");
     s_l1PendingOwner = to;
 
