@@ -51,11 +51,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			require.NoError(t, err)
 			incomingConfs := 2
 			s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-				JobID:              jid.String(),
-				Name:               "vrf-primary",
-				CoordinatorAddress: cu.rootContractAddress.String(),
-				Confirmations:      incomingConfs,
-				PublicKey:          vrfkey.PublicKey.String()}).Toml()
+				JobID:                    jid.String(),
+				Name:                     "vrf-primary",
+				CoordinatorAddress:       cu.rootContractAddress.String(),
+				MinIncomingConfirmations: incomingConfs,
+				PublicKey:                vrfkey.PublicKey.String()}).Toml()
 			jb, err := vrf.ValidatedVRFSpec(s)
 			require.NoError(t, err)
 			assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())

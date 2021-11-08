@@ -80,8 +80,8 @@ type listenerV2 struct {
 	// We want a map so we can do an O(1) count update every fulfillment log we get.
 	respCountMu sync.Mutex
 	respCount   map[string]uint64
-	// This auxiliary heap is to used when we need to purge the
-	// respCount map - we repeatedly want remove the minimum log.
+	// This auxiliary heap is used when we need to purge the
+	// respCount map - we repeatedly want to remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
 }
@@ -105,7 +105,7 @@ func (lsn *listenerV2) Start() error {
 
 		// Log listener gathers request logs
 		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		})
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
@@ -169,7 +169,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // A user will need a minBalance capable of fulfilling a single req at the max gas price or nothing will happen.
 // This is acceptable as users can choose different keyhashes which have different max gas prices.
 // Other variables which can change the bill amount between our eth call simulation and tx execution:
-// - Link/eth price fluctation
+// - Link/eth price fluctuation
 // - Falling back to BHS
 // However the likelihood is vanishingly small as
 // 1) the window between simulation and tx execution is tiny.

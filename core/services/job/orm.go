@@ -174,8 +174,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, confirmations, evm_chain_id, from_address, poll_period, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :confirmations, :evm_chain_id, :from_address, :poll_period, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_address, poll_period, created_at, updated_at)
+			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, NOW(), NOW())
 			RETURNING id;`
 			err := postgres.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
 			pqErr, ok := err.(*pgconn.PgError)
@@ -387,11 +387,11 @@ type DRSpecConfig interface {
 func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
 	// Take the larger of the global vs specific.
 	// Note that the v2 vrf requests specify their own confirmation requirements.
-	// We wait for max(minConfs, request required confs) to be safe.
-	minConfs := cfg.MinIncomingConfirmations()
-	if vrfs.Confirmations <= minConfs {
+	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
+	minIncomingConfirmations := cfg.MinIncomingConfirmations()
+	if vrfs.MinIncomingConfirmations <= minIncomingConfirmations {
 		vrfs.ConfirmationsEnv = true
-		vrfs.Confirmations = minConfs
+		vrfs.MinIncomingConfirmations = minIncomingConfirmations
 	}
 
 	if vrfs.PollPeriod == 0 {

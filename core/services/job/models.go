@@ -367,15 +367,15 @@ type KeeperSpec struct {
 }
 
 type VRFSpec struct {
-	ID                 int32
-	CoordinatorAddress ethkey.EIP55Address  `toml:"coordinatorAddress"`
-	PublicKey          secp256k1.PublicKey  `toml:"publicKey"`
-	Confirmations      uint32               `toml:"confirmations"`
-	ConfirmationsEnv   bool                 `toml:"-" gorm:"-"`
-	EVMChainID         *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
-	FromAddress        *ethkey.EIP55Address `toml:"fromAddress"`
-	PollPeriod         time.Duration        `toml:"pollPeriod"` // For v2 jobs
-	PollPeriodEnv      bool                 `gorm:"-"`
-	CreatedAt          time.Time            `toml:"-"`
-	UpdatedAt          time.Time            `toml:"-"`
+	ID                       int32
+	CoordinatorAddress       ethkey.EIP55Address  `toml:"coordinatorAddress"`
+	PublicKey                secp256k1.PublicKey  `toml:"publicKey"`
+	MinIncomingConfirmations uint32               `toml:"minIncomingConfirmations"`
+	ConfirmationsEnv         bool                 `toml:"-" gorm:"-"`
+	EVMChainID               *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
+	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
+	PollPeriodEnv            bool                 `gorm:"-"`
+	CreatedAt                time.Time            `toml:"-"`
+	UpdatedAt                time.Time            `toml:"-"`
 }
