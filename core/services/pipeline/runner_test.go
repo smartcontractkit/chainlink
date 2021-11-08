@@ -504,31 +504,6 @@ a->b2;`,
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
 }
 
-func Test_PipelineRunner_PanicTask_Run(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		res.WriteHeader(http.StatusOK)
-		res.Write([]byte(`{"result":10}`))
-	}))
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, pgtest.NewGormDB(t), cfg)
-	spec := pipeline.Spec{
-		DotDagSource: fmt.Sprintf(`
-ds1 [type=http url="%s"]
-ds_parse [type=jsonparse path="result"]
-ds_multiply [type=multiply times=10]
-ds_panic [type=panic msg="oh no"]
-ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}
-	vars := pipeline.NewVarsFrom(nil)
-
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.TestLogger(t))
-	require.NoError(t, err)
-	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
-	assert.Equal(t, true, trrs.FinalResult().HasFatalErrors())
-	assert.IsType(t, pipeline.ErrRunPanicked{}, trrs.FinalResult().FatalErrors[0])
-}
-
 func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
@@ -765,31 +740,4 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
-}
-
-func Test_PipelineRunner_FailEarly(t *testing.T) {
-	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-		require.Fail(t, "ds1 shouldn't have been called")
-	}))
-	cfg := cltest.NewTestGeneralConfig(t)
-	r, _ := newRunner(t, pgtest.NewGormDB(t), cfg)
-	spec := pipeline.Spec{
-		DotDagSource: fmt.Sprintf(`
-ds_panic [type=panic msg="oh no" failEarly=true]
-ds1 [type=http url="%s"]
-ds_parse [type=jsonparse path="result"]
-ds_multiply [type=multiply times=10]
-ds_panic->ds1->ds_parse->ds_multiply;`, s.URL),
-	}
-	vars := pipeline.NewVarsFrom(nil)
-
-	run, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.TestLogger(t))
-	require.NoError(t, err)
-	require.True(t, run.FailEarly)
-	require.Equal(t, 4, len(trrs))
-	assert.Contains(t, run.ByDotID("ds_panic").Error.String, "panicked")
-	// all the other runs are failed with ErrCancelled
-	assert.Contains(t, run.ByDotID("ds1").Error.String, "cancelled")
-	assert.Contains(t, run.ByDotID("ds_parse").Error.String, "cancelled")
-	assert.Contains(t, run.ByDotID("ds_multiply").Error.String, "cancelled")
 }
