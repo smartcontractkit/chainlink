@@ -182,14 +182,14 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 }
 
 type VRFSpecParams struct {
-	JobID              string
-	Name               string
-	CoordinatorAddress string
-	Confirmations      int
-	FromAddress        string
-	PublicKey          string
-	ObservationSource  string
-	V2                 bool
+	JobID                    string
+	Name                     string
+	CoordinatorAddress       string
+	MinIncomingConfirmations int
+	FromAddress              string
+	PublicKey                string
+	ObservationSource        string
+	V2                       bool
 }
 
 type VRFSpec struct {
@@ -215,8 +215,8 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 		coordinatorAddress = params.CoordinatorAddress
 	}
 	confirmations := 6
-	if params.Confirmations != 0 {
-		confirmations = params.Confirmations
+	if params.MinIncomingConfirmations != 0 {
+		confirmations = params.MinIncomingConfirmations
 	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
@@ -275,7 +275,7 @@ type = "vrf"
 schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
-confirmations = %d
+minIncomingConfirmations = %d
 publicKey = "%s"
 observationSource = """
 %s
@@ -287,12 +287,12 @@ observationSource = """
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
-		JobID:              jobID,
-		Name:               name,
-		CoordinatorAddress: coordinatorAddress,
-		Confirmations:      confirmations,
-		PublicKey:          publicKey,
-		ObservationSource:  observationSource,
+		JobID:                    jobID,
+		Name:                     name,
+		CoordinatorAddress:       coordinatorAddress,
+		MinIncomingConfirmations: confirmations,
+		PublicKey:                publicKey,
+		ObservationSource:        observationSource,
 	}, toml: toml}
 }
 

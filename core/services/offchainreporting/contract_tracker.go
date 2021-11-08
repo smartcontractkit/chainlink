@@ -151,7 +151,7 @@ func (t *OCRContractTracker) Start() error {
 				offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{}.Topic(): nil,
 				offchain_aggregator_wrapper.OffchainAggregatorConfigSet{}.Topic():      nil,
 			},
-			NumConfirmations: 1,
+			MinIncomingConfirmations: 1,
 		})
 
 		var latestHead *eth.Head

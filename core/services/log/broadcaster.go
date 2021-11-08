@@ -118,7 +118,7 @@ type (
 		ParseLog ParseLogFunc
 
 		// Minimum number of block confirmations before the log is received
-		NumConfirmations uint32
+		MinIncomingConfirmations uint32
 	}
 
 	ParseLogFunc func(log types.Log) (generated.AbigenLog, error)
@@ -506,7 +506,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			b.logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
+		b.logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -526,7 +526,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			b.logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		b.logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations, "address", reg.opts.Contract)
+		b.logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.MinIncomingConfirmations, "address", reg.opts.Contract)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true

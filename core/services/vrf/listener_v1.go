@@ -118,12 +118,12 @@ func (lsn *listenerV1) Start() error {
 				},
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(): {},
 			},
-			// If we set this to minConfs, since both the log broadcaster and head broadcaster get heads
-			// at the same time from the head tracker whether we process the log at minConfs or minConfs+1
-			// would depend on the order in which their OnNewLongestChain callbacks got called.
-			// We listen one block early so that the log can be stored in pendingRequests
-			// to avoid this.
-			NumConfirmations: uint32(spec.Confirmations - 1),
+			// If we set this to MinIncomingConfirmations, since both the log broadcaster and head broadcaster get heads
+			// at the same time from the head tracker whether we process the log at MinIncomingConfirmations or
+			// MinIncomingConfirmations+1 would depend on the order in which their OnNewLongestChain callbacks got
+			// called.
+			// We listen one block early so that the log can be stored in pendingRequests to avoid this.
+			MinIncomingConfirmations: spec.MinIncomingConfirmations - 1,
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -132,7 +132,7 @@ func (lsn *listenerV1) Start() error {
 			lsn.setLatestHead(*latestHead)
 		}
 		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		})
 		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)

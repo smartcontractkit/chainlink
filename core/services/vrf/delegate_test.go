@@ -506,7 +506,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.reqAdded = func() {
 		added <- struct{}{}
 	}
-	// Send a invalid log (keyhash doesnt match)
+	// Send an invalid log (keyhash doesnt match)
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
@@ -515,7 +515,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
 			utils.NewHash().Bytes()...), // requestID
-		// JobID is indexed, thats why it lives in the Topics.
+		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
 			VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeBytesToTopic(), // jobID
@@ -569,7 +569,7 @@ func TestFulfilledCheck(t *testing.T) {
 	listener.reqAdded = func() {
 		added <- struct{}{}
 	}
-	// Send a invalid log (keyhash doesnt match)
+	// Send an invalid log (keyhash doesn't match)
 	listener.HandleLog(log.NewLogBroadcast(
 		types.Log{
 			// Data has all the NON-indexed parameters
@@ -580,7 +580,7 @@ func TestFulfilledCheck(t *testing.T) {
 				utils.NewHash().Bytes(),                  // fee
 				utils.NewHash().Bytes()},                 // requestID
 				[]byte{}),
-			// JobID is indexed, thats why it lives in the Topics.
+			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
 				VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING

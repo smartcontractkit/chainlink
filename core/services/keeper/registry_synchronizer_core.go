@@ -99,7 +99,7 @@ func (rs *RegistrySynchronizer) Start() error {
 					},
 				},
 			},
-			NumConfirmations: rs.minIncomingConfirmations,
+			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 
