@@ -173,7 +173,6 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 	}
 
 	return NewJobsPayload(jobs, int32(count)), nil
-
 }
 
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
