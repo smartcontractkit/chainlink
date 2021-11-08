@@ -25,12 +25,12 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
   /**
    * @notice versions:
    *
-   * - OptimismCrossDomainForwarder 0.1.0: initial release
+   * - OptimismCrossDomainForwarder 1.0.0: initial release
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismCrossDomainGovernor 0.1.0";
+    return "OptimismCrossDomainGovernor 1.0.0";
   }
 
   /**

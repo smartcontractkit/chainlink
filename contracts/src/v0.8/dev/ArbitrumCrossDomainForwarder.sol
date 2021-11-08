@@ -41,6 +41,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   /**
    * @notice transfer ownership of this account to a new L1 owner
    * @param to new L1 owner that will be allowed to call the forward fn
+   * @inheritdoc CrossDomainOwnable
    */
   function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
     super._transferL1Ownership(to);
@@ -48,6 +49,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
 
   /**
    * @notice accept ownership of this account to a new L1 owner
+   * @inheritdoc CrossDomainOwnable
    */
   function acceptL1Ownership() external virtual override {
     require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed owner");
