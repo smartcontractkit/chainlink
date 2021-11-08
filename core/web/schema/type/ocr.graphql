@@ -1,5 +1,5 @@
 type OCRKeyBundle {
-    id: String!
+    id: ID!
     configPublicKey: String!
     offChainPublicKey: String!
     onChainSigningAddress: String!

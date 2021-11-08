@@ -22,7 +22,7 @@ type Mutation {
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
-    deleteOCRKeyBundle(id: String!): DeleteOCRKeyBundlePayload!
+    deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }
