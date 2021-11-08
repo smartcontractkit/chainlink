@@ -46,8 +46,7 @@ contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVer
    * @dev Forwarding can be disabled by setting the L1 owner as `address(0)`. Accessible only by the L1 owner (not the L2 owner.)
    * @param to new L1 owner that will be allowed to call the forward fn
    */
-  function transferL1Ownership(address to) external override {
-    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
     _setL1Owner(to);
   }
 
@@ -55,10 +54,7 @@ contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVer
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external override {
-    // 1. The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
-    // 2. Make the external call
+  function forward(address target, bytes memory data) external override onlyCrossDomainOwners {
     Address.functionCall(target, data, "Governor call reverted");
   }
 
@@ -66,10 +62,23 @@ contract ArbitrumCrossDomainGovernor is CrossDomainDelegateForwarder, TypeAndVer
    * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
    * @inheritdoc DelegateForwarderInterface
    */
-  function forwardDelegate(address target, bytes memory data) external override {
-    // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
-    // 2. Make the external delegatecall
+  function forwardDelegate(address target, bytes memory data) external override onlyCrossDomainOwners {
     Address.functionDelegateCall(target, data, "Governor delegatecall reverted");
+  }
+
+  /**
+   * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
+   */
+  modifier onlyCrossDomainMessenger() {
+    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+    _;
+  }
+
+  /**
+   * @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
+   */
+  modifier onlyCrossDomainOwners() {
+    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
+    _;
   }
 }
