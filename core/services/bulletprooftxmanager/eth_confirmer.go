@@ -366,7 +366,7 @@ WHERE eth_tx_attempts.state != 'insufficient_eth'
 ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC
 `, ec.chainID.String())
 		if err != nil {
-			errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
+			return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
 		}
 		err = loadEthTxes(q, attempts)
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
@@ -975,15 +975,6 @@ func (ec *EthConfirmer) bumpGas(previousAttempt EthTxAttempt) (bumpedAttempt Eth
 
 	return bumpedAttempt, errors.Wrap(err, "error bumping gas")
 }
-
-const upsertIntoEthTxAttemptsQuery = `
-INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
-ON CONFLICT (hash) DO UPDATE SET 
-broadcast_before_block_num = :broadcast_before_block_num,
-state = :state
-RETURNING *;
-`
 
 // saveInProgressAttempt inserts or updates an attempt
 func (ec *EthConfirmer) saveInProgressAttempt(attempt *EthTxAttempt) error {
