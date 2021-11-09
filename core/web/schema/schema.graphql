@@ -19,6 +19,8 @@ type Query {
     node(id: ID!): NodePayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
+    vrfKey(id: ID!): VRFKeyPayload!
+    vrfKeys: VRFKeysPayload!
 }
 
 type Mutation {
@@ -32,6 +34,8 @@ type Mutation {
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
+    createVRFKey: CreateVRFKeyPayload!
+    deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
@@ -429,4 +430,36 @@ func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
 	}
 
 	return NewDeleteP2PKeyPayloadResolver(key, nil), nil
+}
+
+func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().VRF().Create()
+	if err != nil {
+		// TODO: improve
+		return nil, err
+	}
+
+	return NewCreateVRFKeyPayloadResolver(key), nil
+}
+
+func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteVRFKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
+	if err != nil {
+		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
+		}
+		return nil, err
+	}
+
+	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
 }
