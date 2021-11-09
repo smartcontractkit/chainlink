@@ -472,9 +472,7 @@ func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 
 	prv, ok := rsv.(*ApproveJobProposalPayloadResolver)
 	if prv != nil && !ok {
-		return nil, errors.New(
-			fmt.Sprintf("expected resolver to be *ApproveJobProposalPayloadResolver, got %T", prv),
-		)
+		return nil, fmt.Errorf("expected resolver to be *ApproveJobProposalPayloadResolver, got %T", prv)
 	}
 
 	return prv, err
@@ -489,9 +487,7 @@ func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 
 	prv, ok := rsv.(*CancelJobProposalPayloadResolver)
 	if prv != nil && !ok {
-		return nil, errors.New(
-			fmt.Sprintf("expected resolver to be *CancelJobProposalPayloadResolver, got %T", prv),
-		)
+		return nil, fmt.Errorf("expected resolver to be *CancelJobProposalPayloadResolver, got %T", prv)
 	}
 
 	return prv, err
@@ -506,9 +502,7 @@ func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
 
 	prv, ok := rsv.(*RejectJobProposalPayloadResolver)
 	if prv != nil && !ok {
-		return nil, errors.New(
-			fmt.Sprintf("expected resolver to be *RejectJobProposalPayloadResolver, got %T", prv),
-		)
+		return nil, fmt.Errorf("expected resolver to be *RejectJobProposalPayloadResolver, got %T", prv)
 	}
 
 	return prv, err
@@ -534,13 +528,10 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 	switch action.Name {
 	case approve:
 		err = feedsSvc.ApproveJobProposal(ctx, id)
-		break
 	case cancel:
 		err = feedsSvc.CancelJobProposal(ctx, id)
-		break
 	case reject:
 		err = feedsSvc.RejectJobProposal(ctx, id)
-		break
 	default:
 		return nil, errors.New("invalid job proposal action")
 	}
