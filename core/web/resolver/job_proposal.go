@@ -138,6 +138,7 @@ type JobProposalAction string
 const (
 	approve JobProposalAction = "approve"
 	cancel  JobProposalAction = "cancel"
+	reject  JobProposalAction = "reject"
 )
 
 func ToJobProposalPayload(a JobProposalAction, jp *feeds.JobProposal, err error) (JobProposalPayload, error) {
@@ -146,6 +147,8 @@ func ToJobProposalPayload(a JobProposalAction, jp *feeds.JobProposal, err error)
 		return NewApproveJobProposalPayload(jp, err), nil
 	case cancel:
 		return NewCancelJobProposalPayload(jp, err), nil
+	case reject:
+		return NewRejectJobProposalPayload(jp, err), nil
 	default:
 		return nil, errors.New("invalid job proposal action")
 	}
@@ -216,5 +219,39 @@ func NewCancelJobProposalSuccess(jp *feeds.JobProposal) *CancelJobProposalSucces
 }
 
 func (r *CancelJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
+	return NewJobProposal(r.jp)
+}
+
+// -- RejectJobProposal Mutation --
+
+type RejectJobProposalPayloadResolver struct {
+	jp *feeds.JobProposal
+	ResolvesNotFoundError
+}
+
+func NewRejectJobProposalPayload(jp *feeds.JobProposal, err error) *RejectJobProposalPayloadResolver {
+	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+
+	return &RejectJobProposalPayloadResolver{jp, e}
+}
+
+// ToRejectJobProposalSuccess resolves to the approval job proposal success resolver
+func (r *RejectJobProposalPayloadResolver) ToRejectJobProposalSuccess() (*RejectJobProposalSuccessResolver, bool) {
+	if r.jp != nil {
+		return NewRejectJobProposalSuccess(r.jp), true
+	}
+
+	return nil, false
+}
+
+type RejectJobProposalSuccessResolver struct {
+	jp *feeds.JobProposal
+}
+
+func NewRejectJobProposalSuccess(jp *feeds.JobProposal) *RejectJobProposalSuccessResolver {
+	return &RejectJobProposalSuccessResolver{jp}
+}
+
+func (r *RejectJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
 	return NewJobProposal(r.jp)
 }
