@@ -1618,6 +1618,14 @@ func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 	require.Equal(t, expected, count)
 }
 
+func AssertCountSqlx(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
+	t.Helper()
+	var count int64
+	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
+	require.NoError(t, err)
+	require.Equal(t, expected, count)
+}
+
 func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
 	g := NewGomegaWithT(t)
