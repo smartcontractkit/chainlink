@@ -12,6 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
+var notFoundErrorMessage = "job proposal not found"
+
 type JobProposalStatus string
 
 const (
@@ -125,30 +127,29 @@ func (r *JobProposalPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, 
 	return nil, false
 }
 
+// -- Mutations shared interface --
+
+type JobProposalPayload interface {
+	ToNotFoundError() (*NotFoundErrorResolver, bool)
+}
+
 // -- ApproveJobProposal Mutation --
 
 type ApproveJobProposalPayloadResolver struct {
-	jp  *feeds.JobProposal
-	err error
+	jp *feeds.JobProposal
+	ResolvesNotFoundError
 }
 
 func NewApproveJobProposalPayload(jp *feeds.JobProposal, err error) *ApproveJobProposalPayloadResolver {
-	return &ApproveJobProposalPayloadResolver{jp, err}
+	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+
+	return &ApproveJobProposalPayloadResolver{jp, e}
 }
 
 // ToApproveJobProposalSuccess resolves to the approval job proposal success resolver
 func (r *ApproveJobProposalPayloadResolver) ToApproveJobProposalSuccess() (*ApproveJobProposalSuccessResolver, bool) {
 	if r.jp != nil {
 		return NewApproveJobProposalSuccess(r.jp), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError resolves to the not found error resolver
-func (r *ApproveJobProposalPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("job proposal not found"), true
 	}
 
 	return nil, false
@@ -163,5 +164,39 @@ func NewApproveJobProposalSuccess(jp *feeds.JobProposal) *ApproveJobProposalSucc
 }
 
 func (r *ApproveJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
+	return NewJobProposal(r.jp)
+}
+
+// -- CancelJobProposal Mutation --
+
+type CancelJobProposalPayloadResolver struct {
+	jp *feeds.JobProposal
+	ResolvesNotFoundError
+}
+
+func NewCancelJobProposalPayload(jp *feeds.JobProposal, err error) *CancelJobProposalPayloadResolver {
+	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+
+	return &CancelJobProposalPayloadResolver{jp, e}
+}
+
+// ToCancelJobProposalSuccess resolves to the approval job proposal success resolver
+func (r *CancelJobProposalPayloadResolver) ToCancelJobProposalSuccess() (*CancelJobProposalSuccessResolver, bool) {
+	if r.jp != nil {
+		return NewCancelJobProposalSuccess(r.jp), true
+	}
+
+	return nil, false
+}
+
+type CancelJobProposalSuccessResolver struct {
+	jp *feeds.JobProposal
+}
+
+func NewCancelJobProposalSuccess(jp *feeds.JobProposal) *CancelJobProposalSuccessResolver {
+	return &CancelJobProposalSuccessResolver{jp}
+}
+
+func (r *CancelJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
 	return NewJobProposal(r.jp)
 }
