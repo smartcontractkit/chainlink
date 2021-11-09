@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
@@ -117,9 +118,50 @@ func (r *JobProposalPayloadResolver) ToJobProposal() (*JobProposalResolver, bool
 
 // ToNotFoundError resolves to the not found error resolver
 func (r *JobProposalPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
+	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
 		return NewNotFoundError("job proposal not found"), true
 	}
 
 	return nil, false
+}
+
+// -- ApproveJobProposal Mutation --
+
+type ApproveJobProposalPayloadResolver struct {
+	jp  *feeds.JobProposal
+	err error
+}
+
+func NewApproveJobProposalPayload(jp *feeds.JobProposal, err error) *ApproveJobProposalPayloadResolver {
+	return &ApproveJobProposalPayloadResolver{jp, err}
+}
+
+// ToApproveJobProposalSuccess resolves to the approval job proposal success resolver
+func (r *ApproveJobProposalPayloadResolver) ToApproveJobProposalSuccess() (*ApproveJobProposalSuccessResolver, bool) {
+	if r.jp != nil {
+		return NewApproveJobProposalSuccess(r.jp), true
+	}
+
+	return nil, false
+}
+
+// ToNotFoundError resolves to the not found error resolver
+func (r *ApproveJobProposalPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
+		return NewNotFoundError("job proposal not found"), true
+	}
+
+	return nil, false
+}
+
+type ApproveJobProposalSuccessResolver struct {
+	jp *feeds.JobProposal
+}
+
+func NewApproveJobProposalSuccess(jp *feeds.JobProposal) *ApproveJobProposalSuccessResolver {
+	return &ApproveJobProposalSuccessResolver{jp}
+}
+
+func (r *ApproveJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
+	return NewJobProposal(r.jp)
 }
