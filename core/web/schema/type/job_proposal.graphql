@@ -16,3 +16,9 @@ type JobProposal {
 }
 
 union JobProposalPayload = JobProposal | NotFoundError
+
+type ApproveJobProposalSuccess {
+    jobProposal: JobProposal!
+}
+
+union ApproveJobProposalPayload = ApproveJobProposalSuccess | NotFoundError

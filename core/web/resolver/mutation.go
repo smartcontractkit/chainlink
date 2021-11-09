@@ -462,3 +462,38 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 
 	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
 }
+
+func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*ApproveJobProposalPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	err = feedsSvc.ApproveJobProposal(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewApproveJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	jp, err := feedsSvc.GetJobProposal(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewApproveJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewApproveJobProposalPayload(jp, nil), nil
+}

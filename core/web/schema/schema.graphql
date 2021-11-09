@@ -25,6 +25,7 @@ type Query {
 }
 
 type Mutation {
+    approveJobProposal(id: ID!): ApproveJobProposalPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
