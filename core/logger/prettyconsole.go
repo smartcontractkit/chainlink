@@ -46,9 +46,17 @@ func (pc PrettyConsole) Write(b []byte) (int, error) {
 }
 
 func generateHeadline(js gjson.Result) string {
-	sec, dec := math.Modf(js.Get("ts").Float())
+	ts := js.Get("ts")
+	var tsStr string
+	if f := ts.Float(); f > 1 {
+		sec, dec := math.Modf(f)
+		tsStr = iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9))))
+	} else {
+		// assume already formatted
+		tsStr = ts.Str
+	}
 	headline := []interface{}{
-		iso8601UTC(time.Unix(int64(sec), int64(dec*(1e9)))),
+		tsStr,
 		" ",
 		coloredLevel(js.Get("level")),
 		fmt.Sprintf("%-50s", js.Get("msg")),
