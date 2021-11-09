@@ -1,0 +1,11 @@
+type JobProposal {
+    id: ID!
+    spec: String!
+    status: String!
+    externalJobID: String!
+#    feedsManager: FeedsManager!
+    multiAddrs: [String!]!
+    proposedAt: Time!
+}
+
+union JobProposalPayload = JobProposal | NotFoundError
