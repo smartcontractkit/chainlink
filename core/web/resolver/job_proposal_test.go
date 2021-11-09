@@ -23,6 +23,10 @@ func TestResolver_GetJobProposal(t *testing.T) {
 					status
 					externalJobID
 					multiAddrs
+					feedsManager {
+						id
+						name
+					}
 				}
 				... on NotFoundError {
 					message
@@ -38,9 +42,13 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			"jobProposal": {
 				"id": "1",
 				"spec": "some-spec",
-				"status": "approved",
+				"status": "APPROVED",
 				"externalJobID": "%s",
-				"multiAddrs": ["1", "2"]
+				"multiAddrs": ["1", "2"],
+				"feedsManager": {
+					"id": "1",
+					"name": "manager"
+				}
 			}
 		}`
 
@@ -50,6 +58,12 @@ func TestResolver_GetJobProposal(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
+				f.Mocks.feedsSvc.On("GetManagers", []int64{1}).Return([]feeds.FeedsManager{
+					{
+						ID:   1,
+						Name: "manager",
+					},
+				}, nil)
 				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
 					ID:             jpID,
 					Spec:           "some-spec",

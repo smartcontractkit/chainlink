@@ -14,19 +14,22 @@ type loadersKey struct{}
 type Dataloader struct {
 	app chainlink.Application
 
-	NodesByChainIDLoader *dataloader.Loader
-	ChainsByIDLoader     *dataloader.Loader
+	NodesByChainIDLoader    *dataloader.Loader
+	ChainsByIDLoader        *dataloader.Loader
+	FeedsManagersByIDLoader *dataloader.Loader
 }
 
 func New(app chainlink.Application) *Dataloader {
 	nodes := &nodeBatcher{app: app}
 	chains := &chainBatcher{app: app}
+	mgrs := &feedsBatcher{app: app}
 
 	return &Dataloader{
 		app: app,
 
-		NodesByChainIDLoader: dataloader.NewBatchedLoader(nodes.loadByChainIDs),
-		ChainsByIDLoader:     dataloader.NewBatchedLoader(chains.loadByIDs),
+		NodesByChainIDLoader:    dataloader.NewBatchedLoader(nodes.loadByChainIDs),
+		ChainsByIDLoader:        dataloader.NewBatchedLoader(chains.loadByIDs),
+		FeedsManagersByIDLoader: dataloader.NewBatchedLoader(mgrs.loadByIDs),
 	}
 }
 

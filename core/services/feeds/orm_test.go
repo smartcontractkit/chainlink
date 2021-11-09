@@ -134,6 +134,41 @@ func Test_ORM_GetManager(t *testing.T) {
 	require.Error(t, err)
 }
 
+func Test_ORM_GetManagers(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	mgr := &feeds.FeedsManager{
+		URI:                       uri,
+		Name:                      name,
+		PublicKey:                 publicKey,
+		JobTypes:                  jobTypes,
+		IsOCRBootstrapPeer:        true,
+		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
+	}
+
+	id, err := orm.CreateManager(context.Background(), mgr)
+	require.NoError(t, err)
+
+	mgrs, err := orm.GetManagers(context.Background(), []int64{id})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(mgrs))
+
+	actual := &mgrs[0]
+
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uri, actual.URI)
+	assert.Equal(t, name, actual.Name)
+	assert.Equal(t, publicKey, actual.PublicKey)
+	assert.Equal(t, jobTypes, actual.JobTypes)
+	assert.True(t, actual.IsOCRBootstrapPeer)
+	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
+
+	actual, err = orm.GetManager(context.Background(), -1)
+	require.Nil(t, actual)
+	require.Error(t, err)
+}
+
 func Test_ORM_UpdateManager(t *testing.T) {
 	t.Parallel()
 
