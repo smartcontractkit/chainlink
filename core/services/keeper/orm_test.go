@@ -32,7 +32,6 @@ func setupKeeperDB(t *testing.T) (
 ) {
 	gcfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewGormDB(t)
-	gcfg.SetDB(db)
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	orm := keeper.NewORM(db, nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
 	return db, cfg, orm
@@ -51,7 +50,7 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 func waitLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
 	t.Helper()
 
-	gomega.NewGomegaWithT(t).Eventually(func() int64 {
+	cltest.NewGomegaWithT(t).Eventually(func() int64 {
 		err := db.Find(&upkeep).Error
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight

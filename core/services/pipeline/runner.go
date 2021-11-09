@@ -374,11 +374,11 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	taskTimeout, isSet := taskRun.task.TaskTimeout()
 	if isSet {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+		ctx, cancel = utils.CombinedContext(ctx, r.chStop, taskTimeout)
 		defer cancel()
 	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
+		ctx, cancel = utils.CombinedContext(ctx, r.chStop, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
 
@@ -453,7 +453,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = postgres.NewQ(r.orm.DB(), postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(r.orm.DB(), postgres.WithParentCtx(ctx)).Transaction(r.lggr, func(tx postgres.Queryer) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()

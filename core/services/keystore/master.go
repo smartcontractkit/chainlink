@@ -21,6 +21,8 @@ import (
 
 var ErrLocked = errors.New("Keystore is locked")
 
+//go:generate mockery --name Master --output ./mocks/ --case=underscore
+
 type Master interface {
 	CSA() CSA
 	Eth() Eth
@@ -47,7 +49,7 @@ func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) Maste
 
 func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
 	km := &keyManager{
-		orm:          NewORM(db),
+		orm:          NewORM(db, lggr),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
 		logger:       lggr.Named("KeyStore"),

@@ -37,6 +37,7 @@ type EnvPrinter struct {
 	DatabaseBackupMode                         string          `json:"DATABASE_BACKUP_MODE"`
 	DatabaseMaximumTxDuration                  time.Duration   `json:"DATABASE_MAXIMUM_TX_DURATION"`
 	DatabaseTimeout                            models.Duration `json:"DATABASE_TIMEOUT"`
+	DatabaseLockingMode                        string          `json:"DATABASE_LOCKING_MODE"`
 	DefaultChainID                             string          `json:"ETH_CHAIN_ID"`
 	DefaultHTTPLimit                           int64           `json:"DEFAULT_HTTP_LIMIT"`
 	DefaultHTTPTimeout                         models.Duration `json:"DEFAULT_HTTP_TIMEOUT"`
@@ -58,7 +59,6 @@ type EnvPrinter struct {
 	KeeperGasPriceBufferPercent                uint32          `json:"KEEPER_GAS_PRICE_BUFFER_PERCENT"`
 	KeeperGasTipCapBufferPercent               uint32          `json:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT"`
 	KeeperMaximumGracePeriod                   int64           `json:"KEEPER_MAXIMUM_GRACE_PERIOD"`
-	KeeperMinimumRequiredConfirmations         uint64          `json:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS"`
 	KeeperRegistryCheckGasOverhead             uint64          `json:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD"`
 	KeeperRegistryPerformGasOverhead           uint64          `json:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD"`
 	KeeperRegistrySyncInterval                 time.Duration   `json:"KEEPER_REGISTRY_SYNC_INTERVAL"`
@@ -128,6 +128,7 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			DatabaseBackupMode:                    string(cfg.DatabaseBackupMode()),
 			DatabaseMaximumTxDuration:             cfg.DatabaseMaximumTxDuration(),
 			DatabaseTimeout:                       cfg.DatabaseTimeout(),
+			DatabaseLockingMode:                   cfg.DatabaseLockingMode(),
 			DefaultChainID:                        cfg.DefaultChainID().String(),
 			DefaultHTTPLimit:                      cfg.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:                    cfg.DefaultHTTPTimeout(),

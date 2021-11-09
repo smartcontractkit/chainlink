@@ -31,6 +31,7 @@ func TestConfigSchema(t *testing.T) {
 		"DatabaseBackupURL":                          "DATABASE_BACKUP_URL",
 		"DatabaseListenerMaxReconnectDuration":       "DATABASE_LISTENER_MAX_RECONNECT_DURATION",
 		"DatabaseListenerMinReconnectInterval":       "DATABASE_LISTENER_MIN_RECONNECT_INTERVAL",
+		"DatabaseLockingMode":                        "DATABASE_LOCKING_MODE",
 		"DatabaseMaximumTxDuration":                  "DATABASE_MAXIMUM_TX_DURATION",
 		"DatabaseTimeout":                            "DATABASE_TIMEOUT",
 		"DatabaseURL":                                "DATABASE_URL",
@@ -102,7 +103,6 @@ func TestConfigSchema(t *testing.T) {
 		"KeeperGasPriceBufferPercent":                "KEEPER_GAS_PRICE_BUFFER_PERCENT",
 		"KeeperGasTipCapBufferPercent":               "KEEPER_GAS_TIP_CAP_BUFFER_PERCENT",
 		"KeeperMaximumGracePeriod":                   "KEEPER_MAXIMUM_GRACE_PERIOD",
-		"KeeperMinimumRequiredConfirmations":         "KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS",
 		"KeeperRegistryCheckGasOverhead":             "KEEPER_REGISTRY_CHECK_GAS_OVERHEAD",
 		"KeeperRegistryPerformGasOverhead":           "KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD",
 		"KeeperRegistrySyncInterval":                 "KEEPER_REGISTRY_SYNC_INTERVAL",
@@ -200,7 +200,7 @@ func TestConfigSchema(t *testing.T) {
    scoped config instead (for more info see notion doc here: https://www.notion.so/chainlink/Config-in-Chainlink-4f36fb8f28f241f7b87cd1857df54db7).
 1. Make sure that the method has a comment explaining in detail what the new config var does
 2. Update the Changelog
-3. Update the ConfigPrinter found in core/store/presenters/presenters.go if you
+3. Update the ConfigPrinter found in core/config/presenters.go if you
    think this variable needs to be shown in the UI
 4. Make a PR into the documentation page if node operators might need to use
    this (found at https://github.com/smartcontractkit/documentation/blob/main/docs/Node%%20Operators/configuration-variables.md).

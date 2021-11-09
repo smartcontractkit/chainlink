@@ -50,3 +50,6 @@ core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
 # DB state
 db/
 .s.PGSQL.5432.lock
+
+# can be left behind by tests
+core/cmd/vrfkey1

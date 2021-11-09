@@ -4,8 +4,11 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
+
+//go:generate mockery --name OCR --output ./mocks/ --case=underscore
 
 type OCR interface {
 	Get(id string) (ocrkey.KeyV2, error)
@@ -18,6 +21,15 @@ type OCR interface {
 	EnsureKey() (ocrkey.KeyV2, bool, error)
 
 	GetV1KeysAsV2() ([]ocrkey.KeyV2, error)
+}
+
+// KeyNotFoundError is returned when we don't find a requested key
+type KeyNotFoundError struct {
+	ID string
+}
+
+func (e KeyNotFoundError) Error() string {
+	return fmt.Sprintf("unable to find OCR key with id %s", e.ID)
 }
 
 type ocr struct {
@@ -155,7 +167,7 @@ func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
 func (ks *ocr) getByID(id string) (ocrkey.KeyV2, error) {
 	key, found := ks.keyRing.OCR[id]
 	if !found {
-		return ocrkey.KeyV2{}, fmt.Errorf("unable to find OCR key with id %s", id)
+		return ocrkey.KeyV2{}, KeyNotFoundError{id}
 	}
 	return key, nil
 }

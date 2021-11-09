@@ -17,12 +17,11 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/spf13/viper"
 	"go.uber.org/zap/zapcore"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -34,7 +33,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-// this permission grants read / write accccess to file owners only
+//go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
+
+// this permission grants read / write access to file owners only
 const readWritePerms = os.FileMode(0600)
 
 var (
@@ -61,6 +62,7 @@ type GeneralOnlyConfig interface {
 	DatabaseBackupURL() *url.URL
 	DatabaseListenerMaxReconnectDuration() time.Duration
 	DatabaseListenerMinReconnectInterval() time.Duration
+	DatabaseLockingMode() string
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseTimeout() models.Duration
 	DatabaseURL() url.URL
@@ -99,7 +101,6 @@ type GeneralOnlyConfig interface {
 	KeeperGasPriceBufferPercent() uint32
 	KeeperGasTipCapBufferPercent() uint32
 	KeeperMaximumGracePeriod() int64
-	KeeperMinimumRequiredConfirmations() uint64
 	KeeperRegistryCheckGasOverhead() uint64
 	KeeperRegistryPerformGasOverhead() uint64
 	KeeperRegistrySyncInterval() time.Duration
@@ -161,7 +162,6 @@ type GeneralOnlyConfig interface {
 	SessionOptions() sessions.Options
 	SessionSecret() ([]byte, error)
 	SessionTimeout() models.Duration
-	SetDB(*gorm.DB)
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
 	SetLogSQLStatements(logSQLStatements bool) error
@@ -241,7 +241,6 @@ type GeneralConfig interface {
 type generalConfig struct {
 	viper            *viper.Viper
 	secretGenerator  SecretGenerator
-	ORM              *ORM
 	randomP2PPort    uint16
 	randomP2PPortMtx *sync.RWMutex
 	dialect          dialects.DialectName
@@ -351,13 +350,13 @@ func (c *generalConfig) Validate() error {
 			logger.Warn("ETH_SECONDARY_URL/ETH_SECONDARY_URLS have no effect when USE_LEGACY_ETH_ENV_VARS=false")
 		}
 	}
-	return nil
-}
 
-// SetDB provides a database connection to use for runtime configuration values
-func (c *generalConfig) SetDB(db *gorm.DB) {
-	orm := NewORM(db)
-	c.ORM = orm
+	switch c.DatabaseLockingMode() {
+	case "dual", "lease", "advisorylock", "none":
+	default:
+		return errors.Errorf("unrecognised value for DATABASE_LOCKING_MODE: %s (valid options are 'dual', 'lease', 'advisorylock' or 'none')", c.DatabaseLockingMode())
+	}
+	return nil
 }
 
 func (c *generalConfig) SetDialect(d dialects.DialectName) {
@@ -377,7 +376,7 @@ func (c *generalConfig) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
-// AdminCredentialsFile points to text file containing admnn credentials for logging in
+// AdminCredentialsFile points to text file containing admin credentials for logging in
 func (c *generalConfig) AdminCredentialsFile() string {
 	fieldName := "AdminCredentialsFile"
 	file := c.viper.GetString(EnvVarName(fieldName))
@@ -424,7 +423,6 @@ func (c *generalConfig) FeatureUICSAKeys() bool {
 	return c.getWithFallback("FeatureUICSAKeys", ParseBool).(bool)
 }
 
-// FeatureUICSAKeys enables the CSA Keys UI Feature.
 func (c *generalConfig) FeatureUIFeedsManager() bool {
 	return c.getWithFallback("FeatureUIFeedsManager", ParseBool).(bool)
 }
@@ -471,7 +469,7 @@ func (c *generalConfig) DatabaseBackupDir() string {
 	return c.viper.GetString(EnvVarName("DatabaseBackupDir"))
 }
 
-// DatabaseTimeout represents how long to tolerate non response from the DB.
+// DatabaseTimeout represents how long to tolerate non-response from the DB.
 func (c *generalConfig) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", ParseDuration).(time.Duration))
 }
@@ -493,7 +491,7 @@ func (c *generalConfig) DatabaseURL() url.URL {
 	if uri.String() == "" {
 		return *uri
 	}
-	static.SetConsumerName(uri, "Default")
+	static.SetConsumerName(uri, "Default", nil)
 	return *uri
 }
 
@@ -616,7 +614,7 @@ func (c *generalConfig) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-// InsecureSkipVerify disables SSL certificiate verification when connection to
+// InsecureSkipVerify disables SSL certificate verification when connection to
 // a chainlink client using the remote client, i.e. when executing most remote
 // commands in the CLI.
 //
@@ -682,12 +680,6 @@ func (c *generalConfig) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", ParseDuration).(time.Duration)
 }
 
-// KeeperMinimumRequiredConfirmations is the minimum number of confirmations that a keeper registry log
-// needs before it is handled by the RegistrySynchronizer
-func (c *generalConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
-}
-
 // KeeperMaximumGracePeriod is the maximum number of blocks that a keeper will wait after performing
 // an upkeep before it resumes checking that upkeep
 func (c *generalConfig) KeeperMaximumGracePeriod() int64 {
@@ -741,7 +733,7 @@ func (c *generalConfig) TelemetryIngressURL() *url.URL {
 	}
 }
 
-// TelemetryServerPubKey returns the public key to authenticate the telemetry ingress server
+// TelemetryIngressServerPubKey returns the public key to authenticate the telemetry ingress server
 func (c *generalConfig) TelemetryIngressServerPubKey() string {
 	return c.viper.GetString(EnvVarName("TelemetryIngressServerPubKey"))
 }
@@ -1111,12 +1103,12 @@ func (c *generalConfig) RootDir() string {
 	return c.getWithFallback("RootDir", ParseHomeDir).(string)
 }
 
-// Fetch the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
+// RPID Fetches the RPID used for WebAuthn sessions. The RPID value should be the FQDN (localhost)
 func (c *generalConfig) RPID() string {
 	return c.viper.GetString(EnvVarName("RPID"))
 }
 
-// Fetch the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
+// RPOrigin Fetches the RPOrigin used to configure WebAuthn sessions. The RPOrigin valiue should be
 // the origin URL where WebAuthn requests initiate (http://localhost:6688/)
 func (c *generalConfig) RPOrigin() string {
 	return c.viper.GetString(EnvVarName("RPOrigin"))
@@ -1201,7 +1193,7 @@ func (c *generalConfig) SessionSecret() ([]byte, error) {
 	return c.secretGenerator.Generate(c.RootDir())
 }
 
-// SessionOptions returns the sesssions.Options struct used to configure
+// SessionOptions returns the sessions.Options struct used to configure
 // the session store.
 func (c *generalConfig) SessionOptions() sessions.Options {
 	return sessions.Options{
@@ -1563,4 +1555,10 @@ func (*generalConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 // upsert nodes corresponding to the given ETH_URL and ETH_SECONDARY_URLS
 func (c *generalConfig) UseLegacyEthEnvVars() bool {
 	return c.viper.GetBool(EnvVarName("UseLegacyEthEnvVars"))
+}
+
+// DatabaseLockingMode can be one of 'dual', 'advisorylock', 'lease' or 'none'
+// It controls which mode to use to enforce that only one Chainlink application can use the database
+func (c *generalConfig) DatabaseLockingMode() string {
+	return c.getWithFallback("DatabaseLockingMode", ParseString).(string)
 }

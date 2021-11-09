@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -29,7 +31,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
-	orm := sessions.NewORM(db, config.SessionTimeout().Duration())
+	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), logger.TestLogger(t))
 
 	r := sessions.NewSessionReaper(db.DB, config)
 	defer r.Stop()
@@ -58,13 +60,13 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 			r.WakeUp()
 
 			if test.wantReap {
-				gomega.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+				cltest.NewGomegaWithT(t).Eventually(func() []sessions.Session {
 					sessions, err := orm.Sessions(0, 10)
 					assert.NoError(t, err)
 					return sessions
 				}).Should(gomega.HaveLen(0))
 			} else {
-				gomega.NewGomegaWithT(t).Consistently(func() []sessions.Session {
+				cltest.NewGomegaWithT(t).Consistently(func() []sessions.Session {
 					sessions, err := orm.Sessions(0, 10)
 					assert.NoError(t, err)
 					return sessions

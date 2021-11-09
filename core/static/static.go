@@ -16,9 +16,6 @@ var Version = "unset"
 // Sha string "unset"
 var Sha = "unset"
 
-// InstanceUUID is generated on startup and uniquely identifies this instance of Chainlink
-var InstanceUUID uuid.UUID
-
 var InitTime time.Time
 
 const (
@@ -32,7 +29,6 @@ const (
 
 func init() {
 	InitTime = time.Now()
-	InstanceUUID = uuid.NewV4()
 
 	checkVersion()
 }
@@ -54,10 +50,13 @@ func buildPrettyVersion() string {
 
 // SetConsumerName sets a nicely formatted application_name on the
 // database uri
-func SetConsumerName(uri *url.URL, name string) {
+func SetConsumerName(uri *url.URL, name string, id *uuid.UUID) {
 	q := uri.Query()
 
-	applicationName := fmt.Sprintf("Chainlink%s| %s | %s", buildPrettyVersion(), name, InstanceUUID)
+	applicationName := fmt.Sprintf("Chainlink%s|%s", buildPrettyVersion(), name)
+	if id != nil {
+		applicationName += fmt.Sprintf("|%s", id.String())
+	}
 	if len(applicationName) > 63 {
 		applicationName = applicationName[:63]
 	}

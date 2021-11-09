@@ -48,7 +48,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := gomega.NewGomegaWithT(t)
+			g := cltest.NewGomegaWithT(t)
 
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
@@ -111,7 +111,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// backfill will trigger sync on startup
 			config.Overrides.BlockBackfillDepth = null.IntFrom(0)
 			// disable reorg protection for this test
-			config.Overrides.KeeperMinimumRequiredConfirmations = null.IntFrom(1)
+			config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 			// avoid waiting to re-submit for upkeeps
 			config.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 			// helps prevent missed heads

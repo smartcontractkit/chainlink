@@ -265,7 +265,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	schemaVersion      = 1
 	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 	contractAddress    = "%s"
-	p2pPeerID          = "%s"
 	p2pBootstrapPeers  = [
 		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 	]
@@ -289,7 +288,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, cltest.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)

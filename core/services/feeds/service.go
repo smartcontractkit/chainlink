@@ -64,6 +64,7 @@ type service struct {
 	queryer     postgres.Queryer
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
+	p2pKeyStore keystore.P2P
 	jobSpawner  job.Spawner
 	cfg         Config
 	connMgr     ConnectionsManager
@@ -78,8 +79,7 @@ func NewService(
 	jobORM job.ORM,
 	queryer postgres.Queryer,
 	jobSpawner job.Spawner,
-	csaKeyStore keystore.CSA,
-	ethKeyStore keystore.Eth,
+	keyStore keystore.Master,
 	cfg Config,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
@@ -91,8 +91,9 @@ func NewService(
 		jobORM:      jobORM,
 		queryer:     queryer,
 		jobSpawner:  jobSpawner,
-		csaKeyStore: csaKeyStore,
-		ethKeyStore: ethKeyStore,
+		p2pKeyStore: keyStore.P2P(),
+		csaKeyStore: keyStore.CSA(),
+		ethKeyStore: keyStore.Eth(),
 		cfg:         cfg,
 		connMgr:     newConnectionsManager(lggr),
 		chainSet:    chainSet,
@@ -361,7 +362,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, postgres.WithQueryer(tx)); err != nil {
 			return err
@@ -403,7 +404,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
@@ -444,7 +445,7 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
 	defer cancel()
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
 		if err = s.orm.CancelJobProposal(id, postgres.WithQueryer(tx)); err != nil {
 			return err
 		}
@@ -561,10 +562,10 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 	var js job.Job
 	switch jobType {
 	case job.OffchainReporting:
-		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 		if !s.cfg.Dev() && !s.cfg.FeatureOffchainReporting() {
 			return nil, ErrOCRDisabled
 		}
+		js, err = offchainreporting.ValidatedOracleSpecToml(s.chainSet, spec)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(s.cfg, spec)
 	default:

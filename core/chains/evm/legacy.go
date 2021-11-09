@@ -20,12 +20,14 @@ type LegacyEthNodeConfig interface {
 	EthereumSecondaryURLs() []url.URL
 }
 
-func ClobberDBFromEnv(db *gorm.DB, config LegacyEthNodeConfig) error {
+func ClobberDBFromEnv(db *gorm.DB, config LegacyEthNodeConfig, lggr logger.Logger) error {
 	ethChainID := utils.NewBig(config.DefaultChainID())
 	if ethChainID == nil {
 		return errors.New("ETH_CHAIN_ID must be specified (or set USE_LEGACY_ETH_ENV_VARS=false)")
 	}
-	logger.Infof("USE_LEGACY_ETH_ENV_VARS is on, upserting chain %s and replacing primary/send-only nodes. It is recommended to set USE_LEGACY_ETH_ENV_VARS=false on subsequent runs and use the API to administer chains/nodes instead", ethChainID.String())
+	lggr.Infow("USE_LEGACY_ETH_ENV_VARS is on, upserting chain %s and replacing primary/send-only nodes. It is recommended "+
+		"to set USE_LEGACY_ETH_ENV_VARS=false on subsequent runs and use the API to administer chains/nodes instead",
+		"evmChainID", ethChainID.String())
 
 	if err := db.Exec("INSERT INTO evm_chains (id, created_at, updated_at) VALUES (?, NOW(), NOW()) ON CONFLICT DO NOTHING;", ethChainID.String()).Error; err != nil {
 		return errors.Wrap(err, "failed to insert evm_chain")

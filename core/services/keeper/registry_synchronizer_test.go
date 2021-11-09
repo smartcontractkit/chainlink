@@ -55,10 +55,8 @@ func setupRegistrySync(t *testing.T) (
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
-	config := cltest.NewTestGeneralConfig(t)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	config.SetDB(gdb)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
@@ -83,21 +81,21 @@ func setupRegistrySync(t *testing.T) (
 
 	orm := keeper.NewORM(gdb, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
-		Job:                 j,
-		Contract:            contract,
-		ORM:                 orm,
-		JRM:                 jpv2.Jrm,
-		LogBroadcaster:      lbMock,
-		SyncInterval:        syncInterval,
-		MinConfirmations:    1,
-		Logger:              logger.TestLogger(t),
-		SyncUpkeepQueueSize: syncUpkeepQueueSize,
+		Job:                      j,
+		Contract:                 contract,
+		ORM:                      orm,
+		JRM:                      jpv2.Jrm,
+		LogBroadcaster:           lbMock,
+		SyncInterval:             syncInterval,
+		MinIncomingConfirmations: 1,
+		Logger:                   logger.TestLogger(t),
+		SyncUpkeepQueueSize:      syncUpkeepQueueSize,
 	})
 	return gdb, synchronizer, ethClient, lbMock, j
 }
 
 func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 	var upkeepIDs []int64
 	err := db.Model(keeper.UpkeepRegistration{}).Pluck("upkeep_id", &upkeepIDs).Error
 	require.NoError(t, err)
@@ -345,7 +343,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 

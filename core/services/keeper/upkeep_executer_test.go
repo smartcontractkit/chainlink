@@ -53,7 +53,6 @@ func setup(t *testing.T) (
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	cfg.SetDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	registry, job := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
@@ -198,7 +197,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	db, _, ethMock, executer, registry, _, _, _, _ := setup(t)
 

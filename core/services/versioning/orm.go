@@ -23,13 +23,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db     *sqlx.DB
-	logger logger.Logger
+	db   *sqlx.DB
+	lggr logger.Logger
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger) *orm {
 	return &orm{
-		db: db,
+		db:   db,
+		lggr: lggr.Named("VersioningORM"),
 	}
 }
 
@@ -44,7 +45,7 @@ func (o *orm) UpsertNodeVersion(version NodeVersion) error {
 		return errors.Wrapf(err, "%q is not valid semver", version.Version)
 	}
 
-	return postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	return postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		if err := CheckVersion(tx, logger.NullLogger, version.Version); err != nil {
 			return err
 		}
@@ -67,7 +68,7 @@ created_at = EXCLUDED.created_at
 func CheckVersion(q postgres.Queryer, lggr logger.Logger, appVersion string) error {
 	lggr = lggr.Named("Version")
 	var dbVersion string
-	err := q.QueryRowx(`SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`).Scan(&dbVersion)
+	err := q.Get(&dbVersion, `SELECT version FROM node_versions ORDER BY created_at DESC LIMIT 1 FOR UPDATE`)
 	if errors.Is(err, sql.ErrNoRows) {
 		lggr.Debug("No previous version set")
 		return nil

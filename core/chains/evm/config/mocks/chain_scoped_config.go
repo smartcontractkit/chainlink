@@ -17,8 +17,6 @@ import (
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
-	gorm "gorm.io/gorm"
-
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -384,6 +382,20 @@ func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duratio
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseLockingMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseLockingMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -2217,20 +2229,6 @@ func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
 	return r0
 }
 
-// KeeperMinimumRequiredConfirmations provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
 // KeeperRegistryCheckGasOverhead provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperRegistryCheckGasOverhead() uint64 {
 	ret := _m.Called()
@@ -3217,11 +3215,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 	}
 
 	return r0
-}
-
-// SetDB provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetDB(_a0 *gorm.DB) {
-	_m.Called(_a0)
 }
 
 // SetDialect provides a mock function with given fields: _a0

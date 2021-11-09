@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ApiResponse } from 'utils/json-api-client'
 import Button from '@material-ui/core/Button'
 import * as api from 'api'
@@ -6,13 +6,21 @@ import { useDispatch } from 'react-redux'
 import { Chain, UpdateChainRequest } from 'core/store/models'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import { notifySuccess, notifyError } from 'actionCreators'
+import { notifyError, notifySuccess } from 'actionCreators'
 import Content from 'components/Content'
-import { Grid, Card, CardContent, CardHeader } from '@material-ui/core'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  Checkbox,
+  CircularProgress,
+  FormControlLabel,
+  Grid,
+} from '@material-ui/core'
 import { ChainResource } from './RegionalNav'
-import { Field, Form, Formik } from 'formik'
-import { TextField, CheckboxWithLabel } from 'formik-material-ui'
-import * as Yup from 'yup'
+import ChainConfigFields, {
+  ConfigOverrides,
+} from 'pages/Chains/ChainConfigFields'
 
 const SuccessNotification = ({ id }: { id: string }) => (
   <>
@@ -39,23 +47,43 @@ function apiCall({
 const UpdateChain = ({ chain }: { chain: ChainResource }) => {
   const dispatch = useDispatch()
 
-  async function handleSubmit({
-    config,
-    enabled,
-  }: {
-    config: string
-    enabled: boolean
-  }) {
+  const [enabled, setEnabled] = useState<boolean>(chain.attributes.enabled)
+  const [overrides, setOverrides] = useState<ConfigOverrides>({})
+  const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
+    useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+
+  function onConfigChange(config: ConfigOverrides, error: string) {
+    if (error) {
+      setKeySpecificOverridesErrorMsg(error)
+      return
+    }
+
+    setOverrides({ ...overrides, ...config })
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (keySpecificOverridesErrorMsg) {
+      return
+    }
+
+    setLoading(true)
+
     apiCall({
       chain,
-      config: JSON.parse(config),
       enabled,
+      config: overrides,
     })
       .then(({ data }) => {
         dispatch(notifySuccess(SuccessNotification, data))
       })
       .catch((error) => {
         dispatch(notifyError(ErrorMessage, error))
+      })
+      .finally(() => {
+        setLoading(false)
       })
   }
 
@@ -66,13 +94,9 @@ const UpdateChain = ({ chain }: { chain: ChainResource }) => {
   )
 
   const initialValues = {
-    config: JSON.stringify(configOverrides, null, 2),
+    config: configOverrides,
     enabled: chain.attributes.enabled,
   }
-
-  const ValidationSchema = Yup.object().shape({
-    config: Yup.string().required('Required'),
-  })
 
   return (
     <Content>
@@ -81,57 +105,50 @@ const UpdateChain = ({ chain }: { chain: ChainResource }) => {
           <Card>
             <CardHeader title={`Edit Chain ${chain.id}`} />
             <CardContent>
-              <Formik
-                initialValues={initialValues}
-                validationSchema={ValidationSchema}
-                onSubmit={async (values) => {
-                  handleSubmit(values)
-                }}
-              >
-                {({ isSubmitting, submitForm, values }) => (
-                  <Form>
-                    <Grid container spacing={16}>
-                      <Grid item xs={12} md={4}>
-                        <Field
-                          type="checkbox"
-                          component={CheckboxWithLabel}
+              <form noValidate onSubmit={handleSubmit}>
+                <Grid container spacing={16}>
+                  <Grid item xs={12} md={4}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
                           name="enabled"
-                          id="enabled"
-                          checked={values.enabled}
-                          Label={{ label: 'Enabled' }}
+                          checked={enabled}
+                          value={enabled}
+                          onChange={(event) => setEnabled(event.target.checked)}
                         />
-                      </Grid>
-                      <Grid item xs={false} md={8}></Grid>
-                      <Grid item xs={12} md={4}>
-                        <Field
-                          component={TextField}
-                          autoComplete="off"
-                          label="Config Overrides"
-                          rows={10}
-                          rowsMax={25}
-                          multiline
-                          margin="normal"
-                          name="config"
-                          id="config"
-                          variant="outlined"
-                          fullWidth
-                        />
-                      </Grid>
+                      }
+                      label="Enabled"
+                    />
+                  </Grid>
 
-                      <Grid item xs={12}>
-                        <Button
-                          variant="contained"
+                  <Grid item xs={false} md={8}></Grid>
+
+                  <ChainConfigFields
+                    onChange={onConfigChange}
+                    initialValues={initialValues.config}
+                  />
+
+                  <Grid item xs={12}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      type="submit"
+                      disabled={
+                        loading || Boolean(keySpecificOverridesErrorMsg)
+                      }
+                    >
+                      Submit
+                      {loading && (
+                        <CircularProgress
+                          style={{ position: 'absolute' }}
+                          size={30}
                           color="primary"
-                          disabled={isSubmitting}
-                          onClick={submitForm}
-                        >
-                          Submit
-                        </Button>
-                      </Grid>
-                    </Grid>
-                  </Form>
-                )}
-              </Formik>
+                        />
+                      )}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </form>
             </CardContent>
           </Card>
         </Grid>

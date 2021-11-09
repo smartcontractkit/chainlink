@@ -28,30 +28,30 @@ type MailRoom struct {
 }
 
 type RegistrySynchronizerOptions struct {
-	Job                 job.Job
-	Contract            *keeper_registry_wrapper.KeeperRegistry
-	ORM                 ORM
-	JRM                 job.ORM
-	LogBroadcaster      log.Broadcaster
-	SyncInterval        time.Duration
-	MinConfirmations    uint64
-	Logger              logger.Logger
-	SyncUpkeepQueueSize uint32
+	Job                      job.Job
+	Contract                 *keeper_registry_wrapper.KeeperRegistry
+	ORM                      ORM
+	JRM                      job.ORM
+	LogBroadcaster           log.Broadcaster
+	SyncInterval             time.Duration
+	MinIncomingConfirmations uint32
+	Logger                   logger.Logger
+	SyncUpkeepQueueSize      uint32
 }
 
 type RegistrySynchronizer struct {
-	chStop              chan struct{}
-	contract            *keeper_registry_wrapper.KeeperRegistry
-	interval            time.Duration
-	job                 job.Job
-	jrm                 job.ORM
-	logBroadcaster      log.Broadcaster
-	mailRoom            MailRoom
-	minConfirmations    uint64
-	orm                 ORM
-	logger              logger.Logger
-	wgDone              sync.WaitGroup
-	syncUpkeepQueueSize uint32 //Represents the max number of upkeeps that can be synced in parallel
+	chStop                   chan struct{}
+	contract                 *keeper_registry_wrapper.KeeperRegistry
+	interval                 time.Duration
+	job                      job.Job
+	jrm                      job.ORM
+	logBroadcaster           log.Broadcaster
+	mailRoom                 MailRoom
+	minIncomingConfirmations uint32
+	orm                      ORM
+	logger                   logger.Logger
+	wgDone                   sync.WaitGroup
+	syncUpkeepQueueSize      uint32 //Represents the max number of upkeeps that can be synced in parallel
 	utils.StartStopOnce
 }
 
@@ -64,17 +64,17 @@ func NewRegistrySynchronizer(opts RegistrySynchronizerOptions) *RegistrySynchron
 		mbUpkeepRegistered: utils.NewMailbox(50),
 	}
 	return &RegistrySynchronizer{
-		chStop:              make(chan struct{}),
-		contract:            opts.Contract,
-		interval:            opts.SyncInterval,
-		job:                 opts.Job,
-		jrm:                 opts.JRM,
-		logBroadcaster:      opts.LogBroadcaster,
-		mailRoom:            mailRoom,
-		minConfirmations:    opts.MinConfirmations,
-		orm:                 opts.ORM,
-		logger:              opts.Logger.Named("RegistrySynchronizer"),
-		syncUpkeepQueueSize: opts.SyncUpkeepQueueSize,
+		chStop:                   make(chan struct{}),
+		contract:                 opts.Contract,
+		interval:                 opts.SyncInterval,
+		job:                      opts.Job,
+		jrm:                      opts.JRM,
+		logBroadcaster:           opts.LogBroadcaster,
+		mailRoom:                 mailRoom,
+		minIncomingConfirmations: opts.MinIncomingConfirmations,
+		orm:                      opts.ORM,
+		logger:                   opts.Logger.Named("RegistrySynchronizer"),
+		syncUpkeepQueueSize:      opts.SyncUpkeepQueueSize,
 	}
 }
 
@@ -99,7 +99,7 @@ func (rs *RegistrySynchronizer) Start() error {
 					},
 				},
 			},
-			NumConfirmations: rs.minConfirmations,
+			MinIncomingConfirmations: rs.minIncomingConfirmations,
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 

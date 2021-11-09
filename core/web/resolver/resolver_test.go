@@ -12,8 +12,11 @@ import (
 
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/core/bridges/mocks"
 	evmORMMocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
+	configMocks "github.com/smartcontractkit/chainlink/core/config/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/core/internal/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
+	jobMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
+	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
@@ -24,6 +27,11 @@ type mocks struct {
 	bridgeORM *bridgeORMMocks.ORM
 	evmORM    *evmORMMocks.ORM
 	feedsSvc  *feedsMocks.Service
+	jobORM    *jobMocks.ORM
+	cfg       *configMocks.GeneralConfig
+	ocr       *keystoreMocks.OCR
+	csa       *keystoreMocks.CSA
+	keystore  *keystoreMocks.Master
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -62,6 +70,11 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		bridgeORM: &bridgeORMMocks.ORM{},
 		evmORM:    &evmORMMocks.ORM{},
 		feedsSvc:  &feedsMocks.Service{},
+		jobORM:    &jobMocks.ORM{},
+		cfg:       &configMocks.GeneralConfig{},
+		ocr:       &keystoreMocks.OCR{},
+		csa:       &keystoreMocks.CSA{},
+		keystore:  &keystoreMocks.Master{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -71,6 +84,11 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.bridgeORM,
 			m.evmORM,
 			m.feedsSvc,
+			m.jobORM,
+			m.cfg,
+			m.ocr,
+			m.csa,
+			m.keystore,
 		)
 	})
 

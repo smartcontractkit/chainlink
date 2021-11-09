@@ -21,14 +21,13 @@ import (
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := cltest.NewGomegaWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	var d time.Duration = 0
 	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
 	db := pgtest.NewGormDB(t)
-	cfg.SetDB(db)
 	logger := logger.TestLogger(t)
 
 	sub := new(mocks.Subscription)

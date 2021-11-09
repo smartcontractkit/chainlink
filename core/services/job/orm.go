@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -22,7 +26,6 @@ import (
 )
 
 var (
-	ErrNoSuchPeerID             = errors.New("no such peer id exists")
 	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
 	ErrNoSuchPublicKey          = errors.New("no such public key exists")
@@ -66,7 +69,7 @@ func NewORM(
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		lggr:        lggr.Named("ORM"),
+		lggr:        lggr.Named("JobORM"),
 	}
 }
 func (o *orm) Close() error {
@@ -86,7 +89,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 
 			sql := `SELECT EXISTS(SELECT 1 FROM bridge_types WHERE name = $1);`
 			var exists bool
-			err := q.QueryRowx(sql, name).Scan(&exists)
+			err := q.Get(&exists, sql, name)
 			if err != nil {
 				return errors.Wrap(err, "CreateJob failed to check bridge")
 			}
@@ -97,7 +100,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 	}
 
 	var jobID int32
-	err := q.Transaction(func(tx postgres.Queryer) error {
+	err := q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		// Autogenerate a job ID if not specified
 		if jb.ExternalJobID == (uuid.UUID{}) {
 			jb.ExternalJobID = uuid.NewV4()
@@ -130,12 +133,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 				_, err := o.keyStore.OCR().Get(jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID.String())
 				if err != nil {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-				}
-			}
-			if jb.OffchainreportingOracleSpec.P2PPeerID != nil {
-				_, err := o.keyStore.P2P().Get(jb.OffchainreportingOracleSpec.P2PPeerID.Raw())
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchPeerID, "%v", jb.OffchainreportingOracleSpec.P2PPeerID)
 				}
 			}
 			if jb.OffchainreportingOracleSpec.TransmitterAddress != nil {
@@ -177,8 +174,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 			jb.CronSpecID = &specID
 		case VRF:
 			var specID int32
-			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, confirmations, evm_chain_id, from_address, poll_period, created_at, updated_at)
-			VALUES (:coordinator_address, :public_key, :confirmations, :evm_chain_id, :from_address, :poll_period, NOW(), NOW())
+			sql := `INSERT INTO vrf_specs (coordinator_address, public_key, min_incoming_confirmations, evm_chain_id, from_address, poll_period, created_at, updated_at)
+			VALUES (:coordinator_address, :public_key, :min_incoming_confirmations, :evm_chain_id, :from_address, :poll_period, NOW(), NOW())
 			RETURNING id;`
 			err := postgres.PrepareQueryRowx(tx, sql, &specID, jb.VRFSpec)
 			pqErr, ok := err.(*pgconn.PgError)
@@ -216,7 +213,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 				}
 			}
 		default:
-			logger.Fatalf("Unsupported jb.Type: %v", jb.Type)
+			o.lggr.Fatalf("Unsupported jb.Type: %v", jb.Type)
 		}
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(p, jb.MaxTaskDuration, postgres.WithQueryer(tx))
@@ -277,7 +274,8 @@ func (o *orm) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 			DELETE FROM direct_request_specs WHERE id IN (SELECT direct_request_spec_id FROM deleted_jobs)
 		)
 		DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)`
-	res, err := q.Exec(query, id)
+	res, cancel, err := q.ExecQIter(query, id)
+	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "DeleteJob failed to delete job")
 	}
@@ -298,7 +296,7 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	ON CONFLICT (job_id, description) DO UPDATE SET
 	occurrences = job_spec_errors.occurrences + 1,
 	updated_at = excluded.updated_at`
-	_, err := q.Exec(sql, jobID, description, time.Now())
+	err := q.ExecQ(sql, jobID, description, time.Now())
 	// Noop if the job has been deleted.
 	pqErr, ok := err.(*pgconn.PgError)
 	if err != nil && ok && pqErr.Code == "23503" {
@@ -311,7 +309,8 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
 	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
-	res, err := q.Exec("DELETE FROM job_spec_errors WHERE id = $1", ID)
+	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
+	defer cancel()
 	if err != nil {
 		return errors.Wrap(err, "failed to dismiss error")
 	}
@@ -326,7 +325,7 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		sql := `SELECT count(*) FROM jobs;`
 		err = tx.QueryRowx(sql).Scan(&count)
 		if err != nil {
@@ -344,13 +343,9 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			if jobs[i].OffchainreportingOracleSpec != nil {
-				var ch evm.Chain
-				ch, err = o.chainSet.Get(jobs[i].OffchainreportingOracleSpec.EVMChainID.ToInt())
-				if err != nil {
-					return err
-				}
-				jobs[i].OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jobs[i].OffchainreportingOracleSpec)
+			err = o.LoadEnvConfigVars(&jobs[i])
+			if err != nil {
+				return err
 			}
 		}
 		return nil
@@ -358,31 +353,143 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 	return jobs, int(count), err
 }
 
+func (o *orm) LoadEnvConfigVars(jb *Job) error {
+	if jb.OffchainreportingOracleSpec != nil {
+		ch, err := o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		newSpec, err := LoadEnvConfigVarsOCR(ch.Config(), o.keyStore.P2P(), *jb.OffchainreportingOracleSpec)
+		if err != nil {
+			return err
+		}
+		jb.OffchainreportingOracleSpec = newSpec
+	} else if jb.VRFSpec != nil {
+		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config(), *jb.VRFSpec)
+	} else if jb.DirectRequestSpec != nil {
+		ch, err := o.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+		if err != nil {
+			return err
+		}
+		jb.DirectRequestSpec = LoadEnvConfigVarsDR(ch.Config(), *jb.DirectRequestSpec)
+	}
+	return nil
+}
+
+type DRSpecConfig interface {
+	MinIncomingConfirmations() uint32
+}
+
+func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
+	// Take the larger of the global vs specific.
+	// Note that the v2 vrf requests specify their own confirmation requirements.
+	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
+	minIncomingConfirmations := cfg.MinIncomingConfirmations()
+	if vrfs.MinIncomingConfirmations <= minIncomingConfirmations {
+		vrfs.ConfirmationsEnv = true
+		vrfs.MinIncomingConfirmations = minIncomingConfirmations
+	}
+
+	if vrfs.PollPeriod == 0 {
+		vrfs.PollPeriodEnv = true
+		vrfs.PollPeriod = 5 * time.Second
+	}
+
+	return &vrfs
+}
+
+func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequestSpec {
+	minIncomingConfirmations := cfg.MinIncomingConfirmations()
+	if drs.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
+		drs.MinIncomingConfirmationsEnv = true
+		drs.MinIncomingConfirmations = null.Uint32From(minIncomingConfirmations)
+	}
+
+	return &drs
+}
+
 type OCRSpecConfig interface {
+	P2PPeerID() p2pkey.PeerID
 	OCRBlockchainTimeout() time.Duration
 	OCRContractConfirmations() uint16
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
 	OCRObservationTimeout() time.Duration
+	OCRTransmitterAddress() (ethkey.EIP55Address, error)
+	OCRKeyBundleID() (string, error)
 }
 
-func LoadDynamicConfigVars(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+func LoadEnvConfigVarsLocalOCR(cfg OCRSpecConfig, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	if os.ObservationTimeout == 0 {
+		os.ObservationTimeoutEnv = true
 		os.ObservationTimeout = models.Interval(cfg.OCRObservationTimeout())
 	}
 	if os.BlockchainTimeout == 0 {
+		os.BlockchainTimeoutEnv = true
 		os.BlockchainTimeout = models.Interval(cfg.OCRBlockchainTimeout())
 	}
 	if os.ContractConfigTrackerSubscribeInterval == 0 {
+		os.ContractConfigTrackerSubscribeIntervalEnv = true
 		os.ContractConfigTrackerSubscribeInterval = models.Interval(cfg.OCRContractSubscribeInterval())
 	}
 	if os.ContractConfigTrackerPollInterval == 0 {
+		os.ContractConfigTrackerPollIntervalEnv = true
 		os.ContractConfigTrackerPollInterval = models.Interval(cfg.OCRContractPollInterval())
 	}
 	if os.ContractConfigConfirmations == 0 {
+		os.ContractConfigConfirmationsEnv = true
 		os.ContractConfigConfirmations = cfg.OCRContractConfirmations()
 	}
 	return &os
+}
+
+func LoadEnvConfigVarsOCR(cfg OCRSpecConfig, p2pStore keystore.P2P, os OffchainReportingOracleSpec) (*OffchainReportingOracleSpec, error) {
+
+	if os.P2PPeerID == "" {
+		os.P2PPeerIDEnv = true
+		os.P2PPeerID = cfg.P2PPeerID()
+	}
+
+	key, err := p2pStore.GetOrFirst(os.P2PPeerID)
+	if errors.Cause(err) != keystore.ErrNoP2PKey {
+		if err != nil {
+			return nil, err
+		}
+		if key.PeerID().String() != os.P2PPeerID.String() {
+			os.P2PPeerIDEnv = true
+			os.P2PPeerID = key.PeerID()
+		}
+	}
+
+	if os.TransmitterAddress == nil {
+		ta, err := cfg.OCRTransmitterAddress()
+		if errors.Cause(err) != config.ErrUnset {
+			if err != nil {
+				return nil, err
+			}
+			os.TransmitterAddressEnv = true
+			os.TransmitterAddress = &ta
+		}
+	}
+
+	if os.EncryptedOCRKeyBundleID == nil {
+		kb, err := cfg.OCRKeyBundleID()
+		if err != nil {
+			return nil, err
+		}
+		encryptedOCRKeyBundleID, err := models.Sha256HashFromHex(kb)
+		if err != nil {
+			return nil, err
+		}
+		os.EncryptedOCRKeyBundleIDEnv = true
+		os.EncryptedOCRKeyBundleID = &encryptedOCRKeyBundleID
+	}
+
+	return LoadEnvConfigVarsLocalOCR(cfg, os), nil
 }
 
 func (o *orm) FindJobTx(id int32) (Job, error) {
@@ -404,7 +511,7 @@ func (o *orm) FindJobByExternalJobID(ctx context.Context, externalJobID uuid.UUI
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
-	err := q.Transaction(func(tx postgres.Queryer) error {
+	err := q.Transaction(o.lggr, func(tx postgres.Queryer) error {
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
@@ -415,25 +522,16 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...postgres.QO
 			return err
 		}
 
-		if err = loadJobSpecErrors(tx, jb); err != nil {
-			return err
-		}
-
-		if jb.OffchainreportingOracleSpec != nil {
-			var ch evm.Chain
-			ch, err = o.chainSet.Get(jb.OffchainreportingOracleSpec.EVMChainID.ToInt())
-			if err != nil {
-				return err
-			}
-			jb.OffchainreportingOracleSpec = LoadDynamicConfigVars(ch.Config(), *jb.OffchainreportingOracleSpec)
-		}
-		return nil
+		return loadJobSpecErrors(tx, jb)
 	})
-	return errors.Wrap(err, "findJob failed")
+	if err != nil {
+		return errors.Wrap(err, "findJob failed")
+	}
+	return o.LoadEnvConfigVars(jb)
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		query := `SELECT jobs.id, dot_dag_source FROM jobs JOIN pipeline_specs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
 		var rows *sqlx.Rows
 		rows, err = tx.Queryx(query, name)
@@ -475,7 +573,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
-	err = postgres.SqlxTransactionWithDefaultCtx(o.db, func(tx postgres.Queryer) error {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
 		var args []interface{}
 		var where string
 		if jobID != nil {

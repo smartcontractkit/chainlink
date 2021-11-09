@@ -51,11 +51,11 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			require.NoError(t, err)
 			incomingConfs := 2
 			s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-				JobID:              jid.String(),
-				Name:               "vrf-primary",
-				CoordinatorAddress: cu.rootContractAddress.String(),
-				Confirmations:      incomingConfs,
-				PublicKey:          vrfkey.PublicKey.String()}).Toml()
+				JobID:                    jid.String(),
+				Name:                     "vrf-primary",
+				CoordinatorAddress:       cu.rootContractAddress.String(),
+				MinIncomingConfirmations: incomingConfs,
+				PublicKey:                vrfkey.PublicKey.String()}).Toml()
 			jb, err := vrf.ValidatedVRFSpec(s)
 			require.NoError(t, err)
 			assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
@@ -79,7 +79,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				cu.backend.Commit()
 			}
 			var runs []pipeline.Run
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			cltest.NewGomegaWithT(t).Eventually(func() bool {
 				runs, err = app.PipelineORM().GetAllRuns()
 				require.NoError(t, err)
 				// It possible that we send the test request
@@ -94,14 +94,14 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 
 			// Ensure the eth transaction gets confirmed on chain.
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			cltest.NewGomegaWithT(t).Eventually(func() bool {
 				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetDB(), key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			cltest.NewGomegaWithT(t).Eventually(func() bool {
 				rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
 				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 				var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled

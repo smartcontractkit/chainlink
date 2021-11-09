@@ -269,8 +269,10 @@ declare module 'core/store/models' {
       initiator: 'runlog'
       contractAddress: common.Address
       minIncomingConfirmations: number | null
+      minIncomingConfirmationsEnv?: boolean
       createdAt: time.Time
       requesters: common.Address[]
+      evmChainID: string
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -296,6 +298,7 @@ declare module 'core/store/models' {
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -316,12 +319,18 @@ declare module 'core/store/models' {
       monitoringEndpoint: string
       transmitterAddress: common.Address
       observationTimeout: string
+      observationTimeoutEnv?: boolean
       blockchainTimeout: string
+      blockchainTimeoutEnv?: boolean
       contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerSubscribeIntervalEnv?: boolean
       contractConfigTrackerPollInterval: string
+      contractConfigTrackerPollIntervalEnv?: boolean
       contractConfigConfirmations: number
+      contractConfigConfirmationsEnv?: boolean
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -338,6 +347,7 @@ declare module 'core/store/models' {
       fromAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -380,13 +390,14 @@ declare module 'core/store/models' {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
-      confirmations: number
+      minIncomingConfirmations: number
       publicKey: string
       coordinatorAddress: common.Address
       fromAddress: string
       pollPeriod: string
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     directRequestSpec: null
@@ -506,14 +517,12 @@ declare module 'core/store/models' {
   /**
    * Request to begin the process of registering a new MFA token
    */
-   export interface BeginWebAuthnRegistrationV2Request {
-  }
+  export interface BeginWebAuthnRegistrationV2Request {}
 
   /**
    * Request to begin the process of registering a new MFA token
    */
-  export interface BeginWebAuthnRegistrationV2 {
-  }
+  export interface BeginWebAuthnRegistrationV2 {}
 
   /**
    * Request to begin the process of registering a new MFA token

@@ -38,6 +38,7 @@ type ConfigSchema struct {
 	DatabaseBackupURL                          *url.URL                      `env:"DATABASE_BACKUP_URL" default:""`
 	DatabaseListenerMaxReconnectDuration       time.Duration                 `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseListenerMinReconnectInterval       time.Duration                 `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
+	DatabaseLockingMode                        string                        `env:"DATABASE_LOCKING_MODE" default:"dual"`
 	DatabaseMaximumTxDuration                  time.Duration                 `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DatabaseTimeout                            models.Duration               `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                                string                        `env:"DATABASE_URL"`
@@ -103,7 +104,6 @@ type ConfigSchema struct {
 	KeeperGasPriceBufferPercent                uint32                        `env:"KEEPER_GAS_PRICE_BUFFER_PERCENT" default:"20"`
 	KeeperGasTipCapBufferPercent               uint32                        `env:"KEEPER_GAS_TIP_CAP_BUFFER_PERCENT" default:"20"`
 	KeeperMaximumGracePeriod                   int64                         `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
-	KeeperMinimumRequiredConfirmations         uint64                        `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
 	KeeperRegistryCheckGasOverhead             uint64                        `env:"KEEPER_REGISTRY_CHECK_GAS_OVERHEAD" default:"200000"`
 	KeeperRegistryPerformGasOverhead           uint64                        `env:"KEEPER_REGISTRY_PERFORM_GAS_OVERHEAD" default:"150000"`
 	KeeperRegistrySyncInterval                 time.Duration                 `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`

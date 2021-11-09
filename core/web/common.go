@@ -3,7 +3,6 @@ package web
 import (
 	"math/big"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 )
@@ -14,7 +13,7 @@ var (
 	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
 )
 
-func getChain(c *gin.Context, cs evm.ChainSet, chainIDstr string) (chain evm.Chain, err error) {
+func getChain(cs evm.ChainSet, chainIDstr string) (chain evm.Chain, err error) {
 	if chainIDstr != "" && chainIDstr != "<nil>" {
 		chainID, ok := big.NewInt(0).SetString(chainIDstr, 10)
 		if !ok {

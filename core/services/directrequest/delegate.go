@@ -70,21 +70,15 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
-	concreteSpec := jb.DirectRequestSpec
 	chain, err := d.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
+	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config(), *jb.DirectRequestSpec)
 
 	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
-	}
-
-	minIncomingConfirmations := chain.Config().MinIncomingConfirmations()
-
-	if concreteSpec.MinIncomingConfirmations.Uint32 > minIncomingConfirmations {
-		minIncomingConfirmations = concreteSpec.MinIncomingConfirmations.Uint32
 	}
 
 	svcLogger := d.logger.
@@ -106,7 +100,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox(),
 		mbOracleCancelRequests:   utils.NewHighCapacityMailbox(),
-		minIncomingConfirmations: uint64(minIncomingConfirmations),
+		minIncomingConfirmations: concreteSpec.MinIncomingConfirmations.Uint32,
 		requesters:               concreteSpec.Requesters,
 		minContractPayment:       concreteSpec.MinContractPayment,
 		chStop:                   make(chan struct{}),
@@ -135,7 +129,7 @@ type listener struct {
 	shutdownWaitGroup        sync.WaitGroup
 	mbOracleRequests         *utils.Mailbox
 	mbOracleCancelRequests   *utils.Mailbox
-	minIncomingConfirmations uint64
+	minIncomingConfirmations uint32
 	requesters               models.AddressCollection
 	minContractPayment       *assets.Link
 	chStop                   chan struct{}
@@ -152,7 +146,7 @@ func (l *listener) Start() error {
 				operator_wrapper.OperatorOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 				operator_wrapper.OperatorCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 			},
-			NumConfirmations: l.minIncomingConfirmations,
+			MinIncomingConfirmations: l.minIncomingConfirmations,
 		})
 		l.shutdownWaitGroup.Add(3)
 		go l.processOracleRequests()

@@ -320,7 +320,7 @@ func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	err = ethClient.SendTransaction(context.Background(), tx)
 	assert.NoError(t, err)
 
-	gomega.NewGomegaWithT(t).Eventually(func() int {
+	cltest.NewGomegaWithT(t).Eventually(func() int {
 		return len(requests)
 	}).Should(gomega.Equal(2))
 }

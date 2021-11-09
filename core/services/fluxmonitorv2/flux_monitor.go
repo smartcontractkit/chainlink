@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -243,6 +243,7 @@ func NewFromJobSpec(
 		NewDeviationChecker(
 			float64(fmSpec.Threshold),
 			float64(fmSpec.AbsoluteThreshold),
+			fmLogger,
 		),
 		NewSubmissionChecker(min, max),
 		flags,
@@ -264,7 +265,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go gracefulpanic.WrapRecover(fm.logger, func() {
+		go shutdown.WrapRecover(fm.logger, func() {
 			fm.consume()
 		})
 
@@ -356,7 +357,7 @@ func (fm *FluxMonitor) consume() {
 			flux_aggregator_wrapper.FluxAggregatorNewRound{}.Topic():      nil,
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}.Topic(): nil,
 		},
-		NumConfirmations: 0,
+		MinIncomingConfirmations: 0,
 	})
 	defer unsubscribe()
 
@@ -368,7 +369,7 @@ func (fm *FluxMonitor) consume() {
 				flags_wrapper.FlagsFlagLowered{}.Topic(): nil,
 				flags_wrapper.FlagsFlagRaised{}.Topic():  nil,
 			},
-			NumConfirmations: 0,
+			MinIncomingConfirmations: 0,
 		})
 		defer unsubscribe()
 	}
@@ -394,7 +395,7 @@ func (fm *FluxMonitor) consume() {
 
 		case at := <-fm.pollManager.IdleTimerTicks():
 			tickLogger.Debugf("Idle timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(), nil)
+			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(fm.logger), nil)
 
 		case at := <-fm.pollManager.RoundTimerTicks():
 			tickLogger.Debugf("Round timer fired on %v", formatTime(at))
@@ -402,15 +403,15 @@ func (fm *FluxMonitor) consume() {
 
 		case at := <-fm.pollManager.HibernationTimerTicks():
 			tickLogger.Debugf("Hibernation timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(), nil)
+			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(fm.logger), nil)
 
 		case at := <-fm.pollManager.RetryTickerTicks():
 			tickLogger.Debugf("Retry ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
+			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(fm.logger), nil)
 
 		case at := <-fm.pollManager.DrumbeatTicks():
 			tickLogger.Debugf("Drumbeat ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
+			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(fm.logger), nil)
 
 		case request := <-fm.pollManager.Poll():
 			switch request.Type {
@@ -507,7 +508,7 @@ func (fm *FluxMonitor) processBroadcast(broadcast log.Broadcast) {
 		// Only reactivate if it is hibernating
 		if fm.pollManager.isHibernating.Load() {
 			fm.pollManager.Awaken(fm.initialRoundState())
-			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(), broadcast)
+			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker(fm.logger), broadcast)
 		}
 	default:
 		fm.logger.Errorf("unknown log %v of type %T", log, log)
@@ -740,7 +741,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(newRoundLogger, func(tx postgres.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, false, postgres.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -969,7 +970,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(func(tx postgres.Queryer) error {
+	err = postgres.NewQ(postgres.UnwrapGormDB(fm.db)).Transaction(l, func(tx postgres.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err2 != nil {
 			return err2
 		}

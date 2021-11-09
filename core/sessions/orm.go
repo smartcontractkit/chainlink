@@ -40,12 +40,13 @@ type ORM interface {
 type orm struct {
 	db              *sqlx.DB
 	sessionDuration time.Duration
+	lggr            logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sessionDuration time.Duration) ORM {
-	return &orm{db, sessionDuration}
+func NewORM(db *sqlx.DB, sessionDuration time.Duration, lggr logger.Logger) ORM {
+	return &orm{db, sessionDuration, lggr.Named("SessionsORM")}
 }
 
 // FindUser will return the one API user, or an error.
@@ -84,7 +85,7 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 func (o *orm) DeleteUser() error {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	return postgres.SqlxTransaction(ctx, o.db, func(tx postgres.Queryer) error {
+	return postgres.SqlxTransaction(ctx, o.db, o.lggr, func(tx postgres.Queryer) error {
 		if _, err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}
@@ -123,7 +124,8 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	logger.Debugw("Found user", "user", user)
+	lggr := o.lggr.With("user", user.Email)
+	lggr.Debugw("Found user")
 
 	// Do email and password check first to prevent extra database look up
 	// for MFA tokens leaking if an account has MFA tokens or not.
@@ -139,13 +141,13 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	uwas, err := o.GetUserWebAuthn(user.Email)
 	if err != nil {
 		// There was an error with the database query
-		logger.Errorf("Could not fetch user's MFA data: %v", err)
+		lggr.Errorf("Could not fetch user's MFA data: %v", err)
 		return "", errors.New("MFA Error")
 	}
 
 	// No webauthn tokens registered for the current user, so normal authentication is now complete
 	if len(uwas) == 0 {
-		logger.Infof("No MFA for user. Creating Session")
+		lggr.Infof("No MFA for user. Creating Session")
 		session := NewSession()
 		_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)
 		return session.ID, err
@@ -155,16 +157,16 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 	// if not, return a 401 error for the frontend to prompt the user to provide this
 	// data in the next round trip request (tap key to include webauthn data on the login page)
 	if sr.WebAuthnData == "" {
-		logger.Warnf("Attempted login to MFA user. Generating challenge for user.")
+		lggr.Warnf("Attempted login to MFA user. Generating challenge for user.")
 		options, webauthnError := BeginWebAuthnLogin(user, uwas, sr)
 		if webauthnError != nil {
-			logger.Errorf("Could not begin WebAuthn verification: %v", err)
+			lggr.Errorf("Could not begin WebAuthn verification: %v", err)
 			return "", errors.New("MFA Error")
 		}
 
 		j, jsonError := json.Marshal(options)
 		if jsonError != nil {
-			logger.Errorf("Could not serialize WebAuthn challenge: %v", err)
+			lggr.Errorf("Could not serialize WebAuthn challenge: %v", err)
 			return "", errors.New("MFA Error")
 		}
 
@@ -178,11 +180,11 @@ func (o *orm) CreateSession(sr SessionRequest) (string, error) {
 
 	if err != nil {
 		// The user does have WebAuthn enabled but failed the check
-		logger.Errorf("User sent an invalid attestation: %v", err)
+		lggr.Errorf("User sent an invalid attestation: %v", err)
 		return "", errors.New("MFA Error")
 	}
 
-	logger.Infof("User passed MFA authentication and login will proceed")
+	lggr.Infof("User passed MFA authentication and login will proceed")
 	// This is a success so we can create the sessions
 	session := NewSession()
 	_, err = o.db.Exec("INSERT INTO sessions (id, last_used, created_at) VALUES ($1, now(), now())", session.ID)

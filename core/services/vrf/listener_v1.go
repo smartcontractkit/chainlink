@@ -12,7 +12,6 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -23,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -104,13 +104,8 @@ func (lsn *listenerV1) getLatestHead() uint64 {
 // Start complies with job.Service
 func (lsn *listenerV1) Start() error {
 	return lsn.StartOnce("VRFListener", func() error {
-		// Take the larger of the global vs specific
-		// Note that runtime changes to incoming confirmations require a job delete/add
-		// because we need to resubscribe to the lb with the new min.
-		minConfs := lsn.cfg.MinIncomingConfirmations()
-		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
-			minConfs = lsn.job.VRFSpec.Confirmations
-		}
+		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
 			ParseLog: lsn.coordinator.ParseLog,
@@ -123,12 +118,12 @@ func (lsn *listenerV1) Start() error {
 				},
 				solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(): {},
 			},
-			// If we set this to minConfs, since both the log broadcaster and head broadcaster get heads
-			// at the same time from the head tracker whether we process the log at minConfs or minConfs+1
-			// would depend on the order in which their OnNewLongestChain callbacks got called.
-			// We listen one block early so that the log can be stored in pendingRequests
-			// to avoid this.
-			NumConfirmations: uint64(minConfs - 1),
+			// If we set this to MinIncomingConfirmations, since both the log broadcaster and head broadcaster get heads
+			// at the same time from the head tracker whether we process the log at MinIncomingConfirmations or
+			// MinIncomingConfirmations+1 would depend on the order in which their OnNewLongestChain callbacks got
+			// called.
+			// We listen one block early so that the log can be stored in pendingRequests to avoid this.
+			MinIncomingConfirmations: spec.MinIncomingConfirmations - 1,
 		})
 		// Subscribe to the head broadcaster for handling
 		// per request conf requirements.
@@ -136,10 +131,10 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+		go shutdown.WrapRecover(lsn.l, func() {
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		})
-		go gracefulpanic.WrapRecover(lsn.l, func() {
+		go shutdown.WrapRecover(lsn.l, func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		})
 		return nil

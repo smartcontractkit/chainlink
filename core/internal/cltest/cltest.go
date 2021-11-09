@@ -13,7 +13,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"reflect"
-	"sync"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,7 +42,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -62,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -110,8 +110,6 @@ const (
 )
 
 var (
-	DefaultP2PPeerID     p2pkey.PeerID
-	NonExistentP2PPeerID p2pkey.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -130,6 +128,9 @@ func init() {
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
 	logger.InitLogger(lggr)
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		lggr.Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
+	}
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -139,21 +140,15 @@ func init() {
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
+}
 
-	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
-	if err != nil {
-		panic(err)
-	}
-	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
-	nonExistentP2PPeerID, err := p2ppeer.Decode(NonExistentPeerID)
-	if err != nil {
-		panic(err)
-	}
-	NonExistentP2PPeerID = p2pkey.PeerID(nonExistentP2PPeerID)
-	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
-	if err != nil {
-		panic(err)
-	}
+func NewGomegaWithT(t testing.TB) *gomega.WithT {
+	g := gomega.NewWithT(t)
+	g.SetDefaultEventuallyTimeout(DefaultWaitTimeout)
+	g.SetDefaultEventuallyPollingInterval(DBPollingInterval)
+	g.SetDefaultConsistentlyDuration(time.Second)
+	g.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
+	return g
 }
 
 func NewRandomInt64() int64 {
@@ -180,8 +175,8 @@ type JobPipelineV2TestHelper struct {
 }
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
-	prm := pipeline.NewORM(db)
 	lggr := logger.TestLogger(t)
+	prm := pipeline.NewORM(db, lggr)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr)
 	return JobPipelineV2TestHelper{
@@ -193,13 +188,18 @@ func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, d
 
 func NewEthBroadcaster(t testing.TB, db *gorm.DB, ethClient eth.Client, keyStore bulletprooftxmanager.KeyStore, config evmconfig.ChainScopedConfig, keyStates []ethkey.State) *bulletprooftxmanager.EthBroadcaster {
 	t.Helper()
-	lggr := logger.TestLogger(t)
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0, lggr)
+	eventBroadcaster := NewEventBroadcaster(t, config.DatabaseURL())
 	err := eventBroadcaster.Start()
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
+	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
 		keyStates, gas.NewFixedPriceEstimator(config), nil, lggr)
+}
+
+func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster {
+	lggr := logger.TestLogger(t)
+	return postgres.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
 func NewEthConfirmer(t testing.TB, db *gorm.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
@@ -334,7 +334,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	lggr := logger.TestLogger(t)
 
 	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
-	shutdownSignal := gracefulpanic.NewSignal()
+	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
 	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
@@ -375,7 +375,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	if ethClient == nil {
 		ethClient = eth.NewNullClient(nil, lggr)
 	}
-	cfg.SetDB(db)
 	if chainORM == nil {
 		chainORM = evm.NewORM(sqlxDB)
 	}
@@ -594,16 +593,17 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{})
+	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
-		Logger:                         logger.TestLogger(ta.t),
+		Logger:                         lggr,
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Config, cookieAuth, clsessions.SessionRequest{}),
 		CookieAuthenticator:            cookieAuth,
-		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(lggr),
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         &MockChangePasswordPrompter{},
 	}
@@ -738,6 +738,28 @@ func ReadLogs(cfg config.GeneralConfig) (string, error) {
 	return string(b), err
 }
 
+// FindLogMessage returns the message from the first JSON log line for which test returns true.
+func FindLogMessage(logs string, test func(msg string) bool) string {
+	for _, l := range strings.Split(logs, "\n") {
+		var line map[string]interface{}
+		if json.Unmarshal([]byte(l), &line) != nil {
+			continue
+		}
+		m, ok := line["msg"]
+		if !ok {
+			continue
+		}
+		ms, ok := m.(string)
+		if !ok {
+			continue
+		}
+		if test(ms) {
+			return ms
+		}
+	}
+	return ""
+}
+
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
@@ -780,7 +802,7 @@ func AwaitJobActive(t testing.TB, jobSpawner job.Spawner, jobID int32, waitFor t
 	require.Eventually(t, func() bool {
 		_, exists := jobSpawner.ActiveJobs()[jobID]
 		return exists
-	}, waitFor, 10*time.Millisecond)
+	}, waitFor, 100*time.Millisecond)
 }
 
 func CreateJobRunViaExternalInitiatorV2(
@@ -873,7 +895,7 @@ const (
 func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
 		err := db.
@@ -898,7 +920,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 	t.Helper()
 
 	var pr []pipeline.Run
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
+	NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
 		require.NoError(t, err)
 
@@ -935,7 +957,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
 func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
@@ -951,7 +973,7 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, wa
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
 func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
@@ -1382,69 +1404,54 @@ func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
-	BackfillDepth        int64
-	Interval             time.Duration
-	Timeout              time.Duration
 	HeadTrackables       []httypes.HeadTrackable
 	Blocks               *Blocks
 }
 
-func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
+// SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
+func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done chan struct{}) {
 	t.Helper()
-	lggr := logger.TestLogger(t)
+	lggr := logger.TestLogger(t).Named("SimulateIncomingHeads")
 	lggr.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
 
-	if args.BackfillDepth == 0 {
-		t.Fatal("BackfillDepth must be > 0")
+	if args.EndBlock > args.StartBlock {
+		if l := 1 + args.EndBlock - args.StartBlock; l > int64(len(args.Blocks.Heads)) {
+			t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(args.Blocks.Heads), l)
+		}
 	}
 
 	// Build the full chain of heads
 	heads := args.Blocks.Heads
-	if args.Timeout == 0 {
-		args.Timeout = 60 * time.Second
-	}
-	if args.Interval == 0 {
-		args.Interval = 250 * time.Millisecond
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), args.Timeout)
-	defer cancel()
-	chTimeout := time.After(args.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	t.Cleanup(cancel)
+	done = make(chan struct{})
+	go func(t *testing.T) {
+		defer close(done)
+		ticker := time.NewTicker(250 * time.Millisecond)
+		defer ticker.Stop()
 
-	chDone := make(chan struct{})
-	go func() {
-		current := args.StartBlock
-		for {
+		for current := args.StartBlock; ; current++ {
 			select {
-			case <-chDone:
+			case <-ctx.Done():
 				return
-			case <-chTimeout:
-				return
-			default:
+			case <-ticker.C:
 				_, exists := heads[current]
 				if !exists {
-					lggr.Fatalf("Head %v does not exist", current)
+					lggr.Infof("Out of heads: %d does not exist", current)
+					return
 				}
 
+				lggr.Infof("Sending head: %d", current)
 				for _, ht := range args.HeadTrackables {
 					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
-					chDone <- struct{}{}
 					return
 				}
-				current++
-				time.Sleep(args.Interval)
 			}
 		}
-	}()
-	var once sync.Once
-	cleanup := func() {
-		once.Do(func() {
-			close(chDone)
-			cancel()
-		})
-	}
-	return cleanup, chDone
+	}(t)
+	return done
 }
 
 // Blocks - a helper logic to construct a range of linked heads
@@ -1613,7 +1620,7 @@ func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
 
 func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
@@ -1625,7 +1632,7 @@ func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 
 func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
@@ -1637,7 +1644,7 @@ func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) 
 
 func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 	g.Eventually(func() bool {
 		err := db.Find(model).Error
 		require.NoError(t, err, "unable to find record in DB")

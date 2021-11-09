@@ -59,48 +59,62 @@ export const JobsShow = () => {
         const jobSpec = response.data
         setState((s) => {
           let createdAt: string
+          let evmChainID: string
           const externalJobID = jobSpec.attributes.externalJobID
           switch (jobSpec.attributes.type) {
             case 'offchainreporting':
               createdAt =
                 jobSpec.attributes.offChainReportingOracleSpec.createdAt
+              evmChainID =
+                jobSpec.attributes.offChainReportingOracleSpec.evmChainID
               break
             case 'fluxmonitor':
               createdAt = jobSpec.attributes.fluxMonitorSpec.createdAt
+              evmChainID = jobSpec.attributes.fluxMonitorSpec.evmChainID
               break
             case 'directrequest':
               createdAt = jobSpec.attributes.directRequestSpec.createdAt
+              evmChainID = jobSpec.attributes.directRequestSpec.evmChainID
               break
             case 'keeper':
               createdAt = jobSpec.attributes.keeperSpec.createdAt
+              evmChainID = jobSpec.attributes.keeperSpec.evmChainID
               break
             case 'cron':
               createdAt = jobSpec.attributes.cronSpec.createdAt
+              evmChainID = ''
               break
             case 'webhook':
               createdAt = jobSpec.attributes.webhookSpec.createdAt
+              evmChainID = ''
               break
             case 'vrf':
               createdAt = jobSpec.attributes.vrfSpec.createdAt
+              evmChainID = jobSpec.attributes.vrfSpec.evmChainID
               break
           }
+
+          const { definition, envAttributesDefinition } =
+            generateTOMLDefinition(jobSpec.attributes)
 
           const job: JobV2 = {
             ...jobSpec.attributes.pipelineSpec,
             id: jobSpec.id,
-            definition: generateTOMLDefinition(jobSpec.attributes),
+            definition,
             type: 'v2',
             name: jobSpec.attributes.name,
             specType: jobSpec.attributes.type,
             errors: jobSpec.attributes.errors,
             createdAt,
+            evmChainID,
           }
 
           return {
             ...s,
-            jobSpec,
             job,
+            jobSpec,
             externalJobID,
+            envAttributesDefinition,
           }
         })
       })

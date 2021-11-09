@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
@@ -81,6 +83,23 @@ type createFeedsManagerInput struct {
 	JobTypes               []JobType
 	IsBootstrapPeer        bool
 	BootstrapPeerMultiaddr *string
+}
+
+func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().CSA().Create()
+	if err != nil {
+		if errors.Is(err, keystore.ErrCSAKeyExists) {
+			return NewCreateCSAKeyPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCreateCSAKeyPayload(&key, nil), nil
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
@@ -259,4 +278,35 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 	}
 
 	return NewUpdateFeedsManagerPayload(mgr, nil, nil), nil
+}
+
+func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().OCR().Create()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateOCRKeyBundlePayloadResolver(key), nil
+}
+
+func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
+	ID string
+}) (*DeleteOCRKeyBundlePayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	deletedKey, err := r.App.GetKeyStore().OCR().Delete(args.ID)
+	if err != nil {
+		if errors.As(err, &keystore.KeyNotFoundError{}) {
+			return NewDeleteOCRKeyBundlePayloadResolver(ocrkey.KeyV2{}, err), nil
+		}
+		return nil, err
+	}
+
+	return NewDeleteOCRKeyBundlePayloadResolver(deletedKey, nil), nil
 }

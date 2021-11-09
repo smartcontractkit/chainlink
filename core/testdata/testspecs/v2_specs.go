@@ -121,9 +121,10 @@ observationSource   = """
 )
 
 type KeeperSpecParams struct {
-	ContractAddress string
-	FromAddress     string
-	EvmChainID      int
+	ContractAddress          string
+	FromAddress              string
+	EvmChainID               int
+	minIncomingConfirmations int
 }
 
 type KeeperSpec struct {
@@ -137,13 +138,14 @@ func (os KeeperSpec) Toml() string {
 
 func GenerateKeeperSpec(params KeeperSpecParams) KeeperSpec {
 	template := `
-type            = "keeper"
-schemaVersion   = 2
-name            = "example keeper spec"
-contractAddress = "%s"
-fromAddress     = "%s"
-evmChainID      = %d
-externalJobID   =  "123e4567-e89b-12d3-a456-426655440002"
+type            		 	= "keeper"
+schemaVersion   		 	= 2
+name            		 	= "example keeper spec"
+contractAddress 		 	= "%s"
+fromAddress     		 	= "%s"
+evmChainID      		 	= %d
+minIncomingConfirmations	= %d
+externalJobID   		 	=  "123e4567-e89b-12d3-a456-426655440002"
 
 
 observationSource = """
@@ -175,19 +177,19 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 `
 	return KeeperSpec{
 		KeeperSpecParams: params,
-		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID),
+		toml:             fmt.Sprintf(template, params.ContractAddress, params.FromAddress, params.EvmChainID, params.minIncomingConfirmations),
 	}
 }
 
 type VRFSpecParams struct {
-	JobID              string
-	Name               string
-	CoordinatorAddress string
-	Confirmations      int
-	FromAddress        string
-	PublicKey          string
-	ObservationSource  string
-	V2                 bool
+	JobID                    string
+	Name                     string
+	CoordinatorAddress       string
+	MinIncomingConfirmations int
+	FromAddress              string
+	PublicKey                string
+	ObservationSource        string
+	V2                       bool
 }
 
 type VRFSpec struct {
@@ -213,8 +215,8 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 		coordinatorAddress = params.CoordinatorAddress
 	}
 	confirmations := 6
-	if params.Confirmations != 0 {
-		confirmations = params.Confirmations
+	if params.MinIncomingConfirmations != 0 {
+		confirmations = params.MinIncomingConfirmations
 	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
@@ -273,7 +275,7 @@ type = "vrf"
 schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
-confirmations = %d
+minIncomingConfirmations = %d
 publicKey = "%s"
 observationSource = """
 %s
@@ -285,12 +287,12 @@ observationSource = """
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
-		JobID:              jobID,
-		Name:               name,
-		CoordinatorAddress: coordinatorAddress,
-		Confirmations:      confirmations,
-		PublicKey:          publicKey,
-		ObservationSource:  observationSource,
+		JobID:                    jobID,
+		Name:                     name,
+		CoordinatorAddress:       coordinatorAddress,
+		MinIncomingConfirmations: confirmations,
+		PublicKey:                publicKey,
+		ObservationSource:        observationSource,
 	}, toml: toml}
 }
 
@@ -337,8 +339,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "%s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-externalJobID     =  "%s"
+externalJobID      =  "%s"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]

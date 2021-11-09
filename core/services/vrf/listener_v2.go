@@ -15,7 +15,6 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"gorm.io/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -80,28 +80,23 @@ type listenerV2 struct {
 	// We want a map so we can do an O(1) count update every fulfillment log we get.
 	respCountMu sync.Mutex
 	respCount   map[string]uint64
-	// This auxiliary heap is to used when we need to purge the
-	// respCount map - we repeatedly want remove the minimum log.
+	// This auxiliary heap is used when we need to purge the
+	// respCount map - we repeatedly want to remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
 }
 
 func (lsn *listenerV2) Start() error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
-		// Take the larger of the global vs specific.
-		// Note that the v2 vrf requests specify their own confirmation requirements.
-		// We wait for max(minConfs, request required confs) to be safe.
-		minConfs := lsn.cfg.MinIncomingConfirmations()
-		if lsn.job.VRFSpec.Confirmations > lsn.cfg.MinIncomingConfirmations() {
-			minConfs = lsn.job.VRFSpec.Confirmations
-		}
+		spec := job.LoadEnvConfigVarsVRF(lsn.cfg, *lsn.job.VRFSpec)
+
 		unsubscribeLogs := lsn.logBroadcaster.Register(lsn, log.ListenerOpts{
 			Contract: lsn.coordinator.Address(),
 			ParseLog: lsn.coordinator.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
 				vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
 					{
-						log.Topic(lsn.job.VRFSpec.PublicKey.MustHash()),
+						log.Topic(spec.PublicKey.MustHash()),
 					},
 				},
 			},
@@ -109,18 +104,13 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+		go shutdown.WrapRecover(lsn.l, func() {
+			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		})
-		var pollPeriod time.Duration
-		if lsn.job.VRFSpec.PollPeriod != nil {
-			pollPeriod = *lsn.job.VRFSpec.PollPeriod
-		} else {
-			pollPeriod = 5 * time.Second
-		}
+
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runRequestHandler(pollPeriod)
+		go shutdown.WrapRecover(lsn.l, func() {
+			lsn.runRequestHandler(spec.PollPeriod)
 		})
 		return nil
 	})
@@ -179,7 +169,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // A user will need a minBalance capable of fulfilling a single req at the max gas price or nothing will happen.
 // This is acceptable as users can choose different keyhashes which have different max gas prices.
 // Other variables which can change the bill amount between our eth call simulation and tx execution:
-// - Link/eth price fluctation
+// - Link/eth price fluctuation
 // - Falling back to BHS
 // However the likelihood is vanishingly small as
 // 1) the window between simulation and tx execution is tiny.
@@ -312,7 +302,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(func(tx postgres.Queryer) error {
+		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(lsn.l, func(tx postgres.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err != nil {
 				return err
 			}
