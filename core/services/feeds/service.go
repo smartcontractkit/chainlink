@@ -43,6 +43,7 @@ type Service interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
+	GetManagers(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	ListJobProposals() ([]JobProposal, error)
 	ProposeJob(jp *JobProposal) (int64, error)
@@ -240,6 +241,20 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 
 	manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
 	return manager, nil
+}
+
+// GetManagers get managers services by ids.
+func (s *service) GetManagers(ids []int64) ([]FeedsManager, error) {
+	managers, err := s.orm.GetManagers(context.Background(), ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get managers by IDs")
+	}
+
+	for _, manager := range managers {
+		manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	}
+
+	return managers, nil
 }
 
 // CountManagerServices gets the total number of manager services

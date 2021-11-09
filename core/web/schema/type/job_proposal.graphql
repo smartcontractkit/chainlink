@@ -1,9 +1,16 @@
+enum JobProposalStatus {
+    PENDING
+    APPROVED
+    REJECTED
+    CANCELLED
+}
+
 type JobProposal {
     id: ID!
     spec: String!
-    status: String!
+    status: JobProposalStatus!
     externalJobID: String!
-#    feedsManager: FeedsManager!
+    feedsManager: FeedsManager!
     multiAddrs: [String!]!
     proposedAt: Time!
 }

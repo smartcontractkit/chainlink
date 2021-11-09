@@ -1,10 +1,39 @@
 package resolver
 
 import (
+	"context"
+	"strconv"
+
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
+
+type JobProposalStatus string
+
+const (
+	PENDING   JobProposalStatus = "PENDING"
+	APPROVED  JobProposalStatus = "APPROVED"
+	REJECTED  JobProposalStatus = "REJECTED"
+	CANCELLED JobProposalStatus = "CANCELLED"
+)
+
+func ToJobProposalStatus(s feeds.JobProposalStatus) (JobProposalStatus, error) {
+	switch s {
+	case feeds.JobProposalStatusApproved:
+		return APPROVED, nil
+	case feeds.JobProposalStatusPending:
+		return PENDING, nil
+	case feeds.JobProposalStatusRejected:
+		return REJECTED, nil
+	case feeds.JobProposalStatusCancelled:
+		return CANCELLED, nil
+	default:
+		return "", errors.New("invalid job proposal status")
+	}
+}
 
 // JobProposalResolver resolves the Job Proposal type
 type JobProposalResolver struct {
@@ -27,8 +56,11 @@ func (r *JobProposalResolver) Spec() string {
 }
 
 // Status resolves to the job proposal Status
-func (r *JobProposalResolver) Status() string {
-	return string(r.jp.Status)
+func (r *JobProposalResolver) Status() JobProposalStatus {
+	if status, err := ToJobProposalStatus(r.jp.Status); err == nil {
+		return status
+	}
+	return ""
 }
 
 // ExternalJobID resolves to the job proposal ExternalJobID
@@ -38,6 +70,17 @@ func (r *JobProposalResolver) ExternalJobID() string {
 	}
 
 	return "no valid"
+}
+
+// FeedsManager resolves the job proposal's feeds manager object field.
+func (r *JobProposalResolver) FeedsManager(ctx context.Context) (*FeedsManagerResolver, error) {
+
+	mgr, err := loader.GetFeedsManagerByID(ctx, strconv.FormatInt(r.jp.FeedsManagerID, 10))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewFeedsManager(*mgr), nil
 }
 
 // MultiAddrs resolves to the job proposal MultiAddrs
