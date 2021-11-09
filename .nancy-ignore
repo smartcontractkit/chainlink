@@ -4,6 +4,11 @@ bba60acb-c7b5-4621-af69-f4085a8301d0
 d373dc3f-aa88-483b-b501-20fe5382cc80
 5def94e5-b89c-4a94-b9c6-ae0e120784c2
 
+# To get more detail locally run `go list -json -m all | nancy sleuth`
+# dcf6da03-f9dd-4a4e-b792-0262de36a0b1 is because of gogo/protobuf@1.3.1
+# which is used by go-libp2p-core, need them to upgrade to 1.3.2 before we can remove it.
+dcf6da03-f9dd-4a4e-b792-0262de36a0b1
+
 # Introduced by golang/k8s.io/kubernetes@1.13.0, which is a dependency of a dependency of HELM, that the integrations-framework
 # utilizes. It is not included in the binary. It is used solely to create and interact with ephemeral test environments.
 b4583f58-ba0b-49a6-9e68-389231015280
