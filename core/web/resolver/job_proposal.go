@@ -133,6 +133,24 @@ type JobProposalPayload interface {
 	ToNotFoundError() (*NotFoundErrorResolver, bool)
 }
 
+type JobProposalAction string
+
+const (
+	approve JobProposalAction = "approve"
+	cancel  JobProposalAction = "cancel"
+)
+
+func ToJobProposalPayload(a JobProposalAction, jp *feeds.JobProposal, err error) (JobProposalPayload, error) {
+	switch a {
+	case approve:
+		return NewApproveJobProposalPayload(jp, err), nil
+	case cancel:
+		return NewCancelJobProposalPayload(jp, err), nil
+	default:
+		return nil, errors.New("invalid job proposal action")
+	}
+}
+
 // -- ApproveJobProposal Mutation --
 
 type ApproveJobProposalPayloadResolver struct {

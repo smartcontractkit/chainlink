@@ -250,7 +250,7 @@ func TestResolver_CancelJobProposal(t *testing.T) {
 				"jobProposal": {
 					"id": "1",
 					"spec": "some-spec",
-					"status": "APPROVED",
+					"status": "CANCELLED",
 					"externalJobID": "%s",
 					"multiAddrs": ["1", "2"],
 					"feedsManager": {
@@ -280,7 +280,7 @@ func TestResolver_CancelJobProposal(t *testing.T) {
 				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
 					ID:             jpID,
 					Spec:           "some-spec",
-					Status:         feeds.JobProposalStatusApproved,
+					Status:         feeds.JobProposalStatusCancelled,
 					ExternalJobID:  ejID,
 					FeedsManagerID: 1,
 					Multiaddrs:     []string{"1", "2"},

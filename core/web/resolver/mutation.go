@@ -466,23 +466,12 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*ApproveJobProposalPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-
-	feedsSvc := r.App.GetFeedsService()
-
-	resolver, err := r.executeJobProposalAction(ctx, args, jobProposalAction{
-		Execute: func(ctx context.Context, id int64) error {
-			return feedsSvc.ApproveJobProposal(ctx, id)
-		},
-		NewPayload: func(jp *feeds.JobProposal, err error) JobProposalPayload {
-			return NewApproveJobProposalPayload(jp, err)
-		},
+	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, approve,
 	})
 
-	prv, ok := resolver.(*ApproveJobProposalPayloadResolver)
-	if !ok {
+	prv, ok := rsv.(*ApproveJobProposalPayloadResolver)
+	if prv != nil && !ok {
 		return nil, errors.New(
 			fmt.Sprintf("expected resolver to be *ApproveJobProposalPayloadResolver, got %T", prv),
 		)
@@ -494,23 +483,12 @@ func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*CancelJobProposalPayloadResolver, error) {
-	if err := authenticateUser(ctx); err != nil {
-		return nil, err
-	}
-
-	feedsSvc := r.App.GetFeedsService()
-
-	resolver, err := r.executeJobProposalAction(ctx, args, jobProposalAction{
-		Execute: func(ctx context.Context, id int64) error {
-			return feedsSvc.CancelJobProposal(ctx, id)
-		},
-		NewPayload: func(jp *feeds.JobProposal, err error) JobProposalPayload {
-			return NewCancelJobProposalPayload(jp, err)
-		},
+	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, cancel,
 	})
 
-	prv, ok := resolver.(*CancelJobProposalPayloadResolver)
-	if !ok {
+	prv, ok := rsv.(*CancelJobProposalPayloadResolver)
+	if prv != nil && !ok {
 		return nil, errors.New(
 			fmt.Sprintf("expected resolver to be *CancelJobProposalPayloadResolver, got %T", prv),
 		)
@@ -520,24 +498,36 @@ func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 }
 
 type jobProposalAction struct {
-	Execute    func(ctx context.Context, id int64) error
-	NewPayload func(*feeds.JobProposal, error) JobProposalPayload
+	jpID graphql.ID
+	Name JobProposalAction
 }
 
-func (r *Resolver) executeJobProposalAction(ctx context.Context, args struct{ ID graphql.ID }, action jobProposalAction) (JobProposalPayload, error) {
+func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (JobProposalPayload, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	id, err := strconv.ParseInt(string(action.jpID), 10, 64)
 	if err != nil {
 		return nil, err
 	}
 
-	err = action.Execute(ctx, id)
+	feedsSvc := r.App.GetFeedsService()
+
+	switch action.Name {
+	case approve:
+		err = feedsSvc.ApproveJobProposal(ctx, id)
+		break
+	case cancel:
+		err = feedsSvc.CancelJobProposal(ctx, id)
+		break
+	default:
+		return nil, errors.New("invalid job proposal action")
+	}
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return action.NewPayload(nil, err), nil
+			return ToJobProposalPayload(action.Name, nil, err)
 		}
 
 		return nil, err
@@ -546,11 +536,11 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, args struct{ ID
 	jp, err := r.App.GetFeedsService().GetJobProposal(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return action.NewPayload(nil, err), nil
+			return ToJobProposalPayload(action.Name, nil, err)
 		}
 
 		return nil, err
 	}
 
-	return action.NewPayload(jp, nil), nil
+	return ToJobProposalPayload(action.Name, jp, nil)
 }
