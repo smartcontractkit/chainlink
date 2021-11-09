@@ -119,6 +119,18 @@ telemetry-protobuf: $(telemetry-protobuf)
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
+.PHONY: test_smoke
+test_smoke:
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/smoke 
+
+.PHONY: test_performance
+test_performance:
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/performance 
+
+.PHONY: test_chaos
+test_chaos:
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/chaos 
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
