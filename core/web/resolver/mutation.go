@@ -497,6 +497,23 @@ func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 	return prv, err
 }
 
+func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RejectJobProposalPayloadResolver, error) {
+	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, reject,
+	})
+
+	prv, ok := rsv.(*RejectJobProposalPayloadResolver)
+	if prv != nil && !ok {
+		return nil, errors.New(
+			fmt.Sprintf("expected resolver to be *RejectJobProposalPayloadResolver, got %T", prv),
+		)
+	}
+
+	return prv, err
+}
+
 type jobProposalAction struct {
 	jpID graphql.ID
 	Name JobProposalAction
@@ -520,6 +537,9 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 		break
 	case cancel:
 		err = feedsSvc.CancelJobProposal(ctx, id)
+		break
+	case reject:
+		err = feedsSvc.RejectJobProposal(ctx, id)
 		break
 	default:
 		return nil, errors.New("invalid job proposal action")

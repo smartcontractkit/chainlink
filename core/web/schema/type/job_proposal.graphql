@@ -28,3 +28,9 @@ type CancelJobProposalSuccess {
 }
 
 union CancelJobProposalPayload = CancelJobProposalSuccess | NotFoundError
+
+type RejectJobProposalSuccess {
+    jobProposal: JobProposal!
+}
+
+union RejectJobProposalPayload = RejectJobProposalSuccess | NotFoundError
