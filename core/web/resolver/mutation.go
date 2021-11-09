@@ -439,7 +439,6 @@ func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolv
 
 	key, err := r.App.GetKeyStore().VRF().Create()
 	if err != nil {
-		// TODO: improve
 		return nil, err
 	}
 
