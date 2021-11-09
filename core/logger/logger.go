@@ -236,8 +236,12 @@ type Config interface {
 // If LogToDisk is false, the Logger will only log to stdout.
 // Tests should use TestLogger instead.
 func NewLogger(c Config) Logger {
-	cfg := newProductionConfig(c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
-	cfg.Level.SetLevel(c.LogLevel())
+	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
+}
+
+func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool) Logger {
+	cfg := newProductionConfig(dir, jsonConsole, toDisk, unixTS)
+	cfg.Level.SetLevel(logLevel)
 	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
