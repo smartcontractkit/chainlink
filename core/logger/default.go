@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 )
@@ -22,28 +23,11 @@ func init() {
 		log.Fatalf("failed to register os specific sinks %+v", err)
 	}
 
-	// HACK: This logic is a bit duplicated from newProductionConfig but the config object is not available in init
-	// To be removed with https://app.shortcut.com/chainlinklabs/story/18500/logger-injection
-	jsonStr := os.Getenv("JSON_CONSOLE")
-	var jsonConsole bool
-	if jsonStr == "true" {
-		jsonConsole = true
-	}
-	unixTSStr := os.Getenv("LOG_UNIX_TS")
-	var unixTS bool
-	if unixTSStr == "true" {
-		unixTS = true
-	}
-	toDiskStr := os.Getenv("LOG_TO_DISK")
-	var toDisk bool
-	if toDiskStr == "true" {
-		toDisk = true
-	}
+	jsonConsole, _ := strconv.ParseBool(os.Getenv("JSON_CONSOLE"))
+	unixTS, _ := strconv.ParseBool(os.Getenv("LOG_UNIX_TS"))
+	toDisk, _ := strconv.ParseBool(os.Getenv("LOG_TO_DISK"))
 
-	l, err := newZapLogger(newProductionConfig(os.Getenv("ROOT"), jsonConsole, toDisk, unixTS))
-	if err != nil {
-		log.Fatal(err)
-	}
+	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS)
 	InitLogger(l)
 }
 
