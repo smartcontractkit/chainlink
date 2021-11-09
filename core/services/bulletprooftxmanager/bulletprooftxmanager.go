@@ -518,7 +518,7 @@ func CountUnstartedTransactions(db *sqlx.DB, fromAddress common.Address, chainID
 }
 
 func countTransactionsWithState(db *sqlx.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
-	postgres.NewQ(db).Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+	err = postgres.NewQ(db).Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())
 	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
