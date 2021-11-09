@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/graph-gophers/dataloader"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 )
 

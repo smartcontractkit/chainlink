@@ -63,8 +63,8 @@ require (
 	go.dedis.ch/kyber/v3 v3.0.13
 	go.uber.org/atomic v1.9.0
 	go.uber.org/multierr v1.7.0
-	go.uber.org/zap v1.18.1
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	go.uber.org/zap v1.19.1
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	golang.org/x/text v0.3.7

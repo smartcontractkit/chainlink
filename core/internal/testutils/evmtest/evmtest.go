@@ -4,6 +4,10 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -17,9 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 type TestChainOpts struct {
@@ -160,6 +161,10 @@ func (mo *MockORM) DeleteNode(id int64) error {
 }
 
 func (mo *MockORM) Nodes(offset int, limit int) ([]evmtypes.Node, int, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) Node(id int32) (evmtypes.Node, error) {
 	panic("not implemented")
 }
 

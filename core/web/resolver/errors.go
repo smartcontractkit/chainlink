@@ -3,9 +3,10 @@ package resolver
 type ErrorCode string
 
 const (
-	ErrorCodeNotFound      ErrorCode = "NOT_FOUND"
-	ErrorCodeInvalidInput  ErrorCode = "INVALID_INPUT"
-	ErrorCodeUnprocessable ErrorCode = "UNPROCESSABLE"
+	ErrorCodeNotFound       ErrorCode = "NOT_FOUND"
+	ErrorCodeInvalidInput   ErrorCode = "INVALID_INPUT"
+	ErrorCodeUnprocessable  ErrorCode = "UNPROCESSABLE"
+	ErrorCodeStatusConflict ErrorCode = "STATUS_CONFLICT"
 )
 
 type NotFoundErrorResolver struct {
