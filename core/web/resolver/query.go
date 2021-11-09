@@ -3,12 +3,14 @@ package resolver
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -242,4 +244,37 @@ func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error)
 	}
 
 	return NewP2PKeysPayloadResolver(p2pKeys), nil
+}
+
+// VRFKeys fetches all VRF keys.
+func (r *Resolver) VRFKeys(ctx context.Context) (*VRFKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().VRF().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewVRFKeysPayloadResolver(keys), nil
+}
+
+// VRFKey fetches the VRF key with the given ID.
+func (r *Resolver) VRFKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*VRFKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().VRF().Get(string(args.ID))
+	if err != nil {
+		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+			return NewVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
+		}
+		return nil, err
+	}
+
+	return NewVRFKeyPayloadResolver(key, nil), err
 }
