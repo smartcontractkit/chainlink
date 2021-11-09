@@ -16,25 +16,41 @@ func NewVRFKeyResolver(key vrfkey.KeyV2) VRFKeyResolver {
 
 // ID returns the ID of the VRF key, which is the public key.
 func (k VRFKeyResolver) ID() graphql.ID {
-	return graphql.ID(k.key.PublicKey.String())
+	return graphql.ID(k.key.ID())
 }
 
+// Compressed returns the compressed version of the public key.
 func (k VRFKeyResolver) Compressed() string {
 	return k.key.PublicKey.String()
 }
 
 func (k VRFKeyResolver) Uncompressed() string {
+	// It's highly unlikely that this call will return an error.
+	// If it does, we'd likely have issues all throughout the application.
+	// However, it's still good practice to handle the error that is returned
+	// rather than completely ignoring it.
 	uncompressed, err := k.key.PublicKey.StringUncompressed()
 	if err != nil {
-		// TODO: figure out better approach
-		panic(err)
+		uncompressed = "error: unable to uncompress public key"
 	}
 	return uncompressed
 }
 
+// Hash returns the hash of the VRF public key.
 func (k VRFKeyResolver) Hash() string {
-	// TODO: should we allow a panic here?
-	return k.key.PublicKey.MustHash().String()
+	var hashStr string
+
+	// It's highly unlikely that this call will return an error.
+	// If it does, we'd likely have issues all throughout the application.
+	// However, it's still good practice to handle the error that is returned
+	// rather than completely ignoring it.
+	hash, err := k.key.PublicKey.Hash()
+	if err != nil {
+		hashStr = "error: unable to get public key hash"
+	} else {
+		hashStr = hash.String()
+	}
+	return hashStr
 }
 
 type VRFKeySuccessResolver struct {

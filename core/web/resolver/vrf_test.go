@@ -3,6 +3,7 @@ package resolver
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -35,8 +36,7 @@ func TestResolver_GetVRFKey(t *testing.T) {
 		}
 	`
 
-	fakeKey, err := vrfkey.NewV2()
-	assert.NoError(t, err)
+	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
@@ -119,8 +119,7 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 	fakeKeys := []vrfkey.KeyV2{}
 	expectedKeys := []map[string]string{}
 	for i := 0; i < 2; i++ {
-		fakeKey, err := vrfkey.NewV2()
-		assert.NoError(t, err)
+		fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 		assert.NoError(t, err)
 
@@ -175,8 +174,7 @@ func TestResolver_CreateVRFKey(t *testing.T) {
 		}
 	`
 
-	fakeKey, err := vrfkey.NewV2()
-	assert.NoError(t, err)
+	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
@@ -235,8 +233,7 @@ func TestResolver_DeleteVRFKey(t *testing.T) {
 		}
 	`
 
-	fakeKey, err := vrfkey.NewV2()
-	assert.NoError(t, err)
+	fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 
 	uncompressed, err := fakeKey.PublicKey.StringUncompressed()
 	assert.NoError(t, err)
