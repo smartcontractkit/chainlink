@@ -15,10 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -61,7 +62,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			pid:         p2pkey.PeerID(nonExistentP2PPeerID),
 			kb:          oCRKeyBundleID,
 			taExists:    true,
-			expectedErr: keystore.ErrMissingP2PKey,
+			expectedErr: keystore.KeyNotFoundError{ID: p2pkey.PeerID(nonExistentP2PPeerID).String(), KeyType: "P2P"},
 		},
 		{
 			name:        "invalid transmitter address",
