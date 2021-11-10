@@ -75,7 +75,7 @@ func Test_DropOldestStrategy_PruneQueue(t *testing.T) {
 		assert.Equal(t, int64(2), n)
 
 		// Total inserted was 9. Minus the 2 oldest unstarted makes 7
-		cltest.AssertCount(t, db, &bulletprooftxmanager.EthTx{}, 7)
+		cltest.AssertCount(t, postgres.UnwrapGormDB(db), "eth_txes", 7)
 
 		var etxs []bulletprooftxmanager.EthTx
 		require.NoError(t, db.Raw(`SELECT * FROM eth_txes WHERE state = 'unstarted' ORDER BY id asc`).Scan(&etxs).Error)
