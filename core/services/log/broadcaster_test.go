@@ -193,7 +193,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	db := postgres.UnwrapGormDB(gdb)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
-	helperCfg := broadcasterHelperCfg{gdb: gdb}
+	helperCfg := broadcasterHelperCfg{db: db}
 
 	contract1 := newMockContract()
 	contract2 := newMockContract()

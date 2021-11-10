@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -260,8 +259,7 @@ func (cll *chainSet) ORM() types.ORM {
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
-	GormDB           *gorm.DB
-	SQLxDB           *sqlx.DB
+	DB               *sqlx.DB
 	KeyStore         keystore.Eth
 	EventBroadcaster postgres.EventBroadcaster
 	ORM              types.ORM
@@ -330,7 +328,7 @@ func checkOpts(opts *ChainSetOpts) error {
 		return errors.New("config must be non-nil")
 	}
 	if opts.ORM == nil {
-		opts.ORM = NewORM(opts.SQLxDB)
+		opts.ORM = NewORM(opts.DB)
 	}
 	return nil
 }

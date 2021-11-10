@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, gdb *gorm.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	lb.Test(t)
@@ -70,12 +70,12 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	sqlxdb := postgres.UnwrapGormDB(db)
-	prm := pipeline.NewORM(sqlxdb, lggr)
+	db := postgres.UnwrapGormDB(gdb)
+	prm := pipeline.NewORM(db, lggr)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(sqlxdb, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(sqlxdb, cc, prm, ks, lggr)
+	jrm := job.NewORM(db, cc, prm, ks, lggr)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
