@@ -34,3 +34,13 @@ type RejectJobProposalSuccess {
 }
 
 union RejectJobProposalPayload = RejectJobProposalSuccess | NotFoundError
+
+input UpdateJobProposalSpecInput {
+    spec: String!
+}
+
+type UpdateJobProposalSpecSuccess {
+    jobProposal: JobProposal!
+}
+
+union UpdateJobProposalSpecPayload = UpdateJobProposalSpecSuccess | NotFoundError
