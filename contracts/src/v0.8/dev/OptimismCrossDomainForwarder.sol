@@ -32,12 +32,12 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice versions:
    *
    * - OptimismCrossDomainForwarder 0.1.0: initial release
-   * - OptimismCrossDomainForwarder 0.2.0: Use OZ Address, CrossDomainOwnable
+   * - OptimismCrossDomainForwarder 1.0.0: Use OZ Address, CrossDomainOwnable
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismCrossDomainForwarder 0.2.0";
+    return "OptimismCrossDomainForwarder 1.0.0";
   }
 
   /**
