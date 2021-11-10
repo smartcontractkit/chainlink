@@ -33,13 +33,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type broadcasterHelper struct {
 	t            *testing.T
 	lb           log.BroadcasterInTest
-	db           *gorm.DB
+	db           *sqlx.DB
 	mockEth      *mockEth
 	globalConfig *configtest.TestGeneralConfig
 	config       evmconfig.ChainScopedConfig
@@ -56,7 +56,7 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 
 type broadcasterHelperCfg struct {
 	highestSeenHead *eth.Head
-	gdb             *gorm.DB
+	db              *sqlx.DB
 }
 
 func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log) *broadcasterHelper {
@@ -84,31 +84,30 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Clien
 	if testing.Short() {
 		t.Skip("skipping due to broadcasterHelper")
 	}
-	if c.gdb == nil {
-		c.gdb = pgtest.NewGormDB(t)
+	if c.db == nil {
+		c.db = pgtest.NewSqlxDB(t)
 	}
-	db := postgres.UnwrapGormDB(c.gdb)
 
 	globalConfig := cltest.NewTestGeneralConfig(t)
 	globalConfig.Overrides.LogSQLStatements = null.BoolFrom(true)
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(c.db, cltest.FixtureChainID)
 	lb := log.NewTestBroadcaster(orm, ethClient, config, logger.TestLogger(t), c.highestSeenHead)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  config,
-		DB:             c.gdb,
+		DB:             c.db,
 		LogBroadcaster: &log.NullBroadcaster{},
 	})
-	kst := cltest.NewKeyStore(t, db)
-	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, db, kst)
+	kst := cltest.NewKeyStore(t, c.db)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst)
 
 	return &broadcasterHelper{
 		t:              t,
 		lb:             lb,
-		db:             c.gdb,
+		db:             c.db,
 		globalConfig:   globalConfig,
 		config:         config,
 		pipelineHelper: pipelineHelper,
@@ -161,7 +160,7 @@ func (helper *broadcasterHelper) requireBroadcastCount(expectedCount int) {
 
 	comparisonFunc := func() (int, error) {
 		var count struct{ Count int }
-		err := helper.db.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
+		err := helper.db.Get(&count, `SELECT count(*) FROM log_broadcasts`)
 		return count.Count, err
 	}
 
@@ -245,7 +244,7 @@ type simpleLogListener struct {
 	name                string
 	received            *received
 	t                   *testing.T
-	db                  *gorm.DB
+	db                  *sqlx.DB
 	jobID               int32
 	skipMarkingConsumed atomic.Bool
 }
@@ -342,11 +341,11 @@ func (listener *simpleLogListener) handleLogBroadcast(t *testing.T, lb log.Broad
 	return consumed
 }
 
-func (listener *simpleLogListener) WasAlreadyConsumed(db *gorm.DB, broadcast log.Broadcast) (bool, error) {
-	return log.NewORM(postgres.UnwrapGormDB(listener.db), cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) WasAlreadyConsumed(db *sqlx.DB, broadcast log.Broadcast) (bool, error) {
+	return log.NewORM(listener.db, cltest.FixtureChainID).WasBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().Index, listener.jobID)
 }
-func (listener *simpleLogListener) MarkConsumed(db *gorm.DB, broadcast log.Broadcast) error {
-	return log.NewORM(postgres.UnwrapGormDB(listener.db), cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
+func (listener *simpleLogListener) MarkConsumed(db *sqlx.DB, broadcast log.Broadcast) error {
+	return log.NewORM(listener.db, cltest.FixtureChainID).MarkBroadcastConsumed(broadcast.RawLog().BlockHash, broadcast.RawLog().BlockNumber, broadcast.RawLog().Index, listener.jobID)
 }
 
 type mockListener struct {

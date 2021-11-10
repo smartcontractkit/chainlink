@@ -14,7 +14,7 @@ import (
 func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
 	// Returns nil when inserting first head

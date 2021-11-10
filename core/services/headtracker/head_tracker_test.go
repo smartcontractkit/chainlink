@@ -10,6 +10,7 @@ import (
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -29,12 +30,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
-func firstHead(t *testing.T, db *gorm.DB) eth.Head {
-	h := eth.Head{}
-	if err := db.Order("number asc").First(&h).Error; err != nil {
+func firstHead(t *testing.T, db *sqlx.DB) (h eth.Head) {
+	if err := db.Get(&h, `SELECT * FROM heads ORDER BY number ASC LIMIT 1`); err != nil {
 		t.Fatal(err)
 	}
 	return h
@@ -48,7 +47,7 @@ func newCfg(t testing.TB) evmconfig.ChainScopedConfig {
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
@@ -64,13 +63,15 @@ func TestHeadTracker_New(t *testing.T) {
 	evmcfg := newCfg(t)
 	ht := createHeadTracker(t, ethClient, evmcfg, orm)
 	assert.Nil(t, ht.Start())
-	assert.Equal(t, last.Number, ht.headTracker.LatestChain().Number)
+	latest := ht.headTracker.LatestChain()
+	require.NotNil(t, latest)
+	assert.Equal(t, last.Number, latest.Number)
 }
 
 func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -114,7 +115,7 @@ func TestHeadTracker_Get(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			db := pgtest.NewGormDB(t)
+			db := pgtest.NewSqlxDB(t)
 			config := newCfg(t)
 			orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -154,7 +155,7 @@ func TestHeadTracker_Get(t *testing.T) {
 func TestHeadTracker_Start_NewHeads(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -180,7 +181,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	t.Parallel()
 	g := cltest.NewGomegaWithT(t)
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -200,7 +201,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config, orm, checker)
 
-	assert.Nil(t, ht.Start())
+	require.Nil(t, ht.Start())
 	assert.Equal(t, int32(0), checker.OnNewLongestChainCount())
 
 	headers := <-chchHeaders
@@ -215,7 +216,7 @@ func TestHeadTracker_ReconnectOnError(t *testing.T) {
 	t.Parallel()
 	g := cltest.NewGomegaWithT(t)
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -247,7 +248,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 	t.Parallel()
 	g := cltest.NewGomegaWithT(t)
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -287,7 +288,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	config := newCfg(t)
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 
@@ -336,7 +337,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
+	config, db, _ := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	config.Overrides.GlobalEvmHeadTrackerMaxBufferSize = null.IntFrom(42)
@@ -457,7 +458,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
-	config, _, db := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
+	config, db, _ := heavyweight.FullTestDB(t, "switches_longest_chain", true, true)
 
 	config.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
@@ -681,7 +682,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("does nothing if all the heads are in database", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {
@@ -699,7 +700,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("fetches a missing head", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {
@@ -736,7 +737,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("fetches only heads that are missing", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {
@@ -770,7 +771,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("does not backfill if chain length is already greater than or equal to depth", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {
@@ -792,7 +793,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("only backfills to height 0 if chain length would otherwise cause it to try and fetch a negative head", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
@@ -818,7 +819,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {
@@ -850,7 +851,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 	})
 
 	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
+		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		orm := headtracker.NewORM(db, cltest.FixtureChainID)
 		for _, h := range heads {

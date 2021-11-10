@@ -544,7 +544,7 @@ func createJob(t *testing.T, gdb *gorm.DB, externalJobID uuid.UUID) *job.Job {
 	lggr := logger.TestLogger(t)
 
 	pipelineORM := pipeline.NewORM(db, lggr)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
 	defer orm.Close()
 

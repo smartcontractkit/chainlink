@@ -311,6 +311,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
 		if ctx.Err() != nil {
+			ht.log.Debug("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
 			break
 		} else if err != nil {
 			return errors.Wrap(err, "fetchAndSaveHead failed")
@@ -322,17 +323,13 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
-	if ctx.Err() != nil {
-		return eth.Head{}, nil
-	} else if err != nil {
+	if err != nil {
 		return eth.Head{}, err
 	} else if head == nil {
 		return eth.Head{}, errors.New("got nil head")
 	}
 	err = ht.headSaver.Save(ctx, *head)
-	if ctx.Err() != nil {
-		return eth.Head{}, nil
-	} else if err != nil {
+	if err != nil {
 		return eth.Head{}, err
 	}
 	return *head, nil
