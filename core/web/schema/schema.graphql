@@ -18,6 +18,7 @@ type Query {
     jobs(offset: Int, limit: Int): JobsPayload!
     node(id: ID!): NodePayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    p2pKeys: P2PKeysPayload!
 }
 
 type Mutation {
@@ -26,9 +27,11 @@ type Mutation {
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createP2PKey: CreateP2PKeyPayload!
     deleteBridge(name: String!): DeleteBridgePayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }
