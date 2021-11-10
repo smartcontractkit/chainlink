@@ -34,20 +34,20 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	t.Run("saves an empty keyRing", func(t *testing.T) {
 		defer reset()
 		require.NoError(t, keyStore.Unlock(cltest.Password))
-		cltest.AssertCountSqlx(t, db, tableName, 1)
+		cltest.AssertCount(t, db, tableName, 1)
 		require.NoError(t, keyStore.ExportedSave())
-		cltest.AssertCountSqlx(t, db, tableName, 1)
+		cltest.AssertCount(t, db, tableName, 1)
 	})
 
 	t.Run("won't load a saved keyRing if the password is incorrect", func(t *testing.T) {
 		defer reset()
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 		cltest.MustAddRandomKeyToKeystore(t, keyStore.Eth()) // need at least 1 key to encrypt
-		cltest.AssertCountSqlx(t, db, tableName, 1)
+		cltest.AssertCount(t, db, tableName, 1)
 		keyStore.ResetXXXTestOnly()
-		cltest.AssertCountSqlx(t, db, tableName, 1)
+		cltest.AssertCount(t, db, tableName, 1)
 		require.Error(t, keyStore.Unlock("password2"))
-		cltest.AssertCountSqlx(t, db, tableName, 1)
+		cltest.AssertCount(t, db, tableName, 1)
 	})
 
 	t.Run("loads a saved keyRing if the password is correct", func(t *testing.T) {

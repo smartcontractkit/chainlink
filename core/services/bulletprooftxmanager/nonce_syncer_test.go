@@ -39,8 +39,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, "eth_txes", 0)
+		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
 
 		assertDatabaseNonce(t, gdb, from, 0)
 
@@ -64,8 +64,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, "eth_txes", 0)
+		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
 
 		assertDatabaseNonce(t, gdb, from, 0)
 
@@ -90,8 +90,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore)
 		require.NoError(t, ns.SyncAll(context.Background(), sendingKeys))
 
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 0)
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTxAttempt{}, 0)
+		cltest.AssertCount(t, db, "eth_txes", 0)
+		cltest.AssertCount(t, db, "eth_tx_attempts", 0)
 
 		assertDatabaseNonce(t, gdb, k1.Address.Address(), 32)
 

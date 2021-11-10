@@ -1610,15 +1610,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
-	t.Helper()
-	var count int64
-	err := db.Unscoped().Model(model).Count(&count).Error
-	require.NoError(t, err)
-	require.Equal(t, expected, count)
-}
-
-func AssertCountSqlx(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
+func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	t.Helper()
 	var count int64
 	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))

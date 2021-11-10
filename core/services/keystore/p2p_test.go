@@ -133,7 +133,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 			Addr:   cltest.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),
 		}
-		p2pTableName := offchainreporting.P2PPeer{}.TableName()
+		const p2pTableName = "p2p_peers"
 		sql := fmt.Sprintf(`INSERT INTO %s (id, addr, peer_id, created_at, updated_at) 
 		VALUES (:id, :addr, :peer_id, now(), now()) 
 		RETURNING *;`, p2pTableName)
@@ -141,9 +141,9 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
 		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
-		cltest.AssertCountSqlx(t, db, p2pTableName, 2)
+		cltest.AssertCount(t, db, p2pTableName, 2)
 		ks.Delete(key.PeerID())
-		cltest.AssertCountSqlx(t, db, p2pTableName, 1)
+		cltest.AssertCount(t, db, p2pTableName, 1)
 	})
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {

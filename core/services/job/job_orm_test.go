@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -146,7 +145,7 @@ func TestORM(t *testing.T) {
 		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, gdb, job.ExternalInitiatorWebhookSpec{}, 2)
+		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 2)
 	})
 }
 
@@ -177,30 +176,30 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
 
-		cltest.AssertCount(t, gdb, job.OffchainReportingOracleSpec{}, 1)
-		cltest.AssertCount(t, gdb, pipeline.Spec{}, 1)
+		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 1)
+		cltest.AssertCount(t, db, "pipeline_specs", 1)
 
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, gdb, job.OffchainReportingOracleSpec{}, 0)
-		cltest.AssertCount(t, gdb, pipeline.Spec{}, 0)
-		cltest.AssertCount(t, gdb, job.Job{}, 0)
+		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 0)
+		cltest.AssertCount(t, db, "pipeline_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
 		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
 		cltest.MustInsertUpkeepForRegistry(t, gdb, config, registry)
 
-		cltest.AssertCount(t, gdb, job.KeeperSpec{}, 1)
-		cltest.AssertCount(t, gdb, keeper.Registry{}, 1)
-		cltest.AssertCount(t, gdb, keeper.UpkeepRegistration{}, 1)
+		cltest.AssertCount(t, db, "keeper_specs", 1)
+		cltest.AssertCount(t, db, "keeper_registries", 1)
+		cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
 		err := orm.DeleteJob(keeperJob.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, gdb, job.KeeperSpec{}, 0)
-		cltest.AssertCount(t, gdb, keeper.Registry{}, 0)
-		cltest.AssertCount(t, gdb, keeper.UpkeepRegistration{}, 0)
-		cltest.AssertCount(t, gdb, job.Job{}, 0)
+		cltest.AssertCount(t, db, "keeper_specs", 0)
+		cltest.AssertCount(t, db, "keeper_registries", 0)
+		cltest.AssertCount(t, db, "upkeep_registrations", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
@@ -214,8 +213,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, gdb, job.VRFSpec{}, 0)
-		cltest.AssertCount(t, gdb, job.Job{}, 0)
+		cltest.AssertCount(t, db, "vrf_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
@@ -226,9 +225,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		cltest.AssertCount(t, gdb, job.WebhookSpec{}, 0)
-		cltest.AssertCount(t, gdb, job.ExternalInitiatorWebhookSpec{}, 0)
-		cltest.AssertCount(t, gdb, job.Job{}, 0)
+		cltest.AssertCount(t, db, "webhook_specs", 0)
+		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
+		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {

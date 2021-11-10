@@ -125,7 +125,7 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	cltest.AssertCount(t, app.GetDB(), job.DirectRequestSpec{}, int64(n))
+	cltest.AssertCount(t, app.GetSqlxDB(), "direct_request_specs", int64(n))
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {

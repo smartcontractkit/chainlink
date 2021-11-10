@@ -62,7 +62,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
 
 	t.Run("doesn't touch ethtxes with different chain ID", func(t *testing.T) {
@@ -76,7 +76,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx has chain ID of 0
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 	})
 
 	t.Run("deletes confirmed eth_txes that exceed the age threshold with at least ETH_FINALITY_DEPTH blocks above their receipt", func(t *testing.T) {
@@ -90,19 +90,19 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		require.NoError(t, gdb.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo).Error)
 
 		err = r.ReapEthTxes(12)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx although old enough, was still within ETH_FINALITY_DEPTH of the current head
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		err = r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Now it deleted because the eth_tx was past ETH_FINALITY_DEPTH
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 
 	cltest.MustInsertFatalErrorEthTx(t, gdb, from)
@@ -118,13 +118,13 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		err := r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Didn't delete because eth_tx was not old enough
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_txes SET created_at=$1`, oneDayAgo)))
 
 		err = r.ReapEthTxes(42)
 		assert.NoError(t, err)
 		// Deleted because it is old enough now
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 0)
+		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 }

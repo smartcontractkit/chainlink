@@ -218,7 +218,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, assets.NewEthValue(0), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, gdb, bulletprooftxmanager.EthTx{}, 1)
+		cltest.AssertCount(t, db, "eth_txes", 1)
 
 		require.NoError(t, gdb.First(&etx).Error)
 
