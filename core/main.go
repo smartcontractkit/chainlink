@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 
 	"github.com/pkg/errors"
@@ -24,6 +25,11 @@ func Run(client *cmd.Client, args ...string) {
 // NewProductionClient configures an instance of the CLI to be used
 // in production.
 func NewProductionClient() *cmd.Client {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Fatalf("Panic recovered:\n%v", r)
+		}
+	}()
 	cfg := config.NewGeneralConfig()
 	lggr := logger.NewLogger(cfg)
 
