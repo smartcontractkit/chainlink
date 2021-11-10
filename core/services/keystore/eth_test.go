@@ -33,7 +33,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
-	stateTableName := ethkey.State{}.TableName()
+	const statesTableName = "eth_key_states"
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
@@ -47,9 +47,9 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, key, foundKey)
 		// adds ethkey.State
-		cltest.AssertCountSqlx(t, db, stateTableName, 1)
+		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
-		sql := fmt.Sprintf(`SELECT * from %s LIMIT 1`, stateTableName)
+		sql := fmt.Sprintf(`SELECT * from %s LIMIT 1`, statesTableName)
 		require.NoError(t, db.Get(&state, sql))
 		require.Equal(t, state.Address, retrievedKeys[0].Address)
 		// adds key to db
@@ -76,7 +76,7 @@ func Test_EthKeyStore(t *testing.T) {
 		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(retrievedKeys))
-		cltest.AssertCountSqlx(t, db, stateTableName, 0)
+		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
 	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
@@ -90,7 +90,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 1, len(sendingKeys))
 		require.Equal(t, sKey.Address, sendingKeys[0].Address)
 		require.NoError(t, err)
-		cltest.AssertCountSqlx(t, db, stateTableName, 2)
+		cltest.AssertCount(t, db, statesTableName, 2)
 		require.NotEqual(t, sKey.Address, fKey.Address)
 		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)

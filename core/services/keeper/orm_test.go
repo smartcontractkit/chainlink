@@ -79,6 +79,7 @@ func TestKeeperDB_Registries(t *testing.T) {
 func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -92,7 +93,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 		PositioningConstant: 1,
 	}
 	require.NoError(t, db.Create(&upkeep).Error)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 1)
 
 	// update upkeep
 	upkeep.ExecuteGas = 20_000
@@ -102,7 +103,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 
 	err := orm.UpsertUpkeep(context.Background(), &upkeep)
 	require.NoError(t, err)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 1)
 
 	var upkeepFromDB keeper.UpkeepRegistration
 	err = db.First(&upkeepFromDB).Error
@@ -116,6 +117,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -124,11 +126,11 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 	}
 
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 3)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 3)
 
 	_, err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
 	require.NoError(t, err)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 1)
 
 	var remainingUpkeep keeper.UpkeepRegistration
 	err = db.First(&remainingUpkeep).Error
@@ -139,6 +141,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	blockheight := int64(63)
@@ -165,7 +168,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 5)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 5)
 
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
@@ -190,6 +193,7 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
 	db, _, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	blockheight := int64(120)
@@ -208,7 +212,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 3)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 3)
 
 	eligibleUpkeeps, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, blockheight, gracePeriod)
 	assert.NoError(t, err)
@@ -220,6 +224,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -227,8 +232,8 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	require.NoError(t, db.Save(&registry).Error)
 	cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
-	cltest.AssertCount(t, db, keeper.Registry{}, 1)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1)
+	cltest.AssertCount(t, dbx, "keeper_registries", 1)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 1)
 
 	// out of 5 valid block ranges, with 5 keepers, we are eligible
 	// to submit on exactly 1 of them
@@ -250,6 +255,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -261,8 +267,8 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 	}
 
-	cltest.AssertCount(t, db, keeper.Registry{}, 1)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 1000)
+	cltest.AssertCount(t, dbx, "keeper_registries", 1)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 1000)
 
 	// in a full cycle, each node should be responsible for each upkeep exactly once
 	list1, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry.ContractAddress, 20, 0) // someone eligible
@@ -283,6 +289,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
+	dbx := postgres.UnwrapGormDB(db)
 	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, db, ethKeyStore)
@@ -291,8 +298,8 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	cltest.MustInsertUpkeepForRegistry(t, db, config, registry1)
 	cltest.MustInsertUpkeepForRegistry(t, db, config, registry2)
 
-	cltest.AssertCount(t, db, keeper.Registry{}, 2)
-	cltest.AssertCount(t, db, &keeper.UpkeepRegistration{}, 2)
+	cltest.AssertCount(t, dbx, "keeper_registries", 2)
+	cltest.AssertCount(t, dbx, "upkeep_registrations", 2)
 
 	list1, err := orm.EligibleUpkeepsForRegistry(context.Background(), registry1.ContractAddress, 20, 0)
 	require.NoError(t, err)
