@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -765,8 +764,8 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	defer assertMocksCalled()
 	chchNewHeads := make(chan chan<- *eth.Head, 1)
 
-	db := pgtest.NewGormDB(t)
-	kst := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
+	db := pgtest.NewSqlxDB(t)
+	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{

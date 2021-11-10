@@ -337,14 +337,14 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
-	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+	db, gdb, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
 		Logger:           lggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	var ethClient eth.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
@@ -367,7 +367,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(gdb, utils.UnrestrictedClient)
 			}
 
 		}
@@ -376,16 +376,15 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ethClient = eth.NewNullClient(nil, lggr)
 	}
 	if chainORM == nil {
-		chainORM = evm.NewORM(sqlxDB)
+		chainORM = evm.NewORM(db)
 	}
 
-	keyStore := keystore.New(sqlxDB, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
-		GormDB:           db,
-		SQLxDB:           sqlxDB,
+		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(c evmtypes.Chain) eth.Client {
@@ -403,8 +402,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
-		GormDB:                   db,
-		SqlxDB:                   sqlxDB,
+		GormDB:                   gdb,
+		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		Logger:                   lggr,

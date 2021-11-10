@@ -62,7 +62,7 @@ func setup(t *testing.T) (
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: gdb, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
 	orm := keeper.NewORM(gdb, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})

@@ -81,11 +81,12 @@ func Test_ChainsController_Show(t *testing.T) {
 					MinIncomingConfirmations:              null.IntFrom(12),
 				}
 
-				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
+				chain := types.Chain{
 					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
-				})
+				}
+				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
 
 				return &chain
 			},
@@ -146,15 +147,6 @@ func Test_ChainsController_Index(t *testing.T) {
 
 	newChains := []web.CreateChainRequest{
 		{
-			ID: *utils.NewBigI(30),
-			Config: types.ChainCfg{
-				BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
-				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
-				EvmEIP1559DynamicFees:                 null.BoolFrom(false),
-				MinIncomingConfirmations:              null.IntFrom(30),
-			},
-		},
-		{
 			ID: *utils.NewBigI(24),
 			Config: types.ChainCfg{
 				BlockHistoryEstimatorBlockDelay:       null.IntFrom(13),
@@ -163,13 +155,23 @@ func Test_ChainsController_Index(t *testing.T) {
 				MinIncomingConfirmations:              null.IntFrom(120),
 			},
 		},
+		{
+			ID: *utils.NewBigI(30),
+			Config: types.ChainCfg{
+				BlockHistoryEstimatorBlockDelay:       null.IntFrom(5),
+				BlockHistoryEstimatorBlockHistorySize: null.IntFrom(2),
+				EvmEIP1559DynamicFees:                 null.BoolFrom(false),
+				MinIncomingConfirmations:              null.IntFrom(30),
+			},
+		},
 	}
 
 	for _, newChain := range newChains {
-		_ = evmtest.MustInsertChainWithNode(t, controller.app.GetDB(), types.Chain{
-			ID:      newChain.ID,
+		ch := newChain
+		evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &types.Chain{
+			ID:      ch.ID,
 			Enabled: true,
-			Cfg:     newChain.Config,
+			Cfg:     ch.Config,
 		})
 	}
 
@@ -185,8 +187,8 @@ func Test_ChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	// Apparently there are 2 chains by default...
-	require.Equal(t, 4, metaCount)
+	// fixtures.sql specifies two chains by default
+	require.Equal(t, 2+len(newChains), metaCount)
 
 	var links jsonapi.Links
 
@@ -253,11 +255,12 @@ func Test_ChainsController_Update(t *testing.T) {
 					MinIncomingConfirmations:              null.IntFrom(30),
 				}
 
-				chain := evmtest.MustInsertChainWithNode(t, app.GetDB(), types.Chain{
+				chain := types.Chain{
 					ID:      *validId,
 					Enabled: true,
 					Cfg:     newChainConfig,
-				})
+				}
+				evmtest.MustInsertChain(t, app.GetSqlxDB(), &chain)
 
 				return &chain
 			},
@@ -330,11 +333,12 @@ func Test_ChainsController_Delete(t *testing.T) {
 	}
 
 	chainId := *utils.NewBigI(50)
-	chain := evmtest.MustInsertChainWithNode(t, controller.app.GetDB(), types.Chain{
+	chain := types.Chain{
 		ID:      chainId,
 		Enabled: true,
 		Cfg:     newChainConfig,
-	})
+	}
+	evmtest.MustInsertChain(t, controller.app.GetSqlxDB(), &chain)
 
 	_, countBefore, err := controller.app.EVMORM().Chains(0, 10)
 	require.NoError(t, err)

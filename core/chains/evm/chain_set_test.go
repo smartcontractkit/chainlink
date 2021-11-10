@@ -65,7 +65,7 @@ func TestUpdateConfig(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	address := common.HexToAddress("0x1234567890")
 	price := big.NewInt(12345)
 	updater := evm.UpdateKeySpecificMaxGasPrice(address, price)

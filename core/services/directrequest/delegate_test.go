@@ -33,13 +33,13 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	runner := new(pipeline_mocks.Runner)
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, db, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, pgtest.GormDBFromSql(t, db.DB), cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -74,12 +74,12 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr)
 
 	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(postgres.UnwrapGormDB(gdb), cc, orm, keyStore, lggr)
+	jobORM := job.NewORM(db, cc, orm, keyStore, lggr)
 	delegate := directrequest.NewDelegate(lggr, runner, orm, gdb, cc)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)

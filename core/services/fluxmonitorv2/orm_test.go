@@ -90,7 +90,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// for the foreign key constraint of the stats record
 	pipelineORM := pipeline.NewORM(db, lggr)
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: gdb})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr)

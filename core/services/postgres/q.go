@@ -147,6 +147,13 @@ func (q Q) ExecQ(query string, args ...interface{}) error {
 	cancel()
 	return err
 }
+func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
+	query, args, err := q.BindNamed(query, arg)
+	if err != nil {
+		return errors.Wrap(err, "error binding arg")
+	}
+	return q.ExecQ(query, args...)
+}
 
 // Select and Get are safe to wrap the context cancellation because the rows
 // are entirely consumed within the call
