@@ -147,10 +147,10 @@ func Test_ORM_GetManagers(t *testing.T) {
 		OCRBootstrapPeerMultiaddr: ocrBootstrapPeerMultiaddr,
 	}
 
-	id, err := orm.CreateManager(context.Background(), mgr)
+	id, err := orm.CreateManager(context.TODO(), mgr)
 	require.NoError(t, err)
 
-	mgrs, err := orm.GetManagers(context.Background(), []int64{id})
+	mgrs, err := orm.GetManagers(context.TODO(), []int64{id})
 	require.NoError(t, err)
 	require.Equal(t, 1, len(mgrs))
 

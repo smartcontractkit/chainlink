@@ -27,7 +27,7 @@ func (b *feedsBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		keyOrder[key.String()] = ix
 	}
 
-	// Fetch the chains
+	// Fetch the feeds managers
 	managers, err := b.app.GetFeedsService().GetManagers(managersIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
@@ -46,7 +46,7 @@ func (b *feedsBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 		}
 	}
 
-	// fill array positions without any nodes
+	// fill array positions without any feeds managers
 	for _, ix := range keyOrder {
 		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("feeds manager not found")}
 	}

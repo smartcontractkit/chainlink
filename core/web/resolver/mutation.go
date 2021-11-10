@@ -466,46 +466,55 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*ApproveJobProposalPayloadResolver, error) {
-	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
 		args.ID, approve,
 	})
 
-	prv, ok := rsv.(*ApproveJobProposalPayloadResolver)
-	if prv != nil && !ok {
-		return nil, fmt.Errorf("expected resolver to be *ApproveJobProposalPayloadResolver, got %T", prv)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewApproveJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
 	}
 
-	return prv, err
+	return NewApproveJobProposalPayload(jp, nil), nil
 }
 
 func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*CancelJobProposalPayloadResolver, error) {
-	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
 		args.ID, cancel,
 	})
 
-	prv, ok := rsv.(*CancelJobProposalPayloadResolver)
-	if prv != nil && !ok {
-		return nil, fmt.Errorf("expected resolver to be *CancelJobProposalPayloadResolver, got %T", prv)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCancelJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
 	}
 
-	return prv, err
+	return NewCancelJobProposalPayload(jp, nil), nil
 }
 
 func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RejectJobProposalPayloadResolver, error) {
-	rsv, err := r.executeJobProposalAction(ctx, jobProposalAction{
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
 		args.ID, reject,
 	})
 
-	prv, ok := rsv.(*RejectJobProposalPayloadResolver)
-	if prv != nil && !ok {
-		return nil, fmt.Errorf("expected resolver to be *RejectJobProposalPayloadResolver, got %T", prv)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewRejectJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
 	}
 
-	return prv, err
+	return NewRejectJobProposalPayload(jp, nil), nil
 }
 
 type jobProposalAction struct {
@@ -513,7 +522,7 @@ type jobProposalAction struct {
 	Name JobProposalAction
 }
 
-func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (JobProposalPayload, error) {
+func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -537,21 +546,13 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 	}
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ToJobProposalPayload(action.Name, nil, err)
-		}
-
 		return nil, err
 	}
 
 	jp, err := r.App.GetFeedsService().GetJobProposal(id)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ToJobProposalPayload(action.Name, nil, err)
-		}
-
 		return nil, err
 	}
 
-	return ToJobProposalPayload(action.Name, jp, nil)
+	return jp, nil
 }

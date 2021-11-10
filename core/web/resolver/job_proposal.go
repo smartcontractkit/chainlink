@@ -2,7 +2,6 @@ package resolver
 
 import (
 	"context"
-	"database/sql"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
@@ -67,17 +66,17 @@ func (r *JobProposalResolver) Status() JobProposalStatus {
 }
 
 // ExternalJobID resolves to the job proposal ExternalJobID
-func (r *JobProposalResolver) ExternalJobID() string {
+func (r *JobProposalResolver) ExternalJobID() *string {
 	if r.jp.ExternalJobID.Valid {
-		return r.jp.ExternalJobID.UUID.String()
+		id := r.jp.ExternalJobID.UUID.String()
+		return &id
 	}
 
-	return "no valid"
+	return nil
 }
 
 // FeedsManager resolves the job proposal's feeds manager object field.
 func (r *JobProposalResolver) FeedsManager(ctx context.Context) (*FeedsManagerResolver, error) {
-
 	mgr, err := loader.GetFeedsManagerByID(ctx, strconv.FormatInt(r.jp.FeedsManagerID, 10))
 	if err != nil {
 		return nil, err
@@ -100,13 +99,15 @@ func (r *JobProposalResolver) ProposedAt() graphql.Time {
 
 // JobProposalPayloadResolver resolves the job proposal payload type
 type JobProposalPayloadResolver struct {
-	jp  *feeds.JobProposal
-	err error
+	jp *feeds.JobProposal
+	NotFoundErrorUnionType
 }
 
 // NewJobProposalPayload creates a new job proposal payload
 func NewJobProposalPayload(jp *feeds.JobProposal, err error) *JobProposalPayloadResolver {
-	return &JobProposalPayloadResolver{jp, err}
+	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
+
+	return &JobProposalPayloadResolver{jp, e}
 }
 
 // ToJobProposal resolves to the job proposal resolver
@@ -118,20 +119,7 @@ func (r *JobProposalPayloadResolver) ToJobProposal() (*JobProposalResolver, bool
 	return nil, false
 }
 
-// ToNotFoundError resolves to the not found error resolver
-func (r *JobProposalPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("job proposal not found"), true
-	}
-
-	return nil, false
-}
-
-// -- Mutations shared interface --
-
-type JobProposalPayload interface {
-	ToNotFoundError() (*NotFoundErrorResolver, bool)
-}
+// -- Mutations shared types --
 
 type JobProposalAction string
 
@@ -141,28 +129,15 @@ const (
 	reject  JobProposalAction = "reject"
 )
 
-func ToJobProposalPayload(a JobProposalAction, jp *feeds.JobProposal, err error) (JobProposalPayload, error) {
-	switch a {
-	case approve:
-		return NewApproveJobProposalPayload(jp, err), nil
-	case cancel:
-		return NewCancelJobProposalPayload(jp, err), nil
-	case reject:
-		return NewRejectJobProposalPayload(jp, err), nil
-	default:
-		return nil, errors.New("invalid job proposal action")
-	}
-}
-
 // -- ApproveJobProposal Mutation --
 
 type ApproveJobProposalPayloadResolver struct {
 	jp *feeds.JobProposal
-	ResolvesNotFoundError
+	NotFoundErrorUnionType
 }
 
 func NewApproveJobProposalPayload(jp *feeds.JobProposal, err error) *ApproveJobProposalPayloadResolver {
-	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
 
 	return &ApproveJobProposalPayloadResolver{jp, e}
 }
@@ -192,11 +167,11 @@ func (r *ApproveJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
 
 type CancelJobProposalPayloadResolver struct {
 	jp *feeds.JobProposal
-	ResolvesNotFoundError
+	NotFoundErrorUnionType
 }
 
 func NewCancelJobProposalPayload(jp *feeds.JobProposal, err error) *CancelJobProposalPayloadResolver {
-	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
 
 	return &CancelJobProposalPayloadResolver{jp, e}
 }
@@ -226,11 +201,11 @@ func (r *CancelJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
 
 type RejectJobProposalPayloadResolver struct {
 	jp *feeds.JobProposal
-	ResolvesNotFoundError
+	NotFoundErrorUnionType
 }
 
 func NewRejectJobProposalPayload(jp *feeds.JobProposal, err error) *RejectJobProposalPayloadResolver {
-	e := ResolvesNotFoundError{err: err, message: notFoundErrorMessage}
+	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
 
 	return &RejectJobProposalPayloadResolver{jp, e}
 }
