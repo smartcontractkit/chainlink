@@ -43,7 +43,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @param to new L1 owner that will be allowed to call the forward fn
    * @inheritdoc CrossDomainOwnable
    */
-  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
+  function transferL1Ownership(address to) external override onlyCrossDomainOwner {
     super._transferL1Ownership(to);
   }
 
@@ -51,24 +51,31 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice accept ownership of this account to a new L1 owner
    * @inheritdoc CrossDomainOwnable
    */
-  function acceptL1Ownership() external virtual override {
-    require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed owner");
+  function acceptL1Ownership() external virtual override onlyProposedL1Owner {
     super._setL1Owner(s_l1PendingOwner);
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
+   * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external virtual override onlyCrossDomainMessenger {
+  function forward(address target, bytes memory data) external virtual override onlyCrossDomainOwner {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
 
   /**
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
    */
-  modifier onlyCrossDomainMessenger() {
+  modifier onlyCrossDomainOwner() {
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
+    _;
+  }
+
+  /**
+   * @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
+   */
+  modifier onlyProposedL1Owner() {
+    require(msg.sender == AddressAliasHelper.applyL1ToL2Alias(s_l1PendingOwner), "Must be proposed L1 owner");
     _;
   }
 }

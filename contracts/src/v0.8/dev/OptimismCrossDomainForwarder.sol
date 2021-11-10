@@ -41,10 +41,10 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` beeing the L1 owner address
+   * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address
    * @inheritdoc ForwarderInterface
    */
-  function forward(address target, bytes memory data) external virtual override onlyCrossDomainMessenger {
+  function forward(address target, bytes memory data) external virtual override onlyCrossDomainOwner {
     Address.functionCall(target, data, "Forwarder call reverted");
   }
 
@@ -60,7 +60,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @param to new L1 owner that will be allowed to call the forward fn
    * @inheritdoc CrossDomainOwnable
    */
-  function transferL1Ownership(address to) external override onlyCrossDomainMessenger {
+  function transferL1Ownership(address to) external override onlyCrossDomainOwner {
     super._transferL1Ownership(to);
   }
 
@@ -68,22 +68,29 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice accept ownership of this account to a new L1 owner
    * @inheritdoc CrossDomainOwnable
    */
-  function acceptL1Ownership() external virtual override {
-    require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner,
-      "Must be proposed owner"
-    );
+  function acceptL1Ownership() external virtual override onlyProposedL1Owner {
     super._setL1Owner(s_l1PendingOwner);
   }
 
   /**
    * @notice The call MUST come from the L1 owner (via cross-chain message.) Reverts otherwise.
    */
-  modifier onlyCrossDomainMessenger() {
+  modifier onlyCrossDomainOwner() {
     require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     require(
       iOVM_CrossDomainMessenger(crossDomainMessenger()).xDomainMessageSender() == l1Owner(),
       "xDomain sender is not the L1 owner"
+    );
+    _;
+  }
+
+  /**
+   * @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
+   */
+  modifier onlyProposedL1Owner() {
+    require(
+      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner,
+      "Must be proposed L1 owner"
     );
     _;
   }
