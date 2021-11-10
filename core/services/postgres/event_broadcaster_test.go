@@ -35,7 +35,7 @@ func TestEventBroadcaster(t *testing.T) {
 		}()
 
 		ch := sub.Events()
-		cltest.NewGomegaWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
+		gomega.NewWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
 	})
 
 	t.Run("doesn't broadcast unrelated events (with payload filter)", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestEventBroadcaster(t *testing.T) {
 		}()
 
 		ch := sub.Events()
-		cltest.NewGomegaWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
+		gomega.NewWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
 	})
 
 	t.Run("does broadcast related events (no payload filter)", func(t *testing.T) {
@@ -73,9 +73,9 @@ func TestEventBroadcaster(t *testing.T) {
 		}()
 
 		ch := sub.Events()
-		cltest.NewGomegaWithT(t).Eventually(ch).Should(gomega.Receive())
-		cltest.NewGomegaWithT(t).Eventually(ch).Should(gomega.Receive())
-		cltest.NewGomegaWithT(t).Eventually(ch).Should(gomega.Receive())
+		gomega.NewWithT(t).Eventually(ch).Should(gomega.Receive())
+		gomega.NewWithT(t).Eventually(ch).Should(gomega.Receive())
+		gomega.NewWithT(t).Eventually(ch).Should(gomega.Receive())
 	})
 
 	t.Run("does broadcast related events (with payload filter)", func(t *testing.T) {
@@ -95,9 +95,9 @@ func TestEventBroadcaster(t *testing.T) {
 		}()
 
 		ch := sub.Events()
-		cltest.NewGomegaWithT(t).Eventually(ch).Should(gomega.Receive())
-		cltest.NewGomegaWithT(t).Eventually(ch).Should(gomega.Receive())
-		cltest.NewGomegaWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
+		gomega.NewWithT(t).Eventually(ch).Should(gomega.Receive())
+		gomega.NewWithT(t).Eventually(ch).Should(gomega.Receive())
+		gomega.NewWithT(t).Consistently(ch).ShouldNot(gomega.Receive())
 	})
 
 	t.Run("broadcasts to the correct subscribers", func(t *testing.T) {
@@ -169,7 +169,7 @@ func TestEventBroadcaster(t *testing.T) {
 			require.Equal(t, "foo", e.Channel)
 			require.Equal(t, "true", e.Payload)
 
-			cltest.NewGomegaWithT(t).Consistently(sub1.Events()).ShouldNot(gomega.Receive())
+			gomega.NewWithT(t).Consistently(sub1.Events()).ShouldNot(gomega.Receive())
 		}()
 
 		go func() {
@@ -182,7 +182,7 @@ func TestEventBroadcaster(t *testing.T) {
 			require.Equal(t, "foo", e.Channel)
 			require.Equal(t, "123", e.Payload)
 
-			cltest.NewGomegaWithT(t).Consistently(sub2.Events()).ShouldNot(gomega.Receive())
+			gomega.NewWithT(t).Consistently(sub2.Events()).ShouldNot(gomega.Receive())
 		}()
 
 		go func() {
@@ -203,7 +203,7 @@ func TestEventBroadcaster(t *testing.T) {
 			require.Equal(t, "bar", e.Channel)
 			require.Equal(t, "true", e.Payload)
 
-			cltest.NewGomegaWithT(t).Consistently(sub3.Events()).ShouldNot(gomega.Receive())
+			gomega.NewWithT(t).Consistently(sub3.Events()).ShouldNot(gomega.Receive())
 		}()
 
 		go func() {
@@ -212,7 +212,7 @@ func TestEventBroadcaster(t *testing.T) {
 			require.Equal(t, "bar", e.Channel)
 			require.Equal(t, "asdf", e.Payload)
 
-			cltest.NewGomegaWithT(t).Consistently(sub4.Events()).ShouldNot(gomega.Receive())
+			gomega.NewWithT(t).Consistently(sub4.Events()).ShouldNot(gomega.Receive())
 		}()
 
 		wg.Wait()

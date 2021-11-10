@@ -50,7 +50,7 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 func waitLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
 	t.Helper()
 
-	cltest.NewGomegaWithT(t).Eventually(func() int64 {
+	gomega.NewWithT(t).Eventually(func() int64 {
 		err := db.Find(&upkeep).Error
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
