@@ -39,8 +39,23 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, gdb.Create(&attempt).Error)
+	//require.NoError(t, gdb.Create(&attempt).Error)
 
+	const insertIntoEthTxAttemptsQuery = `
+INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+RETURNING *;
+`
+	query, args, err := db.BindNamed(insertIntoEthTxAttemptsQuery, &attempt)
+	require.NoError(t, err)
+	err = db.Get(&attempt, query, args...)
+	require.NoError(t, err)
+
+	// test code to see if all went well with the insert
+	txList := []bulletprooftxmanager.EthTxAttempt{}
+	err = db.Select(&txList, `SELECT * FROM eth_tx_attempts`)
+
+	require.NoError(t, err)
 	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
