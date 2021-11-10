@@ -15,13 +15,13 @@ const (
 	ErrorCodeStatusConflict ErrorCode = "STATUS_CONFLICT"
 )
 
-type ResolvesNotFoundError struct {
+type NotFoundErrorUnionType struct {
 	err     error
 	message string
 }
 
 // ToNotFoundError resolves to the not found error resolver
-func (e *ResolvesNotFoundError) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool) {
 	if e.err != nil && errors.Is(e.err, sql.ErrNoRows) {
 		return NewNotFoundError(e.message), true
 	}

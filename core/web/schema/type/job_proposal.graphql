@@ -9,7 +9,7 @@ type JobProposal {
     id: ID!
     spec: String!
     status: JobProposalStatus!
-    externalJobID: String!
+    externalJobID: String
     feedsManager: FeedsManager!
     multiAddrs: [String!]!
     proposedAt: Time!
