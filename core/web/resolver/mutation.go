@@ -37,7 +37,7 @@ type createBridgeInput struct {
 	MinimumContractPayment string
 }
 
-// Bridge retrieves a bridges by name.
+// CreateBridge creates a new bridge.
 func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBridgeInput }) (*CreateBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*ApproveJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, approve,
+		args.ID, approve, nil,
 	})
 
 	if err != nil {
@@ -485,7 +485,7 @@ func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*CancelJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, cancel,
+		args.ID, cancel, nil,
 	})
 
 	if err != nil {
@@ -503,7 +503,7 @@ func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RejectJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, reject,
+		args.ID, reject, nil,
 	})
 
 	if err != nil {
@@ -517,9 +517,29 @@ func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
 	return NewRejectJobProposalPayload(jp, nil), nil
 }
 
+func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input *struct{ Spec string }
+}) (*UpdateJobProposalSpecPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, updateSpec, args.Input,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateJobProposalSpecPayload(jp, nil), nil
+}
+
 type jobProposalAction struct {
-	jpID graphql.ID
-	Name JobProposalAction
+	jpID   graphql.ID
+	name   JobProposalAction
+	update *struct{ Spec string }
 }
 
 func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
@@ -534,13 +554,19 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 
 	feedsSvc := r.App.GetFeedsService()
 
-	switch action.Name {
+	switch action.name {
 	case approve:
 		err = feedsSvc.ApproveJobProposal(ctx, id)
 	case cancel:
 		err = feedsSvc.CancelJobProposal(ctx, id)
 	case reject:
 		err = feedsSvc.RejectJobProposal(ctx, id)
+	case updateSpec:
+		if action.update == nil {
+			return nil, errors.New("spec to update was expected")
+		}
+
+		err = feedsSvc.UpdateJobProposalSpec(ctx, id, action.update.Spec)
 	default:
 		return nil, errors.New("invalid job proposal action")
 	}

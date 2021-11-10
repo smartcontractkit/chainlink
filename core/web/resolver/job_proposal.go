@@ -124,9 +124,10 @@ func (r *JobProposalPayloadResolver) ToJobProposal() (*JobProposalResolver, bool
 type JobProposalAction string
 
 const (
-	approve JobProposalAction = "approve"
-	cancel  JobProposalAction = "cancel"
-	reject  JobProposalAction = "reject"
+	approve    JobProposalAction = "approve"
+	cancel     JobProposalAction = "cancel"
+	reject     JobProposalAction = "reject"
+	updateSpec JobProposalAction = "updateSpec"
 )
 
 // -- ApproveJobProposal Mutation --
@@ -228,5 +229,39 @@ func NewRejectJobProposalSuccess(jp *feeds.JobProposal) *RejectJobProposalSucces
 }
 
 func (r *RejectJobProposalSuccessResolver) JobProposal() *JobProposalResolver {
+	return NewJobProposal(r.jp)
+}
+
+// -- UpdateJobProposalSpec Mutation --
+
+type UpdateJobProposalSpecPayloadResolver struct {
+	jp *feeds.JobProposal
+	NotFoundErrorUnionType
+}
+
+func NewUpdateJobProposalSpecPayload(jp *feeds.JobProposal, err error) *UpdateJobProposalSpecPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: notFoundErrorMessage}
+
+	return &UpdateJobProposalSpecPayloadResolver{jp, e}
+}
+
+// ToUpdateJobProposalSpecSuccess resolves to the approval job proposal success resolver
+func (r *UpdateJobProposalSpecPayloadResolver) ToUpdateJobProposalSpecSuccess() (*UpdateJobProposalSpecSuccessResolver, bool) {
+	if r.jp != nil {
+		return NewUpdateJobProposalSpecSuccess(r.jp), true
+	}
+
+	return nil, false
+}
+
+type UpdateJobProposalSpecSuccessResolver struct {
+	jp *feeds.JobProposal
+}
+
+func NewUpdateJobProposalSpecSuccess(jp *feeds.JobProposal) *UpdateJobProposalSpecSuccessResolver {
+	return &UpdateJobProposalSpecSuccessResolver{jp}
+}
+
+func (r *UpdateJobProposalSpecSuccessResolver) JobProposal() *JobProposalResolver {
 	return NewJobProposal(r.jp)
 }

@@ -293,7 +293,7 @@ func TestResolver_CancelJobProposal(t *testing.T) {
 			result:    fmt.Sprintf(result, ejID.UUID.String()),
 		},
 		{
-			name:          "not found error on approval",
+			name:          "not found error on cancel",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.feedsSvc.On("CancelJobProposal", mock.Anything, jpID).Return(sql.ErrNoRows)
@@ -409,7 +409,7 @@ func TestResolver_RejectJobProposal(t *testing.T) {
 			result:    fmt.Sprintf(result, ejID.UUID.String()),
 		},
 		{
-			name:          "not found error on approval",
+			name:          "not found error on reject",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.feedsSvc.On("RejectJobProposal", mock.Anything, jpID).Return(sql.ErrNoRows)
@@ -438,6 +438,125 @@ func TestResolver_RejectJobProposal(t *testing.T) {
 			result: `
 			{
 				"rejectJobProposal": {
+					"message": "job proposal not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_UpdateJobSpecProposal(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation UpdateJobProposalSpec($id: ID!, $input: UpdateJobProposalSpecInput!) {
+			updateJobProposalSpec(id: $id, input: $input) {
+				... on UpdateJobProposalSpecSuccess {
+					jobProposal {
+						id
+						spec
+						status
+						externalJobID
+						multiAddrs
+						feedsManager {
+							id
+							name
+						}
+					}
+				}
+				... on NotFoundError {
+					message
+					code
+				}
+			}
+		}`
+
+	jpID := int64(1)
+	ejID := uuid.NullUUID{UUID: uuid.NewV4(), Valid: true}
+	result := `
+		{
+			"updateJobProposalSpec": {
+				"jobProposal": {
+					"id": "1",
+					"spec": "some-spec",
+					"status": "APPROVED",
+					"externalJobID": "%s",
+					"multiAddrs": ["1", "2"],
+					"feedsManager": {
+						"id": "1",
+						"name": "manager"
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"id": "1",
+		"input": map[string]interface{}{
+			"spec": "",
+		},
+	}
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "updateJobProposalSpec"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.feedsSvc.On("GetManagers", []int64{1}).Return([]feeds.FeedsManager{
+					{
+						ID:   1,
+						Name: "manager",
+					},
+				}, nil)
+				f.Mocks.feedsSvc.On("UpdateJobProposalSpec", mock.Anything, jpID, "").Return(nil)
+				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(&feeds.JobProposal{
+					ID:             jpID,
+					Spec:           "some-spec",
+					Status:         feeds.JobProposalStatusApproved,
+					ExternalJobID:  ejID,
+					FeedsManagerID: 1,
+					Multiaddrs:     []string{"1", "2"},
+					ProposedAt:     time.Time{},
+				}, nil)
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    fmt.Sprintf(result, ejID.UUID.String()),
+		},
+		{
+			name:          "not found error on update",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.feedsSvc.On("UpdateJobProposalSpec", mock.Anything, jpID, "").Return(sql.ErrNoRows)
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"updateJobProposalSpec": {
+					"message": "job proposal not found",
+					"code": "NOT_FOUND"
+				}
+			}`,
+		},
+		{
+			name:          "not found error on fetch",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.feedsSvc.On("UpdateJobProposalSpec", mock.Anything, jpID, "").Return(nil)
+				f.Mocks.feedsSvc.On("GetJobProposal", jpID).Return(nil, sql.ErrNoRows)
+				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+			{
+				"updateJobProposalSpec": {
 					"message": "job proposal not found",
 					"code": "NOT_FOUND"
 				}
