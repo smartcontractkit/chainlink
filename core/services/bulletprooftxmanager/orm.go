@@ -31,7 +31,7 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 		return nil
 	}
 	var attempts []EthTxAttempt
-	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY created_at desc;`
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
 	query, args, err := sqlx.In(sql, ids)
 	if err != nil {
 		return err
