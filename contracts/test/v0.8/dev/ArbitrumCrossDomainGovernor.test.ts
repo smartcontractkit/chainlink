@@ -271,7 +271,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
     it('should not be callable by non pending-owners', async () => {
       await expect(
         governor.connect(crossdomainMessenger).acceptL1Ownership(),
-      ).to.be.revertedWith('Must be proposed owner')
+      ).to.be.revertedWith('Must be proposed L1 owner')
     })
 
     it('should be callable by pending L1 owner', async () => {

@@ -10,7 +10,7 @@ import "./OptimismCrossDomainForwarder.sol";
  * @title OptimismCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Optimism
  * @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
- *   can be considered to be owned by the `l1Owner`
+ *   can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
  */
 contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCrossDomainForwarder {
   /**
@@ -34,7 +34,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
+   * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
    * @inheritdoc ForwarderInterface
    */
   function forward(address target, bytes memory data) external override onlyCrossDomainOwners {
@@ -42,7 +42,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
   }
 
   /**
-   * @dev forwarded only if L2 Messenger calls with `xDomainMessageSender` being the L1 owner address
+   * @dev forwarded only if L2 Messenger calls with `msg.sender` being the L1 owner address, or called by the L2 owner
    * @inheritdoc DelegateForwarderInterface
    */
   function forwardDelegate(address target, bytes memory data) external override onlyCrossDomainOwners {
