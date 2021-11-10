@@ -121,15 +121,15 @@ telemetry-protobuf: $(telemetry-protobuf)
 
 .PHONY: test_smoke
 test_smoke:
-	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/smoke 
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -tags smoke $(args) ./integration-tests/smoke 
 
 .PHONY: test_performance
 test_performance:
-	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/performance 
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -tags performance $(args) ./integration-tests/performance 
 
 .PHONY: test_chaos
 test_chaos:
-	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress $(args) ./integration-tests/chaos 
+	ginkgo -r -keepGoing --trace --randomizeAllSpecs --randomizeSuites --progress -tags chaos $(args) ./integration-tests/chaos 
 
 help:
 	@echo ""

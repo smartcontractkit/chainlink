@@ -1,4 +1,4 @@
-//go:build integration
+//go:build smoke
 
 package integration_test
 
