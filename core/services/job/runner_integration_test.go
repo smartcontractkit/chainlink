@@ -90,7 +90,7 @@ func TestRunner(t *testing.T) {
 		_, bridgeVT := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: mockVoterTurnout.URL})
 
 		// Need a job in order to create a run
-		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
+		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 		require.NotNil(t, jb.PipelineSpec)
@@ -141,7 +141,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-		jb := makeOCRJobSpecFromToml(t, gdb, fmt.Sprintf(`
+		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
@@ -164,7 +164,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-		jb := makeOCRJobSpecFromToml(t, gdb, fmt.Sprintf(`
+		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
@@ -188,7 +188,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, false)
+		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
@@ -234,7 +234,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, false)
+		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
@@ -279,7 +279,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, true)
+		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, true)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
@@ -505,7 +505,7 @@ ds1 -> ds1_parse;
 		kb, err := keyStore.OCR().Create()
 		require.NoError(t, err)
 		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), kb.ID(), transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
-		jb := makeOCRJobSpecFromToml(t, gdb, spec)
+		jb := makeOCRJobSpecFromToml(t, spec)
 
 		// Create an OCR job
 		err = jobORM.CreateJob(jb)
@@ -578,7 +578,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jb := makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jb := makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 
@@ -587,7 +587,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(jb)
 		require.NoError(t, err)
@@ -597,7 +597,7 @@ ds1 -> ds1_parse;
 		assert.Nil(t, results.FatalErrors[0])
 
 		// Job specified task timeout should fail.
-		jb = makeMinimalHTTPOracleSpec(t, gdb, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb.MaxTaskDuration = models.Interval(time.Duration(1))
 		jb.Name = null.NewString("a job 3", true)
 		err = jobORM.CreateJob(jb)
@@ -617,7 +617,7 @@ ds1 -> ds1_parse;
 		}
 
 		// Need a job in order to create a run
-		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, gdb, transmitterAddress, httpURL, false)
+		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(jb)
 		require.NoError(t, err)
 

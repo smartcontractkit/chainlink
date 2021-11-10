@@ -128,7 +128,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore)
 
-		dbSpec := makeVoterTurnoutOCRJobSpec(t, gdb, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(dbSpec)
