@@ -21,7 +21,7 @@ import (
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	var d time.Duration = 0

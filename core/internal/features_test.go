@@ -540,7 +540,7 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := cltest.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
@@ -855,7 +855,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)
 
-	cltest.NewGomegaWithT(t).Eventually(func() string {
+	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()
