@@ -136,12 +136,8 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go gracefulpanic.WrapRecover(func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
-		})
-		go gracefulpanic.WrapRecover(func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		go lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
 }
@@ -207,11 +203,13 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.newHead:
-			toProcess := lsn.extractConfirmedLogs()
-			for _, r := range toProcess {
-				lsn.ProcessRequest(r.req, r.lb)
-			}
-			lsn.pruneConfirmedRequestCounts()
+			gracefulpanic.WrapRecover(func() {
+				toProcess := lsn.extractConfirmedLogs()
+				for _, r := range toProcess {
+					lsn.ProcessRequest(r.req, r.lb)
+				}
+				lsn.pruneConfirmedRequestCounts()
+			})
 		}
 	}
 }
