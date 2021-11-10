@@ -47,7 +47,6 @@ type listenerV1 struct {
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
-	vorm            keystore.VRFORM
 	job             job.Job
 	db              *gorm.DB
 	headBroadcaster httypes.HeadBroadcasterRegistry

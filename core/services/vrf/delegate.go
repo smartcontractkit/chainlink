@@ -98,7 +98,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 
-	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
@@ -111,7 +110,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				coordinator:        coordinatorV2,
 				txm:                chain.TxManager(),
 				pipelineRunner:     d.pr,
-				vorm:               vorm,
 				vrfks:              d.ks.VRF(),
 				gethks:             d.ks.Eth(),
 				pipelineORM:        d.porm,
@@ -135,7 +133,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				abi:             abi,
 				coordinator:     coordinator,
 				pipelineRunner:  d.pr,
-				vorm:            vorm,
 				vrfks:           d.ks.VRF(),
 				gethks:          d.ks.Eth(),
 				pipelineORM:     d.porm,

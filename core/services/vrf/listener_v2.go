@@ -61,7 +61,6 @@ type listenerV2 struct {
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
-	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
 	vrfks          keystore.VRF
