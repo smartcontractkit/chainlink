@@ -11,11 +11,12 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type (
@@ -31,7 +32,7 @@ type (
 		utils.StartStopOnce
 		Peerstore     p2ppeerstore.Peerstore
 		peerID        string
-		db            *gorm.DB
+		db            *sqlx.DB
 		writeInterval time.Duration
 		ctx           context.Context
 		ctxCancel     context.CancelFunc
@@ -46,7 +47,7 @@ func (P2PPeer) TableName() string {
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
-func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger) (*Pstorewrapper, error) {
+func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Pstorewrapper{
@@ -117,7 +118,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := p.db.WithContext(p.ctx).Raw(`SELECT id, addr FROM p2p_peers WHERE peer_id = ?`, p.peerID).Rows()
+	rows, err := postgres.NewQ(p.db, postgres.WithParentCtx(p.ctx)).Query(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
@@ -140,12 +141,10 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 }
 
 func (p *Pstorewrapper) WriteToDB() error {
-	ctx, cancel := context.WithTimeout(p.ctx, postgres.DefaultQueryTimeout)
-	defer cancel()
-	err := postgres.GormTransaction(ctx, p.db, func(tx *gorm.DB) error {
-		err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = ?`, p.peerID).Error
+	err := postgres.NewQ(p.db, postgres.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx postgres.Queryer) error {
+		_, err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "delete from p2p_peers failed")
 		}
 		peers := make([]P2PPeer, 0)
 		for _, pid := range p.Peerstore.PeersWithAddrs() {
@@ -170,7 +169,9 @@ func (p *Pstorewrapper) WriteToDB() error {
 
 		/* #nosec G201 */
 		stmt := fmt.Sprintf("INSERT INTO p2p_peers (id, addr, peer_id, created_at, updated_at) VALUES %s", strings.Join(valueStrings, ","))
-		return tx.Exec(stmt, valueArgs...).Error
+		stmt = sqlx.Rebind(sqlx.DOLLAR, stmt)
+		_, err = tx.Exec(stmt, valueArgs...)
+		return errors.Wrap(err, "insert into p2p_peers failed")
 	})
 	return errors.Wrap(err, "could not write peers to DB")
 }
