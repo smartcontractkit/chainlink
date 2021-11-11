@@ -47,12 +47,12 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	btps, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridgesPayload(btps, int32(count)), nil
+	return NewBridgesPayload(bridges, int32(count)), nil
 }
 
 // Chain retrieves a chain by id.
