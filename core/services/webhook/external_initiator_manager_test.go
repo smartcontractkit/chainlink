@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"fmt"
+	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
 	"io"
 	"io/ioutil"
 
@@ -23,23 +24,24 @@ import (
 )
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlDB(t)
+	gdb := pgtest.GormDBFromSql(t, db)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, db)
-	eiBar := cltest.MustInsertExternalInitiator(t, db)
+	eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
+	eiBar := cltest.MustInsertExternalInitiator(t, gdb)
 
-	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t, db)
-	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
-	jb3, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
+	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t)
+	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
+	jb3, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
 
 	err := multierr.Combine(
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`).Error,
 	)
 	require.NoError(t, err)
 
-	eim := webhook.NewExternalInitiatorManager(db, nil)
+	eim := webhook.NewExternalInitiatorManager(gdb, nil)
 
 	eiWebhookSpecs, jobID, err := eim.Load(webhookSpecNoEIs.ID)
 	require.NoError(t, err)
@@ -69,8 +71,8 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	})
 	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
 
-	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
-	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
+	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
+	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
 
 	err := multierr.Combine(
 		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
@@ -111,8 +113,8 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	})
 	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
 
-	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
-	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
+	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
+	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
 
 	err := multierr.Combine(
 		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
