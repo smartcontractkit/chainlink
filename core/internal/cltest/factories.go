@@ -23,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -30,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -590,12 +591,12 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 	return specDB
 }
 
-func MustInsertKeeperRegistry(t *testing.T, db *gorm.DB, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, db, from, contractAddress)
+	job := MustInsertKeeperJob(t, pgtest.GormDBFromSql(t, korm.DB.DB), from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
@@ -605,14 +606,14 @@ func MustInsertKeeperRegistry(t *testing.T, db *gorm.DB, ethKeyStore keystore.Et
 		KeeperIndex:       0,
 		NumKeepers:        1,
 	}
-	err := db.Create(&registry).Error
+	err := korm.UpsertRegistry(&registry)
 	require.NoError(t, err)
 	return registry, job
 }
 
-func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
-	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(db, nil, cfg, bulletprooftxmanager.SendEveryStrategy{}).LowestUnsyncedID(ctx, registry.ID)
+func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, registry keeper.Registry) keeper.UpkeepRegistration {
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, cfg, bulletprooftxmanager.SendEveryStrategy{})
+	upkeepID, err := korm.LowestUnsyncedID(registry.ID)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
@@ -624,7 +625,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *gorm.DB, cfg keeper.Config, r
 	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	require.NoError(t, err)
 	upkeep.PositioningConstant = positioningConstant
-	err = db.Create(&upkeep).Error
+	err = korm.UpsertUpkeep(&upkeep)
 	require.NoError(t, err)
 	return upkeep
 }

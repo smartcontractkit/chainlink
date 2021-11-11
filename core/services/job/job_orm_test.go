@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -97,9 +98,9 @@ func TestORM(t *testing.T) {
 
 		ocrSpecError1 := "ocr spec 1 errored"
 		ocrSpecError2 := "ocr spec 2 errored"
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
-		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError2)
+		orm.RecordError(jobSpec.ID, ocrSpecError1)
+		orm.RecordError(jobSpec.ID, ocrSpecError1)
+		orm.RecordError(jobSpec.ID, ocrSpecError2)
 
 		var specErrors []job.SpecError
 		err = gdb.Find(&specErrors).Error
@@ -160,6 +161,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -187,8 +189,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
-		cltest.MustInsertUpkeepForRegistry(t, gdb, config, registry)
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, korm, keyStore.Eth())
+		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
 		cltest.AssertCount(t, db, "keeper_specs", 1)
 		cltest.AssertCount(t, db, "keeper_registries", 1)
