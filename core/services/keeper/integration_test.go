@@ -48,7 +48,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := cltest.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
