@@ -240,11 +240,11 @@ func TestStartingCounts(t *testing.T) {
 		},
 	}
 	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate) 
-			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate) 
-			RETURNING *;`
-	stmt, err := db.PrepareNamed(sql)
-	require.NoError(t, err)
-	require.NoError(t, stmt.Get(&txes, &txes))
+			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate);`
+	for _, tx := range txes {
+		_, err = db.NamedExec(sql, &tx)
+		require.NoError(t, err)
+	}
 	counts = getStartingResponseCounts(db, logger.TestLogger(t))
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
