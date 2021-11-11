@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
@@ -28,7 +27,6 @@ type EventBroadcaster interface {
 	service.Service
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
-	NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error
 }
 
 type eventBroadcaster struct {
@@ -143,11 +141,6 @@ func (b *eventBroadcaster) runLoop() {
 
 func (b *eventBroadcaster) Notify(channel string, payload string) error {
 	_, err := b.db.Exec(`SELECT pg_notify($1, $2)`, channel, payload)
-	return errors.Wrap(err, "Postgres event broadcaster could not notify")
-}
-
-func (b *eventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error {
-	err := tx.Exec(`SELECT pg_notify(?, ?)`, channel, payload).Error
 	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
 
@@ -316,9 +309,6 @@ func (ne *NullEventBroadcaster) Subscribe(channel, payloadFilter string) (Subscr
 	return ne.Sub, nil
 }
 func (*NullEventBroadcaster) Notify(channel string, payload string) error { return nil }
-func (*NullEventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error {
-	return nil
-}
 
 var _ Subscription = &NullSubscription{}
 

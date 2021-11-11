@@ -337,7 +337,7 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,
@@ -370,10 +370,10 @@ ds1 -> ds1_parse;
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,
@@ -422,10 +422,10 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,
@@ -456,10 +456,10 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,
@@ -484,10 +484,10 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,
@@ -514,11 +514,11 @@ ds1 -> ds1_parse;
 		// Required to create job spawner delegate.
 		config.Overrides.P2PListenPort = null.IntFrom(2000)
 		lggr := logger.TestLogger(t)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, gdb, lggr)
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config, db, lggr)
 		require.NoError(t, pw.Start())
 
 		sd := offchainreporting.NewDelegate(
-			gdb,
+			db,
 			jobORM,
 			keyStore,
 			nil,

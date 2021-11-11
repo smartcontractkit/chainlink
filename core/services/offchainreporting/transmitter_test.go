@@ -25,7 +25,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := offchainreporting.NewTransmitter(txm, pgtest.GormDBFromSql(t, db.DB), fromAddress, gasLimit, strategy)
+	transmitter := offchainreporting.NewTransmitter(txm, fromAddress, gasLimit, strategy)
 
 	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,
