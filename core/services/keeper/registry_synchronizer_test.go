@@ -79,7 +79,7 @@ func setupRegistrySync(t *testing.T) (
 	})).Return(func() {})
 	lbMock.On("IsConnected").Return(true).Maybe()
 
-	orm := keeper.NewORM(gdb, nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), nil, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
 	synchronizer := keeper.NewRegistrySynchronizer(keeper.RegistrySynchronizerOptions{
 		Job:                      j,
 		Contract:                 contract,

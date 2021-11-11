@@ -216,10 +216,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				gdb,
 				chainSet),
 			job.Keeper: keeper.NewDelegate(
-				gdb,
+				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
