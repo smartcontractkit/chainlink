@@ -230,3 +230,16 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 
 	return NewNodePayloadResolver(&node, nil), nil
 }
+
+func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	p2pKeys, err := r.App.GetKeyStore().P2P().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewP2PKeysPayloadResolver(p2pKeys), nil
+}
