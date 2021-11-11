@@ -46,13 +46,13 @@ func ClobberDBFromEnv(db *sqlx.DB, config LegacyEthNodeConfig, lggr logger.Logge
 	if config.EthereumHTTPURL() != nil {
 		primaryHTTP = null.StringFrom(config.EthereumHTTPURL().String())
 	}
-	if _, err := db.Exec(stmt, fmt.Sprintf("primary-0-%s", ethChainID), ethChainID, primaryWS, primaryHTTP, false, ethChainID, primaryWS, primaryHTTP); err != nil {
+	if _, err := db.Exec(stmt, fmt.Sprintf("primary-0-%s", ethChainID), ethChainID, primaryWS, primaryHTTP, false); err != nil {
 		return errors.Wrap(err, "failed to upsert primary-0")
 	}
 
 	for i, url := range config.EthereumSecondaryURLs() {
 		name := fmt.Sprintf("sendonly-%d-%s", i, ethChainID)
-		if _, err := db.Exec(stmt, name, ethChainID, nil, url.String(), true, ethChainID, nil, url.String()); err != nil {
+		if _, err := db.Exec(stmt, name, ethChainID, nil, url.String(), true); err != nil {
 			return errors.Wrapf(err, "failed to upsert %s", name)
 		}
 	}
