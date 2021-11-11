@@ -163,10 +163,6 @@ func Test_ORM_GetManagers(t *testing.T) {
 	assert.Equal(t, jobTypes, actual.JobTypes)
 	assert.True(t, actual.IsOCRBootstrapPeer)
 	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
-
-	actual, err = orm.GetManager(context.Background(), -1)
-	require.Nil(t, actual)
-	require.Error(t, err)
 }
 
 func Test_ORM_UpdateManager(t *testing.T) {
