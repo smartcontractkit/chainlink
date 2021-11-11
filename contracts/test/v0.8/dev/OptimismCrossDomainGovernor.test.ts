@@ -280,28 +280,50 @@ describe('OptimismCrossDomainGovernor', () => {
     })
   })
 
-  // describe('#acceptL1Ownership', () => {
-  //   it('should not be callable by non pending-owners', async () => {
-  //     await expect(
-  //       governor.connect(crossdomainMessenger).acceptL1Ownership(),
-  //     ).to.be.revertedWith('Must be proposed L1 owner')
-  //   })
+  describe('#acceptL1Ownership', () => {
+    it('should not be callable by non pending-owners', async () => {
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'acceptL1Ownership',
+        [],
+      )
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
+      ).to.be.revertedWith('Must be proposed L1 owner')
+    })
 
-  //   it('should be callable by pending L1 owner', async () => {
-  //     const currentL1Owner = await governor.l1Owner()
-  //     await governor
-  //       .connect(crossdomainMessenger)
-  //       .transferL1Ownership(newL1OwnerAddress)
-  //     await expect(
-  //       governor.connect(newOwnerCrossdomainMessenger).acceptL1Ownership(),
-  //     )
-  //       .to.emit(governor, 'L1OwnershipTransferred')
-  //       .withArgs(currentL1Owner, newL1OwnerAddress)
+    it('should be callable by pending L1 owner', async () => {
+      const currentL1Owner = await governor.l1Owner()
 
-  //     const updatedL1Owner = await governor.l1Owner()
-  //     assert.equal(updatedL1Owner, newL1OwnerAddress)
-  //   })
-  // })
+      // Transfer ownership
+      const forwardTransferData = governorFactory.interface.encodeFunctionData(
+        'transferL1Ownership',
+        [newL1OwnerAddress],
+      )
+      await crossDomainMessenger // Simulate cross-chain OVM message
+        .connect(stranger)
+        .sendMessage(governor.address, forwardTransferData, 0)
+
+      const forwardAcceptData = governorFactory.interface.encodeFunctionData(
+        'acceptL1Ownership',
+        [],
+      )
+      // Simulate cross-chain message from another sender
+      await crossDomainMessenger._setMockMessageSender(newL1OwnerAddress)
+
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardAcceptData, 0),
+      )
+        .to.emit(governor, 'L1OwnershipTransferred')
+        .withArgs(currentL1Owner, newL1OwnerAddress)
+
+      const updatedL1Owner = await governor.l1Owner()
+      assert.equal(updatedL1Owner, newL1OwnerAddress)
+    })
+  })
 })
 
 // Multisend contract helpers
