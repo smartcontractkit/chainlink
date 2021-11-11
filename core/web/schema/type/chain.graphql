@@ -8,3 +8,10 @@ type Chain {
 
 # TODO - Add Chain config into the response.
 # Config    types.ChainCfg `json:"config"`
+
+union ChainPayload = Chain | NotFoundError
+
+type ChainsPayload implements PaginatedPayload {
+    results: [Chain!]!
+    metadata: PaginationMetadata!
+}
