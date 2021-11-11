@@ -47,16 +47,16 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	btps, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridgesPayload(bridges, int32(count)), nil
+	return NewBridgesPayload(btps, int32(count)), nil
 }
 
 // Chain retrieves a chain by id.
-func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainResolver, error) {
+func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -69,10 +69,14 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 
 	chain, err := r.App.EVMORM().Chain(id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewChainPayload(chain, err), nil
+		}
+
 		return nil, err
 	}
 
-	return NewChain(chain), nil
+	return NewChainPayload(chain, nil), nil
 }
 
 // Chains retrieves a paginated list of chains.

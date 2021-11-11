@@ -8,3 +8,5 @@ type Chain {
 
 # TODO - Add Chain config into the response.
 # Config    types.ChainCfg `json:"config"`
+
+union ChainPayload = Chain | NotFoundError
