@@ -89,7 +89,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    */
   modifier onlyProposedL1Owner() {
     require(
-      iOVM_CrossDomainMessenger(OVM_CROSS_DOMAIN_MESSENGER).xDomainMessageSender() == s_l1PendingOwner,
+      iOVM_CrossDomainMessenger(crossDomainMessenger()).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"
     );
     _;

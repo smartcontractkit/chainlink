@@ -2,25 +2,20 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import etherslib, { Contract, ContractFactory } from 'ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import {
-  impersonateAs,
-  publicAbi,
-  stripHexPrefix,
-} from '../../test-helpers/helpers'
+import { publicAbi, stripHexPrefix } from '../../test-helpers/helpers'
 
 let owner: SignerWithAddress
 let stranger: SignerWithAddress
 let l1OwnerAddress: string
-// let newL1OwnerAddress: string
+let newL1OwnerAddress: string
 let governorFactory: ContractFactory
 let greeterFactory: ContractFactory
-// let multisendFactory: ContractFactory
+let multisendFactory: ContractFactory
 let crossDomainMessengerFactory: ContractFactory
 let crossDomainMessenger: Contract
-let crossDomainMessengerSigner: SignerWithAddress
 let governor: Contract
 let greeter: Contract
-// let multisend: Contract
+let multisend: Contract
 
 before(async () => {
   const accounts = await ethers.getSigners()
@@ -29,7 +24,7 @@ before(async () => {
 
   // governor config
   l1OwnerAddress = owner.address
-  // newL1OwnerAddress = stranger.address
+  newL1OwnerAddress = stranger.address
 
   // Contract factories
   governorFactory = await ethers.getContractFactory(
@@ -40,10 +35,10 @@ before(async () => {
     'src/v0.8/tests/Greeter.sol:Greeter',
     owner,
   )
-  // multisendFactory = await ethers.getContractFactory(
-  //   'src/v0.8/tests/vendor/MultiSend.sol:MultiSend',
-  //   owner,
-  // )
+  multisendFactory = await ethers.getContractFactory(
+    'src/v0.8/tests/vendor/MultiSend.sol:MultiSend',
+    owner,
+  )
   crossDomainMessengerFactory = await ethers.getContractFactory(
     'src/v0.8/tests/vendor/MockOVMCrossDomainMessenger.sol:MockOVMCrossDomainMessenger',
   )
@@ -54,15 +49,12 @@ describe('OptimismCrossDomainGovernor', () => {
     crossDomainMessenger = await crossDomainMessengerFactory.deploy(
       l1OwnerAddress,
     )
-    crossDomainMessengerSigner = await impersonateAs(
-      crossDomainMessenger.address,
-    )
     governor = await governorFactory.deploy(
       crossDomainMessenger.address,
       l1OwnerAddress,
     )
     greeter = await greeterFactory.deploy(governor.address)
-    // multisend = await multisendFactory.deploy()
+    multisend = await multisendFactory.deploy()
   })
 
   it('has a limited public interface [ @skip-coverage ]', async () => {
@@ -81,7 +73,7 @@ describe('OptimismCrossDomainGovernor', () => {
     ])
   })
 
-  describe.only('#constructor', () => {
+  describe('#constructor', () => {
     it('should set the owner correctly', async () => {
       const response = await governor.owner()
       assert.equal(response, owner.address)
@@ -116,9 +108,13 @@ describe('OptimismCrossDomainGovernor', () => {
         'setGreeting',
         [newGreeting],
       )
-      await governor
-        .connect(crossDomainMessengerSigner)
-        .forward(greeter.address, setGreetingData)
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'forward',
+        [greeter.address, setGreetingData],
+      )
+      await crossDomainMessenger // Simulate cross-chain OVM message
+        .connect(stranger)
+        .sendMessage(governor.address, forwardData, 0)
 
       const updatedGreeting = await greeter.greeting()
       assert.equal(updatedGreeting, newGreeting)
@@ -141,129 +137,148 @@ describe('OptimismCrossDomainGovernor', () => {
         'setGreeting',
         [''],
       )
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'forward',
+        [greeter.address, setGreetingData],
+      )
       await expect(
-        governor
-          .connect(crossDomainMessengerSigner)
-          .forward(greeter.address, setGreetingData),
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
       ).to.be.revertedWith('Governor call reverted')
     })
   })
 
-  // describe('#forwardDelegate', () => {
-  //   it('should not be callable by unknown address', async () => {
-  //     await expect(
-  //       governor.connect(stranger).forwardDelegate(multisend.address, '0x'),
-  //     ).to.be.revertedWith('Sender is not the L2 messenger')
-  //   })
+  describe('#forwardDelegate', () => {
+    it('should not be callable by unknown address', async () => {
+      await expect(
+        governor.connect(stranger).forwardDelegate(multisend.address, '0x'),
+      ).to.be.revertedWith('Sender is not the L2 messenger')
+    })
 
-  //   it('should be callable by crossdomain messenger address / L1 owner', async () => {
-  //     const calls = [
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           'foo',
-  //         ]),
-  //         value: 0,
-  //       },
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           'bar',
-  //         ]),
-  //         value: 0,
-  //       },
-  //     ]
-  //     const multisendData = encodeMultisendData(multisend.interface, calls)
-  //     await governor
-  //       .connect(crossdomainMessenger)
-  //       .forwardDelegate(multisend.address, multisendData)
+    it('should be callable by crossdomain messenger address / L1 owner', async () => {
+      const calls = [
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'foo',
+          ]),
+          value: 0,
+        },
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'bar',
+          ]),
+          value: 0,
+        },
+      ]
+      const multisendData = encodeMultisendData(multisend.interface, calls)
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'forwardDelegate',
+        [multisend.address, multisendData],
+      )
 
-  //     const updatedGreeting = await greeter.greeting()
-  //     assert.equal(updatedGreeting, 'bar')
-  //   })
+      await crossDomainMessenger // Simulate cross-chain OVM message
+        .connect(stranger)
+        .sendMessage(governor.address, forwardData, 0)
 
-  //   it('should be callable by L2 owner', async () => {
-  //     const calls = [
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           'foo',
-  //         ]),
-  //         value: 0,
-  //       },
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           'bar',
-  //         ]),
-  //         value: 0,
-  //       },
-  //     ]
-  //     const multisendData = encodeMultisendData(multisend.interface, calls)
-  //     await governor
-  //       .connect(owner)
-  //       .forwardDelegate(multisend.address, multisendData)
+      const updatedGreeting = await greeter.greeting()
+      assert.equal(updatedGreeting, 'bar')
+    })
 
-  //     const updatedGreeting = await greeter.greeting()
-  //     assert.equal(updatedGreeting, 'bar')
-  //   })
+    it('should be callable by L2 owner', async () => {
+      const calls = [
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'foo',
+          ]),
+          value: 0,
+        },
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'bar',
+          ]),
+          value: 0,
+        },
+      ]
+      const multisendData = encodeMultisendData(multisend.interface, calls)
+      await governor
+        .connect(owner)
+        .forwardDelegate(multisend.address, multisendData)
 
-  //   it('should be revert batch when one call fails', async () => {
-  //     const calls = [
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           'foo',
-  //         ]),
-  //         value: 0,
-  //       },
-  //       {
-  //         to: greeter.address,
-  //         data: greeterFactory.interface.encodeFunctionData('setGreeting', [
-  //           '', // should revert
-  //         ]),
-  //         value: 0,
-  //       },
-  //     ]
-  //     const multisendData = encodeMultisendData(multisend.interface, calls)
-  //     await expect(
-  //       governor
-  //         .connect(crossdomainMessenger)
-  //         .forwardDelegate(multisend.address, multisendData),
-  //     ).to.be.revertedWith('Governor delegatecall reverted')
+      const updatedGreeting = await greeter.greeting()
+      assert.equal(updatedGreeting, 'bar')
+    })
 
-  //     const greeting = await greeter.greeting()
-  //     assert.equal(greeting, '') // Unchanged
-  //   })
-  // })
+    it('should be revert batch when one call fails', async () => {
+      const calls = [
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            'foo',
+          ]),
+          value: 0,
+        },
+        {
+          to: greeter.address,
+          data: greeterFactory.interface.encodeFunctionData('setGreeting', [
+            '', // should revert
+          ]),
+          value: 0,
+        },
+      ]
+      const multisendData = encodeMultisendData(multisend.interface, calls)
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'forwardDelegate',
+        [multisend.address, multisendData],
+      )
 
-  // describe('#transferL1Ownership', () => {
-  //   it('should not be callable by non-owners', async () => {
-  //     await expect(
-  //       governor.connect(stranger).transferL1Ownership(stranger.address),
-  //     ).to.be.revertedWith('Sender is not the L2 messenger')
-  //   })
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
+      ).to.be.revertedWith('Governor delegatecall reverted')
 
-  //   it('should not be callable by L2 owner', async () => {
-  //     const governorOwner = await governor.owner()
-  //     assert.equal(governorOwner, owner.address)
+      const greeting = await greeter.greeting()
+      assert.equal(greeting, '') // Unchanged
+    })
+  })
 
-  //     await expect(
-  //       governor.connect(owner).transferL1Ownership(stranger.address),
-  //     ).to.be.revertedWith('Sender is not the L2 messenger')
-  //   })
+  describe('#transferL1Ownership', () => {
+    it('should not be callable by non-owners', async () => {
+      await expect(
+        governor.connect(stranger).transferL1Ownership(stranger.address),
+      ).to.be.revertedWith('Sender is not the L2 messenger')
+    })
 
-  //   it('should be callable by current L1 owner', async () => {
-  //     const currentL1Owner = await governor.l1Owner()
-  //     await expect(
-  //       governor
-  //         .connect(crossdomainMessenger)
-  //         .transferL1Ownership(newL1OwnerAddress),
-  //     )
-  //       .to.emit(governor, 'L1OwnershipTransferRequested')
-  //       .withArgs(currentL1Owner, newL1OwnerAddress)
-  //   })
-  // })
+    it('should not be callable by L2 owner', async () => {
+      const governorOwner = await governor.owner()
+      assert.equal(governorOwner, owner.address)
+
+      await expect(
+        governor.connect(owner).transferL1Ownership(stranger.address),
+      ).to.be.revertedWith('Sender is not the L2 messenger')
+    })
+
+    it('should be callable by current L1 owner', async () => {
+      const currentL1Owner = await governor.l1Owner()
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'transferL1Ownership',
+        [newL1OwnerAddress],
+      )
+
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
+      )
+        .to.emit(governor, 'L1OwnershipTransferRequested')
+        .withArgs(currentL1Owner, newL1OwnerAddress)
+    })
+  })
 
   // describe('#acceptL1Ownership', () => {
   //   it('should not be callable by non pending-owners', async () => {
