@@ -146,11 +146,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	activeUpkeeps, err := ex.orm.EligibleUpkeepsForRegistry(
-		ctx,
 		ex.job.KeeperSpec.ContractAddress,
 		head.Number,
 		ex.config.KeeperMaximumGracePeriod(),
@@ -214,7 +210,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
+		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, postgres.WithParentCtx(ctxService))
 		if err != nil {
 			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}

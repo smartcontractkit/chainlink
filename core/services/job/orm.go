@@ -41,7 +41,7 @@ type ORM interface {
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...postgres.QOpt) error
-	RecordError(ctx context.Context, jobID int32, description string)
+	RecordError(jobID int32, description string, qopts ...postgres.QOpt)
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
@@ -289,8 +289,8 @@ func (o *orm) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 	return nil
 }
 
-func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
-	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
+func (o *orm) RecordError(jobID int32, description string, qopts ...postgres.QOpt) {
+	q := postgres.NewQ(o.db, qopts...)
 	sql := `INSERT INTO job_spec_errors (job_id, description, occurrences, created_at, updated_at)
 	VALUES ($1, $2, 1, $3, $3)
 	ON CONFLICT (job_id, description) DO UPDATE SET
