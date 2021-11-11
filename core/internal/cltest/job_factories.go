@@ -2,10 +2,12 @@ package cltest
 
 import (
 	"fmt"
+
+	"testing"
+
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
-	"testing"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -92,7 +94,7 @@ func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec, ) {
+func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
 	jobORM, pipelineORM := getORMs(t, db)
 	webhookSpec := job.WebhookSpec{}
 	webhookSpecID, err := jobORM.InsertWebhookSpec(&webhookSpec)
@@ -100,7 +102,7 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec,
 	require.NoError(t, err)
 
 	pSpec := pipeline.Pipeline{}
-	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0 )
+	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0)
 	require.NoError(t, err)
 
 	job := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
@@ -110,7 +112,6 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec,
 
 	return job, webhookSpec
 }
-
 
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := NewTestGeneralConfig(t)

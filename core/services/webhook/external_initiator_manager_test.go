@@ -2,10 +2,11 @@ package webhook_test
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
 	"io"
 	"io/ioutil"
+
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"net/http"
 	"strings"
