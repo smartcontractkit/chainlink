@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
 	"io"
 	"io/ioutil"
@@ -24,15 +25,15 @@ import (
 )
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
-	db := pgtest.NewSqlDB(t)
-	gdb := pgtest.GormDBFromSql(t, db)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
 	eiBar := cltest.MustInsertExternalInitiator(t, gdb)
 
-	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t)
-	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
-	jb3, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
+	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t, db)
+	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
+	jb3, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
 	err := multierr.Combine(
 		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
@@ -62,26 +63,27 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, gdb, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, gdb)
 
-	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
-	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
+	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
+	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
 	err := multierr.Combine(
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
 	)
 	require.NoError(t, err)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client)
+	eim := webhook.NewExternalInitiatorManager(gdb, client)
 
 	// Does nothing with no EI
 	eim.Notify(webhookSpecNoEIs.ID)
@@ -104,26 +106,27 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, gdb, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, gdb)
 
-	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t)
-	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t)
+	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
+	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
 	err := multierr.Combine(
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
 	)
 	require.NoError(t, err)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client)
+	eim := webhook.NewExternalInitiatorManager(gdb, client)
 
 	// Does nothing with no EI
 	eim.DeleteJob(webhookSpecNoEIs.ID)
