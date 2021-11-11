@@ -161,7 +161,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
-	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -234,13 +233,14 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
-		db2 := pgtest.NewGormDB(t)
-		ei := cltest.MustInsertExternalInitiator(t, db2)
+		gdb2 := pgtest.NewGormDB(t)
+		db2 := postgres.UnwrapGormDB(gdb2)
+		ei := cltest.MustInsertExternalInitiator(t, gdb2)
 		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db2)
-		err := db2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
+		err := gdb2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
 		require.NoError(t, err)
 
-		err = db2.Exec(`DELETE FROM external_initiators`).Error
+		err = gdb2.Exec(`DELETE FROM external_initiators`).Error
 		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }
