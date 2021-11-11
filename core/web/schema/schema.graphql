@@ -8,7 +8,7 @@ schema {
 type Query {
     bridge(name: String!): BridgePayload!
     bridges(offset: Int, limit: Int): BridgesPayload!
-    chain(id: ID!): Chain!
+    chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): [Chain!]!
     csaKeys: CSAKeysPayload!
     features: FeaturesPayload!
