@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 )
 
@@ -21,6 +22,18 @@ type ConfigSchema struct {
 	AllowOrigins                               string                        `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                     int64                         `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod               time.Duration                 `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
+	AutoPprofEnabled                           bool                          `env:"AUTO_PPROF_ENABLED" default:"false"`
+	AutoPprofProfileRoot                       string                        `env:"AUTO_PPROF_PROFILE_ROOT"` // Defaults to $CHAINLINK_ROOT
+	AutoPprofPollInterval                      models.Duration               `env:"AUTO_PPROF_POLL_INTERVAL" default:"10s"`
+	AutoPprofGatherDuration                    models.Duration               `env:"AUTO_PPROF_GATHER_DURATION" default:"10s"`
+	AutoPprofGatherTraceDuration               models.Duration               `env:"AUTO_PPROF_GATHER_TRACE_DURATION" default:"5s"`
+	AutoPprofMaxProfileSize                    utils.FileSize                `env:"AUTO_PPROF_MAX_PROFILE_SIZE" default:"100mb"`
+	AutoPprofCPUProfileRate                    int                           `env:"AUTO_PPROF_CPU_PROFILE_RATE" default:"1"`
+	AutoPprofMemProfileRate                    int                           `env:"AUTO_PPROF_MEM_PROFILE_RATE" default:"1"`
+	AutoPprofBlockProfileRate                  int                           `env:"AUTO_PPROF_BLOCK_PROFILE_RATE" default:"1"`
+	AutoPprofMutexProfileFraction              int                           `env:"AUTO_PPROF_MUTEX_PROFILE_FRACTION" default:"1"`
+	AutoPprofMemThreshold                      utils.FileSize                `env:"AUTO_PPROF_MEM_THRESHOLD" default:"4gb"`
+	AutoPprofGoroutineThreshold                int                           `env:"AUTO_PPROF_GOROUTINE_THRESHOLD" default:"5000"`
 	BalanceMonitorEnabled                      bool                          `env:"BALANCE_MONITOR_ENABLED"`
 	BlockBackfillDepth                         uint64                        `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BlockBackfillSkip                          bool                          `env:"BLOCK_BACKFILL_SKIP" default:"false"`

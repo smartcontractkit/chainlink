@@ -121,6 +121,7 @@ type ChainlinkApplication struct {
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
+	Nurse                    *health.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
 	gormDB                   *gorm.DB
@@ -164,6 +165,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	globalLogger := opts.Logger
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
+
+	var nurse *health.Nurse
+	if cfg.AutoPprofEnabled() {
+		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
+		nurse = health.NewNurse(cfg, globalLogger)
+		err := nurse.Start()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
+	}
 
 	healthChecker := health.NewChecker()
 
@@ -313,6 +326,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		shutdownSignal:           shutdownSignal,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		Nurse:                    nurse,
 		logger:                   globalLogger,
 		id:                       opts.ID,
 
@@ -462,9 +476,13 @@ func (app *ChainlinkApplication) stop() (err error) {
 				app.leaseLock.Release()
 			}
 
-			// DB should pretty much always be closed last
+			// DB should pretty much always be closed last (apart from the Nurse)
 			app.logger.Debug("Closing DB...")
 			merr = multierr.Append(merr, app.sqlxDB.Close())
+
+			if app.Nurse != nil {
+				merr = multierr.Append(merr, app.Nurse.Close())
+			}
 
 			app.logger.Info("Exited all services")
 

@@ -33,6 +33,8 @@ import (
 
 	url "net/url"
 
+	utils "github.com/smartcontractkit/chainlink/core/utils"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -92,6 +94,174 @@ func (_m *GeneralConfig) AuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofBlockProfileRate provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofBlockProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofCPUProfileRate provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofCPUProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofEnabled provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherDuration provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofGatherDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherTraceDuration provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofGatherTraceDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGoroutineThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofGoroutineThreshold() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMaxProfileSize provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofMaxProfileSize() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMemProfileRate provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofMemProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMemThreshold provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofMemThreshold() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMutexProfileFraction provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofMutexProfileFraction() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofPollInterval provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofPollInterval() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofProfileRoot provides a mock function with given fields:
+func (_m *GeneralConfig) AutoPprofProfileRoot() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
