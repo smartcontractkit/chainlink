@@ -10,6 +10,10 @@ import (
 )
 
 type sessionUserKey struct{}
+type GQLQUserSession struct {
+	SessionID string
+	User      *clsessions.User
+}
 
 // AuthenticateGQL middleware checks the session cookie for a user and sets it
 // on the request context if it exists. It is the responsiblity of each resolver
@@ -29,7 +33,7 @@ func AuthenticateGQL(authenticator Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		ctx := SetGQLAuthenticatedUser(c.Request.Context(), user)
+		ctx := SetGQLAuthenticatedUser(c.Request.Context(), user, sessionID)
 
 		c.Request = c.Request.WithContext(ctx)
 	}
@@ -38,15 +42,19 @@ func AuthenticateGQL(authenticator Authenticator) gin.HandlerFunc {
 // SetGQLAuthenticatedUser sets the authenticated user in the context
 //
 // There shouldn't be a need to do this outside of testing
-func SetGQLAuthenticatedUser(ctx context.Context, user clsessions.User) context.Context {
-	return context.WithValue(ctx, sessionUserKey{}, &user)
+func SetGQLAuthenticatedUser(ctx context.Context, user clsessions.User, sessionID string) context.Context {
+	return context.WithValue(
+		ctx,
+		sessionUserKey{},
+		&GQLQUserSession{sessionID, &user},
+	)
 }
 
 // GetGQLAuthenticatedUser extracts the authentication user from a context.
-func GetGQLAuthenticatedUser(ctx context.Context) (*clsessions.User, bool) {
+func GetGQLAuthenticatedUser(ctx context.Context) (*GQLQUserSession, bool) {
 	obj := ctx.Value(sessionUserKey{})
 
-	user, ok := obj.(*clsessions.User)
+	session, ok := obj.(*GQLQUserSession)
 
-	return user, ok
+	return session, ok
 }
