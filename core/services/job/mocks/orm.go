@@ -236,7 +236,14 @@ func (_m *ORM) PipelineRuns(jobID *int32, offset int, size int) ([]pipeline.Run,
 	return r0, r1, r2
 }
 
-// RecordError provides a mock function with given fields: ctx, jobID, description
-func (_m *ORM) RecordError(ctx context.Context, jobID int32, description string) {
-	_m.Called(ctx, jobID, description)
+// RecordError provides a mock function with given fields: jobID, description, qopts
+func (_m *ORM) RecordError(jobID int32, description string, qopts ...postgres.QOpt) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID, description)
+	_ca = append(_ca, _va...)
+	_m.Called(_ca...)
 }

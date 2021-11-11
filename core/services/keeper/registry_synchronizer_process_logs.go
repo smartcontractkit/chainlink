@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func (rs *RegistrySynchronizer) processLogs() {
@@ -82,9 +81,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 		rs.logger.Errorf("invariant violation, expected UpkeepCanceled log but got %T", broadcastedLog)
 		return
 	}
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	affected, err := rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, []int64{broadcastedLog.Id.Int64()})
+	affected, err := rs.orm.BatchDeleteUpkeepsForJob(rs.job.ID, []int64{broadcastedLog.Id.Int64()})
 	if err != nil {
 		rs.logger.With("error", err).Error("unable to batch delete upkeeps")
 		return
@@ -98,9 +95,7 @@ func (rs *RegistrySynchronizer) handleUpkeepCancelled(broadcast log.Broadcast) {
 
 func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(done func()) {
 	defer done()
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	registry, err := rs.orm.RegistryForJob(ctx, rs.job.ID)
+	registry, err := rs.orm.RegistryForJob(rs.job.ID)
 	if err != nil {
 		rs.logger.With("error", err).Error("unable to find registry for job")
 		return
@@ -180,11 +175,8 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformed(broadcast log.Broadcast) {
 		return
 	}
 
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	// set last run to 0 so that keeper can resume checkUpkeep()
-	err = rs.orm.SetLastRunHeightForUpkeepOnJob(ctx, rs.job.ID, log.Id.Int64(), 0)
+	err = rs.orm.SetLastRunHeightForUpkeepOnJob(rs.job.ID, log.Id.Int64(), 0)
 	if err != nil {
 		rs.logger.With("error", err).Error("failed to set last run to 0")
 		return

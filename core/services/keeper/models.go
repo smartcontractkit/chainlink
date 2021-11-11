@@ -3,7 +3,7 @@ package keeper
 import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 type Registry struct {
-	ID                int32 `gorm:"primary_key"`
+	ID                int64 `gorm:"primary_key"`
 	BlockCountPerTurn int32
 	CheckGas          int32
 	ContractAddress   ethkey.EIP55Address
@@ -22,7 +22,7 @@ type UpkeepRegistration struct {
 	CheckData           []byte
 	ExecuteGas          uint64
 	LastRunBlockHeight  int64
-	RegistryID          int32
+	RegistryID          int64
 	Registry            Registry
 	UpkeepID            int64
 	PositioningConstant int32
