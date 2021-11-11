@@ -197,7 +197,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, _, ethMock, executer, registry, _, _, _, _ := setup(t)
 

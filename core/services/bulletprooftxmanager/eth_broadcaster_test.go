@@ -1480,5 +1480,5 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	mustInsertUnstartedEthTx(t, gdb, fromAddress)
-	cltest.NewGomegaWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
+	gomega.NewWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
 }

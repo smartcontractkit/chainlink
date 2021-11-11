@@ -95,7 +95,7 @@ func setupRegistrySync(t *testing.T) (
 }
 
 func assertUpkeepIDs(t *testing.T, db *gorm.DB, expected []int64) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	var upkeepIDs []int64
 	err := db.Model(keeper.UpkeepRegistration{}).Pluck("upkeep_id", &upkeepIDs).Error
 	require.NoError(t, err)
@@ -346,7 +346,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, synchronizer, ethMock, lb, job := setupRegistrySync(t)
 
