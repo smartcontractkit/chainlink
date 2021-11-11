@@ -83,7 +83,7 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 func (r *Resolver) Chains(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
-}) ([]*ChainResolver, error) {
+}) (*ChainsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
@@ -91,12 +91,12 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	page, _, err := r.App.EVMORM().Chains(offset, limit)
+	page, count, err := r.App.EVMORM().Chains(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewChains(page), nil
+	return NewChainsPayload(page, int32(count)), nil
 }
 
 // FeedsManager retrieves a feeds manager by id.
