@@ -20,9 +20,12 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 						email
 					}
 				}
-				... on UpdatePasswordMatchError {
-					code
-					message
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
 				}
 			}
 		}`
@@ -83,8 +86,11 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 			result: `
 				{
 					"updateUserPassword": {
-						"code": "STATUS_CONFLICT",
-						"message": "old password does not match"
+						"errors": [{
+							"path": "oldPassword",
+							"message": "old password does not match",
+							"code": "INVALID_INPUT"
+						}]
 					}
 				}`,
 		},

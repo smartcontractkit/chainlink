@@ -16,7 +16,7 @@ import (
 
 // Bridge retrieves a bridges by name.
 func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -42,7 +42,7 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
 }) (*BridgesPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -59,7 +59,7 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 
 // Chain retrieves a chain by id.
 func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*ChainPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -86,7 +86,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
 }) (*ChainsPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -103,7 +103,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 
 // FeedsManager retrieves a feeds manager by id.
 func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID }) (*FeedsManagerPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -125,7 +125,7 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 }
 
 func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +139,7 @@ func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadReso
 
 // Job retrieves a job by id.
 func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 	Offset *int
 	Limit  *int
 }) (*JobsPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -182,7 +182,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 }
 
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -195,7 +195,7 @@ func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadReso
 }
 
 func (r *Resolver) CSAKeys(ctx context.Context) (*CSAKeysPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -209,7 +209,7 @@ func (r *Resolver) CSAKeys(ctx context.Context) (*CSAKeysPayloadResolver, error)
 
 // Features retrieves each featured enabled by boolean mapping
 func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -218,7 +218,7 @@ func (r *Resolver) Features(ctx context.Context) (*FeaturesPayloadResolver, erro
 
 // Node retrieves a node by ID
 func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*NodePayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -239,7 +239,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 }
 
 func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -253,7 +253,7 @@ func (r *Resolver) P2PKeys(ctx context.Context) (*P2PKeysPayloadResolver, error)
 
 // VRFKeys fetches all VRF keys.
 func (r *Resolver) VRFKeys(ctx context.Context) (*VRFKeysPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
@@ -269,7 +269,7 @@ func (r *Resolver) VRFKeys(ctx context.Context) (*VRFKeysPayloadResolver, error)
 func (r *Resolver) VRFKey(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*VRFKeyPayloadResolver, error) {
-	if _, err := authenticateUser(ctx); err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
