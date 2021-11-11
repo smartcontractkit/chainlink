@@ -17,4 +17,4 @@ type UpdatePasswordMatchError implements Error {
     code: ErrorCode!
 }
 
-union UpdatePasswordPayload = UpdatePasswordSuccess | UpdatePasswordMatchError
+union UpdatePasswordPayload = UpdatePasswordSuccess | InputErrors

@@ -35,10 +35,12 @@ type UpdatePasswordInput struct {
 // UpdatePasswordPayloadResolver resolves the payload type
 type UpdatePasswordPayloadResolver struct {
 	user *sessions.User
+	// inputErrors maps an input path to a string
+	inputErrs map[string]string
 }
 
-func NewUpdatePasswordPayload(user *sessions.User) *UpdatePasswordPayloadResolver {
-	return &UpdatePasswordPayloadResolver{user}
+func NewUpdatePasswordPayload(user *sessions.User, inputErrs map[string]string) *UpdatePasswordPayloadResolver {
+	return &UpdatePasswordPayloadResolver{user, inputErrs}
 }
 
 func (r *UpdatePasswordPayloadResolver) ToUpdatePasswordSuccess() (*UpdatePasswordSuccessResolver, bool) {
@@ -49,12 +51,18 @@ func (r *UpdatePasswordPayloadResolver) ToUpdatePasswordSuccess() (*UpdatePasswo
 	return NewUpdatePasswordSuccess(r.user), true
 }
 
-func (r *UpdatePasswordPayloadResolver) ToUpdatePasswordMatchError() (*UpdatePasswordMatchErrorResolver, bool) {
-	if r.user != nil {
-		return nil, false
+func (r *UpdatePasswordPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
 	}
 
-	return NewUpdatePasswordMatchError("old password does not match"), true
+	return nil, false
 }
 
 type UpdatePasswordSuccessResolver struct {
@@ -67,20 +75,4 @@ func NewUpdatePasswordSuccess(user *sessions.User) *UpdatePasswordSuccessResolve
 
 func (r *UpdatePasswordSuccessResolver) User() *UserResolver {
 	return NewUser(r.user)
-}
-
-type UpdatePasswordMatchErrorResolver struct {
-	message string
-}
-
-func NewUpdatePasswordMatchError(message string) *UpdatePasswordMatchErrorResolver {
-	return &UpdatePasswordMatchErrorResolver{message}
-}
-
-func (r *UpdatePasswordMatchErrorResolver) Message() string {
-	return r.message
-}
-
-func (r *UpdatePasswordMatchErrorResolver) Code() ErrorCode {
-	return ErrorCodeStatusConflict
 }

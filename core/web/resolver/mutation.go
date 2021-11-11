@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
 type Resolver struct {
@@ -597,9 +598,13 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	Input UpdatePasswordInput
 }) (*UpdatePasswordPayloadResolver, error) {
-	session, err := authenticateUser(ctx)
-	if err != nil {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
+	}
+
+	session, ok := auth.GetGQLAuthenticatedUser(ctx)
+	if !ok {
+		return nil, errors.New("couldn't retrieve user session")
 	}
 
 	dbUser, err := r.App.SessionORM().FindUser()
@@ -608,7 +613,9 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	}
 
 	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
-		return NewUpdatePasswordPayload(nil), nil
+		return NewUpdatePasswordPayload(nil, map[string]string{
+			"oldPassword": "old password does not match",
+		}), nil
 	}
 
 	if err = r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
@@ -620,5 +627,5 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, fmt.Errorf("failed to update current user password: %+v", err)
 	}
 
-	return NewUpdatePasswordPayload(session.User), nil
+	return NewUpdatePasswordPayload(session.User, nil), nil
 }

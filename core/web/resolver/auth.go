@@ -7,13 +7,13 @@ import (
 )
 
 // Authenticates the user from the session cookie.
-func authenticateUser(ctx context.Context) (*auth.GQLQUserSession, error) {
-	session, ok := auth.GetGQLAuthenticatedUser(ctx)
+func authenticateUser(ctx context.Context) error {
+	_, ok := auth.GetGQLAuthenticatedUser(ctx)
 	if !ok {
-		return nil, unauthorizedError{}
+		return unauthorizedError{}
 	}
 
-	return session, nil
+	return nil
 }
 
 type unauthorizedError struct{}
