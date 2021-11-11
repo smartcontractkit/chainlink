@@ -80,3 +80,20 @@ func (r *ChainPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) 
 
 	return NewNotFoundError("chain not found"), true
 }
+
+type ChainsPayloadResolver struct {
+	chains []types.Chain
+	total  int32
+}
+
+func NewChainsPayload(chains []types.Chain, total int32) *ChainsPayloadResolver {
+	return &ChainsPayloadResolver{chains, total}
+}
+
+func (r *ChainsPayloadResolver) Results() []*ChainResolver {
+	return NewChains(r.chains)
+}
+
+func (r *ChainsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
+}

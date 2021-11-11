@@ -16,11 +16,16 @@ func Test_Chains(t *testing.T) {
 		query = `
 			query GetChains {
 				chains {
-					id
-					enabled
-					createdAt
-					nodes {
+					results {
 						id
+						enabled
+						createdAt
+						nodes {
+							id
+						}
+					}
+					metadata {
+						total
 					}
 				}
 			}`
@@ -51,14 +56,19 @@ func Test_Chains(t *testing.T) {
 			query: query,
 			result: `
 			{
-				"chains": [{
-					"id": "1",
-					"enabled": true,
-					"createdAt": "2021-01-01T00:00:00Z",
-					"nodes": [{
-						"id": "200"
-					}]
-				}]
+				"chains": {
+					"results": [{
+						"id": "1",
+						"enabled": true,
+						"createdAt": "2021-01-01T00:00:00Z",
+						"nodes": [{
+							"id": "200"
+						}]
+					}],
+					"metadata": {
+						"total": 1
+					}
+				}
 			}`,
 		},
 	}
