@@ -160,7 +160,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
 	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
@@ -175,13 +175,13 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(&jb)
+		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 1)
 		cltest.AssertCount(t, db, "pipeline_specs", 1)
 
-		err = orm.DeleteJob(jb.ID)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "offchainreporting_oracle_specs", 0)
 		cltest.AssertCount(t, db, "pipeline_specs", 0)
@@ -196,7 +196,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "keeper_registries", 1)
 		cltest.AssertCount(t, db, "upkeep_registrations", 1)
 
-		err := orm.DeleteJob(keeperJob.ID)
+		err := jobORM.DeleteJob(keeperJob.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "keeper_specs", 0)
 		cltest.AssertCount(t, db, "keeper_registries", 0)
@@ -211,9 +211,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pk.String()}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(&jb)
+		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
-		err = orm.DeleteJob(jb.ID)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "vrf_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
@@ -221,11 +221,11 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
 		ei := cltest.MustInsertExternalInitiator(t, gdb)
-		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, gdb)
+		jb, webhookSpec := cltest.MustInsertWebhookSpec(t)
 		err := gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error
 		require.NoError(t, err)
 
-		err = orm.DeleteJob(jb.ID)
+		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "webhook_specs", 0)
 		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
