@@ -51,6 +51,18 @@ type GeneralOnlyConfig interface {
 	AllowOrigins() string
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
+	AutoPprofEnabled() bool
+	AutoPprofProfileRoot() string
+	AutoPprofPollInterval() models.Duration
+	AutoPprofGatherDuration() models.Duration
+	AutoPprofGatherTraceDuration() models.Duration
+	AutoPprofMaxProfileSize() utils.FileSize
+	AutoPprofCPUProfileRate() int
+	AutoPprofMemProfileRate() int
+	AutoPprofBlockProfileRate() int
+	AutoPprofMutexProfileFraction() int
+	AutoPprofMemThreshold() utils.FileSize
+	AutoPprofGoroutineThreshold() int
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
@@ -395,6 +407,58 @@ func (c *generalConfig) AuthenticatedRateLimit() int64 {
 // AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
 func (c *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofEnabled() bool {
+	return c.viper.GetBool(EnvVarName("AutoPprofEnabled"))
+}
+
+func (c *generalConfig) AutoPprofProfileRoot() string {
+	root := c.viper.GetString(EnvVarName("AutoPprofProfileRoot"))
+	if root == "" {
+		return c.RootDir()
+	}
+	return root
+}
+
+func (c *generalConfig) AutoPprofPollInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofPollInterval", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofGatherDuration() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherDuration", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherTraceDuration", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofMaxProfileSize() utils.FileSize {
+	return c.getWithFallback("AutoPprofMaxProfileSize", ParseFileSize).(utils.FileSize)
+}
+
+func (c *generalConfig) AutoPprofCPUProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofCPUProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofMemProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofMemProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofBlockProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofBlockProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofMutexProfileFraction() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofMutexProfileFraction"))
+}
+
+func (c *generalConfig) AutoPprofMemThreshold() utils.FileSize {
+	return c.getWithFallback("AutoPprofMemThreshold", ParseFileSize).(utils.FileSize)
+}
+
+func (c *generalConfig) AutoPprofGoroutineThreshold() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofGoroutineThreshold"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
