@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
 
@@ -591,4 +592,33 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 	}
 
 	return jp, nil
+}
+
+func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
+	Input UpdatePasswordInput
+}) (*UpdatePasswordPayloadResolver, error) {
+	session, err := authenticateUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	dbUser, err := r.App.SessionORM().FindUser()
+	if err != nil {
+		return nil, err
+	}
+
+	if !utils.CheckPasswordHash(args.Input.OldPassword, dbUser.HashedPassword) {
+		return NewUpdatePasswordPayload(nil), nil
+	}
+
+	if err := r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
+		return nil, fmt.Errorf("failed to clear non current user sessions: %+v", err)
+	}
+
+	err = r.App.SessionORM().SetPassword(&dbUser, args.Input.NewPassword)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update current user password: %+v", err)
+	}
+
+	return NewUpdatePasswordPayload(session.User), nil
 }

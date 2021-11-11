@@ -1,0 +1,20 @@
+type User {
+    email: String!
+    createdAt: Time!
+}
+
+input UpdatePasswordInput {
+    oldPassword: String!
+    newPassword: String!
+}
+
+type UpdatePasswordSuccess {
+    user: User!
+}
+
+type UpdatePasswordMatchError implements Error {
+    message: String!
+    code: ErrorCode!
+}
+
+union UpdatePasswordPayload = UpdatePasswordSuccess | UpdatePasswordMatchError
