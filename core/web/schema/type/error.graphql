@@ -2,7 +2,6 @@ enum ErrorCode {
 	NOT_FOUND
 	INVALID_INPUT
 	UNPROCESSABLE
-	STATUS_CONFLICT
 }
 
 interface Error {
