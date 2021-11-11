@@ -30,9 +30,9 @@ func Test_Authorizer(t *testing.T) {
 	eiFoo := cltest.MustInsertExternalInitiator(t, db)
 	eiBar := cltest.MustInsertExternalInitiator(t, db)
 
-	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t, db)
-	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t, db)
-	jobWithNoEI, _ := cltest.MustInsertWebhookSpec(t, db)
+	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t)
+	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t)
+	jobWithNoEI, _ := cltest.MustInsertWebhookSpec(t)
 
 	require.NoError(t, multierr.Combine(
 		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "foo", "name": "webhookSpecWithFooAndBarEI"}`).Error,
