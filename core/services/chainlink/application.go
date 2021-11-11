@@ -224,7 +224,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chainSet),
 			job.VRF: vrf.NewDelegate(
-				gdb,
+				db,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,

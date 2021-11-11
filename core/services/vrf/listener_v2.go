@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -61,7 +61,7 @@ type listenerV2 struct {
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
 	job            job.Job
-	db             *gorm.DB
+	db             *sqlx.DB
 	vrfks          keystore.VRF
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox
@@ -210,13 +210,13 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 	lsn.pruneConfirmedRequestCounts()
 }
 
-func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, db *sqlx.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
 	var reservedLink string
-	err := db.Raw(`SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
+	err := db.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
 					FROM eth_txes
 					WHERE meta->>'MaxLink' IS NOT NULL
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
-					GROUP BY from_address = ?`, fromAddress).Scan(&reservedLink).Error
+					GROUP BY from_address = $1`, fromAddress)
 	if err != nil {
 		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
@@ -300,7 +300,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = postgres.NewQ(postgres.UnwrapGormDB(lsn.db)).Transaction(lsn.l, func(tx postgres.Queryer) error {
+		err = postgres.NewQ(lsn.db).Transaction(lsn.l, func(tx postgres.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err != nil {
 				return err
 			}
