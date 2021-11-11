@@ -245,7 +245,7 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 
 // GetManagers get managers services by ids.
 func (s *service) GetManagers(ids []int64) ([]FeedsManager, error) {
-	managers, err := s.orm.GetManagers(context.Background(), ids)
+	managers, err := s.orm.GetManagers(ids)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get managers by IDs")
 	}

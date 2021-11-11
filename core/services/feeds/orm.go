@@ -3,9 +3,10 @@ package feeds
 import (
 	"database/sql"
 
-	"github.com/pkg/errors"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -90,11 +91,11 @@ func (o *orm) GetManagers(ids []int64) (managers []FeedsManager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
 FROM feeds_managers
-WHERE id = ANY(?)
+WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
 	mgrIds := pq.Array(ids)
-	err = postgres.NewQ(o.db).Get(&managers, stmt, mgrIds)
+	err = postgres.NewQ(o.db).Select(&managers, stmt, mgrIds)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }
