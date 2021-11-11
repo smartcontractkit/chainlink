@@ -8,7 +8,7 @@ import "./interfaces/CrossDomainOwnableInterface.sol";
  * @title The CrossDomainOwnable contract
  * @notice A contract with helpers for cross-domain contract ownership.
  */
-abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
+contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
   address internal s_l1Owner;
   address internal s_l1PendingOwner;
 
@@ -20,16 +20,19 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
   }
 
   /**
-   * @notice Allows an owner to begin transferring ownership to a new address as a pending owner.
-   * @dev The following has to be implemented on a per-chain basis because msg.sender may be aliased to a different address.
+   * @notice transfer ownership of this account to a new L1 owner
+   * @param to new L1 owner that will be allowed to call the forward fn
    */
-  function transferL1Ownership(address to) external virtual override;
+  function transferL1Ownership(address to) public virtual override onlyL1Owner {
+    _transferL1Ownership(to);
+  }
 
   /**
-   * @notice Allows an ownership transfer to be completed by the recipient.
-   * @dev The following has to be implemented on a per-chain basis because msg.sender may be aliased to a different address.
+   * @notice accept ownership of this account to a new L1 owner
    */
-  function acceptL1Ownership() external virtual override;
+  function acceptL1Ownership() public virtual override onlyProposedL1Owner {
+    _setL1Owner(s_l1PendingOwner);
+  }
 
   /**
    * @notice Get the current owner
@@ -63,8 +66,16 @@ abstract contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOw
   /**
    * @notice Reverts if called by anyone other than the L1 owner.
    */
-  modifier onlyL1Owner() {
+  modifier onlyL1Owner() virtual {
     require(msg.sender == s_l1Owner, "Only callable by L1 owner");
+    _;
+  }
+
+  /**
+   * @notice Reverts if called by anyone other than the L1 owner.
+   */
+  modifier onlyProposedL1Owner() virtual {
+    require(msg.sender == s_l1PendingOwner, "Only callable by proposed L1 owner");
     _;
   }
 }
