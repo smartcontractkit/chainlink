@@ -3,7 +3,6 @@ package cltest
 import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
 	"testing"
@@ -93,8 +92,8 @@ func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func MustInsertWebhookSpec(t *testing.T) (job.Job, job.WebhookSpec, ) {
-	jobORM, pipelineORM, _ := getORMs(t)
+func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec, ) {
+	jobORM, pipelineORM := getORMs(t, db)
 	webhookSpec := job.WebhookSpec{}
 	webhookSpecID, err := jobORM.InsertWebhookSpec(&webhookSpec)
 	webhookSpec.ID = webhookSpecID
@@ -113,8 +112,7 @@ func MustInsertWebhookSpec(t *testing.T) (job.Job, job.WebhookSpec, ) {
 }
 
 
-func getORMs(t *testing.T) (jobORM job.ORM, pipelineORM pipeline.ORM, db *sqlx.DB) {
-	db = pgtest.NewSqlxDB(t)
+func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := NewTestGeneralConfig(t)
 	keyStore := NewKeyStore(t, db)
 	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t))

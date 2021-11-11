@@ -24,24 +24,24 @@ type eiDisabledCfg struct{}
 func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	sqlDB := postgres.UnwrapGormDB(db).DB
+	gdb := pgtest.NewGormDB(t)
+	db := postgres.UnwrapGormDB(gdb)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, db)
-	eiBar := cltest.MustInsertExternalInitiator(t, db)
+	eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
+	eiBar := cltest.MustInsertExternalInitiator(t, gdb)
 
-	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t)
-	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t)
-	jobWithNoEI, _ := cltest.MustInsertWebhookSpec(t)
+	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t, db)
+	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t, db)
+	jobWithNoEI, _ := cltest.MustInsertWebhookSpec(t, db)
 
 	require.NoError(t, multierr.Combine(
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "foo", "name": "webhookSpecWithFooAndBarEI"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "bar", "name": "webhookSpecWithFooAndBarEI"}`).Error,
-		db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithBarEI.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "foo", "name": "webhookSpecWithFooAndBarEI"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithFooAndBarEI.ID, `{"ei": "bar", "name": "webhookSpecWithFooAndBarEI"}`).Error,
+		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecWithBarEI.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
 	))
 
 	t.Run("no user no ei never authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(sqlDB, nil, nil)
+		a := webhook.NewAuthorizer(db.DB, nil, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -55,7 +55,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("with user no ei always authorizes", func(t *testing.T) {
-		a := webhook.NewAuthorizer(sqlDB, &sessions.User{}, nil)
+		a := webhook.NewAuthorizer(db.DB, &sessions.User{}, nil)
 
 		can, err := a.CanRun(context.Background(), nil, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
@@ -69,7 +69,7 @@ func Test_Authorizer(t *testing.T) {
 	})
 
 	t.Run("no user with ei authorizes conditionally", func(t *testing.T) {
-		a := webhook.NewAuthorizer(sqlDB, nil, &eiFoo)
+		a := webhook.NewAuthorizer(db.DB, nil, &eiFoo)
 
 		can, err := a.CanRun(context.Background(), eiEnabledCfg{}, jobWithFooAndBarEI.ExternalJobID)
 		require.NoError(t, err)
