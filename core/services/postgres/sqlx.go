@@ -27,6 +27,7 @@ type Queryer interface {
 	SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	PrepareNamed(query string) (*sqlx.NamedStmt, error)
 	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 	Get(dest interface{}, query string, args ...interface{}) error
 	GetContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error
 	NamedExec(query string, arg interface{}) (sql.Result, error)
