@@ -160,10 +160,10 @@ func getStartingResponseCounts(db *sqlx.DB, l logger.Logger) map[[32]byte]uint64
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Get(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-							FROM eth_txes
-							WHERE meta->'RequestID' IS NOT NULL
-		    				GROUP BY meta->'RequestID'`)
+	err := db.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+			FROM eth_txes
+			WHERE meta->'RequestID' IS NOT NULL
+			GROUP BY meta->'RequestID'`)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous fulfillments", "err", err)
@@ -193,10 +193,10 @@ func GetStartingResponseCountsV2(db *sqlx.DB, l logger.Logger) map[string]uint64
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Get(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-							FROM eth_txes
-							WHERE meta->'RequestID' IS NOT NULL
-		    				GROUP BY meta->'RequestID'`)
+	err := db.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+			FROM eth_txes
+			WHERE meta->'RequestID' IS NOT NULL
+			GROUP BY meta->'RequestID'`)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous fulfillments", "err", err)
