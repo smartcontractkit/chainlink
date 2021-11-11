@@ -611,7 +611,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return NewUpdatePasswordPayload(nil), nil
 	}
 
-	if err := r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
+	if err = r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
 		return nil, fmt.Errorf("failed to clear non current user sessions: %+v", err)
 	}
 
