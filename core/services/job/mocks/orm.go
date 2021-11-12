@@ -207,7 +207,7 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 }
 
 // InsertJob provides a mock function with given fields: _a0, qopts
-func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) (job.Job, error) {
+func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -217,25 +217,18 @@ func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) (job.Job, error) 
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) job.Job); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) error); ok {
 		r0 = rf(_a0, qopts...)
 	} else {
-		r0 = ret.Get(0).(job.Job)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*job.Job, ...postgres.QOpt) error); ok {
-		r1 = rf(_a0, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // InsertWebhookSpec provides a mock function with given fields: webhookSpec, qopts
-func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres.QOpt) (job.WebhookSpec, error) {
+func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -245,21 +238,14 @@ func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 job.WebhookSpec
-	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...postgres.QOpt) job.WebhookSpec); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...postgres.QOpt) error); ok {
 		r0 = rf(webhookSpec, qopts...)
 	} else {
-		r0 = ret.Get(0).(job.WebhookSpec)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(*job.WebhookSpec, ...postgres.QOpt) error); ok {
-		r1 = rf(webhookSpec, qopts...)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // PipelineRuns provides a mock function with given fields: jobID, offset, size
