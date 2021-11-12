@@ -2,6 +2,7 @@ package bulletprooftxmanager
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -9,6 +10,7 @@ type ORM interface {
 	EthTransactionsWithAttempts(offset, limit int) ([]EthTx, int, error)
 	EthTxAttempts(offset, limit int) ([]EthTxAttempt, int, error)
 	FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error)
+	InsertEthTxAttempt(txAttempt *EthTxAttempt) error
 }
 
 type orm struct {
@@ -31,7 +33,7 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 		return nil
 	}
 	var attempts []EthTxAttempt
-	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY created_at desc;`
+	sql := `SELECT * FROM eth_tx_attempts WHERE eth_tx_id IN (?) ORDER BY id desc;`
 	query, args, err := sqlx.In(sql, ids)
 	if err != nil {
 		return err
@@ -81,7 +83,7 @@ func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
 }
 
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
-// limited by passed parameters. Attempts are sorted by created_at.
+// limited by passed parameters. Attempts are sorted by id.
 func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
 	if err = o.db.Get(&count, sql); err != nil {
@@ -123,4 +125,13 @@ func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	attempts := []EthTxAttempt{ethTxAttempt}
 	err := o.preloadTxes(attempts)
 	return &attempts[0], err
+}
+
+// InsertEthTxAttempt inserts a new txAttempt into the database
+func (o *orm) InsertEthTxAttempt(txAttempt *EthTxAttempt) error {
+	query, args, err := o.db.BindNamed(insertIntoEthTxAttemptsQuery, txAttempt)
+	if err != nil {
+		return errors.Wrap(err, "InsertEthTxAttempt failed to BindNamed")
+	}
+	return errors.Wrap(o.db.Get(txAttempt, query, args...), "InsertEthTxAttempt failed to insert")
 }
