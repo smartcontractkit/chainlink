@@ -467,7 +467,7 @@ func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*ApproveJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, approve, nil,
+		args.ID, approve,
 	})
 
 	if err != nil {
@@ -485,7 +485,7 @@ func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*CancelJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, cancel, nil,
+		args.ID, cancel,
 	})
 
 	if err != nil {
@@ -503,7 +503,7 @@ func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*RejectJobProposalPayloadResolver, error) {
 	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, reject, nil,
+		args.ID, reject,
 	})
 
 	if err != nil {
@@ -521,10 +521,27 @@ func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
 	ID    graphql.ID
 	Input *struct{ Spec string }
 }) (*UpdateJobProposalSpecPayloadResolver, error) {
-	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
-		args.ID, updateSpec, args.Input,
-	})
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
 
+	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	err = feedsSvc.UpdateJobProposalSpec(ctx, id, args.Input.Spec)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	jp, err := r.App.GetFeedsService().GetJobProposal(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewUpdateJobProposalSpecPayload(nil, err), nil
@@ -537,9 +554,8 @@ func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
 }
 
 type jobProposalAction struct {
-	jpID   graphql.ID
-	name   JobProposalAction
-	update *struct{ Spec string }
+	jpID graphql.ID
+	name JobProposalAction
 }
 
 func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
@@ -561,12 +577,6 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 		err = feedsSvc.CancelJobProposal(ctx, id)
 	case reject:
 		err = feedsSvc.RejectJobProposal(ctx, id)
-	case updateSpec:
-		if action.update == nil {
-			return nil, errors.New("spec to update was expected")
-		}
-
-		err = feedsSvc.UpdateJobProposalSpec(ctx, id, action.update.Spec)
 	default:
 		return nil, errors.New("invalid job proposal action")
 	}

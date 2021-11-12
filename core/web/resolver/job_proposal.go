@@ -124,10 +124,9 @@ func (r *JobProposalPayloadResolver) ToJobProposal() (*JobProposalResolver, bool
 type JobProposalAction string
 
 const (
-	approve    JobProposalAction = "approve"
-	cancel     JobProposalAction = "cancel"
-	reject     JobProposalAction = "reject"
-	updateSpec JobProposalAction = "updateSpec"
+	approve JobProposalAction = "approve"
+	cancel  JobProposalAction = "cancel"
+	reject  JobProposalAction = "reject"
 )
 
 // -- ApproveJobProposal Mutation --
