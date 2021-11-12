@@ -174,7 +174,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes: jobtypes,
 		// ChainID is deprecated but we still need to pass it in for backwards
-		// compatability. We now use ChainIds in order to support multichain.
+		// compatibility. We now use ChainIds in order to support multichain.
 		//
 		// We can remove it once the Feeds Manager has been updated and released
 		// https://app.clubhouse.io/chainlinklabs/story/14983/support-multichain-nodes
