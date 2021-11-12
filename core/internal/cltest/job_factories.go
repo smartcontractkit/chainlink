@@ -2,19 +2,17 @@ package cltest
 
 import (
 	"fmt"
-
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/sqlx"
-
-	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/sqlx"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 )
 
