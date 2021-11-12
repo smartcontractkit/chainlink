@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
