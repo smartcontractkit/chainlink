@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+pg_dump --schema-only --no-owner $DATABASE_URL \
+	| grep -v "^--" \
+	| grep . \
+	| tr "\n" "\v" \
+	| tr ";" "\n" \
+	| grep -P '^\vALTER|^\vCREATE (?!FUNCTION|TRIGGER)' \
+	| sort -t '.' -k 2 \
+	| sed -z "s/\n/;\n/g" \
+	| tr "\v" "\n"
