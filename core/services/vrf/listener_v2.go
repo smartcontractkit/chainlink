@@ -217,18 +217,19 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 			return
 		}
 		startBalance := sub.Balance
-		lsn.processRequestsPerSub(fromAddress.Address(), startBalance, maxGasPrice, reqs)
+		lsn.processRequestsPerSub(subID, fromAddress.Address(), startBalance, maxGasPrice, reqs)
 	}
 	lsn.pruneConfirmedRequestCounts()
 }
 
-func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := db.Raw(`SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
 					FROM eth_txes
 					WHERE meta->>'MaxLink' IS NOT NULL
+				   AND meta->'SubId' = ?
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
-					GROUP BY from_address = ?`, fromAddress).Scan(&reservedLink).Error
+				   GROUP BY from_address = ?`, subID, fromAddress).Scan(&reservedLink).Error
 	if err != nil {
 		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
@@ -264,10 +265,15 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 	}
 }
 
-func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
-	var err1 error
-	startBalanceNoReserveLink, err1 := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
-	if err1 != nil {
+func (lsn *listenerV2) processRequestsPerSub(
+	subID uint64,
+	fromAddress common.Address,
+	startBalance *big.Int,
+	maxGasPrice *big.Int,
+	reqs []pendingRequest,
+) {
+	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance, subID)
+	if err != nil {
 		return
 	}
 	lsn.l.Infow("Processing requests",
@@ -328,6 +334,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 				Meta: &bulletprooftxmanager.EthTxMeta{
 					RequestID: common.BytesToHash(req.req.RequestId.Bytes()),
 					MaxLink:   bi.String(),
+					SubID:     vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
