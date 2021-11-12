@@ -172,7 +172,7 @@ func NewEthTx(t *testing.T, fromAddress common.Address) bulletprooftxmanager.Eth
 	}
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	broadcastAt := time.Now()
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -186,12 +186,12 @@ func MustInsertUnconfirmedEthTx(t *testing.T, db *gorm.DB, nonce int64, fromAddr
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
-	etx := MustInsertUnconfirmedEthTx(t, db, nonce, fromAddress, opts...)
+func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -200,14 +200,14 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, db *gorm
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	require.NoError(t, db.Save(&attempt).Error)
-	etx, err := FindEthTxWithAttempts(db, etx.ID)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
-	etx := MustInsertUnconfirmedEthTx(t, db, nonce, fromAddress, opts...)
+func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, borm, nonce, fromAddress, opts...)
 	attempt := NewDynamicFeeEthTxAttempt(t, etx.ID)
 
 	addr := NewAddress()
@@ -227,22 +227,13 @@ func MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t *testing.T, db *
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	require.NoError(t, db.Save(&attempt).Error)
-	etx, err := FindEthTxWithAttempts(db, etx.ID)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-// FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
-func FindEthTxWithAttempts(db *gorm.DB, etxID int64) (bulletprooftxmanager.EthTx, error) {
-	etx := bulletprooftxmanager.EthTx{}
-	err := db.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-		return db.Order("gas_price asc, id asc")
-	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
-	return etx, err
-}
-
-func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, fromAddress)
 
@@ -250,7 +241,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, db *gorm
 	n := nonce
 	etx.Nonce = &n
 	etx.State = bulletprooftxmanager.EthTxUnconfirmed
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -259,48 +250,48 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, db *gorm
 	attempt.SignedRawTx = rlp.Bytes()
 
 	attempt.State = bulletprooftxmanager.EthTxAttemptInsufficientEth
-	require.NoError(t, db.Save(&attempt).Error)
-	etx, err := FindEthTxWithAttempts(db, etx.ID)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, db *gorm.DB, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxConfirmed
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	attempt.BroadcastBeforeBlockNum = &broadcastBeforeBlockNum
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	require.NoError(t, db.Save(&attempt).Error)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, db *gorm.DB, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, borm bulletprooftxmanager.ORM, nonce int64, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
 	etx.State = bulletprooftxmanager.EthTxInProgress
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	attempt := NewLegacyEthTxAttempt(t, etx.ID)
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 	rlp := new(bytes.Buffer)
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 	attempt.State = bulletprooftxmanager.EthTxAttemptInProgress
-	require.NoError(t, db.Save(&attempt).Error)
-	etx, err := FindEthTxWithAttempts(db, etx.ID)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
+	etx, err := borm.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
 }
 
-func MustInsertUnstartedEthTx(t *testing.T, db *gorm.DB, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
+func MustInsertUnstartedEthTx(t *testing.T, borm bulletprooftxmanager.ORM, fromAddress common.Address, opts ...interface{}) bulletprooftxmanager.EthTx {
 	var subject uuid.NullUUID
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -311,7 +302,7 @@ func MustInsertUnstartedEthTx(t *testing.T, db *gorm.DB, fromAddress common.Addr
 	etx := NewEthTx(t, fromAddress)
 	etx.State = bulletprooftxmanager.EthTxUnstarted
 	etx.Subject = subject
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	return etx
 }
 
@@ -346,15 +337,15 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.E
 	}
 }
 
-func MustInsertBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, db *gorm.DB, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
+func MustInsertBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, borm bulletprooftxmanager.ORM, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
 	attempt := NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, db.Create(&attempt).Error)
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 	return attempt
 }
 
-func MustInsertEthReceipt(t *testing.T, db *gorm.DB, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+func MustInsertEthReceipt(t *testing.T, borm bulletprooftxmanager.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
 	transactionIndex := uint(NewRandomInt64())
 
 	receipt := bulletprooftxmanager.Receipt{
@@ -374,22 +365,22 @@ func MustInsertEthReceipt(t *testing.T, db *gorm.DB, blockNumber int64, blockHas
 		TransactionIndex: transactionIndex,
 		Receipt:          data,
 	}
-	require.NoError(t, db.Save(&r).Error)
+	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
 }
 
-func MustInsertConfirmedEthTxWithReceipt(t *testing.T, db *gorm.DB, fromAddress common.Address, nonce, blockNum int64) (etx bulletprooftxmanager.EthTx) {
-	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, db, nonce, blockNum, fromAddress)
-	MustInsertEthReceipt(t, db, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
+func MustInsertConfirmedEthTxWithReceipt(t *testing.T, borm bulletprooftxmanager.ORM, fromAddress common.Address, nonce, blockNum int64) (etx bulletprooftxmanager.EthTx) {
+	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, nonce, blockNum, fromAddress)
+	MustInsertEthReceipt(t, borm, blockNum, utils.NewHash(), etx.EthTxAttempts[0].Hash)
 	return etx
 }
 
-func MustInsertFatalErrorEthTx(t *testing.T, db *gorm.DB, fromAddress common.Address) bulletprooftxmanager.EthTx {
+func MustInsertFatalErrorEthTx(t *testing.T, borm bulletprooftxmanager.ORM, fromAddress common.Address) bulletprooftxmanager.EthTx {
 	etx := NewEthTx(t, fromAddress)
 	etx.Error = null.StringFrom("something exploded")
 	etx.State = bulletprooftxmanager.EthTxFatalError
 
-	require.NoError(t, db.Save(&etx).Error)
+	require.NoError(t, borm.InsertEthTx(&etx))
 	return etx
 }
 
