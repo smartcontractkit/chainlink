@@ -239,7 +239,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	if cfg.UseLegacyEthEnvVars() {
-		if err = evm.ClobberDBFromEnv(gormDB, cfg, appLggr); err != nil {
+		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
 	}
@@ -248,8 +248,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
-		GormDB:           gormDB,
-		SQLxDB:           db,
+		DB:               db,
 		ORM:              evm.NewORM(db),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,

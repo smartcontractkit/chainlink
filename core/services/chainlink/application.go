@@ -155,8 +155,8 @@ type ApplicationOpts struct {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []service.Service
-	db := opts.GormDB
-	sqlxDB := opts.SqlxDB
+	gdb := opts.GormDB
+	db := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
@@ -193,16 +193,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(postgres.MustSQLDB(db), globalLogger)
+	promReporter := services.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(sqlxDB, globalLogger)
-		bridgeORM      = bridges.NewORM(sqlxDB)
-		sessionORM     = sessions.NewORM(sqlxDB, cfg.SessionTimeout().Duration(), globalLogger)
+		pipelineORM    = pipeline.NewORM(db, globalLogger)
+		bridgeORM      = bridges.NewORM(db)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(sqlxDB, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(sqlxDB)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
+		bptxmORM       = bulletprooftxmanager.NewORM(db)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -216,7 +216,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				db,
 				chainSet),
 			job.Keeper: keeper.NewDelegate(
 				db,
@@ -225,7 +224,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chainSet),
 			job.VRF: vrf.NewDelegate(
-				db,
+				gdb,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
@@ -251,7 +250,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobORM,
 			pipelineORM,
 			pipelineRunner,
-			db,
+			gdb,
 			chainSet,
 			globalLogger,
 		)
@@ -278,7 +277,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	for _, c := range chainSet.Chains() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, sqlxDB, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	feedsORM := feeds.NewORM(db)
@@ -290,7 +289,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, sqlxDB, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
@@ -307,7 +306,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(sqlxDB.DB, cfg),
+		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
@@ -316,7 +315,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		logger:                   globalLogger,
 		id:                       opts.ID,
 
-		sqlxDB: sqlxDB,
+		sqlxDB: opts.SqlxDB,
 		gormDB: opts.GormDB,
 
 		advisoryLock: opts.AdvisoryLock,
@@ -359,7 +358,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level.String())
+	return logger.NewORM(app.GetSqlxDB()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also

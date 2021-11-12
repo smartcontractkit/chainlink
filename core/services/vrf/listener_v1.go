@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -47,7 +46,6 @@ type listenerV1 struct {
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
-	vorm            keystore.VRFORM
 	job             job.Job
 	db              *gorm.DB
 	headBroadcaster httypes.HeadBroadcasterRegistry
@@ -131,12 +129,12 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		})
-		go shutdown.WrapRecover(lsn.l, func() {
+		}()
+		go func() {
 			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		}()
 		return nil
 	})
 }

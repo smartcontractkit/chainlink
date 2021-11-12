@@ -123,12 +123,12 @@ func TestPipelineORM_Integration(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		clearJobsDb(t, gdb)
 		orm := pipeline.NewORM(db, logger.TestLogger(t))
-		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: gdb, GeneralConfig: config})
+		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore)
 
-		dbSpec := makeVoterTurnoutOCRJobSpec(t, gdb, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(dbSpec)

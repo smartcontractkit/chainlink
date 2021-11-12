@@ -165,7 +165,7 @@ func (js *spawner) StartService(spec Job) error {
 		js.lggr.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
 		ctx, cancel := utils.ContextFromChan(js.chStop)
 		defer cancel()
-		js.orm.RecordError(ctx, spec.ID, err.Error())
+		js.orm.RecordError(spec.ID, err.Error(), postgres.WithParentCtx(ctx))
 		js.activeJobs[spec.ID] = aj
 		return nil
 	}

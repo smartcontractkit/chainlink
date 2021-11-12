@@ -124,7 +124,12 @@ var (
 
 func init() {
 	gin.SetMode(gin.TestMode)
-	gomega.SetDefaultEventuallyTimeout(3 * time.Second)
+
+	gomega.SetDefaultEventuallyTimeout(DefaultWaitTimeout)
+	gomega.SetDefaultEventuallyPollingInterval(DBPollingInterval)
+	gomega.SetDefaultConsistentlyDuration(time.Second)
+	gomega.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
+
 	logger.InitColor(true)
 	lggr := logger.TestLogger(nil)
 	logger.InitLogger(lggr)
@@ -140,15 +145,6 @@ func init() {
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
-}
-
-func NewGomegaWithT(t testing.TB) *gomega.WithT {
-	g := gomega.NewWithT(t)
-	g.SetDefaultEventuallyTimeout(DefaultWaitTimeout)
-	g.SetDefaultEventuallyPollingInterval(DBPollingInterval)
-	g.SetDefaultConsistentlyDuration(time.Second)
-	g.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
-	return g
 }
 
 func NewRandomInt64() int64 {
@@ -337,14 +333,14 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
-	sqlxDB, db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+	db, gdb, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
 		Logger:           lggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, sqlxDB.Close()) })
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	var ethClient eth.Client
 	var externalInitiatorManager webhook.ExternalInitiatorManager
@@ -367,7 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(gdb, utils.UnrestrictedClient)
 			}
 
 		}
@@ -376,16 +372,15 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		ethClient = eth.NewNullClient(nil, lggr)
 	}
 	if chainORM == nil {
-		chainORM = evm.NewORM(sqlxDB)
+		chainORM = evm.NewORM(db)
 	}
 
-	keyStore := keystore.New(sqlxDB, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
 		Logger:           lggr,
-		GormDB:           db,
-		SQLxDB:           sqlxDB,
+		DB:               db,
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 		GenEthClient: func(c evmtypes.Chain) eth.Client {
@@ -403,8 +398,8 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
-		GormDB:                   db,
-		SqlxDB:                   sqlxDB,
+		GormDB:                   gdb,
+		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		Logger:                   lggr,
@@ -895,7 +890,7 @@ const (
 func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
 		err := db.
@@ -920,7 +915,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 	t.Helper()
 
 	var pr []pipeline.Run
-	NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRuns(&jobID, 0, 1000)
 		require.NoError(t, err)
 
@@ -957,7 +952,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
 func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
 	t.Helper()
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
@@ -973,7 +968,7 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, wa
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
 func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	t.Helper()
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
@@ -1610,17 +1605,17 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, db *gorm.DB, model interface{}, expected int64) {
+func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	t.Helper()
 	var count int64
-	err := db.Unscoped().Model(model).Count(&count).Error
+	err := db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }
 
 func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
@@ -1632,7 +1627,7 @@ func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 
 func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
 	t.Helper()
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
@@ -1644,7 +1639,7 @@ func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) 
 
 func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
 	t.Helper()
-	g := NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		err := db.Find(model).Error
 		require.NoError(t, err, "unable to find record in DB")

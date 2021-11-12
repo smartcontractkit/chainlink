@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -29,7 +29,7 @@ type TestChainOpts struct {
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
 	HeadTracker    httypes.Tracker
-	DB             *gorm.DB
+	DB             *sqlx.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
 }
@@ -44,8 +44,7 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Chai
 func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
-		GormDB:           testopts.DB,
-		SQLxDB:           postgres.TryUnwrapGormDB(testopts.DB),
+		DB:               testopts.DB,
 		KeyStore:         testopts.KeyStore,
 		EventBroadcaster: postgres.NewNullEventBroadcaster(),
 	}
@@ -97,10 +96,12 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 	return chain
 }
 
-func MustInsertChainWithNode(t testing.TB, db *gorm.DB, chain evmtypes.Chain) evmtypes.Chain {
-	err := db.Create(&chain).Error
+func MustInsertChain(t testing.TB, db *sqlx.DB, chain *evmtypes.Chain) {
+	query, args, e := db.BindNamed(`
+INSERT INTO evm_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :cfg, :enabled, NOW(), NOW()) RETURNING *;`, chain)
+	require.NoError(t, e)
+	err := db.Get(chain, query, args...)
 	require.NoError(t, err)
-	return chain
 }
 
 type MockORM struct {

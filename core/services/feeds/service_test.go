@@ -91,6 +91,7 @@ func setupTestService(t *testing.T) *TestService {
 		p2pKeystore = &ksmocks.P2P{}
 		cfg         = &mocks.Config{}
 	)
+	orm.Test(t)
 
 	t.Cleanup(func() {
 		mock.AssertExpectationsForObjects(t,
@@ -147,8 +148,8 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	svc.orm.On("CountManagers", context.Background()).Return(int64(0), nil)
-	svc.orm.On("CreateManager", context.Background(), &ms).
+	svc.orm.On("CountManagers").Return(int64(0), nil)
+	svc.orm.On("CreateManager", &ms).
 		Return(id, nil)
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
@@ -173,7 +174,7 @@ func Test_Service_ListManagers(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("ListManagers", context.Background()).
+	svc.orm.On("ListManagers").
 		Return(mss, nil)
 	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
@@ -192,7 +193,7 @@ func Test_Service_GetManager(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("GetManager", context.Background(), id).
+	svc.orm.On("GetManager", id).
 		Return(&ms, nil)
 	svc.connMgr.On("IsConnected", ms.ID).Return(false)
 
@@ -217,7 +218,7 @@ func Test_Service_CreateJobProposal(t *testing.T) {
 	svc := setupTestService(t)
 
 	svc.cfg.On("DefaultHTTPTimeout").Return(models.MustMakeDuration(1 * time.Second))
-	svc.orm.On("CreateJobProposal", context.Background(), &jp).
+	svc.orm.On("CreateJobProposal", &jp).
 		Return(id, nil)
 
 	actual, err := svc.CreateJobProposal(&jp)
@@ -230,9 +231,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 	t.Parallel()
 
 	var (
-		ctx = context.Background()
-		id  = int64(1)
-		jp  = feeds.JobProposal{
+		id = int64(1)
+		jp = feeds.JobProposal{
 			FeedsManagerID: 1,
 			RemoteUUID:     uuid.NewV4(),
 			Status:         "pending",
@@ -252,8 +252,8 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "Create success",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).Return(nil, sql.ErrNoRows)
-				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(nil, sql.ErrNoRows)
+				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
 			proposal: jp,
@@ -263,13 +263,13 @@ func Test_Service_ProposeJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: jp.FeedsManagerID,
 						RemoteUUID:     jp.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
 					}, nil)
-				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
 			proposal: jp,
@@ -279,13 +279,13 @@ func Test_Service_ProposeJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: jp.FeedsManagerID,
 						RemoteUUID:     jp.RemoteUUID,
 						Status:         feeds.JobProposalStatusRejected,
 					}, nil)
-				svc.orm.On("UpsertJobProposal", ctx, &jp).Return(id, nil)
+				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
 			proposal: jp,
@@ -314,7 +314,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: 2,
 						RemoteUUID:     jp.RemoteUUID,
@@ -329,7 +329,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", ctx, jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: jp.FeedsManagerID,
 						RemoteUUID:     jp.RemoteUUID,
@@ -389,7 +389,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	svc := setupTestService(t)
 
 	// Mock fetching the information to send
-	svc.orm.On("GetManager", ctx, feedsMgr.ID).Return(feedsMgr, nil)
+	svc.orm.On("GetManager", feedsMgr.ID).Return(feedsMgr, nil)
 	svc.ethKeystore.On("SendingKeys").Return([]ethkey.KeyV2{sendingKey}, nil)
 	svc.cfg.On("ChainID").Return(chainID)
 	svc.connMgr.On("GetClient", feedsMgr.ID).Return(svc.fmsClient, nil)
@@ -414,7 +414,6 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	key := cltest.DefaultCSAKey
 
 	var (
-		ctx = context.Background()
 		mgr = feeds.FeedsManager{
 			ID: 1,
 		}
@@ -422,12 +421,12 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	svc.orm.On("UpdateManager", mock.Anything, mgr).Return(nil)
+	svc.orm.On("UpdateManager", mgr, mock.Anything).Return(nil)
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err := svc.UpdateFeedsManager(ctx, mgr)
+	err := svc.UpdateFeedsManager(context.Background(), mgr)
 	require.NoError(t, err)
 }
 
@@ -440,7 +439,7 @@ func Test_Service_ListJobProposals(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("ListJobProposals", context.Background()).
+	svc.orm.On("ListJobProposals").
 		Return(jps, nil)
 
 	actual, err := svc.ListJobProposals()
@@ -458,7 +457,7 @@ func Test_Service_GetJobProposal(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("GetJobProposal", context.Background(), id).
+	svc.orm.On("GetJobProposal", id).
 		Return(&ms, nil)
 
 	actual, err := svc.GetJobProposal(id)
@@ -516,7 +515,7 @@ answer1 [type=median index=0];
 			name: "pending job success",
 			id:   pendingProposal.ID,
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", mock.Anything, pendingProposal.ID).Return(pendingProposal, nil)
+				svc.orm.On("GetJobProposal", pendingProposal.ID, mock.Anything).Return(pendingProposal, nil)
 				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
@@ -547,7 +546,7 @@ answer1 [type=median index=0];
 			name: "cancelled job success",
 			id:   cancelledProposal.ID,
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, cancelledProposal.ID).Return(cancelledProposal, nil)
+				svc.orm.On("GetJobProposal", cancelledProposal.ID, mock.Anything).Return(cancelledProposal, nil)
 				svc.connMgr.On("GetClient", cancelledProposal.FeedsManagerID).Return(svc.fmsClient, nil)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
@@ -578,7 +577,7 @@ answer1 [type=median index=0];
 			name: "job proposal does not exist",
 			id:   int64(1),
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, int64(1)).Return(nil, errors.New("Not Found"))
+				svc.orm.On("GetJobProposal", int64(1), mock.Anything).Return(nil, errors.New("Not Found"))
 			},
 			wantErr: "job proposal error: Not Found",
 		},
@@ -586,7 +585,7 @@ answer1 [type=median index=0];
 			name: "FMS client not connected",
 			id:   int64(1),
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, cancelledProposal.ID).Return(pendingProposal, nil)
+				svc.orm.On("GetJobProposal", cancelledProposal.ID, mock.Anything).Return(pendingProposal, nil)
 				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(nil, errors.New("Not Connected"))
 			},
 			wantErr: "fms rpc client is not connected: Not Connected",
@@ -602,7 +601,7 @@ answer1 [type=median index=0];
 					FeedsManagerID: 2,
 					Spec:           spec,
 				}
-				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 			},
 			wantErr: "must be a pending or cancelled job proposal",
@@ -611,7 +610,7 @@ answer1 [type=median index=0];
 			name: "orm error",
 			id:   int64(1),
 			before: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", ctx, pendingProposal.ID).Return(pendingProposal, nil)
+				svc.orm.On("GetJobProposal", pendingProposal.ID, mock.Anything).Return(pendingProposal, nil)
 				svc.connMgr.On("GetClient", pendingProposal.FeedsManagerID).Return(svc.fmsClient, nil)
 
 				svc.cfg.On("DefaultHTTPTimeout").Return(models.MakeDuration(1 * time.Minute))
@@ -662,7 +661,7 @@ func Test_Service_RejectJobProposal(t *testing.T) {
 
 	svc := setupTestService(t)
 
-	svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+	svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 	svc.orm.On("UpdateJobProposalStatus",
 		jp.ID,
 		feeds.JobProposalStatusRejected,
@@ -704,9 +703,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "success",
 			beforeFn: func(svc *TestService) {
-				ctx := context.Background()
-
-				svc.orm.On("GetJobProposal", ctx, jp.ID).Return(jp, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(svc.fmsClient, nil)
 				svc.orm.On("CancelJobProposal",
 					jp.ID,
@@ -726,7 +723,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "must be an approved job proposal",
 			beforeFn: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", context.Background(), jp.ID).Return(&feeds.JobProposal{
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(&feeds.JobProposal{
 					ID:             1,
 					ExternalJobID:  uuid.NullUUID{UUID: externalJobID, Valid: true},
 					RemoteUUID:     externalJobID,
@@ -739,7 +736,7 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 		{
 			name: "rpc client not connected",
 			beforeFn: func(svc *TestService) {
-				svc.orm.On("GetJobProposal", context.Background(), jp.ID).Return(jp, nil)
+				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.connMgr.On("GetClient", jp.FeedsManagerID).Return(nil, errors.New("not connected"))
 			},
 			wantErr: "fms rpc client: not connected",
@@ -776,7 +773,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	ctx := context.Background()
 	jobID := int64(1)
 
-	svc.orm.On("IsJobManaged", ctx, jobID).Return(true, nil)
+	svc.orm.On("IsJobManaged", jobID, mock.Anything).Return(true, nil)
 
 	isManaged, err := svc.IsJobManaged(ctx, jobID)
 	require.NoError(t, err)
@@ -807,12 +804,12 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 				}
 
 				svc.orm.
-					On("GetJobProposal", ctx, proposalID).
+					On("GetJobProposal", proposalID, mock.Anything).
 					Return(jp, nil)
 				svc.orm.On("UpdateJobProposalSpec",
-					mock.MatchedBy(func(ctx context.Context) bool { return true }),
 					proposalID,
 					updatedSpec,
+					mock.Anything,
 				).Return(nil)
 			},
 			proposalID: proposalID,
@@ -821,7 +818,7 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 			name: "does not exist",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposal", ctx, proposalID).
+					On("GetJobProposal", proposalID, mock.Anything).
 					Return(nil, sql.ErrNoRows)
 			},
 			wantErr: "job proposal does not exist: sql: no rows in result set",
@@ -830,7 +827,7 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 			name: "other get errors",
 			before: func(svc *TestService) {
 				svc.orm.
-					On("GetJobProposal", ctx, proposalID).
+					On("GetJobProposal", proposalID, mock.Anything).
 					Return(nil, errors.New("other db error"))
 			},
 			wantErr: "database error: other db error",
@@ -846,7 +843,7 @@ func Test_Service_UpdateJobProposalSpec(t *testing.T) {
 				}
 
 				svc.orm.
-					On("GetJobProposal", ctx, proposalID).
+					On("GetJobProposal", proposalID, mock.Anything).
 					Return(jp, nil)
 			},
 			wantErr: "must be a pending or cancelled job proposal",
@@ -892,7 +889,7 @@ func Test_Service_StartStop(t *testing.T) {
 	svc := setupTestService(t)
 
 	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-	svc.orm.On("ListManagers", context.Background()).Return([]feeds.FeedsManager{mgr}, nil)
+	svc.orm.On("ListManagers").Return([]feeds.FeedsManager{mgr}, nil)
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 	svc.connMgr.On("Close")

@@ -55,20 +55,20 @@ func setup(t *testing.T) (
 	db := postgres.UnwrapGormDB(gdb)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	registry, job := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
 	txm := new(bptxmmocks.TxManager)
 	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: gdb, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(gdb, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	registry, job := cltest.MustInsertKeeperRegistry(t, orm, keyStore.Eth())
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, gdb, ch.Config(), registry)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
@@ -197,7 +197,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, _, ethMock, executer, registry, _, _, _, _ := setup(t)
 

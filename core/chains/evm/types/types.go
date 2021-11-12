@@ -90,8 +90,8 @@ func (c ChainCfg) Value() (driver.Value, error) {
 }
 
 type Chain struct {
-	ID        utils.Big `gorm:"primary_key"`
-	Nodes     []Node    `gorm:"->;foreignKey:EVMChainID;references:ID"`
+	ID        utils.Big
+	Nodes     []Node
 	Cfg       ChainCfg
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -103,12 +103,12 @@ func (Chain) TableName() string {
 }
 
 type Node struct {
-	ID         int32 `gorm:"primary_key"`
+	ID         int32
 	Name       string
 	EVMChain   Chain
-	EVMChainID utils.Big   `gorm:"column:evm_chain_id"`
-	WSURL      null.String `gorm:"column:ws_url" db:"ws_url"`
-	HTTPURL    null.String `gorm:"column:http_url" db:"http_url"`
+	EVMChainID utils.Big
+	WSURL      null.String `db:"ws_url"`
+	HTTPURL    null.String `db:"http_url"`
 	SendOnly   bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

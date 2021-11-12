@@ -5,12 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/onsi/gomega"
-	"gorm.io/gorm"
-
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type delegate struct {
@@ -45,8 +43,8 @@ func (d delegate) ServicesForSpec(js job.Job) ([]job.Service, error) {
 	return d.services, nil
 }
 
-func clearDB(t *testing.T, db *gorm.DB) {
-	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
+func clearDB(t *testing.T, db *sqlx.DB) {
+	_, err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
 	require.NoError(t, err)
 }
 
@@ -69,7 +67,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, Client: ethClient, GeneralConfig: config})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -155,7 +153,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB2.AssertExpectations(t)
 	})
 
-	clearDB(t, gdb)
+	clearDB(t, db)
 
 	t.Run("starts and stops job services from the DB when .Start()/.Stop() is called", func(t *testing.T) {
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
@@ -191,7 +189,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 	})
 
-	clearDB(t, gdb)
+	clearDB(t, db)
 
 	t.Run("closes job services on 'DeleteJob()'", func(t *testing.T) {
 		jobA := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
@@ -221,7 +219,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyStart.AwaitOrFail(t)
 
 		// Wait for the claim lock to be taken
-		cltest.NewGomegaWithT(t).Eventually(func() bool {
+		gomega.NewWithT(t).Eventually(func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
@@ -237,7 +235,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
-		cltest.NewGomegaWithT(t).Eventually(func() bool {
+		gomega.NewWithT(t).Eventually(func() bool {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists

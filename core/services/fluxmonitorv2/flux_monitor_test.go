@@ -528,7 +528,6 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 
 	tm.jobORM.
 		On("RecordError",
-			context.Background(),
 			pipelineSpec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		).Once()
@@ -745,7 +744,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 }
 
 func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	testCases := []struct {
 		name              string
@@ -839,7 +838,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 	t.Parallel()
 
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1055,7 +1054,7 @@ func TestFluxMonitor_HibernationIsEnteredAndRetryTickerStopped(t *testing.T) {
 func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	t.Parallel()
 
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
@@ -1161,7 +1160,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	t.Parallel()
 
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 
 	var (
@@ -1209,7 +1208,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
@@ -1275,7 +1274,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 }
 
 func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
@@ -1359,7 +1358,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	t.Parallel()
 
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 

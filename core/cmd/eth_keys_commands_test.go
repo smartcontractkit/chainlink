@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -123,10 +122,10 @@ func TestClient_CreateETHKey(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	db := app.GetDB()
+	db := app.GetSqlxDB()
 	client, _ := app.NewClientAndRenderer()
 
-	cltest.AssertCount(t, db, ethkey.State{}, 1) // The initial funding key
+	cltest.AssertCount(t, db, "eth_key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
@@ -151,7 +150,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	set.Parse([]string{"-evmChainID", id.String()})
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, ethkey.State{}, 3)
+	cltest.AssertCount(t, db, "eth_key_states", 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(keys))
@@ -296,7 +295,7 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
 
-	cltest.AssertCount(t, app.GetDB(), ethkey.State{}, 0)
+	cltest.AssertCount(t, app.GetSqlxDB(), "eth_key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)

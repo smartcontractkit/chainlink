@@ -40,13 +40,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
 
-	const insertIntoEthTxAttemptsQuery = `
-INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
-VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
-RETURNING *;
-`
-	_, err := db.NamedExec(insertIntoEthTxAttemptsQuery, &attempt)
-	require.NoError(t, err)
+	require.NoError(t, app.BPTXMORM().InsertEthTxAttempt(&attempt))
 
 	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)

@@ -79,16 +79,14 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
-	// There is a bug to do with context cancellation somewhere in txdb, sql or
-	// gorm. If you try to use the DB "too quickly" using a .WithContext then
-	// cancel the context, the transaction state gets poisoned or lost somehow
-	// and subsequent queries fail with "sql: transaction has already been
+	// There is a bug to do with context cancellation somewhere in txdb or sql.
+	// If you try to use the DB "too quickly" using a .WithContext then cancel
+	// the context, the transaction state gets poisoned or lost somehow and
+	// subsequent queries fail with "sql: transaction has already been
 	// committed or rolled back" (although postgres does not log any errors).
 
 	// Calling SELECT 1 here seems to reliably fix it. Created an issue to track here:
 	// https://github.com/DATA-DOG/go-txdb/issues/43
-	// TODO: Experiment with removing this after gorm is removed
-	// https://app.clubhouse.io/chainlinklabs/story/8781/remove-dependency-on-gorm
 	_, err = db.Exec(`SELECT 1`)
 	require.NoError(t, err)
 
@@ -99,6 +97,17 @@ func NewSqlxDB(t *testing.T) *sqlx.DB {
 	db, err := sqlx.Open("txdb", uuid.NewV4().String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+
+	// There is a bug to do with context cancellation somewhere in txdb or sql.
+	// If you try to use the DB "too quickly" using a .WithContext then cancel
+	// the context, the transaction state gets poisoned or lost somehow and
+	// subsequent queries fail with "sql: transaction has already been
+	// committed or rolled back" (although postgres does not log any errors).
+
+	// Calling SELECT 1 here seems to reliably fix it. Created an issue to track here:
+	// https://github.com/DATA-DOG/go-txdb/issues/43
+	_, err = db.Exec(`SELECT 1`)
+	require.NoError(t, err)
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 

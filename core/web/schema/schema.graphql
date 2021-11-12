@@ -8,8 +8,8 @@ schema {
 type Query {
     bridge(name: String!): BridgePayload!
     bridges(offset: Int, limit: Int): BridgesPayload!
-    chain(id: ID!): Chain!
-    chains(offset: Int, limit: Int): [Chain!]!
+    chain(id: ID!): ChainPayload!
+    chains(offset: Int, limit: Int): ChainsPayload!
     csaKeys: CSAKeysPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
@@ -18,6 +18,9 @@ type Query {
     jobs(offset: Int, limit: Int): JobsPayload!
     node(id: ID!): NodePayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    p2pKeys: P2PKeysPayload!
+    vrfKey(id: ID!): VRFKeyPayload!
+    vrfKeys: VRFKeysPayload!
 }
 
 type Mutation {
@@ -26,9 +29,13 @@ type Mutation {
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createP2PKey: CreateP2PKeyPayload!
     deleteBridge(name: String!): DeleteBridgePayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
+    createVRFKey: CreateVRFKeyPayload!
+    deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
 }

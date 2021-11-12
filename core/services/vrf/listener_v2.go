@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -61,7 +60,6 @@ type listenerV2 struct {
 	coordinator    *vrf_coordinator_v2.VRFCoordinatorV2
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
-	vorm           keystore.VRFORM
 	job            job.Job
 	db             *gorm.DB
 	vrfks          keystore.VRF
@@ -104,14 +102,14 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		})
+		}()
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go shutdown.WrapRecover(lsn.l, func() {
+		go func() {
 			lsn.runRequestHandler(spec.PollPeriod)
-		})
+		}()
 		return nil
 	})
 }

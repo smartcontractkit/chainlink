@@ -577,7 +577,7 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	err := client.SetLogPkg(c)
 	require.NoError(t, err)
 
-	level, ok := logger.NewORM(app.GetDB()).GetServiceLogLevel(logPkg)
+	level, ok := logger.NewORM(app.GetSqlxDB()).GetServiceLogLevel(logPkg)
 	require.True(t, ok)
 	assert.Equal(t, logLevel, level)
 }
