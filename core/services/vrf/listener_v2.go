@@ -223,12 +223,15 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 	lsn.pruneConfirmedRequestCounts()
 }
 
+// MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
+// have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
+// and returns that value if there are no errors.
 func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := db.Raw(`SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
 				   WHERE meta->>'MaxLink' IS NOT NULL
-				   AND meta->'SubId' = ?
+				   AND CAST(meta->>'SubId' AS NUMERIC) = ?
 				   AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt')
 				   GROUP BY from_address = ?`, subID, fromAddress).Scan(&reservedLink).Error
 	if err != nil {

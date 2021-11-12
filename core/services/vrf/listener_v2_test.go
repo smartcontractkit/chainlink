@@ -17,6 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+var nonce int8
+
+// Non-threadsafe nonce just for testing.
+func getNonce() int8 {
+	nonce++
+	return nonce
+}
+
 func addEthTx(t *testing.T, db *gorm.DB, from common.Address, state bulletprooftxmanager.EthTxState, maxLink string, subID uint64) {
 	err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 		VALUES (
@@ -44,9 +52,10 @@ func addEthTx(t *testing.T, db *gorm.DB, from common.Address, state bulletprooft
 func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink string, subID uint64) {
 	err := db.Exec(`INSERT INTO eth_txes (nonce, broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 		VALUES (
-		10, NOW(), NULL, ?,?,?,?,?,'confirmed',NOW(),?,?,?,?,?,?
+		?, NOW(), NULL, ?,?,?,?,?,'confirmed',NOW(),?,?,?,?,?,?
 		)
 		RETURNING "eth_txes".*`,
+		getNonce(),     // nonce
 		from,           // from
 		from,           // to
 		[]byte(`blah`), // payload
@@ -76,19 +85,27 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000), subID)
+	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
 	addConfirmedEthTx(t, db, k.Address.Address(), "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000), subID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// Another unstarted should
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100000), subID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
+
+	// One subscriber's balance should not affect other subscribers balances
+	otherSubID := uint64(2)
+	require.NoError(t, err)
+	addConfirmedEthTx(t, db, k.Address.Address(), "20000", otherSubID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
+	require.NoError(t, err)
+	require.Equal(t, "80000", start.String())
 }
