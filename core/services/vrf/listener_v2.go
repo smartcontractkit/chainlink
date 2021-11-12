@@ -2,6 +2,7 @@ package vrf
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -217,7 +218,7 @@ func MaybeSubtractReservedLink(l logger.Logger, db *sqlx.DB, fromAddress common.
 					WHERE meta->>'MaxLink' IS NOT NULL
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
 					GROUP BY from_address = $1`, fromAddress)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
 	}
