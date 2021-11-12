@@ -88,6 +88,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice The call MUST come from the proposed L1 owner (via cross-chain message.) Reverts otherwise.
    */
   modifier onlyProposedL1Owner() override {
+    require(msg.sender == crossDomainMessenger(), "Sender is not the L2 messenger");
     require(
       iOVM_CrossDomainMessenger(crossDomainMessenger()).xDomainMessageSender() == s_l1PendingOwner,
       "Must be proposed L1 owner"
