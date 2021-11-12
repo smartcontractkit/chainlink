@@ -206,27 +206,27 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 	return r0, r1, r2
 }
 
-// InsertJobSpec provides a mock function with given fields: jobSpec, qopts
-func (_m *ORM) InsertJob(jobSpec *job.Job, qopts ...postgres.QOpt) (int32, error) {
+// InsertJob provides a mock function with given fields: _a0, qopts
+func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) (job.Job, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, jobSpec)
+	_ca = append(_ca, _a0)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 int32
-	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) int32); ok {
-		r0 = rf(jobSpec, qopts...)
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) job.Job); ok {
+		r0 = rf(_a0, qopts...)
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(*job.Job, ...postgres.QOpt) error); ok {
-		r1 = rf(jobSpec, qopts...)
+		r1 = rf(_a0, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -235,7 +235,7 @@ func (_m *ORM) InsertJob(jobSpec *job.Job, qopts ...postgres.QOpt) (int32, error
 }
 
 // InsertWebhookSpec provides a mock function with given fields: webhookSpec, qopts
-func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres.QOpt) (int32, error) {
+func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres.QOpt) (job.WebhookSpec, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -245,11 +245,11 @@ func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
-	var r0 int32
-	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...postgres.QOpt) int32); ok {
+	var r0 job.WebhookSpec
+	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...postgres.QOpt) job.WebhookSpec); ok {
 		r0 = rf(webhookSpec, qopts...)
 	} else {
-		r0 = ret.Get(0).(int32)
+		r0 = ret.Get(0).(job.WebhookSpec)
 	}
 
 	var r1 error
