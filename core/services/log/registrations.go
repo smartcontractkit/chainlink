@@ -66,7 +66,7 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 		subscribers: make(map[uint32]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
 		evmChainID:  evmChainID,
-		logger:      logger,
+		logger:      logger.Named("Registrations"),
 	}
 }
 
