@@ -39,7 +39,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, gdb.Create(&attempt).Error)
+	require.NoError(t, app.BPTXMORM().InsertEthTxAttempt(&attempt))
 
 	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
