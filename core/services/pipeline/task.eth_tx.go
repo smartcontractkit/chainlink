@@ -9,7 +9,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -41,10 +40,6 @@ type ETHTxTask struct {
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)
-}
-
-type TxManager interface {
-	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 var _ Task = (*ETHTxTask)(nil)

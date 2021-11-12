@@ -1688,3 +1688,7 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	require.NoError(t, err)
 	return states[0]
 }
+
+func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB) bulletprooftxmanager.ORM {
+	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t))
+}

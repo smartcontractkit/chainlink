@@ -203,7 +203,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(db)
+		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger)
 	)
 
 	for _, chain := range chainSet.Chains() {
