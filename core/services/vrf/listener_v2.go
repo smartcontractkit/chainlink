@@ -275,6 +275,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 ) {
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance, subID)
 	if err != nil {
+		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return
 	}
 	logger := lsn.l.With(
