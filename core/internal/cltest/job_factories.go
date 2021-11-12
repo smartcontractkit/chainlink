@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"testing"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,15 +92,27 @@ func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func MustInsertWebhookSpec(t *testing.T, db *gorm.DB) (job.Job, job.WebhookSpec) {
+func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
+	jobORM, pipelineORM := getORMs(t, db)
 	webhookSpec := job.WebhookSpec{}
-	err := db.Create(&webhookSpec).Error
+	require.NoError(t, jobORM.InsertWebhookSpec(&webhookSpec))
+
+	pSpec := pipeline.Pipeline{}
+	pipelineSpecID, err := pipelineORM.CreateSpec(pSpec, 0)
 	require.NoError(t, err)
-	pSpec := pipeline.Spec{}
-	err = db.Create(&pSpec).Error
-	require.NoError(t, err)
-	job := job.Job{WebhookSpecID: &webhookSpec.ID, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pSpec.ID}
-	err = db.Create(&job).Error
-	require.NoError(t, err)
+
+	job := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
+	require.NoError(t, jobORM.InsertJob(&job))
+
 	return job, webhookSpec
+}
+
+func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
+	config := NewTestGeneralConfig(t)
+	keyStore := NewKeyStore(t, db)
+	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM = job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
+	t.Cleanup(func() { jobORM.Close() })
+	return
 }
