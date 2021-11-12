@@ -49,6 +49,7 @@ type telemetryIngressClient struct {
 
 	telemClient telemPb.TelemClient
 	logging     bool
+	lggr        logger.Logger
 
 	wgDone           sync.WaitGroup
 	chDone           chan struct{}
@@ -64,12 +65,13 @@ type TelemPayload struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool) TelemetryIngressClient {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger) TelemetryIngressClient {
 	return &telemetryIngressClient{
 		url:             url,
 		ks:              ks,
 		serverPubKeyHex: serverPubKeyHex,
 		logging:         logging,
+		lggr:            lggr.Named("TelemetryIngressClient"),
 		chTelemetry:     make(chan TelemPayload, SendIngressBufferSize),
 		chDone:          make(chan struct{}),
 	}
@@ -108,7 +110,7 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 
 		conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey))
 		if err != nil {
-			logger.Errorf("Error connecting to telemetry ingress server: %v", err)
+			tc.lggr.Errorf("Error connecting to telemetry ingress server: %v", err)
 			return
 		}
 		defer conn.Close()
@@ -137,11 +139,11 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 				telemReq := &telemPb.TelemRequest{Telemetry: p.Telemetry, Address: p.ContractAddress.String()}
 				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
 				if err != nil {
-					logger.Errorf("Could not send telemetry: %v", err)
+					tc.lggr.Errorf("Could not send telemetry: %v", err)
 					continue
 				}
 				if tc.logging {
-					logger.Debugw("successfully sent telemetry to ingress server", "contractAddress", p.ContractAddress.String(), "telemetry", p.Telemetry)
+					tc.lggr.Debugw("successfully sent telemetry to ingress server", "contractAddress", p.ContractAddress.String(), "telemetry", p.Telemetry)
 				}
 			case <-tc.chDone:
 				return
@@ -165,7 +167,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPayload) {
 	count := tc.dropMessageCount.Inc()
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
-		logger.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
+		tc.lggr.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
 }
 

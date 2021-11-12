@@ -171,7 +171,7 @@ func (b *BlockHistoryEstimator) getTipCap() *big.Int {
 }
 
 func (b *BlockHistoryEstimator) BumpLegacyGas(originalGasPrice *big.Int, gasLimit uint64) (bumpedGasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(b.config, b.getGasPrice(), originalGasPrice, gasLimit)
+	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit)
 }
 
 func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
@@ -195,7 +195,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, 
 }
 
 func (b *BlockHistoryEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(b.config, b.getTipCap(), originalFee, originalGasLimit)
+	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), originalFee, originalGasLimit)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {

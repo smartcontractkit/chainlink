@@ -1235,7 +1235,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			gasPrice, gasLimit, err := bhe.BumpLegacyGas(big.NewInt(42), 100000)
 			require.NoError(t, err)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, nil, big.NewInt(42), 100000)
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, logger.TestLogger(t), nil, big.NewInt(42), 100000)
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedGasLimit, gasLimit)
@@ -1249,7 +1249,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 			massive := big.NewInt(100000000000000)
 			gas.SetGasPrice(bhe, massive)
 
-			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, massive, big.NewInt(42), 100000)
+			expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, logger.TestLogger(t), massive, big.NewInt(42), 100000)
 			require.NoError(t, err)
 
 			assert.Equal(t, expectedGasLimit, gasLimit)

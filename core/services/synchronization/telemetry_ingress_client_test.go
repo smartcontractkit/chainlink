@@ -33,7 +33,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	// Wire up the telem ingress client
 	url := &url.URL{}
 	serverPubKeyHex := "33333333333"
-	telemIngressClient := synchronization.NewTestTelemetryIngressClient(url, serverPubKeyHex, csaKeystore, false, telemClient)
+	telemIngressClient := synchronization.NewTestTelemetryIngressClient(t, url, serverPubKeyHex, csaKeystore, false, telemClient)
 	require.NoError(t, telemIngressClient.Start())
 	defer telemIngressClient.Close()
 

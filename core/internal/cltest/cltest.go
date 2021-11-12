@@ -190,7 +190,7 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config), nil, lggr)
+		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster {
@@ -200,8 +200,9 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster 
 
 func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
+	lggr := logger.TestLogger(t)
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
-		gas.NewFixedPriceEstimator(config), fn, logger.TestLogger(t))
+		gas.NewFixedPriceEstimator(config, lggr), fn, lggr)
 	return ec
 }
 

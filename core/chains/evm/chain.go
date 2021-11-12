@@ -71,7 +71,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	headTrackerLL := opts.Config.LogLevel().String()
 	db := opts.DB
 	if db != nil {
-		if ll, ok := logger.NewORM(db).GetServiceLogLevel(logger.HeadTracker); ok {
+		if ll, ok := logger.NewORM(db, l).GetServiceLogLevel(logger.HeadTracker); ok {
 			headTrackerLL = ll
 		}
 	}
