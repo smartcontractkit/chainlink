@@ -924,7 +924,7 @@ func (c *generalConfig) P2PListenPort() uint16 {
 	}
 	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
 	if err != nil {
-		logger.Fatalw("unexpected error generating random port", "err", err)
+		panic(fmt.Errorf("unexpected error generating random port: %w", err))
 	}
 	randPort := uint16(r.Int64() + 1024)
 	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)

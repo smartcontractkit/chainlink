@@ -14,12 +14,13 @@ type ORM interface {
 }
 
 type orm struct {
-	db *sqlx.DB
+	db   *sqlx.DB
+	lggr Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB) *orm {
-	return &orm{db}
+func NewORM(db *sqlx.DB, lggr Logger) *orm {
+	return &orm{db, lggr.Named("LoggerORM")}
 }
 
 // GetServiceLogLevel returns the log level for a configured service
@@ -27,7 +28,7 @@ func (orm *orm) GetServiceLogLevel(serviceName string) (string, bool) {
 	config := LogConfig{}
 	if err := orm.db.Get(&config, "SELECT * FROM log_configs WHERE service_name = $1", serviceName); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			Errorf("Error while trying to fetch %s service log level: %v", serviceName, err)
+			orm.lggr.Errorf("Error while trying to fetch %s service log level: %v", serviceName, err)
 		}
 		return "", false
 	}

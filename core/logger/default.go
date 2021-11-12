@@ -69,11 +69,6 @@ func Errorw(msg string, keysAndValues ...interface{}) {
 	helper.Errorw(msg, keysAndValues...)
 }
 
-// Debugf formats and then logs the message as Debug.
-func Debugf(msg string, keysAndValues ...interface{}) {
-	helper.Debugf(msg, keysAndValues...)
-}
-
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
 	helper.Warnf(format, values...)
@@ -101,9 +96,4 @@ func Errorf(format string, values ...interface{}) {
 // Fatalf logs a message at the fatal level using Sprintf.
 func Fatalf(format string, values ...interface{}) {
 	helper.Fatal(fmt.Sprintf(format, values...))
-}
-
-// Fatalw logs a message and exits the application
-func Fatalw(msg string, keysAndValues ...interface{}) {
-	helper.Fatalw(msg, keysAndValues...)
 }

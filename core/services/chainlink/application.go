@@ -178,7 +178,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Use Explorer over TelemetryIngress if both URLs are set
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(), cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging())
+		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
+			cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
 		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 	}
 	subservices = append(subservices, explorerClient, telemetryIngressClient)
@@ -358,7 +359,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return logger.NewORM(app.GetSqlxDB()).SetServiceLogLevel(ctx, serviceName, level.String())
+	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
