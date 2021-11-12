@@ -97,8 +97,7 @@ func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec) {
 	jobORM, pipelineORM := getORMs(t, db)
 	webhookSpec := job.WebhookSpec{}
-	webhookSpecID, err := jobORM.InsertWebhookSpec(&webhookSpec)
-	webhookSpec.ID = webhookSpecID
+	webhookSpec, err := jobORM.InsertWebhookSpec(&webhookSpec)
 	require.NoError(t, err)
 
 	pSpec := pipeline.Pipeline{}
@@ -106,9 +105,8 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 	require.NoError(t, err)
 
 	job := job.Job{WebhookSpecID: &webhookSpec.ID, WebhookSpec: &webhookSpec, SchemaVersion: 1, Type: "webhook", ExternalJobID: uuid.NewV4(), PipelineSpecID: pipelineSpecID}
-	jobID, err := jobORM.InsertJob(&job)
+	job, err = jobORM.InsertJob(&job)
 	require.NoError(t, err)
-	job.ID = jobID
 
 	return job, webhookSpec
 }

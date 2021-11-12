@@ -34,8 +34,8 @@ var (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) (int32, error)
-	InsertJob(job *Job, qopts ...postgres.QOpt) (jobId int32, err error)
+	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) (WebhookSpec, error)
+	InsertJob(job *Job, qopts ...postgres.QOpt) (Job, error)
 	CreateJob(jb *Job, qopts ...postgres.QOpt) error
 	FindJobs(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
@@ -191,15 +191,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 			}
 			jb.VRFSpecID = &specID
 		case Webhook:
-			specID, err := o.InsertWebhookSpec(jb.WebhookSpec, postgres.WithQueryer(tx))
+			webhookSpec, err := o.InsertWebhookSpec(jb.WebhookSpec, postgres.WithQueryer(tx))
 			if err != nil {
 				return errors.Wrap(err, "failed to create WebhookSpec")
 			}
-			jb.WebhookSpecID = &specID
+			jb.WebhookSpecID = &webhookSpec.ID
 
 			if len(jb.WebhookSpec.ExternalInitiatorWebhookSpecs) > 0 {
 				for i := range jb.WebhookSpec.ExternalInitiatorWebhookSpecs {
-					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = specID
+					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = webhookSpec.ID
 				}
 				sql := `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec)
 			VALUES (:external_initiator_id, :webhook_spec_id, :spec);`
@@ -221,7 +221,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 		}
 
 		jb.PipelineSpecID = pipelineSpecID
-		jobID, err = o.InsertJob(jb, postgres.WithQueryer(tx))
+		job, err := o.InsertJob(jb, postgres.WithQueryer(tx))
+		jobID = job.ID
 		return errors.Wrap(err, "failed to insert job")
 	})
 	if err != nil {
@@ -231,23 +232,24 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 	return o.findJob(jb, "id", jobID, qopts...)
 }
 
-func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) (specID int32, err error) {
+func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) (specResult WebhookSpec, err error) {
 	q := postgres.NewQ(o.db, qopts...)
 	query := `INSERT INTO webhook_specs (created_at, updated_at)
 			VALUES (NOW(), NOW())
-			RETURNING id;`
-	err = postgres.PrepareQueryRowx(q, query, &specID, webhookSpec)
+			RETURNING *;`
+	err = q.GetNamed(query, &specResult, webhookSpec)
 	return
 }
 
-func (o *orm) InsertJob(jobSpec *Job, qopts ...postgres.QOpt) (jobId int32, err error) {
+func (o *orm) InsertJob(job *Job, qopts ...postgres.QOpt) (jobResult Job, err error) {
 	q := postgres.NewQ(o.db, qopts...)
 	query := `INSERT INTO jobs (pipeline_spec_id, offchainreporting_oracle_spec_id, name, schema_version, type, max_task_duration, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
 		VALUES (:pipeline_spec_id, :offchainreporting_oracle_spec_id, :name, :schema_version, :type, :max_task_duration, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :external_job_id, NOW())
-		RETURNING id;`
-	err = postgres.PrepareQueryRowx(q, query, &jobId, jobSpec)
+		RETURNING *;`
+
+	err = q.GetNamed(query, &jobResult, job)
 	return
 }
 
@@ -399,7 +401,7 @@ type DRSpecConfig interface {
 }
 
 func LoadEnvConfigVarsVRF(cfg DRSpecConfig, vrfs VRFSpec) *VRFSpec {
-	// Take the largest of the global vs specific.
+	// Take the larger of the global vs specific.
 	// Note that the v2 vrf requests specify their own confirmation requirements.
 	// We wait for max(minIncomingConfirmations, request required confs) to be safe.
 	minIncomingConfirmations := cfg.MinIncomingConfirmations()
@@ -584,7 +586,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 	return jids, errors.Wrap(err, "FindJobIDsWithBridge failed")
 }
 
-// PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, the latest first
+// PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
 	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
