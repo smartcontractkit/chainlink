@@ -12,9 +12,4 @@ type UpdatePasswordSuccess {
     user: User!
 }
 
-type UpdatePasswordMatchError implements Error {
-    message: String!
-    code: ErrorCode!
-}
-
 union UpdatePasswordPayload = UpdatePasswordSuccess | InputErrors
