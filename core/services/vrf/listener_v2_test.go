@@ -10,17 +10,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 )
 
-func addEthTx(t *testing.T, db *gorm.DB, from common.Address, state bulletprooftxmanager.EthTxState, maxLink string) {
-	err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state bulletprooftxmanager.EthTxState, maxLink string) {
+	_, err := db.Exec(`INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 		VALUES (
-		?,?,?,?,?,?,NOW(),?,?,?,?,?,?
+		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11, $12
 		)
 		RETURNING "eth_txes".*`,
 		from,           // from
@@ -36,14 +35,14 @@ func addEthTx(t *testing.T, db *gorm.DB, from common.Address, state bulletprooft
 		1337,
 		0, // confs
 		nil,
-		false).Error
+		false)
 	require.NoError(t, err)
 }
 
-func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink string) {
-	err := db.Exec(`INSERT INTO eth_txes (nonce, broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink string) {
+	_, err := db.Exec(`INSERT INTO eth_txes (nonce, broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 		VALUES (
-		10, NOW(), NULL, ?,?,?,?,?,'confirmed',NOW(),?,?,?,?,?,?
+		10, NOW(), NULL, $1, $2, $3, $4, $5, 'confirmed', NOW(), $6, $7, $8, $9, $10, $11
 		)
 		RETURNING "eth_txes".*`,
 		from,           // from
@@ -58,14 +57,14 @@ func addConfirmedEthTx(t *testing.T, db *gorm.DB, from common.Address, maxLink s
 		1337,
 		0, // confs
 		nil,
-		false).Error
+		false)
 	require.NoError(t, err)
 }
 
 func TestMaybeSubtractReservedLink(t *testing.T) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(postgres.UnwrapGormDB(db), utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	require.NoError(t, ks.Unlock("blah"))
 	k, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
