@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/theodesp/go-heaps/pairing"
 
@@ -19,11 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type Delegate struct {
-	db   *gorm.DB
+	db   *sqlx.DB
 	pr   pipeline.Runner
 	porm pipeline.ORM
 	ks   keystore.Master
@@ -45,7 +45,7 @@ type Config interface {
 }
 
 func NewDelegate(
-	db *gorm.DB,
+	db *sqlx.DB,
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
@@ -152,22 +152,23 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64 {
-	respCounts := make(map[[32]byte]uint64)
+type scanStartingResponseCountsCallback func(b []byte, count uint64)
+
+func scanStartingResponseCounts(db *sqlx.DB, l logger.Logger, cb scanStartingResponseCountsCallback) {
 	var counts []struct {
 		RequestID string
 		Count     int
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+	err := db.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
 			FROM eth_txes
 			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+			GROUP BY meta->'RequestID'`)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous fulfillments", "err", err)
-		return respCounts
+		return
 	}
 	for _, c := range counts {
 		// Remove the quotes from the json
@@ -178,43 +179,25 @@ func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64
 			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
+		cb(b, uint64(c.Count))
+	}
+}
+
+func getStartingResponseCounts(db *sqlx.DB, l logger.Logger) map[[32]byte]uint64 {
+	respCounts := make(map[[32]byte]uint64)
+	scanStartingResponseCounts(db, l, func(b []byte, count uint64) {
 		var reqID [32]byte
 		copy(reqID[:], b)
-		respCounts[reqID] = uint64(c.Count)
-	}
+		respCounts[reqID] = count
+	})
 	return respCounts
 }
 
-func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64 {
+func GetStartingResponseCountsV2(db *sqlx.DB, l logger.Logger) map[string]uint64 {
 	respCounts := make(map[string]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-			FROM eth_txes
-			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
-	if err != nil {
-		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous fulfillments", "err", err)
-		return respCounts
-	}
-	for _, c := range counts {
-		// Remove the quotes from the json
-		req := strings.Replace(c.RequestID, `"`, ``, 2)
-		// Remove the 0x prefix
-		b, err := hex.DecodeString(req[2:])
-		if err != nil {
-			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
-			continue
-		}
-		var reqID [32]byte
-		copy(reqID[:], b)
+	scanStartingResponseCounts(db, l, func(b []byte, count uint64) {
 		bi := new(big.Int).SetBytes(b)
-		respCounts[bi.String()] = uint64(c.Count)
-	}
+		respCounts[bi.String()] = count
+	})
 	return respCounts
 }
