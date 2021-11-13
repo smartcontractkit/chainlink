@@ -43,7 +43,7 @@ $SCRIPTPATH/native_solc8_compile tests/VRFMaliciousConsumerV2.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFTestHelper.sol
 
 # Make sure the example consumers compile
-$SCRIPTPATH/native_solc8_compile tests/VRFConsumerExternalSubOwnerExample.sol
+$SCRIPTPATH/native_solc8_compile tests/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_compile tests/VRFSingleConsumerExample.sol
 
 $SCRIPTPATH/native_solc8_compile tests/VRFCoordinatorV2TestHelper.sol
