@@ -240,13 +240,60 @@ func subscribeVRF(
 	return sub
 }
 
+func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, uni coordinatorV2Universe) (jobs []job.Job) {
+	// Create separate jobs for each gas lane and register their keys
+	for i, key := range keys {
+		vrfkey, err := app.GetKeyStore().VRF().Create()
+		require.NoError(t, err)
+
+		jid := uuid.NewV4()
+		incomingConfs := 2
+		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			JobID:              jid.String(),
+			Name:               fmt.Sprintf("vrf-primary-%d", i),
+			CoordinatorAddress: uni.rootContractAddress.String(),
+			Confirmations:      incomingConfs,
+			PublicKey:          vrfkey.PublicKey.String(),
+			FromAddress:        key.Address.String(),
+			V2:                 true,
+		}).Toml()
+		jb, err := vrf.ValidatedVRFSpec(s)
+		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
+		require.NoError(t, err)
+		jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
+		require.NoError(t, err)
+		registerProvingKeyHelper(t, uni, vrfkey)
+		jobs = append(jobs, jb)
+	}
+	// Wait until all jobs are active and listening for logs
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		jbs := app.JobSpawner().ActiveJobs()
+		return len(jbs) == 2
+	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
+	// To avoid confirming
+	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
+	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
+	// job is fully up and running and not add it to the active jobs list before then)
+	time.Sleep(2 * time.Second)
+
+	return
+}
+
 func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_sim", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 2)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 3)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
 	config.Overrides.GlobalEvmGasLimitDefault = null.NewInt(0, false)
 	config.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(2)
+
+	// subscribe the consumers to vrf
+	subs := []vrf_coordinator_v2.GetSubscription{}
+	for i := 0; i < len(uni.vrfConsumers); i++ {
+		subs = append(subs,
+			subscribeVRF(t, uni.vrfConsumers[i], uni.consumerContracts[i], uni.rootContract, uni.backend))
+	}
 
 	carol := uni.vrfConsumers[0]
 	carolContract := uni.consumerContracts[0]
@@ -270,44 +317,29 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	}, gasPrice.BigInt())
 	require.NoError(t, app.Start())
 
-	var jbs []job.Job
-	// Create separate jobs for each gas lane and register their keys
-	for i, key := range []ethkey.KeyV2{key1, key2} {
-		vrfkey, err := app.GetKeyStore().VRF().Create()
-		require.NoError(t, err)
+	jbs := createJobs(t, []ethkey.KeyV2{key1, key2}, app, uni)
 
-		jid := uuid.NewV4()
-		incomingConfs := 2
-		s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-			JobID:              jid.String(),
-			Name:               fmt.Sprintf("vrf-primary-%d", i),
-			CoordinatorAddress: uni.rootContractAddress.String(),
-			Confirmations:      incomingConfs,
-			PublicKey:          vrfkey.PublicKey.String(),
-			FromAddress:        key.Address.String(),
-			V2:                 true,
-		}).Toml()
-		jb, err := vrf.ValidatedVRFSpec(s)
-		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
+	// enqueue requests for the other consumers to test that their balance doesn't affect carol's
+	// we're not really going to do anything about these requests, so they'll sit around for a bit
+	// for the duration of the test.
+	for i := 1; i < len(uni.consumerContracts); i++ {
+		_, err := uni.consumerContracts[i].TestRequestRandomness(
+			uni.vrfConsumers[i],
+			jbs[0].VRFSpec.PublicKey.MustHash(),
+			uint64(i+1),     // subscription id
+			uint16(2),       // min request confirmations
+			uint32(300_000), // callback gas limit
+			uint32(20),      // number of random words
+		)
 		require.NoError(t, err)
-		jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
-		require.NoError(t, err)
-		registerProvingKeyHelper(t, uni, vrfkey)
-		jbs = append(jbs, jb)
 	}
-	// Wait until all jobs are active and listening for logs
-	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		jbs := app.JobSpawner().ActiveJobs()
-		return len(jbs) == 2
-	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
-	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
-	// To avoid confirming
-	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
-	// only be useful for tests, probably a more robust way is to have the job spawner accept a signal that a
-	// job is fully up and running and not add it to the active jobs list before then)
-	time.Sleep(2 * time.Second)
 
-	sub := subscribeVRF(t, carol, carolContract, uni.rootContract, uni.backend)
+	// Confirm all those requests
+	for i := 0; i < 3; i++ {
+		uni.backend.Commit()
+	}
+
+	sub := subs[0]
 	t.Log("Sub balance", sub.Balance)
 	for i := 0; i < 5; i++ {
 		// Request 20 words (all get saved) so we use the full 300k
@@ -327,66 +359,70 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		uni.backend.Commit()
 	}
 
-	// Now we should see ONLY 2 requests enqueued to the bptxm
+	// Now we should see ONLY 2 requests enqueued to the bptxm for carol
 	// since we only have 2 requests worth of link at the max keyhash
 	// gas price.
-	var runs []pipeline.Run
+	// The rest are the other consumers.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
-		return len(runs) == 2
+		return len(runs) == (2 + len(uni.vrfConsumers) - 1)
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// As we send new blocks, we should observe the fulfillments go through and the balance
 	// reduce.
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		uni.backend.Commit()
-		return len(runs) == 2
+		return len(runs) == (2 + len(uni.vrfConsumers) - 1)
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 	sub, err = uni.rootContract.GetSubscription(nil, uint64(1))
 	require.NoError(t, err)
 	t.Log("Sub balance should be near zero", sub.Balance)
 	etxes, n, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 1000)
-	require.Equal(t, 2, n) // Only sent 2 transactions
+	require.NoError(t, err)
+	require.Equal(t, 4, n) // Only sent 4 transactions
+
 	// Should have max link set
-	require.NotNil(t, etxes[0].Meta)
-	require.NotNil(t, etxes[1].Meta)
-	md := bulletprooftxmanager.EthTxMeta{}
-	require.NoError(t, json.Unmarshal(*etxes[0].Meta, &md))
-	require.NotEqual(t, "", md.MaxLink)
+	for _, tx := range etxes {
+		require.NotNil(t, tx.Meta)
+		md := bulletprooftxmanager.EthTxMeta{}
+		require.NoError(t, json.Unmarshal(*tx.Meta, &md))
+		require.NotEqual(t, "", md.MaxLink)
+	}
+
 	// Now lets top up and see the next batch go through
 	_, err = carolContract.TopUpSubscription(carol, assets.Ether(1))
 	require.NoError(t, err)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
-		return len(runs) == 4
+		return len(runs) == (4 + len(uni.vrfConsumers) - 1)
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	// One more time for the final tx
 	_, err = carolContract.TopUpSubscription(carol, assets.Ether(1))
 	require.NoError(t, err)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
-		return len(runs) == 5
+		return len(runs) == (5 + len(uni.vrfConsumers) - 1)
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Send a huge topup and observe the high max gwei go through.
 	_, err = carolContract.TopUpSubscription(carol, assets.Ether(7))
 	require.NoError(t, err)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		runs, err = app.PipelineORM().GetAllRuns()
+		runs, err := app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
-		return len(runs) == 6
+		return len(runs) == (6 + len(uni.vrfConsumers) - 1)
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 }
 

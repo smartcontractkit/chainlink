@@ -314,14 +314,14 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		// Run the pipeline to determine the max link that could be billed at maxGasPrice.
 		// The ethcall will error if there is currently insufficient balance onchain.
-		bi, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPrice, req)
+		maxLink, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPrice, req)
 		if err != nil {
 			continue
 		}
-		if startBalance.Cmp(bi) < 0 {
+		if startBalance.Cmp(maxLink) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
-			logger.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", bi)
+			logger.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", maxLink)
 			break
 		}
 		logger.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
@@ -341,7 +341,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 				GasLimit:       gaslimit,
 				Meta: &bulletprooftxmanager.EthTxMeta{
 					RequestID: common.BytesToHash(vrfRequest.RequestId.Bytes()),
-					MaxLink:   bi.String(),
+					MaxLink:   maxLink.String(),
 					SubID:     vrfRequest.SubId,
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
@@ -358,7 +358,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		// If we successfully enqueued for the bptxm, subtract that balance
 		// And loop to attempt to enqueue another fulfillment
-		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, bi)
+		startBalanceNoReserveLink = startBalanceNoReserveLink.Sub(startBalanceNoReserveLink, maxLink)
 		processed[vrfRequest.RequestId.String()] = struct{}{}
 	}
 	// Remove all the confirmed logs
@@ -419,7 +419,8 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 		return maxLink, run, payload, gaslimit, errors.New("unexpected number of outputs")
 	}
 	// Run succeeded, we expect a byte array representing the billing amount
-	b, ok := trrs.FinalResult().Values[0].([]uint8)
+	finalResult := trrs.FinalResult()
+	b, ok := finalResult.Values[0].([]uint8)
 	if !ok {
 		lsn.l.Errorw("Unexpected type")
 		return maxLink, run, payload, gaslimit, errors.New("expected []uint8 final result")
