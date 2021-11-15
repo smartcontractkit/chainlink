@@ -257,7 +257,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           shutdownSignal,
