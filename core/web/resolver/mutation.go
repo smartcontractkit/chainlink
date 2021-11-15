@@ -602,7 +602,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	session, ok := auth.GetGQLAuthenticatedUser(ctx)
+	session, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
 		return nil, errors.New("couldn't retrieve user session")
 	}

@@ -43,7 +43,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedUser(f.Ctx)
+				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 
@@ -72,7 +72,7 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 			name:          "update password match error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				session, ok := auth.GetGQLAuthenticatedUser(f.Ctx)
+				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
 				require.True(t, ok)
 				require.NotNil(t, session)
 

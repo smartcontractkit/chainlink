@@ -8,7 +8,7 @@ import (
 
 // Authenticates the user from the session cookie.
 func authenticateUser(ctx context.Context) error {
-	_, ok := auth.GetGQLAuthenticatedUser(ctx)
+	_, ok := auth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
 		return unauthorizedError{}
 	}
