@@ -299,6 +299,14 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 		var n *pipeline.GraphNode
 		switch ts.Type {
 		case adapters.TaskTypeHTTPGet:
+
+			url := ""
+			if ts.Params.Get("get").Exists() {
+				url = ts.Params.Get("get").String()
+			} else {
+				url = ts.Params.Get("url").String()
+			}
+
 			mapp := make(map[string]interface{})
 			err := json.Unmarshal(ts.Params.Bytes(), &mapp)
 			if err != nil {
@@ -312,11 +320,34 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
 			replacements["\""+template+"\""] = string(marshal)
 			attrs := map[string]string{
-				"type":        pipeline.TaskTypeHTTP.String(),
-				"method":      "GET",
-				"requestData": template,
+				"type":   pipeline.TaskTypeHTTP.String(),
+				"method": "GET",
+				"url":    url,
 			}
-			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_%d", i), attrs)
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_get_%d", i), attrs)
+		case adapters.TaskTypeHTTPPost:
+
+			url := ""
+			if ts.Params.Get("post").Exists() {
+				url = ts.Params.Get("post").String()
+			} else {
+				url = ts.Params.Get("url").String()
+			}
+
+			attrs := map[string]string{
+				"type":   pipeline.TaskTypeHTTP.String(),
+				"method": "POST",
+				"url":    url,
+			}
+
+			if ts.Params.Get("body").Exists() {
+				body := ts.Params.Get("body").String()
+				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+				replacements["\""+template+"\""] = body
+				attrs["requestData"] = template
+			}
+
+			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_post_%d", i), attrs)
 
 		case adapters.TaskTypeJSONParse:
 
