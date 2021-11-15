@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
 
@@ -46,7 +46,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	eim := webhook.NewExternalInitiatorManager(db, nil)
+	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
 
 	eiWebhookSpecs, jobID, err := eim.Load(webhookSpecNoEIs.ID)
 	require.NoError(t, err)
@@ -88,7 +88,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	require.NoError(t, err)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client)
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
 
 	// Does nothing with no EI
 	eim.Notify(webhookSpecNoEIs.ID)
@@ -132,7 +132,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	require.NoError(t, err)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client)
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
 
 	// Does nothing with no EI
 	eim.DeleteJob(webhookSpecNoEIs.ID)
