@@ -2,7 +2,6 @@ package job_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/sqlx"
 	"testing"
 	"time"
 
@@ -19,12 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"gopkg.in/guregu/null.v4"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestORM(t *testing.T) {
