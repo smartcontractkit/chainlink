@@ -2,6 +2,7 @@ package webhook_test
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"io"
 	"io/ioutil"
 
@@ -28,9 +29,10 @@ import (
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
+	borm := bridges.NewORM(db)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, db)
-	eiBar := cltest.MustInsertExternalInitiator(t, db)
+	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
+	eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
 	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t, db)
 	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
@@ -66,13 +68,14 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
+	borm := bridges.NewORM(db)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, borm)
 
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
@@ -109,13 +112,14 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
+	borm := bridges.NewORM(db)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, borm)
 
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)

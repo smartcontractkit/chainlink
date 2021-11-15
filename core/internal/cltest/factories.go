@@ -708,8 +708,8 @@ func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHa
 	}
 }
 
-func MustInsertExternalInitiator(t *testing.T, db *sqlx.DB) (ei bridges.ExternalInitiator) {
-	return MustInsertExternalInitiatorWithOpts(t, db, ExternalInitiatorOpts{})
+func MustInsertExternalInitiator(t *testing.T, orm bridges.ORM) (ei bridges.ExternalInitiator) {
+	return MustInsertExternalInitiatorWithOpts(t, orm, ExternalInitiatorOpts{})
 }
 
 type ExternalInitiatorOpts struct {
@@ -719,7 +719,7 @@ type ExternalInitiatorOpts struct {
 	OutgoingToken  string
 }
 
-func MustInsertExternalInitiatorWithOpts(t *testing.T, db *sqlx.DB, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
+func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix
@@ -734,14 +734,9 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, db *sqlx.DB, opts Externa
 	ei.AccessKey = token.AccessKey
 	ei.Salt = utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, ei.Salt)
+	require.NoError(t, err)
 	ei.HashedSecret = hashedSecret
-	require.NoError(t, err)
-	sql := `INSERT INTO external_initiators (created_at, updated_at, name, url, access_key, salt, hashed_secret, outgoing_secret, outgoing_token)
-    		VALUES (NOW(), NOW(), :name, :url, :access_key, :salt, :hashed_secret, :outgoing_secret, :outgoing_token)
-			RETURNING *;`
-	stmt, err := db.PrepareNamed(sql)
-	require.NoError(t, err)
-	err = stmt.Get(&ei, &ei)
+	err = orm.CreateExternalInitiator(&ei)
 	require.NoError(t, err)
 	return ei
 }
