@@ -10,6 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
+
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
+
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -379,6 +383,94 @@ func registerProvingKeyHelper(t *testing.T, uni coordinatorV2Universe, vrfkey vr
 		uni.neil, uni.nallory.From, pair(secp256k1.Coordinates(p)))
 	require.NoError(t, err)
 	uni.backend.Commit()
+}
+
+func TestExternalOwnerConsumerExample(t *testing.T) {
+	owner := newIdentity(t)
+	random := newIdentity(t)
+	genesisData := core.GenesisAlloc{
+		owner.From: {Balance: assets.Ether(10)},
+	}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
+		owner, backend)
+	require.NoError(t, err)
+	backend.Commit()
+	coordinatorAddress, _, coordinator, err :=
+		vrf_coordinator_v2.DeployVRFCoordinatorV2(
+			owner, backend, linkAddress, common.Address{}, common.Address{})
+	require.NoError(t, err)
+	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
+		0, 0, 0, 0, 0, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0),
+	})
+	require.NoError(t, err)
+	backend.Commit()
+	consumerAddress, _, consumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{})
+	require.NoError(t, err)
+	backend.Commit()
+	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2))
+	require.NoError(t, err)
+	backend.Commit()
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(2)})
+
+	// Create sub, fund it and assign consumer
+	_, err = coordinator.CreateSubscription(owner)
+	require.NoError(t, err)
+	backend.Commit()
+	b, err := utils.GenericEncode([]string{"uint64"}, uint64(1))
+	require.NoError(t, err)
+	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
+	require.NoError(t, err)
+	_, err = coordinator.AddConsumer(owner, 1, consumerAddress)
+	require.NoError(t, err)
+	_, err = consumer.SetSubscriptionID(random, 1)
+	require.Error(t, err)
+	_, err = consumer.SetSubscriptionID(owner, 1)
+	require.NoError(t, err)
+	_, err = consumer.RequestRandomWords(random)
+	require.Error(t, err)
+	_, err = consumer.RequestRandomWords(owner)
+	require.NoError(t, err)
+}
+
+func TestSimpleConsumerExample(t *testing.T) {
+	owner := newIdentity(t)
+	random := newIdentity(t)
+	genesisData := core.GenesisAlloc{
+		owner.From: {Balance: assets.Ether(10)},
+	}
+	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
+	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
+		owner, backend)
+	require.NoError(t, err)
+	backend.Commit()
+	coordinatorAddress, _, _, err :=
+		vrf_coordinator_v2.DeployVRFCoordinatorV2(
+			owner, backend, linkAddress, common.Address{}, common.Address{})
+	require.NoError(t, err)
+	backend.Commit()
+	consumerAddress, _, consumer, err := vrf_single_consumer_example.DeployVRFSingleConsumerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{})
+	require.NoError(t, err)
+	backend.Commit()
+	_, err = linkContract.Transfer(owner, consumerAddress, assets.Ether(2))
+	require.NoError(t, err)
+	backend.Commit()
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(2)})
+	_, err = consumer.TopUpSubscription(owner, assets.Ether(1))
+	require.NoError(t, err)
+	backend.Commit()
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_998), assets.Ether(1), assets.Ether(1)})
+	// Non-owner cannot withdraw
+	_, err = consumer.Withdraw(random, assets.Ether(1), owner.From)
+	require.Error(t, err)
+	_, err = consumer.Withdraw(owner, assets.Ether(1), owner.From)
+	require.NoError(t, err)
+	backend.Commit()
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(999_999_999), assets.Ether(0), assets.Ether(1)})
+	_, err = consumer.Unsubscribe(owner, owner.From)
+	require.NoError(t, err)
+	backend.Commit()
+	AssertLinkBalances(t, linkContract, []common.Address{owner.From, consumerAddress, coordinatorAddress}, []*big.Int{assets.Ether(1_000_000_000), assets.Ether(0), assets.Ether(0)})
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
