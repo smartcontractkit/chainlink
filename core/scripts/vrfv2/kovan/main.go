@@ -182,7 +182,7 @@ func main() {
 		panicErr(consumerCancelCmd.Parse(os.Args[2:]))
 		consumer, err := vrf_single_consumer_example.NewVRFSingleConsumerExample(common.HexToAddress(*consumerCancelAddress), ec)
 		panicErr(err)
-		tx, err := consumer.Unsubscribe(owner)
+		tx, err := consumer.Unsubscribe(owner, owner.From)
 		panicErr(err)
 		fmt.Println("hash", tx.Hash())
 	case "consumer-topup":
@@ -242,7 +242,7 @@ func main() {
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
 		keyHashBytes := common.HexToHash(*keyHash)
-		consumerAddress, tx, _, err := vrf_external_sub_owner_example.DeployVRFConsumerExternalSubOwnerExample(
+		consumerAddress, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 			owner,
 			ec,
 			common.HexToAddress(*consumerCoordinator),
@@ -258,7 +258,7 @@ func main() {
 		consumerAddress := setSub.String("address", "", "consumer address")
 		subID := setSub.Int64("subID", 0, "subID")
 		panicErr(setSub.Parse(os.Args[2:]))
-		consumer, err := vrf_external_sub_owner_example.NewVRFConsumerExternalSubOwnerExample(
+		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
 			ec)
 		panicErr(err)
@@ -312,7 +312,7 @@ func main() {
 		request := flag.NewFlagSet("eoa-request", flag.ExitOnError)
 		consumerAddress := request.String("address", "", "consumer address")
 		panicErr(request.Parse(os.Args[2:]))
-		consumer, err := vrf_external_sub_owner_example.NewVRFConsumerExternalSubOwnerExample(
+		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
 			ec)
 		panicErr(err)
