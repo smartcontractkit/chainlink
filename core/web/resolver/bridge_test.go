@@ -462,7 +462,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 				}`,
 		},
 		{
-			name:          "invalid bridge type name",
+			name:          "bridge with jobs associated",
 			authenticated: true,
 			query:         mutation,
 			variables: map[string]interface{}{

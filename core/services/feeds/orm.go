@@ -3,8 +3,10 @@ package feeds
 import (
 	"database/sql"
 
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -22,6 +24,7 @@ type ORM interface {
 	GetJobProposal(id int64, qopts ...postgres.QOpt) (*JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
+	GetManagers(ids []int64) ([]FeedsManager, error)
 	IsJobManaged(jobID int64, qopts ...postgres.QOpt) (bool, error)
 	ListJobProposals() (jps []JobProposal, err error)
 	ListManagers() (mgrs []FeedsManager, err error)
@@ -81,6 +84,20 @@ WHERE id = $1
 	mgr = new(FeedsManager)
 	err = postgres.NewQ(o.db).Get(mgr, stmt, id)
 	return mgr, errors.Wrap(err, "GetManager failed")
+}
+
+// GetManagers gets feeds managers by ids
+func (o *orm) GetManagers(ids []int64) (managers []FeedsManager, err error) {
+	stmt := `
+SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstrap_peer_multiaddr, created_at, updated_at
+FROM feeds_managers
+WHERE id = ANY($1)
+ORDER BY created_at, id;`
+
+	mgrIds := pq.Array(ids)
+	err = postgres.NewQ(o.db).Select(&managers, stmt, mgrIds)
+
+	return managers, errors.Wrap(err, "GetManagers failed")
 }
 
 func (o *orm) UpdateManager(mgr FeedsManager, qopts ...postgres.QOpt) (err error) {

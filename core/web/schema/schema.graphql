@@ -16,6 +16,7 @@ type Query {
     feedsManagers: FeedsManagersPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
+    jobProposal(id: ID!): JobProposalPayload!
     node(id: ID!): NodePayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
@@ -24,6 +25,8 @@ type Query {
 }
 
 type Mutation {
+    approveJobProposal(id: ID!): ApproveJobProposalPayload!
+    cancelJobProposal(id: ID!): CancelJobProposalPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
@@ -36,6 +39,8 @@ type Mutation {
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    rejectJobProposal(id: ID!): RejectJobProposalPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
 }

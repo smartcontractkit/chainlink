@@ -144,6 +144,29 @@ func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	return r0, r1
 }
 
+// GetManagers provides a mock function with given fields: ids
+func (_m *Service) GetManagers(ids []int64) ([]feeds.FeedsManager, error) {
+	ret := _m.Called(ids)
+
+	var r0 []feeds.FeedsManager
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.FeedsManager); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.FeedsManager)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IsJobManaged provides a mock function with given fields: ctx, jobID
 func (_m *Service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 	ret := _m.Called(ctx, jobID)
