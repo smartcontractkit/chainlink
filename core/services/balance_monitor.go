@@ -152,6 +152,10 @@ type worker struct {
 	bm *balanceMonitor
 }
 
+func (*worker) Name() string {
+	return "BalanceMonitorWorker"
+}
+
 func (w *worker) Work() {
 	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
