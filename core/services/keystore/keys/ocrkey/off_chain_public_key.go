@@ -9,8 +9,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
-	"gorm.io/gorm/schema"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -66,18 +64,4 @@ func (ocpk *OffChainPublicKey) Scan(value interface{}) error {
 
 func (ocpk OffChainPublicKey) Value() (driver.Value, error) {
 	return []byte(ocpk), nil
-}
-
-// GormDataType gorm common data type
-func (OffChainPublicKey) GormDataType() string {
-	return "bytea"
-}
-
-// GormDBDataType gorm db data type
-func (OffChainPublicKey) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "BYTEA"
-	}
-	return ""
 }

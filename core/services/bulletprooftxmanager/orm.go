@@ -178,7 +178,7 @@ func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
 			return errors.Wrapf(err, "failed to load eth_receipts for eth_tx with id %d", etxID)
 		}
 		return nil
-	})
+	}, postgres.OptReadOnlyTx())
 	return etx, errors.Wrap(err, "FindEthTxWithAttempts failed")
 }
 

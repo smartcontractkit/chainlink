@@ -106,13 +106,6 @@ func (e *NullableEIP2930AccessList) Scan(value interface{}) error {
 	}
 }
 
-// GormDataType override forces gorm to scan/dump as JSON (otherwise it
-// incorrectly auto-infers the postgres type from the first element in the
-// struct)
-func (NullableEIP2930AccessList) GormDataType() string {
-	return "jsonb"
-}
-
 type EthTx struct {
 	ID             int64
 	Nonce          *int64
@@ -129,13 +122,13 @@ type EthTx struct {
 	BroadcastAt   *time.Time
 	CreatedAt     time.Time
 	State         EthTxState
-	EthTxAttempts []EthTxAttempt `gorm:"->" json:"-"`
+	EthTxAttempts []EthTxAttempt `json:"-"`
 	// Marshalled EthTxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
 	Meta       *datatypes.JSON
 	Subject    uuid.NullUUID
-	EVMChainID utils.Big `gorm:"column:evm_chain_id"`
+	EVMChainID utils.Big
 
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  cnull.Uint32
@@ -164,7 +157,7 @@ func (e EthTx) GetID() string {
 type EthTxAttempt struct {
 	ID      int64
 	EthTxID int64
-	EthTx   EthTx `gorm:"foreignkey:EthTxID;->"`
+	EthTx   EthTx
 	// GasPrice applies to LegacyTx
 	GasPrice *utils.Big
 	// GasTipCap and GasFeeCap are used instead for DynamicFeeTx
@@ -177,7 +170,7 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->" json:"-"`
+	EthReceipts             []EthReceipt `json:"-"`
 	TxType                  int
 }
 

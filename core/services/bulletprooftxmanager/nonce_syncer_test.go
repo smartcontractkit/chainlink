@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -47,8 +46,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	})
 
 	t.Run("does nothing if chain nonce reflects local nonce", func(t *testing.T) {
-		gdb := pgtest.NewGormDB(t)
-		db := postgres.UnwrapGormDB(gdb)
+		db := pgtest.NewSqlxDB(t)
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
@@ -72,8 +70,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	})
 
 	t.Run("does nothing if chain nonce is behind local nonce", func(t *testing.T) {
-		gdb := pgtest.NewGormDB(t)
-		db := postgres.UnwrapGormDB(gdb)
+		db := pgtest.NewSqlxDB(t)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -98,8 +95,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	})
 
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
-		gdb := pgtest.NewGormDB(t)
-		db := postgres.UnwrapGormDB(gdb)
+		db := pgtest.NewSqlxDB(t)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db).Eth()

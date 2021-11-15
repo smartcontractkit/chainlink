@@ -114,10 +114,10 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return DefaultQueryCtxWithParent(q.ParentCtx)
 }
 
-func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error) error {
+func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, lggr, fc)
+	return SqlxTransaction(ctx, q.Queryer, lggr, fc, txOpts...)
 }
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:

@@ -123,7 +123,7 @@ ORDER BY upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC
 			return errors.Wrap(err, "EligibleUpkeepsForRegistry failed to load Registry on upkeeps")
 		}
 		return nil
-	})
+	}, postgres.OptReadOnlyTx())
 
 	return upkeeps, err
 }

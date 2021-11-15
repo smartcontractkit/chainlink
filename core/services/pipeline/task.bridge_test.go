@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -118,8 +117,7 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 func TestBridgeTask_Happy(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), "", nil))
@@ -154,8 +152,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	id := uuid.NewV4()
@@ -345,8 +342,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			gdb := pgtest.NewGormDB(t)
-			db := postgres.UnwrapGormDB(gdb)
+			db := pgtest.NewSqlxDB(t)
 			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, test.expectedRequestData, decimal.NewFromInt(9700), "", nil))
@@ -392,8 +388,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 func TestBridgeTask_Meta(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	var empty adapterResponse
@@ -459,8 +454,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 		test := test
 
 		t.Run(test.name, func(t *testing.T) {
-			gdb := pgtest.NewGormDB(t)
-			db := postgres.UnwrapGormDB(gdb)
+			db := pgtest.NewSqlxDB(t)
 			cfg := cltest.NewTestGeneralConfig(t)
 
 			s1 := httptest.NewServer(fakePriceResponder(t, utils.MustUnmarshalToMap(btcUSDPairing), decimal.NewFromInt(9700), test.includeInputAtKey, test.expectedInput))
@@ -503,8 +497,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 func TestBridgeTask_ErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -540,8 +533,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -575,8 +567,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	task := pipeline.BridgeTask{

@@ -18,7 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/config"
@@ -39,11 +38,16 @@ import (
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/sqlx"
 )
 
 const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
+
+func newORM(t *testing.T, db *sqlx.DB, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), txm, bulletprooftxmanager.SendEveryStrategy{})
+}
 
 var (
 	now     = func() uint64 { return uint64(time.Now().UTC().Unix()) }
@@ -163,7 +167,7 @@ type setupOptions struct {
 
 // setup sets up a Flux Monitor for testing, allowing the test to provide
 // functional options to configure the setup
-func setup(t *testing.T, db *gorm.DB, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
+func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxMonitor, *testMocks) {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping")
@@ -289,18 +293,18 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupStoreWithKey(t *testing.T) (*gorm.DB, common.Address) {
+func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
-	return pgtest.GormDBFromSql(t, db.DB), nodeAddr
+	return db, nodeAddr
 }
 
 // setupStoreWithKey setups a new store and adds a key to the keystore
-func setupFullDBWithKey(t *testing.T, name string) (*gorm.DB, common.Address) {
-	_, sqlxDB, db := heavyweight.FullTestDB(t, name, true, true)
-	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
+func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
+	_, db := heavyweight.FullTestDB(t, name, true, true)
+	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -765,7 +769,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = newORM(t, db, nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -1165,7 +1169,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
-		orm     = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
+		orm     = newORM(t, db, nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1229,7 +1233,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 			t.Parallel()
 
 			var (
-				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = newORM(t, db, nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1299,7 +1303,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			var (
-				orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
+				orm = newORM(t, db, nil)
 			)
 
 			fm, tm := setup(t,
@@ -1363,7 +1367,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	var (
-		orm = fluxmonitorv2.NewORM(db, nil, bulletprooftxmanager.SendEveryStrategy{})
+		orm = newORM(t, db, nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1438,7 +1442,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 func TestFluxMonitor_HandlesNilLogs(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	fm, tm := setup(t, db)
 
 	logBroadcast := new(logmocks.Broadcast)
@@ -1469,7 +1473,7 @@ func TestFluxMonitor_HandlesNilLogs(t *testing.T) {
 func TestFluxMonitor_ConsumeLogBroadcast(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	fm, tm := setup(t, db)
 
 	tm.fluxAggregator.
@@ -1498,7 +1502,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Error(t *testing.T) {
 		{"error determining already consumed", false, errors.New("err")},
 	}
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
