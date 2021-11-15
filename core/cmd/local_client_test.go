@@ -377,7 +377,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB, db := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
+	config, sqlxDB, _ := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
 	keyStore := cltest.NewKeyStore(t, sqlxDB)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -395,7 +395,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 7, 42, fromAddress)
+	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
 	app.Test(t)
@@ -466,7 +467,8 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, int64(test.nonce), 42, fromAddress)
+			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)
 			app.Test(t)

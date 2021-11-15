@@ -690,7 +690,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
 	for _, etx := range etxs {
-		attempt, err := ec.attemptForRebroadcast(ctx, etx)
+		attempt, err := ec.attemptForRebroadcast(ctx, *etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
@@ -701,7 +701,7 @@ func (ec *EthConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
-		if err := ec.handleInProgressAttempt(ctx, etx, attempt, blockHeight); err != nil {
+		if err := ec.handleInProgressAttempt(ctx, *etx, attempt, blockHeight); err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
@@ -773,7 +773,7 @@ func loadEthTxes(q postgres.Queryer, attempts []EthTxAttempt) error {
 
 // FindEthTxsRequiringRebroadcast returns attempts that hit insufficient eth,
 // and attempts that need bumping, in nonce ASC order
-func FindEthTxsRequiringRebroadcast(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringRebroadcast(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID big.Int) (etxs []*EthTx, err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientEths, err := FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx, db, lggr, address, chainID)
@@ -838,7 +838,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, db *sqlx.DB, lggr logge
 // FindEthTxsRequiringResubmissionDueToInsufficientEth returns transactions
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
-func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (etxs []*EthTx, err error) {
 	err = postgres.NewQ(db, postgres.WithParentCtx(ctx)).Transaction(lggr, func(q postgres.Queryer) error {
 		err = q.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
@@ -856,12 +856,12 @@ ORDER BY nonce ASC
 	return
 }
 
-func loadEthTxesAttempts(q postgres.Queryer, etxs []EthTx) error {
+func loadEthTxesAttempts(q postgres.Queryer, etxs []*EthTx) error {
 	ethTxIDs := make([]int64, len(etxs))
 	ethTxesM := make(map[int64]*EthTx, len(etxs))
 	for i, etx := range etxs {
 		ethTxIDs[i] = etx.ID
-		ethTxesM[etx.ID] = &etxs[i]
+		ethTxesM[etx.ID] = etxs[i]
 	}
 	var ethTxAttempts []EthTxAttempt
 	if err := q.Select(&ethTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = ANY($1) ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, pq.Array(ethTxIDs)); err != nil {
@@ -879,7 +879,7 @@ func loadEthTxesAttempts(q postgres.Queryer, etxs []EthTx) error {
 // limited by limit pending transactions
 //
 // It also returns eth_txes that are unconfirmed with no eth_tx_attempts
-func FindEthTxsRequiringGasBump(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []EthTx, err error) {
+func FindEthTxsRequiringGasBump(ctx context.Context, db *sqlx.DB, lggr logger.Logger, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64, chainID big.Int) (etxs []*EthTx, err error) {
 	if gasBumpThreshold == 0 {
 		return
 	}
@@ -1199,8 +1199,8 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	}
 
 	for _, etx := range etxs {
-		if !hasReceiptInLongestChain(etx, head) {
-			if err := ec.markForRebroadcast(etx, head); err != nil {
+		if !hasReceiptInLongestChain(*etx, head) {
+			if err := ec.markForRebroadcast(*etx, head); err != nil {
 				return errors.Wrapf(err, "markForRebroadcast failed for etx %v", etx.ID)
 			}
 		}
@@ -1230,7 +1230,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 	return multierr.Combine(errors...)
 }
 
-func findTransactionsConfirmedInBlockRange(db *sqlx.DB, lggr logger.Logger, highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []EthTx, err error) {
+func findTransactionsConfirmedInBlockRange(db *sqlx.DB, lggr logger.Logger, highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error) {
 	err = postgres.NewQ(db).Transaction(lggr, func(q postgres.Queryer) error {
 		err = q.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
@@ -1249,26 +1249,6 @@ ORDER BY nonce ASC
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_receipts")
 	})
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
-}
-
-func loadEthTxesAttemptsReceipts(q postgres.Queryer, etxs []EthTx) (err error) {
-	attemptHashM := make(map[gethCommon.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
-	attemptHashes := make([][]byte, len(etxs))                         // len here is lower bound
-	for _, etx := range etxs {
-		for i, attempt := range etx.EthTxAttempts {
-			attemptHashM[attempt.Hash] = &etx.EthTxAttempts[i]
-			attemptHashes = append(attemptHashes, attempt.Hash.Bytes())
-		}
-	}
-	var receipts []EthReceipt
-	if err = q.Select(&receipts, `SELECT * FROM eth_receipts WHERE tx_hash = ANY($1)`, pq.Array(attemptHashes)); err != nil {
-		return errors.Wrap(err, "loadEthTxesAttemptsReceipts failed to load eth_receipts")
-	}
-	for _, receipt := range receipts {
-		attempt := attemptHashM[receipt.TxHash]
-		attempt.EthReceipts = append(attempt.EthReceipts, receipt)
-	}
-	return nil
 }
 
 func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {

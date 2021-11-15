@@ -45,7 +45,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
+	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -60,7 +60,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 
 	// deliberately one extra to exceed limit
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertUnstartedEthTx(t, gdb, otherAddress)
+		cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
 	}
 
 	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	})
 
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertFatalErrorEthTx(t, gdb, otherAddress)
+		cltest.MustInsertFatalErrorEthTx(t, borm, otherAddress)
 	}
 
 	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
@@ -78,9 +78,9 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	})
 
 	var n int64 = 0
-	cltest.MustInsertInProgressEthTxWithAttempt(t, gdb, n, fromAddress)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, borm, n, fromAddress)
 	n++
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, n, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, n, fromAddress)
 	n++
 
 	t.Run("unconfirmed and in_progress transactions do not count", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 
 	// deliberately one extra to exceed limit
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, n, 42, fromAddress)
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, n, 42, fromAddress)
 		n++
 	}
 
@@ -100,7 +100,7 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	})
 
 	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
-		cltest.MustInsertUnstartedEthTx(t, gdb, fromAddress)
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 	}
 
 	t.Run("with fewer unstarted eth_txes than limit returns nil", func(t *testing.T) {
@@ -108,14 +108,14 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	cltest.MustInsertUnstartedEthTx(t, gdb, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 
 	t.Run("with equal or more unstarted eth_txes than limit returns error", func(t *testing.T) {
 		err := bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
 		require.EqualError(t, err, fmt.Sprintf("cannot create transaction; too many unstarted transactions in the queue (2/%d). WARNING: Hitting ETH_MAX_QUEUED_TRANSACTIONS is a sanity limit and should never happen under normal operation. This error is very unlikely to be a problem with Chainlink, and instead more likely to be caused by a problem with your eth node's connectivity. Check your eth node: it may not be broadcasting transactions to the network, or it might be overloaded and evicting Chainlink's transactions from its mempool. Increasing ETH_MAX_QUEUED_TRANSACTIONS is almost certainly not the correct action to take here unless you ABSOLUTELY know what you are doing, and will probably make things worse", maxUnconfirmedTransactions))
 
-		cltest.MustInsertUnstartedEthTx(t, gdb, fromAddress)
+		cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
 		err = bulletprooftxmanager.CheckEthTxQueueCapacity(db, fromAddress, maxUnconfirmedTransactions, cltest.FixtureChainID)
 		require.Error(t, err)
 
@@ -137,16 +137,16 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
+	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, 0, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, 0, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, 1, fromAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, 2, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
 	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(db, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -157,16 +157,16 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
+	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertUnstartedEthTx(t, gdb, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, gdb, fromAddress)
-	cltest.MustInsertUnstartedEthTx(t, gdb, otherAddress)
-	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, gdb, 2, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, fromAddress)
+	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
 	count, err := bulletprooftxmanager.CountUnstartedTransactions(db, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
+	borm := cltest.NewBulletproofTxManagerORM(t, db)
 
 	keyStore := cltest.NewKeyStore(t, db)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
@@ -220,7 +220,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		require.NoError(t, gdb.First(&etx).Error)
+		require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
 		assert.Equal(t, etx.State, bulletprooftxmanager.EthTxUnstarted)
 		assert.Equal(t, gasLimit, etx.GasLimit)
@@ -231,7 +231,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 		assert.Equal(t, subject, etx.Subject.UUID)
 	})
 
-	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, gdb, 0, fromAddress)
+	cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, fromAddress)
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1)).Once()
@@ -309,7 +309,7 @@ func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
 
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
+	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	etKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -330,7 +330,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, gdb, 0, otherKey.Address.Address())
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, otherKey.Address.Address())
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
@@ -349,12 +349,12 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.AssertExpectations(t)
 	})
 
-	require.NoError(t, gdb.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address.Address())))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
 		config.On("EvmMaxQueuedTransactions").Return(uint64(1))
-		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, gdb, 0, thisKey.Address.Address())
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, borm, 0, thisKey.Address.Address())
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)
@@ -373,11 +373,11 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 		strategy.AssertExpectations(t)
 	})
 
-	require.NoError(t, gdb.Exec(`DELETE FROM eth_txes WHERE from_address = ?`, thisKey.Address.Address()).Error)
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address.Address())))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
-		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 0, 42, thisKey.Address.Address())
+		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 42, thisKey.Address.Address())
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.AnythingOfType("*sqlx.Tx")).Return(int64(0), nil)

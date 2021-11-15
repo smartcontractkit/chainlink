@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func init() {
@@ -112,4 +113,8 @@ func NewSqlxDB(t *testing.T) *sqlx.DB {
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db
+}
+
+func MustExec(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) {
+	require.NoError(t, utils.JustError(db.Exec(stmt, args...)))
 }
