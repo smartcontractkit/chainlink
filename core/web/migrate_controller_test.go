@@ -57,6 +57,21 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
   "tasks": [
     {
       "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "httpget",
+      "params": {
+        "get": "https://test.com"
+      }
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
+      "type": "httppost",
+      "params": {
+        "post": "https://test.com",
+        "body": "{}"
+      }
+    },
+    {
+      "jobSpecId": "3f6c38d0a080424ab18ea3ef05099ea1",
       "type": "testbridge",
       "params": {
         "endpoint": "price"
@@ -103,13 +118,24 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	mode=diet
 	type=cborparse
 	];
-	merge_1 [
+	http_get_0 [
+	method=GET
+	type=http
+	url="https://test.com"
+	];
+	http_post_1 [
+	method=POST
+	requestData=<{}>
+	type=http
+	url="https://test.com"
+	];
+	merge_3 [
 	right=<{"endpoint":"price"}>
 	type=merge
 	];
-	send_to_bridge_1 [
+	send_to_bridge_3 [
 	name=testbridge
-	requestData=<{ "data": $(merge_1) }>
+	requestData=<{ "data": $(merge_3) }>
 	type=bridge
 	];
 	merge_jsonparse [
@@ -117,8 +143,8 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	right=<{ "path": "result" }>
 	type=merge
 	];
-	jsonparse_1 [
-	data="$(send_to_bridge_1)"
+	jsonparse_3 [
+	data="$(send_to_bridge_3)"
 	path="$(merge_jsonparse.path)"
 	type=jsonparse
 	];
@@ -127,17 +153,17 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 	right=<{ "times": "100000000" }>
 	type=merge
 	];
-	multiply_2 [
-	input="$(jsonparse_1)"
+	multiply_4 [
+	input="$(jsonparse_3)"
 	times="$(merge_multiply.times)"
 	type=multiply
 	];
-	encode_data_5 [
+	encode_data_7 [
 	abi="(uint256 value)"
-	data=<{ "value": $(multiply_2) }>
+	data=<{ "value": $(multiply_4) }>
 	type=ethabiencode
 	];
-	encode_tx_5 [
+	encode_tx_7 [
 	abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 calldata data)"
 	data=<{
 "requestId":          $(decode_log.requestId),
@@ -145,28 +171,30 @@ func TestMigrateController_MigrateRunLog(t *testing.T) {
 "callbackAddress":    $(decode_log.callbackAddr),
 "callbackFunctionId": $(decode_log.callbackFunctionId),
 "expiration":         $(decode_log.cancelExpiration),
-"data":               $(encode_data_5)
+"data":               $(encode_data_7)
 }
 >
 	type=ethabiencode
 	];
-	send_tx_5 [
-	data="$(encode_tx_5)"
+	send_tx_7 [
+	data="$(encode_tx_7)"
 	to="0xfe8F390fFD3c74870367121cE251C744d3DC01Ed"
 	type=ethtx
 	];
 	
 	// Edge definitions.
 	decode_log -> decode_cbor;
-	decode_cbor -> merge_1;
-	merge_1 -> send_to_bridge_1;
-	send_to_bridge_1 -> merge_jsonparse;
-	merge_jsonparse -> jsonparse_1;
-	jsonparse_1 -> merge_multiply;
-	merge_multiply -> multiply_2;
-	multiply_2 -> encode_data_5;
-	encode_data_5 -> encode_tx_5;
-	encode_tx_5 -> send_tx_5;
+	decode_cbor -> http_get_0;
+	http_get_0 -> http_post_1;
+	http_post_1 -> merge_3;
+	merge_3 -> send_to_bridge_3;
+	send_to_bridge_3 -> merge_jsonparse;
+	merge_jsonparse -> jsonparse_3;
+	jsonparse_3 -> merge_multiply;
+	merge_multiply -> multiply_4;
+	multiply_4 -> encode_data_7;
+	encode_data_7 -> encode_tx_7;
+	encode_tx_7 -> send_tx_7;
 	`
 
 	// Migrate it
