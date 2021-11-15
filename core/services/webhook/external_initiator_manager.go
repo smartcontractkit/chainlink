@@ -6,17 +6,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"go.uber.org/multierr"
-
 	uuid "github.com/satori/go.uuid"
 
-	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/pkg/errors"
 )
 
 //go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
@@ -34,14 +32,14 @@ type HTTPClient interface {
 }
 
 type externalInitiatorManager struct {
-	db         *gorm.DB
+	db         *sqlx.DB
 	httpclient HTTPClient
 }
 
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *gorm.DB, httpclient HTTPClient) *externalInitiatorManager {
+func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient) *externalInitiatorManager {
 	return &externalInitiatorManager{db, httpclient}
 }
 
@@ -85,12 +83,50 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	row := m.db.Raw("SELECT external_job_id FROM jobs WHERE webhook_spec_id = ?", webhookSpecID).Row()
-	err = multierr.Combine(
-		errors.Wrapf(row.Scan(&jobID), "failed to load job ID from job for webhook spec with ID %d", webhookSpecID),
-		errors.Wrapf(m.db.Where("webhook_spec_id = ?", webhookSpecID).Preload("ExternalInitiator").Find(&eiWebhookSpecs).Error, "failed to load external_initiator_webhook_specs for webhook_spec_id %d", webhookSpecID),
-	)
+	if err = m.db.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
+		if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
+			return
+		}
+	}
+	if err = m.db.Select(&eiWebhookSpecs, "SELECT * FROM external_initiator_webhook_specs WHERE external_initiator_webhook_specs.webhook_spec_id = $1", webhookSpecID); err != nil {
+		if err = errors.Wrapf(err, "failed to load external_initiator_webhook_specs for webhook_spec_id %d", webhookSpecID); err != nil {
+			return
+		}
+	}
+	if err = m.preloadExternalInitiator(eiWebhookSpecs); err != nil {
+		if err = errors.Wrapf(err, "failed to preload ExternalInitiator for webhook_spec_id %d", webhookSpecID); err != nil {
+			return
+		}
+	}
 	return
+}
+
+func (m externalInitiatorManager) preloadExternalInitiator(txs []job.ExternalInitiatorWebhookSpec) error {
+	var ids []int64
+	for _, tx := range txs {
+		ids = append(ids, tx.ExternalInitiatorID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query, args, err := sqlx.In(`SELECT * FROM external_initiators WHERE external_initiators.id IN (?);`, ids)
+	if err != nil {
+		return err
+	}
+	query = m.db.Rebind(query)
+	var externalInitiators []bridges.ExternalInitiator
+	if err = m.db.Select(&externalInitiators, query, args...); err != nil {
+		return err
+	}
+	// fill in externalInitiators
+	for _, externalInitiator := range externalInitiators {
+		for i, tx := range txs {
+			if tx.ExternalInitiatorID == externalInitiator.ID {
+				txs[i].ExternalInitiator = externalInitiator
+			}
+		}
+	}
+	return nil
 }
 
 func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
@@ -124,7 +160,8 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 
 func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
 	var exi bridges.ExternalInitiator
-	return exi, m.db.First(&exi, "lower(name) = lower(?)", name).Error
+	err := m.db.Get(&exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
+	return exi, err
 }
 
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.
