@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -352,10 +351,8 @@ type mockListener struct {
 	jobID int32
 }
 
-func (l *mockListener) JobID() int32                                            { return l.jobID }
-func (l *mockListener) HandleLog(log.Broadcast)                                 {}
-func (l *mockListener) WasConsumed(db *gorm.DB, lb log.Broadcast) (bool, error) { return false, nil }
-func (l *mockListener) MarkConsumed(db *gorm.DB, lb log.Broadcast) error        { return nil }
+func (l *mockListener) JobID() int32            { return l.jobID }
+func (l *mockListener) HandleLog(log.Broadcast) {}
 
 type mockEth struct {
 	ethClient        *mocks.Client

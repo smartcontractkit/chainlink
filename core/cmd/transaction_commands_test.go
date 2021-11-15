@@ -116,7 +116,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 		}),
 	)
 	client, r := app.NewClientAndRenderer()
-	db := app.GetDB()
+	db := app.GetSqlxDB()
 
 	set := flag.NewFlagSet("sendether", 0)
 	amount := "100.5"
@@ -130,7 +130,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	etx := bulletprooftxmanager.EthTx{}
-	require.NoError(t, db.First(&etx).Error)
+	require.NoError(t, db.Get(&etx, `SELECT * FROM eth_txes`))
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
 	require.Equal(t, fromAddress, etx.FromAddress)
 	require.Equal(t, to, etx.ToAddress.Hex())

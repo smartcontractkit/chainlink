@@ -4,10 +4,8 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/jmoiron/sqlx/reflectx"
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
@@ -38,32 +36,6 @@ func WrapDbWithSqlx(rdb *sql.DB) *sqlx.DB {
 	db := sqlx.NewDb(rdb, "postgres")
 	db.MapperFunc(mapper.CamelToSnakeASCII)
 	return db
-}
-
-func UnwrapGormDB(db *gorm.DB) *sqlx.DB {
-	d, err := db.DB()
-	if err != nil {
-		panic(err)
-	}
-	return WrapDbWithSqlx(d)
-}
-
-func TryUnwrapGormDB(db *gorm.DB) *sqlx.DB {
-	if db == nil {
-		return nil
-	}
-	return UnwrapGormDB(db)
-}
-
-func UnwrapGorm(db *gorm.DB) Queryer {
-	if tx, ok := db.Statement.ConnPool.(*sql.Tx); ok {
-		// if a transaction is currently present use that instead
-		mapper := reflectx.NewMapperFunc("db", mapper.CamelToSnakeASCII)
-		txx := sqlx.NewTx(tx, db.Dialector.Name())
-		txx.Mapper = mapper
-		return txx
-	}
-	return UnwrapGormDB(db)
 }
 
 func SqlxTransactionWithDefaultCtx(q Queryer, lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) (err error) {

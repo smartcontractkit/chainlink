@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -162,7 +163,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			require.NoError(t, err)
 
 			var exi bridges.ExternalInitiator
-			err = app.GetDB().Where("name = ?", test.args[0]).Find(&exi).Error
+			err = app.GetSqlxDB().Get(&exi, `SELECT * FROM external_initiators WHERE name = $1`, test.args[0])
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {
@@ -190,7 +191,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
-			initialExis := len(cltest.AllExternalInitiators(t, app.GetDB()))
+			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
 
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse(test.args))
@@ -199,7 +200,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.Error(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.GetDB())
+			exis := cltest.AllExternalInitiators(t, app.GetSqlxDB())
 			assert.Len(t, exis, initialExis)
 		})
 	}
@@ -490,7 +491,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
+	pgtest.MustExec(t, app.GetSqlxDB(), "TRUNCATE sessions")
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }

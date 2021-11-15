@@ -16,13 +16,13 @@ import (
 )
 
 type Spec struct {
-	ID              int32           `gorm:"primary_key"`
+	ID              int32
 	DotDagSource    string          `json:"dotDagSource"`
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
 
-	JobID   int32  `gorm:"-" json:"-"`
-	JobName string `gorm:"-" json:"-"`
+	JobID   int32  `json:"-"`
+	JobName string `json:"-"`
 }
 
 func (Spec) TableName() string {
@@ -34,25 +34,25 @@ func (s Spec) Pipeline() (*Pipeline, error) {
 }
 
 type Run struct {
-	ID             int64            `json:"-" gorm:"primary_key"`
+	ID             int64            `json:"-"`
 	PipelineSpecID int32            `json:"-"`
 	PipelineSpec   Spec             `json:"pipelineSpec"`
-	Meta           JSONSerializable `json:"meta" gorm:"type:jsonb"`
+	Meta           JSONSerializable `json:"meta"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
-	AllErrors   RunErrors        `json:"all_errors" gorm:"type:jsonb"`
-	FatalErrors RunErrors        `json:"fatal_errors" gorm:"type:jsonb"`
-	Inputs      JSONSerializable `json:"inputs" gorm:"type:jsonb"`
+	AllErrors   RunErrors        `json:"all_errors"`
+	FatalErrors RunErrors        `json:"fatal_errors"`
+	Inputs      JSONSerializable `json:"inputs"`
 	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
-	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
+	Outputs          JSONSerializable `json:"outputs"`
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       null.Time        `json:"finishedAt"`
-	PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
+	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
 	State            RunStatus        `json:"state"`
 
-	Pending   bool `gorm:"-"`
-	FailEarly bool `gorm:"-"`
+	Pending   bool
+	FailEarly bool
 }
 
 func (Run) TableName() string {
@@ -158,11 +158,11 @@ func (rr ResumeRequest) ToResult() (Result, error) {
 }
 
 type TaskRun struct {
-	ID            uuid.UUID        `json:"id" gorm:"primary_key"`
+	ID            uuid.UUID        `json:"id"`
 	Type          TaskType         `json:"type"`
 	PipelineRun   Run              `json:"-"`
 	PipelineRunID int64            `json:"-"`
-	Output        JSONSerializable `json:"output" gorm:"type:jsonb"`
+	Output        JSONSerializable `json:"output"`
 	Error         null.String      `json:"error"`
 	CreatedAt     time.Time        `json:"createdAt"`
 	FinishedAt    null.Time        `json:"finishedAt"`

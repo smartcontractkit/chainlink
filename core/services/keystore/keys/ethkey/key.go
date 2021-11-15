@@ -9,7 +9,6 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -17,12 +16,12 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	ID        int32 `gorm:"primary_key"`
+	ID        int32
 	Address   EIP55Address
 	JSON      datatypes.JSON `json:"-"`
 	CreatedAt time.Time      `json:"-"`
 	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-"`
+	DeletedAt *time.Time     `json:"-"`
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -29,9 +28,9 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/sqlx"
 )
 
 func newHead() eth.Head {
@@ -39,7 +38,7 @@ func newHead() eth.Head {
 }
 
 func setup(t *testing.T) (
-	*gorm.DB,
+	*sqlx.DB,
 	*configtest.TestGeneralConfig,
 	*mocks.Client,
 	*keeper.UpkeepExecuter,
@@ -51,8 +50,7 @@ func setup(t *testing.T) (
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	txm := new(bptxmmocks.TxManager)
@@ -72,7 +70,7 @@ func setup(t *testing.T) (
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
-	return gdb, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
+	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
 }
 
 var checkUpkeepResponse = struct {
@@ -211,6 +209,6 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	executer.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, bulletprooftxmanager.EthTx{}, 0)
+	cltest.AssertCountStays(t, db, "eth_txes", 0)
 	ethMock.AssertExpectations(t)
 }

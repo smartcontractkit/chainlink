@@ -11,6 +11,7 @@ import (
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	feedMocks "github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
@@ -506,9 +507,7 @@ func setupJobProposalsTest(t *testing.T) *TestJobProposalsController {
 	client := app.NewHTTPClient()
 
 	// Defer the FK requirement of a feeds manager.
-	require.NoError(t, app.GetDB().Exec(
-		`SET CONSTRAINTS fk_feeds_manager DEFERRED`,
-	).Error)
+	pgtest.MustExec(t, app.GetSqlxDB(), `SET CONSTRAINTS fk_feeds_manager DEFERRED`)
 
 	// Mock the connection manager since we don't have a real FMS to connect to
 	connMgr := &feedMocks.ConnectionsManager{}

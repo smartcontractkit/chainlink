@@ -4,33 +4,26 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-
-	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
-
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 )
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	borm := bridges.NewORM(db)
+	db := pgtest.NewSqlxDB(t)
+	borm := newBridgeORM(t, db)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -39,12 +32,9 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	jb3, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
-	err := multierr.Combine(
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`).Error,
-	)
-	require.NoError(t, err)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiFoo.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`)
 
 	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
 
@@ -67,9 +57,8 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	borm := bridges.NewORM(db)
+	db := pgtest.NewSqlxDB(t)
+	borm := newBridgeORM(t, db)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -81,11 +70,8 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
-	err := multierr.Combine(
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
-	)
-	require.NoError(t, err)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
@@ -111,9 +97,8 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 }
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	borm := bridges.NewORM(db)
+	db := pgtest.NewSqlxDB(t)
+	borm := newBridgeORM(t, db)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -125,11 +110,8 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
 
-	err := multierr.Combine(
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`).Error,
-		gdb.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES (?,?,?)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`).Error,
-	)
-	require.NoError(t, err)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiWithURL.ID, webhookSpecTwoEIs.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
 	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))

@@ -53,13 +53,13 @@ type BridgeTypeAuthentication struct {
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType `gorm:"primary_key"`
+	Name                   TaskType
 	URL                    models.WebURL
 	Confirmations          uint32
 	IncomingTokenHash      string
 	Salt                   string
 	OutgoingToken          string
-	MinimumContractPayment *assets.Link `gorm:"type:varchar(255)"`
+	MinimumContractPayment *assets.Link
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 }

@@ -20,7 +20,7 @@ func newLeaseLock(t *testing.T, db *sqlx.DB) postgres.LeaseLock {
 
 func Test_LeaseLock(t *testing.T) {
 	t.Run("on migrated database", func(t *testing.T) {
-		_, db, _ := heavyweight.FullTestDB(t, "leaselock", true, false)
+		_, db := heavyweight.FullTestDB(t, "leaselock", true, false)
 
 		leaseLock1 := newLeaseLock(t, db)
 
@@ -57,7 +57,7 @@ func Test_LeaseLock(t *testing.T) {
 	})
 
 	t.Run("on virgin database", func(t *testing.T) {
-		_, db, _ := heavyweight.FullTestDB(t, "leaselock", false, false)
+		_, db := heavyweight.FullTestDB(t, "leaselock", false, false)
 
 		leaseLock1 := newLeaseLock(t, db)
 

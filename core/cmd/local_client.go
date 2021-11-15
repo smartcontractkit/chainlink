@@ -25,8 +25,6 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -520,7 +518,7 @@ func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, erro
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
 		MaxIdleConns:     cfg.ORMMaxIdleConns(),
 	}
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
 	return db, err
 }
 
@@ -658,11 +656,8 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
 	nextNonce := c.Uint64("nextNonce")
-	dbURL := cli.Config.DatabaseURL()
 
-	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -672,11 +667,15 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := db.Exec(`UPDATE eth_key_states SET next_nonce = ? WHERE address = ?`, nextNonce, address)
-	if res.Error != nil {
+	res, err := db.Exec(`UPDATE eth_key_states SET next_nonce = $1 WHERE address = $2`, nextNonce, address)
+	if err != nil {
 		return cli.errorOut(err)
 	}
-	if res.RowsAffected == 0 {
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if rowsAffected == 0 {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
 	return nil

@@ -1,7 +1,11 @@
 package dialects
 
-// DialectName is a compiler enforced type used that maps to gorm's dialect
-// names.
+import (
+	// need to make sure pgx driver is registered before opening connection
+	_ "github.com/jackc/pgx/v4/stdlib"
+)
+
+// DialectName is a compiler enforced type used that maps to database dialect names
 type DialectName string
 
 const (

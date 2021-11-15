@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -21,7 +22,7 @@ func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(db, logger.TestLogger(t))
 
 	tests := []struct {
 		description string
@@ -114,7 +115,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(db, logger.TestLogger(t))
 
 	// Create a duplicate
 	bt := bridges.BridgeType{}

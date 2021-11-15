@@ -370,7 +370,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 		}
 		err = loadEthTxes(q, attempts)
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
-	})
+	}, postgres.OptReadOnlyTx())
 	return
 }
 
@@ -743,7 +743,7 @@ WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND e
 		}
 		err = loadEthTxes(q, attempts)
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed to load eth_txes")
-	})
+	}, postgres.OptReadOnlyTx())
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
@@ -852,7 +852,7 @@ ORDER BY nonce ASC
 
 		err = loadEthTxesAttempts(q, etxs)
 		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
-	})
+	}, postgres.OptReadOnlyTx())
 	return
 }
 
@@ -896,7 +896,7 @@ ORDER BY nonce ASC
 		}
 		err = loadEthTxesAttempts(q, etxs)
 		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
-	})
+	}, postgres.OptReadOnlyTx())
 	return
 }
 
@@ -1247,7 +1247,7 @@ ORDER BY nonce ASC
 		}
 		err = loadEthTxesAttemptsReceipts(q, etxs)
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_receipts")
-	})
+	}, postgres.OptReadOnlyTx())
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
@@ -1402,7 +1402,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 		}
 		err = loadEthTxAttempts(q, etx)
 		return errors.Wrap(err, "findEthTxWithNonce failed to load eth_tx_attempts")
-	})
+	}, postgres.OptReadOnlyTx())
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

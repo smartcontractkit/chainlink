@@ -2,8 +2,11 @@ package webhook_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/bridges"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/sqlx"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -13,6 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func newBridgeORM(t *testing.T, db *sqlx.DB) bridges.ORM {
+	return bridges.NewORM(db, logger.TestLogger(t))
+}
 
 type eiEnabledCfg struct{}
 
@@ -24,7 +31,7 @@ func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := bridges.NewORM(db)
+	borm := newBridgeORM(t, db)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
