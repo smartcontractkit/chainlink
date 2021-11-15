@@ -192,6 +192,9 @@ func loadEthTxAttemptsReceipts(q postgres.Queryer, etx *EthTx) (err error) {
 }
 
 func loadEthTxesAttemptsReceipts(q postgres.Queryer, etxs []*EthTx) (err error) {
+	if len(etxs) == 0 {
+		return nil
+	}
 	attemptHashM := make(map[gethCommon.Hash]*EthTxAttempt, len(etxs)) // len here is lower bound
 	attemptHashes := make([][]byte, len(etxs))                         // len here is lower bound
 	for _, etx := range etxs {
