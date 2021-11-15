@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/sqlx"
@@ -83,17 +85,18 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	if err = m.db.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
+	q := postgres.NewQ(m.db)
+	if err = q.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
 		if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
 			return
 		}
 	}
-	if err = m.db.Select(&eiWebhookSpecs, "SELECT * FROM external_initiator_webhook_specs WHERE external_initiator_webhook_specs.webhook_spec_id = $1", webhookSpecID); err != nil {
+	if err = q.Select(&eiWebhookSpecs, "SELECT * FROM external_initiator_webhook_specs WHERE external_initiator_webhook_specs.webhook_spec_id = $1", webhookSpecID); err != nil {
 		if err = errors.Wrapf(err, "failed to load external_initiator_webhook_specs for webhook_spec_id %d", webhookSpecID); err != nil {
 			return
 		}
 	}
-	if err = m.preloadExternalInitiator(eiWebhookSpecs); err != nil {
+	if err = m.eagerLoadExternalInitiator(q, eiWebhookSpecs); err != nil {
 		if err = errors.Wrapf(err, "failed to preload ExternalInitiator for webhook_spec_id %d", webhookSpecID); err != nil {
 			return
 		}
@@ -101,7 +104,7 @@ func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []jo
 	return
 }
 
-func (m externalInitiatorManager) preloadExternalInitiator(txs []job.ExternalInitiatorWebhookSpec) error {
+func (m externalInitiatorManager) eagerLoadExternalInitiator(q postgres.Q, txs []job.ExternalInitiatorWebhookSpec) error {
 	var ids []int64
 	for _, tx := range txs {
 		ids = append(ids, tx.ExternalInitiatorID)
@@ -109,22 +112,18 @@ func (m externalInitiatorManager) preloadExternalInitiator(txs []job.ExternalIni
 	if len(ids) == 0 {
 		return nil
 	}
-	query, args, err := sqlx.In(`SELECT * FROM external_initiators WHERE external_initiators.id IN (?);`, ids)
-	if err != nil {
-		return err
-	}
-	query = m.db.Rebind(query)
 	var externalInitiators []bridges.ExternalInitiator
-	if err = m.db.Select(&externalInitiators, query, args...); err != nil {
+	if err := sqlx.Select(q, &externalInitiators, `SELECT * FROM external_initiators WHERE external_initiators.id = ANY($1);`, pq.Array(ids)); err != nil {
 		return err
 	}
-	// fill in externalInitiators
+
+	eiMap := make(map[int64]bridges.ExternalInitiator)
 	for _, externalInitiator := range externalInitiators {
-		for i, tx := range txs {
-			if tx.ExternalInitiatorID == externalInitiator.ID {
-				txs[i].ExternalInitiator = externalInitiator
-			}
-		}
+		eiMap[externalInitiator.ID] = externalInitiator
+	}
+
+	for i := range txs {
+		txs[i].ExternalInitiator = eiMap[txs[i].ExternalInitiatorID]
 	}
 	return nil
 }
