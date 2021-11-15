@@ -78,6 +78,7 @@ type explorerClient struct {
 	accessKey        string
 	secret           string
 	logging          bool
+	lggr             logger.Logger
 
 	chStop        chan struct{}
 	wg            sync.WaitGroup
@@ -88,11 +89,7 @@ type explorerClient struct {
 
 // NewExplorerClient returns a stats pusher using a websocket for
 // delivery.
-func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bool) ExplorerClient {
-	logging := false
-	if len(loggingArgs) > 0 {
-		logging = loggingArgs[0]
-	}
+func NewExplorerClient(url *url.URL, accessKey, secret string, statsPusherLogging bool, lggr logger.Logger) ExplorerClient {
 	return &explorerClient{
 		url:       url,
 		receive:   make(chan []byte),
@@ -100,7 +97,8 @@ func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bo
 		status:    ConnectionStatusDisconnected,
 		accessKey: accessKey,
 		secret:    secret,
-		logging:   logging,
+		logging:   statsPusherLogging,
+		lggr:      lggr.Named("ExplorerClient"),
 
 		sendText:   make(chan []byte, SendBufferSize),
 		sendBinary: make(chan []byte, SendBufferSize),
@@ -172,7 +170,7 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
 	count := ec.dropMessageCount.Inc()
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
-		logger.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
+		ec.lggr.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
 	}
 }
 
@@ -221,19 +219,19 @@ func (ec *explorerClient) connectAndWritePump() {
 	for {
 		select {
 		case <-time.After(ec.sleeper.After()):
-			logger.Infow("Connecting to explorer", "url", ec.url)
+			ec.lggr.Infow("Connecting to explorer", "url", ec.url)
 			err := ec.connect(ctx)
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
 				ec.setStatus(ConnectionStatusError)
-				logger.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
+				ec.lggr.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
 				break
 			}
 
 			ec.setStatus(ConnectionStatusConnected)
 
-			logger.Infow("Connected to explorer", "url", ec.url)
+			ec.lggr.Infow("Connected to explorer", "url", ec.url)
 			ec.sleeper.Reset()
 			ec.writePumpDone = make(chan struct{})
 			ec.wg.Add(1)
@@ -269,7 +267,7 @@ func (ec *explorerClient) writePump() {
 
 			err := ec.writeMessage(message, websocket.TextMessage)
 			if err != nil {
-				logger.Warnw("websocketStatsPusher: error writing text message", "err", err)
+				ec.lggr.Warnw("websocketStatsPusher: error writing text message", "err", err)
 				return
 			}
 
@@ -280,7 +278,7 @@ func (ec *explorerClient) writePump() {
 
 			err := ec.writeMessage(message, websocket.BinaryMessage)
 			if err != nil {
-				logger.Warnw("websocketStatsPusher: error writing binary message", "err", err)
+				ec.lggr.Warnw("websocketStatsPusher: error writing binary message", "err", err)
 				return
 			}
 
@@ -310,7 +308,7 @@ func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 		return err
 	}
 	if ec.logging {
-		logger.Debugw("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
+		ec.lggr.Debugw("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
 	}
 
 	return writer.Close()
@@ -357,7 +355,7 @@ func (ec *explorerClient) readPump() {
 		messageType, message, err := ec.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
-				logger.Warnw("Unexpected close error on ExplorerClient", "err", err)
+				ec.lggr.Warnw("Unexpected close error on ExplorerClient", "err", err)
 			}
 			close(ec.writePumpDone)
 			return
@@ -373,7 +371,7 @@ func (ec *explorerClient) readPump() {
 func (ec *explorerClient) wrapConnErrorIf(err error) {
 	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 		ec.setStatus(ConnectionStatusError)
-		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
+		ec.lggr.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
 	}
 }
 
