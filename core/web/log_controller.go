@@ -35,7 +35,7 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	logSvcs := logger.GetLogServices()
-	logORM := logger.NewORM(cc.App.GetSqlxDB())
+	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 	for _, svcName := range logSvcs {
 		lvl, _ := logORM.GetServiceLogLevel(svcName)
 
@@ -99,7 +99,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	if len(request.ServiceLogLevel) > 0 {
-		logORM := logger.NewORM(cc.App.GetSqlxDB())
+		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]
