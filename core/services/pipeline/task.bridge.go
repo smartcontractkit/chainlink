@@ -105,7 +105,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"url", url.String(),
 	)
 
-	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(ctx, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, statusCode, headers, elapsed, err := makeHTTPRequest(ctx, lggr, "POST", URLParam(url), requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}

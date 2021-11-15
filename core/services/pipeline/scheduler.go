@@ -101,7 +101,7 @@ func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *schedul
 
 		run := s.newMemoryTaskRun(task)
 
-		logger.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
+		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++

@@ -217,11 +217,3 @@ WHERE (
 func (l *leaseLock) ClientID() uuid.UUID {
 	return l.id
 }
-
-func logRetry(count int) {
-	if count == 1 {
-		logger.Infow("Could not get lock, retrying...", "failCount", count)
-	} else if count%1000 == 0 || count&(count-1) == 0 {
-		logger.Infow("Still waiting for lock...", "failCount", count)
-	}
-}
