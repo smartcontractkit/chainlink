@@ -2,9 +2,10 @@ package job_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/bridges"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/bridges"
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
@@ -144,7 +145,7 @@ func TestORM(t *testing.T) {
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(pgtest.GormDBFromSql(t, db.DB), nil)
+		eim := webhook.NewExternalInitiatorManager(db, nil)
 		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
 		require.NoError(t, err)
 
