@@ -233,7 +233,8 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 				   WHERE meta->>'MaxLink' IS NOT NULL
 				   AND CAST(meta->>'SubId' AS NUMERIC) = ?
 				   AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt')
-				   GROUP BY from_address = ?`, subID, fromAddress).Scan(&reservedLink).Error
+				   AND from_address = ?
+				   GROUP BY from_address`, subID, fromAddress).Scan(&reservedLink).Error
 	if err != nil {
 		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
