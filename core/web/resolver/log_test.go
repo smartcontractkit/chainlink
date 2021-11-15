@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,9 +17,10 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 		mutation SetServicesLogLevels($input: SetServicesLogLevelsInput!) {
 			setServicesLogLevels(input: $input) {
 				... on SetServicesLogLevelsSuccess {
-					logLevels {
-						name
-						level
+					config {
+						keeper
+						headTracker
+						fluxMonitor
 					}
 				}
 				... on InputErrors {
@@ -32,21 +34,8 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 		}`
 	input := map[string]interface{}{
 		"input": map[string]interface{}{
-			"logLevels": []map[string]interface{}{
-				{
-					"name":  logger.HeadTracker,
-					"level": "DEBUG",
-				},
-			},
-		},
-	}
-	invalidInput := map[string]interface{}{
-		"input": map[string]interface{}{
-			"logLevels": []map[string]interface{}{
-				{
-					"name":  logger.HeadTracker,
-					"level": "invalid",
-				},
+			"config": map[string]interface{}{
+				"headTracker": "INFO",
 			},
 		},
 	}
@@ -58,40 +47,21 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				var lvl zapcore.Level
-				err := lvl.UnmarshalText([]byte("debug"))
+				err := lvl.UnmarshalText([]byte("info"))
 				assert.NoError(t, err)
 
-				f.App.On("SetServiceLogLevel", f.Ctx, logger.HeadTracker, lvl)
+				f.App.On("SetServiceLogLevel", mock.Anything, logger.HeadTracker, lvl).Return(nil)
 			},
 			query:     mutation,
 			variables: input,
 			result: `
 				{
 					"setServicesLogLevels": {
-						"logLevels": [
-							{
-								"name": "head_tracker",
-								"level": "debug"
-							}
-						]
-					}
-				}`,
-		},
-		{
-			name:          "invalid log level",
-			authenticated: true,
-			query:         mutation,
-			variables:     invalidInput,
-			result: `
-				{
-					"setServicesLogLevels": {
-						"errors": [
-							{
-								"path": "head_tracker/invalid",
-								"message": "invalid log level",
-								"code": "INVALID_INPUT"
-							}
-						]
+						"config": {
+							"headTracker": "INFO",
+							"keeper": null,
+							"fluxMonitor": null
+						}
 					}
 				}`,
 		},

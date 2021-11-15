@@ -26,50 +26,41 @@ func FromLogLevel(logLvl LogLevel) string {
 	}
 }
 
-type ServiceLogLevel struct {
-	Name  string
-	Level LogLevel
+type LogLevelConfig struct {
+	HeadTracker *LogLevel
+	FluxMonitor *LogLevel
+	Keeper      *LogLevel
 }
 
-type ServiceLogLevelInput struct {
-	Name  string   `json:"name"`
-	Level LogLevel `json:"level"`
+type LogLevelConfigResolver struct {
+	cfg *LogLevelConfig
 }
 
-type ServiceLogLevelResolver struct {
-	logLvl ServiceLogLevel
+func NewLogLevelConfig(cfg *LogLevelConfig) *LogLevelConfigResolver {
+	return &LogLevelConfigResolver{cfg}
 }
 
-func NewServiceLogLevel(logLvl ServiceLogLevel) *ServiceLogLevelResolver {
-	return &ServiceLogLevelResolver{logLvl}
+func (r *LogLevelConfigResolver) HeadTracker() *LogLevel {
+	return r.cfg.HeadTracker
 }
 
-func NewServicesLogLevel(logLvls []ServiceLogLevel) []*ServiceLogLevelResolver {
-	var resolvers []*ServiceLogLevelResolver
-	for _, logLvl := range logLvls {
-		resolvers = append(resolvers, NewServiceLogLevel(logLvl))
-	}
-
-	return resolvers
+func (r *LogLevelConfigResolver) FluxMonitor() *LogLevel {
+	return r.cfg.FluxMonitor
 }
 
-func (r *ServiceLogLevelResolver) Name() string {
-	return r.logLvl.Name
-}
-
-func (r *ServiceLogLevelResolver) Level() LogLevel {
-	return r.logLvl.Level
+func (r *LogLevelConfigResolver) Keeper() *LogLevel {
+	return r.cfg.Keeper
 }
 
 // -- SetServiceLogLevel Mutation --
 
 type SetServicesLogLevelsPayloadResolver struct {
-	svcLvls   []ServiceLogLevel
+	cfg       *LogLevelConfig
 	inputErrs map[string]string
 }
 
-func NewSetServicesLogLevelsPayload(svcLvls []ServiceLogLevel, inputErrs map[string]string) *SetServicesLogLevelsPayloadResolver {
-	return &SetServicesLogLevelsPayloadResolver{svcLvls, inputErrs}
+func NewSetServicesLogLevelsPayload(cfg *LogLevelConfig, inputErrs map[string]string) *SetServicesLogLevelsPayloadResolver {
+	return &SetServicesLogLevelsPayloadResolver{cfg, inputErrs}
 }
 
 func (r *SetServicesLogLevelsPayloadResolver) ToSetServicesLogLevelsSuccess() (*SetServicesLogLevelsSuccessResolver, bool) {
@@ -77,7 +68,7 @@ func (r *SetServicesLogLevelsPayloadResolver) ToSetServicesLogLevelsSuccess() (*
 		return nil, false
 	}
 
-	return NewSetServicesLogLevelsSuccess(r.svcLvls), true
+	return NewSetServicesLogLevelsSuccess(r.cfg), true
 }
 
 func (r *SetServicesLogLevelsPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
@@ -95,13 +86,13 @@ func (r *SetServicesLogLevelsPayloadResolver) ToInputErrors() (*InputErrorsResol
 }
 
 type SetServicesLogLevelsSuccessResolver struct {
-	svcLvls []ServiceLogLevel
+	cfg *LogLevelConfig
 }
 
-func NewSetServicesLogLevelsSuccess(svcLvls []ServiceLogLevel) *SetServicesLogLevelsSuccessResolver {
-	return &SetServicesLogLevelsSuccessResolver{svcLvls}
+func NewSetServicesLogLevelsSuccess(cfg *LogLevelConfig) *SetServicesLogLevelsSuccessResolver {
+	return &SetServicesLogLevelsSuccessResolver{cfg}
 }
 
-func (r *SetServicesLogLevelsSuccessResolver) LogLevels() []*ServiceLogLevelResolver {
-	return NewServicesLogLevel(r.svcLvls)
+func (r *SetServicesLogLevelsSuccessResolver) Config() *LogLevelConfigResolver {
+	return NewLogLevelConfig(r.cfg)
 }

@@ -5,22 +5,24 @@ enum LogLevel {
     ERROR
 }
 
-type ServiceLogLevel {
-    name: String!
-    level: LogLevel!
+type LogLevelConfig {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
 }
 
-input ServiceLogLevelInput {
-    name: String!
-    level: LogLevel!
+input LogLevelConfigInput {
+    keeper: LogLevel
+    headTracker: LogLevel
+    fluxMonitor: LogLevel
 }
 
 input SetServicesLogLevelsInput {
-    logLevels: [ServiceLogLevelInput!]!
+   config: LogLevelConfigInput!
 }
 
 type SetServicesLogLevelsSuccess {
-    logLevels: [ServiceLogLevel!]!
+    config: LogLevelConfig
 }
 
 union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors

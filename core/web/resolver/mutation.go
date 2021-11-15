@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -597,29 +598,63 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 }
 
 func (r *Resolver) SetServicesLogLevels(ctx context.Context, args struct {
-	Input struct{ LogLevels []ServiceLogLevel }
+	Input struct{ Config *LogLevelConfig }
 }) (*SetServicesLogLevelsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	for _, scvLogLvl := range args.Input.LogLevels {
-		var lvl zapcore.Level
-		svcLvl := FromLogLevel(scvLogLvl.Level)
+	fmt.Println(*args.Input.Config)
 
-		err := lvl.UnmarshalText([]byte(svcLvl))
-		if err != nil {
-			return NewSetServicesLogLevelsPayload(nil, map[string]string{
-				scvLogLvl.Name + "/" + svcLvl: "invalid log level",
-			}), nil
+	if args.Input.Config.HeadTracker != nil {
+		inputErrs, err := r.setServiceLogLevel(ctx, logger.HeadTracker, *args.Input.Config.HeadTracker)
+		if inputErrs != nil {
+			return NewSetServicesLogLevelsPayload(nil, inputErrs), nil
 		}
-
-		if err = r.App.SetServiceLogLevel(ctx, scvLogLvl.Name, lvl); err != nil {
+		if err != nil {
 			return nil, err
 		}
 	}
 
-	return NewSetServicesLogLevelsPayload(args.Input.LogLevels, nil), nil
+	if args.Input.Config.FluxMonitor != nil {
+		inputErrs, err := r.setServiceLogLevel(ctx, logger.FluxMonitor, *args.Input.Config.FluxMonitor)
+		if inputErrs != nil {
+			return NewSetServicesLogLevelsPayload(nil, inputErrs), nil
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if args.Input.Config.Keeper != nil {
+		inputErrs, err := r.setServiceLogLevel(ctx, logger.Keeper, *args.Input.Config.Keeper)
+		if inputErrs != nil {
+			return NewSetServicesLogLevelsPayload(nil, inputErrs), nil
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return NewSetServicesLogLevelsPayload(args.Input.Config, nil), nil
+}
+
+func (r *Resolver) setServiceLogLevel(ctx context.Context, svcName string, logLvl LogLevel) (map[string]string, error) {
+	var lvl zapcore.Level
+	svcLvl := FromLogLevel(logLvl)
+
+	err := lvl.UnmarshalText([]byte(svcLvl))
+	if err != nil {
+		return map[string]string{
+			svcName + "/" + svcLvl: "invalid log level",
+		}, nil
+	}
+
+	if err = r.App.SetServiceLogLevel(ctx, svcName, lvl); err != nil {
+		return nil, err
+	}
+
+	return nil, nil
 }
 
 func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
