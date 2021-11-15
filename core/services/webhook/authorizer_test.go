@@ -27,8 +27,8 @@ func Test_Authorizer(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
-	eiBar := cltest.MustInsertExternalInitiator(t, gdb)
+	eiFoo := cltest.MustInsertExternalInitiator(t, db)
+	eiBar := cltest.MustInsertExternalInitiator(t, db)
 
 	jobWithFooAndBarEI, webhookSpecWithFooAndBarEI := cltest.MustInsertWebhookSpec(t, db)
 	jobWithBarEI, webhookSpecWithBarEI := cltest.MustInsertWebhookSpec(t, db)

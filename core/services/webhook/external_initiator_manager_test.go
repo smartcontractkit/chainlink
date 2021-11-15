@@ -29,8 +29,8 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 
-	eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
-	eiBar := cltest.MustInsertExternalInitiator(t, gdb)
+	eiFoo := cltest.MustInsertExternalInitiator(t, db)
+	eiBar := cltest.MustInsertExternalInitiator(t, db)
 
 	jb1, webhookSpecOneEI := cltest.MustInsertWebhookSpec(t, db)
 	jb2, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
@@ -67,12 +67,12 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, gdb, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, gdb)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
 
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
@@ -110,12 +110,12 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	gdb := pgtest.NewGormDB(t)
 	db := postgres.UnwrapGormDB(gdb)
 
-	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, gdb, cltest.ExternalInitiatorOpts{
+	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
 		OutgoingSecret: "secret",
 		OutgoingToken:  "token",
 	})
-	eiNoURL := cltest.MustInsertExternalInitiator(t, gdb)
+	eiNoURL := cltest.MustInsertExternalInitiator(t, db)
 
 	jb, webhookSpecTwoEIs := cltest.MustInsertWebhookSpec(t, db)
 	_, webhookSpecNoEIs := cltest.MustInsertWebhookSpec(t, db)
