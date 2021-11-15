@@ -345,7 +345,7 @@ func MustInsertBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, borm bulle
 	return attempt
 }
 
-func MustInsertEthReceipt(t *testing.T, borm bulletprooftxmanager.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
 	transactionIndex := uint(NewRandomInt64())
 
 	receipt := bulletprooftxmanager.Receipt{
@@ -357,7 +357,6 @@ func MustInsertEthReceipt(t *testing.T, borm bulletprooftxmanager.ORM, blockNumb
 
 	data, err := json.Marshal(receipt)
 	require.NoError(t, err)
-
 	r := bulletprooftxmanager.EthReceipt{
 		BlockNumber:      blockNumber,
 		BlockHash:        blockHash,
@@ -365,6 +364,11 @@ func MustInsertEthReceipt(t *testing.T, borm bulletprooftxmanager.ORM, blockNumb
 		TransactionIndex: transactionIndex,
 		Receipt:          data,
 	}
+	return r
+}
+
+func MustInsertEthReceipt(t *testing.T, borm bulletprooftxmanager.ORM, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
+	r := NewEthReceipt(t, blockNumber, blockHash, txHash)
 	require.NoError(t, borm.InsertEthReceipt(&r))
 	return r
 }
