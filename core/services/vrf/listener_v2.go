@@ -281,14 +281,14 @@ func (lsn *listenerV2) processRequestsPerSub(
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return
 	}
-	logger := lsn.l.With(
+	lggr := lsn.l.With(
 		"sub", reqs[0].req.SubId,
 		"maxGasPrice", maxGasPrice.String(),
 		"reqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 	)
-	logger.Infow("Processing requests for subscription")
+	lggr.Infow("Processing requests for subscription")
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
 	for _, req := range reqs {
@@ -303,11 +303,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, vrfRequest.RequestId)
 		if err != nil {
-			logger.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", vrfRequest.Raw.TxHash)
+			lggr.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", vrfRequest.Raw.TxHash)
 		} else if utils.IsEmpty(callback[:]) {
 			// If seedAndBlockNumber is zero then the response has been fulfilled
 			// and we should skip it
-			logger.Infow("Request already fulfilled", "txHash", vrfRequest.Raw.TxHash, "subID", vrfRequest.SubId, "callback", callback)
+			lggr.Infow("Request already fulfilled", "txHash", vrfRequest.Raw.TxHash, "subID", vrfRequest.SubId, "callback", callback)
 			lsn.markLogAsConsumed(req.lb)
 			processed[vrfRequest.RequestId.String()] = struct{}{}
 			continue
@@ -321,10 +321,10 @@ func (lsn *listenerV2) processRequestsPerSub(
 		if startBalance.Cmp(maxLink) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
-			logger.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", maxLink)
+			lggr.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", maxLink)
 			break
 		}
-		logger.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
+		lggr.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
 		err = postgres.NewGormTransactionManager(lsn.db).Transact(func(ctx context.Context) error {
 			tx := postgres.TxFromContext(ctx, lsn.db)
@@ -350,7 +350,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			return err
 		})
 		if err != nil {
-			logger.Errorw("Error enqueuing fulfillment, requeuing request",
+			lggr.Errorw("Error enqueuing fulfillment, requeuing request",
 				"err", err,
 				"reqID", vrfRequest.RequestId,
 				"txHash", vrfRequest.Raw.TxHash)
@@ -373,7 +373,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	// so we merged the new ones with the ones that need to be requeued.
 	lsn.reqs = append(lsn.reqs, toKeep...)
 	lsn.reqsMu.Unlock()
-	logger.Infow("Finished processing for sub",
+	lggr.Infow("Finished processing for sub",
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total remaining", len(toKeep))
