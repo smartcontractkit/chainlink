@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -19,10 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -351,7 +349,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
-		run := mustInsertPipelineRun(t, db, jb)
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
 		runs, count, err := orm.PipelineRuns(nil, 0, 10)
 		require.NoError(t, err)
@@ -410,7 +408,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
-		run := mustInsertPipelineRun(t, db, jb)
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
 		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
 		require.NoError(t, err)
@@ -428,7 +426,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	})
 }
 
-func mustInsertPipelineRun(t *testing.T, db *sqlx.DB, j job.Job) pipeline.Run {
+func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {
 	t.Helper()
 
 	run := pipeline.Run{
@@ -436,14 +434,10 @@ func mustInsertPipelineRun(t *testing.T, db *sqlx.DB, j job.Job) pipeline.Run {
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{Valid: false},
 		AllErrors:      pipeline.RunErrors{},
+		CreatedAt:      time.Now(),
 		FinishedAt:     null.Time{},
 	}
-	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, state, outputs, all_errors, finished_at, created_at)
-			VALUES (:pipeline_spec_id, :state, :outputs, :all_errors, :finished_at, NOW())
-            RETURNING *;`
-	stmt, err := db.PrepareNamed(sql)
-	require.NoError(t, err)
-	err = stmt.Get(&run, &run)
+	err := orm.CreateRun(&run)
 	require.NoError(t, err)
 	return run
 }
