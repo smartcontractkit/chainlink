@@ -16,6 +16,10 @@ type countingWorker struct {
 	delay            time.Duration
 }
 
+func (t *countingWorker) Name() string {
+	return "CountingWorker"
+}
+
 func (t *countingWorker) Work() {
 	if t.delay != 0 {
 		time.Sleep(t.delay)
