@@ -1,0 +1,26 @@
+enum LogLevel {
+    DEBUG,
+    INFO,
+    WARN,
+    ERROR
+}
+
+type ServiceLogLevel {
+    name: String!
+    level: LogLevel!
+}
+
+input ServiceLogLevelInput {
+    name: String!
+    level: LogLevel!
+}
+
+input SetServicesLogLevelsInput {
+    logLevels: [ServiceLogLevelInput!]!
+}
+
+type SetServicesLogLevelsSuccess {
+    logLevels: [ServiceLogLevel!]!
+}
+
+union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors

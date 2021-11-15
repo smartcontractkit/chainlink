@@ -10,6 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -593,6 +594,32 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 	}
 
 	return jp, nil
+}
+
+func (r *Resolver) SetServicesLogLevels(ctx context.Context, args struct {
+	Input struct{ LogLevels []ServiceLogLevel }
+}) (*SetServicesLogLevelsPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	for _, scvLogLvl := range args.Input.LogLevels {
+		var lvl zapcore.Level
+		svcLvl := FromLogLevel(scvLogLvl.Level)
+
+		err := lvl.UnmarshalText([]byte(svcLvl))
+		if err != nil {
+			return NewSetServicesLogLevelsPayload(nil, map[string]string{
+				scvLogLvl.Name + "/" + svcLvl: "invalid log level",
+			}), nil
+		}
+
+		if err = r.App.SetServiceLogLevel(ctx, scvLogLvl.Name, lvl); err != nil {
+			return nil, err
+		}
+	}
+
+	return NewSetServicesLogLevelsPayload(args.Input.LogLevels, nil), nil
 }
 
 func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
