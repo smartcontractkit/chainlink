@@ -23,6 +23,7 @@ var (
 type ORM interface {
 	CreateSpec(pipeline Pipeline, maxTaskTimeout models.Interval, qopts ...postgres.QOpt) (int32, error)
 	CreateRun(run *Run, qopts ...postgres.QOpt) (err error)
+	InsertRun(run *Run, qopts ...postgres.QOpt) error
 	DeleteRun(id int64) error
 	StoreRun(run *Run, qopts ...postgres.QOpt) (restart bool, err error)
 	UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error)
@@ -61,16 +62,8 @@ func (o *orm) CreateRun(run *Run, qopts ...postgres.QOpt) (err error) {
 
 	q := postgres.NewQ(o.db, qopts...)
 	err = q.Transaction(o.lggr, func(tx postgres.Queryer) error {
-		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, inputs, created_at, state)
-		VALUES (:pipeline_spec_id, :meta, :inputs, :created_at, :state)
-		RETURNING id`
-
-		query, args, e := tx.BindNamed(sql, run)
-		if e != nil {
-			return err
-		}
-		if err = tx.Get(run, query, args...); err != nil {
-			return errors.Wrap(err, "error inserting pipeline_run")
+		if e := o.InsertRun(run, postgres.WithQueryer(tx)); e != nil {
+			return errors.Wrap(e, "error inserting pipeline_run")
 		}
 
 		// Now create pipeline_task_runs if any
@@ -83,7 +76,7 @@ func (o *orm) CreateRun(run *Run, qopts ...postgres.QOpt) (err error) {
 			run.PipelineTaskRuns[i].PipelineRunID = run.ID
 		}
 
-		sql = `
+		sql := `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, id, type, index, output, error, dot_id, created_at)
 		VALUES (:pipeline_run_id, :id, :type, :index, :output, :error, :dot_id, :created_at);`
 		_, err = tx.NamedExec(sql, run.PipelineTaskRuns)
@@ -91,6 +84,15 @@ func (o *orm) CreateRun(run *Run, qopts ...postgres.QOpt) (err error) {
 	})
 
 	return errors.Wrap(err, "CreateRun failed")
+}
+
+// InsertRun inserts a run into the database
+func (o *orm) InsertRun(run *Run, qopts ...postgres.QOpt) error {
+	q := postgres.NewQ(o.db, qopts...)
+	sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
+		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
+		RETURNING *;`
+	return q.GetNamed(sql, run, run)
 }
 
 // StoreRun will persist a partially executed run before suspending, or finish a run.
