@@ -419,7 +419,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, p
 	t.Helper()
 	logger.TestLogger(t).Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
@@ -443,7 +443,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			g := cltest.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			fa := setupFluxAggregatorUniverse(t)
 
 			// - add oracles
@@ -611,7 +611,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -717,7 +717,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles

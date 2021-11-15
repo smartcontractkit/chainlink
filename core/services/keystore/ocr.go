@@ -25,11 +25,12 @@ type OCR interface {
 
 // KeyNotFoundError is returned when we don't find a requested key
 type KeyNotFoundError struct {
-	ID string
+	ID      string
+	KeyType string
 }
 
 func (e KeyNotFoundError) Error() string {
-	return fmt.Sprintf("unable to find OCR key with id %s", e.ID)
+	return fmt.Sprintf("unable to find %s key with id %s", e.KeyType, e.ID)
 }
 
 type ocr struct {
@@ -167,7 +168,7 @@ func (ks *ocr) GetV1KeysAsV2() (keys []ocrkey.KeyV2, _ error) {
 func (ks *ocr) getByID(id string) (ocrkey.KeyV2, error) {
 	key, found := ks.keyRing.OCR[id]
 	if !found {
-		return ocrkey.KeyV2{}, KeyNotFoundError{id}
+		return ocrkey.KeyV2{}, KeyNotFoundError{ID: id, KeyType: "OCR"}
 	}
 	return key, nil
 }

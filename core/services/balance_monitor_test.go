@@ -46,10 +46,10 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal))
 	})
@@ -71,7 +71,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
 	})
@@ -94,7 +94,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Consistently(func() *big.Int {
+		gomega.NewWithT(t).Consistently(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.BeNil())
 	})
@@ -133,10 +133,10 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		// Do the thing
 		bm.OnNewLongestChain(context.TODO(), *head)
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal))
 
@@ -151,10 +151,10 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		bm.OnNewLongestChain(context.TODO(), *head)
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal2))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal2))
 

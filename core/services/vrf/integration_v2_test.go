@@ -252,7 +252,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		jbs = append(jbs, jb)
 	}
 	// Wait until all jobs are active and listening for logs
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		return len(jbs) == 2
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
@@ -290,7 +290,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	// since we only have 2 requests worth of link at the max keyhash
 	// gas price.
 	var runs []pipeline.Run
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
@@ -298,7 +298,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	}, 5*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	// As we send new blocks, we should observe the fulfllments goes through the balance
 	// be reduced.
-	cltest.NewGomegaWithT(t).Consistently(func() bool {
+	gomega.NewWithT(t).Consistently(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		uni.backend.Commit()
@@ -318,7 +318,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	// Now lets top up and see the next batch go through
 	_, err = uni.consumerContract.TopUpSubscription(uni.carol, assets.Ether(1))
 	require.NoError(t, err)
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
@@ -328,7 +328,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	// One more time for the final tx
 	_, err = uni.consumerContract.TopUpSubscription(uni.carol, assets.Ether(1))
 	require.NoError(t, err)
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
@@ -339,7 +339,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 	// Send a huge topup and observe the high max gwei go through.
 	_, err = uni.consumerContract.TopUpSubscription(uni.carol, assets.Ether(7))
 	require.NoError(t, err)
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
@@ -471,7 +471,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// We expect the request to be serviced
 	// by the node.
 	var runs []pipeline.Run
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		// It is possible that we send the test request
@@ -484,7 +484,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 		require.NoError(t, err2, "failed to logs")
 		uni.backend.Commit()
@@ -559,7 +559,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger)
+	counts := vrf.GetStartingResponseCountsV2(app.GetSqlxDB(), app.Logger)
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -619,7 +619,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	// We expect the request to be serviced
 	// by the node.
 	var attempts []bulletprooftxmanager.EthTxAttempt
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.BPTXMORM().EthTxAttempts(0, 1000)
 		require.NoError(t, err)
@@ -789,7 +789,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract *vrf_coordinator_v2.VRFCoordinatorV2,
 	keyHash [32]byte) *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested {
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-	cltest.NewGomegaWithT(t).Eventually(func() bool {
+	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")
 		for rfIterator.Next() {

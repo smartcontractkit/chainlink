@@ -34,6 +34,8 @@ var (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) error
+	InsertJob(job *Job, qopts ...postgres.QOpt) error
 	CreateJob(jb *Job, qopts ...postgres.QOpt) error
 	FindJobs(offset, limit int) ([]Job, int, error)
 	FindJobTx(id int32) (Job, error)
@@ -41,7 +43,7 @@ type ORM interface {
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...postgres.QOpt) error
-	RecordError(ctx context.Context, jobID int32, description string)
+	RecordError(jobID int32, description string, qopts ...postgres.QOpt)
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
@@ -76,8 +78,8 @@ func (o *orm) Close() error {
 	return nil
 }
 
-// CreateJob creates the job and it's associated spec record.
-// Expects an unmarshaled job spec as the jb argument i.e. output from ValidatedXX.
+// CreateJob creates the job, and it's associated spec record.
+// Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 	q := postgres.NewQ(o.db, qopts...)
@@ -189,20 +191,17 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 			}
 			jb.VRFSpecID = &specID
 		case Webhook:
-			var specID int32
-			sql := `INSERT INTO webhook_specs (created_at, updated_at)
-			VALUES (NOW(), NOW())
-			RETURNING id;`
-			if err := postgres.PrepareQueryRowx(tx, sql, &specID, jb.WebhookSpec); err != nil {
+			err := o.InsertWebhookSpec(jb.WebhookSpec, postgres.WithQueryer(tx))
+			if err != nil {
 				return errors.Wrap(err, "failed to create WebhookSpec")
 			}
-			jb.WebhookSpecID = &specID
+			jb.WebhookSpecID = &jb.WebhookSpec.ID
 
 			if len(jb.WebhookSpec.ExternalInitiatorWebhookSpecs) > 0 {
 				for i := range jb.WebhookSpec.ExternalInitiatorWebhookSpecs {
-					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = specID
+					jb.WebhookSpec.ExternalInitiatorWebhookSpecs[i].WebhookSpecID = jb.WebhookSpec.ID
 				}
-				sql = `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec)
+				sql := `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec)
 			VALUES (:external_initiator_id, :webhook_spec_id, :spec);`
 				query, args, err := tx.BindNamed(sql, jb.WebhookSpec.ExternalInitiatorWebhookSpecs)
 				if err != nil {
@@ -220,14 +219,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
-		jb.PipelineSpecID = pipelineSpecID
 
-		sql := `INSERT INTO jobs (pipeline_spec_id, offchainreporting_oracle_spec_id, name, schema_version, type, max_task_duration, direct_request_spec_id, flux_monitor_spec_id,
-				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
-		VALUES (:pipeline_spec_id, :offchainreporting_oracle_spec_id, :name, :schema_version, :type, :max_task_duration, :direct_request_spec_id, :flux_monitor_spec_id,
-				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :external_job_id, NOW())
-		RETURNING id;`
-		err = postgres.PrepareQueryRowx(tx, sql, &jobID, jb)
+		jb.PipelineSpecID = pipelineSpecID
+		err = o.InsertJob(jb, postgres.WithQueryer(tx))
+		jobID = jb.ID
 		return errors.Wrap(err, "failed to insert job")
 	})
 	if err != nil {
@@ -235,6 +230,24 @@ func (o *orm) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 	}
 
 	return o.findJob(jb, "id", jobID, qopts...)
+}
+
+func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...postgres.QOpt) error {
+	q := postgres.NewQ(o.db, qopts...)
+	query := `INSERT INTO webhook_specs (created_at, updated_at)
+			VALUES (NOW(), NOW())
+			RETURNING *;`
+	return q.GetNamed(query, webhookSpec, webhookSpec)
+}
+
+func (o *orm) InsertJob(job *Job, qopts ...postgres.QOpt) error {
+	q := postgres.NewQ(o.db, qopts...)
+	query := `INSERT INTO jobs (pipeline_spec_id, offchainreporting_oracle_spec_id, name, schema_version, type, max_task_duration, direct_request_spec_id, flux_monitor_spec_id,
+				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
+		VALUES (:pipeline_spec_id, :offchainreporting_oracle_spec_id, :name, :schema_version, :type, :max_task_duration, :direct_request_spec_id, :flux_monitor_spec_id,
+				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :external_job_id, NOW())
+		RETURNING *;`
+	return q.GetNamed(query, job, job)
 }
 
 // DeleteJob removes a job
@@ -289,8 +302,8 @@ func (o *orm) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 	return nil
 }
 
-func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
-	q := postgres.NewQ(o.db, postgres.WithParentCtx(ctx))
+func (o *orm) RecordError(jobID int32, description string, qopts ...postgres.QOpt) {
+	q := postgres.NewQ(o.db, qopts...)
 	sql := `INSERT INTO job_spec_errors (job_id, description, occurrences, created_at, updated_at)
 	VALUES ($1, $2, 1, $3, $3)
 	ON CONFLICT (job_id, description) DO UPDATE SET

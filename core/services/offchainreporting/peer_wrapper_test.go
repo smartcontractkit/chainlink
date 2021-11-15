@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,17 +19,16 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Parallel()
 
 	cfg := configtest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 
-	require.NoError(t, gdb.Exec(`DELETE FROM encrypted_key_rings`).Error)
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
 
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
 	t.Run("with no p2p keys returns nil", func(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db)
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, gdb, logger.TestLogger(t))
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start())
 	})
@@ -45,7 +44,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		require.NoError(t, err)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, gdb, logger.TestLogger(t))
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start(), "foo")
 		require.Equal(t, k.PeerID(), pw.PeerID)
@@ -56,7 +55,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		cfg.Overrides.P2PPeerID = p2pkey.PeerID(peerID)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, gdb, logger.TestLogger(t))
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", p2pkey.PeerID(peerID)))
 	})
@@ -72,7 +71,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		require.NoError(t, err)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, gdb, logger.TestLogger(t))
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start(), "foo")
 		require.Equal(t, k2.PeerID(), pw.PeerID)
@@ -83,7 +82,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		cfg.Overrides.P2PPeerID = p2pkey.PeerID(peerID)
 
-		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, gdb, logger.TestLogger(t))
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", p2pkey.PeerID(peerID)))
 	})

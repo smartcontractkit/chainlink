@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type (
@@ -28,7 +27,6 @@ type (
 		logger         logger.Logger
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
-		db             *gorm.DB
 		chHeads        chan eth.Head
 		chainSet       evm.ChainSet
 	}
@@ -45,14 +43,12 @@ func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	db *gorm.DB,
 	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
 		logger.Named("DirectRequest"),
 		pipelineRunner,
 		pipelineORM,
-		db,
 		make(chan eth.Head, 1),
 		chainSet,
 	}
@@ -95,7 +91,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
-		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox(),
@@ -122,7 +117,6 @@ type listener struct {
 	logBroadcaster           log.Broadcaster
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
-	db                       *gorm.DB
 	pipelineORM              pipeline.ORM
 	job                      job.Job
 	runs                     sync.Map

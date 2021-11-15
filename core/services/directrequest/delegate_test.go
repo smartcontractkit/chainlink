@@ -39,7 +39,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, pgtest.GormDBFromSql(t, db.DB), cc)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -80,7 +80,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 
 	keyStore := cltest.NewKeyStore(t, db)
 	jobORM := job.NewORM(db, cc, orm, keyStore, lggr)
-	delegate := directrequest.NewDelegate(lggr, runner, orm, gdb, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, orm, cc)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
 	jb.ExternalJobID = uuid.NewV4()

@@ -26,10 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -40,7 +40,6 @@ import (
 	"github.com/theodesp/go-heaps/pairing"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type vrfUniverse struct {
@@ -58,7 +57,7 @@ type vrfUniverse struct {
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, gdb *gorm.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	lb.Test(t)
@@ -70,7 +69,6 @@ func buildVrfUni(t *testing.T, gdb *gorm.DB, cfg *configtest.TestGeneralConfig) 
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	db := postgres.UnwrapGormDB(gdb)
 	prm := pipeline.NewORM(db, lggr)
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
@@ -140,7 +138,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 }
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	c := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, c)
 
@@ -176,12 +174,11 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 }
 
 func TestStartingCounts(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	sqlxdb := postgres.UnwrapGormDB(db)
+	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	counts := getStartingResponseCounts(db, lggr)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(sqlxdb, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))
@@ -242,7 +239,12 @@ func TestStartingCounts(t *testing.T) {
 			EncodedPayload: []byte{},
 		},
 	}
-	require.NoError(t, db.Create(&txes).Error)
+	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate) 
+			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate);`
+	for _, tx := range txes {
+		_, err = db.NamedExec(sql, &tx)
+		require.NoError(t, err)
+	}
 	counts = getStartingResponseCounts(db, logger.TestLogger(t))
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])

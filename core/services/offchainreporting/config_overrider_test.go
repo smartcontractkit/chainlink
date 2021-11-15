@@ -48,7 +48,7 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 }
 
 func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	flagsContract := new(mocks.Flags)
 	flagsContract.Test(t)

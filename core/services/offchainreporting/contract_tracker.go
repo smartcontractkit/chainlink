@@ -13,6 +13,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -25,7 +26,6 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"gorm.io/gorm"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -57,8 +57,8 @@ type (
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
-		db               OCRContractTrackerDB
-		gdb              *gorm.DB
+		ocrdb            OCRContractTrackerDB
+		db               *sqlx.DB
 		blockTranslator  BlockTranslator
 		cfg              Config
 
@@ -100,8 +100,8 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
-	gdb *gorm.DB,
-	db OCRContractTrackerDB,
+	db *sqlx.DB,
+	ocrdb OCRContractTrackerDB,
 	cfg Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
@@ -116,8 +116,8 @@ func NewOCRContractTracker(
 		logBroadcaster,
 		jobID,
 		logger,
+		ocrdb,
 		db,
-		gdb,
 		NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
@@ -139,7 +139,7 @@ func NewOCRContractTracker(
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.ocrdb.LoadLatestRoundRequested()
 		if err != nil {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
@@ -289,8 +289,8 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = postgres.NewQ(postgres.UnwrapGormDB(t.gdb)).Transaction(t.logger, func(tx postgres.Queryer) error {
-				if err = t.db.SaveLatestRoundRequested(tx, *rr); err != nil {
+			err = postgres.NewQ(t.db).Transaction(t.logger, func(tx postgres.Queryer) error {
+				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx))
