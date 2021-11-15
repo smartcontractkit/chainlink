@@ -10,7 +10,7 @@ import (
 )
 
 type sessionUserKey struct{}
-type GQLQUserSession struct {
+type GQLSession struct {
 	SessionID string
 	User      *clsessions.User
 }
@@ -33,28 +33,28 @@ func AuthenticateGQL(authenticator Authenticator) gin.HandlerFunc {
 			return
 		}
 
-		ctx := SetGQLAuthenticatedUser(c.Request.Context(), user, sessionID)
+		ctx := SetGQLAuthenticatedSession(c.Request.Context(), user, sessionID)
 
 		c.Request = c.Request.WithContext(ctx)
 	}
 }
 
-// SetGQLAuthenticatedUser sets the authenticated user in the context
+// SetGQLAuthenticatedSession sets the authenticated session in the context
 //
 // There shouldn't be a need to do this outside of testing
-func SetGQLAuthenticatedUser(ctx context.Context, user clsessions.User, sessionID string) context.Context {
+func SetGQLAuthenticatedSession(ctx context.Context, user clsessions.User, sessionID string) context.Context {
 	return context.WithValue(
 		ctx,
 		sessionUserKey{},
-		&GQLQUserSession{sessionID, &user},
+		&GQLSession{sessionID, &user},
 	)
 }
 
-// GetGQLAuthenticatedUser extracts the authentication user from a context.
-func GetGQLAuthenticatedUser(ctx context.Context) (*GQLQUserSession, bool) {
+// GetGQLAuthenticatedSession extracts the authentication session from a context.
+func GetGQLAuthenticatedSession(ctx context.Context) (*GQLSession, bool) {
 	obj := ctx.Value(sessionUserKey{})
 
-	session, ok := obj.(*GQLQUserSession)
+	session, ok := obj.(*GQLSession)
 
 	return session, ok
 }

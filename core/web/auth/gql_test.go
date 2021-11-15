@@ -27,7 +27,7 @@ func Test_AuthenticateGQL_Unauthenticated(t *testing.T) {
 	r.Use(auth.AuthenticateGQL(sessionORM))
 
 	r.GET("/", func(c *gin.Context) {
-		session, ok := auth.GetGQLAuthenticatedUser(c)
+		session, ok := auth.GetGQLAuthenticatedSession(c)
 		assert.False(t, ok)
 		assert.Nil(t, session)
 
@@ -51,7 +51,7 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	r.Use(auth.AuthenticateGQL(sessionORM))
 
 	r.GET("/", func(c *gin.Context) {
-		session, ok := auth.GetGQLAuthenticatedUser(c.Request.Context())
+		session, ok := auth.GetGQLAuthenticatedSession(c.Request.Context())
 		assert.True(t, ok)
 		assert.NotNil(t, session)
 
@@ -68,15 +68,15 @@ func Test_AuthenticateGQL_Authenticated(t *testing.T) {
 	r.ServeHTTP(w, req)
 }
 
-func Test_GetAndSetGQLAuthenticatedUser(t *testing.T) {
+func Test_GetAndSetGQLAuthenticatedSession(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
 	user := clsessions.User{}
 
-	ctx = auth.SetGQLAuthenticatedUser(ctx, user, "sessionID")
+	ctx = auth.SetGQLAuthenticatedSession(ctx, user, "sessionID")
 
-	actual, ok := auth.GetGQLAuthenticatedUser(ctx)
+	actual, ok := auth.GetGQLAuthenticatedSession(ctx)
 	assert.True(t, ok)
 	assert.Equal(t, &user, actual.User)
 	assert.Equal(t, "sessionID", actual.SessionID)
