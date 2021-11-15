@@ -3,6 +3,7 @@ package pipeline
 import (
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,7 +38,33 @@ func (g *Graph) UnmarshalText(bs []byte) (err error) {
 	if err != nil {
 		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.Graph")
 	}
+	g.AddImplicitDependenciesAsEdges()
 	return nil
+}
+
+// Looks at node attributes and searches for implicit dependencies on other nodes
+// expressed as attribute values. Adds those dependencies as edges in the graph.
+func (g *Graph) AddImplicitDependenciesAsEdges() {
+	for nodesIter := g.Nodes(); nodesIter.Next(); {
+		graphNode := nodesIter.Node().(*GraphNode)
+
+		params := make(map[string]bool)
+		// Walk through all attributes and find all params which this node depends on
+		for _, attr := range graphNode.Attributes() {
+			for _, item := range variableRegexp.FindAll([]byte(attr.Value), -1) {
+				expr := strings.TrimSpace(string(item[2 : len(item)-1]))
+				param := strings.Split(expr, ".")[0]
+				params[param] = true
+			}
+		}
+		// Iterate through all nodes and add a new edge if node belongs to params set.
+		for nodesIter2 := g.Nodes(); nodesIter2.Next(); {
+			gn := nodesIter2.Node().(*GraphNode)
+			if params[gn.DOTID()] {
+				g.SetEdge(g.NewEdge(gn, graphNode))
+			}
+		}
+	}
 }
 
 type GraphNode struct {

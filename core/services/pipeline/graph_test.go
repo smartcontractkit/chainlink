@@ -182,3 +182,28 @@ func TestGraph_HasCycles(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "cycle detected")
 }
+
+func TestGraph_ImplicitDependencies(t *testing.T) {
+	g := pipeline.NewGraph()
+	err := g.UnmarshalText([]byte(`
+		a [type=bridge];
+		b [type=multiply times=1.23 data="$(a.a1)"];
+		c [type=xyz times=1.23 input="$(b)"];
+		d [type=xyz times=1.23 check="{\"a\": $(jobSpec.id),\"b\":$(c.p)}"];
+	`))
+
+	nodes := make(map[string]int64)
+	iter := g.Nodes()
+	for iter.Next() {
+		n := iter.Node().(interface {
+			graph.Node
+			DOTID() string
+		})
+		nodes[n.DOTID()] = n.ID()
+	}
+	require.NoError(t, err)
+	require.Equal(t, 3, g.Edges().Len())
+	require.Equal(t, true, g.HasEdgeFromTo(nodes["a"], nodes["b"]))
+	require.Equal(t, true, g.HasEdgeFromTo(nodes["b"], nodes["c"]))
+	require.Equal(t, true, g.HasEdgeFromTo(nodes["c"], nodes["d"]))
+}
