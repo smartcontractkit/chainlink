@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -44,8 +43,7 @@ var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAg
 
 func TestRunner(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
 	keyStore := cltest.NewKeyStore(t, db)
@@ -110,9 +108,8 @@ func TestRunner(t *testing.T) {
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
-		err = gdb.
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
+		sql := `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
+		err = db.Select(&runs, sql, runID)
 		assert.NoError(t, err)
 		assert.Len(t, runs, 8)
 
@@ -202,9 +199,8 @@ func TestRunner(t *testing.T) {
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
-		err = gdb.
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
+		sql := `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
+		err = db.Select(&runs, sql, runID)
 		assert.NoError(t, err)
 		require.Len(t, runs, 3)
 
@@ -248,9 +244,8 @@ func TestRunner(t *testing.T) {
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
-		err = gdb.
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
+		sql := `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
+		err = db.Select(&runs, sql, runID)
 		assert.NoError(t, err)
 		require.Len(t, runs, 3)
 
@@ -292,9 +287,8 @@ func TestRunner(t *testing.T) {
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
-		err = gdb.
-			Where("pipeline_run_id = ?", runID).
-			Find(&runs).Error
+		sql := `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1`
+		err = db.Select(&runs, sql, runID)
 		assert.NoError(t, err)
 		require.Len(t, runs, 3)
 
@@ -538,7 +532,7 @@ ds1 -> ds1_parse;
 		}
 		var se []job.SpecError
 		require.Eventually(t, func() bool {
-			err = gdb.Find(&se).Error
+			err = db.Select(&se, `SELECT * FROM job_spec_errors`)
 			require.NoError(t, err)
 			return len(se) == 1
 		}, time.Second, 100*time.Millisecond)
@@ -553,7 +547,8 @@ ds1 -> ds1_parse;
 		// Ensure we can delete an errored
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
-		err = gdb.Find(&se).Error
+		se = []job.SpecError{}
+		err = db.Select(&se, `SELECT * FROM job_spec_errors`)
 		require.NoError(t, err)
 		require.Len(t, se, 0)
 

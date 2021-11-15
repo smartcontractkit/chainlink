@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -50,8 +49,7 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
