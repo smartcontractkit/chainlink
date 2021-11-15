@@ -363,8 +363,6 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 	nNull := bulletprooftxmanager.NullableEIP2930AccessList{}
 	nValid := bulletprooftxmanager.NullableEIP2930AccessListFrom(al)
 
-	assert.Equal(t, "jsonb", nNull.GormDataType())
-
 	t.Run("MarshalJSON", func(t *testing.T) {
 		_, err := json.Marshal(nNull)
 		require.NoError(t, err)

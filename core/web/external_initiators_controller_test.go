@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -22,7 +23,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(db, logger.TestLogger(t))
 
 	url := cltest.WebURL(t, "https://a.web.url")
 
@@ -69,7 +70,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	db := app.GetSqlxDB()
-	borm := bridges.NewORM(db)
+	borm := bridges.NewORM(db, logger.TestLogger(t))
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",

@@ -190,7 +190,7 @@ func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
 	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
 }
 
-// LogBroadcast - gorm-compatible receive data from log_broadcasts table columns
+// LogBroadcast - data from log_broadcasts table columns
 type LogBroadcast struct {
 	BlockHash common.Hash
 	Consumed  bool

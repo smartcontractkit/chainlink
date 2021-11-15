@@ -7,11 +7,11 @@ import (
 )
 
 type State struct {
-	ID         int32 `gorm:"primary_key"`
+	ID         int32
 	Address    EIP55Address
 	NextNonce  int64
 	IsFunding  bool
-	EVMChainID utils.Big `gorm:"column:evm_chain_id"`
+	EVMChainID utils.Big
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 	lastUsed   time.Time

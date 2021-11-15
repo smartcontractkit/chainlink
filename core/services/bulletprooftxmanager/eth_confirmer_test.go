@@ -2332,7 +2332,6 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
@@ -2369,8 +2368,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			return nil
 		})
 
-		run := cltest.MustInsertPipelineRun(t, gdb)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, gdb, run.ID)
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 1, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
@@ -2388,8 +2387,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			return nil
 		})
 
-		run := cltest.MustInsertPipelineRun(t, gdb)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, gdb, run.ID)
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 2, 1, fromAddress)
 		attempt := etx.EthTxAttempts[0]
@@ -2410,8 +2409,8 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 			return nil
 		})
 
-		run := cltest.MustInsertPipelineRun(t, gdb)
-		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, gdb, run.ID)
+		run := cltest.MustInsertPipelineRun(t, db)
+		tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 		pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
 		etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 3, 1, fromAddress)

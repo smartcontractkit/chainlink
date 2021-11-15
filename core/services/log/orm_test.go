@@ -13,21 +13,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestORM_broadcasts(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
-	specV2 := cltest.MustInsertV2JobSpec(t, gdb, addr)
+	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
-		WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ? AND evm_chain_id = ?`
+		WHERE block_hash = $1 AND block_number = $2 AND log_index = $3 AND job_id = $4 AND evm_chain_id = $5`
 
 	listener := &mockListener{specV2.ID}
 
@@ -35,9 +33,11 @@ func TestORM_broadcasts(t *testing.T) {
 	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
 
 	// No rows
-	q := gdb.Exec(selectQuery, queryArgs...)
-	require.NoError(t, q.Error)
-	require.Zero(t, q.RowsAffected)
+	res, err := db.Exec(selectQuery, queryArgs...)
+	require.NoError(t, err)
+	rowsAffected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Zero(t, rowsAffected)
 
 	t.Run("WasBroadcastConsumed_DNE", func(t *testing.T) {
 		_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, listener.JobID())
@@ -49,7 +49,7 @@ func TestORM_broadcasts(t *testing.T) {
 		require.NoError(t, err)
 
 		var consumed null.Bool
-		err = gdb.Raw(selectQuery, queryArgs...).Row().Scan(&consumed)
+		err = db.Get(&consumed, selectQuery, queryArgs...)
 		require.NoError(t, err)
 		require.Equal(t, null.BoolFrom(false), consumed)
 	}))
@@ -65,7 +65,7 @@ func TestORM_broadcasts(t *testing.T) {
 		require.NoError(t, err)
 
 		var consumed null.Bool
-		err = gdb.Raw(selectQuery, queryArgs...).Row().Scan(&consumed)
+		err = db.Get(&consumed, selectQuery, queryArgs...)
 		require.NoError(t, err)
 		require.Equal(t, null.BoolFrom(true), consumed)
 	}))
@@ -78,8 +78,7 @@ func TestORM_broadcasts(t *testing.T) {
 }
 
 func TestORM_pending(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	orm := log.NewORM(db, cltest.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock()
@@ -151,11 +150,10 @@ func TestORM_Reinitialize(t *testing.T) {
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			gdb := pgtest.NewGormDB(t)
-			db := postgres.UnwrapGormDB(gdb)
+			db := pgtest.NewSqlxDB(t)
 			orm := log.NewORM(db, cltest.FixtureChainID)
 
-			jobID := cltest.MustInsertV2JobSpec(t, gdb, common.BigToAddress(big.NewInt(rand.Int63()))).ID
+			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
 			for _, b := range tt.broadcasts {
 				if b.Consumed {

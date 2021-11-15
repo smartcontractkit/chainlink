@@ -11,13 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(db, logger.TestLogger(t))
 
 	return db, orm
 }
@@ -91,7 +92,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 
 	exi2, err := bridges.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
-	require.Equal(t, `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`, orm.CreateExternalInitiator(exi2).Error())
+	require.Contains(t, orm.CreateExternalInitiator(exi2).Error(), `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`)
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {

@@ -413,7 +413,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testing.T) {
 	// non-transactional DB needed because we deliberately test for FK violation
-	cfg, db, _ := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking", true, true)
+	cfg, db := heavyweight.FullTestDB(t, "eth_broadcaster_optimistic_locking", true, true)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -976,9 +976,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		})
 
 		t.Run("with callback", func(t *testing.T) {
-			gdb := pgtest.GormDBFromSql(t, db.DB)
-			run := cltest.MustInsertPipelineRun(t, gdb)
-			tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, gdb, run.ID)
+			run := cltest.MustInsertPipelineRun(t, db)
+			tr := cltest.MustInsertUnfinishedPipelineTaskRun(t, db, run.ID)
 			etx := bulletprooftxmanager.EthTx{
 				FromAddress:       fromAddress,
 				ToAddress:         toAddress,
@@ -990,7 +989,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			}
 
 			t.Run("with erroring callback bails out", func(t *testing.T) {
-				require.NoError(t, gdb.Save(&etx).Error)
+				require.NoError(t, borm.InsertEthTx(&etx))
 				fn := func(id uuid.UUID, result interface{}, err error) error {
 					return errors.New("something exploded in the callback")
 				}
@@ -1462,7 +1461,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 
 func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
-	cfg, db, _ := heavyweight.FullTestDB(t, "eth_tx_triggers", true, true)
+	cfg, db := heavyweight.FullTestDB(t, "eth_tx_triggers", true, true)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)

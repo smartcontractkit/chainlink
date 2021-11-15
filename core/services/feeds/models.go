@@ -22,7 +22,7 @@ type FeedsManager struct {
 	Name      string
 	URI       string
 	PublicKey crypto.PublicKey
-	JobTypes  pq.StringArray `gorm:"type:text[]"`
+	JobTypes  pq.StringArray
 
 	// Determines whether the node will be used as a bootstrap peer. If this is
 	// true, you must have both an OCRBootstrapAddr and OCRBootstrapPeerID.
@@ -62,7 +62,7 @@ type JobProposal struct {
 	// ExternalJobID is the external job id in the spec.
 	ExternalJobID  uuid.NullUUID
 	FeedsManagerID int64
-	Multiaddrs     pq.StringArray `gorm:"type:text[]"`
+	Multiaddrs     pq.StringArray
 	ProposedAt     time.Time
 	CreatedAt      time.Time
 	UpdatedAt      time.Time

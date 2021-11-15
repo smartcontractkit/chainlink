@@ -8,7 +8,6 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -47,11 +46,11 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 	}
 }
 
-func waitLastRunHeight(t *testing.T, db *gorm.DB, upkeep keeper.UpkeepRegistration, height int64) {
+func waitLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistration, height int64) {
 	t.Helper()
 
 	gomega.NewWithT(t).Eventually(func() int64 {
-		err := db.Find(&upkeep).Error
+		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations WHERE id = $1`, upkeep.ID)
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
 	}, time.Second*2, time.Millisecond*100).Should(gomega.Equal(height))

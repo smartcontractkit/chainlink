@@ -18,15 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
-
-	orm := fluxmonitorv2.NewORM(db, nil, nil)
+	db := pgtest.NewSqlxDB(t)
+	orm := newORM(t, db, nil)
 
 	address := cltest.NewAddress()
 
@@ -80,8 +78,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db)
 	lggr := logger.TestLogger(t)
@@ -94,7 +91,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
-	orm := fluxmonitorv2.NewORM(gdb, nil, nil)
+	orm := newORM(t, db, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
@@ -164,15 +161,14 @@ func makeJob(t *testing.T) *job.Job {
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(gdb, txm, strategy)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), txm, strategy)
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
