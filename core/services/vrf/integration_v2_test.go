@@ -204,7 +204,7 @@ func sendEth(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to c
 }
 
 func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
-	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_sim", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_sim", true, true)
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey)
@@ -474,7 +474,7 @@ func TestSimpleConsumerExample(t *testing.T) {
 }
 
 func TestIntegrationVRFV2(t *testing.T) {
-	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 
@@ -657,7 +657,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 }
 
 func TestMaliciousConsumer(t *testing.T) {
-	config, _, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious", true, true)
+	config, _ := heavyweight.FullTestDB(t, "vrf_v2_integration_malicious", true, true)
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, key)
 	config.Overrides.GlobalEvmGasLimitDefault = null.IntFrom(2000000)

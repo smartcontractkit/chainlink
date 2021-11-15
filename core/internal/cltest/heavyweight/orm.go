@@ -24,13 +24,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 // FullTestDB creates an DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types
 // with it.
-func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB, *gorm.DB) {
+func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*configtest.TestGeneralConfig, *sqlx.DB) {
 	if testing.Short() {
 		t.Skip("skipping due to use of FullTestDB")
 	}
@@ -44,7 +43,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	db, gormDB, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), postgres.Config{
+	db, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), postgres.Config{
 		Logger:           lggr,
 		LogSQLStatements: gcfg.LogSQLStatements(),
 		MaxOpenConns:     gcfg.ORMMaxOpenConns(),
@@ -55,7 +54,6 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		assert.NoError(t, db.Close())
 		os.RemoveAll(gcfg.RootDir())
 	})
-	postgres.SetLogAllQueries(gormDB, gcfg.LogSQLMigrations())
 	gcfg.Overrides.DatabaseURL = null.StringFrom(migrationTestDBURL)
 	if migrate {
 		require.NoError(t, migrations.Migrate(db.DB, lggr))
@@ -71,9 +69,8 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 		_, err = db.Exec(string(fixturesSQL))
 		require.NoError(t, err)
 	}
-	postgres.SetLogAllQueries(gormDB, gcfg.LogSQLStatements())
 
-	return gcfg, db, gormDB
+	return gcfg, db
 }
 
 func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {

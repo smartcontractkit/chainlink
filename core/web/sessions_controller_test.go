@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +74,11 @@ func TestSessionsController_Create(t *testing.T) {
 	}
 }
 
+func mustInsertSession(t *testing.T, db *sqlx.DB, session *sessions.Session) {
+	err := postgres.NewQ(db).GetNamed(`INSERT INTO sessions (id, last_used, created_at) VALUES (:id, :last_used, :created_at) RETURNING *`, session, session)
+	require.NoError(t, err)
+}
+
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +87,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.GetDB().Save(&staleSession).Error)
+	mustInsertSession(t, app.GetSqlxDB(), &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -108,7 +115,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.GetDB().Save(&correctSession).Error)
+	mustInsertSession(t, app.GetSqlxDB(), &correctSession)
 
 	config := app.GetConfig()
 	client := http.Client{}
@@ -149,12 +156,12 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.GetDB().Save(&correctSession).Error)
+	mustInsertSession(t, app.GetSqlxDB(), &correctSession)
 	cookie := cltest.MustGenerateSessionCookie(t, correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.GetDB().Save(&staleSession).Error)
+	mustInsertSession(t, app.GetSqlxDB(), &staleSession)
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)

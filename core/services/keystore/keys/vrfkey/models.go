@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 // EncryptedVRFKey contains encrypted private key to be serialized to DB
@@ -20,11 +19,11 @@ import (
 // We could re-use geth's key handling, here, but this makes it much harder to
 // misuse VRF proving keys as ethereum keys or vice versa.
 type EncryptedVRFKey struct {
-	PublicKey secp256k1.PublicKey `gorm:"primary_key"`
-	VRFKey    gethKeyStruct       `json:"vrf_key"`
-	CreatedAt time.Time           `json:"-"`
-	UpdatedAt time.Time           `json:"-"`
-	DeletedAt gorm.DeletedAt      `json:"-"`
+	PublicKey secp256k1.PublicKey
+	VRFKey    gethKeyStruct `json:"vrf_key"`
+	CreatedAt time.Time     `json:"-"`
+	UpdatedAt time.Time     `json:"-"`
+	DeletedAt *time.Time    `json:"-"`
 }
 
 // JSON returns the JSON representation of e, or errors
@@ -59,8 +58,6 @@ func (k gethKeyStruct) Value() (driver.Value, error) {
 }
 
 func (k *gethKeyStruct) Scan(value interface{}) error {
-	// With sqlite gorm driver, we get a []byte, here. With postgres, a string!
-	// https://github.com/jinzhu/gorm/issues/2276
 	var toUnmarshal []byte
 	switch s := value.(type) {
 	case []byte:

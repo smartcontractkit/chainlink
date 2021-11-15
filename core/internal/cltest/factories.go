@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"flag"
@@ -16,17 +17,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/lib/pq"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/headtracker"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -39,7 +39,6 @@ import (
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 // NewAddress return a random new address
@@ -109,7 +108,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 // This is because name is a unique index and identical names used across transactional tests will lock/deadlock
 func MustCreateBridge(t testing.TB, db *sqlx.DB, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
-	orm := bridges.NewORM(db)
+	orm := bridges.NewORM(db, logger.TestLogger(t))
 	err := orm.CreateBridgeType(bt)
 	require.NoError(t, err)
 	return bta, bt
@@ -465,21 +464,23 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 	return ethkey.State{Address: NewEIP55Address()}
 }
 
-func MustInsertHead(t *testing.T, db *gorm.DB, number int64) eth.Head {
+func MustInsertHead(t *testing.T, db *sqlx.DB, number int64) eth.Head {
 	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
-	err := db.Create(&h).Error
+	horm := headtracker.NewORM(db, FixtureChainID)
+
+	err := horm.IdempotentInsertHead(context.Background(), h)
 	require.NoError(t, err)
 	return h
 }
 
-func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) job.Job {
+func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
 	addr, err := ethkey.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	pipelineSpec := pipeline.Spec{}
-	err = db.Create(&pipelineSpec).Error
+	err = db.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ('',NOW()) RETURNING *`)
 	require.NoError(t, err)
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, db, addr)
@@ -493,28 +494,20 @@ func MustInsertV2JobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Ad
 		PipelineSpecID:                pipelineSpec.ID,
 	}
 
-	err = db.Create(&jb).Error
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, db *gorm.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethkey.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
 	ocrKeyID := models.MustSha256HashFromHex(DefaultOCRKeyBundleID)
-	spec := job.OffchainReportingOracleSpec{
-		ContractAddress:                        NewEIP55Address(),
-		P2PBootstrapPeers:                      pq.StringArray{},
-		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                &ocrKeyID,
-		TransmitterAddress:                     &transmitterAddress,
-		ObservationTimeout:                     0,
-		BlockchainTimeout:                      0,
-		ContractConfigTrackerSubscribeInterval: 0,
-		ContractConfigTrackerPollInterval:      0,
-		ContractConfigConfirmations:            0,
-	}
-	require.NoError(t, db.Create(&spec).Error)
+	spec := job.OffchainReportingOracleSpec{}
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, transmitter_address, observation_timeout, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0
+) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
 
@@ -532,18 +525,15 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, db *gorm.DB, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 
-	keeperSpec := job.KeeperSpec{
-		ContractAddress: contract,
-		FromAddress:     from,
-	}
-	err := db.Create(&keeperSpec).Error
+	var keeperSpec job.KeeperSpec
+	err := korm.DB.Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
 	require.NoError(t, err)
 
-	pipelineSpec := pipeline.Spec{
-		DotDagSource: `
+	var pipelineSpec pipeline.Spec
+	dds := `
 encode_check_upkeep_tx   [type=ethabiencode
                           abi="checkUpkeep(uint256 id, address from)"
                           data="{\"id\":$(jobSpec.upkeepID),\"from\":$(jobSpec.fromAddress)}"]
@@ -565,14 +555,11 @@ perform_upkeep_tx        [type=ethtx
                           data="$(encode_perform_upkeep_tx)"
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID)}"]
-encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`,
-		JobID:   keeperSpec.ID,
-		JobName: "keeper",
-	}
-	err = db.Create(&pipelineSpec).Error
+encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
+	err = korm.DB.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
 	require.NoError(t, err)
 
-	specDB := job.Job{
+	jb := job.Job{
 		KeeperSpec:     &keeperSpec,
 		KeeperSpecID:   &keeperSpec.ID,
 		ExternalJobID:  uuid.NewV4(),
@@ -581,9 +568,10 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	err = db.Create(&specDB).Error
+	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t)), nil, logger.TestLogger(t))
+	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
-	return specDB
+	return jb
 }
 
 func MustInsertKeeperRegistry(t *testing.T, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
@@ -591,7 +579,7 @@ func MustInsertKeeperRegistry(t *testing.T, korm keeper.ORM, ethKeyStore keystor
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, pgtest.GormDBFromSql(t, korm.DB.DB), from, contractAddress)
+	job := MustInsertKeeperJob(t, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
@@ -625,42 +613,37 @@ func MustInsertUpkeepForRegistry(t *testing.T, db *sqlx.DB, cfg keeper.Config, r
 	return upkeep
 }
 
-func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
-	run := pipeline.Run{
-		State:       pipeline.RunStatusRunning,
-		Outputs:     pipeline.JSONSerializable{},
-		AllErrors:   pipeline.RunErrors{},
-		FatalErrors: pipeline.RunErrors{},
-		FinishedAt:  null.Time{},
-	}
-	require.NoError(t, db.Create(&run).Error)
+func MustInsertPipelineRun(t *testing.T, db *sqlx.DB) (run pipeline.Run) {
+	require.NoError(t, db.Get(&run, `INSERT INTO pipeline_runs (state,pipeline_spec_id,created_at) VALUES ($1, 0, NOW()) RETURNING *`, pipeline.RunStatusRunning))
 	return run
 }
 
-func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *gorm.DB, pipelineRunID int64) pipeline.TaskRun {
+func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunID int64) (tr pipeline.TaskRun) {
 	/* #nosec G404 */
-	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID, ID: uuid.NewV4()}
-	require.NoError(t, db.Create(&p).Error)
-	return p
+	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))
+	return tr
 }
 
-func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.Job {
+func MustInsertSampleDirectRequestJob(t *testing.T, db *sqlx.DB) job.Job {
 	t.Helper()
 
-	pspec := pipeline.Spec{DotDagSource: `
+	dds := `
     // data source 1
     ds1          [type=bridge name=voter_turnout];
     ds1_parse    [type=jsonparse path="one,two"];
     ds1_multiply [type=multiply times=1.23];
-`}
+`
 
-	require.NoError(t, db.Create(&pspec).Error)
+	var pspec pipeline.Spec
+	require.NoError(t, db.Get(&pspec, `INSERT INTO pipeline_specs (dot_dag_source, created_at) VALUES ($1, NOW()) RETURNING *`, dds))
 
 	drspec := job.DirectRequestSpec{}
-	require.NoError(t, db.Create(&drspec).Error)
+	require.NoError(t, db.Get(&drspec, `INSERT INTO direct_request_specs ( created_at) VALUES (NOW()) RETURNING *`))
 
 	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
-	require.NoError(t, db.Create(&job).Error)
+	require.NoError(t, db.Get(&drspec, `INSERT INTO jobs (type, schema_version, direct_request_spec_id, pipeline_spec_id, created_at) VALUES ('directrequest', 1, $1, $2, NOW()) RETURNING *`,
+		drspec.ID, pspec.ID,
+	))
 
 	return job
 }

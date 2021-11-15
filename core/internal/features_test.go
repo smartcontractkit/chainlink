@@ -160,10 +160,11 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			io.WriteString(w, `{}`)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.TaskType("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
+		require.NoError(t, err)
 		defer bridgeServer.Close()
 	}
 
@@ -211,7 +212,7 @@ observationSource   = """
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, 401)
 
-		cltest.AssertCountStays(t, app.GetDB(), &pipeline.Run{}, 0)
+		cltest.AssertCountStays(t, app.GetSqlxDB(), "pipeline_runs", 0)
 	})
 
 	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
@@ -490,7 +491,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -667,10 +668,11 @@ isBootstrapPeer    = true
 				}))
 				defer servers[i].Close()
 				u, _ := url.Parse(servers[i].URL)
-				apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 					Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
+				require.NoError(t, err)
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
