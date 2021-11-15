@@ -23,15 +23,15 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	gdb := app.GetDB()
 	db := app.GetSqlxDB()
+	borm := app.BPTXMORM()
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 3, 2, from) // tx2
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, gdb, 4, 4, from)        // tx3
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 4, 4, from)        // tx3
 
 	// add second tx attempt for tx2
 	blockNum := int64(3)
@@ -39,9 +39,9 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, app.BPTXMORM().InsertEthTxAttempt(&attempt))
+	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
 
-	_, count, err := app.BPTXMORM().EthTransactionsWithAttempts(0, 100)
+	_, count, err := borm.EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
@@ -80,11 +80,11 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	db := app.GetDB()
+	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
 
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 	attempt.EthTx = tx
@@ -113,10 +113,10 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start())
 
-	db := app.GetDB()
+	borm := app.BPTXMORM()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
-	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, from)
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]
 

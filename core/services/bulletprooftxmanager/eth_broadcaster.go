@@ -330,11 +330,6 @@ func getInProgressEthTx(q postgres.Q, fromAddress gethCommon.Address) (etx *EthT
 	return etx, errors.Wrap(err, "getInProgressEthTx failed")
 }
 
-func loadEthTxAttempts(q postgres.Queryer, etx *EthTx) error {
-	err := q.Select(&etx.EthTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = $1 ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, etx.ID)
-	return errors.Wrapf(err, "failed to load ethtxattempts for eth tx %d", etx.ID)
-}
-
 // SimulationTimeout must be short since simulation adds latency to
 // broadcasting a tx which can negatively affect response time
 const SimulationTimeout = 2 * time.Second
