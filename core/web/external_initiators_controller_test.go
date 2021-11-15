@@ -68,7 +68,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	db := app.GetDB()
+	db := app.GetSqlxDB()
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, db, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",
