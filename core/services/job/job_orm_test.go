@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/core/bridges"
 	"testing"
 	"time"
 
@@ -40,6 +41,7 @@ func TestORM(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	borm := bridges.NewORM(db)
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -138,8 +140,8 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		eiFoo := cltest.MustInsertExternalInitiator(t, db)
-		eiBar := cltest.MustInsertExternalInitiator(t, db)
+		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
+		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
 		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
@@ -225,7 +227,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
-		ei := cltest.MustInsertExternalInitiator(t, db)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
 		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
@@ -240,7 +242,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
 		db := pgtest.NewSqlxDB(t)
-		ei := cltest.MustInsertExternalInitiator(t, db)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
 		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
 		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
