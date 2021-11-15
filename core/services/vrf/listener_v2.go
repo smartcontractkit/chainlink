@@ -232,7 +232,7 @@ func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.
 				   FROM eth_txes
 				   WHERE meta->>'MaxLink' IS NOT NULL
 				   AND CAST(meta->>'SubId' AS NUMERIC) = ?
-				   AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt')
+				   AND state IN ('unconfirmed', 'unstarted', 'in_progress')
 				   AND from_address = ?
 				   GROUP BY from_address`, subID, fromAddress).Scan(&reservedLink).Error
 	if err != nil {
