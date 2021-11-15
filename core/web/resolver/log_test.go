@@ -34,7 +34,8 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 		"input": map[string]interface{}{
 			"logLevels": []map[string]interface{}{
 				{
-					"name": "name",
+					"name":  logger.HeadTracker,
+					"level": "DEBUG",
 				},
 			},
 		},
