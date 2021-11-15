@@ -8,12 +8,18 @@ on:
       - main
       - develop
       - release*
+      - auto
+      - rollup
+      - try
   pull_request:
     branches:
       - master
       - main
       - develop
       - release*
+      - auto
+      - rollup
+      - try
 jobs:
   build-chainlink:
     name: Build Chainlink Image
