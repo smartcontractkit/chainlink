@@ -708,8 +708,8 @@ func RawNewRoundLogWithTopics(t *testing.T, contractAddr common.Address, blockHa
 	}
 }
 
-func MustInsertExternalInitiator(t *testing.T, db *gorm.DB) (ei bridges.ExternalInitiator) {
-	return MustInsertExternalInitiatorWithOpts(t, db, ExternalInitiatorOpts{})
+func MustInsertExternalInitiator(t *testing.T, orm bridges.ORM) (ei bridges.ExternalInitiator) {
+	return MustInsertExternalInitiatorWithOpts(t, orm, ExternalInitiatorOpts{})
 }
 
 type ExternalInitiatorOpts struct {
@@ -719,7 +719,7 @@ type ExternalInitiatorOpts struct {
 	OutgoingToken  string
 }
 
-func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
+func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix
@@ -732,7 +732,11 @@ func MustInsertExternalInitiatorWithOpts(t *testing.T, db *gorm.DB, opts Externa
 	ei.OutgoingToken = opts.OutgoingToken
 	token := auth.NewToken()
 	ei.AccessKey = token.AccessKey
-	err := db.Create(&ei).Error
+	ei.Salt = utils.NewSecret(utils.DefaultSecretSize)
+	hashedSecret, err := auth.HashedSecret(token, ei.Salt)
+	require.NoError(t, err)
+	ei.HashedSecret = hashedSecret
+	err = orm.CreateExternalInitiator(&ei)
 	require.NoError(t, err)
 	return ei
 }
