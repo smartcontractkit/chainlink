@@ -166,7 +166,7 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 		lggr:             b.lggr,
 	}
 	sub.processQueueWorker = utils.NewSleeperTask(
-		utils.SleeperFuncTask(sub.processQueue, "ProcessSubscriptionQueue"),
+		utils.SleeperFuncTask(sub.processQueue, "SubscriptionQueueProcessor"),
 	)
 	b.subscriptions[channel][sub] = struct{}{}
 	return sub, nil

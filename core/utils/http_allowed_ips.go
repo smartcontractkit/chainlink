@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"go.uber.org/multierr"
 )
 
 var privateIPBlocks []*net.IPNet
@@ -68,12 +68,13 @@ func restrictedDialContext(ctx context.Context, network, address string) (net.Co
 		DualStack: true,
 	}).DialContext(ctx, network, address)
 	if err == nil {
-		// If a connection could be established, ensure its not local or private
+		// If a connection could be established, ensure it's not local or private
 		a, _ := con.RemoteAddr().(*net.TCPAddr)
 
 		if isRestrictedIP(a.IP) {
-			defer logger.ErrorIfClosing(con, "connection")
-			return nil, errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String())
+			return nil, multierr.Combine(
+				errors.Wrapf(ErrDisallowedIP, "disallowed IP %s. Connections to local/private and multicast networks are disabled by default for security reasons", a.IP.String()),
+				con.Close())
 		}
 	}
 	return con, err

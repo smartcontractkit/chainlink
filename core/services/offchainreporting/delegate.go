@@ -123,7 +123,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrdb := NewDB(d.db.DB, concreteSpec.ID)
+	ocrdb := NewDB(d.db.DB, concreteSpec.ID, d.lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,

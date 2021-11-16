@@ -64,11 +64,8 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 
-	// WarnIf logs the error if present.
-	WarnIf(err error, msg string)
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
-	PanicIf(err error, msg string)
 
 	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
 	ErrorIfClosing(c io.Closer, name string)
@@ -164,12 +161,6 @@ func (l *zapLogger) withCallerSkip(skip int) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) WarnIf(err error, msg string) {
-	if err != nil {
-		l.withCallerSkip(1).Warnw(msg, "err", err)
-	}
-}
-
 func (l *zapLogger) ErrorIf(err error, msg string) {
 	if err != nil {
 		l.withCallerSkip(1).Errorw(msg, "err", err)
@@ -179,12 +170,6 @@ func (l *zapLogger) ErrorIf(err error, msg string) {
 func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 	if err := c.Close(); err != nil {
 		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
-	}
-}
-
-func (l *zapLogger) PanicIf(err error, msg string) {
-	if err != nil {
-		l.withCallerSkip(1).Panicw(msg, "err", err)
 	}
 }
 
