@@ -372,7 +372,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 
 	assetsRouterHandlers = append(
 		assetsRouterHandlers,
-		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}),
+		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}, lggr),
 	)
 
 	// Get Operator UI Assets
@@ -417,7 +417,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 			}
 
 		}
-		defer logger.ErrorIfClosing(file, "file")
+		defer lggr.ErrorIfClosing(file, "file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})

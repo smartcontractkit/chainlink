@@ -21,6 +21,7 @@ import (
 type db struct {
 	*sql.DB
 	oracleSpecID int32
+	lggr         logger.Logger
 }
 
 var (
@@ -29,8 +30,8 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int32) *db {
-	return &db{sqldb, oracleSpecID}
+func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {
+	return &db{sqldb, oracleSpecID, lggr.Named("OCRDB")}
 }
 
 func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
@@ -196,7 +197,7 @@ WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	defer logger.ErrorIfClosing(rows, "offchainreporting_pending_transmissions rows")
+	defer d.lggr.ErrorIfClosing(rows, "offchainreporting_pending_transmissions rows")
 
 	m := make(map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission)
 
