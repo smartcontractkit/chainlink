@@ -32,6 +32,11 @@ func TestResolver_Jobs(t *testing.T) {
 						spec {
 							__typename
 						}
+						runs {
+							allErrors
+							outputs
+							createdAt
+						}
 						observationSource
 					}
 					metadata {
@@ -47,7 +52,19 @@ func TestResolver_Jobs(t *testing.T) {
 			name:          "get jobs success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
+				id := int32(12)
+
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("PipelineRunsByJobsIDs", []int32{id}).Return([]pipeline.Run{
+					{
+						PipelineSpecID: id,
+						State:          pipeline.RunStatusRunning,
+						Outputs:        pipeline.JSONSerializable{Valid: false},
+						AllErrors:      pipeline.RunErrors{},
+						CreatedAt:      f.Timestamp(),
+						FinishedAt:     null.Time{},
+					},
+				}, nil)
 				f.Mocks.jobORM.On("FindJobs", 0, 50).Return([]job.Job{
 					{
 						ID:                          1,
@@ -57,6 +74,7 @@ func TestResolver_Jobs(t *testing.T) {
 						ExternalJobID:               externalJobID,
 						CreatedAt:                   f.Timestamp(),
 						Type:                        job.OffchainReporting,
+						PipelineSpecID:              id,
 						OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{},
 						PipelineSpec: &pipeline.Spec{
 							DotDagSource: "ds1 [type=bridge name=voter_turnout];",
@@ -78,6 +96,13 @@ func TestResolver_Jobs(t *testing.T) {
 							"spec": {
 								"__typename": "OCRSpec"
 							},
+							"runs": [
+								{
+									"allErrors": [],
+									"outputs": ["error: unable to retrieve outputs"],
+									"createdAt": "2021-01-01T00:00:00Z"
+								}
+							],
 							"observationSource": "ds1 [type=bridge name=voter_turnout];"
 						}],
 						"metadata": {
