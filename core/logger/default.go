@@ -48,16 +48,6 @@ func InitLogger(newLogger Logger) {
 	helper = newLogger.withCallerSkip(1)
 }
 
-// Infow logs an info message and any additional given information.
-func Infow(msg string, keysAndValues ...interface{}) {
-	helper.Infow(msg, keysAndValues...)
-}
-
-// Debugw logs a debug message and any additional given information.
-func Debugw(msg string, keysAndValues ...interface{}) {
-	helper.Debugw(msg, keysAndValues...)
-}
-
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
 	helper.Warnw(msg, keysAndValues...)
