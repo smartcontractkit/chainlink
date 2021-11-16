@@ -10,19 +10,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/static"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -46,7 +47,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 
 	url := cltest.MustParseURL(t, server.URL)
 	url.Scheme = "ws"
-	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret")
+	explorerClient := synchronization.NewExplorerClient(url, "accessKey", "secret", false, logger.TestLogger(t))
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -63,7 +64,7 @@ func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -78,7 +79,7 @@ func TestWebSocketClient_Send_TextMessage(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -93,7 +94,7 @@ func TestWebSocketClient_Send_Binary(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -109,7 +110,7 @@ func TestWebSocketClient_Send_Unsupported(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 
 	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
@@ -122,7 +123,7 @@ func TestWebSocketClient_Send_WithAck(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -145,7 +146,7 @@ func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	require.NoError(t, explorerClient.Start())
 	defer explorerClient.Close()
 
@@ -166,11 +167,11 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	defer explorerClient.Close()
+	explorerClient := newTestExplorerClient(t, wsserver.URL)
 	assert.Equal(t, synchronization.ConnectionStatusDisconnected, explorerClient.Status())
 
 	require.NoError(t, explorerClient.Start())
+	defer explorerClient.Close()
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	})
@@ -192,10 +193,15 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 	badURL, err := url.Parse("http://badhost.com")
 	require.NoError(t, err)
 
-	errorexplorerClient := synchronization.NewExplorerClient(badURL, "", "")
+	errorexplorerClient := newTestExplorerClient(t, badURL)
 	require.NoError(t, errorexplorerClient.Start())
+	defer errorexplorerClient.Close()
 	time.Sleep(100 * time.Millisecond)
 
 	assert.Equal(t, synchronization.ConnectionStatusError, errorexplorerClient.Status())
 
+}
+
+func newTestExplorerClient(t *testing.T, wsURL *url.URL) synchronization.ExplorerClient {
+	return synchronization.NewExplorerClient(wsURL, "", "", false, logger.TestLogger(t))
 }

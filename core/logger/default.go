@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -48,16 +47,6 @@ func InitLogger(newLogger Logger) {
 	helper = newLogger.withCallerSkip(1)
 }
 
-// Infow logs an info message and any additional given information.
-func Infow(msg string, keysAndValues ...interface{}) {
-	helper.Infow(msg, keysAndValues...)
-}
-
-// Debugw logs a debug message and any additional given information.
-func Debugw(msg string, keysAndValues ...interface{}) {
-	helper.Debugw(msg, keysAndValues...)
-}
-
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
 	helper.Warnw(msg, keysAndValues...)
@@ -82,10 +71,6 @@ func Warn(args ...interface{}) {
 // Error logs an error message.
 func Error(args ...interface{}) {
 	helper.Error(args...)
-}
-
-func ErrorIfClosing(c io.Closer, name string) {
-	helper.ErrorIfClosing(c, name)
 }
 
 // Errorf logs a message at the error level using Sprintf.

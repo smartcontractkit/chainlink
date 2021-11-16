@@ -1,14 +1,11 @@
 package utils
 
 import (
-	"io"
-	"io/ioutil"
 	"os"
 	"syscall"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // FileExists returns true if a file at the passed string exists.
@@ -52,49 +49,25 @@ func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 		return errors.Errorf("%v already exists and is not a directory", path)
 	} else if stat.Mode() != perms {
 		// Dir exists, but wrong perms, so chmod
-		return os.Chmod(path, (stat.Mode() & perms))
+		return os.Chmod(path, stat.Mode()&perms)
 	}
 	return nil
 }
 
 // WriteFileWithMaxPerms writes `data` to `path` and ensures that
 // the file has permissions that are no more permissive than the given ones.
-func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
+func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err error) {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
 		return err
 	}
-	defer logger.ErrorIfClosing(f, "file")
+	defer func() { err = multierr.Combine(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
-		return err
+		return
 	}
 	_, err = f.Write(data)
-	return err
-}
-
-// CopyFileWithMaxPerms copies the file at `srcPath` to `dstPath`
-// and ensures that it has permissions that are no more permissive than the given ones.
-func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
-	src, err := os.Open(srcPath)
-	if err != nil {
-		return errors.Wrap(err, "could not open source file")
-	}
-	defer logger.ErrorIfClosing(src, "source")
-
-	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
-	if err != nil {
-		return errors.Wrap(err, "could not open destination file")
-	}
-	defer logger.ErrorIfClosing(dst, "destination")
-
-	err = EnsureFileMaxPerms(dst, perms)
-	if err != nil {
-		return errors.Wrap(err, "could not set file permissions")
-	}
-
-	_, err = io.Copy(dst, src)
-	return errors.Wrap(err, "could not copy file contents")
+	return
 }
 
 // EnsureFileMaxPerms ensures that the given file has permissions
@@ -112,37 +85,11 @@ func EnsureFileMaxPerms(file *os.File, perms os.FileMode) error {
 
 // EnsureFilepathMaxPerms ensures that the file at the given filepath
 // has permissions that are no more permissive than the given ones.
-func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
+func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	dst, err := os.OpenFile(filepath, os.O_RDWR, perms)
 	if err != nil {
 		return err
 	}
-	defer logger.ErrorIfClosing(dst, "file")
-
+	defer func() { err = multierr.Combine(err, dst.Close()) }()
 	return EnsureFileMaxPerms(dst, perms)
-}
-
-// FilesInDir returns an array of filenames in the directory.
-func FilesInDir(dir string) ([]string, error) {
-	f, err := os.Open(dir)
-	if err != nil {
-		return []string{}, err
-	}
-	defer logger.ErrorIfClosing(f, "directory")
-
-	r, err := f.Readdirnames(-1)
-	if err != nil {
-		return []string{}, err
-	}
-
-	return r, nil
-}
-
-// FileContents returns the contents of a file as a string.
-func FileContents(path string) (string, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(dat), nil
 }

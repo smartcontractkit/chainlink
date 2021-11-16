@@ -18,7 +18,7 @@ func main() {
 // Run runs the CLI, providing further command instructions by default.
 func Run(client *cmd.Client, args ...string) {
 	app := cmd.NewApp(client)
-	client.Logger.WarnIf(app.Run(args), "Error running app")
+	client.Logger.ErrorIf(app.Run(args), "Error running app")
 }
 
 // NewProductionClient configures an instance of the CLI to be used
@@ -28,7 +28,7 @@ func NewProductionClient() *cmd.Client {
 	lggr := logger.NewLogger(cfg)
 
 	prompter := cmd.NewTerminalPrompter()
-	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg})
+	cookieAuth := cmd.NewSessionCookieAuthenticator(cfg, cmd.DiskCookieStore{Config: cfg}, lggr)
 	sr := sessions.SessionRequest{}
 	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder(lggr)
 	if credentialsFile := cfg.AdminCredentialsFile(); credentialsFile != "" {

@@ -106,7 +106,7 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 		lggr:        lggr.Named("PipelineRunner"),
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
-		utils.SleeperTaskFuncWorker(r.runReaper),
+		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
 	return r
 }

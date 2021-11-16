@@ -39,7 +39,7 @@ func NewEstimator(lggr logger.Logger, ethClient eth.Client, config Config) Estim
 	case "Optimism2":
 		return NewOptimism2Estimator(lggr, config, ethClient)
 	default:
-		logger.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
+		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
 		return NewFixedPriceEstimator(config, lggr)
 	}
 }

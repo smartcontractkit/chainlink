@@ -485,12 +485,13 @@ type SessionCookieAuthenticatorConfig interface {
 type SessionCookieAuthenticator struct {
 	config SessionCookieAuthenticatorConfig
 	store  CookieStore
+	lggr   logger.Logger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store}
+func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore, lggr logger.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -517,7 +518,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer logger.ErrorIfClosing(resp.Body, "Authenticate response body")
+	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {
