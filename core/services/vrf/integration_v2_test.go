@@ -256,6 +256,7 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 			PublicKey:          vrfkey.PublicKey.String(),
 			FromAddress:        key.Address.String(),
 			V2:                 true,
+			EVMChainID:         int(uni.backend.Blockchain().Config().ChainID.Int64()),
 		}).Toml()
 		jb, err := vrf.ValidatedVRFSpec(s)
 		t.Log(jb.VRFSpec.PublicKey.MustHash(), vrfkey.PublicKey.MustHash())
@@ -495,6 +496,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		PublicKey:          vrfkey.PublicKey.String(),
 		FromAddress:        keys[0].Address.String(),
 		V2:                 true,
+		EVMChainID:         1337,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)
@@ -670,6 +672,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		Confirmations:      incomingConfs,
 		PublicKey:          vrfkey.PublicKey.String(),
 		V2:                 true,
+		EVMChainID:         1337,
 	}).Toml()
 	jb, err := vrf.ValidatedVRFSpec(s)
 	require.NoError(t, err)

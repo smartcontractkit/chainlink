@@ -70,44 +70,52 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	require.NoError(t, ks.Unlock("blah"))
-	k, err := ks.Eth().Create(big.NewInt(1337))
+	chainID := uint64(1337)
+	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
 	require.NoError(t, err)
 
 	subID := uint64(1)
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
+	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
 	addConfirmedEthTx(t, db, k.Address.Address(), "10000", subID, 1)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
-	// Another unstarted should
+	// An unconfirmed tx _should_ affect the starting balance.
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 
-	// One subscriber's balance should not affect other subscribers balances
+	// One subscriber's reserved link should not affect other subscribers prospective balance.
 	otherSubID := uint64(2)
 	require.NoError(t, err)
-	addConfirmedEthTx(t, db, k.Address.Address(), "20000", otherSubID, 2)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), subID)
+	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", otherSubID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
-	// One key's data should not affect other keys' data
+	// One key's data should not affect other keys' data in the case of different subscribers.
 	k2, err := ks.Eth().Create(big.NewInt(1337))
 	require.NoError(t, err)
 
 	anotherSubID := uint64(3)
 	addEthTx(t, db, k2.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", anotherSubID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), 1)
+	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
+
+	// A subscriber's balance is deducted with the link reserved across multiple keys,
+	// i.e, gas lanes.
+	addEthTx(t, db, k2.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
+	start, err = MaybeSubtractReservedLink(lggr, db, k2.Address.Address(), big.NewInt(100_000), chainID, subID)
+	require.NoError(t, err)
+	require.Equal(t, "70000", start.String())
 }

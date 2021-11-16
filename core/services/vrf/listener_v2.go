@@ -226,15 +226,15 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int, subID uint64) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, db *gorm.DB, fromAddress common.Address, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
 	var reservedLink string
 	err := db.Raw(`SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
 				   WHERE meta->>'MaxLink' IS NOT NULL
+				   AND evm_chain_id = ?
 				   AND CAST(meta->>'SubId' AS NUMERIC) = ?
 				   AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-				   AND from_address = ?
-				   GROUP BY from_address`, subID, fromAddress).Scan(&reservedLink).Error
+				   GROUP BY meta->>'SubId'`, chainID, subID).Scan(&reservedLink).Error
 	if err != nil {
 		l.Errorw("Could not get reserved link", "err", err)
 		return startBalance, err
@@ -277,7 +277,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 	maxGasPrice *big.Int,
 	reqs []pendingRequest,
 ) {
-	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance, subID)
+	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
+		lsn.l, lsn.db, fromAddress, startBalance, lsn.job.VRFSpec.EVMChainID.ToInt().Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return
