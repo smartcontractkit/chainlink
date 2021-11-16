@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"database/sql"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -15,11 +16,16 @@ func Test_Chains(t *testing.T) {
 		query = `
 			query GetChains {
 				chains {
-					id
-					enabled
-					createdAt
-					nodes {
+					results {
 						id
+						enabled
+						createdAt
+						nodes {
+							id
+						}
+					}
+					metadata {
+						total
 					}
 				}
 			}`
@@ -50,14 +56,19 @@ func Test_Chains(t *testing.T) {
 			query: query,
 			result: `
 			{
-				"chains": [{
-					"id": "1",
-					"enabled": true,
-					"createdAt": "2021-01-01T00:00:00Z",
-					"nodes": [{
-						"id": "200"
-					}]
-				}]
+				"chains": {
+					"results": [{
+						"id": "1",
+						"enabled": true,
+						"createdAt": "2021-01-01T00:00:00Z",
+						"nodes": [{
+							"id": "200"
+						}]
+					}],
+					"metadata": {
+						"total": 1
+					}
+				}
 			}`,
 		},
 	}
@@ -65,18 +76,24 @@ func Test_Chains(t *testing.T) {
 	RunGQLTests(t, testCases)
 }
 
-func Test_Chain(t *testing.T) {
+func TestResolver_Chain(t *testing.T) {
 	var (
 		chainID = *utils.NewBigI(1)
 		nodeID  = int32(200)
 		query   = `
 			query GetChain {
 				chain(id: "1") {
-					id
-					enabled
-					createdAt
-					nodes {
+					... on Chain {
 						id
+						enabled
+						createdAt
+						nodes {
+							id
+						}
+					}
+					... on NotFoundError {
+						code
+						message
 					}
 				}
 			}
@@ -113,6 +130,22 @@ func Test_Chain(t *testing.T) {
 						"nodes": [{
 							"id": "200"
 						}]
+					}
+				}`,
+		},
+		{
+			name:          "not found error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{}, sql.ErrNoRows)
+			},
+			query: query,
+			result: `
+				{
+					"chain": {
+						"code": "NOT_FOUND",
+						"message": "chain not found"
 					}
 				}`,
 		},

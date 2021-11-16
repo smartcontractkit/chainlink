@@ -1,7 +1,6 @@
 package offchainreporting
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -9,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -53,7 +52,7 @@ type Config interface {
 }
 
 type Delegate struct {
-	db                    *gorm.DB
+	db                    *sqlx.DB
 	jobORM                job.ORM
 	keyStore              keystore.Master
 	pipelineRunner        pipeline.Runner
@@ -68,7 +67,7 @@ var _ job.Delegate = (*Delegate)(nil)
 const ConfigOverriderPollInterval = 30 * time.Second
 
 func NewDelegate(
-	db *gorm.DB,
+	db *sqlx.DB,
 	jobORM job.ORM,
 	keyStore keystore.Master,
 	pipelineRunner pipeline.Runner,
@@ -124,11 +123,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	gormdb, errdb := d.db.DB()
-	if errdb != nil {
-		return nil, errors.Wrap(errdb, "unable to open sql db")
-	}
-	ocrdb := NewDB(gormdb, concreteSpec.ID)
+	ocrdb := NewDB(d.db.DB, concreteSpec.ID)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -170,7 +165,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobID", jobSpec.ID,
 	)
 	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
+		d.jobORM.RecordError(jobSpec.ID, msg)
 	})
 
 	lc := NewLocalConfig(chain.Config(), *concreteSpec)
@@ -213,7 +208,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			concreteSpec.ContractAddress.Address(),
 			contractCaller,
 			contractABI,
-			NewTransmitter(chain.TxManager(), d.db, concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+			NewTransmitter(chain.TxManager(), concreteSpec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 			chain.LogBroadcaster(),
 			tracker,
 			chain.ID(),

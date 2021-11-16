@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -35,7 +34,7 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	logSvcs := logger.GetLogServices()
-	logORM := logger.NewORM(cc.App.GetDB())
+	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 	for _, svcName := range logSvcs {
 		lvl, _ := logORM.GetServiceLogLevel(svcName)
 
@@ -88,18 +87,20 @@ func (cc *LogController) Patch(c *gin.Context) {
 	svcs = append(svcs, "Global")
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
+	// NOTE: This doesn't actually do anything right now since sqlx doesn't support query logging
+	// TODO: Consider removing it?
+	// See: https://app.shortcut.com/chainlinklabs/story/21518/log-sql-env-var-now-does-nothing
 	if request.SqlEnabled != nil {
 		if err := cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		postgres.SetLogAllQueries(cc.App.GetDB(), *request.SqlEnabled)
 	}
 	svcs = append(svcs, "IsSqlEnabled")
 	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
 
 	if len(request.ServiceLogLevel) > 0 {
-		logORM := logger.NewORM(cc.App.GetDB())
+		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]

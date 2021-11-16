@@ -31,9 +31,7 @@ func NewHeadSaver(lggr logger.Logger, orm *ORM, config Config) *HeadSaver {
 // this number in case of reboot. Thread safe.
 func (ht *HeadSaver) Save(ctx context.Context, h eth.Head) error {
 	err := ht.orm.IdempotentInsertHead(ctx, h)
-	if ctx.Err() != nil {
-		return nil
-	} else if err != nil {
+	if err != nil {
 		return err
 	}
 

@@ -8,12 +8,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // Delegate represents a Flux Monitor delegate
 type Delegate struct {
-	db             *gorm.DB
+	db             *sqlx.DB
 	ethKeyStore    keystore.Eth
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
@@ -30,7 +30,7 @@ func NewDelegate(
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
-	db *gorm.DB,
+	db *sqlx.DB,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
 ) *Delegate {
@@ -67,7 +67,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, chain.TxManager(), strategy),
+		NewORM(d.db, d.lggr, chain.TxManager(), strategy),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),

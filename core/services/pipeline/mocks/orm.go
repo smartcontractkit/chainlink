@@ -196,6 +196,27 @@ func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool,
 	return r0
 }
 
+// InsertRun provides a mock function with given fields: run, qopts
+func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...postgres.QOpt) error); ok {
+		r0 = rf(run, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // StoreRun provides a mock function with given fields: run, qopts
 func (_m *ORM) StoreRun(run *pipeline.Run, qopts ...postgres.QOpt) (bool, error) {
 	_va := make([]interface{}, len(qopts))

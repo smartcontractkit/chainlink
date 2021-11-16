@@ -48,7 +48,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := cltest.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 
 			// setup node key
 			nodeKey := cltest.MustGenerateRandomKey(t)
@@ -103,7 +103,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			backend.Commit()
 
 			// setup app
-			config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
+			config, db := heavyweight.FullTestDB(t, fmt.Sprintf("keeper_eth_integration_%v", test.eip1559), true, true)
+			korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			d := 24 * time.Hour
 			// disable full sync ticker for test
@@ -121,7 +122,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// create job
 			regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
-			job := cltest.MustInsertKeeperJob(t, app.GetDB(), nodeAddressEIP55, regAddrEIP55)
+			job := cltest.MustInsertKeeperJob(t, korm, nodeAddressEIP55, regAddrEIP55)
 			err = app.JobSpawner().StartService(job)
 			require.NoError(t, err)
 
@@ -151,7 +152,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 			backend.Commit()
 
-			cltest.WaitForCount(t, app.GetDB(), keeper.UpkeepRegistration{}, 0)
+			cltest.WaitForCount(t, app.GetSqlxDB(), "upkeep_registrations", 0)
 
 			// add new upkeep (same target contract)
 			_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
@@ -172,8 +173,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 			require.NoError(t, err)
 
 			var registry keeper.Registry
-			require.NoError(t, app.GetDB().First(&registry).Error)
-			cltest.AssertRecordEventually(t, app.GetDB(), &registry, func() bool {
+			require.NoError(t, app.GetSqlxDB().Get(&registry, `SELECT * FROM keeper_registries`))
+			cltest.AssertRecordEventually(t, app.GetSqlxDB(), &registry, fmt.Sprintf("SELECT * FROM keeper_registries WHERE id = %d", registry.ID), func() bool {
 				return registry.KeeperIndex == -1
 			})
 			runs, err := app.PipelineORM().GetAllRuns()

@@ -21,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gorm.io/gorm"
 )
 
 type (
@@ -35,7 +34,6 @@ type (
 	balanceMonitor struct {
 		utils.StartStopOnce
 		logger         logger.Logger
-		db             *gorm.DB
 		ethClient      eth.Client
 		chainID        string
 		ethKeyStore    keystore.Eth
@@ -48,11 +46,10 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
-		db,
 		ethClient,
 		ethClient.ChainID().String(),
 		ethKeyStore,

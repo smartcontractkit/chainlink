@@ -114,10 +114,10 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return DefaultQueryCtxWithParent(q.ParentCtx)
 }
 
-func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error) error {
+func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, lggr, fc)
+	return SqlxTransaction(ctx, q.Queryer, lggr, fc, txOpts...)
 }
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:
@@ -146,6 +146,13 @@ func (q Q) ExecQ(query string, args ...interface{}) error {
 	_, cancel, err := q.ExecQIter(query, args...)
 	cancel()
 	return err
+}
+func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
+	query, args, err := q.BindNamed(query, arg)
+	if err != nil {
+		return errors.Wrap(err, "error binding arg")
+	}
+	return q.ExecQ(query, args...)
 }
 
 // Select and Get are safe to wrap the context cancellation because the rows

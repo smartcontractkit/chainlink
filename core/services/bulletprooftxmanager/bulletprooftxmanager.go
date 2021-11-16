@@ -15,7 +15,6 @@ import (
 	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -79,7 +79,7 @@ type BulletproofTxManager struct {
 	utils.StartStopOnce
 
 	logger           logger.Logger
-	db               *gorm.DB
+	db               *sqlx.DB
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
@@ -103,7 +103,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -277,7 +277,7 @@ type NewTx struct {
 
 // CreateEthTransaction inserts a new transaction
 func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.QOpt) (etx EthTx, err error) {
-	q := postgres.NewQ(postgres.UnwrapGormDB(b.db), qs...)
+	q := postgres.NewQ(b.db, qs...)
 
 	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
@@ -343,7 +343,8 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+// TODO: Make this a method on the bulletprooftxmanager
+func SendEther(db *sqlx.DB, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -356,8 +357,11 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 		State:          EthTxUnstarted,
 		EVMChainID:     *utils.NewBig(chainID),
 	}
-	err = db.Create(&etx).Error
-	return etx, err
+	query := `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, evm_chain_id, created_at) VALUES (
+:from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :evm_chain_id, NOW()
+) RETURNING eth_txes.*`
+	err = postgres.NewQ(db).GetNamed(query, &etx, etx)
+	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
 type ChainKeyStore struct {
@@ -478,36 +482,45 @@ func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint64, gasP
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
-func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
+const insertIntoEthTxAttemptsQuery = `
+INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+RETURNING *;
+`
+
+func saveReplacementInProgressAttempt(lggr logger.Logger, db *sqlx.DB, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
 	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
 		return errors.New("expected oldAttempt to have an ID")
 	}
-	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
-		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
-			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
+	return postgres.NewQ(db).Transaction(lggr, func(tx postgres.Queryer) error {
+		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
+			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
 		}
-		return errors.Wrap(tx.Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
+		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, replacementAttempt)
+		if e != nil {
+			return errors.Wrap(e, "saveReplacementInProgressAttempt failed to BindNamed")
+		}
+		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
 	})
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+func CountUnconfirmedTransactions(db *sqlx.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
 	return countTransactionsWithState(db, fromAddress, EthTxUnconfirmed, chainID)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func CountUnstartedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+func CountUnstartedTransactions(db *sqlx.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
 	return countTransactionsWithState(db, fromAddress, EthTxUnstarted, chainID)
 }
 
-func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = ? AND evm_chain_id = ?`, fromAddress, state, chainID.String()).Scan(&count).Error
-	return
+func countTransactionsWithState(db *sqlx.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
+	err = postgres.NewQ(db).Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+		fromAddress, state, chainID.String())
+	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would

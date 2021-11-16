@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 )
 
 type TxOptions struct {
@@ -36,6 +35,10 @@ const (
 	// explicit here
 	DefaultIsolation = sql.LevelReadCommitted
 )
+
+func OptReadOnlyTx() TxOptions {
+	return TxOptions{TxOptions: sql.TxOptions{ReadOnly: true}}
+}
 
 var (
 	ErrNoDeadlineSet = errors.New("no deadline set")
@@ -64,51 +67,6 @@ func applyDefaults(optss []TxOptions) (lockTimeout, idleInTxSessionTimeout time.
 		ReadOnly:  readOnly,
 	}
 	return
-}
-
-func GormTransactionWithoutContext(db *gorm.DB, fn func(tx *gorm.DB) error, optss ...TxOptions) (err error) {
-	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
-	return db.Transaction(func(tx *gorm.DB) error {
-		err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, lockTimeout.Milliseconds(), idleInTxSessionTimeout.Milliseconds())).Error
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction timeouts")
-		}
-		return fn(tx)
-	}, &txOpts)
-}
-
-func GormTransaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error, optss ...TxOptions) (err error) {
-	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
-	if _, set := ctx.Deadline(); !set {
-		return ErrNoDeadlineSet
-	}
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, lockTimeout.Milliseconds(), idleInTxSessionTimeout.Milliseconds())).Error
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction timeouts")
-		}
-		return fn(tx)
-	}, &txOpts)
-}
-
-func GormTransactionWithDefaultContext(db *gorm.DB, fn func(tx *gorm.DB) error, optss ...TxOptions) error {
-	lockTimeout, idleInTxSessionTimeout, txOpts := applyDefaults(optss)
-	ctx, cancel := DefaultQueryCtx()
-	defer cancel()
-	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, lockTimeout.Milliseconds(), idleInTxSessionTimeout.Milliseconds())).Error
-		if err != nil {
-			return errors.Wrap(err, "error setting transaction timeouts")
-		}
-		return fn(tx)
-	}, &txOpts)
-	return err
-}
-
-func DBWithDefaultContext(db *gorm.DB, fn func(db *gorm.DB) error) error {
-	ctx, cancel := DefaultQueryCtx()
-	defer cancel()
-	return fn(db.WithContext(ctx))
 }
 
 func SqlTransaction(ctx context.Context, rdb *sql.DB, lggr logger.Logger, fn func(tx *sqlx.Tx) error, optss ...TxOptions) (err error) {
@@ -164,9 +122,17 @@ func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn f
 		}
 	}()
 
-	_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, lockTimeout.Milliseconds(), idleInTxSessionTimeout.Milliseconds()))
-	if err != nil {
-		return errors.Wrap(err, "error setting transaction timeouts")
+	if lockTimeout != DefaultLockTimeout {
+		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %d`, lockTimeout.Milliseconds()))
+		if err != nil {
+			return errors.Wrap(err, "error setting transaction local lock_timeout")
+		}
+	}
+	if idleInTxSessionTimeout != DefaultIdleInTxSessionTimeout {
+		_, err = tx.Exec(fmt.Sprintf(`SET LOCAL idle_in_transaction_session_timeout = %d`, idleInTxSessionTimeout.Milliseconds()))
+		if err != nil {
+			return errors.Wrap(err, "error setting transaction local idle_in_transaction_session_timeout")
+		}
 	}
 
 	err = fn(tx)

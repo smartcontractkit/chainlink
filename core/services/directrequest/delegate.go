@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type (
@@ -28,7 +27,6 @@ type (
 		logger         logger.Logger
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
-		db             *gorm.DB
 		chHeads        chan eth.Head
 		chainSet       evm.ChainSet
 	}
@@ -45,14 +43,12 @@ func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	db *gorm.DB,
 	chainSet evm.ChainSet,
 ) *Delegate {
 	return &Delegate{
 		logger.Named("DirectRequest"),
 		pipelineRunner,
 		pipelineORM,
-		db,
 		make(chan eth.Head, 1),
 		chainSet,
 	}
@@ -90,12 +86,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 		)
 
 	logListener := &listener{
-		logger:                   svcLogger,
+		logger:                   svcLogger.Named("DirectRequest"),
 		config:                   chain.Config(),
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
-		db:                       d.db,
 		pipelineORM:              d.pipelineORM,
 		job:                      jb,
 		mbOracleRequests:         utils.NewHighCapacityMailbox(),
@@ -122,7 +117,6 @@ type listener struct {
 	logBroadcaster           log.Broadcaster
 	oracle                   operator_wrapper.OperatorInterface
 	pipelineRunner           pipeline.Runner
-	db                       *gorm.DB
 	pipelineORM              pipeline.ORM
 	job                      job.Job
 	runs                     sync.Map
@@ -182,7 +176,7 @@ func (l *listener) Close() error {
 func (l *listener) HandleLog(lb log.Broadcast) {
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
+		l.logger.Error("HandleLog: ignoring nil value")
 		return
 	}
 
@@ -190,15 +184,15 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 	case *operator_wrapper.OperatorOracleRequest:
 		wasOverCapacity := l.mbOracleRequests.Deliver(lb)
 		if wasOverCapacity {
-			l.logger.Error("DirectRequest: OracleRequest log mailbox is over capacity - dropped the oldest log")
+			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
 	case *operator_wrapper.OperatorCancelOracleRequest:
 		wasOverCapacity := l.mbOracleCancelRequests.Deliver(lb)
 		if wasOverCapacity {
-			l.logger.Error("DirectRequest: CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
+			l.logger.Error("CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
 	default:
-		l.logger.Warnf("DirectRequest: unexpected log type %T", log)
+		l.logger.Warnf("Unexpected log type %T", log)
 	}
 }
 
@@ -238,7 +232,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			l.logger.Errorw("DirectRequest: could not determine if log was already consumed", "error", err)
+			l.logger.Errorw("Could not determine if log was already consumed", "error", err)
 			return
 		} else if was {
 			return
@@ -246,14 +240,14 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 
 		logJobSpecID := lb.RawLog().Topics[1]
 		if logJobSpecID == (common.Hash{}) || (logJobSpecID != l.job.ExternalIDEncodeStringToTopic() && logJobSpecID != l.job.ExternalIDEncodeBytesToTopic()) {
-			l.logger.Debugw("DirectRequest: Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
+			l.logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID)
 			l.markLogConsumed(lb)
 			return
 		}
 
 		log := lb.DecodedLog()
 		if log == nil || reflect.ValueOf(log).IsNil() {
-			l.logger.Error("DirectRequest: HandleLog: ignoring nil value")
+			l.logger.Error("HandleLog: ignoring nil value")
 			return
 		}
 
@@ -263,7 +257,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox) {
 		case *operator_wrapper.OperatorCancelOracleRequest:
 			l.handleCancelOracleRequest(log, lb)
 		default:
-			l.logger.Warnf("DirectRequest: unexpected log type %T", log)
+			l.logger.Warnf("Unexpected log type %T", log)
 		}
 	}
 }
@@ -283,7 +277,7 @@ func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[str
 }
 
 func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleRequest, lb log.Broadcast) {
-	logger.Infow("DirectRequest: oracle request received",
+	l.logger.Infow("Oracle request received",
 		"specId", fmt.Sprintf("%0x", request.SpecId),
 		"requester", request.Requester,
 		"requestId", fmt.Sprintf("%0x", request.RequestId),
@@ -296,7 +290,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	)
 
 	if !l.allowRequester(request.Requester) {
-		l.logger.Infow("DirectRequest: Rejected run for invalid requester",
+		l.logger.Infow("Rejected run for invalid requester",
 			"requester", request.Requester,
 			"allowedRequesters", l.requesters.ToStrings(),
 		)
@@ -313,7 +307,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if minContractPayment != nil && request.Payment != nil {
 		requestPayment := assets.Link(*request.Payment)
 		if minContractPayment.Cmp(&requestPayment) > 0 {
-			l.logger.Warnw("DirectRequest: Rejected run for insufficient payment",
+			l.logger.Warnw("Rejected run for insufficient payment",
 				"minContractPayment", minContractPayment.String(),
 				"requestPayment", requestPayment.String(),
 			)
@@ -357,7 +351,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		l.logger.Errorw("DirectRequest: failed executing run", "err", err)
+		l.logger.Errorw("Failed executing run", "err", err)
 	}
 }
 
@@ -384,7 +378,7 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 
 func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...postgres.QOpt) {
 	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
-		l.logger.Errorw("DirectRequest: unable to mark log consumed", "err", err, "log", lb.String())
+		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
 	}
 }
 

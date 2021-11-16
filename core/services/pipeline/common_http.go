@@ -10,11 +10,13 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func makeHTTPRequest(
 	ctx context.Context,
+	lggr logger.Logger,
 	method StringParam,
 	url URLParam,
 	requestData MapParam,
@@ -46,6 +48,7 @@ func makeHTTPRequest(
 			SizeLimit:                      cfg.DefaultHTTPLimit(),
 			AllowUnrestrictedNetworkAccess: bool(allowUnrestrictedNetworkAccess),
 		},
+		Logger: lggr.Named("HTTPRequest"),
 	}
 
 	start := time.Now()

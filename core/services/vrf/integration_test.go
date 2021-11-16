@@ -35,7 +35,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
+			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			key := cltest.MustGenerateRandomKey(t)
 			cu := newVRFCoordinatorUniverse(t, key)
@@ -79,7 +79,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				cu.backend.Commit()
 			}
 			var runs []pipeline.Run
-			cltest.NewGomegaWithT(t).Eventually(func() bool {
+			gomega.NewWithT(t).Eventually(func() bool {
 				runs, err = app.PipelineORM().GetAllRuns()
 				require.NoError(t, err)
 				// It possible that we send the test request
@@ -94,14 +94,14 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 
 			// Ensure the eth transaction gets confirmed on chain.
-			cltest.NewGomegaWithT(t).Eventually(func() bool {
-				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetDB(), key.Address.Address(), cltest.FixtureChainID)
+			gomega.NewWithT(t).Eventually(func() bool {
+				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetSqlxDB(), key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
-			cltest.NewGomegaWithT(t).Eventually(func() bool {
+			gomega.NewWithT(t).Eventually(func() bool {
 				rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
 				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 				var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled

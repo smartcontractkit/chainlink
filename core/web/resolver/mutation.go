@@ -3,13 +3,13 @@ package resolver
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 )
@@ -35,7 +37,7 @@ type createBridgeInput struct {
 	MinimumContractPayment string
 }
 
-// Bridge retrieves a bridges by name.
+// CreateBridge creates a new bridge.
 func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBridgeInput }) (*CreateBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -392,4 +394,201 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 	}
 
 	return NewDeleteBridgePayload(&bt, nil), nil
+}
+
+func (r *Resolver) CreateP2PKey(ctx context.Context) (*CreateP2PKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().P2P().Create()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateP2PKeyPayloadResolver(key), nil
+}
+
+func (r *Resolver) DeleteP2PKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteP2PKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keyID, err := p2pkey.MakePeerID(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().P2P().Delete(keyID)
+	if err != nil {
+		if errors.As(err, &keystore.KeyNotFoundError{}) {
+			return NewDeleteP2PKeyPayloadResolver(p2pkey.KeyV2{}, err), nil
+		}
+		return nil, err
+	}
+
+	return NewDeleteP2PKeyPayloadResolver(key, nil), nil
+}
+
+func (r *Resolver) CreateVRFKey(ctx context.Context) (*CreateVRFKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().VRF().Create()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateVRFKeyPayloadResolver(key), nil
+}
+
+func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteVRFKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().VRF().Delete(string(args.ID))
+	if err != nil {
+		if errors.Cause(err) == keystore.ErrMissingVRFKey {
+			return NewDeleteVRFKeyPayloadResolver(vrfkey.KeyV2{}, err), nil
+		}
+		return nil, err
+	}
+
+	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
+}
+
+func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*ApproveJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, approve,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewApproveJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewApproveJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*CancelJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, cancel,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCancelJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCancelJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RejectJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, reject,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewRejectJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewRejectJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input *struct{ Spec string }
+}) (*UpdateJobProposalSpecPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	err = feedsSvc.UpdateJobProposalSpec(ctx, id, args.Input.Spec)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateJobProposalSpecPayload(jp, nil), nil
+}
+
+type jobProposalAction struct {
+	jpID graphql.ID
+	name JobProposalAction
+}
+
+func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(action.jpID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	switch action.name {
+	case approve:
+		err = feedsSvc.ApproveJobProposal(ctx, id)
+	case cancel:
+		err = feedsSvc.CancelJobProposal(ctx, id)
+	case reject:
+		err = feedsSvc.RejectJobProposal(ctx, id)
+	default:
+		return nil, errors.New("invalid job proposal action")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return jp, nil
 }

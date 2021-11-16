@@ -8,27 +8,39 @@ schema {
 type Query {
     bridge(name: String!): BridgePayload!
     bridges(offset: Int, limit: Int): BridgesPayload!
-    chain(id: ID!): Chain!
-    chains(offset: Int, limit: Int): [Chain!]!
+    chain(id: ID!): ChainPayload!
+    chains(offset: Int, limit: Int): ChainsPayload!
     csaKeys: CSAKeysPayload!
     features: FeaturesPayload!
     feedsManager(id: ID!): FeedsManagerPayload!
     feedsManagers: FeedsManagersPayload!
     job(id: ID!): JobPayload!
     jobs(offset: Int, limit: Int): JobsPayload!
+    jobProposal(id: ID!): JobProposalPayload!
     node(id: ID!): NodePayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
+    p2pKeys: P2PKeysPayload!
+    vrfKey(id: ID!): VRFKeyPayload!
+    vrfKeys: VRFKeysPayload!
 }
 
 type Mutation {
+    approveJobProposal(id: ID!): ApproveJobProposalPayload!
+    cancelJobProposal(id: ID!): CancelJobProposalPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
+    createP2PKey: CreateP2PKeyPayload!
     deleteBridge(name: String!): DeleteBridgePayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
+    deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
+    createVRFKey: CreateVRFKeyPayload!
+    deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    rejectJobProposal(id: ID!): RejectJobProposalPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
+    updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
 }

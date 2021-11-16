@@ -22,7 +22,6 @@ func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
 	err := keyStore.Unlock(cltest.Password)
@@ -34,6 +33,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM eth_key_states")))
 		keyStore.Unlock(cltest.Password)
 	}
+	const statesTableName = "eth_key_states"
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
@@ -47,9 +47,10 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, key, foundKey)
 		// adds ethkey.State
-		cltest.AssertCount(t, gdb, ethkey.State{}, 1)
+		cltest.AssertCount(t, db, statesTableName, 1)
 		var state ethkey.State
-		require.NoError(t, gdb.First(&state).Error)
+		sql := fmt.Sprintf(`SELECT * from %s LIMIT 1`, statesTableName)
+		require.NoError(t, db.Get(&state, sql))
 		require.Equal(t, state.Address, retrievedKeys[0].Address)
 		// adds key to db
 		keyStore.ResetXXXTestOnly()
@@ -75,7 +76,7 @@ func Test_EthKeyStore(t *testing.T) {
 		retrievedKeys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(retrievedKeys))
-		cltest.AssertCount(t, gdb, ethkey.State{}, 0)
+		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
 	t.Run("EnsureKeys / SendingKeys", func(t *testing.T) {
@@ -89,7 +90,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.Equal(t, 1, len(sendingKeys))
 		require.Equal(t, sKey.Address, sendingKeys[0].Address)
 		require.NoError(t, err)
-		cltest.AssertCount(t, gdb, ethkey.State{}, 2)
+		cltest.AssertCount(t, db, statesTableName, 2)
 		require.NotEqual(t, sKey.Address, fKey.Address)
 		sKey2, sDidExist, fKey2, fDidExist, err := ethKeyStore.EnsureKeys(&cltest.FixtureChainID)
 		require.NoError(t, err)

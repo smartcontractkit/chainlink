@@ -16,8 +16,6 @@ import (
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
-	gorm "gorm.io/gorm"
-
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
@@ -154,22 +152,6 @@ func (_m *Application) GetConfig() config.GeneralConfig {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.GeneralConfig)
-		}
-	}
-
-	return r0
-}
-
-// GetDB provides a mock function with given fields:
-func (_m *Application) GetDB() *gorm.DB {
-	ret := _m.Called()
-
-	var r0 *gorm.DB
-	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gorm.DB)
 		}
 	}
 

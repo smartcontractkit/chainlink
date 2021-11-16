@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	context "context"
-
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 	mock "github.com/stretchr/testify/mock"
 
@@ -60,20 +58,20 @@ func (_m *ORM) CancelJobProposal(id int64, qopts ...postgres.QOpt) error {
 	return r0
 }
 
-// CountJobProposals provides a mock function with given fields: ctx
-func (_m *ORM) CountJobProposals(ctx context.Context) (int64, error) {
-	ret := _m.Called(ctx)
+// CountJobProposals provides a mock function with given fields:
+func (_m *ORM) CountJobProposals() (int64, error) {
+	ret := _m.Called()
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -81,20 +79,20 @@ func (_m *ORM) CountJobProposals(ctx context.Context) (int64, error) {
 	return r0, r1
 }
 
-// CountManagers provides a mock function with given fields: ctx
-func (_m *ORM) CountManagers(ctx context.Context) (int64, error) {
-	ret := _m.Called(ctx)
+// CountManagers provides a mock function with given fields:
+func (_m *ORM) CountManagers() (int64, error) {
+	ret := _m.Called()
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context) int64); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -102,20 +100,20 @@ func (_m *ORM) CountManagers(ctx context.Context) (int64, error) {
 	return r0, r1
 }
 
-// CreateJobProposal provides a mock function with given fields: ctx, jp
-func (_m *ORM) CreateJobProposal(ctx context.Context, jp *feeds.JobProposal) (int64, error) {
-	ret := _m.Called(ctx, jp)
+// CreateJobProposal provides a mock function with given fields: jp
+func (_m *ORM) CreateJobProposal(jp *feeds.JobProposal) (int64, error) {
+	ret := _m.Called(jp)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, *feeds.JobProposal) int64); ok {
-		r0 = rf(ctx, jp)
+	if rf, ok := ret.Get(0).(func(*feeds.JobProposal) int64); ok {
+		r0 = rf(jp)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *feeds.JobProposal) error); ok {
-		r1 = rf(ctx, jp)
+	if rf, ok := ret.Get(1).(func(*feeds.JobProposal) error); ok {
+		r1 = rf(jp)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -123,20 +121,20 @@ func (_m *ORM) CreateJobProposal(ctx context.Context, jp *feeds.JobProposal) (in
 	return r0, r1
 }
 
-// CreateManager provides a mock function with given fields: ctx, ms
-func (_m *ORM) CreateManager(ctx context.Context, ms *feeds.FeedsManager) (int64, error) {
-	ret := _m.Called(ctx, ms)
+// CreateManager provides a mock function with given fields: ms
+func (_m *ORM) CreateManager(ms *feeds.FeedsManager) (int64, error) {
+	ret := _m.Called(ms)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, *feeds.FeedsManager) int64); ok {
-		r0 = rf(ctx, ms)
+	if rf, ok := ret.Get(0).(func(*feeds.FeedsManager) int64); ok {
+		r0 = rf(ms)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *feeds.FeedsManager) error); ok {
-		r1 = rf(ctx, ms)
+	if rf, ok := ret.Get(1).(func(*feeds.FeedsManager) error); ok {
+		r1 = rf(ms)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -144,13 +142,20 @@ func (_m *ORM) CreateManager(ctx context.Context, ms *feeds.FeedsManager) (int64
 	return r0, r1
 }
 
-// GetJobProposal provides a mock function with given fields: ctx, id
-func (_m *ORM) GetJobProposal(ctx context.Context, id int64) (*feeds.JobProposal, error) {
-	ret := _m.Called(ctx, id)
+// GetJobProposal provides a mock function with given fields: id, qopts
+func (_m *ORM) GetJobProposal(id int64, qopts ...postgres.QOpt) (*feeds.JobProposal, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 *feeds.JobProposal
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.JobProposal); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(int64, ...postgres.QOpt) *feeds.JobProposal); ok {
+		r0 = rf(id, qopts...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*feeds.JobProposal)
@@ -158,8 +163,8 @@ func (_m *ORM) GetJobProposal(ctx context.Context, id int64) (*feeds.JobProposal
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = rf(ctx, id)
+	if rf, ok := ret.Get(1).(func(int64, ...postgres.QOpt) error); ok {
+		r1 = rf(id, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -167,13 +172,13 @@ func (_m *ORM) GetJobProposal(ctx context.Context, id int64) (*feeds.JobProposal
 	return r0, r1
 }
 
-// GetJobProposalByRemoteUUID provides a mock function with given fields: ctx, _a1
-func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*feeds.JobProposal, error) {
-	ret := _m.Called(ctx, _a1)
+// GetJobProposalByRemoteUUID provides a mock function with given fields: _a0
+func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, error) {
+	ret := _m.Called(_a0)
 
 	var r0 *feeds.JobProposal
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) *feeds.JobProposal); ok {
-		r0 = rf(ctx, _a1)
+	if rf, ok := ret.Get(0).(func(uuid.UUID) *feeds.JobProposal); ok {
+		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*feeds.JobProposal)
@@ -181,8 +186,8 @@ func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
-		r1 = rf(ctx, _a1)
+	if rf, ok := ret.Get(1).(func(uuid.UUID) error); ok {
+		r1 = rf(_a0)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -190,13 +195,13 @@ func (_m *ORM) GetJobProposalByRemoteUUID(ctx context.Context, _a1 uuid.UUID) (*
 	return r0, r1
 }
 
-// GetManager provides a mock function with given fields: ctx, id
-func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
-	ret := _m.Called(ctx, id)
+// GetManager provides a mock function with given fields: id
+func (_m *ORM) GetManager(id int64) (*feeds.FeedsManager, error) {
+	ret := _m.Called(id)
 
 	var r0 *feeds.FeedsManager
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
-		r0 = rf(ctx, id)
+	if rf, ok := ret.Get(0).(func(int64) *feeds.FeedsManager); ok {
+		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*feeds.FeedsManager)
@@ -204,8 +209,8 @@ func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, e
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = rf(ctx, id)
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -213,57 +218,13 @@ func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, e
 	return r0, r1
 }
 
-// IsJobManaged provides a mock function with given fields: ctx, jobID
-func (_m *ORM) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
-	ret := _m.Called(ctx, jobID)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, int64) bool); ok {
-		r0 = rf(ctx, jobID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = rf(ctx, jobID)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ListJobProposals provides a mock function with given fields: ctx
-func (_m *ORM) ListJobProposals(ctx context.Context) ([]feeds.JobProposal, error) {
-	ret := _m.Called(ctx)
-
-	var r0 []feeds.JobProposal
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.JobProposal); ok {
-		r0 = rf(ctx)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.JobProposal)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ListManagers provides a mock function with given fields: ctx
-func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
-	ret := _m.Called(ctx)
+// GetManagers provides a mock function with given fields: ids
+func (_m *ORM) GetManagers(ids []int64) ([]feeds.FeedsManager, error) {
+	ret := _m.Called(ids)
 
 	var r0 []feeds.FeedsManager
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.FeedsManager); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.FeedsManager); ok {
+		r0 = rf(ids)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]feeds.FeedsManager)
@@ -271,8 +232,8 @@ func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -280,13 +241,94 @@ func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
 	return r0, r1
 }
 
-// UpdateJobProposalSpec provides a mock function with given fields: ctx, id, spec
-func (_m *ORM) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	ret := _m.Called(ctx, id, spec)
+// IsJobManaged provides a mock function with given fields: jobID, qopts
+func (_m *ORM) IsJobManaged(jobID int64, qopts ...postgres.QOpt) (bool, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(int64, ...postgres.QOpt) bool); ok {
+		r0 = rf(jobID, qopts...)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, ...postgres.QOpt) error); ok {
+		r1 = rf(jobID, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListJobProposals provides a mock function with given fields:
+func (_m *ORM) ListJobProposals() ([]feeds.JobProposal, error) {
+	ret := _m.Called()
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func() []feeds.JobProposal); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListManagers provides a mock function with given fields:
+func (_m *ORM) ListManagers() ([]feeds.FeedsManager, error) {
+	ret := _m.Called()
+
+	var r0 []feeds.FeedsManager
+	if rf, ok := ret.Get(0).(func() []feeds.FeedsManager); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.FeedsManager)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateJobProposalSpec provides a mock function with given fields: id, spec, qopts
+func (_m *ORM) UpdateJobProposalSpec(id int64, spec string, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id, spec)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, string) error); ok {
-		r0 = rf(ctx, id, spec)
+	if rf, ok := ret.Get(0).(func(int64, string, ...postgres.QOpt) error); ok {
+		r0 = rf(id, spec, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -315,13 +357,20 @@ func (_m *ORM) UpdateJobProposalStatus(id int64, status feeds.JobProposalStatus,
 	return r0
 }
 
-// UpdateManager provides a mock function with given fields: ctx, mgr
-func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
-	ret := _m.Called(ctx, mgr)
+// UpdateManager provides a mock function with given fields: mgr, qopts
+func (_m *ORM) UpdateManager(mgr feeds.FeedsManager, qopts ...postgres.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, mgr)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
-		r0 = rf(ctx, mgr)
+	if rf, ok := ret.Get(0).(func(feeds.FeedsManager, ...postgres.QOpt) error); ok {
+		r0 = rf(mgr, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -329,20 +378,20 @@ func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error 
 	return r0
 }
 
-// UpsertJobProposal provides a mock function with given fields: ctx, jp
-func (_m *ORM) UpsertJobProposal(ctx context.Context, jp *feeds.JobProposal) (int64, error) {
-	ret := _m.Called(ctx, jp)
+// UpsertJobProposal provides a mock function with given fields: jp
+func (_m *ORM) UpsertJobProposal(jp *feeds.JobProposal) (int64, error) {
+	ret := _m.Called(jp)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, *feeds.JobProposal) int64); ok {
-		r0 = rf(ctx, jp)
+	if rf, ok := ret.Get(0).(func(*feeds.JobProposal) int64); ok {
+		r0 = rf(jp)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *feeds.JobProposal) error); ok {
-		r1 = rf(ctx, jp)
+	if rf, ok := ret.Get(1).(func(*feeds.JobProposal) error); ok {
+		r1 = rf(jp)
 	} else {
 		r1 = ret.Error(1)
 	}

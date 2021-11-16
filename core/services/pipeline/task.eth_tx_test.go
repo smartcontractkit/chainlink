@@ -396,7 +396,7 @@ func TestETHTxTask(t *testing.T) {
 			keyStore.Test(t)
 			txManager := new(bptxmmocks.TxManager)
 			txManager.Test(t)
-			db := pgtest.NewGormDB(t)
+			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewTestGeneralConfig(t)
 
 			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})

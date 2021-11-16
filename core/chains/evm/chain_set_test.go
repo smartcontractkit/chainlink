@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -60,12 +59,11 @@ func TestUpdateConfig(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	address := common.HexToAddress("0x1234567890")
 	price := big.NewInt(12345)
 	updater := evm.UpdateKeySpecificMaxGasPrice(address, price)

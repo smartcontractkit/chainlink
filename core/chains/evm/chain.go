@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -69,10 +68,10 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
-	db := opts.GormDB
 	headTrackerLL := opts.Config.LogLevel().String()
+	db := opts.DB
 	if db != nil {
-		if ll, ok := logger.NewORM(db).GetServiceLogLevel(logger.HeadTracker); ok {
+		if ll, ok := logger.NewORM(db, l).GetServiceLogLevel(logger.HeadTracker); ok {
 			headTrackerLL = ll
 		}
 	}
@@ -127,7 +126,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 
 	var balanceMonitor services.BalanceMonitor
 	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(db, client, opts.KeyStore, l)
+		balanceMonitor = services.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
@@ -135,7 +134,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logBroadcaster = log.NewBroadcaster(log.NewORM(postgres.UnwrapGormDB(db), *chainID), client, cfg, l, highestSeenHead)
+		logBroadcaster = log.NewBroadcaster(log.NewORM(db, *chainID), client, cfg, l, highestSeenHead)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}

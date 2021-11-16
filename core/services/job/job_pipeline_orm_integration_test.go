@@ -5,25 +5,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
-func clearJobsDb(t *testing.T, db *gorm.DB) {
+func clearJobsDb(t *testing.T, db *sqlx.DB) {
 	t.Helper()
 	// Ordering matters here to avoid deadlocks
-	err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
+	_, err := db.Exec(`TRUNCATE flux_monitor_round_stats_v2, jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`)
 	require.NoError(t, err)
 }
 
@@ -47,8 +45,7 @@ func TestPipelineORM_Integration(t *testing.T) {
     `
 
 	config := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
 	keyStore := cltest.NewKeyStore(t, db)
@@ -99,7 +96,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		clearJobsDb(t, gdb)
+		clearJobsDb(t, db)
 
 		orm := pipeline.NewORM(db, logger.TestLogger(t))
 
@@ -109,33 +106,36 @@ func TestPipelineORM_Integration(t *testing.T) {
 		specID, err = orm.CreateSpec(*p, models.Interval(0))
 		require.NoError(t, err)
 
-		var specs []pipeline.Spec
-		err = gdb.Find(&specs).Error
+		var pipelineSpecs []pipeline.Spec
+		sql := `SELECT * FROM pipeline_specs;`
+		err = db.Select(&pipelineSpecs, sql)
 		require.NoError(t, err)
-		require.Len(t, specs, 1)
-		require.Equal(t, specID, specs[0].ID)
-		require.Equal(t, DotStr, specs[0].DotDagSource)
+		require.Len(t, pipelineSpecs, 1)
+		require.Equal(t, specID, pipelineSpecs[0].ID)
+		require.Equal(t, DotStr, pipelineSpecs[0].DotDagSource)
 
-		require.NoError(t, gdb.Exec(`DELETE FROM pipeline_specs`).Error)
+		_, err = db.Exec(`DELETE FROM pipeline_specs`)
+		require.NoError(t, err)
 	})
 
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		clearJobsDb(t, gdb)
+		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t))
-		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: gdb, GeneralConfig: config})
+		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
 		defer runner.Close()
 		jobORM := job.NewTestORM(t, db, cc, orm, keyStore)
 
-		dbSpec := makeVoterTurnoutOCRJobSpec(t, gdb, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(dbSpec)
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
-		err = gdb.Find(&pipelineSpecs).Error
+		sql := `SELECT * FROM pipeline_specs;`
+		err = db.Select(&pipelineSpecs, sql)
 		require.NoError(t, err)
 		require.Len(t, pipelineSpecs, 1)
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)
@@ -147,7 +147,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 		// Check the DB for the pipeline.Run
 		var pipelineRuns []pipeline.Run
-		err = gdb.Where("id = ?", runID).Find(&pipelineRuns).Error
+		sql = `SELECT * FROM pipeline_runs WHERE id = $1;`
+		err = db.Select(&pipelineRuns, sql, runID)
 		require.NoError(t, err)
 		require.Len(t, pipelineRuns, 1)
 		require.Equal(t, pipelineSpecID, pipelineRuns[0].PipelineSpecID)
@@ -155,7 +156,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 		// Check the DB for the pipeline.TaskRuns
 		var taskRuns []pipeline.TaskRun
-		err = gdb.Where("pipeline_run_id = ?", runID).Find(&taskRuns).Error
+		sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = $1;`
+		err = db.Select(&taskRuns, sql, runID)
 		require.NoError(t, err)
 		require.Len(t, taskRuns, len(expectedTasks))
 
