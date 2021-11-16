@@ -13,12 +13,12 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
+	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -29,10 +29,6 @@ type EthTxMeta struct {
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink string
-}
-
-func (EthTxMeta) GormDataType() string {
-	return "json"
 }
 
 type EthTxState string
