@@ -63,10 +63,30 @@ func (r *JobRunResolver) Inputs() string {
 	return string(val)
 }
 
-// ObservationSource resolves the job's observation source.
+// ObservationSource resolves the job run's observation source.
 //
 // This could potentially be moved to a dataloader in the future as we are
 // fetching it from a relationship.
 func (r *JobRunResolver) ObservationSource() string {
 	return r.run.PipelineSpec.DotDagSource
+}
+
+// TaskRuns resolves the job run's task runs
+//
+// This could be moved to a data loader later, which means also modifying to ORM
+// to not get everything at once
+func (r *JobRunResolver) TaskRuns() []*TaskRunResolver {
+	if len(r.run.PipelineTaskRuns) > 0 {
+		return NewTaskRuns(r.run.PipelineTaskRuns)
+	}
+
+	return []*TaskRunResolver{}
+}
+
+func (r *JobRunResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.run.CreatedAt}
+}
+
+func (r *JobRunResolver) FinishedAt() *graphql.Time {
+	return &graphql.Time{Time: r.run.FinishedAt.ValueOrZero()}
 }

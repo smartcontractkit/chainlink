@@ -8,13 +8,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 type jobRunBatcher struct {
 	app chainlink.Application
 }
 
-func (b *jobRunBatcher) loadByPipelineSpecIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *jobRunBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -33,16 +34,22 @@ func (b *jobRunBatcher) loadByPipelineSpecIDs(ctx context.Context, keys dataload
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 
+	// Generate a map of pipeline runs to pipeline spec id
+	runsForJob := map[string][]pipeline.Run{}
+	for _, jb := range jbRuns {
+		id := strconv.Itoa(int(jb.PipelineSpecID))
+
+		runsForJob[id] = append(runsForJob[id], jb)
+	}
+
 	// Construct the output array of dataloader results
 	results := make([]*dataloader.Result, len(keys))
-	for _, c := range jbRuns {
-		id := strconv.FormatInt(c.ID, 10)
-
-		ix, ok := keyOrder[id]
+	for k, rs := range runsForJob {
+		ix, ok := keyOrder[k]
 		// if found, remove from index lookup map, so we know elements were found
 		if ok {
-			results[ix] = &dataloader.Result{Data: c, Error: nil}
-			delete(keyOrder, id)
+			results[ix] = &dataloader.Result{Data: rs, Error: nil}
+			delete(keyOrder, k)
 		}
 	}
 
