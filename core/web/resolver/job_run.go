@@ -46,12 +46,24 @@ func (r *JobRunResolver) PipelineSpecID() graphql.ID {
 	return graphql.ID(strconv.Itoa(int(r.run.PipelineSpecID)))
 }
 
-func (r *JobRunResolver) FatalErrors() []*string {
-	return r.run.StringAllErrors()
+func (r *JobRunResolver) FatalErrors() []string {
+	var errs []string
+
+	for _, err := range r.run.StringFatalErrors() {
+		errs = append(errs, *err)
+	}
+
+	return errs
 }
 
-func (r *JobRunResolver) AllErrors() []*string {
-	return r.run.StringAllErrors()
+func (r *JobRunResolver) AllErrors() []string {
+	var errs []string
+
+	for _, err := range r.run.StringAllErrors() {
+		errs = append(errs, *err)
+	}
+
+	return errs
 }
 
 func (r *JobRunResolver) Inputs() string {
@@ -61,14 +73,6 @@ func (r *JobRunResolver) Inputs() string {
 	}
 
 	return string(val)
-}
-
-// ObservationSource resolves the job run's observation source.
-//
-// This could potentially be moved to a dataloader in the future as we are
-// fetching it from a relationship.
-func (r *JobRunResolver) ObservationSource() string {
-	return r.run.PipelineSpec.DotDagSource
 }
 
 // TaskRuns resolves the job run's task runs
