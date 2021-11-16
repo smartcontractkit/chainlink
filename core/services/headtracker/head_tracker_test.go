@@ -52,6 +52,7 @@ func TestHeadTracker_New(t *testing.T) {
 	ethClient, sub := cltest.NewEthClientAndSubMockWithDefaultChain(t)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
+	sub.On("Unsubscribe").Maybe().Return(nil)
 	sub.On("Err").Return(nil)
 
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
