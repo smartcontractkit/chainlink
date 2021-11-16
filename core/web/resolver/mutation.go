@@ -37,7 +37,7 @@ type createBridgeInput struct {
 	MinimumContractPayment string
 }
 
-// Bridge retrieves a bridges by name.
+// CreateBridge creates a new bridge.
 func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBridgeInput }) (*CreateBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -461,4 +461,134 @@ func (r *Resolver) DeleteVRFKey(ctx context.Context, args struct {
 	}
 
 	return NewDeleteVRFKeyPayloadResolver(key, nil), nil
+}
+
+func (r *Resolver) ApproveJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*ApproveJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, approve,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewApproveJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewApproveJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) CancelJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*CancelJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, cancel,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewCancelJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewCancelJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) RejectJobProposal(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*RejectJobProposalPayloadResolver, error) {
+	jp, err := r.executeJobProposalAction(ctx, jobProposalAction{
+		args.ID, reject,
+	})
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewRejectJobProposalPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewRejectJobProposalPayload(jp, nil), nil
+}
+
+func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input *struct{ Spec string }
+}) (*UpdateJobProposalSpecPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	err = feedsSvc.UpdateJobProposalSpec(ctx, id, args.Input.Spec)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateJobProposalSpecPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateJobProposalSpecPayload(jp, nil), nil
+}
+
+type jobProposalAction struct {
+	jpID graphql.ID
+	name JobProposalAction
+}
+
+func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobProposalAction) (*feeds.JobProposal, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := strconv.ParseInt(string(action.jpID), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	feedsSvc := r.App.GetFeedsService()
+
+	switch action.name {
+	case approve:
+		err = feedsSvc.ApproveJobProposal(ctx, id)
+	case cancel:
+		err = feedsSvc.CancelJobProposal(ctx, id)
+	case reject:
+		err = feedsSvc.RejectJobProposal(ctx, id)
+	default:
+		return nil, errors.New("invalid job proposal action")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	jp, err := r.App.GetFeedsService().GetJobProposal(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return jp, nil
 }

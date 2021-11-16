@@ -15,11 +15,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func init() {
@@ -47,31 +44,8 @@ func init() {
 	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
 	// store to use the raw DialectPostgres dialect and setup a one-use database.
 	// See BootstrapThrowawayORM() as a convenience function to help you do this.
-	// TODO: re-enable savepoint emulation once gorm is removed:
-	// https://app.clubhouse.io/chainlinklabs/story/8781/remove-dependency-on-gorm
 	txdb.Register("txdb", "pgx", dbURL, txdb.SavePointOption(nil))
 	sqlx.BindDriver("txdb", sqlx.DOLLAR)
-}
-
-func NewGormDB(t *testing.T) *gorm.DB {
-	sqlDB := NewSqlDB(t)
-	return GormDBFromSql(t, sqlDB)
-}
-
-func GormDBFromSql(t *testing.T, db *sql.DB) *gorm.DB {
-	logAllQueries := os.Getenv("LOG_SQL") == "true"
-	newLogger := logger.NewGormWrapper(logger.TestLogger(t), logAllQueries, 0)
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{
-		Conn: db,
-		DSN:  uuid.NewV4().String(),
-	}), &gorm.Config{Logger: newLogger})
-
-	require.NoError(t, err)
-
-	// Incantation to fix https://github.com/go-gorm/gorm/issues/4586
-	gormDB = gormDB.Omit(clause.Associations).Session(&gorm.Session{})
-
-	return gormDB
 }
 
 func NewSqlDB(t *testing.T) *sql.DB {
@@ -112,4 +86,8 @@ func NewSqlxDB(t *testing.T) *sqlx.DB {
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db
+}
+
+func MustExec(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) {
+	require.NoError(t, utils.JustError(db.Exec(stmt, args...)))
 }

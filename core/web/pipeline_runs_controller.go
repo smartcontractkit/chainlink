@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -106,7 +105,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 
 	user, isUser := auth.GetAuthenticatedUser(c)
 	ei, _ := auth.GetAuthenticatedExternalInitiator(c)
-	authorizer := webhook.NewAuthorizer(postgres.UnwrapGormDB(prc.App.GetDB()).DB, user, ei)
+	authorizer := webhook.NewAuthorizer(prc.App.GetSqlxDB().DB, user, ei)
 
 	// Is it a UUID? Then process it as a webhook job
 	jobUUID, err := uuid.FromString(idStr)

@@ -81,7 +81,7 @@ func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, input
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
 
-	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		if errors.Cause(err) == utils.ErrDisallowedIP {
 			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")

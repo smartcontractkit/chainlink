@@ -9,10 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm/schema"
-
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
@@ -37,19 +33,6 @@ func init() {
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
-}
-
-func (JSON) GormDataType() string {
-	return "json"
-}
-
-// GormDBDataType gorm db data type
-func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "JSONB"
-	}
-	return ""
 }
 
 // Value returns this instance serialized for database storage.
@@ -478,16 +461,6 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	}
 	*r = collection
 	return nil
-}
-
-// Configuration stores key value pairs for overriding global configuration
-type Configuration struct {
-	ID        int64  `gorm:"primary_key"`
-	Name      string `gorm:"not null;unique;index"`
-	Value     string `gorm:"not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *gorm.DeletedAt
 }
 
 // Merge returns a new map with all keys merged from left to right

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
@@ -57,7 +56,6 @@ type Application interface {
 	Stop() error
 	GetLogger() logger.Logger
 	GetHealthChecker() health.Checker
-	GetDB() *gorm.DB
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
@@ -123,7 +121,6 @@ type ChainlinkApplication struct {
 	HealthChecker            health.Checker
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	gormDB                   *gorm.DB
 	advisoryLock             postgres.Locker
 	leaseLock                postgres.LeaseLock
 	id                       uuid.UUID
@@ -136,7 +133,6 @@ type ApplicationOpts struct {
 	Config                   config.GeneralConfig
 	EventBroadcaster         postgres.EventBroadcaster
 	ShutdownSignal           shutdown.Signal
-	GormDB                   *gorm.DB
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
@@ -155,7 +151,6 @@ type ApplicationOpts struct {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []service.Service
-	gdb := opts.GormDB
 	db := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
@@ -178,7 +173,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	// Use Explorer over TelemetryIngress if both URLs are set
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(), cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging())
+		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
+			cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
 		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 	}
 	subservices = append(subservices, explorerClient, telemetryIngressClient)
@@ -198,11 +194,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger)
-		bridgeORM      = bridges.NewORM(db)
+		bridgeORM      = bridges.NewORM(db, globalLogger)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(db)
+		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -250,7 +246,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			jobORM,
 			pipelineORM,
 			pipelineRunner,
-			gdb,
+			db,
 			chainSet,
 			globalLogger,
 		)
@@ -316,7 +312,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		id:                       opts.ID,
 
 		sqlxDB: opts.SqlxDB,
-		gormDB: opts.GormDB,
 
 		advisoryLock: opts.AdvisoryLock,
 		leaseLock:    opts.LeaseLock,
@@ -358,7 +353,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return logger.NewORM(app.GetSqlxDB()).SetServiceLogLevel(ctx, serviceName, level.String())
+	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -652,10 +647,6 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 
 func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
 	return app.EventBroadcaster
-}
-
-func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.gormDB
 }
 
 func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {

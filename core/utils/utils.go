@@ -30,8 +30,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
 	null "gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 const (
@@ -755,13 +753,6 @@ func (q *BoundedPriorityQueue) Empty() bool {
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
 		*err = errors.Wrap(*err, msg)
-	}
-}
-
-// LogIfError logs an error if not nil
-func LogIfError(err *error, msg string) {
-	if *err != nil {
-		logger.Errorf(msg+": %+v", *err)
 	}
 }
 

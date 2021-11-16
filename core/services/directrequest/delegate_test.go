@@ -72,8 +72,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	runner := new(pipeline_mocks.Runner)
 	broadcaster.On("AddDependents", 1)
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr)

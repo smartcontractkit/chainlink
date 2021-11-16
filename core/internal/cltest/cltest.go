@@ -76,7 +76,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	null "gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -190,7 +189,7 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	return bulletprooftxmanager.NewEthBroadcaster(db, ethClient, config, keyStore, eventBroadcaster,
-		keyStates, gas.NewFixedPriceEstimator(config), nil, lggr)
+		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
 }
 
 func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster {
@@ -200,8 +199,9 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster 
 
 func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
 	t.Helper()
+	lggr := logger.TestLogger(t)
 	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, config, ks, keyStates,
-		gas.NewFixedPriceEstimator(config), fn, logger.TestLogger(t))
+		gas.NewFixedPriceEstimator(config, lggr), fn, lggr)
 	return ec
 }
 
@@ -333,7 +333,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
-	db, gdb, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+	db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
 		Logger:           lggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
@@ -363,7 +363,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(gdb, utils.UnrestrictedClient)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr)
 			}
 
 		}
@@ -398,7 +398,6 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		Config:                   cfg,
 		EventBroadcaster:         eventBroadcaster,
 		ShutdownSignal:           shutdownSignal,
-		GormDB:                   gdb,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
@@ -542,10 +541,11 @@ func (ta *TestApplication) Stop() error {
 	return nil
 }
 
-func (ta *TestApplication) MustSeedNewSession() string {
+func (ta *TestApplication) MustSeedNewSession() (id string) {
 	session := NewSession()
-	require.NoError(ta.t, ta.GetDB().Save(&session).Error)
-	return session.ID
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, last_used, created_at) VALUES ($1, $2, NOW()) RETURNING id`, session.ID, session.LastUsed)
+	require.NoError(ta.t, err)
+	return id
 }
 
 // ImportKey adds private key to the application keystore and database
@@ -887,15 +887,13 @@ const (
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecErrorV2(t *testing.T, db *gorm.DB, jobID int32, count int) []job.SpecError {
+func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job.SpecError {
 	t.Helper()
 
 	g := gomega.NewWithT(t)
 	var jse []job.SpecError
 	g.Eventually(func() []job.SpecError {
-		err := db.
-			Where("job_id = ?", jobID).
-			Find(&jse).Error
+		err := db.Select(&jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
@@ -950,15 +948,13 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 }
 
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
-func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, want int) []pipeline.Run {
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *sqlx.DB, want int) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewWithT(t)
 
 	var prs []pipeline.Run
 	g.Consistently(func() []pipeline.Run {
-		err := db.
-			Where("pipeline_spec_id = ?", pipelineSpecID).
-			Find(&prs).Error
+		err := db.Select(&prs, `SELECT * FROM pipeline_runs WHERE pipeline_spec_id = $1`, pipelineSpecID)
 		assert.NoError(t, err)
 		return prs
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -966,14 +962,14 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db *gorm.DB, wa
 }
 
 // AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
-func AssertEthTxAttemptCountStays(t testing.TB, db *gorm.DB, want int) []bulletprooftxmanager.EthTxAttempt {
-	t.Helper()
+func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []bulletprooftxmanager.EthTxAttempt {
 	g := gomega.NewWithT(t)
 
 	var txas []bulletprooftxmanager.EthTxAttempt
 	var err error
 	g.Consistently(func() []bulletprooftxmanager.EthTxAttempt {
-		err = db.Find(&txas).Error
+		txas = make([]bulletprooftxmanager.EthTxAttempt, 0)
+		err = db.Select(&txas, `SELECT * FROM eth_tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txas
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1183,11 +1179,11 @@ func NewSession(optionalSessionID ...string) clsessions.Session {
 	return session
 }
 
-func AllExternalInitiators(t testing.TB, db *gorm.DB) []bridges.ExternalInitiator {
+func AllExternalInitiators(t testing.TB, db *sqlx.DB) []bridges.ExternalInitiator {
 	t.Helper()
 
 	var all []bridges.ExternalInitiator
-	err := db.Find(&all).Error
+	err := db.Select(&all, `SELECT * FROM external_initiators`)
 	require.NoError(t, err)
 	return all
 }
@@ -1613,35 +1609,35 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	require.Equal(t, expected, count)
 }
 
-func WaitForCount(t testing.TB, db *gorm.DB, model interface{}, want int64) {
+func WaitForCount(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	t.Helper()
 	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Eventually(func() int64 {
-		err = db.Model(model).Count(&count).Error
+		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertCountStays(t testing.TB, db *gorm.DB, model interface{}, want int64) {
+func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	t.Helper()
 	g := gomega.NewWithT(t)
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = db.Model(model).Count(&count).Error
+		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %q`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
-func AssertRecordEventually(t *testing.T, db *gorm.DB, model interface{}, check func() bool) {
+func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt string, check func() bool) {
 	t.Helper()
 	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
-		err := db.Find(model).Error
+		err := db.Get(model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
@@ -1686,4 +1682,8 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	states, err := kst.GetStatesForKeys([]ethkey.KeyV2{key})
 	require.NoError(t, err)
 	return states[0]
+}
+
+func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB) bulletprooftxmanager.ORM {
+	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t))
 }

@@ -3,7 +3,7 @@ package keeper
 import "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 
 type Registry struct {
-	ID                int64 `gorm:"primary_key"`
+	ID                int64
 	BlockCountPerTurn int32
 	CheckGas          int32
 	ContractAddress   ethkey.EIP55Address
@@ -18,7 +18,7 @@ func (Registry) TableName() string {
 }
 
 type UpkeepRegistration struct {
-	ID                  int32 `gorm:"primary_key"`
+	ID                  int32
 	CheckData           []byte
 	ExecuteGas          uint64
 	LastRunBlockHeight  int64

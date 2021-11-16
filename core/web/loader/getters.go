@@ -7,6 +7,7 @@ import (
 	"github.com/graph-gophers/dataloader"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/services/feeds"
 )
 
 // GetChainByID fetches the chain by it's id.
@@ -43,4 +44,21 @@ func GetNodesByChainID(ctx context.Context, id string) ([]types.Node, error) {
 	}
 
 	return nodes, nil
+}
+
+func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.FeedsManagersByIDLoader.Load(ctx, dataloader.StringKey(id))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	mgr, ok := result.(feeds.FeedsManager)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return &mgr, nil
 }

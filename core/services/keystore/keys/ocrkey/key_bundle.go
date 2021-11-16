@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
-	"gorm.io/gorm"
 )
 
 type (
@@ -32,14 +31,14 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash `gorm:"primary_key"`
+		ID                    models.Sha256Hash
 		OnChainSigningAddress OnChainSigningAddress
 		OffChainPublicKey     OffChainPublicKey
 		ConfigPublicKey       ConfigPublicKey
 		EncryptedPrivateKeys  []byte
 		CreatedAt             time.Time
 		UpdatedAt             time.Time
-		DeletedAt             gorm.DeletedAt
+		DeletedAt             *time.Time
 	}
 )
 

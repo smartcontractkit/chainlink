@@ -8,18 +8,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pelletier/go-toml"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
@@ -27,8 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
+
+	"github.com/ethereum/go-ethereum/common"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
@@ -129,6 +129,12 @@ func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
 	cltest.AssertCount(t, app.GetSqlxDB(), "direct_request_specs", int64(n))
 }
 
+func mustInt32FromString(t *testing.T, s string) int32 {
+	i, err := strconv.ParseInt(s, 10, 32)
+	require.NoError(t, err)
+	return int32(i)
+}
+
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetSqlxDB())
@@ -137,6 +143,8 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
 	require.Len(t, pks, 1)
+
+	jorm := app.JobORM()
 	var tt = []struct {
 		name      string
 		toml      string
@@ -152,12 +160,13 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("OffchainreportingOracleSpec").First(&jb, "type = ?", job.OffchainReporting).Error)
-
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, resource.OffChainReportingSpec)
 
 				assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
 				assert.NotEmpty(t, resource.OffChainReportingSpec.P2PPeerID)
@@ -185,14 +194,14 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("KeeperSpec").First(&jb, "type = ?", job.Keeper).Error)
-
 				resource := presenters.JobResource{}
 				b := cltest.ParseResponseBody(t, r)
 				err := web.ParseJSONAPIResponse(b, &resource)
 				require.NoError(t, err)
 				require.NotNil(t, resource.KeeperSpec)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
 				require.NotNil(t, jb.KeeperSpec)
 
 				require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
@@ -209,11 +218,14 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			toml: testspecs.CronSpec,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("CronSpec").First(&jb, "type = ?", job.Cron).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.CronSpec)
+
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				require.Equal(t, "CRON_TZ=UTC * 0 0 1 1 *", jb.CronSpec.CronSchedule)
 			},
@@ -223,11 +235,14 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			toml: testspecs.DirectRequestSpec,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440004'", job.DirectRequest).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.DirectRequestSpec)
+
 				assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				// Sanity check to make sure it inserted correctly
@@ -240,11 +255,14 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			toml: testspecs.DirectRequestSpecWithRequestersAndMinContractPayment,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("DirectRequestSpec").First(&jb, "type = ? AND external_job_id = '123e4567-e89b-12d3-a456-426655440014'", job.DirectRequest).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.DirectRequestSpec)
+
 				assert.Equal(t, "example eth request event spec with requesters and min contract payment", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.NotNil(t, resource.DirectRequestSpec.Requesters)
@@ -260,11 +278,14 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			toml: testspecs.FluxMonitorSpec,
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("FluxMonitorSpec").First(&jb, "type = ?", job.FluxMonitor).Error)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
 				assert.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.FluxMonitorSpec)
+
 				assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.Equal(t, ethkey.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
@@ -279,12 +300,15 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			toml: testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: pks[0].PublicKey.String()}).Toml(),
 			assertion: func(t *testing.T, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
-				jb := job.Job{}
-				require.NoError(t, app.GetDB().Preload("VRFSpec").First(&jb, "type = ?", job.VRF).Error)
 				resp := cltest.ParseResponseBody(t, r)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
+
+				jb, err := jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+				require.NoError(t, err)
+				require.NotNil(t, jb.VRFSpec)
+
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.Equal(t, uint32(6), resource.VRFSpec.MinIncomingConfirmations)
 				assert.Equal(t, jb.VRFSpec.MinIncomingConfirmations, resource.VRFSpec.MinIncomingConfirmations)
@@ -323,14 +347,14 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
-
-	jb := job.Job{}
-	require.NoError(t, app.GetDB().Preload("WebhookSpec").First(&jb).Error)
-
 	resource := presenters.JobResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+
+	jorm := app.JobORM()
+	_, err = jorm.FindJob(context.Background(), mustInt32FromString(t, resource.ID))
+	require.NoError(t, err)
 }
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {

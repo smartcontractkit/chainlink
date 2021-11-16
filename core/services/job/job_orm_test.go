@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/bridges"
+
+	"github.com/pelletier/go-toml"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -14,24 +18,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/pelletier/go-toml"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestORM(t *testing.T) {
 	t.Parallel()
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
 	keyStore := cltest.NewKeyStore(t, db)
 	ethKeyStore := keyStore.Eth()
 
@@ -41,6 +39,7 @@ func TestORM(t *testing.T) {
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	borm := bridges.NewORM(db, logger.TestLogger(t))
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
@@ -139,14 +138,14 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates webhook specs along with external_initiator_webhook_specs", func(t *testing.T) {
-		eiFoo := cltest.MustInsertExternalInitiator(t, gdb)
-		eiBar := cltest.MustInsertExternalInitiator(t, gdb)
+		eiFoo := cltest.MustInsertExternalInitiator(t, borm)
+		eiBar := cltest.MustInsertExternalInitiator(t, borm)
 
 		eiWS := []webhook.TOMLWebhookSpecExternalInitiator{
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(gdb, nil)
+		eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
 		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
 		require.NoError(t, err)
 
@@ -160,8 +159,7 @@ func TestORM(t *testing.T) {
 func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
@@ -227,7 +225,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
-		ei := cltest.MustInsertExternalInitiator(t, gdb)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t)))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
 		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
@@ -241,14 +239,13 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
-		gdb2 := pgtest.NewGormDB(t)
-		db2 := postgres.UnwrapGormDB(gdb2)
-		ei := cltest.MustInsertExternalInitiator(t, gdb2)
-		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db2)
-		_, err := db2.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+		db := pgtest.NewSqlxDB(t)
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t)))
+		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
+		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
 
-		_, err = db2.Exec(`DELETE FROM external_initiators`)
+		_, err = db.Exec(`DELETE FROM external_initiators`)
 		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }
@@ -318,8 +315,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
@@ -353,7 +349,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
-		run := mustInsertPipelineRun(t, gdb, jb)
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
 		runs, count, err := orm.PipelineRuns(nil, 0, 10)
 		require.NoError(t, err)
@@ -376,8 +372,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	t.Parallel()
 
 	config := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
@@ -412,7 +407,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
-		run := mustInsertPipelineRun(t, gdb, jb)
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
 		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
 		require.NoError(t, err)
@@ -430,7 +425,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	})
 }
 
-func mustInsertPipelineRun(t *testing.T, db *gorm.DB, j job.Job) pipeline.Run {
+func mustInsertPipelineRun(t *testing.T, orm pipeline.ORM, j job.Job) pipeline.Run {
 	t.Helper()
 
 	run := pipeline.Run{
@@ -438,8 +433,10 @@ func mustInsertPipelineRun(t *testing.T, db *gorm.DB, j job.Job) pipeline.Run {
 		State:          pipeline.RunStatusRunning,
 		Outputs:        pipeline.JSONSerializable{Valid: false},
 		AllErrors:      pipeline.RunErrors{},
+		CreatedAt:      time.Now(),
 		FinishedAt:     null.Time{},
 	}
-	require.NoError(t, db.Create(&run).Error)
+	err := orm.CreateRun(&run)
+	require.NoError(t, err)
 	return run
 }
