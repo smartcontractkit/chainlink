@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -39,7 +40,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/theodesp/go-heaps/pairing"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
 )
 
 type vrfUniverse struct {

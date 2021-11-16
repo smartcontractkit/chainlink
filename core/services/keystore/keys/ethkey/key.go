@@ -5,10 +5,11 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
-	"gorm.io/datatypes"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
