@@ -319,9 +319,8 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 
 	jbs := createJobs(t, []ethkey.KeyV2{key1, key2}, app, uni)
 
-	// enqueue requests for the other consumers to test that their balance doesn't affect carol's
-	// we're not really going to do anything about these requests, so they'll sit around for a bit
-	// for the duration of the test.
+	// enqueue requests for the other consumers to test that their balance doesn't affect carol's.
+	// These requests will go through but we won't care much about them for this test.
 	for i := 1; i < len(uni.consumerContracts); i++ {
 		_, err := uni.consumerContracts[i].TestRequestRandomness(
 			uni.vrfConsumers[i],
