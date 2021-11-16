@@ -1,13 +1,12 @@
 type JobRun {
     outputs: [String]!
-    errors: [String]!
     allErrors: [String]!
     fatalErrors: [String]!
     inputs: String!
-    createdAt: [Time!]!
-    finishedAt: [Time!]!
-    # taskRuns
-    # pipelineSpec
+    createdAt: Time!
+    finishedAt: Time
+    taskRuns: [TaskRun!]!
+    observationSource: String!
 }
 
 union JobRunPayload = JobRun | NotFoundError

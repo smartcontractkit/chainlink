@@ -85,7 +85,7 @@ func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
 }
 
-func (r *JobResolver) JobRuns(ctx context.Context) ([]*JobRunResolver, error) {
+func (r *JobResolver) Runs(ctx context.Context) ([]*JobRunResolver, error) {
 	runs, err := loader.GetJobRunsByPipelineSpecID(ctx, strconv.Itoa(int(r.j.PipelineSpecID)))
 	if err != nil {
 		return nil, err
