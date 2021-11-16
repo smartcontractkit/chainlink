@@ -89,21 +89,25 @@ type Logger interface {
 	Info(args ...interface{})
 	Warn(args ...interface{})
 	Error(args ...interface{})
-	Fatal(args ...interface{})
+	Critical(args ...interface{})
 	Panic(args ...interface{})
+	Fatal(args ...interface{})
 
 	Debugf(format string, values ...interface{})
 	Infof(format string, values ...interface{})
 	Warnf(format string, values ...interface{})
 	Errorf(format string, values ...interface{})
+	Criticalf(format string, values ...interface{})
+	Panicf(format string, values ...interface{})
 	Fatalf(format string, values ...interface{})
 
 	Debugw(msg string, keysAndValues ...interface{})
 	Infow(msg string, keysAndValues ...interface{})
 	Warnw(msg string, keysAndValues ...interface{})
 	Errorw(msg string, keysAndValues ...interface{})
-	Fatalw(msg string, keysAndValues ...interface{})
+	CriticalW(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
+	Fatalw(msg string, keysAndValues ...interface{})
 
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
@@ -198,7 +202,7 @@ func (l *zapLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) {
 
 func (l *zapLogger) withCallerSkip(skip int) Logger {
 	newLogger := *l
-	newLogger.SugaredLogger = l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
+	newLogger.SugaredLogger = l.sugaredWithCallerSkip(skip)
 	return &newLogger
 }
 
@@ -218,6 +222,18 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 		sentry.CaptureException(err)
 		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
 	}
+}
+
+func (l *zapLogger) Critical(args ...interface{}) {
+	l.sugaredWithCallerSkip(1).DPanic(args...)
+}
+
+func (l *zapLogger) Criticalf(format string, values ...interface{}) {
+	l.sugaredWithCallerSkip(1).DPanicf(format, values...)
+}
+
+func (l *zapLogger) CriticalW(msg string, keysAndValues ...interface{}) {
+	l.sugaredWithCallerSkip(1).DPanicw(msg, keysAndValues...)
 }
 
 func (l *zapLogger) Error(args ...interface{}) {
@@ -401,15 +417,16 @@ func InitColor(c bool) {
 	color.NoColor = !c
 }
 
+// newBaseConfig returns a zap.NewProductionConfig with sampling disabled and a modified level encoder.
 func newBaseConfig() zap.Config {
-	// Copied from zap.NewProductionConfig with sampling disabled
-	return zap.Config{
-		Level:            zap.NewAtomicLevelAt(zapcore.InfoLevel),
-		Development:      false,
-		Sampling:         nil,
-		Encoding:         "json",
-		EncoderConfig:    zap.NewProductionEncoderConfig(),
-		OutputPaths:      []string{"stderr"},
-		ErrorOutputPaths: []string{"stderr"},
+	cfg := zap.NewProductionConfig()
+	cfg.Sampling = nil
+	cfg.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+		if l == zapcore.DPanicLevel {
+			enc.AppendString("crit")
+		} else {
+			zapcore.LowercaseLevelEncoder(l, enc)
+		}
 	}
+	return cfg
 }
