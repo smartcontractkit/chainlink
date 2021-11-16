@@ -3,6 +3,7 @@ package resolver
 import (
 	"testing"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -93,6 +94,67 @@ func TestResolver_UpdateUserPassword(t *testing.T) {
 						}]
 					}
 				}`,
+		},
+		{
+			name:          "failed to clear session error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+				require.True(t, ok)
+				require.NotNil(t, session)
+
+				pwd, err := utils.HashPassword(oldPassword)
+				require.NoError(t, err)
+
+				session.User.HashedPassword = pwd
+
+				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("ClearNonCurrentSessions", session.SessionID).Return(
+					clearSessionsError{},
+				)
+				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: clearSessionsError{},
+					Path:          []interface{}{"updateUserPassword"},
+					Message:       "failed to clear non current user sessions",
+				},
+			},
+		},
+		{
+			name:          "failed to update current user password error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				session, ok := auth.GetGQLAuthenticatedSession(f.Ctx)
+				require.True(t, ok)
+				require.NotNil(t, session)
+
+				pwd, err := utils.HashPassword(oldPassword)
+				require.NoError(t, err)
+
+				session.User.HashedPassword = pwd
+
+				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
+				f.Mocks.sessionsORM.On("ClearNonCurrentSessions", session.SessionID).Return(nil)
+				f.Mocks.sessionsORM.On("SetPassword", session.User, "new").Return(failedPasswordUpdateError{})
+				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: failedPasswordUpdateError{},
+					Path:          []interface{}{"updateUserPassword"},
+					Message:       "failed to update current user password",
+				},
+			},
 		},
 	}
 

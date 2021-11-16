@@ -619,12 +619,12 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	}
 
 	if err = r.App.SessionORM().ClearNonCurrentSessions(session.SessionID); err != nil {
-		return nil, fmt.Errorf("failed to clear non current user sessions: %+v", err)
+		return nil, clearSessionsError{}
 	}
 
 	err = r.App.SessionORM().SetPassword(&dbUser, args.Input.NewPassword)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update current user password: %+v", err)
+		return nil, failedPasswordUpdateError{}
 	}
 
 	return NewUpdatePasswordPayload(session.User, nil), nil

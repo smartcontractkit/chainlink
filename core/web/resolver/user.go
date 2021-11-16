@@ -6,6 +6,18 @@ import (
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
+type clearSessionsError struct{}
+
+func (e clearSessionsError) Error() string {
+	return "failed to clear non current user sessions"
+}
+
+type failedPasswordUpdateError struct{}
+
+func (e failedPasswordUpdateError) Error() string {
+	return "failed to update current user password"
+}
+
 // UserResolver resolves the User type
 type UserResolver struct {
 	user *sessions.User
