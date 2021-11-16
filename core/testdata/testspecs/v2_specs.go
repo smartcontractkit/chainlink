@@ -148,7 +148,6 @@ type VRFSpecParams struct {
 	PublicKey          string
 	ObservationSource  string
 	V2                 bool
-	EVMChainID         int
 }
 
 type VRFSpec struct {
@@ -164,10 +163,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	jobID := "123e4567-e89b-12d3-a456-426655440000"
 	if params.JobID != "" {
 		jobID = params.JobID
-	}
-	evmChainID := 1337
-	if params.EVMChainID != 0 {
-		evmChainID = params.EVMChainID
 	}
 	name := "vrf-primary"
 	if params.Name != "" {
@@ -233,7 +228,6 @@ decode_log->vrf->estimate_gas->simulate
 		observationSource = params.ObservationSource
 	}
 	template := `
-evmChainID = %d
 externalJobID = "%s"
 type = "vrf"
 schemaVersion = 1
@@ -245,7 +239,7 @@ observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, evmChainID, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)
 	if params.FromAddress != "" {
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
@@ -257,7 +251,6 @@ observationSource = """
 		Confirmations:      confirmations,
 		PublicKey:          publicKey,
 		ObservationSource:  observationSource,
-		EVMChainID:         evmChainID,
 	}, toml: toml}
 }
 
