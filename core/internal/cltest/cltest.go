@@ -222,12 +222,9 @@ func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptes
 	upgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool { return true },
 	}
-
-	lggr := logger.TestLogger(t)
-
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		lggr.PanicIf(err, "Failed to upgrade WS connection")
+		require.NoError(t, err, "Failed to upgrade WS connection")
 		for {
 			_, data, err := conn.ReadMessage()
 			if err != nil {
@@ -248,7 +245,7 @@ func NewWSServer(t *testing.T, msg string, callback func(data []byte)) (*httptes
 	t.Cleanup(server.Close)
 
 	u, err := url.Parse(server.URL)
-	lggr.PanicIf(err, "Failed to parse url")
+	require.NoError(t, err, "Failed to parse url")
 	u.Scheme = "ws"
 
 	return server, u.String()
@@ -587,8 +584,8 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 }
 
 func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
-	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{})
 	lggr := logger.TestLogger(ta.t)
+	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.GetConfig(), &cmd.MemoryCookieStore{}, lggr)
 	client := &cmd.Client{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),

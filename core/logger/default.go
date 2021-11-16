@@ -2,7 +2,6 @@ package logger
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"strconv"
@@ -72,10 +71,6 @@ func Warn(args ...interface{}) {
 // Error logs an error message.
 func Error(args ...interface{}) {
 	helper.Error(args...)
-}
-
-func ErrorIfClosing(c io.Closer, name string) {
-	helper.ErrorIfClosing(c, name)
 }
 
 // Errorf logs a message at the error level using Sprintf.

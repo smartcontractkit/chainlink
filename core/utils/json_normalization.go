@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -34,7 +32,6 @@ func NormalizedJSON(val []byte) (string, error) {
 
 	// Wrap the buffer in a normalization writer
 	wc := norm.NFC.Writer(writer)
-	defer logger.ErrorIfClosing(wc, "normalization writer")
 
 	// Now marshal the generic interface
 	if err = marshal(wc, data); err != nil {

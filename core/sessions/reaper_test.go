@@ -30,9 +30,10 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	config := sessionReaperConfig{}
-	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr)
 
-	r := sessions.NewSessionReaper(db.DB, config)
+	r := sessions.NewSessionReaper(db.DB, config, lggr)
 	defer r.Stop()
 
 	tests := []struct {
