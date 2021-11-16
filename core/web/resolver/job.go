@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 // JobResolver resolves the Job type.
@@ -67,7 +69,7 @@ func (r *JobResolver) Name() string {
 
 // ObservationSource resolves the job's observation source.
 //
-// This could potentially by moved to a dataloader in the future as we are
+// This could potentially be moved to a dataloader in the future as we are
 // fetching it from a relationship.
 func (r *JobResolver) ObservationSource() string {
 	return r.j.PipelineSpec.DotDagSource
@@ -81,6 +83,15 @@ func (r *JobResolver) SchemaVersion() int32 {
 // Spec resolves the job's spec.
 func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
+}
+
+func (r *JobResolver) JobRuns(ctx context.Context) ([]*JobRunResolver, error) {
+	runs, err := loader.GetJobRunsByPipelineSpecID(ctx, strconv.Itoa(int(r.j.PipelineSpecID)))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRuns(runs), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs

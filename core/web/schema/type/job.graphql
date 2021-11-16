@@ -5,6 +5,7 @@ type Job {
     maxTaskDuration: String!
     externalJobID: String!
     spec: JobSpec!
+    jobRuns: [JobRun!]!
     observationSource: String!
     errors: [JobError!]!
     createdAt: Time!
