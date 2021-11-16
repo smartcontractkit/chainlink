@@ -12,6 +12,9 @@ type Mailbox struct {
 	chNotify chan struct{}
 	mu       sync.Mutex
 	queue    []interface{}
+
+	// capacity - number of items the mailbox can buffer
+	// NOTE: if the capacity is 1, it's possible that an empty Retrieve may occur after a notification.
 	capacity uint64
 }
 
