@@ -598,13 +598,11 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 }
 
 func (r *Resolver) SetServicesLogLevels(ctx context.Context, args struct {
-	Input struct{ Config *LogLevelConfig }
+	Input struct{ Config LogLevelConfig }
 }) (*SetServicesLogLevelsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
-
-	fmt.Println(*args.Input.Config)
 
 	if args.Input.Config.HeadTracker != nil {
 		inputErrs, err := r.setServiceLogLevel(ctx, logger.HeadTracker, *args.Input.Config.HeadTracker)
@@ -636,7 +634,7 @@ func (r *Resolver) SetServicesLogLevels(ctx context.Context, args struct {
 		}
 	}
 
-	return NewSetServicesLogLevelsPayload(args.Input.Config, nil), nil
+	return NewSetServicesLogLevelsPayload(&args.Input.Config, nil), nil
 }
 
 func (r *Resolver) setServiceLogLevel(ctx context.Context, svcName string, logLvl LogLevel) (map[string]string, error) {

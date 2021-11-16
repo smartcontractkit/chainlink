@@ -22,7 +22,7 @@ input SetServicesLogLevelsInput {
 }
 
 type SetServicesLogLevelsSuccess {
-    config: LogLevelConfig
+    config: LogLevelConfig!
 }
 
 union SetServicesLogLevelsPayload = SetServicesLogLevelsSuccess | InputErrors

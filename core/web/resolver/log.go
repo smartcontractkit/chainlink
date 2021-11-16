@@ -33,10 +33,10 @@ type LogLevelConfig struct {
 }
 
 type LogLevelConfigResolver struct {
-	cfg *LogLevelConfig
+	cfg LogLevelConfig
 }
 
-func NewLogLevelConfig(cfg *LogLevelConfig) *LogLevelConfigResolver {
+func NewLogLevelConfig(cfg LogLevelConfig) *LogLevelConfigResolver {
 	return &LogLevelConfigResolver{cfg}
 }
 
@@ -68,7 +68,7 @@ func (r *SetServicesLogLevelsPayloadResolver) ToSetServicesLogLevelsSuccess() (*
 		return nil, false
 	}
 
-	return NewSetServicesLogLevelsSuccess(r.cfg), true
+	return NewSetServicesLogLevelsSuccess(*r.cfg), true
 }
 
 func (r *SetServicesLogLevelsPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
@@ -86,10 +86,10 @@ func (r *SetServicesLogLevelsPayloadResolver) ToInputErrors() (*InputErrorsResol
 }
 
 type SetServicesLogLevelsSuccessResolver struct {
-	cfg *LogLevelConfig
+	cfg LogLevelConfig
 }
 
-func NewSetServicesLogLevelsSuccess(cfg *LogLevelConfig) *SetServicesLogLevelsSuccessResolver {
+func NewSetServicesLogLevelsSuccess(cfg LogLevelConfig) *SetServicesLogLevelsSuccessResolver {
 	return &SetServicesLogLevelsSuccessResolver{cfg}
 }
 
