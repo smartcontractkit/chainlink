@@ -14,3 +14,16 @@ func WrapRecover(lggr logger.Logger, fn func()) {
 	}()
 	fn()
 }
+
+func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(interface{})) {
+	defer func() {
+		if err := recover(); err != nil {
+			lggr.Errorw("goroutine panicked", "panic", err, "stacktrace", string(debug.Stack()))
+
+			if onPanic != nil {
+				onPanic(err)
+			}
+		}
+	}()
+	fn()
+}

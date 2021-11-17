@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/recovery"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -274,14 +276,24 @@ func (r *runner) run(
 	}
 
 	for taskRun := range scheduler.taskCh {
+		taskRun := taskRun
 		// execute
-		go func(taskRun *memoryTaskRun) {
+		go recovery.WrapRecoverHandle(l, func() {
 			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
 			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(reportCtx, result)
-		}(taskRun)
+		}, func(err interface{}) {
+			t := time.Now()
+			scheduler.report(reportCtx, TaskRunResult{
+				ID:         uuid.NewV4(),
+				Task:       taskRun.task,
+				Result:     Result{Error: ErrRunPanicked{err}},
+				FinishedAt: null.TimeFrom(t),
+				CreatedAt:  t, // TODO: more accurate start time
+			})
+		})
 	}
 
 	// if the run is suspended, awaiting resumption
