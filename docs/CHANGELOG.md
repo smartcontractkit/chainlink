@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
 
+### Added
+
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting
+
 #### New locking mode: 'lease'
 
 Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
