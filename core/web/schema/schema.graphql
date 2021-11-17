@@ -43,4 +43,5 @@ type Mutation {
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
     updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
+    updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
 }
