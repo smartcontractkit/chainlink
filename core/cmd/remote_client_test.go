@@ -483,7 +483,7 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{})
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)

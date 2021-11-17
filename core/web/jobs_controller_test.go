@@ -101,7 +101,6 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 }
 
 func TestJobController_Create_DirectRequest_Fast(t *testing.T) {
-	t.Skip("TODO: fix this: https://app.shortcut.com/chainlinklabs/story/15334/orm-failed-to-load-unclaimed-job-specs-context-timeout")
 	app, client := setupJobsControllerTests(t)
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
