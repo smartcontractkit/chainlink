@@ -154,10 +154,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
 	db, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
-		Logger:           appLggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+		Logger:       appLggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	if err != nil {
 		return nil, err

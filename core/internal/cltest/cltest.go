@@ -331,10 +331,9 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	url := cfg.DatabaseURL()
 	db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })

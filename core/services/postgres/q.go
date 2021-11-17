@@ -6,7 +6,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -58,6 +57,12 @@ func WithQueryer(queryer Queryer) func(q *Q) {
 func WithParentCtx(ctx context.Context) func(q *Q) {
 	return func(q *Q) {
 		q.ParentCtx = ctx
+	}
+}
+
+func WithLogger(lggr logger.Logger) func(q *Q) {
+	return func(q *Q) {
+		q.lggr = lggr
 	}
 }
 
@@ -140,6 +145,7 @@ func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...T
 func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
+	q.logSql(query, args...)
 	return res, cancel, err
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
@@ -160,11 +166,13 @@ func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
+	q.logSql(query, args...)
 	return q.Queryer.SelectContext(ctx, dest, query, args...)
 }
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
+	q.logSql(query, args...)
 	return q.Queryer.GetContext(ctx, dest, query, args...)
 }
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
@@ -174,5 +182,12 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	}
 	ctx, cancel := q.Context()
 	defer cancel()
+	q.logSql(query, args...)
 	return errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query")
+}
+
+func (q Q) logSql(query string, args ...interface{}) {
+	if q.lggr != nil {
+		q.lggr.Sql(query, args...)
+	}
 }

@@ -26,7 +26,7 @@ func init() {
 	unixTS, _ := strconv.ParseBool(os.Getenv("LOG_UNIX_TS"))
 	toDisk, _ := strconv.ParseBool(os.Getenv("LOG_TO_DISK"))
 
-	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS)
+	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS, nil)
 	InitLogger(l)
 }
 

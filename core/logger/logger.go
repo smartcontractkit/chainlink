@@ -10,13 +10,13 @@ package logger
 import (
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"os"
-
 	"github.com/fatih/color"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"io"
+	"log"
+	"os"
+	"strings"
 )
 
 var envLvl = zapcore.InfoLevel
@@ -64,6 +64,8 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 
+	Sql(query string, args ...interface{})
+
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
 
@@ -86,14 +88,15 @@ type zapLogger struct {
 	config zap.Config
 	name   string
 	fields []interface{}
+	logSql func() bool
 }
 
-func newZapLogger(cfg zap.Config) (Logger, error) {
+func newZapLogger(cfg zap.Config, logSql func() bool) (Logger, error) {
 	zl, err := cfg.Build()
 	if err != nil {
 		return nil, err
 	}
-	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar()}, nil
+	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar(), logSql: logSql}, nil
 }
 
 func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
@@ -173,6 +176,21 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 	}
 }
 
+func (l *zapLogger) Sql(query string, args ...interface{}) {
+	if l.logSql != nil && !l.logSql() {
+		return
+	}
+	if args != nil {
+		var pairs []string
+		for i, arg := range args {
+			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+		}
+		replacer := strings.NewReplacer(pairs...)
+		query = replacer.Replace(query)
+	}
+	l.Debugf("SQL: %s", query)
+}
+
 func (l *zapLogger) Sync() error {
 	err := l.SugaredLogger.Sync()
 	if err == nil {
@@ -214,6 +232,7 @@ type Config interface {
 	JSONConsole() bool
 	LogToDisk() bool
 	LogLevel() zapcore.Level
+	LogSQLStatements() bool
 	LogUnixTimestamps() bool
 }
 
@@ -221,13 +240,13 @@ type Config interface {
 // If LogToDisk is false, the Logger will only log to stdout.
 // Tests should use TestLogger instead.
 func NewLogger(c Config) Logger {
-	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
+	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps(), c.LogSQLStatements)
 }
 
-func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool) Logger {
+func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool, logSql func() bool) Logger {
 	cfg := newProductionConfig(dir, jsonConsole, toDisk, unixTS)
 	cfg.Level.SetLevel(logLevel)
-	l, err := newZapLogger(cfg)
+	l, err := newZapLogger(cfg, logSql)
 	if err != nil {
 		log.Fatal(err)
 	}

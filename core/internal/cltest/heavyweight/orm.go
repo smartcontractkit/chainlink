@@ -44,10 +44,9 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	db, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), postgres.Config{
-		Logger:           lggr,
-		LogSQLStatements: gcfg.LogSQLStatements(),
-		MaxOpenConns:     gcfg.ORMMaxOpenConns(),
-		MaxIdleConns:     gcfg.ORMMaxIdleConns(),
+		Logger:       lggr,
+		MaxOpenConns: gcfg.ORMMaxOpenConns(),
+		MaxIdleConns: gcfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() {

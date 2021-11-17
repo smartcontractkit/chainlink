@@ -64,7 +64,7 @@ func MemoryLogTestingOnly() *MemorySink {
 // for test output, and to the buffer testMemoryLog. t is optional.
 // Log level is derived from the LOG_LEVEL env var.
 func TestLogger(t T) Logger {
-	l, err := newZapLogger(newTestConfig())
+	l, err := newZapLogger(newTestConfig(), nil)
 	if err != nil {
 		if t == nil {
 			log.Fatal(err)

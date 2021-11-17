@@ -61,11 +61,11 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], logLevel.String())
+			assert.Equal(t, logLevel.String(), svcLogConfig.LogLevel[i])
 		}
 
 		if svcName == "IsSqlEnabled" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], strconv.FormatBool(sqlEnabled))
+			assert.Equal(t, strconv.FormatBool(sqlEnabled), svcLogConfig.LogLevel[i])
 		}
 	}
 }
