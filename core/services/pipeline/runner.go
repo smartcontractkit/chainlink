@@ -3,10 +3,11 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/recovery"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -264,28 +265,24 @@ func (r *runner) run(
 	go scheduler.Run()
 
 	for taskRun := range scheduler.taskCh {
+		taskRun := taskRun
 		// execute
-		go func(taskRun *memoryTaskRun) {
-			defer func() {
-				if err := recover(); err != nil {
-					l.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
-
-					t := time.Now()
-					scheduler.report(todo, TaskRunResult{
-						ID:         uuid.NewV4(),
-						Task:       taskRun.task,
-						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: null.TimeFrom(t),
-						CreatedAt:  t, // TODO: more accurate start time
-					})
-				}
-			}()
+		go recovery.WrapRecoverHandle(r.lggr, func() {
 			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
 			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(todo, result)
-		}(taskRun)
+		}, func(err interface{}) {
+			t := time.Now()
+			scheduler.report(todo, TaskRunResult{
+				ID:         uuid.NewV4(),
+				Task:       taskRun.task,
+				Result:     Result{Error: ErrRunPanicked{err}},
+				FinishedAt: null.TimeFrom(t),
+				CreatedAt:  t, // TODO: more accurate start time
+			})
+		})
 	}
 
 	// if the run is suspended, awaiting resumption
