@@ -304,8 +304,7 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 		}
 	}
 
-	// Validation checks if a job proposal exists
-	if existing != nil {
+	if err == nil {
 		// Ensure that if the job proposal exists, that it belongs to the feeds manager.
 		if jp.FeedsManagerID != existing.FeedsManagerID {
 			return 0, errors.New("cannot update a job proposal belonging to another feeds manager")

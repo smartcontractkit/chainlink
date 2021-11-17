@@ -130,7 +130,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.True(t, actual.IsOCRBootstrapPeer)
 	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 
-	actual, err = orm.GetManager(-1)
+	_, err = orm.GetManager(-1)
 	require.Error(t, err)
 }
 
@@ -383,7 +383,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		assert.Equal(t, id, actual.ID)
 		assertJobEquals(actual)
 
-		actual, err = orm.GetJobProposal(int64(0))
+		_, err = orm.GetJobProposal(int64(0))
 		require.Error(t, err)
 	})
 
@@ -393,7 +393,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 		assertJobEquals(actual)
 
-		actual, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
+		_, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
 		require.Error(t, err)
 	})
 }
