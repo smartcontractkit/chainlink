@@ -1,7 +1,11 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/pkg/errors"
@@ -92,4 +96,66 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	}
 	defer func() { err = multierr.Combine(err, dst.Close()) }()
 	return EnsureFileMaxPerms(dst, perms)
+}
+
+type FileSize uint64
+
+var fsregex = regexp.MustCompile(`(\d+\.?\d*)(tb|gb|mb|kb|b)?`)
+
+const (
+	KB = 1000
+	MB = 1000 * KB
+	GB = 1000 * MB
+	TB = 1000 * GB
+)
+
+func (s FileSize) MarshalText() ([]byte, error) {
+	if s > TB {
+		return []byte(fmt.Sprintf("%.2ftb", float64(s)/TB)), nil
+	} else if s > GB {
+		return []byte(fmt.Sprintf("%.2fgb", float64(s)/GB)), nil
+	} else if s > MB {
+		return []byte(fmt.Sprintf("%.2fmb", float64(s)/MB)), nil
+	} else if s > KB {
+		return []byte(fmt.Sprintf("%.2fkb", float64(s)/KB)), nil
+	}
+	return []byte(fmt.Sprintf("%db", s)), nil
+}
+
+func (s *FileSize) UnmarshalText(bs []byte) error {
+	matches := fsregex.FindAllStringSubmatch(strings.ToLower(string(bs)), -1)
+	if len(matches) != 1 {
+		return errors.Errorf(`bad filesize: "%v"`, string(bs))
+	} else if len(matches[0]) != 3 {
+		return errors.Errorf(`bad filesize: "%v"`, string(bs))
+	}
+	var (
+		num  = matches[0][1]
+		unit = matches[0][2]
+	)
+	bytes, err := strconv.ParseFloat(num, 64)
+	if err != nil {
+		return err
+	}
+
+	switch unit {
+	case "", "b":
+	case "kb":
+		bytes *= KB
+	case "mb":
+		bytes *= MB
+	case "gb":
+		bytes *= GB
+	case "tb":
+		bytes *= TB
+	default:
+		return errors.Errorf(`bad filesize unit: "%v"`, unit)
+	}
+	*s = FileSize(bytes)
+	return nil
+}
+
+func (s FileSize) String() string {
+	str, _ := s.MarshalText()
+	return string(str)
 }
