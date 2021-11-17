@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/graph-gophers/graphql-go"
@@ -59,7 +58,7 @@ func NewFeedsManager(mgr feeds.FeedsManager) *FeedsManagerResolver {
 }
 
 func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
-	resolvers := []*FeedsManagerResolver{}
+	var resolvers []*FeedsManagerResolver
 	for _, mgr := range mgrs {
 		resolvers = append(resolvers, NewFeedsManager(mgr))
 	}
@@ -69,7 +68,7 @@ func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
 
 // ID resolves the feed managers's unique identifier.
 func (r *FeedsManagerResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(r.mgr.ID, 10))
+	return int64GQLID(r.mgr.ID)
 }
 
 // Name resolves the feed managers's name field.
@@ -89,7 +88,7 @@ func (r *FeedsManagerResolver) PublicKey() string {
 
 // JobTypes resolves the feed managers's jobTypes field.
 func (r *FeedsManagerResolver) JobTypes() []JobType {
-	jts := []JobType{}
+	var jts []JobType
 
 	for _, s := range r.mgr.JobTypes {
 		if jt, err := ToJobType(s); err == nil {
@@ -219,7 +218,7 @@ func (r *CreateFeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorRes
 
 func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		errs := []*InputErrorResolver{}
+		var errs []*InputErrorResolver
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))
@@ -298,7 +297,7 @@ func (r *UpdateFeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorRes
 
 func (r *UpdateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		errs := []*InputErrorResolver{}
+		var errs []*InputErrorResolver
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))
