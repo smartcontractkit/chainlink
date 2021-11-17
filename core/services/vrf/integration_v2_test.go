@@ -639,7 +639,10 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger)
+	chain, err := app.ChainSet.Get(big.NewInt(1337))
+	require.NoError(t, err)
+
+	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger, chain.HeadTracker().LatestChain(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }

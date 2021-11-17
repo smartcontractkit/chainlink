@@ -12,6 +12,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 type Delegate struct {
@@ -119,7 +120,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.db, lV2),
+				respCount:          GetStartingResponseCountsV2(d.db, lV2, chain.HeadTracker().LatestChain(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -146,7 +147,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, lV1),
+				respCount:          getStartingResponseCounts(d.db, lV1, chain.HeadTracker().LatestChain(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -155,23 +156,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64 {
+func getStartingResponseCounts(db *gorm.DB, l logger.Logger, latestHead *eth.Head, evmFinalityDepth uint32) map[[32]byte]uint64 {
 	respCounts := make(map[[32]byte]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-			FROM eth_txes
-			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+
+	countsUnconfirmed, err := getUnconfirmedTransactions(db)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous unconfirmed fulfillments", "err", err)
 		return respCounts
 	}
+
+	// Only check as far back as the evm finality depth.
+	cutoff := latestHead.Number - int64(evmFinalityDepth)
+	countsConfirmed, err := getConfirmedTransactions(db, cutoff)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts
+	}
+
+	counts := append(countsUnconfirmed, countsConfirmed...)
 	for _, c := range counts {
 		// Remove the quotes from the json
 		req := strings.Replace(c.RequestID, `"`, ``, 2)
@@ -188,23 +192,31 @@ func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64
 	return respCounts
 }
 
-func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64 {
-	respCounts := make(map[string]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-			FROM eth_txes
-			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+func GetStartingResponseCountsV2(
+	db *gorm.DB,
+	l logger.Logger,
+	latestHead *eth.Head,
+	evmFinalityDepth uint32,
+) map[string]uint64 {
+	respCounts := map[string]uint64{}
+
+	countsUnconfirmed, err := getUnconfirmedTransactions(db)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous unconfirmed fulfillments", "err", err)
 		return respCounts
 	}
+
+	// Only check as far back as the evm finality depth.
+	cutoffBlockNumber := latestHead.Number - int64(evmFinalityDepth)
+	countsConfirmed, err := getConfirmedTransactions(db, cutoffBlockNumber)
+	if err != nil {
+		// Continue with an empty map, do not block job on this.
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
+		return respCounts
+	}
+
+	counts := append(countsUnconfirmed, countsConfirmed...)
 	for _, c := range counts {
 		// Remove the quotes from the json
 		req := strings.Replace(c.RequestID, `"`, ``, 2)
@@ -214,10 +226,71 @@ func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64
 			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
-		var reqID [32]byte
-		copy(reqID[:], b)
 		bi := new(big.Int).SetBytes(b)
 		respCounts[bi.String()] = uint64(c.Count)
 	}
 	return respCounts
+}
+
+// getUnconfirmedTransactions fetches all the transactions that have an attached VRF request ID
+// that are not yet in a confirmed state and returns a list of (RequestID, count) tuples, which
+// represent the number of times we processed a particular request.
+func getUnconfirmedTransactions(db *gorm.DB) (
+	[]struct {
+		RequestID string
+		Count     int
+	},
+	error,
+) {
+	counts := []struct {
+		RequestID string
+		Count     int
+	}{}
+	// This query should be quick because it will use the idx_eth_txes_state_from_address_evm_chain_id
+	// index, since the quantity of unconfirmed/unstarted/in_progress ttransactions _should_ be small
+	// relative to the rest of the data.
+	query := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et
+WHERE et.meta->'RequestID' IS NOT NULL
+AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
+GROUP BY meta->'RequestID'
+	`
+	err := db.Raw(query).Scan(&counts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return counts, nil
+}
+
+// getConfirmedTransactions fetches all confirmed transactions that have a VRF request ID
+// and that were confirmed later than the given cutoff block number.
+func getConfirmedTransactions(db *gorm.DB, cutoffBlockNumber int64) (
+	[]struct {
+		RequestID string
+		Count     int
+	},
+	error,
+) {
+	counts := []struct {
+		RequestID string
+		Count     int
+	}{}
+	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
+	// a table scan of the eth_txes table, which could be large if it is unpruned.
+	query := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
+	join eth_receipts er on eta.hash = er.tx_hash
+WHERE et.meta->'RequestID' is not null
+AND er.block_number >= ?
+GROUP BY meta->'RequestID'
+	`
+	err := db.Raw(query, cutoffBlockNumber).Scan(&counts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return counts, nil
 }

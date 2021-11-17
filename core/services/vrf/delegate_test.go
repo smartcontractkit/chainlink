@@ -176,7 +176,9 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewGormDB(t)
 	lggr := logger.TestLogger(t)
-	counts := getStartingResponseCounts(db, lggr)
+	counts := getStartingResponseCounts(db, lggr, &eth.Head{
+		Number: 4,
+	}, 3)
 	assert.Equal(t, 0, len(counts))
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
@@ -240,7 +242,9 @@ func TestStartingCounts(t *testing.T) {
 		},
 	}
 	require.NoError(t, db.Create(&txes).Error)
-	counts = getStartingResponseCounts(db, logger.TestLogger(t))
+	counts = getStartingResponseCounts(db, lggr, &eth.Head{
+		Number: 4,
+	}, 3)
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
