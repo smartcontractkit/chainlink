@@ -319,6 +319,8 @@ func (s *stmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driv
 }
 
 func (s stmt) Close() error {
+	s.conn.Lock()
+	defer s.conn.Unlock()
 	return s.st.Close()
 }
 
