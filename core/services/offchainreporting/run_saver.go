@@ -2,7 +2,6 @@ package offchainreporting
 
 import (
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -33,14 +32,12 @@ func (r *RunResultSaver) Start() error {
 			for {
 				select {
 				case run := <-r.runResults:
-					recovery.WrapRecover(r.logger, func() {
-						r.logger.Infow("RunSaver: saving job run", "run", run)
-						// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
-						// are produced and the successful TaskRuns do not provide value.
-						if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
-							r.logger.Errorw("error inserting finished results", "err", err)
-						}
-					})
+					r.logger.Infow("RunSaver: saving job run", "run", run)
+					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
+					// are produced and the successful TaskRuns do not provide value.
+					if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
+						r.logger.Errorw("error inserting finished results", "err", err)
+					}
 				case <-r.done:
 					return
 				}
