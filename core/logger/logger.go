@@ -231,18 +231,6 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 	}
 }
 
-func (l *zapLogger) Critical(args ...interface{}) {
-	l.sugaredWithCallerSkip(1).DPanic(args...)
-}
-
-func (l *zapLogger) Criticalf(format string, values ...interface{}) {
-	l.sugaredWithCallerSkip(1).DPanicf(format, values...)
-}
-
-func (l *zapLogger) CriticalW(msg string, keysAndValues ...interface{}) {
-	l.sugaredWithCallerSkip(1).DPanicw(msg, keysAndValues...)
-}
-
 func (l *zapLogger) Error(args ...interface{}) {
 	hub := sentry.CurrentHub().Clone()
 	hub.ConfigureScope(func(scope *sentry.Scope) {
@@ -428,12 +416,6 @@ func InitColor(c bool) {
 func newBaseConfig() zap.Config {
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
-	cfg.EncoderConfig.EncodeLevel = func(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-		if l == zapcore.DPanicLevel {
-			enc.AppendString("crit")
-		} else {
-			zapcore.LowercaseLevelEncoder(l, enc)
-		}
-	}
+	cfg.EncoderConfig.EncodeLevel = encodeLevel
 	return cfg
 }
