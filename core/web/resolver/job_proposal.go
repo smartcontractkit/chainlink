@@ -50,8 +50,8 @@ func NewJobProposal(jp *feeds.JobProposal) *JobProposalResolver {
 func NewJobProposals(jps []feeds.JobProposal) []*JobProposalResolver {
 	var resolvers []*JobProposalResolver
 
-	for _, jp := range jps {
-		resolvers = append(resolvers, NewJobProposal(&jp))
+	for i := range jps {
+		resolvers = append(resolvers, NewJobProposal(&jps[i]))
 	}
 
 	return resolvers
