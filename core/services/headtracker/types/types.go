@@ -3,9 +3,10 @@ package types
 import (
 	"context"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"go.uber.org/zap/zapcore"
 )
 
 type Tracker interface {
@@ -15,6 +16,7 @@ type Tracker interface {
 	SetLogLevel(lvl zapcore.Level)
 	Ready() error
 	Healthy() error
+	LatestChain() *eth.Head
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
