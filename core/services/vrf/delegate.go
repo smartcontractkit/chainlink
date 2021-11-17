@@ -107,7 +107,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			respCount := GetStartingResponseCountsV2(d.db, lV2, latestHead, chain.Config().EvmFinalityDepth())
 			return []job.Service{&listenerV2{
 				cfg:                chain.Config(),
 				l:                  lV2,
@@ -126,7 +125,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				respCount:          respCount,
+				respCount:          GetStartingResponseCountsV2(d.db, lV2, latestHead, chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
