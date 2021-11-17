@@ -278,6 +278,29 @@ func (_m *ORM) PipelineRuns(jobID *int32, offset int, size int) ([]pipeline.Run,
 	return r0, r1, r2
 }
 
+// PipelineRunsByJobsIDs provides a mock function with given fields: jobsIDs
+func (_m *ORM) PipelineRunsByJobsIDs(jobsIDs []int32) ([]pipeline.Run, error) {
+	ret := _m.Called(jobsIDs)
+
+	var r0 []pipeline.Run
+	if rf, ok := ret.Get(0).(func([]int32) []pipeline.Run); ok {
+		r0 = rf(jobsIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pipeline.Run)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int32) error); ok {
+		r1 = rf(jobsIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // RecordError provides a mock function with given fields: jobID, description, qopts
 func (_m *ORM) RecordError(jobID int32, description string, qopts ...postgres.QOpt) {
 	_va := make([]interface{}, len(qopts))

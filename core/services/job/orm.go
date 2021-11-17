@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"time"
 
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
 
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
@@ -47,6 +48,7 @@ type ORM interface {
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
+	PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error)
 }
 
 type orm struct {
@@ -583,6 +585,24 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 	return jids, errors.Wrap(err, "FindJobIDsWithBridge failed")
 }
 
+// PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
+func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error) {
+	err = postgres.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx postgres.Queryer) error {
+		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
+		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
+
+		if err = tx.Select(&runs, stmt, jobsIDs); err != nil {
+			return errors.Wrap(err, "error loading runs")
+		}
+
+		runs, err = o.loadPipelineRunsRelations(runs, tx)
+
+		return err
+	})
+
+	return runs, errors.Wrap(err, "PipelineRunsByJobsIDs failed")
+}
+
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
@@ -607,50 +627,57 @@ func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run,
 			return errors.Wrap(err, "error loading runs")
 		}
 
-		// Postload PipelineSpecs
-		// TODO: We should pull this out into a generic preload function once go has generics
-		specM := make(map[int32]pipeline.Spec)
-		for _, run := range runs {
-			if _, exists := specM[run.PipelineSpecID]; !exists {
-				specM[run.PipelineSpecID] = pipeline.Spec{}
-			}
-		}
-		specIDs := make([]int32, len(specM))
-		for specID := range specM {
-			specIDs = append(specIDs, specID)
-		}
-		sql = `SELECT pipeline_specs.*, jobs.id AS job_id FROM pipeline_specs JOIN jobs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
-		var specs []pipeline.Spec
-		if err = o.db.Select(&specs, sql, specIDs); err != nil {
-			return errors.Wrap(err, "error loading specs")
-		}
-		for _, spec := range specs {
-			specM[spec.ID] = spec
-		}
-		runM := make(map[int64]*pipeline.Run, len(runs))
-		for i, run := range runs {
-			runs[i].PipelineSpec = specM[run.PipelineSpecID]
-			runM[run.ID] = &runs[i]
-		}
+		runs, err = o.loadPipelineRunsRelations(runs, tx)
 
-		// Postload PipelineTaskRuns
-		runIDs := make([]int64, len(runs))
-		for i, run := range runs {
-			runIDs[i] = run.ID
-		}
-		var taskRuns []pipeline.TaskRun
-		sql = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = ANY($1) ORDER BY pipeline_run_id, created_at, id;`
-		if err = tx.Select(&taskRuns, sql, runIDs); err != nil {
-			return errors.Wrap(err, "error loading pipeline_task_runs")
-		}
-		for _, taskRun := range taskRuns {
-			run := runM[taskRun.PipelineRunID]
-			run.PipelineTaskRuns = append(run.PipelineTaskRuns, taskRun)
-		}
-		return nil
+		return err
 	})
 
 	return runs, count, errors.Wrap(err, "PipelineRuns failed")
+}
+
+func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx postgres.Queryer) ([]pipeline.Run, error) {
+	// Postload PipelineSpecs
+	// TODO: We should pull this out into a generic preload function once go has generics
+	specM := make(map[int32]pipeline.Spec)
+	for _, run := range runs {
+		if _, exists := specM[run.PipelineSpecID]; !exists {
+			specM[run.PipelineSpecID] = pipeline.Spec{}
+		}
+	}
+	specIDs := make([]int32, len(specM))
+	for specID := range specM {
+		specIDs = append(specIDs, specID)
+	}
+	stmt := `SELECT pipeline_specs.*, jobs.id AS job_id FROM pipeline_specs JOIN jobs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
+	var specs []pipeline.Spec
+	if err := o.db.Select(&specs, stmt, specIDs); err != nil {
+		return nil, errors.Wrap(err, "error loading specs")
+	}
+	for _, spec := range specs {
+		specM[spec.ID] = spec
+	}
+	runM := make(map[int64]*pipeline.Run, len(runs))
+	for i, run := range runs {
+		runs[i].PipelineSpec = specM[run.PipelineSpecID]
+		runM[run.ID] = &runs[i]
+	}
+
+	// Postload PipelineTaskRuns
+	runIDs := make([]int64, len(runs))
+	for i, run := range runs {
+		runIDs[i] = run.ID
+	}
+	var taskRuns []pipeline.TaskRun
+	stmt = `SELECT * FROM pipeline_task_runs WHERE pipeline_run_id = ANY($1) ORDER BY pipeline_run_id, created_at, id;`
+	if err := tx.Select(&taskRuns, stmt, runIDs); err != nil {
+		return nil, errors.Wrap(err, "error loading pipeline_task_runs")
+	}
+	for _, taskRun := range taskRuns {
+		run := runM[taskRun.PipelineRunID]
+		run.PipelineTaskRuns = append(run.PipelineTaskRuns, taskRun)
+	}
+
+	return runs, nil
 }
 
 // NOTE: N+1 query, be careful of performance
