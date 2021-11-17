@@ -1,12 +1,7 @@
 package presenters
 
 import (
-	"encoding/json"
-	"fmt"
-	"math/big"
 	"time"
-
-	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -39,64 +34,19 @@ func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunReso
 	for i := range pr.PipelineTaskRuns {
 		trs = append(trs, NewPipelineTaskRunResource(pr.PipelineTaskRuns[i]))
 	}
-	// The UI expects all outputs to be strings.
-	var outputs []*string
-	// Note for async jobs, Outputs can be nil/invalid
-	if pr.Outputs.Valid {
-		outs, ok := pr.Outputs.Val.([]interface{})
-		if !ok {
-			lggr.Errorw(fmt.Sprintf("Unable to process output type %T", pr.Outputs.Val), "out", pr.Outputs)
-		} else if pr.Outputs.Valid && pr.Outputs.Val != nil {
-			for _, out := range outs {
-				switch v := out.(type) {
-				case string:
-					s := v
-					outputs = append(outputs, &s)
-				case map[string]interface{}:
-					b, _ := json.Marshal(v)
-					bs := string(b)
-					outputs = append(outputs, &bs)
-				case decimal.Decimal:
-					s := v.String()
-					outputs = append(outputs, &s)
-				case *big.Int:
-					s := v.String()
-					outputs = append(outputs, &s)
-				case float64:
-					s := fmt.Sprintf("%f", v)
-					outputs = append(outputs, &s)
-				case nil:
-					outputs = append(outputs, nil)
-				default:
-					lggr.Errorw(fmt.Sprintf("Unable to process output type %T", out), "out", out)
-				}
-			}
-		}
+
+	outputs, err := pr.StringOutputs()
+	if err != nil {
+		lggr.Errorw(err.Error(), "out", pr.Outputs)
 	}
-	var fatalErrors []*string
-	for _, err := range pr.FatalErrors {
-		if err.Valid {
-			s := err.String
-			fatalErrors = append(fatalErrors, &s)
-		} else {
-			fatalErrors = append(fatalErrors, nil)
-		}
-	}
-	var allErrors []*string
-	for _, err := range pr.AllErrors {
-		if err.Valid {
-			s := err.String
-			allErrors = append(allErrors, &s)
-		} else {
-			allErrors = append(allErrors, nil)
-		}
-	}
+
+	fatalErrors := pr.StringFatalErrors()
 
 	return PipelineRunResource{
 		JAID:         NewJAIDInt64(pr.ID),
 		Outputs:      outputs,
 		Errors:       fatalErrors,
-		AllErrors:    allErrors,
+		AllErrors:    pr.StringAllErrors(),
 		FatalErrors:  fatalErrors,
 		Inputs:       pr.Inputs,
 		TaskRuns:     trs,

@@ -1,0 +1,9 @@
+type TaskRun {
+    id: ID!
+    dotID: String!
+    type: String!
+    output: String!
+    error: String
+    createdAt: Time!
+    finishedAt: Time
+}
