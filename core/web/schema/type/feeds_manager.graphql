@@ -10,6 +10,7 @@ type FeedsManager {
 	publicKey: String!
 	jobTypes: [JobType!]!
 	isBootstrapPeer: Boolean!
+	jobProposals: [JobProposal!]!
 	bootstrapPeerMultiaddr: String
 	isConnectionActive: Boolean!
 	createdAt: Time!

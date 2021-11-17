@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -443,6 +444,25 @@ func Test_Service_ListJobProposals(t *testing.T) {
 		Return(jps, nil)
 
 	actual, err := svc.ListJobProposals()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, jps)
+}
+
+func Test_Service_GetJobProposalByManagersIDs(t *testing.T) {
+	t.Parallel()
+
+	var (
+		jp    = feeds.JobProposal{}
+		jps   = []feeds.JobProposal{jp}
+		fmIDs = []int64{1}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposalByManagersIDs", fmIDs).
+		Return(jps, nil)
+
+	actual, err := svc.GetJobProposalByManagersIDs(fmIDs)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, jps)
