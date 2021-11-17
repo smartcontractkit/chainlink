@@ -252,7 +252,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "Create success",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(nil, sql.ErrNoRows)
+				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
