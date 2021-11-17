@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
@@ -129,12 +130,8 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		}()
-		go func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		}()
+		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
+		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
 }
@@ -200,11 +197,13 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.newHead:
-			toProcess := lsn.extractConfirmedLogs()
-			for _, r := range toProcess {
-				lsn.ProcessRequest(r.req, r.lb)
-			}
-			lsn.pruneConfirmedRequestCounts()
+			recovery.WrapRecover(lsn.l, func() {
+				toProcess := lsn.extractConfirmedLogs()
+				for _, r := range toProcess {
+					lsn.ProcessRequest(r.req, r.lb)
+				}
+				lsn.pruneConfirmedRequestCounts()
+			})
 		}
 	}
 }
@@ -232,7 +231,9 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				recovery.WrapRecover(lsn.l, func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}

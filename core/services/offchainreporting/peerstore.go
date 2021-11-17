@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -83,9 +84,11 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.WriteToDB(); err != nil {
-				p.lggr.Errorw("Error writing peerstore to DB", "err", err)
-			}
+			recovery.WrapRecover(p.lggr, func() {
+				if err := p.WriteToDB(); err != nil {
+					p.lggr.Errorw("Error writing peerstore to DB", "err", err)
+				}
+			})
 		}
 	}
 }
