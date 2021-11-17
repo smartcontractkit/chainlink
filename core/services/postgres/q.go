@@ -6,6 +6,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"

@@ -10,13 +10,14 @@ package logger
 import (
 	"errors"
 	"fmt"
-	"github.com/fatih/color"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"io"
 	"log"
 	"os"
 	"strings"
+
+	"github.com/fatih/color"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var envLvl = zapcore.InfoLevel
