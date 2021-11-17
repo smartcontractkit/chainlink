@@ -28,6 +28,10 @@ func NewJobRuns(runs []pipeline.Run) []*JobRunResolver {
 	return resolvers
 }
 
+func (r *JobRunResolver) ID() graphql.ID {
+	return graphql.ID(strconv.Itoa(int(r.run.ID)))
+}
+
 func (r *JobRunResolver) Outputs() []*string {
 	if !r.run.Outputs.Valid {
 		return []*string{&outputRetrievalErrorStr}

@@ -1,4 +1,5 @@
 type JobRun {
+    id: ID!
     outputs: [String]!
     allErrors: [String!]!
     fatalErrors: [String!]!
