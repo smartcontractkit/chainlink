@@ -62,6 +62,7 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	ec := new(eth_mocks.Client)
 	ec.Test(t)
 	ec.On("ChainID").Return(big.NewInt(0))
+	ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(&eth.Head{Number: 5}, nil)
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 

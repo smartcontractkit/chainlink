@@ -406,4 +406,3 @@ func (*NullTracker) Ready() error   { return nil }
 func (*NullTracker) Healthy() error { return nil }
 
 func (*NullTracker) SetLogLevel(zapcore.Level) {}
-func (*NullTracker) LatestChain() *eth.Head    { return nil }

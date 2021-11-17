@@ -16,7 +16,6 @@ type Tracker interface {
 	SetLogLevel(lvl zapcore.Level)
 	Ready() error
 	Healthy() error
-	LatestChain() *eth.Head
 }
 
 // HeadTrackable represents any object that wishes to respond to ethereum events,
