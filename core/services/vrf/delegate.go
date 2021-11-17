@@ -147,7 +147,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, lV1, chain.HeadTracker().LatestChain(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.db, lV1, chain.HeadTracker().LatestChain(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -156,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func getStartingResponseCounts(db *gorm.DB, l logger.Logger, latestHead *eth.Head, evmFinalityDepth uint32) map[[32]byte]uint64 {
+func GetStartingResponseCountsV1(db *gorm.DB, l logger.Logger, latestHead *eth.Head, evmFinalityDepth uint32) map[[32]byte]uint64 {
 	respCounts := map[[32]byte]uint64{}
 
 	// Only check as far back as the evm finality depth.
