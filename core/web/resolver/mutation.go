@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
-	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/lib/pq"
@@ -27,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
@@ -49,11 +49,11 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 
 	var webURL models.WebURL
 	if len(args.Input.URL) != 0 {
-		url, err := url.ParseRequestURI(args.Input.URL)
+		rURL, err := url.ParseRequestURI(args.Input.URL)
 		if err != nil {
 			return nil, err
 		}
-		webURL = models.WebURL(*url)
+		webURL = models.WebURL(*rURL)
 	}
 	minContractPayment := &assets.Link{}
 	if err := minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment)); err != nil {
@@ -72,7 +72,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		return nil, err
 	}
 	orm := r.App.BridgeORM()
-	if err = ValidateBridgeType(btr, orm); err != nil {
+	if err = ValidateBridgeType(btr); err != nil {
 		return nil, err
 	}
 	if err = ValidateBridgeTypeUniqueness(btr, orm); err != nil {
@@ -180,11 +180,11 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 
 	var webURL models.WebURL
 	if len(args.Input.URL) != 0 {
-		url, err := url.ParseRequestURI(args.Input.URL)
+		rURL, err := url.ParseRequestURI(args.Input.URL)
 		if err != nil {
 			return nil, err
 		}
-		webURL = models.WebURL(*url)
+		webURL = models.WebURL(*rURL)
 	}
 	minContractPayment := &assets.Link{}
 	if err := minContractPayment.UnmarshalText([]byte(args.Input.MinimumContractPayment)); err != nil {
@@ -214,7 +214,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	}
 
 	// Update the bridge
-	if err := ValidateBridgeType(btr, orm); err != nil {
+	if err := ValidateBridgeType(btr); err != nil {
 		return nil, err
 	}
 
@@ -242,7 +242,7 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ func (r *Resolver) UpdateJobProposalSpec(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +567,7 @@ func (r *Resolver) executeJobProposalAction(ctx context.Context, action jobPropo
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(action.jpID), 10, 64)
+	id, err := stringutils.ToInt64(string(action.jpID))
 	if err != nil {
 		return nil, err
 	}
@@ -688,4 +688,18 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 	}
 
 	return NewUpdatePasswordPayload(session.User, nil), nil
+}
+
+func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
+	Input struct{ Enabled bool }
+}) (*SetSQLLoggingPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := r.App.GetConfig().SetLogSQLStatements(args.Input.Enabled); err != nil {
+		return nil, err
+	}
+
+	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
 }

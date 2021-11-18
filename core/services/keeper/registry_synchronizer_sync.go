@@ -139,7 +139,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
 	if err != nil {
-		rs.jrm.RecordError(rs.job.ID, err.Error())
+		rs.jrm.TryRecordError(rs.job.ID, err.Error())
 		return Registry{}, errors.Wrap(err, "failed to get contract config")
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)

@@ -309,7 +309,28 @@ func (_m *ORM) PipelineRunsByJobsIDs(jobsIDs []int32) ([]pipeline.Run, error) {
 }
 
 // RecordError provides a mock function with given fields: jobID, description, qopts
-func (_m *ORM) RecordError(jobID int32, description string, qopts ...pg.QOpt) {
+func (_m *ORM) RecordError(jobID int32, description string, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID, description)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int32, string, ...pg.QOpt) error); ok {
+		r0 = rf(jobID, description, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TryRecordError provides a mock function with given fields: jobID, description, qopts
+func (_m *ORM) TryRecordError(jobID int32, description string, qopts ...pg.QOpt) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

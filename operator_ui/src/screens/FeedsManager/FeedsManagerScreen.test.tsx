@@ -6,9 +6,11 @@ import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'support/test-utils'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 
-import { buildFeedsManager } from 'support/factories/feedsManager'
-import { FeedsManagerScreen } from './FeedsManagerScreen'
-import { FEEDS_MANAGERS_QUERY } from 'src/hooks/useFeedsManagersQuery'
+import {
+  FeedsManagerScreen,
+  FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
+} from './FeedsManagerScreen'
+import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 
 const { findByText } = screen
 
@@ -31,7 +33,7 @@ describe('FeedsManagerScreen', () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: FEEDS_MANAGERS_QUERY,
+          query: FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
         },
         result: {
           data: {
@@ -56,7 +58,7 @@ describe('FeedsManagerScreen', () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: FEEDS_MANAGERS_QUERY,
+          query: FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
         },
         result: {
           data: {
@@ -77,7 +79,7 @@ describe('FeedsManagerScreen', () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: FEEDS_MANAGERS_QUERY,
+          query: FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
         },
         result: {
           errors: [new GraphQLError('Error!')],
