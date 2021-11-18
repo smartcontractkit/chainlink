@@ -1502,7 +1502,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx.State)
 
 		// Got the new attempt
 		attempt1_4 = etx.EthTxAttempts[0]
@@ -1601,7 +1601,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	// Set BroadcastBeforeBlockNum again so the next test will pick it up
 	require.NoError(t, db.Get(&attempt2_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_2.ID))
 
-	t.Run("assumes that 'nonce too low' error means success", func(t *testing.T) {
+	t.Run("assumes that 'nonce too low' error means confirmed_missing_receipt", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
@@ -1625,7 +1625,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx2.State)
 
 		// One new attempt saved
 		require.Len(t, etx2.EthTxAttempts, 3)

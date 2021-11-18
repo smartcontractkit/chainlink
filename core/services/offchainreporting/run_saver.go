@@ -56,7 +56,7 @@ func (r *RunResultSaver) Close() error {
 		for {
 			select {
 			case run := <-r.runResults:
-				r.logger.Infow("RunSaver: saving job run before exiting", "run", run, "task results")
+				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
 				if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}

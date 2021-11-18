@@ -55,7 +55,7 @@ func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func
 		if AllowUnknownQueryerTypeInTransaction {
 			err = fc(q)
 		} else {
-			err = errors.Errorf("invalid db type")
+			err = errors.Errorf("invalid db type: %T", q)
 		}
 	}
 

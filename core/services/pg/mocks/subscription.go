@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 )
 
