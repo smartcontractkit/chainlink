@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	_ "github.com/smartcontractkit/chainlink/core/services/postgres"
+	_ "github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	webhookmocks "github.com/smartcontractkit/chainlink/core/services/webhook/mocks"
 )

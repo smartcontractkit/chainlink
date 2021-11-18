@@ -2,7 +2,7 @@ package webhook_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newBridgeORM(t *testing.T, db *sqlx.DB, cfg postgres.LogConfig) bridges.ORM {
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
 	return bridges.NewORM(db, logger.TestLogger(t), cfg)
 }
 

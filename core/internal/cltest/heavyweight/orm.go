@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	migrations "github.com/smartcontractkit/chainlink/core/store/migrate"
 	"github.com/smartcontractkit/sqlx"
@@ -43,7 +43,7 @@ func FullTestDB(t *testing.T, name string, migrate bool, loadFixtures bool) (*co
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(gcfg.DatabaseURL(), name)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	db, err := postgres.NewConnection(migrationTestDBURL, string(dialects.Postgres), postgres.Config{
+	db, err := pg.NewConnection(migrationTestDBURL, string(dialects.Postgres), pg.Config{
 		Logger:       lggr,
 		MaxOpenConns: gcfg.ORMMaxOpenConns(),
 		MaxIdleConns: gcfg.ORMMaxIdleConns(),

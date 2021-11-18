@@ -20,7 +20,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -261,7 +261,7 @@ type ChainSetOpts struct {
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Eth
-	EventBroadcaster postgres.EventBroadcaster
+	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests

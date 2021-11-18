@@ -9,6 +9,10 @@ import (
 
 	"github.com/pelletier/go-toml"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -21,9 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestORM(t *testing.T) {
@@ -413,6 +414,64 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, count, 1)
+		actual := runs[0]
+
+		// Test pipeline run fields
+		assert.Equal(t, run.State, actual.State)
+		assert.Equal(t, run.PipelineSpecID, actual.PipelineSpecID)
+
+		// Test preloaded pipeline spec
+		assert.Equal(t, jb.PipelineSpec.ID, actual.PipelineSpec.ID)
+		assert.Equal(t, jb.ID, actual.PipelineSpec.JobID)
+	})
+}
+
+func Test_PipelineRunsByJobsIDs(t *testing.T) {
+	t.Parallel()
+
+	config := cltest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+
+	keyStore := cltest.NewKeyStore(t, db)
+	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
+	require.NoError(t, err)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+
+	externalJobID := uuid.NewV4()
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	jb, err := offchainreporting.ValidatedOracleSpecToml(cc,
+		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+			JobID:              externalJobID.String(),
+			TransmitterAddress: address.Hex(),
+			DS1BridgeName:      bridge.Name.String(),
+			DS2BridgeName:      bridge2.Name.String(),
+		}).Toml(),
+	)
+	require.NoError(t, err)
+
+	err = orm.CreateJob(&jb)
+	require.NoError(t, err)
+
+	t.Run("with no pipeline runs", func(t *testing.T) {
+		runs, err := orm.PipelineRunsByJobsIDs([]int32{jb.ID})
+		require.NoError(t, err)
+		assert.Equal(t, len(runs), 0)
+		assert.Empty(t, runs)
+	})
+
+	t.Run("with a pipeline run", func(t *testing.T) {
+		run := mustInsertPipelineRun(t, pipelineORM, jb)
+
+		runs, err := orm.PipelineRunsByJobsIDs([]int32{jb.ID})
+		require.NoError(t, err)
+
+		assert.Equal(t, len(runs), 1)
 		actual := runs[0]
 
 		// Test pipeline run fields

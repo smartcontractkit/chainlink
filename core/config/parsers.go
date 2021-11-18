@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func ParseString(str string) (interface{}, error) {
@@ -75,6 +76,12 @@ func ParseIP(s string) (interface{}, error) {
 
 func ParseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func ParseFileSize(s string) (interface{}, error) {
+	var fs utils.FileSize
+	err := fs.UnmarshalText([]byte(s))
+	return fs, err
 }
 
 func ParseBool(s string) (interface{}, error) {

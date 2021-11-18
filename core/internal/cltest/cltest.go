@@ -57,8 +57,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
@@ -192,9 +192,9 @@ func NewEthBroadcaster(t testing.TB, db *sqlx.DB, ethClient eth.Client, keyStore
 		keyStates, gas.NewFixedPriceEstimator(config, lggr), nil, lggr)
 }
 
-func NewEventBroadcaster(t testing.TB, dbURL url.URL) postgres.EventBroadcaster {
+func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	lggr := logger.TestLogger(t)
-	return postgres.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
+	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.NewV4())
 }
 
 func NewEthConfirmer(t testing.TB, db *sqlx.DB, ethClient eth.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, keyStates []ethkey.State, fn bulletprooftxmanager.ResumeCallback) *bulletprooftxmanager.EthConfirmer {
@@ -326,11 +326,11 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	lggr := logger.TestLogger(t)
 
-	var eventBroadcaster postgres.EventBroadcaster = postgres.NewNullEventBroadcaster()
+	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 	shutdownSignal := shutdown.NewSignal()
 
 	url := cfg.DatabaseURL()
-	db, err := postgres.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), postgres.Config{
+	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
 		Logger:       lggr,
 		MaxOpenConns: cfg.ORMMaxOpenConns(),
 		MaxIdleConns: cfg.ORMMaxIdleConns(),
@@ -354,7 +354,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 				panic("cannot set more than one chain")
 			}
 			chainORM = evmtest.NewMockORM([]evmtypes.Chain{dep})
-		case postgres.EventBroadcaster:
+		case pg.EventBroadcaster:
 			eventBroadcaster = dep
 		default:
 			switch flag {
