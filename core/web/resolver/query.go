@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	stringutils "github.com/smartcontractkit/chainlink/core/utils/string_utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 // Bridge retrieves a bridges by name.

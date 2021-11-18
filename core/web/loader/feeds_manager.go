@@ -7,7 +7,7 @@ import (
 	"github.com/graph-gophers/dataloader"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	stringutils "github.com/smartcontractkit/chainlink/core/utils/string_utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 type feedsBatcher struct {

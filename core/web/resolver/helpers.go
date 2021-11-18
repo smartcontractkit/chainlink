@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	stringutils "github.com/smartcontractkit/chainlink/core/utils/string_utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 const (
