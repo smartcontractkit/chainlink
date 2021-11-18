@@ -9,9 +9,7 @@ contract EthBalanceMonitorExposed is EthBalanceMonitor {
     EthBalanceMonitor(keeperRegistryAddress, minWaitPeriod)
   {}
 
-  function setLastTopUpXXXTestOnly(address target, uint56 lastTopUpTimestamp)
-    external
-  {
+  function setLastTopUpXXXTestOnly(address target, uint56 lastTopUpTimestamp) external {
     s_targets[target].lastTopUpTimestamp = lastTopUpTimestamp;
   }
 }

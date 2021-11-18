@@ -62,10 +62,16 @@ describe('EthBalanceMonitor', () => {
     watchAddress5 = accounts[3].address
     watchAddress6 = accounts[4].address
 
-    const bmFactory = await ethers.getContractFactory("EthBalanceMonitorExposed", owner)
-    const rrFactory = await ethers.getContractFactory("ReceiveReverter", owner)
-    const reFactory = await ethers.getContractFactory("ReceiveEmitter", owner)
-    const rfeFactory = await ethers.getContractFactory("ReceiveFallbackEmitter", owner)
+    const bmFactory = await ethers.getContractFactory(
+      'EthBalanceMonitorExposed',
+      owner,
+    )
+    const rrFactory = await ethers.getContractFactory('ReceiveReverter', owner)
+    const reFactory = await ethers.getContractFactory('ReceiveEmitter', owner)
+    const rfeFactory = await ethers.getContractFactory(
+      'ReceiveFallbackEmitter',
+      owner,
+    )
 
     bm = await bmFactory.deploy(keeperRegistry.address, 0)
     receiveReverter = await rrFactory.deploy()
@@ -488,7 +494,7 @@ describe('EthBalanceMonitor', () => {
         await assertWatchlistBalances(0, 0, 0, 0, 10_000, 10_000)
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(validPayload, {gasLimit: 2_500_000})
+          .performUpkeep(validPayload, { gasLimit: 2_500_000 })
         await performTx.wait()
         await assertWatchlistBalances(2, 2, 2, 0, 10_000, 10_000)
       })
@@ -497,7 +503,7 @@ describe('EthBalanceMonitor', () => {
         await assertWatchlistBalances(0, 0, 0, 0, 10_000, 10_000)
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(invalidPayload, {gasLimit: 2_500_000})
+          .performUpkeep(invalidPayload, { gasLimit: 2_500_000 })
         await performTx.wait()
         await assertWatchlistBalances(2, 2, 0, 0, 10_000, 10_000)
       })
@@ -523,7 +529,7 @@ describe('EthBalanceMonitor', () => {
         )
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(payload, {gasLimit: 2_500_000})
+          .performUpkeep(payload, { gasLimit: 2_500_000 })
         await performTx.wait()
         await assertWatchlistBalances(2, 2, 0, 0, 10_000, 10_000)
         await h.assertBalance(receiveReverter.address, 0)
@@ -550,7 +556,7 @@ describe('EthBalanceMonitor', () => {
         await assertWatchlistBalances(0, 0, 0, 0, 10_000, 10_000)
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(validPayload, {gasLimit: 2_500_000})
+          .performUpkeep(validPayload, { gasLimit: 2_500_000 })
         await performTx.wait()
         await assertWatchlistBalances(2, 0, 2, 0, 10_000, 10_000)
       })
@@ -566,7 +572,7 @@ describe('EthBalanceMonitor', () => {
         await assertWatchlistBalances(0, 0, 0, 0, 10_000, 10_000)
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(validPayload, {gasLimit: 130_000}) // too little for all 3 transfers
+          .performUpkeep(validPayload, { gasLimit: 130_000 }) // too little for all 3 transfers
         await performTx.wait()
         const balance1 = await ethers.provider.getBalance(watchAddress1)
         const balance2 = await ethers.provider.getBalance(watchAddress2)
@@ -595,14 +601,24 @@ describe('EthBalanceMonitor', () => {
           )
         await setTx.wait()
 
-        const reBalanceBefore = await ethers.provider.getBalance(receiveEmitter.address)
-        const rfeBalanceBefore = await ethers.provider.getBalance(receiveFallbackEmitter.address)
+        const reBalanceBefore = await ethers.provider.getBalance(
+          receiveEmitter.address,
+        )
+        const rfeBalanceBefore = await ethers.provider.getBalance(
+          receiveFallbackEmitter.address,
+        )
 
         const performTx = await bm
           .connect(keeperRegistry)
-          .performUpkeep(payload, {gasLimit: 2_500_000})
-        await h.assertBalance(receiveEmitter.address, reBalanceBefore.add(twoEth))
-        await h.assertBalance(receiveFallbackEmitter.address, rfeBalanceBefore.add(twoEth))
+          .performUpkeep(payload, { gasLimit: 2_500_000 })
+        await h.assertBalance(
+          receiveEmitter.address,
+          reBalanceBefore.add(twoEth),
+        )
+        await h.assertBalance(
+          receiveFallbackEmitter.address,
+          rfeBalanceBefore.add(twoEth),
+        )
 
         await expect(performTx)
           .to.emit(bm, 'TopUpSucceeded')

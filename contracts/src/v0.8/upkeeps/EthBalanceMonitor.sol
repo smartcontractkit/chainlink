@@ -10,11 +10,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
  * @title The EthBalanceMonitor contract
  * @notice A keeper-compatible contract that monitors and funds eth addresses
  */
-contract EthBalanceMonitor is
-  ConfirmedOwner,
-  Pausable,
-  KeeperCompatibleInterface
-{
+contract EthBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
   // observed limit of 45K + 10k buffer
   uint256 private constant MIN_GAS_FOR_TRANSFER = 55_000;
 
@@ -23,10 +19,7 @@ contract EthBalanceMonitor is
   event TopUpSucceeded(address indexed recipient);
   event TopUpFailed(address indexed recipient);
   event KeeperRegistryAddressUpdated(address oldAddress, address newAddress);
-  event MinWaitPeriodUpdated(
-    uint256 oldMinWaitPeriod,
-    uint256 newMinWaitPeriod
-  );
+  event MinWaitPeriodUpdated(uint256 oldMinWaitPeriod, uint256 newMinWaitPeriod);
 
   error InvalidWatchList();
   error OnlyKeeperRegistry();
@@ -48,9 +41,7 @@ contract EthBalanceMonitor is
    * @param keeperRegistryAddress The address of the keeper registry contract
    * @param minWaitPeriodSeconds The minimum wait period for addresses between funding
    */
-  constructor(address keeperRegistryAddress, uint256 minWaitPeriodSeconds)
-    ConfirmedOwner(msg.sender)
-  {
+  constructor(address keeperRegistryAddress, uint256 minWaitPeriodSeconds) ConfirmedOwner(msg.sender) {
     setKeeperRegistryAddress(keeperRegistryAddress);
     setMinWaitPeriodSeconds(minWaitPeriodSeconds);
   }
@@ -65,11 +56,8 @@ contract EthBalanceMonitor is
     address[] calldata addresses,
     uint96[] calldata minBalancesWei,
     uint96[] calldata topUpAmountsWei
-  ) external onlyOwner() {
-    if (
-      addresses.length != minBalancesWei.length ||
-      addresses.length != topUpAmountsWei.length
-    ) {
+  ) external onlyOwner {
+    if (addresses.length != minBalancesWei.length || addresses.length != topUpAmountsWei.length) {
       revert InvalidWatchList();
     }
     address[] memory oldWatchList = s_watchList;
@@ -131,7 +119,7 @@ contract EthBalanceMonitor is
    * @notice Send funds to the addresses provided
    * @param needsFunding the list of addresses to fund (addresses must be pre-approved)
    */
-  function topUp(address[] memory needsFunding) public whenNotPaused() {
+  function topUp(address[] memory needsFunding) public whenNotPaused {
     uint256 minWaitPeriodSeconds = s_minWaitPeriodSeconds;
     Target memory target;
     for (uint256 idx = 0; idx < needsFunding.length; idx++) {
@@ -143,9 +131,7 @@ contract EthBalanceMonitor is
       ) {
         bool success = payable(needsFunding[idx]).send(target.topUpAmountWei);
         if (success) {
-          s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(
-            block.timestamp
-          );
+          s_targets[needsFunding[idx]].lastTopUpTimestamp = uint56(block.timestamp);
           emit TopUpSucceeded(needsFunding[idx]);
         } else {
           emit TopUpFailed(needsFunding[idx]);
@@ -165,7 +151,7 @@ contract EthBalanceMonitor is
     external
     view
     override
-    whenNotPaused()
+    whenNotPaused
     returns (bool upkeepNeeded, bytes memory performData)
   {
     address[] memory needsFunding = getUnderfundedAddresses();
@@ -178,12 +164,7 @@ contract EthBalanceMonitor is
    * @notice Called by keeper to send funds to underfunded addresses
    * @param performData The abi encoded list of addresses to fund
    */
-  function performUpkeep(bytes calldata performData)
-    external
-    override
-    onlyKeeperRegistry()
-    whenNotPaused()
-  {
+  function performUpkeep(bytes calldata performData) external override onlyKeeperRegistry whenNotPaused {
     address[] memory needsFunding = abi.decode(performData, (address[]));
     topUp(needsFunding);
   }
@@ -193,10 +174,7 @@ contract EthBalanceMonitor is
    * @param amount The amount of eth (in wei) to withdraw
    * @param payee The address to pay
    */
-  function withdraw(uint256 amount, address payable payee)
-    external
-    onlyOwner()
-  {
+  function withdraw(uint256 amount, address payable payee) external onlyOwner {
     require(payee != address(0));
     emit FundsWithdrawn(amount, payee);
     payee.transfer(amount);
@@ -212,22 +190,16 @@ contract EthBalanceMonitor is
   /**
    * @notice Sets the keeper registry address
    */
-  function setKeeperRegistryAddress(address keeperRegistryAddress)
-    public
-    onlyOwner()
-  {
+  function setKeeperRegistryAddress(address keeperRegistryAddress) public onlyOwner {
     require(keeperRegistryAddress != address(0));
-    emit KeeperRegistryAddressUpdated(
-      s_keeperRegistryAddress,
-      keeperRegistryAddress
-    );
+    emit KeeperRegistryAddressUpdated(s_keeperRegistryAddress, keeperRegistryAddress);
     s_keeperRegistryAddress = keeperRegistryAddress;
   }
 
   /**
    * @notice Sets the minimum wait period (in seconds) for addresses between funding
    */
-  function setMinWaitPeriodSeconds(uint256 period) public onlyOwner() {
+  function setMinWaitPeriodSeconds(uint256 period) public onlyOwner {
     emit MinWaitPeriodUpdated(s_minWaitPeriodSeconds, period);
     s_minWaitPeriodSeconds = period;
   }
@@ -235,11 +207,7 @@ contract EthBalanceMonitor is
   /**
    * @notice Gets the keeper registry address
    */
-  function getKeeperRegistryAddress()
-    external
-    view
-    returns (address keeperRegistryAddress)
-  {
+  function getKeeperRegistryAddress() external view returns (address keeperRegistryAddress) {
     return s_keeperRegistryAddress;
   }
 
@@ -271,25 +239,20 @@ contract EthBalanceMonitor is
     )
   {
     Target memory target = s_targets[targetAddress];
-    return (
-      target.isActive,
-      target.minBalanceWei,
-      target.topUpAmountWei,
-      target.lastTopUpTimestamp
-    );
+    return (target.isActive, target.minBalanceWei, target.topUpAmountWei, target.lastTopUpTimestamp);
   }
 
   /**
    * @notice Pauses the contract, which prevents executing performUpkeep
    */
-  function pause() external onlyOwner() {
+  function pause() external onlyOwner {
     _pause();
   }
 
   /**
    * @notice Unpauses the contract
    */
-  function unpause() external onlyOwner() {
+  function unpause() external onlyOwner {
     _unpause();
   }
 
