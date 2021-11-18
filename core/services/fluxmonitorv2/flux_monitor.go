@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/recovery"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -21,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -265,9 +266,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go shutdown.WrapRecover(fm.logger, func() {
-			fm.consume()
-		})
+		go fm.consume()
 
 		return nil
 	})
@@ -387,38 +386,52 @@ func (fm *FluxMonitor) consume() {
 			return
 
 		case <-fm.chProcessLogs:
-			fm.processLogs()
+			recovery.WrapRecover(fm.logger, fm.processLogs)
 
 		case at := <-fm.pollManager.PollTickerTicks():
 			tickLogger.Debugf("Poll ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
+			})
 
 		case at := <-fm.pollManager.IdleTimerTicks():
 			tickLogger.Debugf("Idle timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(fm.logger), nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(fm.logger), nil)
+			})
 
 		case at := <-fm.pollManager.RoundTimerTicks():
 			tickLogger.Debugf("Round timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
+			})
 
 		case at := <-fm.pollManager.HibernationTimerTicks():
 			tickLogger.Debugf("Hibernation timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(fm.logger), nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(fm.logger), nil)
+			})
 
 		case at := <-fm.pollManager.RetryTickerTicks():
 			tickLogger.Debugf("Retry ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(fm.logger), nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(fm.logger), nil)
+			})
 
 		case at := <-fm.pollManager.DrumbeatTicks():
 			tickLogger.Debugf("Drumbeat ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(fm.logger), nil)
+			recovery.WrapRecover(fm.logger, func() {
+				fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(fm.logger), nil)
+			})
 
 		case request := <-fm.pollManager.Poll():
 			switch request.Type {
 			case PollRequestTypeUnknown:
 				break
 			default:
-				fm.pollIfEligible(request.Type, fm.deviationChecker, nil)
+				recovery.WrapRecover(fm.logger, func() {
+					fm.pollIfEligible(request.Type, fm.deviationChecker, nil)
+				})
 			}
 		}
 	}

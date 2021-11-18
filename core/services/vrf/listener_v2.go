@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/recovery"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -25,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -104,14 +105,11 @@ func (lsn *listenerV2) Start() error {
 		})
 
 		// Log listener gathers request logs
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
-		})
+		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runRequestHandler(spec.PollPeriod)
-		})
+		go lsn.runRequestHandler(spec.PollPeriod)
+
 		return nil
 	})
 }
@@ -449,7 +447,9 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListenerV2: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				recovery.WrapRecover(lsn.l, func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}

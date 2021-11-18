@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/recovery"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -131,12 +132,8 @@ func (lsn *listenerV1) Start() error {
 		if latestHead != nil {
 			lsn.setLatestHead(*latestHead)
 		}
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
-		})
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.Confirmations)
+		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
 }
@@ -202,11 +199,13 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.newHead:
-			toProcess := lsn.extractConfirmedLogs()
-			for _, r := range toProcess {
-				lsn.ProcessRequest(r.req, r.lb)
-			}
-			lsn.pruneConfirmedRequestCounts()
+			recovery.WrapRecover(lsn.l, func() {
+				toProcess := lsn.extractConfirmedLogs()
+				for _, r := range toProcess {
+					lsn.ProcessRequest(r.req, r.lb)
+				}
+				lsn.pruneConfirmedRequestCounts()
+			})
 		}
 	}
 }

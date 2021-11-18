@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/shutdown"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -70,9 +70,7 @@ func (p *Pstorewrapper) Start() error {
 		if err != nil {
 			return errors.Wrap(err, "could not start peerstore wrapper")
 		}
-		go shutdown.WrapRecover(p.lggr, func() {
-			p.dbLoop()
-		})
+		go p.dbLoop()
 		return nil
 	})
 }
@@ -86,9 +84,11 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.WriteToDB(); err != nil {
-				p.lggr.Errorw("Error writing peerstore to DB", "err", err)
-			}
+			recovery.WrapRecover(p.lggr, func() {
+				if err := p.WriteToDB(); err != nil {
+					p.lggr.Errorw("Error writing peerstore to DB", "err", err)
+				}
+			})
 		}
 	}
 }

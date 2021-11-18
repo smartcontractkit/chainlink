@@ -13,7 +13,6 @@ type signal struct {
 }
 
 type Signal interface {
-	Panic()
 	Wait() <-chan struct{}
 }
 
@@ -34,13 +33,6 @@ func (p *signal) Stop() {
 	p.stopOnce.Do(func() {
 		close(p.ch)
 	})
-}
-
-func (p *signal) Panic() {
-	if HardPanic {
-		panic("panic")
-	}
-	p.Stop()
 }
 
 func (p *signal) Wait() <-chan struct{} {
