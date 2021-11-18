@@ -59,6 +59,7 @@ type Application interface {
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
+	SetLogSql(enabled bool)
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
@@ -338,6 +339,11 @@ func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
 	return nil
 }
 
+func (app *ChainlinkApplication) SetLogSql(enabled bool) {
+	app.Config.SetLogSQLStatements(enabled)
+	app.logger.SetLogSqlEnabled(enabled)
+}
+
 // SetServiceLogLevel sets the Logger level for a given service and stores the setting in the db.
 func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, serviceName string, level zapcore.Level) error {
 	// TODO: Implement other service loggers
@@ -579,7 +585,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					utils.NewHash().Bytes()},                 // requestID
+					utils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      utils.NewHash(),

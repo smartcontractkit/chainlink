@@ -41,7 +41,6 @@ func (l *nullLogger) Warnw(msg string, keysAndValues ...interface{})  {}
 func (l *nullLogger) Errorw(msg string, keysAndValues ...interface{}) {}
 func (l *nullLogger) Fatalw(msg string, keysAndValues ...interface{}) {}
 func (l *nullLogger) Panicw(msg string, keysAndValues ...interface{}) {}
-func (l *nullLogger) Sql(query string, args ...interface{})           {}
 func (l *nullLogger) WarnIf(err error, msg string)                    {}
 func (l *nullLogger) ErrorIf(err error, msg string)                   {}
 func (l *nullLogger) PanicIf(err error, msg string)                   {}

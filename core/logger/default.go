@@ -25,8 +25,9 @@ func init() {
 	jsonConsole, _ := strconv.ParseBool(os.Getenv("JSON_CONSOLE"))
 	unixTS, _ := strconv.ParseBool(os.Getenv("LOG_UNIX_TS"))
 	toDisk, _ := strconv.ParseBool(os.Getenv("LOG_TO_DISK"))
+	logSql, _ := strconv.ParseBool(os.Getenv("LOG_SQL"))
 
-	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS, nil)
+	l := newLogger(envLvl, os.Getenv("ROOT"), jsonConsole, toDisk, unixTS, logSql)
 	InitLogger(l)
 }
 
