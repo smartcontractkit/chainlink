@@ -98,3 +98,67 @@ func TestResolver_SetServiceLogLevel(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_SetSQLLogging(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation SetSQLLogging($input: SetSQLLoggingInput!) {
+			setSQLLogging(input: $input) {
+				... on SetSQLLoggingSuccess {
+					sqlLogging {
+						enabled
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"enabled": true,
+		},
+	}
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "setSQLLogging"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("SetLogSQLStatements", true).Return(nil)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"setSQLLogging": {
+						"sqlLogging": {
+							"enabled": true
+						}
+					}
+				}`,
+		},
+		{
+			name:          "general set sql log error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.cfg.On("SetLogSQLStatements", true).Return(gError)
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"setSQLLogging"},
+					Message:       "error",
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
