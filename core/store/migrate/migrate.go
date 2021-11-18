@@ -15,7 +15,7 @@ import (
 	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 )
 
@@ -35,14 +35,14 @@ func init() {
 
 // Ensure we migrated from v1 migrations to goose_migrations
 func ensureMigrated(db *sql.DB, lggr logger.Logger) {
-	sqlxDB := postgres.WrapDbWithSqlx(db)
+	sqlxDB := pg.WrapDbWithSqlx(db)
 	var names []string
 	err := sqlxDB.Select(&names, `SELECT id FROM migrations`)
 	if err != nil {
 		// already migrated
 		return
 	}
-	err = postgres.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
+	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		// ensure that no legacy job specs are present: we _must_ bail out early if
 		// so because otherwise we run the risk of dropping working jobs if the
 		// user has not read the release notes
@@ -69,7 +69,7 @@ func ensureMigrated(db *sql.DB, lggr logger.Logger) {
 	}
 	// insert records for existing migrations
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
-	err = postgres.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
+	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		for _, name := range names {
 			var id int64
 			// the first migration doesn't follow the naming convention

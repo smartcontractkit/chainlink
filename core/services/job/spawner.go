@@ -10,7 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -24,7 +24,7 @@ type (
 	// has 1 or more of these services associated with it.
 	Spawner interface {
 		service.Service
-		CreateJob(jb *Job, qopts ...postgres.QOpt) error
+		CreateJob(jb *Job, qopts ...pg.QOpt) error
 		DeleteJob(ctx context.Context, jobID int32) error
 		ActiveJobs() map[int32]Job
 
@@ -165,7 +165,7 @@ func (js *spawner) StartService(spec Job) error {
 		js.lggr.Errorw("Error creating services for job", "jobID", spec.ID, "error", err)
 		ctx, cancel := utils.ContextFromChan(js.chStop)
 		defer cancel()
-		js.orm.RecordError(spec.ID, err.Error(), postgres.WithParentCtx(ctx))
+		js.orm.RecordError(spec.ID, err.Error(), pg.WithParentCtx(ctx))
 		js.activeJobs[spec.ID] = aj
 		return nil
 	}
@@ -185,14 +185,14 @@ func (js *spawner) StartService(spec Job) error {
 }
 
 // Should not get called before Start()
-func (js *spawner) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
+func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	delegate, exists := js.jobTypeDelegates[jb.Type]
 	if !exists {
 		js.lggr.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
 		return errors.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
 	}
 
-	q := postgres.NewQ(js.db, qopts...)
+	q := pg.NewQ(js.db, qopts...)
 	if q.ParentCtx != nil {
 		ctx, cancel := utils.CombinedContext(js.chStop, q.ParentCtx)
 		defer cancel()
@@ -203,8 +203,8 @@ func (js *spawner) CreateJob(jb *Job, qopts ...postgres.QOpt) error {
 		q.ParentCtx = ctx
 	}
 
-	err := q.Transaction(js.lggr, func(tx postgres.Queryer) error {
-		err := js.orm.CreateJob(jb, postgres.WithQueryer(tx))
+	err := q.Transaction(js.lggr, func(tx pg.Queryer) error {
+		err := js.orm.CreateJob(jb, pg.WithQueryer(tx))
 		if err != nil {
 			js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
 			return err
@@ -251,7 +251,7 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	combctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
 
-	err := js.orm.DeleteJob(jobID, postgres.WithParentCtx(combctx))
+	err := js.orm.DeleteJob(jobID, pg.WithParentCtx(combctx))
 	if err != nil {
 		js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err

@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 //go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
@@ -95,7 +95,7 @@ func (ks *p2p) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(tx postgres.Queryer) error {
+	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
 		_, err2 := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
 		return err2
 	})

@@ -4,7 +4,7 @@ package mocks
 
 import (
 	uuid "github.com/satori/go.uuid"
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,18 +14,18 @@ type TxStrategy struct {
 }
 
 // PruneQueue provides a mock function with given fields: q
-func (_m *TxStrategy) PruneQueue(q postgres.Queryer) (int64, error) {
+func (_m *TxStrategy) PruneQueue(q pg.Queryer) (int64, error) {
 	ret := _m.Called(q)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(postgres.Queryer) int64); ok {
+	if rf, ok := ret.Get(0).(func(pg.Queryer) int64); ok {
 		r0 = rf(q)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(postgres.Queryer) error); ok {
+	if rf, ok := ret.Get(1).(func(pg.Queryer) error); ok {
 		r1 = rf(q)
 	} else {
 		r1 = ret.Error(1)

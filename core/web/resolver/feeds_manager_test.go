@@ -74,9 +74,10 @@ func Test_FeedsManagers(t *testing.T) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
 				f.Mocks.feedsSvc.On("GetJobProposalByManagersIDs", []int64{1}).Return([]feeds.JobProposal{
 					{
-						ID:     int64(1),
-						Spec:   `[type=median retries=3 minBackoff="10ms" maxBackoff="10ms" index=0]`,
-						Status: feeds.JobProposalStatusApproved,
+						ID:             int64(100),
+						FeedsManagerID: int64(1),
+						Spec:           `[type=median retries=3 minBackoff="10ms" maxBackoff="10ms" index=0]`,
+						Status:         feeds.JobProposalStatusApproved,
 					},
 				}, nil)
 				f.Mocks.feedsSvc.On("ListManagers").Return([]feeds.FeedsManager{
@@ -108,7 +109,7 @@ func Test_FeedsManagers(t *testing.T) {
 							"isConnectionActive": true,
 							"createdAt": "2021-01-01T00:00:00Z",
 							"jobProposals": [{
-								"id": "1",
+								"id": "100",
 								"spec": "[type=median retries=3 minBackoff=\"10ms\" maxBackoff=\"10ms\" index=0]",
 								"status": "APPROVED"
 							}]

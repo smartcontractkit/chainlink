@@ -12,7 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/sqlx"
@@ -87,8 +87,8 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	q := postgres.NewQ(m.db)
-	err = q.Transaction(m.lggr, func(tx postgres.Queryer) error {
+	q := pg.NewQ(m.db)
+	err = q.Transaction(m.lggr, func(tx pg.Queryer) error {
 		if err = tx.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
 			if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
 				return err
@@ -110,7 +110,7 @@ func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []jo
 	return
 }
 
-func (m externalInitiatorManager) eagerLoadExternalInitiator(q postgres.Queryer, txs []job.ExternalInitiatorWebhookSpec) error {
+func (m externalInitiatorManager) eagerLoadExternalInitiator(q pg.Queryer, txs []job.ExternalInitiatorWebhookSpec) error {
 	var ids []int64
 	for _, tx := range txs {
 		ids = append(ids, tx.ExternalInitiatorID)
@@ -165,7 +165,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 
 func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
 	var exi bridges.ExternalInitiator
-	q := postgres.NewQ(m.db)
+	q := pg.NewQ(m.db)
 	err := q.Get(&exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
 	return exi, err
 }

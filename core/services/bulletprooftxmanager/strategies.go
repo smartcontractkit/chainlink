@@ -3,7 +3,7 @@ package bulletprooftxmanager
 import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -12,7 +12,7 @@ type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(q postgres.Queryer) (n int64, err error)
+	PruneQueue(q pg.Queryer) (n int64, err error)
 	// Simulate indicates whether this transaction can be safely simulated using eth_call
 	// Simulating transactions before send and aborting on revert can save gas
 	// BE CAREFUL - not all transaction types are safe to simulate, e.g. if
@@ -41,9 +41,9 @@ type SendEveryStrategy struct {
 	simulate bool
 }
 
-func (SendEveryStrategy) Subject() uuid.NullUUID                     { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(postgres.Queryer) (int64, error) { return 0, nil }
-func (s SendEveryStrategy) Simulate() bool                           { return s.simulate }
+func (SendEveryStrategy) Subject() uuid.NullUUID               { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(pg.Queryer) (int64, error) { return 0, nil }
+func (s SendEveryStrategy) Simulate() bool                     { return s.simulate }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -63,8 +63,8 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(q postgres.Queryer) (n int64, err error) {
-	ctx, cancel := postgres.DefaultQueryCtx()
+func (s DropOldestStrategy) PruneQueue(q pg.Queryer) (n int64, err error) {
+	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
 	res, err := q.ExecContext(ctx, `
 DELETE FROM eth_txes

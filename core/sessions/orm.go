@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -83,9 +83,9 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 
 // DeleteUser will delete the API User in the db.
 func (o *orm) DeleteUser() error {
-	ctx, cancel := postgres.DefaultQueryCtx()
+	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
-	return postgres.SqlxTransaction(ctx, o.db, o.lggr, func(tx postgres.Queryer) error {
+	return pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
 		if _, err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}

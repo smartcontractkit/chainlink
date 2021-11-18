@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -301,11 +301,11 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = postgres.NewQ(lsn.db).Transaction(lsn.l, func(tx postgres.Queryer) error {
-			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err != nil {
+		err = pg.NewQ(lsn.db).Transaction(lsn.l, func(tx pg.Queryer) error {
+			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
-			if err = lsn.logBroadcaster.MarkConsumed(req.lb, postgres.WithQueryer(tx)); err != nil {
+			if err = lsn.logBroadcaster.MarkConsumed(req.lb, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
 			_, err = lsn.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
@@ -319,7 +319,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 				},
 				MinConfirmations: null.Uint32From(uint32(lsn.cfg.MinRequiredOutgoingConfirmations())),
 				Strategy:         bulletprooftxmanager.NewSendEveryStrategy(false), // We already simd
-			}, postgres.WithQueryer(tx))
+			}, pg.WithQueryer(tx))
 			return err
 		})
 		if err != nil {

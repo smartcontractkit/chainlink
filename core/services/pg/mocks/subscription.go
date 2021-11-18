@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -32,15 +32,15 @@ func (_m *Subscription) Close() {
 }
 
 // Events provides a mock function with given fields:
-func (_m *Subscription) Events() <-chan postgres.Event {
+func (_m *Subscription) Events() <-chan pg.Event {
 	ret := _m.Called()
 
-	var r0 <-chan postgres.Event
-	if rf, ok := ret.Get(0).(func() <-chan postgres.Event); ok {
+	var r0 <-chan pg.Event
+	if rf, ok := ret.Get(0).(func() <-chan pg.Event); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan postgres.Event)
+			r0 = ret.Get(0).(<-chan pg.Event)
 		}
 	}
 
@@ -48,11 +48,11 @@ func (_m *Subscription) Events() <-chan postgres.Event {
 }
 
 // InterestedIn provides a mock function with given fields: event
-func (_m *Subscription) InterestedIn(event postgres.Event) bool {
+func (_m *Subscription) InterestedIn(event pg.Event) bool {
 	ret := _m.Called(event)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(postgres.Event) bool); ok {
+	if rf, ok := ret.Get(0).(func(pg.Event) bool); ok {
 		r0 = rf(event)
 	} else {
 		r0 = ret.Get(0).(bool)
@@ -62,6 +62,6 @@ func (_m *Subscription) InterestedIn(event postgres.Event) bool {
 }
 
 // Send provides a mock function with given fields: event
-func (_m *Subscription) Send(event postgres.Event) {
+func (_m *Subscription) Send(event pg.Event) {
 	_m.Called(event)
 }
