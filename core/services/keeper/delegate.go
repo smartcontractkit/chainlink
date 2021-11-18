@@ -9,15 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
 type transmitter interface {
-	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...postgres.QOpt) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type Delegate struct {

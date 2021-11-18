@@ -1,4 +1,4 @@
-package postgres
+package pg
 
 // BatchSize is the default number of DB records to access in one batch
 const BatchSize uint = 1000

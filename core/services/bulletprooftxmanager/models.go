@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
-	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
+	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

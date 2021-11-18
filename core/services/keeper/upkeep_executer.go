@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
@@ -210,7 +210,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, postgres.WithParentCtx(ctxService))
+		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, pg.WithParentCtx(ctxService))
 		if err != nil {
 			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}

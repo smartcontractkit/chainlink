@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -63,7 +63,7 @@ type service struct {
 
 	orm         ORM
 	jobORM      job.ORM
-	queryer     postgres.Queryer
+	queryer     pg.Queryer
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
 	p2pKeyStore keystore.P2P
@@ -79,7 +79,7 @@ type service struct {
 func NewService(
 	orm ORM,
 	jobORM job.ORM,
-	queryer postgres.Queryer,
+	queryer pg.Queryer,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	cfg Config,
@@ -197,7 +197,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
-	err := s.orm.UpdateManager(mgr, postgres.WithParentCtx(ctx))
+	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
 	}
@@ -339,7 +339,7 @@ func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
 }
 
 func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	jp, err := s.orm.GetJobProposal(id, postgres.WithParentCtx(ctx))
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Wrap(err, "job proposal does not exist")
@@ -353,7 +353,7 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 	}
 
 	// Update the spec
-	if err = s.orm.UpdateJobProposalSpec(id, spec, postgres.WithParentCtx(ctx)); err != nil {
+	if err = s.orm.UpdateJobProposalSpec(id, spec, pg.WithParentCtx(ctx)); err != nil {
 		return errors.Wrap(err, "could not update job proposal")
 	}
 
@@ -361,7 +361,7 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 }
 
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(id, postgres.WithParentCtx(ctx))
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal error")
 	}
@@ -380,14 +380,14 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
+	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
 		// Create the job
-		if err = s.jobSpawner.CreateJob(j, postgres.WithQueryer(tx)); err != nil {
+		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
 		// Approve the job
-		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, postgres.WithQueryer(tx)); err != nil {
+		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -408,7 +408,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(id, postgres.WithParentCtx(ctx))
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
 	}
@@ -422,8 +422,8 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
-		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, postgres.WithQueryer(tx)); err != nil {
+	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
+		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -443,11 +443,11 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
-	return s.orm.IsJobManaged(jobID, postgres.WithParentCtx(ctx))
+	return s.orm.IsJobManaged(jobID, pg.WithParentCtx(ctx))
 }
 
 func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(id, postgres.WithParentCtx(ctx))
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
 	}
@@ -461,10 +461,10 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, pg.DefaultQueryTimeout)
 	defer cancel()
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
-		if err = s.orm.CancelJobProposal(id, postgres.WithQueryer(tx)); err != nil {
+	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
+		if err = s.orm.CancelJobProposal(id, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
