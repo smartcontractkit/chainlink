@@ -2,7 +2,7 @@ import * as React from 'react'
 import { render, screen } from 'support/test-utils'
 
 import { EditFeedsManagerView } from './EditFeedsManagerView'
-import { buildFeedsManager } from 'support/factories/feedsManager'
+import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagers'
 
 const { getByTestId, getByText } = screen
 
