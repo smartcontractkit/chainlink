@@ -8,7 +8,8 @@ import (
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
+
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	uuid "github.com/satori/go.uuid"

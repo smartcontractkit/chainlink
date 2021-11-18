@@ -470,12 +470,12 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 
 		// Delete the job
 		var j job.Job
-		j, err = s.jobORM.FindJobByExternalJobID(ctx, jp.ExternalJobID.UUID)
+		j, err = s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pg.WithQueryer(tx))
 		if err != nil {
 			return errors.Wrap(err, "job does not exist")
 		}
 
-		if err = s.jobSpawner.DeleteJob(ctx, j.ID); err != nil {
+		if err = s.jobSpawner.DeleteJob(j.ID, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 

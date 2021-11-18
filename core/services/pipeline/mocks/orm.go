@@ -5,9 +5,10 @@ package mocks
 import (
 	context "context"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
+
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
