@@ -10,10 +10,8 @@ import {
   Props as FormProps,
 } from 'components/Form/FeedsManagerForm'
 
-import { FeedsManager } from 'types/generated/graphql'
-
 type Props = {
-  data: FeedsManager
+  data: any // This is a hack to fix the typecheck until we can merged the fix
 } & Pick<FormProps, 'onSubmit'>
 
 export const EditFeedsManagerView: React.FC<Props> = ({ data, onSubmit }) => {
