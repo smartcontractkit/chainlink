@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -728,4 +729,32 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	}
 
 	return NewCreateAPITokenPayload(newToken, nil), nil
+}
+
+func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
+	Input struct{ Password string }
+}) (*DeleteAPITokenPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	dbUser, err := r.App.SessionORM().FindUser()
+	if err != nil {
+		return nil, err
+	}
+
+	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+		return NewDeleteAPITokenPayload(nil, map[string]string{
+			"password": "incorrect password",
+		}), nil
+	}
+
+	err = r.App.SessionORM().DeleteAuthToken(&dbUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteAPITokenPayload(&auth.Token{
+		AccessKey: dbUser.TokenKey.String,
+	}, nil), nil
 }

@@ -12,3 +12,19 @@ type CreateAPITokenSuccess {
 }
 
 union CreateAPITokenPayload = CreateAPITokenSuccess | InputErrors
+
+input DeleteAPITokenInput {
+    password: String!
+}
+
+type DeleteAPITokenResult {
+    accessKey: String!
+    # Not returning the secret since it is hashed in the DB
+    # so not sure if we want to return that...
+}
+
+type DeleteAPITokenSuccess {
+    token: DeleteAPITokenResult!
+}
+
+union DeleteAPITokenPayload = DeleteAPITokenSuccess | InputErrors

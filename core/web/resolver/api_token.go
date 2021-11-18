@@ -62,3 +62,48 @@ func NewCreateAPITokenSuccess(token *auth.Token) *CreateAPITokenSuccessResolver 
 func (r *CreateAPITokenSuccessResolver) Token() *APITokenResolver {
 	return NewAPIToken(*r.token)
 }
+
+// -- DeleteAPIToken Mutation --
+
+type DeleteAPITokenPayloadResolver struct {
+	token     *auth.Token
+	inputErrs map[string]string
+}
+
+func NewDeleteAPITokenPayload(token *auth.Token, inputErrs map[string]string) *DeleteAPITokenPayloadResolver {
+	return &DeleteAPITokenPayloadResolver{token, inputErrs}
+}
+
+func (r *DeleteAPITokenPayloadResolver) ToDeleteAPITokenSuccess() (*DeleteAPITokenSuccessResolver, bool) {
+	if r.inputErrs != nil {
+		return nil, false
+	}
+
+	return NewDeleteAPITokenSuccess(r.token), true
+}
+
+func (r *DeleteAPITokenPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
+}
+
+type DeleteAPITokenSuccessResolver struct {
+	token *auth.Token
+}
+
+func NewDeleteAPITokenSuccess(token *auth.Token) *DeleteAPITokenSuccessResolver {
+	return &DeleteAPITokenSuccessResolver{token}
+}
+
+func (r *DeleteAPITokenSuccessResolver) Token() *APITokenResolver {
+	return NewAPIToken(*r.token)
+}
