@@ -76,7 +76,7 @@ func WithLogger(logger logger.Logger, config LogConfig) func(q *Q) {
 }
 
 var _ Queryer = Q{}
-var slowThreshold = time.Millisecond
+var slowThreshold = time.Second
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
