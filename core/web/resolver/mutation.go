@@ -689,3 +689,17 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 
 	return NewUpdatePasswordPayload(session.User, nil), nil
 }
+
+func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
+	Input struct{ Enabled bool }
+}) (*SetSQLLoggingPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	if err := r.App.GetConfig().SetLogSQLStatements(args.Input.Enabled); err != nil {
+		return nil, err
+	}
+
+	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
+}
