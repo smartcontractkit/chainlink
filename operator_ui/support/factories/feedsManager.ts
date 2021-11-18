@@ -14,6 +14,7 @@ export function buildFeedsManager(
     isBootstrapPeer: false,
     bootstrapPeerMultiaddr: null,
     createdAt: new Date(),
+    jobProposals: [],
     ...overrides,
   }
 }
