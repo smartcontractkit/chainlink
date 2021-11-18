@@ -40,6 +40,7 @@ type Mutation {
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
+    setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
     updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
