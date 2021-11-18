@@ -23,8 +23,8 @@ import (
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -428,7 +428,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	bptxm.OnNewLongestChain(context.Background(), *head)
 
 	sub := new(pgmocks.Subscription)
-	sub.On("Events").Return(make(<-chan postgres.Event))
+	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 	config.On("EvmNonceAutoSync").Return(true)
 	config.On("EvmGasBumpThreshold").Return(uint64(1))

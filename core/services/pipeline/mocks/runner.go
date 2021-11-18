@@ -8,9 +8,8 @@ import (
 	logger "github.com/smartcontractkit/chainlink/core/logger"
 	mock "github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -107,7 +106,7 @@ func (_m *Runner) Healthy() error {
 }
 
 // InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
-func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...postgres.QOpt) error {
+func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -118,7 +117,7 @@ func (_m *Runner) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bo
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...pg.QOpt) error); ok {
 		r0 = rf(run, saveSuccessfulTaskRuns, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -161,18 +160,18 @@ func (_m *Runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) erro
 }
 
 // Run provides a mock function with given fields: ctx, run, l, saveSuccessfulTaskRuns, fn
-func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(postgres.Queryer) error) (bool, error) {
+func (_m *Runner) Run(ctx context.Context, run *pipeline.Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(pg.Queryer) error) (bool, error) {
 	ret := _m.Called(ctx, run, l, saveSuccessfulTaskRuns, fn)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(postgres.Queryer) error) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(pg.Queryer) error) bool); ok {
 		r0 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(postgres.Queryer) error) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *pipeline.Run, logger.Logger, bool, func(pg.Queryer) error) error); ok {
 		r1 = rf(ctx, run, l, saveSuccessfulTaskRuns, fn)
 	} else {
 		r1 = ret.Error(1)
