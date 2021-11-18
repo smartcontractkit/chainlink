@@ -354,7 +354,10 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 	err = r.App.EVMORM().DeleteNode(int64(args.ID))
 	if err != nil {
 		if errors.Is(err, evm.ErrNoRowsAffected) {
-			return NewDeleteNodePayloadResolver(nil, err), nil
+			// Sending the SQL error as the expected error to happen
+			// though the prior check should take this into consideration
+			// so this should never happen anyway
+			return NewDeleteNodePayloadResolver(nil, sql.ErrNoRows), nil
 		}
 
 		return nil, err

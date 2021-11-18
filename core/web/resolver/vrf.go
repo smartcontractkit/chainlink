@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 )
 
@@ -67,26 +69,24 @@ func (r *VRFKeySuccessResolver) Key() VRFKeyResolver {
 
 type VRFKeyPayloadResolver struct {
 	key vrfkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *VRFKeyPayloadResolver {
-	return &VRFKeyPayloadResolver{
-		key: key,
-		err: err,
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+			return errors.Cause(err) == keystore.ErrMissingVRFKey
+		}}
 	}
+
+	return &VRFKeyPayloadResolver{key, e}
 }
 
 func (r *VRFKeyPayloadResolver) ToVRFKeySuccess() (*VRFKeySuccessResolver, bool) {
 	if r.err == nil {
 		return NewVRFKeySuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *VRFKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }
@@ -133,23 +133,24 @@ func (r *DeleteVRFKeySuccessResolver) Key() VRFKeyResolver {
 
 type DeleteVRFKeyPayloadResolver struct {
 	key vrfkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *DeleteVRFKeyPayloadResolver {
-	return &DeleteVRFKeyPayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+			return errors.Cause(err) == keystore.ErrMissingVRFKey
+		}}
+	}
+
+	return &DeleteVRFKeyPayloadResolver{key, e}
 }
 
 func (r *DeleteVRFKeyPayloadResolver) ToDeleteVRFKeySuccess() (*DeleteVRFKeySuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteVRFKeySuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteVRFKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

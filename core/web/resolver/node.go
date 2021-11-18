@@ -71,26 +71,19 @@ func (r *NodeResolver) UpdatedAt() graphql.Time {
 
 type NodePayloadResolver struct {
 	node *types.Node
-	err  error
+	NotFoundErrorUnionType
 }
 
 func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
-	return &NodePayloadResolver{node, err}
+	e := NotFoundErrorUnionType{err, "node not found", nil}
+
+	return &NodePayloadResolver{node, e}
 }
 
 // ToNode resolves the Node object to be returned if it is found
 func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
 	if r.node != nil {
 		return NewNode(*r.node), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *NodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("node not found"), true
 	}
 
 	return nil, false
@@ -130,24 +123,18 @@ func (r *CreateNodeSuccessResolve) Node() *NodeResolver {
 
 type DeleteNodePayloadResolver struct {
 	node *types.Node
-	err  error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
-	return &DeleteNodePayloadResolver{node, err}
+	e := NotFoundErrorUnionType{err, "node not found", nil}
+
+	return &DeleteNodePayloadResolver{node, e}
 }
 
 func (r *DeleteNodePayloadResolver) ToDeleteNodeSuccess() (*DeleteNodeSuccessResolver, bool) {
 	if r.node != nil {
 		return NewDeleteNodeSuccessResolver(r.node), true
-	}
-
-	return nil, false
-}
-
-func (r *DeleteNodePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("node not found"), true
 	}
 
 	return nil, false

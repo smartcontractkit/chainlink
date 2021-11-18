@@ -1,10 +1,7 @@
 package resolver
 
 import (
-	"database/sql"
-
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 )
@@ -65,29 +62,19 @@ func (r *BridgeResolver) CreatedAt() graphql.Time {
 // BridgePayloadResolver resolves a single bridge response
 type BridgePayloadResolver struct {
 	bridge bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewBridgePayload(bridge bridges.BridgeType, err error) *BridgePayloadResolver {
-	return &BridgePayloadResolver{
-		bridge: bridge,
-		err:    err,
-	}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &BridgePayloadResolver{bridge, e}
 }
 
 // ToBridge implements the Bridge union type of the payload
 func (r *BridgePayloadResolver) ToBridge() (*BridgeResolver, bool) {
 	if r.err == nil {
 		return NewBridge(r.bridge), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *BridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("bridge not found"), true
 	}
 
 	return nil, false
@@ -157,27 +144,18 @@ func (r *CreateBridgeSuccessResolver) IncomingToken() string {
 
 type UpdateBridgePayloadResolver struct {
 	bridge *bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewUpdateBridgePayload(bridge *bridges.BridgeType, err error) *UpdateBridgePayloadResolver {
-	return &UpdateBridgePayloadResolver{
-		bridge: bridge,
-		err:    err,
-	}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &UpdateBridgePayloadResolver{bridge, e}
 }
 
 func (r *UpdateBridgePayloadResolver) ToUpdateBridgeSuccess() (*UpdateBridgeSuccessResolver, bool) {
 	if r.bridge != nil {
 		return NewUpdateBridgeSuccess(*r.bridge), true
-	}
-
-	return nil, false
-}
-
-func (r *UpdateBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("bridge not found"), true
 	}
 
 	return nil, false
@@ -203,11 +181,13 @@ func (r *UpdateBridgeSuccessResolver) Bridge() *BridgeResolver {
 
 type DeleteBridgePayloadResolver struct {
 	bridge *bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteBridgePayload(bridge *bridges.BridgeType, err error) *DeleteBridgePayloadResolver {
-	return &DeleteBridgePayloadResolver{bridge, err}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &DeleteBridgePayloadResolver{bridge, e}
 }
 
 func (r *DeleteBridgePayloadResolver) ToDeleteBridgeSuccess() (*DeleteBridgeSuccessResolver, bool) {
@@ -229,14 +209,6 @@ func (r *DeleteBridgePayloadResolver) ToDeleteBridgeConflictError() (*DeleteBrid
 func (r *DeleteBridgePayloadResolver) ToDeleteBridgeInvalidNameError() (*DeleteBridgeInvalidNameErrorResolver, bool) {
 	if r.err != nil {
 		return NewDeleteBridgeInvalidNameError(r.err.Error()), true
-	}
-
-	return nil, false
-}
-
-func (r *DeleteBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("bridge not found"), true
 	}
 
 	return nil, false

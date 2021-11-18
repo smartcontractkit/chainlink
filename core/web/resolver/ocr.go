@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
@@ -72,23 +74,24 @@ func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundleResolver {
 
 type DeleteOCRKeyBundlePayloadResolver struct {
 	key ocrkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOCRKeyBundlePayloadResolver {
-	return &DeleteOCRKeyBundlePayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+			return errors.As(err, &keystore.KeyNotFoundError{})
+		}}
+	}
+
+	return &DeleteOCRKeyBundlePayloadResolver{key, e}
 }
 
 func (r *DeleteOCRKeyBundlePayloadResolver) ToDeleteOCRKeyBundleSuccess() (*DeleteOCRKeyBundleSuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteOCRKeyBundleSuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteOCRKeyBundlePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

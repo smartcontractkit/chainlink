@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 )
 
@@ -68,23 +70,24 @@ func (r *DeleteP2PKeySuccessResolver) Key() P2PKeyResolver {
 
 type DeleteP2PKeyPayloadResolver struct {
 	key p2pkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteP2PKeyPayloadResolver(key p2pkey.KeyV2, err error) *DeleteP2PKeyPayloadResolver {
-	return &DeleteP2PKeyPayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+			return errors.As(err, &keystore.KeyNotFoundError{})
+		}}
+	}
+
+	return &DeleteP2PKeyPayloadResolver{key, e}
 }
 
 func (r *DeleteP2PKeyPayloadResolver) ToDeleteP2PKeySuccess() (*DeleteP2PKeySuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteP2PKeySuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteP2PKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

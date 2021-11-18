@@ -58,11 +58,13 @@ func (r *ChainResolver) Nodes(ctx context.Context) ([]*NodeResolver, error) {
 
 type ChainPayloadResolver struct {
 	chain types.Chain
-	err   error
+	NotFoundErrorUnionType
 }
 
 func NewChainPayload(chain types.Chain, err error) *ChainPayloadResolver {
-	return &ChainPayloadResolver{chain, err}
+	e := NotFoundErrorUnionType{err, "chain not found", nil}
+
+	return &ChainPayloadResolver{chain, e}
 }
 
 func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
@@ -71,14 +73,6 @@ func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
 	}
 
 	return NewChain(r.chain), true
-}
-
-func (r *ChainPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err == nil {
-		return nil, false
-	}
-
-	return NewNotFoundError("chain not found"), true
 }
 
 type ChainsPayloadResolver struct {
