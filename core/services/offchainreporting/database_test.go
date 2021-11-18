@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -407,7 +407,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	}
 
 	t.Run("saves latest round requested", func(t *testing.T) {
-		err := odb.SaveLatestRoundRequested(postgres.WrapDbWithSqlx(sqlDB), rr)
+		err := odb.SaveLatestRoundRequested(pg.WrapDbWithSqlx(sqlDB), rr)
 		require.NoError(t, err)
 
 		rawLog.Index = 42
@@ -421,7 +421,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 			Raw:          rawLog,
 		}
 
-		err = odb.SaveLatestRoundRequested(postgres.WrapDbWithSqlx(sqlDB), rr)
+		err = odb.SaveLatestRoundRequested(pg.WrapDbWithSqlx(sqlDB), rr)
 		require.NoError(t, err)
 	})
 

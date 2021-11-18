@@ -37,8 +37,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -60,7 +60,7 @@ type Application interface {
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() postgres.EventBroadcaster
+	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	NewBox() packr.Box
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
@@ -100,7 +100,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter                   func(int)
 	ChainSet                 evm.ChainSet
-	EventBroadcaster         postgres.EventBroadcaster
+	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -122,8 +122,8 @@ type ChainlinkApplication struct {
 	Nurse                    *health.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	advisoryLock             postgres.Locker
-	leaseLock                postgres.LeaseLock
+	advisoryLock             pg.Locker
+	leaseLock                pg.LeaseLock
 	id                       uuid.UUID
 
 	started     bool
@@ -132,7 +132,7 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
-	EventBroadcaster         postgres.EventBroadcaster
+	EventBroadcaster         pg.EventBroadcaster
 	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
@@ -140,8 +140,8 @@ type ApplicationOpts struct {
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             postgres.Locker
-	LeaseLock                postgres.LeaseLock
+	AdvisoryLock             pg.Locker
+	LeaseLock                pg.LeaseLock
 	ID                       uuid.UUID
 }
 
@@ -547,7 +547,7 @@ func (app *ChainlinkApplication) WakeSessionReaper() {
 }
 
 func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
-	return app.jobSpawner.CreateJob(j, postgres.WithParentCtx(ctx))
+	return app.jobSpawner.CreateJob(j, pg.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
@@ -663,7 +663,7 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 	return app.ChainSet
 }
 
-func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
+func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
 	return app.EventBroadcaster
 }
 

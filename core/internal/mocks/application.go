@@ -7,6 +7,7 @@ import (
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
 
@@ -29,8 +30,6 @@ import (
 	packr "github.com/gobuffalo/packr"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
@@ -159,15 +158,15 @@ func (_m *Application) GetConfig() config.GeneralConfig {
 }
 
 // GetEventBroadcaster provides a mock function with given fields:
-func (_m *Application) GetEventBroadcaster() postgres.EventBroadcaster {
+func (_m *Application) GetEventBroadcaster() pg.EventBroadcaster {
 	ret := _m.Called()
 
-	var r0 postgres.EventBroadcaster
-	if rf, ok := ret.Get(0).(func() postgres.EventBroadcaster); ok {
+	var r0 pg.EventBroadcaster
+	if rf, ok := ret.Get(0).(func() pg.EventBroadcaster); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(postgres.EventBroadcaster)
+			r0 = ret.Get(0).(pg.EventBroadcaster)
 		}
 	}
 

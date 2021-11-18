@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -86,7 +86,7 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(tx postgres.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error
+		SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
 	}
 )
@@ -289,11 +289,11 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = postgres.NewQ(t.db).Transaction(t.logger, func(tx postgres.Queryer) error {
+			err = pg.NewQ(t.db).Transaction(t.logger, func(tx pg.Queryer) error {
 				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx))
+				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
 			})
 			if err != nil {
 				t.logger.Error(err)

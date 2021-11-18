@@ -6,11 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 type txManager interface {
-	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...postgres.QOpt) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type transmitter struct {
@@ -38,7 +38,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		GasLimit:       t.gasLimit,
 		Meta:           nil,
 		Strategy:       t.strategy,
-	}, postgres.WithParentCtx(ctx))
+	}, pg.WithParentCtx(ctx))
 	return errors.Wrap(err, "Skipped OCR transmission")
 }
 
