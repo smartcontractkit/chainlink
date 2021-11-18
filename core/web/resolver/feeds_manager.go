@@ -9,6 +9,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
@@ -100,7 +101,7 @@ func (r *FeedsManagerResolver) JobTypes() []JobType {
 }
 
 func (r *FeedsManagerResolver) JobProposals(ctx context.Context) ([]*JobProposalResolver, error) {
-	jps, err := loader.GetJobProposalsByFeedsManagerID(ctx, strconv.Itoa(int(r.mgr.ID)))
+	jps, err := loader.GetJobProposalsByFeedsManagerID(ctx, stringutils.FromInt64(r.mgr.ID))
 	if err != nil {
 		return nil, err
 	}
