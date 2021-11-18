@@ -53,7 +53,7 @@ let owner: SignerWithAddress
 let stranger: SignerWithAddress
 let keeperRegistry: SignerWithAddress
 
-describe('EthBalanceMonitor', () => {
+describe('EthBalanceMonitor [ @skip-coverage ]', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     owner = accounts[0]
