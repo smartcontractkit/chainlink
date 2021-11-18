@@ -6,11 +6,10 @@ import (
 	context "context"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -35,7 +34,7 @@ func (_m *ORM) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: jb, qopts
-func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
+func (_m *ORM) CreateJob(jb *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -46,7 +45,7 @@ func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*job.Job, ...pg.QOpt) error); ok {
 		r0 = rf(jb, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -56,7 +55,7 @@ func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
 }
 
 // DeleteJob provides a mock function with given fields: id, qopts
-func (_m *ORM) DeleteJob(id int32, qopts ...postgres.QOpt) error {
+func (_m *ORM) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -67,7 +66,7 @@ func (_m *ORM) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int32, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(int32, ...pg.QOpt) error); ok {
 		r0 = rf(id, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -207,7 +206,7 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 }
 
 // InsertJob provides a mock function with given fields: _a0, qopts
-func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) error {
+func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -218,7 +217,7 @@ func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*job.Job, ...pg.QOpt) error); ok {
 		r0 = rf(_a0, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -228,7 +227,7 @@ func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...postgres.QOpt) error {
 }
 
 // InsertWebhookSpec provides a mock function with given fields: webhookSpec, qopts
-func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres.QOpt) error {
+func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -239,7 +238,7 @@ func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...postgres
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...pg.QOpt) error); ok {
 		r0 = rf(webhookSpec, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -302,7 +301,7 @@ func (_m *ORM) PipelineRunsByJobsIDs(jobsIDs []int32) ([]pipeline.Run, error) {
 }
 
 // RecordError provides a mock function with given fields: jobID, description, qopts
-func (_m *ORM) RecordError(jobID int32, description string, qopts ...postgres.QOpt) {
+func (_m *ORM) RecordError(jobID int32, description string, qopts ...pg.QOpt) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]

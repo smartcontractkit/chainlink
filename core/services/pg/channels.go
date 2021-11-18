@@ -1,4 +1,4 @@
-package postgres
+package pg
 
 const (
 	ChannelJobCreated   = "insert_on_jobs"

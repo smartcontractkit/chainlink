@@ -12,7 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -262,7 +262,7 @@ WHERE offchainreporting_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) SaveLatestRoundRequested(tx postgres.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
+func (d *db) SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")

@@ -1,4 +1,4 @@
-package postgres
+package pg
 
 // TODO: Rename this package to "pg"
 // https://app.shortcut.com/chainlinklabs/story/20021/rename-postgres-to-pg
@@ -25,23 +25,23 @@ import (
 //
 // The two main concepts introduced are:
 //
-// A `Q` struct that wraps a `sqlx.DB` or `sqlx.Tx` and implements the `postgres.Queryer` interface.
+// A `Q` struct that wraps a `sqlx.DB` or `sqlx.Tx` and implements the `pg.Queryer` interface.
 //
 // This struct is initialised with `QOpts` which define how the queryer should behave. `QOpts` can define a parent context, an open transaction or other options to configure the Queryer.
 //
 // A sample ORM method looks like this:
 //
-// 	func (o *orm) GetFoo(id int64, qopts ...postgres.QOpt) (Foo, error) {
-// 		q := postgres.NewQ(q, qopts...)
+// 	func (o *orm) GetFoo(id int64, qopts ...pg.QOpt) (Foo, error) {
+// 		q := pg.NewQ(q, qopts...)
 // 		return q.Exec(...)
 // 	}
 //
 // Now you can call it like so:
 //
 // 	orm.GetFoo(1) // will automatically have default query timeout context set
-// 	orm.GetFoo(1, postgres.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
-// 	orm.GetFoo(1, postgres.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
-// 	orm.GetFoo(q, postgres.WithQueryer(tx), postgres.WithParentCtx(ctx)) // options can be combined
+// 	orm.GetFoo(1, pg.WithParentCtx(ctx)) // will wrap the supplied parent context with the default query context
+// 	orm.GetFoo(1, pg.WithQueryer(tx)) // allows to pass in a running transaction or anything else that implements Queryer
+// 	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
 // WithQueryer sets the queryer
