@@ -1,0 +1,14 @@
+type APIToken {
+    accessKey: String!
+    secret: String!
+}
+
+input CreateAPITokenInput {
+    password: String!
+}
+
+type CreateAPITokenSuccess {
+    token: APIToken!
+}
+
+union CreateAPITokenPayload = CreateAPITokenSuccess | InputErrors
