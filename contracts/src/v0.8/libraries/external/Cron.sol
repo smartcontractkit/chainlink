@@ -42,11 +42,7 @@ library Cron {
    * @param timestamp the timestamp to compare against
    * @return true / false if they match
    */
-  function matches(Spec calldata spec, uint256 timestamp)
-    public
-    view
-    returns (bool)
-  {
+  function matches(Spec calldata spec, uint256 timestamp) public view returns (bool) {
     return spec.matches(timestamp);
   }
 
@@ -56,11 +52,7 @@ library Cron {
    * @param cronString the cron string
    * @return the spec struct
    */
-  function toSpec(string calldata cronString)
-    public
-    pure
-    returns (Spec memory)
-  {
+  function toSpec(string calldata cronString) public pure returns (Spec memory) {
     return cronString.toSpec();
   }
 
@@ -70,11 +62,7 @@ library Cron {
    * @param cronString the cron string
    * @return the abi-encoded spec
    */
-  function toEncodedSpec(string calldata cronString)
-    public
-    pure
-    returns (bytes memory)
-  {
+  function toEncodedSpec(string calldata cronString) public pure returns (bytes memory) {
     return cronString.toEncodedSpec();
   }
 
@@ -84,11 +72,7 @@ library Cron {
    * @param spec the cron spec
    * @return the corresponding cron string
    */
-  function toCronString(Spec calldata spec)
-    public
-    pure
-    returns (string memory)
-  {
+  function toCronString(Spec calldata spec) public pure returns (string memory) {
     return spec.toCronString();
   }
 }

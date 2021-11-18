@@ -17,11 +17,7 @@ contract CronInternalTestHelper {
    * @param cronString the cron string to convert and encode
    * @return the abi encoding of the Spec struct representing the cron string
    */
-  function encodeCronString(string memory cronString)
-    external
-    pure
-    returns (bytes memory)
-  {
+  function encodeCronString(string memory cronString) external pure returns (bytes memory) {
     return CronInternal.toEncodedSpec(cronString);
   }
 
@@ -30,11 +26,7 @@ contract CronInternalTestHelper {
    * encoded spec back into a string. There is limited or no use for this outside
    * of tests.
    */
-  function encodedSpecToString(bytes memory encodedSpec)
-    public
-    pure
-    returns (string memory)
-  {
+  function encodedSpecToString(bytes memory encodedSpec) public pure returns (string memory) {
     Spec memory spec = abi.decode(encodedSpec, (Spec));
     return CronInternal.toCronString(spec);
   }
@@ -43,11 +35,7 @@ contract CronInternalTestHelper {
    * @notice encodedSpecToString is a helper function for turning a string
    * into a spec struct.
    */
-  function cronStringtoEncodedSpec(string memory cronString)
-    public
-    pure
-    returns (Spec memory)
-  {
+  function cronStringtoEncodedSpec(string memory cronString) public pure returns (Spec memory) {
     return CronInternal.toSpec(cronString);
   }
 
@@ -57,11 +45,7 @@ contract CronInternalTestHelper {
    * @param cronString the cron string to consider
    * @return the timestamp in UTC of the next "tick"
    */
-  function calculateNextTick(string memory cronString)
-    external
-    view
-    returns (uint256)
-  {
+  function calculateNextTick(string memory cronString) external view returns (uint256) {
     return CronInternal.nextTick(CronInternal.toSpec(cronString));
   }
 
@@ -71,11 +55,7 @@ contract CronInternalTestHelper {
    * @param cronString the cron string to consider
    * @return the timestamp in UTC of the last "tick"
    */
-  function calculateLastTick(string memory cronString)
-    external
-    view
-    returns (uint256)
-  {
+  function calculateLastTick(string memory cronString) external view returns (uint256) {
     return CronInternal.lastTick(CronInternal.toSpec(cronString));
   }
 }
@@ -92,11 +72,7 @@ contract CronExternalTestHelper {
    * @param cronString the cron string to convert and encode
    * @return the abi encoding of the Spec struct representing the cron string
    */
-  function encodeCronString(string memory cronString)
-    external
-    pure
-    returns (bytes memory)
-  {
+  function encodeCronString(string memory cronString) external pure returns (bytes memory) {
     return CronExternal.toEncodedSpec(cronString);
   }
 
@@ -105,11 +81,7 @@ contract CronExternalTestHelper {
    * encoded spec back into a string. There is limited or no use for this outside
    * of tests.
    */
-  function encodedSpecToString(bytes memory encodedSpec)
-    public
-    pure
-    returns (string memory)
-  {
+  function encodedSpecToString(bytes memory encodedSpec) public pure returns (string memory) {
     Spec memory spec = abi.decode(encodedSpec, (Spec));
     return CronExternal.toCronString(spec);
   }
@@ -118,11 +90,7 @@ contract CronExternalTestHelper {
    * @notice encodedSpecToString is a helper function for turning a string
    * into a spec struct.
    */
-  function cronStringtoEncodedSpec(string memory cronString)
-    public
-    pure
-    returns (Spec memory)
-  {
+  function cronStringtoEncodedSpec(string memory cronString) public pure returns (Spec memory) {
     return CronExternal.toSpec(cronString);
   }
 
@@ -132,11 +100,7 @@ contract CronExternalTestHelper {
    * @param cronString the cron string to consider
    * @return the timestamp in UTC of the next "tick"
    */
-  function calculateNextTick(string memory cronString)
-    external
-    view
-    returns (uint256)
-  {
+  function calculateNextTick(string memory cronString) external view returns (uint256) {
     return CronExternal.nextTick(CronExternal.toSpec(cronString));
   }
 
@@ -146,11 +110,7 @@ contract CronExternalTestHelper {
    * @param cronString the cron string to consider
    * @return the timestamp in UTC of the last "tick"
    */
-  function calculateLastTick(string memory cronString)
-    external
-    view
-    returns (uint256)
-  {
+  function calculateLastTick(string memory cronString) external view returns (uint256) {
     return CronExternal.lastTick(CronExternal.toSpec(cronString));
   }
 }

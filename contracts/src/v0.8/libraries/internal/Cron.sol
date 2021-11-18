@@ -117,9 +117,7 @@ library Cron {
             minute = 0;
             continue;
           }
-          dayOfWeek = DateTime.getWeekday(
-            DateTime.toTimestamp(year, month, day)
-          );
+          dayOfWeek = DateTime.getWeekday(DateTime.toTimestamp(year, month, day));
           if (!matches(spec.dayOfWeek, dayOfWeek)) {
             hour = 0;
             minute = 0;
@@ -178,9 +176,7 @@ library Cron {
             minute = 59;
             continue;
           }
-          dayOfWeek = DateTime.getWeekday(
-            DateTime.toTimestamp(year, month, day)
-          );
+          dayOfWeek = DateTime.getWeekday(DateTime.toTimestamp(year, month, day));
           if (!matches(spec.dayOfWeek, dayOfWeek)) {
             hour = 23;
             minute = 59;
@@ -222,11 +218,7 @@ library Cron {
    * @param timestamp the timestamp to compare against
    * @return true / false if they match
    */
-  function matches(Spec memory spec, uint256 timestamp)
-    internal
-    view
-    returns (bool)
-  {
+  function matches(Spec memory spec, uint256 timestamp) internal view returns (bool) {
     DateTime._DateTime memory dt = DateTime.parseTimestamp(timestamp);
     return
       matches(spec.month, dt.month) &&
@@ -241,11 +233,7 @@ library Cron {
    * @param cronString the cron string
    * @return the spec struct
    */
-  function toSpec(string memory cronString)
-    internal
-    pure
-    returns (Spec memory)
-  {
+  function toSpec(string memory cronString) internal pure returns (Spec memory) {
     strings.slice memory space = strings.toSlice(" ");
     strings.slice memory cronSlice = strings.toSlice(cronString);
     if (cronSlice.count(space) != 4) {
@@ -285,11 +273,7 @@ library Cron {
    * @param cronString the cron string
    * @return the abi-encoded spec
    */
-  function toEncodedSpec(string memory cronString)
-    internal
-    pure
-    returns (bytes memory)
-  {
+  function toEncodedSpec(string memory cronString) internal pure returns (bytes memory) {
     return abi.encode(toSpec(cronString));
   }
 
@@ -299,11 +283,7 @@ library Cron {
    * @param spec the cron spec
    * @return the corresponding cron string
    */
-  function toCronString(Spec memory spec)
-    internal
-    pure
-    returns (string memory)
-  {
+  function toCronString(Spec memory spec) internal pure returns (string memory) {
     return
       string(
         bytes.concat(
@@ -327,11 +307,7 @@ library Cron {
    * @param value the value of a field
    * @return true / false if they match
    */
-  function matches(Field memory field, uint8 value)
-    private
-    pure
-    returns (bool)
-  {
+  function matches(Field memory field, uint8 value) private pure returns (bool) {
     if (field.fieldType == FieldType.WILD) {
       return true;
     } else if (field.fieldType == FieldType.INTERVAL) {
@@ -387,37 +363,21 @@ library Cron {
     } else if (field.fieldType == FieldType.EXACT) {
       if (field.singleValue < min || field.singleValue > max) {
         string memory reason = string(
-          bytes.concat(
-            "value must be >=,",
-            uintToBString(min),
-            " and <=",
-            uintToBString(max)
-          )
+          bytes.concat("value must be >=,", uintToBString(min), " and <=", uintToBString(max))
         );
         revert InvalidField(fieldName, reason);
       }
     } else if (field.fieldType == FieldType.INTERVAL) {
       if (field.interval < minInterval || field.interval > max) {
         string memory reason = string(
-          bytes.concat(
-            "inverval must be */(",
-            uintToBString(minInterval),
-            "-",
-            uintToBString(max),
-            ")"
-          )
+          bytes.concat("inverval must be */(", uintToBString(minInterval), "-", uintToBString(max), ")")
         );
         revert InvalidField(fieldName, reason);
       }
     } else if (field.fieldType == FieldType.RANGE) {
       if (field.rangeEnd > max) {
         string memory reason = string(
-          bytes.concat(
-            "inverval must be within ",
-            uintToBString(min),
-            "-",
-            uintToBString(max)
-          )
+          bytes.concat("inverval must be within ", uintToBString(min), "-", uintToBString(max))
         );
         revert InvalidField(fieldName, reason);
       }
@@ -426,12 +386,7 @@ library Cron {
         revert InvalidField(fieldName, "lists must have at least 2 items");
       }
       string memory reason = string(
-        bytes.concat(
-          "items in list must be within ",
-          uintToBString(min),
-          "-",
-          uintToBString(max)
-        )
+        bytes.concat("items in list must be within ", uintToBString(min), "-", uintToBString(max))
       );
       uint8 listItem;
       for (uint256 idx = 0; idx < field.listLength; idx++) {
@@ -450,11 +405,7 @@ library Cron {
    * @param fieldSlice the slice of a string representing the field of a cron job
    * @return the field
    */
-  function sliceToField(strings.slice memory fieldSlice)
-    private
-    pure
-    returns (Field memory)
-  {
+  function sliceToField(strings.slice memory fieldSlice) private pure returns (Field memory) {
     strings.slice memory star = strings.toSlice("*");
     strings.slice memory dash = strings.toSlice("-");
     strings.slice memory slash = strings.toSlice("/");
@@ -495,22 +446,13 @@ library Cron {
    * @param field the field to stringify
    * @return bytes representing the string, ex: bytes("*")
    */
-  function fieldToBstring(Field memory field)
-    private
-    pure
-    returns (bytes memory)
-  {
+  function fieldToBstring(Field memory field) private pure returns (bytes memory) {
     if (field.fieldType == FieldType.WILD) {
       return "*";
     } else if (field.fieldType == FieldType.EXACT) {
       return uintToBString(uint256(field.singleValue));
     } else if (field.fieldType == FieldType.RANGE) {
-      return
-        bytes.concat(
-          uintToBString(field.rangeStart),
-          "-",
-          uintToBString(field.rangeEnd)
-        );
+      return bytes.concat(uintToBString(field.rangeStart), "-", uintToBString(field.rangeEnd));
     } else if (field.fieldType == FieldType.INTERVAL) {
       return bytes.concat("*/", uintToBString(uint256(field.interval)));
     } else if (field.fieldType == FieldType.LIST) {
@@ -555,11 +497,7 @@ library Cron {
    * @param slice the string slice to convert to a uint8
    * @return the number that the string represents ex: "20" --> 20
    */
-  function sliceToUint8(strings.slice memory slice)
-    private
-    pure
-    returns (uint8)
-  {
+  function sliceToUint8(strings.slice memory slice) private pure returns (uint8) {
     bytes memory b = bytes(slice.toString());
     uint8 i;
     uint8 result = 0;

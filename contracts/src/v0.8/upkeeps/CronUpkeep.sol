@@ -34,13 +34,7 @@ import {getRevertMsg} from "../utils/utils.sol";
  * Users must use the encodeCronString() function to encode their cron jobs before
  * setting them. This keeps all the string manipulation off chain and reduces gas costs.
  */
-contract CronUpkeep is
-  KeeperCompatibleInterface,
-  KeeperBase,
-  ConfirmedOwner,
-  Pausable,
-  Proxy
-{
+contract CronUpkeep is KeeperCompatibleInterface, KeeperBase, ConfirmedOwner, Pausable, Proxy {
   event CronJobExecuted(uint256 indexed id, uint256 timestamp);
   event CronJobCreated(uint256 indexed id, address target, bytes handler);
   event CronJobDeleted(uint256 indexed id);
@@ -74,13 +68,11 @@ contract CronUpkeep is
    * @notice Executes the cron job with id encoded in performData
    * @param performData abi encoding of cron job ID and the cron job's next run-at datetime
    */
-  function performUpkeep(bytes calldata performData)
-    external
-    override
-    whenNotPaused
-  {
-    (uint256 id, uint256 tickTime, address target, bytes memory handler) = abi
-      .decode(performData, (uint256, uint256, address, bytes));
+  function performUpkeep(bytes calldata performData) external override whenNotPaused {
+    (uint256 id, uint256 tickTime, address target, bytes memory handler) = abi.decode(
+      performData,
+      (uint256, uint256, address, bytes)
+    );
     validate(id, tickTime, target, handler);
     s_lastRuns[id] = block.timestamp;
     (bool success, bytes memory payload) = target.call(handler);
@@ -153,13 +145,7 @@ contract CronUpkeep is
    * @return upkeepNeeded signals if upkeep is needed, performData is an abi encoding
    * of the id and "next tick" of the elligible cron job
    */
-  function checkUpkeep(bytes calldata)
-    external
-    override
-    whenNotPaused
-    cannotExecute
-    returns (bool, bytes memory)
-  {
+  function checkUpkeep(bytes calldata) external override whenNotPaused cannotExecute returns (bool, bytes memory) {
     _delegate(s_delegate);
   }
 
@@ -190,12 +176,7 @@ contract CronUpkeep is
     )
   {
     Spec memory spec = s_specs[id];
-    return (
-      s_targets[id],
-      s_handlers[id],
-      CronExternal.toCronString(spec),
-      CronExternal.nextTick(spec)
-    );
+    return (s_targets[id], s_handlers[id], CronExternal.toCronString(spec), CronExternal.nextTick(spec));
   }
 
   /**
@@ -204,11 +185,7 @@ contract CronUpkeep is
    * @param cronString the cron string to convert and encode
    * @return the abi encoding of the Spec struct representing the cron string
    */
-  function cronStringToEncodedSpec(string memory cronString)
-    external
-    pure
-    returns (bytes memory)
-  {
+  function cronStringToEncodedSpec(string memory cronString) external pure returns (bytes memory) {
     return CronExternal.toEncodedSpec(cronString);
   }
 
@@ -271,11 +248,7 @@ contract CronUpkeep is
    * @param handler the handler of the conract receiving the forwarded tx
    * @return a hash of the inputs
    */
-  function handlerSig(address target, bytes memory handler)
-    private
-    pure
-    returns (bytes32)
-  {
+  function handlerSig(address target, bytes memory handler) private pure returns (bytes32) {
     return keccak256(abi.encodePacked(target, handler));
   }
 }

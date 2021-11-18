@@ -35,8 +35,6 @@ contract CronUpkeepTestHelper is CronUpkeep {
    * checkUpkeep function. This allows us to do gas analysis on it.
    */
   function txCheckUpkeep(bytes calldata checkData) external {
-    address(this).call(
-      abi.encodeWithSelector(bytes4(keccak256("checkUpkeep(bytes)")), checkData)
-    );
+    address(this).call(abi.encodeWithSelector(bytes4(keccak256("checkUpkeep(bytes)")), checkData));
   }
 }

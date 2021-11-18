@@ -24,10 +24,7 @@ contract CronUpkeepFactory {
    * @notice Creates a new CronUpkeep contract, with msg.sender as the owner
    */
   function newCronUpkeep() public {
-    emit NewCronUpkeepCreated(
-      address(new CronUpkeep(msg.sender, s_cronDelegate)),
-      msg.sender
-    );
+    emit NewCronUpkeepCreated(address(new CronUpkeep(msg.sender, s_cronDelegate)), msg.sender);
   }
 
   /**
