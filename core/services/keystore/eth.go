@@ -78,6 +78,7 @@ func (ks *eth) GetAll() (keys []ethkey.KeyV2, _ error) {
 	for _, key := range ks.keyRing.Eth {
 		keys = append(keys, key)
 	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
 	return keys, nil
 }
 
