@@ -12,7 +12,7 @@ let cronExternal: CronExternalTestHelper
 
 const timeStamp = 32503680000 // Jan 1, 3000 12:00AM
 
-describe('Cron', () => {
+describe('Cron [ @skip-coverage ]', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     const admin = accounts[1]
