@@ -22,6 +22,7 @@ type ORM interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CreateManager(ms *FeedsManager) (int64, error)
 	GetJobProposal(id int64, qopts ...postgres.QOpt) (*JobProposal, error)
+	GetJobProposalByManagersIDs(ids []int64, qopts ...postgres.QOpt) ([]JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	GetManagers(ids []int64) ([]FeedsManager, error)
@@ -188,6 +189,18 @@ WHERE id = $1
 	jp = new(JobProposal)
 	err = postgres.NewQ(o.db, qopts...).Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposal failed")
+}
+
+// GetJobProposalByManagersIDs gets job proposals by feeds managers IDs
+func (o *orm) GetJobProposalByManagersIDs(ids []int64, qopts ...postgres.QOpt) ([]JobProposal, error) {
+	stmt := `
+SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
+FROM job_proposals
+WHERE feeds_manager_id = ANY($1)
+`
+	var jps []JobProposal
+	err := postgres.NewQ(o.db, qopts...).Select(&jps, stmt, ids)
+	return jps, errors.Wrap(err, "GetJobProposalByManagersIDs failed")
 }
 
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid

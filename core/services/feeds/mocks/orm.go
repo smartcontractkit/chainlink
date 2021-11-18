@@ -172,6 +172,36 @@ func (_m *ORM) GetJobProposal(id int64, qopts ...postgres.QOpt) (*feeds.JobPropo
 	return r0, r1
 }
 
+// GetJobProposalByManagersIDs provides a mock function with given fields: ids, qopts
+func (_m *ORM) GetJobProposalByManagersIDs(ids []int64, qopts ...postgres.QOpt) ([]feeds.JobProposal, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ids)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func([]int64, ...postgres.QOpt) []feeds.JobProposal); ok {
+		r0 = rf(ids, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64, ...postgres.QOpt) error); ok {
+		r1 = rf(ids, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetJobProposalByRemoteUUID provides a mock function with given fields: _a0
 func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, error) {
 	ret := _m.Called(_a0)

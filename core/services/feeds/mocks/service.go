@@ -121,6 +121,29 @@ func (_m *Service) GetJobProposal(id int64) (*feeds.JobProposal, error) {
 	return r0, r1
 }
 
+// GetJobProposalByManagersIDs provides a mock function with given fields: ids
+func (_m *Service) GetJobProposalByManagersIDs(ids []int64) ([]feeds.JobProposal, error) {
+	ret := _m.Called(ids)
+
+	var r0 []feeds.JobProposal
+	if rf, ok := ret.Get(0).(func([]int64) []feeds.JobProposal); ok {
+		r0 = rf(ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int64) error); ok {
+		r1 = rf(ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetManager provides a mock function with given fields: id
 func (_m *Service) GetManager(id int64) (*feeds.FeedsManager, error) {
 	ret := _m.Called(id)
