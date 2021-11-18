@@ -64,14 +64,17 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
 func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count int, err error) {
-	if err = pg.NewQ(o.db).Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
-		return
-	}
+	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
+		if err = q.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
+			return errors.Wrap(err, "BridgeTypes failed to get count")
+		}
 
-	sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
-	if err = o.db.Select(&bridges, sql, limit, offset); err != nil {
-		return
-	}
+		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
+		if err = o.db.Select(&bridges, sql, limit, offset); err != nil {
+			return errors.Wrap(err, "BridgeTypes failed to load bridge_types")
+		}
+		return nil
+	}, pg.OptReadOnlyTx())
 
 	return
 }
