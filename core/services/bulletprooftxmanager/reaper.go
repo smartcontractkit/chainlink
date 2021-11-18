@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/atomic"
@@ -116,7 +116,7 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 	// Delete old confirmed eth_txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the eth_tx_attempts and eth_receipts linked to every eth_tx
-	err := postgres.Batch(func(_, limit uint) (count uint, err error) {
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := r.db.Exec(`
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM eth_receipts
@@ -144,7 +144,7 @@ AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, r.chainID)
 		return errors.Wrap(err, "BPTXMReaper#reapEthTxes batch delete of confirmed eth_txes failed")
 	}
 	// Delete old 'fatal_error' eth_txes
-	err = postgres.Batch(func(_, limit uint) (count uint, err error) {
+	err = pg.Batch(func(_, limit uint) (count uint, err error) {
 		res, err := r.db.Exec(`
 DELETE FROM eth_txes
 WHERE created_at < $1

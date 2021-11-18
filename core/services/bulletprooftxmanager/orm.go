@@ -8,7 +8,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
 
@@ -145,7 +145,7 @@ func (o *orm) InsertEthTx(etx *EthTx) error {
 	const insertEthTxSQL = `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, access_list, simulate) VALUES (
 :nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :access_list, :simulate
 ) RETURNING *`
-	err := postgres.NewQ(o.db).GetNamed(insertEthTxSQL, etx, etx)
+	err := pg.NewQ(o.db).GetNamed(insertEthTxSQL, etx, etx)
 	return errors.Wrap(err, "InsertEthTx failed")
 }
 
@@ -153,7 +153,7 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 :eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 ) RETURNING *`
-	err := postgres.NewQ(o.db).GetNamed(insertEthTxAttemptSQL, attempt, attempt)
+	err := pg.NewQ(o.db).GetNamed(insertEthTxAttemptSQL, attempt, attempt)
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
@@ -161,13 +161,13 @@ func (o *orm) InsertEthReceipt(receipt *EthReceipt) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	err := postgres.NewQ(o.db).GetNamed(insertEthReceiptSQL, receipt, receipt)
+	err := pg.NewQ(o.db).GetNamed(insertEthReceiptSQL, receipt, receipt)
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
-	err = postgres.NewQ(o.db).Transaction(o.logger, func(q postgres.Queryer) error {
+	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
 		if err = q.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}
@@ -178,20 +178,20 @@ func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
 			return errors.Wrapf(err, "failed to load eth_receipts for eth_tx with id %d", etxID)
 		}
 		return nil
-	}, postgres.OptReadOnlyTx())
+	}, pg.OptReadOnlyTx())
 	return etx, errors.Wrap(err, "FindEthTxWithAttempts failed")
 }
 
-func loadEthTxAttempts(q postgres.Queryer, etx *EthTx) error {
+func loadEthTxAttempts(q pg.Queryer, etx *EthTx) error {
 	err := q.Select(&etx.EthTxAttempts, `SELECT * FROM eth_tx_attempts WHERE eth_tx_id = $1 ORDER BY eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas_tip_cap DESC`, etx.ID)
 	return errors.Wrapf(err, "failed to load ethtxattempts for eth tx %d", etx.ID)
 }
 
-func loadEthTxAttemptsReceipts(q postgres.Queryer, etx *EthTx) (err error) {
+func loadEthTxAttemptsReceipts(q pg.Queryer, etx *EthTx) (err error) {
 	return loadEthTxesAttemptsReceipts(q, []*EthTx{etx})
 }
 
-func loadEthTxesAttemptsReceipts(q postgres.Queryer, etxs []*EthTx) (err error) {
+func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*EthTx) (err error) {
 	if len(etxs) == 0 {
 		return nil
 	}

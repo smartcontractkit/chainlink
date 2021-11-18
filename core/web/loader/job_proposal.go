@@ -36,8 +36,8 @@ func (b *jobProposalBatcher) loadByManagersIDs(_ context.Context, keys dataloade
 	// Generate a map of job proposals to feeds managers IDs
 	jpsForMgr := map[string][]feeds.JobProposal{}
 	for _, jp := range jps {
-		id := strconv.Itoa(int(jp.ID))
-		jpsForMgr[id] = append(jpsForMgr[id], jp)
+		mgrID := strconv.Itoa(int(jp.FeedsManagerID))
+		jpsForMgr[mgrID] = append(jpsForMgr[mgrID], jp)
 	}
 
 	// Construct the output array of dataloader results

@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -52,8 +52,8 @@ type (
 		IsConnected() bool
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 
-		WasAlreadyConsumed(lb Broadcast, qopts ...postgres.QOpt) (bool, error)
-		MarkConsumed(lb Broadcast, qopts ...postgres.QOpt) error
+		WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error)
+		MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error
 		// NOTE: WasAlreadyConsumed and MarkConsumed MUST be used within a single goroutine in order for WasAlreadyConsumed to be accurate
 	}
 
@@ -329,7 +329,7 @@ func (b *broadcaster) reinitialize() (backfillStart *int64, abort bool) {
 
 	utils.RetryWithBackoff(ctx, func() bool {
 		var err error
-		backfillStart, err = b.orm.Reinitialize(postgres.WithParentCtx(ctx))
+		backfillStart, err = b.orm.Reinitialize(pg.WithParentCtx(ctx))
 		if err != nil {
 			b.logger.Errorw("Failed to reinitialize database", "err", err)
 			return true
@@ -415,7 +415,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 		ctx, cancel := utils.ContextFromChan(b.chStop)
 		defer cancel()
 		blockNumber := int64(log.BlockNumber)
-		if err := b.orm.SetPendingMinBlock(&blockNumber, postgres.WithParentCtx(ctx)); err != nil {
+		if err := b.orm.SetPendingMinBlock(&blockNumber, pg.WithParentCtx(ctx)); err != nil {
 			b.logger.Errorw("Failed to set pending broadcasts number", "blockNumber", log.BlockNumber, "err", err)
 		}
 	}
@@ -471,7 +471,7 @@ func (b *broadcaster) onNewHeads() {
 					return
 				}
 				b.registrations.sendLogs(logs, *latestHead, broadcasts, b.orm)
-				if err := b.orm.SetPendingMinBlock(nil, postgres.WithParentCtx(ctx)); err != nil {
+				if err := b.orm.SetPendingMinBlock(nil, pg.WithParentCtx(ctx)); err != nil {
 					b.logger.Errorw("Failed to set pending broadcasts number null", "err", err)
 				}
 			}
@@ -582,12 +582,12 @@ func (b *broadcaster) maybeWarnOnLargeBlockNumberDifference(logBlockNumber int64
 }
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
-func (b *broadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...postgres.QOpt) (bool, error) {
+func (b *broadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
 	return b.orm.WasBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
-func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...postgres.QOpt) error {
+func (b *broadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
 	return b.orm.MarkBroadcastConsumed(lb.RawLog().BlockHash, lb.RawLog().BlockNumber, lb.RawLog().Index, lb.JobID(), qopts...)
 }
 
@@ -639,10 +639,10 @@ func (n *NullBroadcaster) BackfillBlockNumber() null.Int64 {
 func (n *NullBroadcaster) TrackedAddressesCount() uint32 {
 	return 0
 }
-func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...postgres.QOpt) (bool, error) {
+func (n *NullBroadcaster) WasAlreadyConsumed(lb Broadcast, qopts ...pg.QOpt) (bool, error) {
 	return false, errors.New(n.ErrMsg)
 }
-func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...postgres.QOpt) error {
+func (n *NullBroadcaster) MarkConsumed(lb Broadcast, qopts ...pg.QOpt) error {
 	return errors.New(n.ErrMsg)
 }
 

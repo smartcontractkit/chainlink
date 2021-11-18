@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -146,7 +146,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Return(false, nil).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(postgres.Queryer) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once()
 
@@ -202,7 +202,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(postgres.Queryer) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once().Return(false, nil)
 
@@ -361,7 +361,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(postgres.Queryer) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 
@@ -456,7 +456,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(postgres.Queryer) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 
