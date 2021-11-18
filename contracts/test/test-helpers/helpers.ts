@@ -171,7 +171,7 @@ export function toHex(
 export async function increaseTime5Minutes(
   provider: providers.JsonRpcProvider,
 ): Promise<void> {
-  await increaseTimeBy(5 * 600, provider)
+  await increaseTimeBy(5 * 60, provider)
 }
 
 /**
