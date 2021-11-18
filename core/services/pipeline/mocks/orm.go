@@ -5,12 +5,11 @@ package mocks
 import (
 	context "context"
 
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	sqlx "github.com/smartcontractkit/sqlx"
 
@@ -25,7 +24,7 @@ type ORM struct {
 }
 
 // CreateRun provides a mock function with given fields: run, qopts
-func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
+func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -36,7 +35,7 @@ func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) error); ok {
 		r0 = rf(run, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -46,7 +45,7 @@ func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
 }
 
 // CreateSpec provides a mock function with given fields: _a0, maxTaskTimeout, qopts
-func (_m *ORM) CreateSpec(_a0 pipeline.Pipeline, maxTaskTimeout models.Interval, qopts ...postgres.QOpt) (int32, error) {
+func (_m *ORM) CreateSpec(_a0 pipeline.Pipeline, maxTaskTimeout models.Interval, qopts ...pg.QOpt) (int32, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -57,14 +56,14 @@ func (_m *ORM) CreateSpec(_a0 pipeline.Pipeline, maxTaskTimeout models.Interval,
 	ret := _m.Called(_ca...)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(pipeline.Pipeline, models.Interval, ...postgres.QOpt) int32); ok {
+	if rf, ok := ret.Get(0).(func(pipeline.Pipeline, models.Interval, ...pg.QOpt) int32); ok {
 		r0 = rf(_a0, maxTaskTimeout, qopts...)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(pipeline.Pipeline, models.Interval, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(pipeline.Pipeline, models.Interval, ...pg.QOpt) error); ok {
 		r1 = rf(_a0, maxTaskTimeout, qopts...)
 	} else {
 		r1 = ret.Error(1)
@@ -176,7 +175,7 @@ func (_m *ORM) GetUnfinishedRuns(_a0 context.Context, _a1 time.Time, _a2 func(pi
 }
 
 // InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
-func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...postgres.QOpt) error {
+func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -187,7 +186,7 @@ func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool,
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...pg.QOpt) error); ok {
 		r0 = rf(run, saveSuccessfulTaskRuns, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -197,7 +196,7 @@ func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool,
 }
 
 // InsertRun provides a mock function with given fields: run, qopts
-func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
+func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -208,7 +207,7 @@ func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) error); ok {
 		r0 = rf(run, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -218,7 +217,7 @@ func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...postgres.QOpt) error {
 }
 
 // StoreRun provides a mock function with given fields: run, qopts
-func (_m *ORM) StoreRun(run *pipeline.Run, qopts ...postgres.QOpt) (bool, error) {
+func (_m *ORM) StoreRun(run *pipeline.Run, qopts ...pg.QOpt) (bool, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -229,14 +228,14 @@ func (_m *ORM) StoreRun(run *pipeline.Run, qopts ...postgres.QOpt) (bool, error)
 	ret := _m.Called(_ca...)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...postgres.QOpt) bool); ok {
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) bool); ok {
 		r0 = rf(run, qopts...)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(*pipeline.Run, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(*pipeline.Run, ...pg.QOpt) error); ok {
 		r1 = rf(run, qopts...)
 	} else {
 		r1 = ret.Error(1)

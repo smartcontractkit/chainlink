@@ -7,31 +7,30 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
-
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...postgres.QOpt) error
-	CancelJobProposal(id int64, qopts ...postgres.QOpt) error
+	ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...pg.QOpt) error
+	CancelJobProposal(id int64, qopts ...pg.QOpt) error
 	CountJobProposals() (int64, error)
 	CountManagers() (int64, error)
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CreateManager(ms *FeedsManager) (int64, error)
-	GetJobProposal(id int64, qopts ...postgres.QOpt) (*JobProposal, error)
-	GetJobProposalByManagersIDs(ids []int64, qopts ...postgres.QOpt) ([]JobProposal, error)
+	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
+	GetJobProposalByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	GetManagers(ids []int64) ([]FeedsManager, error)
-	IsJobManaged(jobID int64, qopts ...postgres.QOpt) (bool, error)
+	IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error)
 	ListJobProposals() (jps []JobProposal, err error)
 	ListManagers() (mgrs []FeedsManager, err error)
-	UpdateJobProposalSpec(id int64, spec string, qopts ...postgres.QOpt) error
-	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...postgres.QOpt) error
-	UpdateManager(mgr FeedsManager, qopts ...postgres.QOpt) error
+	UpdateJobProposalSpec(id int64, spec string, qopts ...pg.QOpt) error
+	UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error
+	UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) error
 	UpsertJobProposal(jp *JobProposal) (int64, error)
 }
 
@@ -54,7 +53,7 @@ INSERT INTO feeds_managers (name, uri, public_key, job_types, is_ocr_bootstrap_p
 VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())
 RETURNING id;
 `
-	err = postgres.NewQ(o.db).Get(&id, stmt,
+	err = pg.NewQ(o.db).Get(&id, stmt,
 		ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.IsOCRBootstrapPeer, ms.OCRBootstrapPeerMultiaddr,
 	)
 	if err != nil {
@@ -70,7 +69,7 @@ SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstra
 FROM feeds_managers;
 `
 
-	err = postgres.NewQ(o.db).Select(&mgrs, stmt)
+	err = pg.NewQ(o.db).Select(&mgrs, stmt)
 	return mgrs, errors.Wrap(err, "ListManagers failed")
 }
 
@@ -83,7 +82,7 @@ WHERE id = $1
 `
 
 	mgr = new(FeedsManager)
-	err = postgres.NewQ(o.db).Get(mgr, stmt, id)
+	err = pg.NewQ(o.db).Get(mgr, stmt, id)
 	return mgr, errors.Wrap(err, "GetManager failed")
 }
 
@@ -96,19 +95,19 @@ WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
 	mgrIds := pq.Array(ids)
-	err = postgres.NewQ(o.db).Select(&managers, stmt, mgrIds)
+	err = pg.NewQ(o.db).Select(&managers, stmt, mgrIds)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }
 
-func (o *orm) UpdateManager(mgr FeedsManager, qopts ...postgres.QOpt) (err error) {
+func (o *orm) UpdateManager(mgr FeedsManager, qopts ...pg.QOpt) (err error) {
 	stmt := `
 UPDATE feeds_managers
 SET name = $1, uri = $2, public_key = $3, job_types = $4, is_ocr_bootstrap_peer = $5, ocr_bootstrap_peer_multiaddr = $6, updated_at = NOW()
 WHERE id = $7;
 `
 
-	res, err := postgres.NewQ(o.db, qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, mgr.ID)
+	res, err := pg.NewQ(o.db, qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, mgr.ID)
 	if err != nil {
 		return errors.Wrap(err, "UpdateManager failed to update feeds_managers")
 	}
@@ -130,7 +129,7 @@ SELECT COUNT(*)
 FROM feeds_managers
 	`
 
-	err = postgres.NewQ(o.db).Get(&count, stmt)
+	err = pg.NewQ(o.db).Get(&count, stmt)
 	return count, errors.Wrap(err, "CountManagers failed")
 }
 
@@ -142,7 +141,7 @@ VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), NOW())
 RETURNING id;
 `
 
-	err = postgres.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = pg.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
@@ -164,7 +163,7 @@ DO
 RETURNING id;
 `
 
-	err = postgres.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = pg.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -175,31 +174,31 @@ SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, multiad
 FROM job_proposals;
 `
 
-	err = postgres.NewQ(o.db).Select(&jps, stmt)
+	err = pg.NewQ(o.db).Select(&jps, stmt)
 	return jps, errors.Wrap(err, "ListJobProposals failed")
 }
 
 // GetJobProposal gets a job proposal by id
-func (o *orm) GetJobProposal(id int64, qopts ...postgres.QOpt) (jp *JobProposal, err error) {
+func (o *orm) GetJobProposal(id int64, qopts ...pg.QOpt) (jp *JobProposal, err error) {
 	stmt := `
 SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 FROM job_proposals
 WHERE id = $1
 `
 	jp = new(JobProposal)
-	err = postgres.NewQ(o.db, qopts...).Get(jp, stmt, id)
+	err = pg.NewQ(o.db, qopts...).Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
 // GetJobProposalByManagersIDs gets job proposals by feeds managers IDs
-func (o *orm) GetJobProposalByManagersIDs(ids []int64, qopts ...postgres.QOpt) ([]JobProposal, error) {
+func (o *orm) GetJobProposalByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
 	stmt := `
 SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
-	err := postgres.NewQ(o.db, qopts...).Select(&jps, stmt, ids)
+	err := pg.NewQ(o.db, qopts...).Select(&jps, stmt, ids)
 	return jps, errors.Wrap(err, "GetJobProposalByManagersIDs failed")
 }
 
@@ -212,12 +211,12 @@ WHERE remote_uuid = $1;
 `
 
 	jp = new(JobProposal)
-	err = postgres.NewQ(o.db).Get(jp, stmt, id)
+	err = pg.NewQ(o.db).Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
 }
 
 // UpdateJobProposalStatus updates the status of a job proposal by id.
-func (o *orm) UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...postgres.QOpt) error {
+func (o *orm) UpdateJobProposalStatus(id int64, status JobProposalStatus, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
@@ -225,7 +224,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
-	result, err := postgres.NewQ(o.db, qopts...).Exec(stmt, status, id)
+	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, status, id)
 	if err != nil {
 		return err
 	}
@@ -242,7 +241,7 @@ WHERE id = $2;
 }
 
 // UpdateJobProposalSpec updates the spec of a job proposal by id.
-func (o *orm) UpdateJobProposalSpec(id int64, spec string, qopts ...postgres.QOpt) error {
+func (o *orm) UpdateJobProposalSpec(id int64, spec string, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET spec = $1,
@@ -250,7 +249,7 @@ SET spec = $1,
 WHERE id = $2;
 `
 
-	res, err := postgres.NewQ(o.db, qopts...).Exec(stmt, spec, id)
+	res, err := pg.NewQ(o.db, qopts...).Exec(stmt, spec, id)
 	if err != nil {
 		return errors.Wrap(err, "UpdateJobProposalSpec failed to update job_proposals")
 	}
@@ -268,7 +267,7 @@ WHERE id = $2;
 }
 
 // ApproveJobProposal updates the job proposal as approved.
-func (o *orm) ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...postgres.QOpt) error {
+func (o *orm) ApproveJobProposal(id int64, externalJobID uuid.UUID, status JobProposalStatus, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
@@ -277,7 +276,7 @@ SET status = $1,
 WHERE id = $3;
 `
 
-	result, err := postgres.NewQ(o.db, qopts...).Exec(stmt, status, externalJobID, id)
+	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, status, externalJobID, id)
 	if err != nil {
 		return err
 	}
@@ -294,7 +293,7 @@ WHERE id = $3;
 }
 
 // CancelJobProposal cancels a job proposal.
-func (o *orm) CancelJobProposal(id int64, qopts ...postgres.QOpt) error {
+func (o *orm) CancelJobProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals
 SET status = $1,
@@ -303,7 +302,7 @@ SET status = $1,
 WHERE id = $3;
 `
 
-	result, err := postgres.NewQ(o.db, qopts...).Exec(stmt, JobProposalStatusCancelled, nil, id)
+	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, JobProposalStatusCancelled, nil, id)
 	if err != nil {
 		return err
 	}
@@ -323,12 +322,12 @@ WHERE id = $3;
 func (o *orm) CountJobProposals() (count int64, err error) {
 	stmt := `SELECT COUNT(*) FROM job_proposals`
 
-	err = postgres.NewQ(o.db).Get(&count, stmt)
+	err = pg.NewQ(o.db).Get(&count, stmt)
 	return count, errors.Wrap(err, "CountJobProposals failed")
 }
 
 // IsJobManaged determines if a job is managed by the feeds manager.
-func (o *orm) IsJobManaged(jobID int64, qopts ...postgres.QOpt) (exists bool, err error) {
+func (o *orm) IsJobManaged(jobID int64, qopts ...pg.QOpt) (exists bool, err error) {
 	stmt := `
 SELECT exists (
 	SELECT 1
@@ -338,6 +337,6 @@ SELECT exists (
 );
 `
 
-	err = postgres.NewQ(o.db, qopts...).Get(&exists, stmt, jobID)
+	err = pg.NewQ(o.db, qopts...).Get(&exists, stmt, jobID)
 	return exists, errors.Wrap(err, "IsJobManaged failed")
 }

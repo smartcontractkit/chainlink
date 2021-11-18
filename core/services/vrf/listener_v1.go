@@ -20,8 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -369,9 +369,9 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx postgres.Queryer) error {
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx)); err != nil {
+		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
 			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil

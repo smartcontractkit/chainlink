@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -212,7 +212,7 @@ func (km *keyManager) Unlock(password string) error {
 }
 
 // caller must hold lock!
-func (km *keyManager) save(callbacks ...func(postgres.Queryer) error) error {
+func (km *keyManager) save(callbacks ...func(pg.Queryer) error) error {
 	ekb, err := km.keyRing.Encrypt(km.password, km.scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt keyRing")
@@ -221,7 +221,7 @@ func (km *keyManager) save(callbacks ...func(postgres.Queryer) error) error {
 }
 
 // caller must hold lock!
-func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(postgres.Queryer) error) error {
+func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(pg.Queryer) error) error {
 	fieldName, err := getFieldNameForKey(unknownKey)
 	if err != nil {
 		return err
@@ -243,7 +243,7 @@ func (km *keyManager) safeAddKey(unknownKey Key, callbacks ...func(postgres.Quer
 }
 
 // caller must hold lock!
-func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(postgres.Queryer) error) (err error) {
+func (km *keyManager) safeRemoveKey(unknownKey Key, callbacks ...func(pg.Queryer) error) (err error) {
 	fieldName, err := getFieldNameForKey(unknownKey)
 	if err != nil {
 		return err

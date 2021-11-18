@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -51,8 +51,8 @@ type EthBroadcaster struct {
 	estimator      gas.Estimator
 	resumeCallback ResumeCallback
 
-	ethTxInsertListener postgres.Subscription
-	eventBroadcaster    postgres.EventBroadcaster
+	ethTxInsertListener pg.Subscription
+	eventBroadcaster    pg.EventBroadcaster
 
 	keyStates []ethkey.State
 
@@ -69,7 +69,7 @@ type EthBroadcaster struct {
 
 // NewEthBroadcaster returns a new concrete EthBroadcaster
 func NewEthBroadcaster(db *sqlx.DB, ethClient eth.Client, config Config, keystore KeyStore,
-	eventBroadcaster postgres.EventBroadcaster,
+	eventBroadcaster pg.EventBroadcaster,
 	keyStates []ethkey.State, estimator gas.Estimator, resumeCallback ResumeCallback,
 	logger logger.Logger) *EthBroadcaster {
 
@@ -94,7 +94,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient eth.Client, config Config, keystor
 
 func (eb *EthBroadcaster) Start() error {
 	return eb.StartOnce("EthBroadcaster", func() (err error) {
-		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+		eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 		if err != nil {
 			return errors.Wrap(err, "EthBroadcaster could not start")
 		}
@@ -293,7 +293,7 @@ func (eb *EthBroadcaster) processUnstartedEthTxs(ctx context.Context, fromAddres
 // handleInProgressEthTx checks if there is any transaction
 // in_progress and if so, finishes the job
 func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddress gethCommon.Address) error {
-	q := postgres.NewQ(eb.db, postgres.WithParentCtx(ctx))
+	q := pg.NewQ(eb.db, pg.WithParentCtx(ctx))
 	etx, err := getInProgressEthTx(q, fromAddress)
 	if ctx.Err() != nil {
 		return nil
@@ -312,7 +312,7 @@ func (eb *EthBroadcaster) handleAnyInProgressEthTx(ctx context.Context, fromAddr
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func getInProgressEthTx(q postgres.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
+func getInProgressEthTx(q pg.Q, fromAddress gethCommon.Address) (etx *EthTx, err error) {
 	etx = new(EthTx)
 	err = q.Get(etx, `SELECT * FROM eth_txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress.Bytes())
 	if errors.Is(err, sql.ErrNoRows) {
@@ -475,7 +475,7 @@ func (eb *EthBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethComm
 		return nil, errors.Wrap(err, "findNextUnstartedTransactionFromAddress failed")
 	}
 
-	nonce, err := GetNextNonce(postgres.NewQ(eb.db), etx.FromAddress, &eb.chainID)
+	nonce, err := GetNextNonce(pg.NewQ(eb.db), etx.FromAddress, &eb.chainID)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +491,7 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = EthTxInProgress
-	return postgres.NewQ(eb.db).Transaction(eb.logger, func(tx postgres.Queryer) error {
+	return pg.NewQ(eb.db).Transaction(eb.logger, func(tx pg.Queryer) error {
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
 		if e != nil {
 			return errors.Wrap(e, "failed to BindNamed")
@@ -517,7 +517,7 @@ func findNextUnstartedTransactionFromAddress(db *sqlx.DB, etx *EthTx, fromAddres
 	return errors.Wrap(err, "failed to findNextUnstartedTransactionFromAddress")
 }
 
-func saveAttempt(db *sqlx.DB, lggr logger.Logger, etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, callbacks ...func(tx postgres.Queryer) error) error {
+func saveAttempt(db *sqlx.DB, lggr logger.Logger, etx *EthTx, attempt EthTxAttempt, NewAttemptState EthTxAttemptState, callbacks ...func(tx pg.Queryer) error) error {
 	if etx.State != EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
@@ -529,7 +529,7 @@ func saveAttempt(db *sqlx.DB, lggr logger.Logger, etx *EthTx, attempt EthTxAttem
 	}
 	etx.State = EthTxUnconfirmed
 	attempt.State = NewAttemptState
-	return postgres.NewQ(db).Transaction(lggr, func(tx postgres.Queryer) error {
+	return pg.NewQ(db).Transaction(lggr, func(tx pg.Queryer) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, etx.EVMChainID.ToInt(), *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
@@ -617,7 +617,7 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(etx *EthTx) error {
 	}
 	etx.Nonce = nil
 	etx.State = EthTxFatalError
-	return postgres.NewQ(eb.db).Transaction(eb.logger, func(tx postgres.Queryer) error {
+	return pg.NewQ(eb.db).Transaction(eb.logger, func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
@@ -626,13 +626,13 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(etx *EthTx) error {
 }
 
 // GetNextNonce returns keys.next_nonce for the given address
-func GetNextNonce(q postgres.Q, address gethCommon.Address, chainID *big.Int) (nonce int64, err error) {
+func GetNextNonce(q pg.Q, address gethCommon.Address, chainID *big.Int) (nonce int64, err error) {
 	err = q.Get(&nonce, "SELECT next_nonce FROM eth_key_states WHERE address = $1 AND evm_chain_id = $2", address, chainID.String())
 	return nonce, err
 }
 
 // IncrementNextNonce increments keys.next_nonce by 1
-func IncrementNextNonce(q postgres.Queryer, address gethCommon.Address, chainID *big.Int, currentNonce int64) error {
+func IncrementNextNonce(q pg.Queryer, address gethCommon.Address, chainID *big.Int, currentNonce int64) error {
 	res, err := q.Exec("UPDATE eth_key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = $1 AND next_nonce = $2 AND evm_chain_id = $3", address, currentNonce, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "IncrementNextNonce failed to update keys")

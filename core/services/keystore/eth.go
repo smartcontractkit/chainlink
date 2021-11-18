@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -209,7 +209,7 @@ func (ks *eth) Delete(id string) (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(tx postgres.Queryer) error {
+	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
 		_, err2 := tx.Exec(`DELETE FROM eth_key_states WHERE address = $1`, key.Address)
 		return err2
 	})
@@ -420,11 +420,11 @@ func (ks *eth) add(key ethkey.KeyV2, chainID *big.Int) error {
 // caller must hold lock!
 func (ks *eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
 	state.Address = key.Address
-	return ks.safeAddKey(key, func(tx postgres.Queryer) error {
+	return ks.safeAddKey(key, func(tx pg.Queryer) error {
 		sql := `INSERT INTO eth_key_states (address, next_nonce, is_funding, evm_chain_id, created_at, updated_at)
 VALUES (:address, :next_nonce, :is_funding, :evm_chain_id, NOW(), NOW())
 RETURNING *;`
-		if err := postgres.NewQ(ks.orm.db).GetNamed(sql, &state, state); err != nil {
+		if err := pg.NewQ(ks.orm.db).GetNamed(sql, &state, state); err != nil {
 			return errors.Wrap(err, "failed to insert eth_key_state")
 		}
 		ks.keyStates.Eth[key.ID()] = &state

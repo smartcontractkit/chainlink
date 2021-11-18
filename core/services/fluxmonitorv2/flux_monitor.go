@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2/promfm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -753,14 +753,14 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(fm.db).Transaction(newRoundLogger, func(tx postgres.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, false, postgres.WithQueryer(tx)); err2 != nil {
+	err = pg.NewQ(fm.db).Transaction(newRoundLogger, func(tx pg.Queryer) error {
+		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForBPTXM(tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
 			return err2
 		}
-		return fm.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx))
+		return fm.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
 	})
 	// Either the tx failed and we want to reprocess the log, or it succeeded and already marked it consumed
 	markConsumed = false
@@ -976,8 +976,8 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = postgres.NewQ(fm.db).Transaction(l, func(tx postgres.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, true, postgres.WithQueryer(tx)); err2 != nil {
+	err = pg.NewQ(fm.db).Transaction(l, func(tx pg.Queryer) error {
+		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForBPTXM(tx, run.ID, answer, roundState.RoundId, nil); err2 != nil {
@@ -985,7 +985,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		}
 		if broadcast != nil {
 			// In the case of a flag lowered, the pollEligible call is triggered by a log.
-			return fm.logBroadcaster.MarkConsumed(broadcast, postgres.WithQueryer(tx))
+			return fm.logBroadcaster.MarkConsumed(broadcast, pg.WithQueryer(tx))
 		}
 		return nil
 	})
@@ -1056,7 +1056,7 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 	return latestRoundState
 }
 
-func (fm *FluxMonitor) queueTransactionForBPTXM(tx postgres.Queryer, runID int64, answer decimal.Decimal, roundID uint32, log *flux_aggregator_wrapper.FluxAggregatorNewRound) error {
+func (fm *FluxMonitor) queueTransactionForBPTXM(tx pg.Queryer, runID int64, answer decimal.Decimal, roundID uint32, log *flux_aggregator_wrapper.FluxAggregatorNewRound) error {
 	// Submit the Eth Tx
 	err := fm.contractSubmitter.Submit(
 		new(big.Int).SetInt64(int64(roundID)),
@@ -1076,7 +1076,7 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(tx postgres.Queryer, runID int64
 		roundID,
 		runID,
 		numLogs,
-		postgres.WithQueryer(tx),
+		pg.WithQueryer(tx),
 	)
 	if err != nil {
 		fm.logger.Errorw(
