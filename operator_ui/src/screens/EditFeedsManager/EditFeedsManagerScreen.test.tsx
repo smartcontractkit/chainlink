@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 
-import { buildFeedsManager } from 'support/factories/feedsManager'
+import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagers'
 import {
   UPDATE_FEEDS_MANAGER_MUTATION,
   EditFeedsManagerScreen,
