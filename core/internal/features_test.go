@@ -730,7 +730,7 @@ observationSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+			}, cltest.DefaultWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
 				jobs, _, err := app.JobORM().FindJobs(0, 1000)
