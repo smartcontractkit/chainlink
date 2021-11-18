@@ -39,7 +39,7 @@ func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadR
 }
 
 func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
-	bundles := []OCRKeyBundleResolver{}
+	var bundles []OCRKeyBundleResolver
 	for _, k := range r.keys {
 		bundles = append(bundles, NewOCRKeyBundleResolver(k))
 	}
@@ -81,7 +81,7 @@ func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOC
 
 func (r *DeleteOCRKeyBundlePayloadResolver) ToDeleteOCRKeyBundleSuccess() (*DeleteOCRKeyBundleSuccessResolver, bool) {
 	if r.err == nil {
-		return &DeleteOCRKeyBundleSuccessResolver{r.key}, true
+		return NewDeleteOCRKeyBundleSuccessResolver(r.key), true
 	}
 	return nil, false
 }
