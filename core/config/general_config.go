@@ -164,7 +164,7 @@ type GeneralOnlyConfig interface {
 	SessionTimeout() models.Duration
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQLStatements(logSQLStatements bool) error
+	SetLogSQLStatements(logSQLStatements bool)
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -882,11 +882,10 @@ func (c *generalConfig) LogSQLStatements() bool {
 }
 
 // SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) {
 	c.logMutex.Lock()
 	defer c.logMutex.Unlock()
 	c.logSQLStatements = logSQLStatements
-	return nil
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger

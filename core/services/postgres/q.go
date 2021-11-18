@@ -150,12 +150,7 @@ func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...T
 func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
 	q.logSql(query, args...)
-	var res sql.Result
-	var err error
-	q.logSqlError(func() error {
-		res, err = q.Queryer.ExecContext(ctx, query, args...)
-		return err
-	})
+	res, err := q.Queryer.ExecContext(ctx, query, args...)
 	return res, cancel, err
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
@@ -210,14 +205,13 @@ type queryFmt struct {
 func (q queryFmt) String() string {
 	if q.args == nil {
 		return q.query
-	} else {
-		var pairs []string
-		for i, arg := range q.args {
-			pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
-		}
-		replacer := strings.NewReplacer(pairs...)
-		return replacer.Replace(q.query)
 	}
+	var pairs []string
+	for i, arg := range q.args {
+		pairs = append(pairs, fmt.Sprintf("$%d", i+1), fmt.Sprintf("%v", arg))
+	}
+	replacer := strings.NewReplacer(pairs...)
+	return replacer.Replace(q.query)
 }
 
 func (q Q) logSql(query string, args ...interface{}) {

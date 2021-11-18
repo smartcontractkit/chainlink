@@ -2581,17 +2581,8 @@ func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 }
 
 // SetLogSQLStatements provides a mock function with given fields: logSQLStatements
-func (_m *GeneralConfig) SetLogSQLStatements(logSQLStatements bool) error {
-	ret := _m.Called(logSQLStatements)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(bool) error); ok {
-		r0 = rf(logSQLStatements)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+func (_m *GeneralConfig) SetLogSQLStatements(logSQLStatements bool) {
+	_m.Called(logSQLStatements)
 }
 
 // StatsPusherLogging provides a mock function with given fields:
