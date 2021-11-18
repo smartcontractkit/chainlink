@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
+	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/tidwall/gjson"

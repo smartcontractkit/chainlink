@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/sqlx"
@@ -75,7 +75,7 @@ func TestSessionsController_Create(t *testing.T) {
 }
 
 func mustInsertSession(t *testing.T, db *sqlx.DB, session *sessions.Session) {
-	err := postgres.NewQ(db).GetNamed(`INSERT INTO sessions (id, last_used, created_at) VALUES (:id, :last_used, :created_at) RETURNING *`, session, session)
+	err := pg.NewQ(db).GetNamed(`INSERT INTO sessions (id, last_used, created_at) VALUES (:id, :last_used, :created_at) RETURNING *`, session, session)
 	require.NoError(t, err)
 }
 

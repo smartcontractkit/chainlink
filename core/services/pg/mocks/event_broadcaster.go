@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -83,15 +83,15 @@ func (_m *EventBroadcaster) Start() error {
 }
 
 // Subscribe provides a mock function with given fields: channel, payloadFilter
-func (_m *EventBroadcaster) Subscribe(channel string, payloadFilter string) (postgres.Subscription, error) {
+func (_m *EventBroadcaster) Subscribe(channel string, payloadFilter string) (pg.Subscription, error) {
 	ret := _m.Called(channel, payloadFilter)
 
-	var r0 postgres.Subscription
-	if rf, ok := ret.Get(0).(func(string, string) postgres.Subscription); ok {
+	var r0 pg.Subscription
+	if rf, ok := ret.Get(0).(func(string, string) pg.Subscription); ok {
 		r0 = rf(channel, payloadFilter)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(postgres.Subscription)
+			r0 = ret.Get(0).(pg.Subscription)
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -109,7 +109,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	q := postgres.NewQ(s.db, postgres.WithParentCtx(ctx))
+	q := pg.NewQ(s.db, pg.WithParentCtx(ctx))
 	keyNextNonce, err := GetNextNonce(q, address, s.chainID)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	}
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-	return q.Transaction(s.logger, func(q postgres.Queryer) error {
+	return q.Transaction(s.logger, func(q pg.Queryer) error {
 		res, err := q.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
@@ -166,7 +166,7 @@ func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account comm
 	return nextNonce, errors.WithStack(err)
 }
 
-func (s NonceSyncer) hasInProgressTransaction(q postgres.Queryer, account common.Address) (exists bool, err error) {
+func (s NonceSyncer) hasInProgressTransaction(q pg.Queryer, account common.Address) (exists bool, err error) {
 	err = q.Get(&exists, `SELECT EXISTS(SELECT 1 FROM eth_txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, s.chainID.String())
 	return exists, errors.Wrap(err, "hasInProgressTransaction failed")
 }

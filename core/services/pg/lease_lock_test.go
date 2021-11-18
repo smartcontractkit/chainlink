@@ -1,4 +1,4 @@
-package postgres_test
+package pg_test
 
 import (
 	"testing"
@@ -11,11 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
-func newLeaseLock(t *testing.T, db *sqlx.DB) postgres.LeaseLock {
-	return postgres.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), 1*time.Second, 5*time.Second)
+func newLeaseLock(t *testing.T, db *sqlx.DB) pg.LeaseLock {
+	return pg.NewLeaseLock(db, uuid.NewV4(), logger.TestLogger(t), 1*time.Second, 5*time.Second)
 }
 
 func Test_LeaseLock(t *testing.T) {
