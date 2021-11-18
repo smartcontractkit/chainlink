@@ -5,8 +5,8 @@ import { renderWithRouter, screen } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
-import { FeedsManager } from 'types/generated/graphql'
-import { buildFeedsManager } from 'support/factories/feedsManager'
+import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { FeedsManager } from './types'
 
 const { queryByText } = screen
 

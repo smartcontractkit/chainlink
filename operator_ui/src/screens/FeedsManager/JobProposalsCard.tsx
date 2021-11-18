@@ -12,17 +12,16 @@ import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import { TimeAgo } from 'src/components/TimeAgo'
 
-import { v2 } from 'api'
 import Link from 'components/Link'
-import { JobProposal, Resource } from 'core/store/models'
 import { SearchTextField } from 'src/components/SearchTextField'
 import { tableStyles } from 'components/Table'
+import { JobProposal } from './types'
 
 const tabToStatus: { [key: number]: string } = {
-  0: 'pending',
-  1: 'approved',
-  2: 'rejected',
-  3: 'cancelled',
+  0: 'PENDING',
+  1: 'APPROVED',
+  2: 'REJECTED',
+  3: 'CANCELLED',
 }
 
 const styles = () => {
@@ -33,10 +32,8 @@ const styles = () => {
   })
 }
 
-type JobProposalResource = Resource<JobProposal>
-
 interface JobProposalRowProps extends WithStyles<typeof tableStyles> {
-  proposal: JobProposalResource
+  proposal: JobProposal
 }
 
 const JobProposalRow = withStyles(tableStyles)(
@@ -49,9 +46,9 @@ const JobProposalRow = withStyles(tableStyles)(
           </Link>
         </TableCell>
 
-        <TableCell>{proposal.attributes.external_job_id || 'N/A'}</TableCell>
+        <TableCell>{proposal.externalJobID || 'N/A'}</TableCell>
         <TableCell>
-          <TimeAgo tooltip>{proposal.attributes.proposedAt}</TimeAgo>
+          <TimeAgo tooltip>{proposal.proposedAt}</TimeAgo>
         </TableCell>
       </TableRow>
     )
@@ -66,7 +63,7 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const search = (term: string) => (proposal: JobProposalResource) => {
+export const search = (term: string) => (proposal: JobProposal) => {
   if (term === '') {
     return true
   }
@@ -75,77 +72,75 @@ export const search = (term: string) => (proposal: JobProposalResource) => {
 }
 
 // matchSimple does a simple match on the id
-function matchSimple(proposal: JobProposalResource, term: string) {
+function matchSimple(proposal: JobProposal, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [proposal.id]
-  if (proposal.attributes.external_job_id != null) {
-    dataset.push(proposal.attributes.external_job_id)
+  if (proposal.externalJobID) {
+    dataset.push(proposal.externalJobID)
   }
 
   return dataset.some(match)
 }
 
-interface Props extends WithStyles<typeof styles> {}
+interface Props extends WithStyles<typeof styles> {
+  proposals: FetchFeedManagersWithProposals['feedsManagers']['results'][number]['jobProposals']
+}
 
-export const JobProposalsCard = withStyles(styles)(({ classes }: Props) => {
-  const [tabValue, setTabValue] = React.useState(0)
-  const [proposals, setProposals] = React.useState<JobProposalResource[]>()
-  const [searchTerm, setSearchTerm] = React.useState('')
+export const JobProposalsCard = withStyles(styles)(
+  ({ classes, proposals }: Props) => {
+    const [tabValue, setTabValue] = React.useState(0)
+    const [searchTerm, setSearchTerm] = React.useState('')
 
-  React.useEffect(() => {
-    v2.jobProposals.getJobProposals().then((res) => {
-      setProposals(res.data)
-    })
-  }, [])
+    const filteredProposals: JobProposal[] = React.useMemo(() => {
+      if (!proposals) {
+        return []
+      }
 
-  const filteredProposals: JobProposalResource[] = React.useMemo(() => {
-    if (!proposals) {
-      return []
-    }
+      return proposals.filter(
+        (p) => p.status === tabToStatus[tabValue] && search(searchTerm)(p),
+      )
+    }, [tabValue, proposals, searchTerm])
 
-    return proposals.filter(
-      (p) =>
-        p.attributes.status === tabToStatus[tabValue] && search(searchTerm)(p),
+    return (
+      <Card>
+        <CardHeader
+          title="Job Proposals"
+          action={
+            <SearchTextField value={searchTerm} onChange={setSearchTerm} />
+          }
+        />
+
+        <Tabs
+          value={tabValue}
+          className={classes.tabsRoot}
+          indicatorColor="primary"
+          onChange={(_, value) => {
+            setTabValue(value)
+          }}
+        >
+          <Tab label="Pending" />
+          <Tab label="Approved" />
+          <Tab label="Rejected" />
+          <Tab label="Cancelled" />
+        </Tabs>
+
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>ID</TableCell>
+              <TableCell>External Job ID</TableCell>
+              <TableCell>Proposed At</TableCell>
+            </TableRow>
+          </TableHead>
+
+          <TableBody>
+            {filteredProposals?.map((proposal) => (
+              <JobProposalRow key={proposal.id} proposal={proposal} />
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
     )
-  }, [tabValue, proposals, searchTerm])
-
-  return (
-    <Card>
-      <CardHeader
-        title="Job Proposals"
-        action={<SearchTextField value={searchTerm} onChange={setSearchTerm} />}
-      />
-
-      <Tabs
-        value={tabValue}
-        className={classes.tabsRoot}
-        indicatorColor="primary"
-        onChange={(_, value) => {
-          setTabValue(value)
-        }}
-      >
-        <Tab label="Pending" />
-        <Tab label="Approved" />
-        <Tab label="Rejected" />
-        <Tab label="Cancelled" />
-      </Tabs>
-
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>ID</TableCell>
-            <TableCell>External Job ID</TableCell>
-            <TableCell>Proposed At</TableCell>
-          </TableRow>
-        </TableHead>
-
-        <TableBody>
-          {filteredProposals?.map((proposal) => (
-            <JobProposalRow key={proposal.id} proposal={proposal} />
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
-  )
-})
+  },
+)

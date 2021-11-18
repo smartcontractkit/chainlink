@@ -16,7 +16,7 @@ import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
-import { FeedsManager } from 'types/generated/graphql'
+import { FeedsManager } from './types'
 
 const cardSubheaderStyles = () => {
   return createStyles({
