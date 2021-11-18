@@ -14,11 +14,6 @@ export class JobProposals {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
-  public getJobProposals(): Promise<jsonapi.ApiResponse<models.JobProposal[]>> {
-    return this.index()
-  }
-
-  @boundMethod
   public getJobProposal(
     id: string,
   ): Promise<jsonapi.ApiResponse<models.JobProposal>> {
@@ -54,7 +49,6 @@ export class JobProposals {
     return this.updateSpec(req, { id })
   }
 
-  private index = this.api.fetchResource<{}, models.JobProposal[]>(ENDPOINT)
   private show = this.api.fetchResource<
     {},
     models.JobProposal,
