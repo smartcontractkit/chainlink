@@ -6,8 +6,9 @@ import (
 	context "context"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
+
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
@@ -110,20 +111,27 @@ func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	return r0, r1
 }
 
-// FindJobByExternalJobID provides a mock function with given fields: ctx, _a1
-func (_m *ORM) FindJobByExternalJobID(ctx context.Context, _a1 uuid.UUID) (job.Job, error) {
-	ret := _m.Called(ctx, _a1)
+// FindJobByExternalJobID provides a mock function with given fields: _a0, qopts
+func (_m *ORM) FindJobByExternalJobID(_a0 uuid.UUID, qopts ...pg.QOpt) (job.Job, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) job.Job); ok {
-		r0 = rf(ctx, _a1)
+	if rf, ok := ret.Get(0).(func(uuid.UUID, ...pg.QOpt) job.Job); ok {
+		r0 = rf(_a0, qopts...)
 	} else {
 		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
-		r1 = rf(ctx, _a1)
+	if rf, ok := ret.Get(1).(func(uuid.UUID, ...pg.QOpt) error); ok {
+		r1 = rf(_a0, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

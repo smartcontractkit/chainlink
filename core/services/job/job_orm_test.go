@@ -297,9 +297,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		jb, err := orm.FindJobByExternalJobID(ctx, externalJobID)
+		jb, err := orm.FindJobByExternalJobID(externalJobID)
 		require.NoError(t, err)
 
 		assert.Equal(t, jb.ID, jb.ID)

@@ -1061,6 +1061,7 @@ func (fm *FluxMonitor) queueTransactionForBPTXM(tx pg.Queryer, runID int64, answ
 	err := fm.contractSubmitter.Submit(
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
+		pg.WithQueryer(tx),
 	)
 	if err != nil {
 		return err

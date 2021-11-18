@@ -23,7 +23,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...pg.QOpt) error
-	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64) error
+	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint64, qopts ...pg.QOpt) error
 	CountFluxMonitorRoundStats() (count int, err error)
 }
 
@@ -106,6 +106,7 @@ func (o *orm) CreateEthTransaction(
 	toAddress common.Address,
 	payload []byte,
 	gasLimit uint64,
+	qopts ...pg.QOpt,
 ) (err error) {
 	_, err = o.txm.CreateEthTransaction(bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,
@@ -114,6 +115,6 @@ func (o *orm) CreateEthTransaction(
 		GasLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       o.strategy,
-	})
+	}, qopts...)
 	return errors.Wrap(err, "Skipped Flux Monitor submission")
 }
