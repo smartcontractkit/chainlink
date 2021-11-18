@@ -32,8 +32,8 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/postgres/datatypes"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -434,7 +434,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		ethClient,
 		evmcfg,
 		ethKeyStore,
-		&postgres.NullEventBroadcaster{},
+		&pg.NullEventBroadcaster{},
 		[]ethkey.State{keyState},
 		estimator,
 		nil,
@@ -862,7 +862,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 }
 
 func getLocalNextNonce(t *testing.T, db *sqlx.DB, fromAddress gethCommon.Address) uint64 {
-	n, err := bulletprooftxmanager.GetNextNonce(postgres.NewQ(db), fromAddress, &cltest.FixtureChainID)
+	n, err := bulletprooftxmanager.GetNextNonce(pg.NewQ(db), fromAddress, &cltest.FixtureChainID)
 	require.NoError(t, err)
 	require.NotNil(t, n)
 	return uint64(n)
@@ -929,7 +929,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Check that the local nonce was incremented by one
 		var finalNextNonce int64
-		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(postgres.NewQ(db), fromAddress, &cltest.FixtureChainID)
+		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(pg.NewQ(db), fromAddress, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		require.NotNil(t, finalNextNonce)
 		require.Equal(t, int64(1), finalNextNonce)
@@ -1420,7 +1420,7 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	nonce, err := bulletprooftxmanager.GetNextNonce(postgres.NewQ(db), keyState.Address.Address(), &cltest.FixtureChainID)
+	nonce, err := bulletprooftxmanager.GetNextNonce(pg.NewQ(db), keyState.Address.Address(), &cltest.FixtureChainID)
 	assert.NoError(t, err)
 	require.NotNil(t, nonce)
 	assert.Equal(t, int64(0), nonce)
@@ -1472,7 +1472,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	require.NoError(t, eventBroadcaster.Start())
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
-	ethTxInsertListener, err := eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+	ethTxInsertListener, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEthTx, "")
 	require.NoError(t, err)
 
 	// Give it some time to start listening

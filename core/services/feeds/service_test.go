@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
@@ -23,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	pgmocks "github.com/smartcontractkit/chainlink/core/services/postgres/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -39,7 +40,7 @@ import (
 
 func init() {
 	// AllowUnknownQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
-	postgres.AllowUnknownQueryerTypeInTransaction = true
+	pg.AllowUnknownQueryerTypeInTransaction = true
 }
 
 const TestSpec = `
@@ -252,7 +253,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "Create success",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(nil, sql.ErrNoRows)
+				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
@@ -443,6 +444,25 @@ func Test_Service_ListJobProposals(t *testing.T) {
 		Return(jps, nil)
 
 	actual, err := svc.ListJobProposals()
+	require.NoError(t, err)
+
+	assert.Equal(t, actual, jps)
+}
+
+func Test_Service_GetJobProposalByManagersIDs(t *testing.T) {
+	t.Parallel()
+
+	var (
+		jp    = feeds.JobProposal{}
+		jps   = []feeds.JobProposal{jp}
+		fmIDs = []int64{1}
+	)
+	svc := setupTestService(t)
+
+	svc.orm.On("GetJobProposalByManagersIDs", fmIDs).
+		Return(jps, nil)
+
+	actual, err := svc.GetJobProposalByManagersIDs(fmIDs)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, jps)

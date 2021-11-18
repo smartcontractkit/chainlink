@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -344,8 +344,8 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 		},
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
-	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx postgres.Queryer) error {
-		l.markLogConsumed(lb, postgres.WithQueryer(tx))
+	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
+		l.markLogConsumed(lb, pg.WithQueryer(tx))
 		return nil
 	})
 	if ctx.Err() != nil {
@@ -376,7 +376,7 @@ func (l *listener) handleCancelOracleRequest(request *operator_wrapper.OperatorC
 	l.markLogConsumed(lb)
 }
 
-func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...postgres.QOpt) {
+func (l *listener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {
 	if err := l.logBroadcaster.MarkConsumed(lb, qopts...); err != nil {
 		l.logger.Errorw("Unable to mark log consumed", "err", err, "log", lb.String())
 	}

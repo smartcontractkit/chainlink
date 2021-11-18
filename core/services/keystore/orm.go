@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
@@ -27,8 +27,8 @@ type ksORM struct {
 	lggr logger.Logger
 }
 
-func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(postgres.Queryer) error) error {
-	return postgres.NewQ(orm.db).Transaction(orm.lggr, func(tx postgres.Queryer) error {
+func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
+	return pg.NewQ(orm.db).Transaction(orm.lggr, func(tx pg.Queryer) error {
 		_, err := tx.Exec(`
 		UPDATE encrypted_key_rings
 		SET encrypted_keys = $1

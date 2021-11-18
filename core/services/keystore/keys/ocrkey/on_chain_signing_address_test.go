@@ -1,8 +1,9 @@
 package ocrkey_test
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )

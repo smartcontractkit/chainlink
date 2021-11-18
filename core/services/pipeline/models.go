@@ -4,11 +4,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -108,6 +110,77 @@ func (r *Run) ByDotID(id string) *TaskRun {
 		}
 	}
 	return nil
+}
+
+func (r *Run) StringOutputs() ([]*string, error) {
+	// The UI expects all outputs to be strings.
+	var outputs []*string
+	// Note for async jobs, Outputs can be nil/invalid
+	if r.Outputs.Valid {
+		outs, ok := r.Outputs.Val.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unable to process output type %T", r.Outputs.Val)
+		}
+
+		if r.Outputs.Valid && r.Outputs.Val != nil {
+			for _, out := range outs {
+				switch v := out.(type) {
+				case string:
+					s := v
+					outputs = append(outputs, &s)
+				case map[string]interface{}:
+					b, _ := json.Marshal(v)
+					bs := string(b)
+					outputs = append(outputs, &bs)
+				case decimal.Decimal:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case *big.Int:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case float64:
+					s := fmt.Sprintf("%f", v)
+					outputs = append(outputs, &s)
+				case nil:
+					outputs = append(outputs, nil)
+				default:
+					return nil, fmt.Errorf("unable to process output type %T", out)
+				}
+			}
+		}
+	}
+
+	return outputs, nil
+}
+
+func (r *Run) StringFatalErrors() []*string {
+	var fatalErrors []*string
+
+	for _, err := range r.FatalErrors {
+		if err.Valid {
+			s := err.String
+			fatalErrors = append(fatalErrors, &s)
+		} else {
+			fatalErrors = append(fatalErrors, nil)
+		}
+	}
+
+	return fatalErrors
+}
+
+func (r *Run) StringAllErrors() []*string {
+	var allErrors []*string
+
+	for _, err := range r.AllErrors {
+		if err.Valid {
+			s := err.String
+			allErrors = append(allErrors, &s)
+		} else {
+			allErrors = append(allErrors, nil)
+		}
+	}
+
+	return allErrors
 }
 
 type RunErrors []null.String

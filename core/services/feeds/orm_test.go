@@ -130,7 +130,7 @@ func Test_ORM_GetManager(t *testing.T) {
 	assert.True(t, actual.IsOCRBootstrapPeer)
 	assert.Equal(t, ocrBootstrapPeerMultiaddr, actual.OCRBootstrapPeerMultiaddr)
 
-	actual, err = orm.GetManager(-1)
+	_, err = orm.GetManager(-1)
 	require.Error(t, err)
 }
 
@@ -317,6 +317,35 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
+func Test_ORM_GetJobProposalByManagersIDs(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	id, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	jps, err := orm.GetJobProposalByManagersIDs([]int64{fmID})
+	require.NoError(t, err)
+	require.Len(t, jps, 1)
+
+	actual := jps[0]
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uuid, actual.RemoteUUID)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.False(t, actual.ExternalJobID.Valid)
+	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+}
+
 func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 	t.Parallel()
 
@@ -383,7 +412,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		assert.Equal(t, id, actual.ID)
 		assertJobEquals(actual)
 
-		actual, err = orm.GetJobProposal(int64(0))
+		_, err = orm.GetJobProposal(int64(0))
 		require.Error(t, err)
 	})
 
@@ -393,7 +422,7 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 
 		assertJobEquals(actual)
 
-		actual, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
+		_, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
 		require.Error(t, err)
 	})
 }

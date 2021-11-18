@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -99,7 +99,7 @@ func retryLogMsg(count int) string {
 }
 
 // Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
@@ -108,7 +108,7 @@ func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout t
 
 	initCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	lock, err := postgres.NewLock(initCtx, lockID, db)
+	lock, err := pg.NewLock(initCtx, lockID, db)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	uri := cfg.DatabaseURL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
+	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
 		Logger:           appLggr,
 		LogSQLStatements: cfg.LogSQLStatements(),
 		MaxOpenConns:     cfg.ORMMaxOpenConns(),
@@ -167,16 +167,16 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 
 	// Lease will be explicitly released on application stop
 	// Take the lease before any other DB operations
-	var leaseLock postgres.LeaseLock
+	var leaseLock pg.LeaseLock
 	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = postgres.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock postgres.Locker
+	var advisoryLock pg.Locker
 	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -244,7 +244,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,

@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -70,7 +70,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(newTx NewTx, qopts ...postgres.QOpt) (etx EthTx, err error)
+	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
 }
@@ -83,7 +83,7 @@ type BulletproofTxManager struct {
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	eventBroadcaster postgres.EventBroadcaster
+	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
@@ -103,7 +103,7 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
 	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
@@ -276,8 +276,8 @@ type NewTx struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.QOpt) (etx EthTx, err error) {
-	q := postgres.NewQ(b.db, qs...)
+func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+	q := pg.NewQ(b.db, qs...)
 
 	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
@@ -285,7 +285,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...postgres.
 	}
 
 	value := 0
-	err = q.Transaction(b.logger, func(tx postgres.Queryer) error {
+	err = q.Transaction(b.logger, func(tx pg.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
 			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
 			// If no eth_tx matches (the common case) then continue
@@ -323,7 +323,7 @@ RETURNING "eth_txes".*
 	return
 }
 
-func (b *BulletproofTxManager) checkStateExists(q postgres.Queryer, addr common.Address) error {
+func (b *BulletproofTxManager) checkStateExists(q pg.Queryer, addr common.Address) error {
 	var state ethkey.State
 	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -360,7 +360,7 @@ func SendEther(db *sqlx.DB, chainID *big.Int, from, to common.Address, value ass
 	query := `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, evm_chain_id, created_at) VALUES (
 :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :evm_chain_id, NOW()
 ) RETURNING eth_txes.*`
-	err = postgres.NewQ(db).GetNamed(query, &etx, etx)
+	err = pg.NewQ(db).GetNamed(query, &etx, etx)
 	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
@@ -495,7 +495,7 @@ func saveReplacementInProgressAttempt(lggr logger.Logger, db *sqlx.DB, oldAttemp
 	if oldAttempt.ID == 0 {
 		return errors.New("expected oldAttempt to have an ID")
 	}
-	return postgres.NewQ(db).Transaction(lggr, func(tx postgres.Queryer) error {
+	return pg.NewQ(db).Transaction(lggr, func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
 		}
@@ -518,14 +518,14 @@ func CountUnstartedTransactions(db *sqlx.DB, fromAddress common.Address, chainID
 }
 
 func countTransactionsWithState(db *sqlx.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
-	err = postgres.NewQ(db).Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+	err = pg.NewQ(db).Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())
 	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
-func CheckEthTxQueueCapacity(q postgres.Queryer, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
+func CheckEthTxQueueCapacity(q pg.Queryer, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
@@ -552,7 +552,7 @@ func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
 func (n *NullTxManager) Start() error                                { return nil }
 func (n *NullTxManager) Close() error                                { return nil }
 func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(NewTx, ...postgres.QOpt) (etx EthTx, err error) {
+func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }

@@ -14,8 +14,9 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -83,9 +84,11 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.WriteToDB(); err != nil {
-				p.lggr.Errorw("Error writing peerstore to DB", "err", err)
-			}
+			recovery.WrapRecover(p.lggr, func() {
+				if err := p.WriteToDB(); err != nil {
+					p.lggr.Errorw("Error writing peerstore to DB", "err", err)
+				}
+			})
 		}
 	}
 }
@@ -118,7 +121,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := postgres.NewQ(p.db, postgres.WithParentCtx(p.ctx)).Query(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
+	rows, err := pg.NewQ(p.db, pg.WithParentCtx(p.ctx)).Query(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
@@ -141,7 +144,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 }
 
 func (p *Pstorewrapper) WriteToDB() error {
-	err := postgres.NewQ(p.db, postgres.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx postgres.Queryer) error {
+	err := pg.NewQ(p.db, pg.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx pg.Queryer) error {
 		_, err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 		if err != nil {
 			return errors.Wrap(err, "delete from p2p_peers failed")
