@@ -101,9 +101,9 @@ func TestORM(t *testing.T) {
 
 		ocrSpecError1 := "ocr spec 1 errored"
 		ocrSpecError2 := "ocr spec 2 errored"
-		orm.RecordError(jobSpec.ID, ocrSpecError1)
-		orm.RecordError(jobSpec.ID, ocrSpecError1)
-		orm.RecordError(jobSpec.ID, ocrSpecError2)
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
 
 		var specErrors []job.SpecError
 		err = db.Select(&specErrors, "SELECT * FROM job_spec_errors")
