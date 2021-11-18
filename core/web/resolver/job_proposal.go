@@ -59,7 +59,7 @@ func NewJobProposals(jps []feeds.JobProposal) []*JobProposalResolver {
 
 // ID resolves to the job proposal ID
 func (r *JobProposalResolver) ID() graphql.ID {
-	return int32GQLID(int32(r.jp.ID))
+	return int64GQLID(r.jp.ID)
 }
 
 // Spec resolves to the job proposal Spec

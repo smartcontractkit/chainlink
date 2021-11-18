@@ -2,13 +2,13 @@ package loader
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/graph-gophers/dataloader"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 type jobRunBatcher struct {
@@ -21,9 +21,9 @@ func (b *jobRunBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader
 	// Collect the keys to search for
 	var plnSpecIDs []int32
 	for ix, key := range keys {
-		id, err := strconv.ParseInt(key.String(), 10, 32)
+		id, err := stringutils.ToInt32(key.String())
 		if err == nil {
-			plnSpecIDs = append(plnSpecIDs, int32(id))
+			plnSpecIDs = append(plnSpecIDs, id)
 		}
 		keyOrder[key.String()] = ix
 	}
@@ -37,7 +37,7 @@ func (b *jobRunBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader
 	// Generate a map of pipeline runs to pipeline spec id
 	runsForJob := map[string][]pipeline.Run{}
 	for _, jb := range jbRuns {
-		id := strconv.Itoa(int(jb.PipelineSpecID))
+		id := stringutils.FromInt32(jb.PipelineSpecID)
 
 		runsForJob[id] = append(runsForJob[id], jb)
 	}
