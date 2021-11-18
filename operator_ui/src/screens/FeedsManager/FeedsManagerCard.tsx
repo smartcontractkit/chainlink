@@ -1,10 +1,10 @@
 import React from 'react'
 import { useHistory } from 'react-router-dom'
 
-import { FeedsManager } from 'core/store/models'
-
+import CancelIcon from '@material-ui/icons/Cancel'
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
+import CheckCircleIcon from '@material-ui/icons/CheckCircle'
 import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
 import IconButton from '@material-ui/core/IconButton'
 import EditIcon from '@material-ui/icons/Edit'
@@ -16,8 +16,7 @@ import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
-import CheckCircleIcon from '@material-ui/icons/CheckCircle'
-import CancelIcon from '@material-ui/icons/Cancel'
+import { FeedsManager } from 'types/generated/graphql'
 
 const cardSubheaderStyles = () => {
   return createStyles({
@@ -85,7 +84,10 @@ export const FeedsManagerCard = withStyles(styles)(
           title="Feeds Manager"
           subheader={<CardSubheader isConnected={manager.isConnectionActive} />}
           action={
-            <IconButton onClick={() => history.push('/feeds_manager/edit')}>
+            <IconButton
+              onClick={() => history.push('/feeds_manager/edit')}
+              data-testid="edit"
+            >
               <EditIcon fontSize="small" />
             </IconButton>
           }
