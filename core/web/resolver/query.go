@@ -3,7 +3,6 @@ package resolver
 import (
 	"context"
 	"database/sql"
-	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
@@ -12,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 // Bridge retrieves a bridges by name.
@@ -49,12 +49,12 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	bridges, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
+	brdgs, count, err := r.App.BridgeORM().BridgeTypes(offset, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewBridgesPayload(bridges, int32(count)), nil
+	return NewBridgesPayload(brdgs, int32(count)), nil
 }
 
 // Chain retrieves a chain by id.
@@ -107,12 +107,12 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 
-	mgr, err := r.App.GetFeedsService().GetManager(int64(id))
+	mgr, err := r.App.GetFeedsService().GetManager(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewFeedsManagerPayload(nil), nil
@@ -143,12 +143,12 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	id, err := stringutils.ToInt32(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 
-	j, err := r.App.JobORM().FindJobTx(int32(id))
+	j, err := r.App.JobORM().FindJobTx(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobPayload(nil, err), nil
@@ -222,12 +222,12 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 32)
+	id, err := stringutils.ToInt32(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
 
-	node, err := r.App.EVMORM().Node(int32(id))
+	node, err := r.App.EVMORM().Node(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewNodePayloadResolver(nil, err), nil
@@ -292,7 +292,7 @@ func (r *Resolver) JobProposal(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	id, err := strconv.ParseInt(string(args.ID), 10, 64)
+	id, err := stringutils.ToInt64(string(args.ID))
 	if err != nil {
 		return nil, err
 	}

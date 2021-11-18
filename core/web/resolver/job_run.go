@@ -1,8 +1,6 @@
 package resolver
 
 import (
-	"strconv"
-
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -29,7 +27,7 @@ func NewJobRuns(runs []pipeline.Run) []*JobRunResolver {
 }
 
 func (r *JobRunResolver) ID() graphql.ID {
-	return graphql.ID(strconv.Itoa(int(r.run.ID)))
+	return int64GQLID(r.run.ID)
 }
 
 func (r *JobRunResolver) Outputs() []*string {
@@ -47,7 +45,7 @@ func (r *JobRunResolver) Outputs() []*string {
 }
 
 func (r *JobRunResolver) PipelineSpecID() graphql.ID {
-	return graphql.ID(strconv.Itoa(int(r.run.PipelineSpecID)))
+	return int32GQLID(r.run.PipelineSpecID)
 }
 
 func (r *JobRunResolver) FatalErrors() []string {
