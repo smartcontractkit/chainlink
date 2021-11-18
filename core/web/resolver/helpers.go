@@ -3,7 +3,6 @@ package resolver
 import (
 	"database/sql"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/graph-gophers/graphql-go"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 const (
@@ -22,7 +22,11 @@ const (
 )
 
 func int32GQLID(i int32) graphql.ID {
-	return graphql.ID(strconv.Itoa(int(i)))
+	return graphql.ID(stringutils.FromInt32(i))
+}
+
+func int64GQLID(i int64) graphql.ID {
+	return graphql.ID(stringutils.FromInt64(i))
 }
 
 // pageOffset returns the default page offset if nil, otherwise it returns the
@@ -65,7 +69,7 @@ func ValidateBridgeTypeUniqueness(bt *bridges.BridgeTypeRequest, orm bridges.ORM
 //
 // This validation function should be moved into a bridge service and return
 // multiple errors.
-func ValidateBridgeType(bt *bridges.BridgeTypeRequest, orm bridges.ORM) error {
+func ValidateBridgeType(bt *bridges.BridgeTypeRequest) error {
 	if len(bt.Name.String()) < 1 {
 		return errors.New("No name specified")
 	}

@@ -96,3 +96,43 @@ func NewSetServicesLogLevelsSuccess(cfg LogLevelConfig) *SetServicesLogLevelsSuc
 func (r *SetServicesLogLevelsSuccessResolver) Config() *LogLevelConfigResolver {
 	return NewLogLevelConfig(r.cfg)
 }
+
+// SQL Logging config
+
+type SQLLoggingResolver struct {
+	enabled bool
+}
+
+func NewSQLLogging(enabled bool) *SQLLoggingResolver {
+	return &SQLLoggingResolver{enabled}
+}
+
+func (r *SQLLoggingResolver) Enabled() bool {
+	return r.enabled
+}
+
+// -- SetSQLLogging Mutation --
+
+type SetSQLLoggingPayloadResolver struct {
+	enabled bool
+}
+
+func NewSetSQLLoggingPayload(enabled bool) *SetSQLLoggingPayloadResolver {
+	return &SetSQLLoggingPayloadResolver{enabled}
+}
+
+func (r *SetSQLLoggingPayloadResolver) ToSetSQLLoggingSuccess() (*SetSQLLoggingSuccessResolver, bool) {
+	return NewSetSQLLoggingSuccess(r.enabled), true
+}
+
+type SetSQLLoggingSuccessResolver struct {
+	enabled bool
+}
+
+func NewSetSQLLoggingSuccess(enabled bool) *SetSQLLoggingSuccessResolver {
+	return &SetSQLLoggingSuccessResolver{enabled: enabled}
+}
+
+func (r *SetSQLLoggingSuccessResolver) SQLLogging() *SQLLoggingResolver {
+	return NewSQLLogging(r.enabled)
+}
