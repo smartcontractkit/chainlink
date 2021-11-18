@@ -19,7 +19,7 @@ func NewNode(node types.Node) *NodeResolver {
 }
 
 func NewNodes(nodes []types.Node) []*NodeResolver {
-	resolvers := []*NodeResolver{}
+	var resolvers []*NodeResolver
 	for _, n := range nodes {
 		resolvers = append(resolvers, NewNode(n))
 	}

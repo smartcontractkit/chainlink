@@ -22,7 +22,7 @@ func NewJob(j job.Job) *JobResolver {
 }
 
 func NewJobs(jobs []job.Job) []*JobResolver {
-	resolvers := []*JobResolver{}
+	var resolvers []*JobResolver
 	for _, j := range jobs {
 		resolvers = append(resolvers, NewJob(j))
 	}
@@ -32,7 +32,7 @@ func NewJobs(jobs []job.Job) []*JobResolver {
 
 // ID resolves the job's id.
 func (r *JobResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
+	return int32GQLID(r.j.ID)
 }
 
 // CreatedAt resolves the job's created at timestamp.
