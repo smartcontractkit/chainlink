@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
@@ -95,6 +96,9 @@ func sqlxTransactionQ(ctx context.Context, db *sqlx.DB, lggr logger.Logger, fn f
 
 	defer func() {
 		if p := recover(); p != nil {
+			sentry.CurrentHub().Recover(p)
+			sentry.Flush(logger.SentryFlushDeadline)
+
 			// A panic occurred, rollback and repanic
 			lggr.Errorf("Panic in transaction, rolling back: %s", p)
 			done := make(chan struct{})
