@@ -7,7 +7,6 @@ import (
 
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	config "github.com/smartcontractkit/chainlink/core/config"
 
@@ -28,6 +27,8 @@ import (
 	mock "github.com/stretchr/testify/mock"
 
 	packr "github.com/gobuffalo/packr"
+
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
