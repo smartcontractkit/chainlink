@@ -531,7 +531,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	tm.logBroadcaster.On("IsConnected").Return(true).Once()
 
 	tm.jobORM.
-		On("RecordError",
+		On("TryRecordError",
 			pipelineSpec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		).Once()

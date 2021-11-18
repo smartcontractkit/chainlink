@@ -44,7 +44,9 @@ type ORM interface {
 	FindJobByExternalJobID(ctx context.Context, uuid uuid.UUID) (Job, error)
 	FindJobIDsWithBridge(name string) ([]int32, error)
 	DeleteJob(id int32, qopts ...pg.QOpt) error
-	RecordError(jobID int32, description string, qopts ...pg.QOpt)
+	RecordError(jobID int32, description string, qopts ...pg.QOpt) error
+	// TryRecordError is a helper which calls RecordError and logs the returned error if present.
+	TryRecordError(jobID int32, description string, qopts ...pg.QOpt)
 	DismissError(ctx context.Context, errorID int32) error
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
@@ -304,7 +306,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) {
+func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) error {
 	q := pg.NewQ(o.db, qopts...)
 	sql := `INSERT INTO job_spec_errors (job_id, description, occurrences, created_at, updated_at)
 	VALUES ($1, $2, 1, $3, $3)
@@ -316,9 +318,13 @@ func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) {
 	pqErr, ok := err.(*pgconn.PgError)
 	if err != nil && ok && pqErr.Code == "23503" {
 		if pqErr.ConstraintName == "job_spec_errors_v2_job_id_fkey" {
-			return
+			return nil
 		}
 	}
+	return err
+}
+func (o *orm) TryRecordError(jobID int32, description string, qopts ...pg.QOpt) {
+	err := o.RecordError(jobID, description, qopts...)
 	o.lggr.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
 }
 
