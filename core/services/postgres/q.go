@@ -149,9 +149,13 @@ func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...T
 // which avoids this problem
 func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.CancelFunc, error) {
 	ctx, cancel := q.Context()
-	q.logSql(query, args...)
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
 	res, err := q.Queryer.ExecContext(ctx, query, args...)
-	return res, cancel, err
+	return res, cancel, q.withLogError(err)
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
 	_, cancel, err := q.ExecQIter(query, args...)
@@ -171,18 +175,22 @@ func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 func (q Q) Select(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	q.logSql(query, args...)
-	return q.logSqlError(func() error {
-		return q.Queryer.SelectContext(ctx, dest, query, args...)
-	})
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
+	return q.withLogError(q.Queryer.SelectContext(ctx, dest, query, args...))
 }
 func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	q.logSql(query, args...)
-	return q.logSqlError(func() error {
-		return q.Queryer.GetContext(ctx, dest, query, args...)
-	})
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
+	return q.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
@@ -191,10 +199,12 @@ func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	}
 	ctx, cancel := q.Context()
 	defer cancel()
-	q.logSql(query, args...)
-	return q.logSqlError(func() error {
-		return errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query")
-	})
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
+	return q.withLogError(errors.Wrap(q.GetContext(ctx, dest, query, args...), "error in get query"))
 }
 
 type queryFmt struct {
@@ -214,22 +224,26 @@ func (q queryFmt) String() string {
 	return replacer.Replace(q.query)
 }
 
-func (q Q) logSql(query string, args ...interface{}) {
+func (q Q) logSqlQuery(query string, args ...interface{}) {
 	if q.lggr == nil || !q.lggr.IsLogSqlEnabled() {
 		return
 	}
 	q.lggr.Debugf("SQL: %s", queryFmt{query, args})
 }
 
-func (q Q) logSqlError(fn func() error) error {
-	begin := time.Now()
-	err := fn()
-	elapsed := time.Since(begin)
+func (q Q) withLogError(err error) error {
 	if err != nil && q.lggr != nil {
 		q.lggr.Errorf("SQL ERROR: %v", err)
+	}
+	return err
+}
+
+func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
+	elapsed := time.Since(begin)
+	if ctx.Err() != nil && q.lggr != nil {
+		q.lggr.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
 	if q.lggr != nil && elapsed > slowThreshold {
 		q.lggr.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
-	return err
 }
