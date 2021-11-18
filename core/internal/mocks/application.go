@@ -462,11 +462,6 @@ func (_m *Application) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSql provides a mock function with given fields: enabled
-func (_m *Application) SetLogSql(enabled bool) {
-	_m.Called(enabled)
-}
-
 // SetServiceLogLevel provides a mock function with given fields: ctx, service, level
 func (_m *Application) SetServiceLogLevel(ctx context.Context, service string, level zapcore.Level) error {
 	ret := _m.Called(ctx, service, level)

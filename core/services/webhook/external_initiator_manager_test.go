@@ -23,7 +23,8 @@ import (
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -58,7 +59,8 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -98,7 +100,8 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),

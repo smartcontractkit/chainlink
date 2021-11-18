@@ -59,7 +59,6 @@ type Application interface {
 	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSql(enabled bool)
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() postgres.EventBroadcaster
 	WakeSessionReaper()
@@ -195,7 +194,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger)
-		bridgeORM      = bridges.NewORM(db, globalLogger)
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
 		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
@@ -337,11 +336,6 @@ func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
 	}
 	app.logger.SetLogLevel(lvl)
 	return nil
-}
-
-func (app *ChainlinkApplication) SetLogSql(enabled bool) {
-	app.Config.SetLogSQLStatements(enabled)
-	app.logger.SetLogSqlEnabled(enabled)
 }
 
 // SetServiceLogLevel sets the Logger level for a given service and stores the setting in the db.

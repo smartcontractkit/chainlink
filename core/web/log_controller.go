@@ -88,7 +88,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		cc.App.SetLogSql(*request.SqlEnabled)
+		cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled)
 	}
 
 	svcs = append(svcs, "IsSqlEnabled")

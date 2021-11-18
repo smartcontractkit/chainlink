@@ -22,8 +22,6 @@ func (l *nullLogger) With(args ...interface{}) Logger                 { return l
 func (l *nullLogger) Named(name string) Logger                        { return l }
 func (l *nullLogger) NewRootLogger(lvl zapcore.Level) (Logger, error) { return l, nil }
 func (l *nullLogger) SetLogLevel(_ zapcore.Level)                     {}
-func (l *nullLogger) SetLogSqlEnabled(enabled bool)                   {}
-func (l *nullLogger) IsLogSqlEnabled() bool                           { return false }
 func (l *nullLogger) Debug(args ...interface{})                       {}
 func (l *nullLogger) Info(args ...interface{})                        {}
 func (l *nullLogger) Warn(args ...interface{})                        {}

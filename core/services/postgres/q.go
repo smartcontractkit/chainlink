@@ -64,9 +64,14 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
-func WithLogger(lggr logger.Logger) func(q *Q) {
+type LogConfig interface {
+	LogSQLStatements() bool
+}
+
+func WithLogger(logger logger.Logger, config LogConfig) func(q *Q) {
 	return func(q *Q) {
-		q.lggr = lggr
+		q.logger = logger
+		q.config = config
 	}
 }
 
@@ -88,8 +93,9 @@ var slowThreshold = time.Millisecond
 // can do.
 type Q struct {
 	Queryer
-	lggr      logger.Logger
 	ParentCtx context.Context
+	logger    logger.Logger
+	config    LogConfig
 }
 
 // NewQFromOpts is intended to be used in ORMs where the caller may wish to use
@@ -225,25 +231,25 @@ func (q queryFmt) String() string {
 }
 
 func (q Q) logSqlQuery(query string, args ...interface{}) {
-	if q.lggr == nil || !q.lggr.IsLogSqlEnabled() {
+	if q.logger == nil || q.config == nil || !q.config.LogSQLStatements() {
 		return
 	}
-	q.lggr.Debugf("SQL: %s", queryFmt{query, args})
+	q.logger.Debugf("SQL: %s", queryFmt{query, args})
 }
 
 func (q Q) withLogError(err error) error {
-	if err != nil && q.lggr != nil {
-		q.lggr.Errorf("SQL ERROR: %v", err)
+	if err != nil && q.logger != nil {
+		q.logger.Errorf("SQL ERROR: %v", err)
 	}
 	return err
 }
 
 func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
 	elapsed := time.Since(begin)
-	if ctx.Err() != nil && q.lggr != nil {
-		q.lggr.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
+	if ctx.Err() != nil && q.logger != nil {
+		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
-	if q.lggr != nil && elapsed > slowThreshold {
-		q.lggr.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
+	if q.logger != nil && elapsed > slowThreshold {
+		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
 }

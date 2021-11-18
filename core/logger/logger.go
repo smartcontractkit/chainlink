@@ -15,7 +15,6 @@ import (
 	"os"
 
 	"github.com/fatih/color"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -44,10 +43,6 @@ type Logger interface {
 
 	// SetLogLevel changes the log level for this and all connected Loggers.
 	SetLogLevel(zapcore.Level)
-
-	// SetLogSqlEnabled enables or disables logging of SQL statements.
-	SetLogSqlEnabled(enabled bool)
-	IsLogSqlEnabled() bool
 
 	Debug(args ...interface{})
 	Info(args ...interface{})
@@ -88,18 +83,17 @@ var _ Logger = &zapLogger{}
 
 type zapLogger struct {
 	*zap.SugaredLogger
-	config        zap.Config
-	name          string
-	fields        []interface{}
-	logSqlEnabled *atomic.Bool
+	config zap.Config
+	name   string
+	fields []interface{}
 }
 
-func newZapLogger(cfg zap.Config, logSql bool) (Logger, error) {
+func newZapLogger(cfg zap.Config) (Logger, error) {
 	zl, err := cfg.Build()
 	if err != nil {
 		return nil, err
 	}
-	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar(), logSqlEnabled: atomic.NewBool(logSql)}, nil
+	return &zapLogger{config: cfg, SugaredLogger: zl.Sugar()}, nil
 }
 
 func (l *zapLogger) SetLogLevel(lvl zapcore.Level) {
@@ -179,14 +173,6 @@ func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 	}
 }
 
-func (l *zapLogger) SetLogSqlEnabled(enabled bool) {
-	l.logSqlEnabled.Store(enabled)
-}
-
-func (l *zapLogger) IsLogSqlEnabled() bool {
-	return l.logSqlEnabled.Load()
-}
-
 func (l *zapLogger) Sync() error {
 	err := l.SugaredLogger.Sync()
 	if err == nil {
@@ -228,7 +214,6 @@ type Config interface {
 	JSONConsole() bool
 	LogToDisk() bool
 	LogLevel() zapcore.Level
-	LogSQLStatements() bool
 	LogUnixTimestamps() bool
 }
 
@@ -236,13 +221,13 @@ type Config interface {
 // If LogToDisk is false, the Logger will only log to stdout.
 // Tests should use TestLogger instead.
 func NewLogger(c Config) Logger {
-	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps(), c.LogSQLStatements())
+	return newLogger(c.LogLevel(), c.RootDir(), c.JSONConsole(), c.LogToDisk(), c.LogUnixTimestamps())
 }
 
-func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool, logSql bool) Logger {
+func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool, unixTS bool) Logger {
 	cfg := newProductionConfig(dir, jsonConsole, toDisk, unixTS)
 	cfg.Level.SetLevel(logLevel)
-	l, err := newZapLogger(cfg, logSql)
+	l, err := newZapLogger(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
