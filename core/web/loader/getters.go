@@ -82,3 +82,21 @@ func GetJobRunsByPipelineSpecID(ctx context.Context, id string) ([]pipeline.Run,
 
 	return jbRuns, nil
 }
+
+// GetJobProposalsByFeedsManagerID fetches the job proposals by feeds manager ID.
+func GetJobProposalsByFeedsManagerID(ctx context.Context, id string) ([]feeds.JobProposal, error) {
+	ldr := For(ctx)
+
+	thunk := ldr.JobProposalsByManagerIDLoader.Load(ctx, dataloader.StringKey(id))
+	result, err := thunk()
+	if err != nil {
+		return nil, err
+	}
+
+	jbRuns, ok := result.([]feeds.JobProposal)
+	if !ok {
+		return nil, errors.New("invalid type")
+	}
+
+	return jbRuns, nil
+}

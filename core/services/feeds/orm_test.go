@@ -317,6 +317,35 @@ func Test_ORM_ListJobProposals(t *testing.T) {
 	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
 }
 
+func Test_ORM_GetJobProposalByManagersIDs(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t)
+	fmID := createFeedsManager(t, orm)
+	uuid := uuid.NewV4()
+
+	jp := &feeds.JobProposal{
+		RemoteUUID:     uuid,
+		Spec:           "",
+		Status:         feeds.JobProposalStatusPending,
+		FeedsManagerID: fmID,
+	}
+
+	id, err := orm.CreateJobProposal(jp)
+	require.NoError(t, err)
+
+	jps, err := orm.GetJobProposalByManagersIDs([]int64{fmID})
+	require.NoError(t, err)
+	require.Len(t, jps, 1)
+
+	actual := jps[0]
+	assert.Equal(t, id, actual.ID)
+	assert.Equal(t, uuid, actual.RemoteUUID)
+	assert.Equal(t, jp.Status, actual.Status)
+	assert.False(t, actual.ExternalJobID.Valid)
+	assert.Equal(t, jp.FeedsManagerID, actual.FeedsManagerID)
+}
+
 func Test_ORM_UpdateJobProposalSpec(t *testing.T) {
 	t.Parallel()
 

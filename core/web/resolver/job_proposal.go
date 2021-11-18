@@ -47,6 +47,16 @@ func NewJobProposal(jp *feeds.JobProposal) *JobProposalResolver {
 	return &JobProposalResolver{jp}
 }
 
+func NewJobProposals(jps []feeds.JobProposal) []*JobProposalResolver {
+	var resolvers []*JobProposalResolver
+
+	for i := range jps {
+		resolvers = append(resolvers, NewJobProposal(&jps[i]))
+	}
+
+	return resolvers
+}
+
 // ID resolves to the job proposal ID
 func (r *JobProposalResolver) ID() graphql.ID {
 	return int32GQLID(int32(r.jp.ID))

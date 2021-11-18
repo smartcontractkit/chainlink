@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type JobType string
@@ -96,6 +98,15 @@ func (r *FeedsManagerResolver) JobTypes() []JobType {
 	}
 
 	return jts
+}
+
+func (r *FeedsManagerResolver) JobProposals(ctx context.Context) ([]*JobProposalResolver, error) {
+	jps, err := loader.GetJobProposalsByFeedsManagerID(ctx, strconv.Itoa(int(r.mgr.ID)))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobProposals(jps), nil
 }
 
 // IsBootstrapPeer resolves the feed managers's isBootstrapPeer field.
