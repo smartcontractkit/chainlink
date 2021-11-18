@@ -20,7 +20,7 @@ func NewJobError(specError job.SpecError) *JobErrorResolver {
 }
 
 func NewJobErrors(specErrors []job.SpecError) []*JobErrorResolver {
-	resolvers := []*JobErrorResolver{}
+	var resolvers []*JobErrorResolver
 	for _, e := range specErrors {
 		resolvers = append(resolvers, NewJobError(e))
 	}

@@ -19,7 +19,7 @@ func NewBridge(bridge bridges.BridgeType) *BridgeResolver {
 }
 
 func NewBridges(bridges []bridges.BridgeType) []*BridgeResolver {
-	resolvers := []*BridgeResolver{}
+	var resolvers []*BridgeResolver
 	for _, b := range bridges {
 		resolvers = append(resolvers, NewBridge(b))
 	}
@@ -27,14 +27,14 @@ func NewBridges(bridges []bridges.BridgeType) []*BridgeResolver {
 	return resolvers
 }
 
-// ID resolves the bridge's name.
+// Name resolves the bridge's name.
 func (r *BridgeResolver) Name() string {
 	return string(r.bridge.Name)
 }
 
 // URL resolves the bridge's url.
 func (r *BridgeResolver) URL() string {
-	return string(r.bridge.URL.String())
+	return r.bridge.URL.String()
 }
 
 // Confirmations resolves the bridge's url.

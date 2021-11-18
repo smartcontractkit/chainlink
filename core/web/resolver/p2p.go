@@ -35,7 +35,7 @@ func NewP2PKeysPayloadResolver(keys []p2pkey.KeyV2) *P2PKeysPayloadResolver {
 }
 
 func (r *P2PKeysPayloadResolver) Results() []P2PKeyResolver {
-	results := []P2PKeyResolver{}
+	var results []P2PKeyResolver
 	for _, k := range r.keys {
 		results = append(results, NewP2PKeyResolver(k))
 	}

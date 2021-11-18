@@ -1,8 +1,7 @@
-import { FeedsManager } from 'src/types/generated/graphql'
-
+// buildFeedsManager builds a feeds manager for the FetchFeedsManagers query.
 export function buildFeedsManager(
-  overrides?: Partial<FeedsManager>,
-): FeedsManager {
+  overrides?: Partial<FetchFeedsManagers['feedsManagers']['results'][number]>,
+): FetchFeedsManagers['feedsManagers']['results'][number] {
   return {
     __typename: 'FeedsManager',
     id: '1',
@@ -14,7 +13,6 @@ export function buildFeedsManager(
     isBootstrapPeer: false,
     bootstrapPeerMultiaddr: null,
     createdAt: new Date(),
-    jobProposals: [],
     ...overrides,
   }
 }

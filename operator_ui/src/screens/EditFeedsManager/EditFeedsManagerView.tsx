@@ -11,7 +11,7 @@ import {
 } from 'components/Form/FeedsManagerForm'
 
 type Props = {
-  data: any // This is a hack to fix the typecheck until we can merged the fix
+  data: FetchFeedsManagers['feedsManagers']['results'][number]
 } & Pick<FormProps, 'onSubmit'>
 
 export const EditFeedsManagerView: React.FC<Props> = ({ data, onSubmit }) => {
