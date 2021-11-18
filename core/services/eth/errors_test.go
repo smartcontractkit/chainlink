@@ -37,6 +37,8 @@ func Test_Eth_Errors(t *testing.T) {
 			{"invalid transaction nonce", true},
 			// Optimism
 			{"invalid transaction: nonce too low", true},
+			// Avalanche
+			{"call failed: nonce too low: address 0x0499BEA33347cb62D79A9C0b1EDA01d8d329894c current nonce (5833) > tx nonce (5511)", true},
 		}
 
 		for _, test := range tests {
