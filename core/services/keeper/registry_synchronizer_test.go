@@ -284,7 +284,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeep", upkeepConfig).Times(3)
 
 	require.NoError(t, synchronizer.Start())
-	defer synchronizer.Close()
+	defer func() { require.NoError(t, synchronizer.Close()) }()
 	cltest.WaitForCount(t, db, "keeper_registries", 1)
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
