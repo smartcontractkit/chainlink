@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -32,6 +33,12 @@ func main() {
 	if !set {
 		panic("need eth url")
 	}
+
+	chainIDEnv, set := os.LookupEnv("ETH_CHAIN_ID")
+	if !set {
+		panic("need chain ID")
+	}
+
 	ownerKey, set := os.LookupEnv("OWNER_KEY")
 	if !set {
 		panic("need owner key")
@@ -43,7 +50,9 @@ func main() {
 	}
 	ec, err := ethclient.Dial(ethURL)
 	panicErr(err)
-	chainID := int64(42)
+
+	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
+	panicErr(err)
 
 	// Owner key. Make sure it has eth
 	b, err := hex.DecodeString(ownerKey)
@@ -238,34 +247,15 @@ func main() {
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		keyHash := consumerDeployCmd.String("key-hash", "", "key hash")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		panicErr(consumerDeployCmd.Parse(os.Args[2:]))
-		keyHashBytes := common.HexToHash(*keyHash)
 		consumerAddress, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 			owner,
 			ec,
 			common.HexToAddress(*consumerCoordinator),
-			common.HexToAddress(*consumerLinkAddress),
-			uint32(300000), // gas callback
-			uint16(5),      // confs
-			uint32(1),      // words
-			keyHashBytes)
+			common.HexToAddress(*consumerLinkAddress))
 		panicErr(err)
 		fmt.Println("Consumer address", consumerAddress, "hash", tx.Hash())
-	case "eoa-set-sub":
-		setSub := flag.NewFlagSet("eoa-set-sub", flag.ExitOnError)
-		consumerAddress := setSub.String("address", "", "consumer address")
-		subID := setSub.Int64("subID", 0, "subID")
-		panicErr(setSub.Parse(os.Args[2:]))
-		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
-			common.HexToAddress(*consumerAddress),
-			ec)
-		panicErr(err)
-		owner.GasLimit = 500000
-		tx, err := consumer.SetSubscriptionID(owner, uint64(*subID))
-		panicErr(err)
-		fmt.Println("Set sub", "hash", tx.Hash())
 	case "eoa-create-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		createSub := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
@@ -311,12 +301,18 @@ func main() {
 	case "eoa-request":
 		request := flag.NewFlagSet("eoa-request", flag.ExitOnError)
 		consumerAddress := request.String("address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		cbGasLimit := request.Uint("cb-gas-limit", 1_000_000, "callback gas limit")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		numWords := request.Uint("num-words", 3, "number of words to request")
+		keyHash := request.String("key-hash", "", "key hash")
+		keyHashBytes := common.HexToHash(*keyHash)
 		panicErr(request.Parse(os.Args[2:]))
 		consumer, err := vrf_external_sub_owner_example.NewVRFExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
 			ec)
 		panicErr(err)
-		tx, err := consumer.RequestRandomWords(owner)
+		tx, err := consumer.RequestRandomWords(owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
 		panicErr(err)
 		fmt.Println("request", tx.Hash())
 	case "eoa-transfer-sub":
