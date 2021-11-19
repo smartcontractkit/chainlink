@@ -125,7 +125,7 @@ func (lsn *listenerV2) Start() error {
 		// Log listener gathers request logs
 		lsn.wg.Add(1)
 		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs, lsn.wg)
+			lsn.runLogListener([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, minConfs, lsn.wg)
 		})
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
@@ -137,12 +137,6 @@ func (lsn *listenerV2) Start() error {
 		go gracefulpanic.WrapRecover(lsn.l, func() {
 			lsn.runRequestHandler(pollPeriod, lsn.wg)
 		})
-
-		// Head listener updates the latestHeadNumber that we have.
-		lsn.wg.Add(1)
-		go gracefulpanic.WrapRecover(lsn.l, func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster, lsn.wg)
-		})
 		return nil
 	})
 }
@@ -153,13 +147,6 @@ func (lsn *listenerV2) setLatestHead(head eth.Head) {
 	num := uint64(head.Number)
 	if num > lsn.latestHeadNumber {
 		lsn.latestHeadNumber = num
-	}
-}
-
-func (lsn *listenerV2) runHeadListener(unsubscribe func(), wg *sync.WaitGroup) {
-	defer wg.Done()
-	for range lsn.chStop {
-		unsubscribe()
 	}
 }
 
