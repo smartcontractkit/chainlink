@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	pg.AllowUnknownQueryerTypeInTransaction = true
+	pg.AllowMockQueryerTypeInTransaction = true
 }
 
 func NewSqlDB(t *testing.T) *sql.DB {

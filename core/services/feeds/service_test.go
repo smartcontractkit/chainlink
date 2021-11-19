@@ -39,8 +39,8 @@ import (
 )
 
 func init() {
-	// AllowUnknownQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
-	pg.AllowUnknownQueryerTypeInTransaction = true
+	// AllowMockQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
+	pg.AllowMockQueryerTypeInTransaction = true
 }
 
 const TestSpec = `
