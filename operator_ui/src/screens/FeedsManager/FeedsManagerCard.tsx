@@ -1,4 +1,6 @@
 import React from 'react'
+
+import { gql } from '@apollo/client'
 import { useHistory } from 'react-router-dom'
 
 import CancelIcon from '@material-ui/icons/Cancel'
@@ -16,7 +18,18 @@ import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
-import { FeedsManager } from './types'
+export const FEEDS_MANAGER_FIELDS = gql`
+  fragment FeedsManagerFields on FeedsManager {
+    id
+    name
+    uri
+    publicKey
+    jobTypes
+    isBootstrapPeer
+    isConnectionActive
+    bootstrapPeerMultiaddr
+  }
+`
 
 const cardSubheaderStyles = () => {
   return createStyles({
@@ -71,7 +84,7 @@ const styles = () => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  manager: FeedsManager
+  manager: FeedsManagerFields
 }
 
 export const FeedsManagerCard = withStyles(styles)(
