@@ -31,7 +31,7 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	logSvcs := logger.GetLogServices()
 	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
@@ -88,11 +88,11 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled)
+		cc.App.GetConfig().SetLogSQL(*request.SqlEnabled)
 	}
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	if len(request.ServiceLogLevel) > 0 {
 		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())

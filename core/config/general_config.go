@@ -121,7 +121,7 @@ type GeneralOnlyConfig interface {
 	LogLevel() zapcore.Level
 	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
-	LogSQLStatements() bool
+	LogSQL() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
@@ -176,7 +176,7 @@ type GeneralOnlyConfig interface {
 	SessionTimeout() models.Duration
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQLStatements(logSQLStatements bool)
+	SetLogSQL(logSQL bool)
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -259,7 +259,7 @@ type generalConfig struct {
 	advisoryLockID   int64
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
-	logSQLStatements bool
+	logSQL           bool
 	logMutex         sync.RWMutex
 }
 
@@ -312,7 +312,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		}
 	}
 	config.logLevel = config.defaultLogLevel
-	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
+	config.logSQL = viper.GetBool(EnvVarName("LogSQL"))
 	config.logMutex = sync.RWMutex{}
 
 	return config
@@ -938,18 +938,18 @@ func (c *generalConfig) LogToDisk() bool {
 	return c.viper.GetBool(EnvVarName("LogToDisk"))
 }
 
-// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
-func (c *generalConfig) LogSQLStatements() bool {
+// LogSQL tells chainlink to log all SQL statements made using the default logger
+func (c *generalConfig) LogSQL() bool {
 	c.logMutex.RLock()
 	defer c.logMutex.RUnlock()
-	return c.logSQLStatements
+	return c.logSQL
 }
 
-// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) {
+// SetLogSQL saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c *generalConfig) SetLogSQL(logSQL bool) {
 	c.logMutex.Lock()
 	defer c.logMutex.Unlock()
-	c.logSQLStatements = logSQLStatements
+	c.logSQL = logSQL
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger

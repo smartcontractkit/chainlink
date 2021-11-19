@@ -124,7 +124,7 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("SetLogSQLStatements", true).Return(nil)
+				f.Mocks.cfg.On("SetLogSQL", true).Return(nil)
 				f.App.On("GetConfig").Return(f.Mocks.cfg)
 			},
 			query:     mutation,

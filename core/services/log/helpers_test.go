@@ -88,7 +88,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Clien
 	}
 
 	globalConfig := cltest.NewTestGeneralConfig(t)
-	globalConfig.Overrides.LogSQLStatements = null.BoolFrom(true)
+	globalConfig.Overrides.LogSQL = null.BoolFrom(true)
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
 
 	orm := log.NewORM(c.db, cltest.FixtureChainID)

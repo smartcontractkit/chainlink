@@ -47,7 +47,7 @@ import (
 type QOpt func(*Q)
 
 type LogConfig interface {
-	LogSQLStatements() bool
+	LogSQL() bool
 }
 
 // WithQueryer sets the queryer
@@ -266,13 +266,13 @@ func (q Q) logSqlQuery(query string, args ...interface{}) {
 	if q.config == nil || q.logger == nil {
 		return
 	}
-	if q.config.LogSQLStatements() {
+	if q.config.LogSQL() {
 		q.logger.Debugf("SQL: %s", queryFmt{query, args})
 	}
 }
 
 func (q Q) withLogError(err error) error {
-	if err != nil && err != sql.ErrNoRows && q.logger != nil && q.config.LogSQLStatements() {
+	if err != nil && err != sql.ErrNoRows && q.logger != nil && q.config.LogSQL() {
 		q.logger.Errorf("SQL ERROR: %v", err)
 	}
 	return err

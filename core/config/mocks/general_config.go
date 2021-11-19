@@ -1929,8 +1929,8 @@ func (_m *GeneralConfig) LogLevel() zapcore.Level {
 	return r0
 }
 
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *GeneralConfig) LogSQLMigrations() bool {
+// LogSQL provides a mock function with given fields:
+func (_m *GeneralConfig) LogSQL() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -1943,8 +1943,8 @@ func (_m *GeneralConfig) LogSQLMigrations() bool {
 	return r0
 }
 
-// LogSQLStatements provides a mock function with given fields:
-func (_m *GeneralConfig) LogSQLStatements() bool {
+// LogSQLMigrations provides a mock function with given fields:
+func (_m *GeneralConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2750,9 +2750,9 @@ func (_m *GeneralConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQLStatements provides a mock function with given fields: logSQLStatements
-func (_m *GeneralConfig) SetLogSQLStatements(logSQLStatements bool) {
-	_m.Called(logSQLStatements)
+// SetLogSQL provides a mock function with given fields: logSQL
+func (_m *GeneralConfig) SetLogSQL(logSQL bool) {
+	_m.Called(logSQL)
 }
 
 // StatsPusherLogging provides a mock function with given fields:

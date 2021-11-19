@@ -40,7 +40,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	logLevel := config.LogLevel{Level: zapcore.WarnLevel}
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
-	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
+	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
 	defaultLogLevel := config.LogLevel{Level: zapcore.WarnLevel}
 	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
