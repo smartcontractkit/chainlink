@@ -77,7 +77,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:

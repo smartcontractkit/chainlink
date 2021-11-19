@@ -113,7 +113,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 

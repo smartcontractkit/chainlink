@@ -44,10 +44,6 @@ func (b *BigFloat) Value() *big.Float {
 // Big stores large integers and can deserialize a variety of inputs.
 type Big big.Int
 
-func New(b *Big) *Big {
-	return NewBig((*big.Int)(b))
-}
-
 // NewBig constructs a Big from *big.Int.
 func NewBig(i *big.Int) *Big {
 	if i != nil {

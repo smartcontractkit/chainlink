@@ -85,7 +85,7 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ok := bm.IfStarted(func() {
 		bm.checkBalance(head)
 	})
