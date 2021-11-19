@@ -163,7 +163,7 @@ func (o *optimismEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGas
 	return nil, 0, errors.New("bump gas is not supported for optimism")
 }
 
-func (o *optimismEstimator) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
+func (o *optimismEstimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
 
 func (*optimismEstimator) GetDynamicFee(gasLimit uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")
@@ -296,7 +296,7 @@ func (o *optimism2Estimator) refreshPrice() (t *time.Timer) {
 	return
 }
 
-func (o *optimism2Estimator) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
+func (o *optimism2Estimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
 
 func (*optimism2Estimator) GetDynamicFee(_ uint64) (fee DynamicFee, chainSpecificGasLimit uint64, err error) {
 	err = errors.New("dynamic fees are not implemented for Optimism")

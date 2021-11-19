@@ -1596,7 +1596,7 @@ func (hb *HeadBuffer) Append(head *eth.Head) {
 		ParentHash: head.ParentHash,
 		Parent:     head.Parent,
 		Timestamp:  time.Unix(int64(len(hb.Heads)), 0),
-		EVMChainID: utils.New(head.EVMChainID),
+		EVMChainID: head.EVMChainID,
 	}
 	hb.Heads = append(hb.Heads, cloned)
 }
