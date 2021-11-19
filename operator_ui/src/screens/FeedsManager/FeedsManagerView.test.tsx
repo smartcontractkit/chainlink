@@ -1,17 +1,17 @@
 import * as React from 'react'
 
-import { render, screen } from 'support/test-utils'
+import { renderWithRouter, screen } from 'support/test-utils'
 
-import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { buildFeedsManagerResultFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 import { FeedsManagerView } from './FeedsManagerView'
 
 const { findByText } = screen
 
-describe('EditFeedsManagerScreen', () => {
+describe('FeedsManagerScreen', () => {
   it('renders the feeds manager view', async () => {
-    const mgr = buildFeedsManager()
+    const mgr = buildFeedsManagerResultFields()
 
-    render(<FeedsManagerView manager={mgr} />)
+    renderWithRouter(<FeedsManagerView manager={mgr} />)
 
     expect(await findByText('Feeds Manager')).toBeInTheDocument()
     expect(await findByText('Job Proposals')).toBeInTheDocument()

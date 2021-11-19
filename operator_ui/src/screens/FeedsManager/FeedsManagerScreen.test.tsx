@@ -10,7 +10,7 @@ import {
   FeedsManagerScreen,
   FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
 } from './FeedsManagerScreen'
-import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { buildFeedsManagerFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 
 const { findByText } = screen
 
@@ -38,7 +38,7 @@ describe('FeedsManagerScreen', () => {
         result: {
           data: {
             feedsManagers: {
-              results: [buildFeedsManager()],
+              results: [buildFeedsManagerFields()],
             },
           },
         },
