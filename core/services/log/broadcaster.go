@@ -222,7 +222,7 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscrib
 	}
 }
 
-func (b *broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	wasOverCapacity := b.newHeads.Deliver(head)
 	if wasOverCapacity {
 		b.logger.Debugw("TRACE: Dropped the older head in the mailbox, while inserting latest (which is fine)", "latestBlockNumber", head.Number)
@@ -429,12 +429,12 @@ func (b *broadcaster) onNewHeads() {
 		if item == nil {
 			break
 		}
-		head, ok := item.(eth.Head)
+		head, ok := item.(*eth.Head)
 		if !ok {
 			b.logger.Errorf("expected `eth.Head`, got %T", item)
 			continue
 		}
-		latestHead = &head
+		latestHead = head
 	}
 
 	// latestHead may sometimes be nil on high rate of heads,
@@ -652,12 +652,12 @@ func (n *NullBroadcaster) AwaitDependents() <-chan struct{} {
 	close(ch)
 	return ch
 }
-func (n *NullBroadcaster) DependentReady()                             {}
-func (n *NullBroadcaster) Start() error                                { return nil }
-func (n *NullBroadcaster) Close() error                                { return nil }
-func (n *NullBroadcaster) Healthy() error                              { return nil }
-func (n *NullBroadcaster) Ready() error                                { return nil }
-func (n *NullBroadcaster) OnNewLongestChain(context.Context, eth.Head) {}
-func (n *NullBroadcaster) Pause()                                      {}
-func (n *NullBroadcaster) Resume()                                     {}
-func (n *NullBroadcaster) LogsFromBlock(common.Hash) int               { return -1 }
+func (n *NullBroadcaster) DependentReady()                              {}
+func (n *NullBroadcaster) Start() error                                 { return nil }
+func (n *NullBroadcaster) Close() error                                 { return nil }
+func (n *NullBroadcaster) Healthy() error                               { return nil }
+func (n *NullBroadcaster) Ready() error                                 { return nil }
+func (n *NullBroadcaster) OnNewLongestChain(context.Context, *eth.Head) {}
+func (n *NullBroadcaster) Pause()                                       {}
+func (n *NullBroadcaster) Resume()                                      {}
+func (n *NullBroadcaster) LogsFromBlock(common.Hash) int                { return -1 }

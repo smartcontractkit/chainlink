@@ -1468,7 +1468,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done c
 
 				lggr.Infof("Sending head: %d", current)
 				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChain(ctx, *heads[current])
+					ht.OnNewLongestChain(ctx, heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
 					return
@@ -1601,9 +1601,9 @@ func (hb *HeadBuffer) Append(head *eth.Head) {
 	hb.Heads = append(hb.Heads, cloned)
 }
 
-type HeadTrackableFunc func(context.Context, eth.Head)
+type HeadTrackableFunc func(context.Context, *eth.Head)
 
-func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	fn(ctx, head)
 }
 

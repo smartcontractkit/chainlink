@@ -77,7 +77,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (lsn *listenerV1) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -85,7 +85,7 @@ func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head eth.Head) {
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h eth.Head) {
+func (lsn *listenerV1) setLatestHead(h *eth.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)
@@ -128,7 +128,7 @@ func (lsn *listenerV1) Start() error {
 		// per request conf requirements.
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
 		if latestHead != nil {
-			lsn.setLatestHead(*latestHead)
+			lsn.setLatestHead(latestHead)
 		}
 		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.runHeadListener(unsubscribeHeadBroadcaster)

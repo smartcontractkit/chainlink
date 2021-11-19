@@ -425,7 +425,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	head := cltest.Head(42)
 	// It should not hang or panic
-	bptxm.OnNewLongestChain(context.Background(), *head)
+	bptxm.OnNewLongestChain(context.Background(), head)
 
 	sub := new(pgmocks.Subscription)
 	sub.On("Events").Return(make(<-chan pg.Event))
@@ -437,7 +437,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	t.Cleanup(cancel)
-	bptxm.OnNewLongestChain(ctx, *head)
+	bptxm.OnNewLongestChain(ctx, head)
 	require.NoError(t, ctx.Err())
 
 	keyState := cltest.MustGenerateRandomKeyState(t)
