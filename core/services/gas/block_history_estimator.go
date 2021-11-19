@@ -108,7 +108,7 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient eth.Client, config C
 
 // OnNewLongestChain recalculates and sets global gas price if a sampled new head comes
 // in and we are not currently fetching
-func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (b *BlockHistoryEstimator) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	b.mb.Deliver(head)
 }
 
@@ -128,7 +128,7 @@ func (b *BlockHistoryEstimator) Start() error {
 			b.logger.Warnw("initial check for latest head failed, head was unexpectedly nil")
 		} else {
 			b.logger.Debugw("Got latest head", "number", latestHead.Number, "blockHash", latestHead.Hash.Hex())
-			b.FetchBlocksAndRecalculate(ctx, *latestHead)
+			b.FetchBlocksAndRecalculate(ctx, latestHead)
 		}
 		b.wg.Add(1)
 		go b.runLoop()
@@ -210,7 +210,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 				b.logger.Info("No head to retrieve. It might have been skipped")
 				continue
 			}
-			h, is := head.(eth.Head)
+			h, is := head.(*eth.Head)
 			if !is {
 				panic(fmt.Sprintf("invariant violation, expected %T but got %T", eth.Head{}, head))
 			}
@@ -219,7 +219,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head eth.Head) {
+func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *eth.Head) {
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
 	defer cancel()
 
@@ -232,7 +232,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 }
 
 // FetchHeadsAndRecalculate adds the given heads to the history and recalculates gas price
-func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
+func (b *BlockHistoryEstimator) Recalculate(head *eth.Head) {
 	enableEIP1559 := b.config.EvmEIP1559DynamicFees()
 
 	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
@@ -287,7 +287,7 @@ func (b *BlockHistoryEstimator) Recalculate(head eth.Head) {
 	}
 }
 
-func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head eth.Head) error {
+func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *eth.Head) error {
 	// HACK: blockDelay is the number of blocks that the block history estimator trails behind head.
 	// E.g. if this is set to 3, and we receive block 10, block history estimator will
 	// fetch block 7.

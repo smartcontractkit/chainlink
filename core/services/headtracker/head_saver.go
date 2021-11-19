@@ -29,7 +29,7 @@ func NewHeadSaver(lggr logger.Logger, orm *ORM, config Config) *HeadSaver {
 
 // Save updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
-func (ht *HeadSaver) Save(ctx context.Context, h eth.Head) error {
+func (ht *HeadSaver) Save(ctx context.Context, h *eth.Head) error {
 	err := ht.orm.IdempotentInsertHead(ctx, h)
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func (ht *HeadSaver) Save(ctx context.Context, h eth.Head) error {
 
 	historyDepth := ht.config.EvmHeadTrackerHistoryDepth()
 	ht.mu.Lock()
-	ht.addHead(&h, int(historyDepth))
+	ht.addHead(h, int(historyDepth))
 	ht.mu.Unlock()
 
 	return ht.orm.TrimOldHeads(ctx, uint(historyDepth))
