@@ -60,7 +60,7 @@ async function createBasicCron() {
   )
 }
 
-describe('CronUpkeep [ @skip-coverage ]', () => {
+describe('CronUpkeep', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]
@@ -106,7 +106,7 @@ describe('CronUpkeep [ @skip-coverage ]', () => {
     await h.reset()
   })
 
-  it('has a limited public ABI', () => {
+  it('has a limited public ABI [ @skip-coverage ]', () => {
     // Casting cron is necessary due to a tricky yarn version mismatch issue, likely between ethers
     // and typechain. Remove once the version issue is resolved.
     // https://app.shortcut.com/chainlinklabs/story/21905/remove-contract-cast-in-cronupkeep-test-ts
@@ -399,7 +399,7 @@ describe('CronUpkeep [ @skip-coverage ]', () => {
 })
 
 // only run during yarn test:gas
-describe('Cron Gas Usage [ @skip-coverage ]', () => {
+describe('Cron Gas Usage', () => {
   before(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]

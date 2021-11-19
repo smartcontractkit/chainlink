@@ -11,7 +11,7 @@ let factory: CronUpkeepFactory
 let admin: SignerWithAddress
 let owner: SignerWithAddress
 
-describe('CronUpkeepFactory [ @skip-coverage ]', () => {
+describe('CronUpkeepFactory', () => {
   beforeEach(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]
