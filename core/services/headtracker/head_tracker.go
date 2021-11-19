@@ -215,7 +215,7 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	head, ok := item.(eth.Head)
+	head, ok := item.(*eth.Head)
 	if !ok {
 		panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
 	}
@@ -235,9 +235,9 @@ func (ht *HeadTracker) backfiller() {
 				if !exists {
 					break
 				}
-				h, is := head.(eth.Head)
+				h, is := head.(*eth.Head)
 				if !is {
-					panic(fmt.Sprintf("expected `eth.Head`, got %T", head))
+					panic(fmt.Sprintf("expected `*eth.Head`, got %T", head))
 				}
 				{
 					ctx, cancel := eth.DefaultQueryCtx()
@@ -256,7 +256,7 @@ func (ht *HeadTracker) backfiller() {
 }
 
 // Backfill given a head will fill in any missing heads up to the given depth
-func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, depth uint) (err error) {
+func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -276,22 +276,18 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseH
 	}
 	mark := time.Now()
 	fetched := 0
-	ht.log.Debugw("Starting backfill",
-		"blockNumber", head.Number,
+	l := ht.log.With("blockNumber", head.Number,
 		"n", head.Number-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
+	l.Debug("Starting backfill")
 	defer func() {
 		if ctxParent.Err() != nil {
 			return
 		}
-		ht.log.Debugw("Finished backfill",
+		l.Debugw("Finished backfill",
 			"fetched", fetched,
-			"blockNumber", head.Number,
 			"time", time.Since(mark),
-			"n", head.Number-baseHeight,
-			"fromBlockHeight", baseHeight,
-			"toBlockHeight", head.Number-1,
 			"err", err)
 	}()
 

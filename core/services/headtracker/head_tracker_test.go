@@ -385,7 +385,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	// the callback is only called for head number 5 because of head sampling
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 
 			require.Equal(t, int64(5), h.Number)
 			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
@@ -504,28 +504,28 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 			require.Equal(t, int64(0), h.Number)
 			require.Equal(t, blocks.Head(0).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 			require.Equal(t, int64(1), h.Number)
 			require.Equal(t, blocks.Head(1).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 			require.Equal(t, int64(3), h.Number)
 			require.Equal(t, blocks.Head(3).Hash, h.Hash)
 		}).Return().Once()
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 			require.Equal(t, int64(4), h.Number)
 			require.Equal(t, blocks.Head(4).Hash, h.Hash)
 
@@ -540,7 +540,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 
 	checker.On("OnNewLongestChain", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
-			h := args.Get(1).(eth.Head)
+			h := args.Get(1).(*eth.Head)
 
 			require.Equal(t, int64(5), h.Number)
 			require.Equal(t, blocksForked.Head(5).Hash, h.Hash)
@@ -685,7 +685,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
-		err := ht.Backfill(ctx, h12, 2)
+		err := ht.Backfill(ctx, &h12, 2)
 		require.NoError(t, err)
 
 		ethClient.AssertExpectations(t)
@@ -708,7 +708,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		var depth uint = 3
 
-		err := ht.Backfill(ctx, h12, depth)
+		err := ht.Backfill(ctx, &h12, depth)
 		require.NoError(t, err)
 
 		h := ht.headTracker.Chain(h12.Hash)
@@ -749,7 +749,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
 		var depth uint = 8
 
-		err := ht.Backfill(ctx, h15, depth)
+		err := ht.Backfill(ctx, &h15, depth)
 		require.NoError(t, err)
 
 		h := ht.headTracker.Chain(h15.Hash)
@@ -775,10 +775,10 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
-		err := ht.Backfill(ctx, h15, 3)
+		err := ht.Backfill(ctx, &h15, 3)
 		require.NoError(t, err)
 
-		err = ht.Backfill(ctx, h15, 5)
+		err = ht.Backfill(ctx, &h15, 5)
 		require.NoError(t, err)
 
 		ethClient.AssertExpectations(t)
@@ -798,7 +798,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
-		err := ht.Backfill(ctx, h1, 400)
+		err := ht.Backfill(ctx, &h1, 400)
 		require.NoError(t, err)
 
 		h := ht.headTracker.Chain(h1.Hash)
@@ -829,7 +829,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
-		err := ht.Backfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, &h12, 400)
 		require.Error(t, err)
 		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
 
@@ -859,7 +859,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
 
-		err := ht.Backfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, &h12, 400)
 		require.Error(t, err)
 		require.EqualError(t, err, "fetchAndSaveHead failed: context deadline exceeded")
 
@@ -915,7 +915,7 @@ type headTrackerUniverse struct {
 	headBroadcaster httypes.HeadBroadcaster
 }
 
-func (u *headTrackerUniverse) Backfill(ctx context.Context, head eth.Head, depth uint) error {
+func (u *headTrackerUniverse) Backfill(ctx context.Context, head *eth.Head, depth uint) error {
 	return u.headTracker.Backfill(ctx, head, depth)
 }
 
