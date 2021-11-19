@@ -8,10 +8,14 @@ import (
 )
 
 func ReportPanics(fn func()) {
-	// Flush buffered events before the program terminates.
-	defer sentry.Flush(logger.SentryFlushDeadline)
-	// Report panics on the main thread
-	defer sentry.Recover()
+	defer func() {
+		if err := recover(); err != nil {
+			sentry.CurrentHub().Recover(err)
+			sentry.Flush(logger.SentryFlushDeadline)
+
+			panic(err)
+		}
+	}()
 	fn()
 }
 
