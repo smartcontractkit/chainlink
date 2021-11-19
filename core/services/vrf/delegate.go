@@ -18,12 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type Delegate struct {
-	db   *sqlx.DB
+	q    pg.Q
 	pr   pipeline.Runner
 	porm pipeline.ORM
 	ks   keystore.Master
@@ -50,9 +51,10 @@ func NewDelegate(
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
-	lggr logger.Logger) *Delegate {
+	lggr logger.Logger,
+	cfg pg.LogConfig) *Delegate {
 	return &Delegate{
-		db:   db,
+		q:    pg.NewNewQ(db, lggr, cfg),
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
@@ -105,7 +107,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
-				db:                 d.db,
+				q:                  d.q,
 				abi:                abiV2,
 				coordinator:        coordinatorV2,
 				txm:                chain.TxManager(),
@@ -117,7 +119,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.db, lV2),
+				respCount:          GetStartingResponseCountsV2(d.q, lV2),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -128,7 +130,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
-				db:              d.db,
+				q:               d.q,
 				txm:             chain.TxManager(),
 				abi:             abi,
 				coordinator:     coordinator,
@@ -143,7 +145,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, lV1),
+				respCount:          getStartingResponseCounts(d.q, lV1),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -154,14 +156,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 
 type scanStartingResponseCountsCallback func(b []byte, count uint64)
 
-func scanStartingResponseCounts(db *sqlx.DB, l logger.Logger, cb scanStartingResponseCountsCallback) {
+func scanStartingResponseCounts(q pg.Q, l logger.Logger, cb scanStartingResponseCountsCallback) {
 	var counts []struct {
 		RequestID string
 		Count     int
 	}
 	// Allow any state, not just confirmed, on purpose.
 	// We assume once a ethtx is queued it will go through.
-	err := db.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
+	err := q.Select(&counts, `SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
 			FROM eth_txes
 			WHERE meta->'RequestID' IS NOT NULL
 			GROUP BY meta->'RequestID'`)
@@ -183,9 +185,9 @@ func scanStartingResponseCounts(db *sqlx.DB, l logger.Logger, cb scanStartingRes
 	}
 }
 
-func getStartingResponseCounts(db *sqlx.DB, l logger.Logger) map[[32]byte]uint64 {
+func getStartingResponseCounts(q pg.Q, l logger.Logger) map[[32]byte]uint64 {
 	respCounts := make(map[[32]byte]uint64)
-	scanStartingResponseCounts(db, l, func(b []byte, count uint64) {
+	scanStartingResponseCounts(q, l, func(b []byte, count uint64) {
 		var reqID [32]byte
 		copy(reqID[:], b)
 		respCounts[reqID] = count
@@ -193,9 +195,9 @@ func getStartingResponseCounts(db *sqlx.DB, l logger.Logger) map[[32]byte]uint64
 	return respCounts
 }
 
-func GetStartingResponseCountsV2(db *sqlx.DB, l logger.Logger) map[string]uint64 {
+func GetStartingResponseCountsV2(q pg.Q, l logger.Logger) map[string]uint64 {
 	respCounts := make(map[string]uint64)
-	scanStartingResponseCounts(db, l, func(b []byte, count uint64) {
+	scanStartingResponseCounts(q, l, func(b []byte, count uint64) {
 		bi := new(big.Int).SetBytes(b)
 		respCounts[bi.String()] = count
 	})

@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
@@ -148,7 +149,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.pr,
 		vuni.prm,
 		vuni.cc,
-		logger.TestLogger(t))
+		logger.TestLogger(t),
+		c)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
@@ -176,7 +178,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	counts := getStartingResponseCounts(db, lggr)
+	q := pg.NewNewQ(db, lggr, configtest.NewTestGeneralConfig(t))
+	counts := getStartingResponseCounts(q, lggr)
 	assert.Equal(t, 0, len(counts))
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
@@ -245,7 +248,7 @@ func TestStartingCounts(t *testing.T) {
 		_, err = db.NamedExec(sql, &tx)
 		require.NoError(t, err)
 	}
-	counts = getStartingResponseCounts(db, logger.TestLogger(t))
+	counts = getStartingResponseCounts(q, logger.TestLogger(t))
 	assert.Equal(t, 2, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])

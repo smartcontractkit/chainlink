@@ -17,6 +17,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -651,7 +652,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	counts := vrf.GetStartingResponseCountsV2(app.GetSqlxDB(), app.Logger)
+	q := pg.NewNewQ(app.GetSqlxDB(), app.Logger, app.Config)
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger)
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }

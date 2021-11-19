@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -62,7 +61,7 @@ type listenerV2 struct {
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
 	job            job.Job
-	db             *sqlx.DB
+	q              pg.Q
 	vrfks          keystore.VRF
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox
@@ -211,9 +210,9 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 	lsn.pruneConfirmedRequestCounts()
 }
 
-func MaybeSubtractReservedLink(l logger.Logger, db *sqlx.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
 	var reservedLink string
-	err := db.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
+	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
 					FROM eth_txes
 					WHERE meta->>'MaxLink' IS NOT NULL
 					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
@@ -255,7 +254,7 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 
 func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBalance *big.Int, maxGasPrice *big.Int, reqs []pendingRequest) {
 	var err1 error
-	startBalanceNoReserveLink, err1 := MaybeSubtractReservedLink(lsn.l, lsn.db, fromAddress, startBalance)
+	startBalanceNoReserveLink, err1 := MaybeSubtractReservedLink(lsn.l, lsn.q, fromAddress, startBalance)
 	if err1 != nil {
 		return
 	}
@@ -301,7 +300,7 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		}
 		lsn.l.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", req.req.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = pg.NewQ(lsn.db).Transaction(lsn.l, func(tx pg.Queryer) error {
+		err = lsn.q.Transaction(lsn.l, func(tx pg.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err != nil {
 				return err
 			}

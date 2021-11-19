@@ -37,7 +37,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`)
 
-	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t), cfg)
 
 	eiWebhookSpecs, jobID, err := eim.Load(webhookSpecNoEIs.ID)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
 	eim.Notify(webhookSpecNoEIs.ID)
@@ -117,7 +117,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
 	eim.DeleteJob(webhookSpecNoEIs.ID)
