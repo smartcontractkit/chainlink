@@ -16,17 +16,17 @@ const (
 )
 
 type NotFoundErrorUnionType struct {
-	err             error
-	message         string
-	isExpectedError func(err error) bool
+	err               error
+	message           string
+	isExpectedErrorFn func(err error) bool
 }
 
 // ToNotFoundError resolves to the not found error resolver
 func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool) {
 	isErrFn := isNotFoundSQLError
 
-	if e.isExpectedError != nil {
-		isErrFn = e.isExpectedError
+	if e.isExpectedErrorFn != nil {
+		isErrFn = e.isExpectedErrorFn
 	}
 
 	if e.err != nil && isErrFn(e.err) {

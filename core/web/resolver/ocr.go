@@ -81,7 +81,7 @@ func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOC
 	var e NotFoundErrorUnionType
 
 	if err != nil {
-		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
 			return errors.As(err, &keystore.KeyNotFoundError{})
 		}}
 	}

@@ -75,7 +75,7 @@ type NodePayloadResolver struct {
 }
 
 func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
-	e := NotFoundErrorUnionType{err, "node not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 
 	return &NodePayloadResolver{node, e}
 }
@@ -127,7 +127,7 @@ type DeleteNodePayloadResolver struct {
 }
 
 func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
-	e := NotFoundErrorUnionType{err, "node not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 
 	return &DeleteNodePayloadResolver{node, e}
 }

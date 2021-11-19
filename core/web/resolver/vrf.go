@@ -76,7 +76,7 @@ func NewVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *VRFKeyPayloadResolve
 	var e NotFoundErrorUnionType
 
 	if err != nil {
-		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
 			return errors.Cause(err) == keystore.ErrMissingVRFKey
 		}}
 	}
@@ -140,7 +140,7 @@ func NewDeleteVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *DeleteVRFKeyPa
 	var e NotFoundErrorUnionType
 
 	if err != nil {
-		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
 			return errors.Cause(err) == keystore.ErrMissingVRFKey
 		}}
 	}

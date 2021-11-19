@@ -62,7 +62,7 @@ type ChainPayloadResolver struct {
 }
 
 func NewChainPayload(chain types.Chain, err error) *ChainPayloadResolver {
-	e := NotFoundErrorUnionType{err, "chain not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
 	return &ChainPayloadResolver{chain, e}
 }

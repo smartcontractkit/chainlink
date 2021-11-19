@@ -136,7 +136,7 @@ type FeedsManagerPayloadResolver struct {
 }
 
 func NewFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *FeedsManagerPayloadResolver {
-	e := NotFoundErrorUnionType{err, "feeds manager not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &FeedsManagerPayloadResolver{mgr, e}
 }
@@ -179,12 +179,12 @@ type CreateFeedsManagerPayloadResolver struct {
 }
 
 func NewCreateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *CreateFeedsManagerPayloadResolver {
-	e := NotFoundErrorUnionType{err, "feeds manager not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &CreateFeedsManagerPayloadResolver{
-		mgr,
-		inputErrs,
-		e,
+		mgr:                    mgr,
+		inputErrs:              inputErrs,
+		NotFoundErrorUnionType: e,
 	}
 }
 
@@ -260,12 +260,12 @@ type UpdateFeedsManagerPayloadResolver struct {
 }
 
 func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *UpdateFeedsManagerPayloadResolver {
-	e := NotFoundErrorUnionType{err, "feeds manager not found", nil}
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
 	return &UpdateFeedsManagerPayloadResolver{
-		mgr,
-		inputErrs,
-		e,
+		mgr:                    mgr,
+		inputErrs:              inputErrs,
+		NotFoundErrorUnionType: e,
 	}
 }
 

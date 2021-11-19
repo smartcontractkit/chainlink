@@ -77,7 +77,7 @@ func NewDeleteP2PKeyPayloadResolver(key p2pkey.KeyV2, err error) *DeleteP2PKeyPa
 	var e NotFoundErrorUnionType
 
 	if err != nil {
-		e = NotFoundErrorUnionType{err, err.Error(), func(err error) bool {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
 			return errors.As(err, &keystore.KeyNotFoundError{})
 		}}
 	}

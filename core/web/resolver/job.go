@@ -122,10 +122,7 @@ type JobPayloadResolver struct {
 
 func NewJobPayload(j *job.Job, err error) *JobPayloadResolver {
 	e := NotFoundErrorUnionType{err, "job not found", nil}
-	return &JobPayloadResolver{
-		j,
-		e,
-	}
+	return &JobPayloadResolver{job: j, NotFoundErrorUnionType: e}
 }
 
 // ToJob implements the JobPayload union type of the payload
