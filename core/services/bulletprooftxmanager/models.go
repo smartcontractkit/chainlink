@@ -29,6 +29,9 @@ type EthTxMeta struct {
 	// Used for the VRFv2 - max link this tx will bill
 	// should it get bumped
 	MaxLink string
+	// Used for the VRFv2 - the subscription ID of the
+	// requester of the VRF.
+	SubID uint64 `json:"SubId"`
 }
 
 type EthTxState string
