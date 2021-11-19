@@ -985,16 +985,11 @@ func TestStartingCountsV1(t *testing.T) {
 	broadcastBlock := int64(1)
 	txAttempts := []bulletprooftxmanager.EthTxAttempt{}
 	for i := range confirmedTxes {
-		k, err := ethkey.NewV2()
-		if err != nil {
-			panic(err)
-		}
-		h := k.Address.Hash()
 		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
 			EthTxID:                 int64(i + 1),
 			GasPrice:                utils.NewBig(big.NewInt(100)),
 			SignedRawTx:             []byte(`blah`),
-			Hash:                    h,
+			Hash:                    utils.NewHash(),
 			BroadcastBeforeBlockNum: &broadcastBlock,
 			State:                   bulletprooftxmanager.EthTxAttemptBroadcast,
 			CreatedAt:               time.Now(),
@@ -1003,16 +998,11 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		k, err := ethkey.NewV2()
-		if err != nil {
-			panic(err)
-		}
-		h := k.Address.Hash()
 		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
 			EthTxID:               int64(i + 1 + len(confirmedTxes)),
 			GasPrice:              utils.NewBig(big.NewInt(100)),
 			SignedRawTx:           []byte(`blah`),
-			Hash:                  h,
+			Hash:                  utils.NewHash(),
 			State:                 bulletprooftxmanager.EthTxAttemptInProgress,
 			CreatedAt:             time.Now(),
 			ChainSpecificGasLimit: uint64(100),
@@ -1026,13 +1016,8 @@ func TestStartingCountsV1(t *testing.T) {
 	// add eth_receipts
 	receipts := []bulletprooftxmanager.EthReceipt{}
 	for i := 0; i < 4; i++ {
-		k, err := ethkey.NewV2()
-		if err != nil {
-			panic(err)
-		}
-		bh := k.Address.Hash()
 		receipts = append(receipts, bulletprooftxmanager.EthReceipt{
-			BlockHash:        bh,
+			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,
 			TransactionIndex: 1,
