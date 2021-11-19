@@ -11,7 +11,7 @@ type TaskRunResolver struct {
 }
 
 func NewTaskRun(tr pipeline.TaskRun) *TaskRunResolver {
-	return &TaskRunResolver{tr}
+	return &TaskRunResolver{tr: tr}
 }
 
 func NewTaskRuns(runs []pipeline.TaskRun) []*TaskRunResolver {

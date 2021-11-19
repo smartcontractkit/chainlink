@@ -68,7 +68,7 @@ type BridgePayloadResolver struct {
 func NewBridgePayload(bridge bridges.BridgeType, err error) *BridgePayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
 
-	return &BridgePayloadResolver{bridge, e}
+	return &BridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 // ToBridge implements the Bridge union type of the payload
@@ -150,7 +150,7 @@ type UpdateBridgePayloadResolver struct {
 func NewUpdateBridgePayload(bridge *bridges.BridgeType, err error) *UpdateBridgePayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
 
-	return &UpdateBridgePayloadResolver{bridge, e}
+	return &UpdateBridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 func (r *UpdateBridgePayloadResolver) ToUpdateBridgeSuccess() (*UpdateBridgeSuccessResolver, bool) {
@@ -187,7 +187,7 @@ type DeleteBridgePayloadResolver struct {
 func NewDeleteBridgePayload(bridge *bridges.BridgeType, err error) *DeleteBridgePayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
 
-	return &DeleteBridgePayloadResolver{bridge, e}
+	return &DeleteBridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteBridgePayloadResolver) ToDeleteBridgeSuccess() (*DeleteBridgeSuccessResolver, bool) {
@@ -219,7 +219,7 @@ type DeleteBridgeSuccessResolver struct {
 }
 
 func NewDeleteBridgeSuccess(bridge *bridges.BridgeType) *DeleteBridgeSuccessResolver {
-	return &DeleteBridgeSuccessResolver{bridge}
+	return &DeleteBridgeSuccessResolver{bridge: bridge}
 }
 
 func (r *DeleteBridgeSuccessResolver) Bridge() *BridgeResolver {
@@ -231,7 +231,7 @@ type DeleteBridgeConflictErrorResolver struct {
 }
 
 func NewDeleteBridgeConflictError(message string) *DeleteBridgeConflictErrorResolver {
-	return &DeleteBridgeConflictErrorResolver{message}
+	return &DeleteBridgeConflictErrorResolver{message: message}
 }
 
 func (r *DeleteBridgeConflictErrorResolver) Message() string {
@@ -247,7 +247,7 @@ type DeleteBridgeInvalidNameErrorResolver struct {
 }
 
 func NewDeleteBridgeInvalidNameError(message string) *DeleteBridgeInvalidNameErrorResolver {
-	return &DeleteBridgeInvalidNameErrorResolver{message}
+	return &DeleteBridgeInvalidNameErrorResolver{message: message}
 }
 
 func (r *DeleteBridgeInvalidNameErrorResolver) Message() string {

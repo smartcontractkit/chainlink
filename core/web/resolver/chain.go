@@ -64,7 +64,7 @@ type ChainPayloadResolver struct {
 func NewChainPayload(chain types.Chain, err error) *ChainPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
 
-	return &ChainPayloadResolver{chain, e}
+	return &ChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
 }
 
 func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
@@ -81,7 +81,7 @@ type ChainsPayloadResolver struct {
 }
 
 func NewChainsPayload(chains []types.Chain, total int32) *ChainsPayloadResolver {
-	return &ChainsPayloadResolver{chains, total}
+	return &ChainsPayloadResolver{chains: chains, total: total}
 }
 
 func (r *ChainsPayloadResolver) Results() []*ChainResolver {

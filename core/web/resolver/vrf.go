@@ -13,7 +13,7 @@ type VRFKeyResolver struct {
 }
 
 func NewVRFKeyResolver(key vrfkey.KeyV2) VRFKeyResolver {
-	return VRFKeyResolver{key}
+	return VRFKeyResolver{key: key}
 }
 
 // ID returns the ID of the VRF key, which is the public key.
@@ -60,7 +60,7 @@ type VRFKeySuccessResolver struct {
 }
 
 func NewVRFKeySuccessResolver(key vrfkey.KeyV2) *VRFKeySuccessResolver {
-	return &VRFKeySuccessResolver{key}
+	return &VRFKeySuccessResolver{key: key}
 }
 
 func (r *VRFKeySuccessResolver) Key() VRFKeyResolver {
@@ -81,7 +81,7 @@ func NewVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *VRFKeyPayloadResolve
 		}}
 	}
 
-	return &VRFKeyPayloadResolver{key, e}
+	return &VRFKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *VRFKeyPayloadResolver) ToVRFKeySuccess() (*VRFKeySuccessResolver, bool) {
@@ -96,7 +96,7 @@ type VRFKeysPayloadResolver struct {
 }
 
 func NewVRFKeysPayloadResolver(keys []vrfkey.KeyV2) *VRFKeysPayloadResolver {
-	return &VRFKeysPayloadResolver{keys}
+	return &VRFKeysPayloadResolver{keys: keys}
 }
 
 func (r *VRFKeysPayloadResolver) Results() []VRFKeyResolver {
@@ -112,7 +112,7 @@ type CreateVRFKeyPayloadResolver struct {
 }
 
 func NewCreateVRFKeyPayloadResolver(key vrfkey.KeyV2) *CreateVRFKeyPayloadResolver {
-	return &CreateVRFKeyPayloadResolver{key}
+	return &CreateVRFKeyPayloadResolver{key: key}
 }
 
 func (r *CreateVRFKeyPayloadResolver) Key() VRFKeyResolver {
@@ -124,7 +124,7 @@ type DeleteVRFKeySuccessResolver struct {
 }
 
 func NewDeleteVRFKeySuccessResolver(key vrfkey.KeyV2) *DeleteVRFKeySuccessResolver {
-	return &DeleteVRFKeySuccessResolver{key}
+	return &DeleteVRFKeySuccessResolver{key: key}
 }
 
 func (r *DeleteVRFKeySuccessResolver) Key() VRFKeyResolver {
@@ -145,7 +145,7 @@ func NewDeleteVRFKeyPayloadResolver(key vrfkey.KeyV2, err error) *DeleteVRFKeyPa
 		}}
 	}
 
-	return &DeleteVRFKeyPayloadResolver{key, e}
+	return &DeleteVRFKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteVRFKeyPayloadResolver) ToDeleteVRFKeySuccess() (*DeleteVRFKeySuccessResolver, bool) {

@@ -13,7 +13,7 @@ type OCRKeyBundleResolver struct {
 }
 
 func NewOCRKeyBundleResolver(key ocrkey.KeyV2) OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{key}
+	return OCRKeyBundleResolver{key: key}
 }
 
 func (k OCRKeyBundleResolver) ID() graphql.ID {
@@ -37,7 +37,7 @@ type OCRKeyBundlesPayloadResolver struct {
 }
 
 func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadResolver {
-	return &OCRKeyBundlesPayloadResolver{keys}
+	return &OCRKeyBundlesPayloadResolver{keys: keys}
 }
 
 func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
@@ -53,11 +53,11 @@ type CreateOCRKeyBundlePayloadResolver struct {
 }
 
 func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundlePayloadResolver {
-	return &CreateOCRKeyBundlePayloadResolver{key}
+	return &CreateOCRKeyBundlePayloadResolver{key: key}
 }
 
 func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{r.key}
+	return OCRKeyBundleResolver{key: r.key}
 }
 
 type DeleteOCRKeyBundleSuccessResolver struct {
@@ -65,11 +65,11 @@ type DeleteOCRKeyBundleSuccessResolver struct {
 }
 
 func NewDeleteOCRKeyBundleSuccessResolver(key ocrkey.KeyV2) *DeleteOCRKeyBundleSuccessResolver {
-	return &DeleteOCRKeyBundleSuccessResolver{key}
+	return &DeleteOCRKeyBundleSuccessResolver{key: key}
 }
 
 func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{r.key}
+	return OCRKeyBundleResolver{key: r.key}
 }
 
 type DeleteOCRKeyBundlePayloadResolver struct {
@@ -86,7 +86,7 @@ func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOC
 		}}
 	}
 
-	return &DeleteOCRKeyBundlePayloadResolver{key, e}
+	return &DeleteOCRKeyBundlePayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteOCRKeyBundlePayloadResolver) ToDeleteOCRKeyBundleSuccess() (*DeleteOCRKeyBundleSuccessResolver, bool) {

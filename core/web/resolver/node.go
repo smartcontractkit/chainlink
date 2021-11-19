@@ -77,7 +77,7 @@ type NodePayloadResolver struct {
 func NewNodePayloadResolver(node *types.Node, err error) *NodePayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 
-	return &NodePayloadResolver{node, e}
+	return &NodePayloadResolver{node: node, NotFoundErrorUnionType: e}
 }
 
 // ToNode resolves the Node object to be returned if it is found
@@ -96,7 +96,7 @@ type CreateNodePayloadResolver struct {
 }
 
 func NewCreateNodePayloadResolver(node *types.Node) *CreateNodePayloadResolver {
-	return &CreateNodePayloadResolver{node}
+	return &CreateNodePayloadResolver{node: node}
 }
 
 func (r *CreateNodePayloadResolver) ToCreateNodeSuccess() (*CreateNodeSuccessResolve, bool) {
@@ -129,7 +129,7 @@ type DeleteNodePayloadResolver struct {
 func NewDeleteNodePayloadResolver(node *types.Node, err error) *DeleteNodePayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "node not found", isExpectedErrorFn: nil}
 
-	return &DeleteNodePayloadResolver{node, e}
+	return &DeleteNodePayloadResolver{node: node, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteNodePayloadResolver) ToDeleteNodeSuccess() (*DeleteNodeSuccessResolver, bool) {
@@ -145,7 +145,7 @@ type DeleteNodeSuccessResolver struct {
 }
 
 func NewDeleteNodeSuccessResolver(node *types.Node) *DeleteNodeSuccessResolver {
-	return &DeleteNodeSuccessResolver{node}
+	return &DeleteNodeSuccessResolver{node: node}
 }
 
 func (r *DeleteNodeSuccessResolver) Node() *NodeResolver {

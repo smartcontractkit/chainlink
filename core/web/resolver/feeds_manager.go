@@ -138,7 +138,7 @@ type FeedsManagerPayloadResolver struct {
 func NewFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *FeedsManagerPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
 
-	return &FeedsManagerPayloadResolver{mgr, e}
+	return &FeedsManagerPayloadResolver{mgr: mgr, NotFoundErrorUnionType: e}
 }
 
 // ToFeedsManager implements the FeedsManager union type of the payload
