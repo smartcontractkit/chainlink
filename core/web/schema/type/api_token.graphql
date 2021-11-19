@@ -19,8 +19,6 @@ input DeleteAPITokenInput {
 
 type DeleteAPITokenResult {
     accessKey: String!
-    # Not returning the secret since it is hashed in the DB
-    # so not sure if we want to return that...
 }
 
 type DeleteAPITokenSuccess {
