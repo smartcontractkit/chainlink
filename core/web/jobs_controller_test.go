@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
