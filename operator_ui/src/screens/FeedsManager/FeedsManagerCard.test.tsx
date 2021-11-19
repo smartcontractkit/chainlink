@@ -5,12 +5,11 @@ import { renderWithRouter, screen } from 'support/test-utils'
 import userEvent from '@testing-library/user-event'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
-import { buildFeedsManager } from 'support/factories/gql/fetchFeedsManagersWithProposals'
-import { FeedsManager } from './types'
+import { buildFeedsManagerFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 
 const { queryByText } = screen
 
-function renderComponent(manager: FeedsManager) {
+function renderComponent(manager: FeedsManagerFields) {
   renderWithRouter(
     <>
       <Route path="/">
@@ -23,7 +22,7 @@ function renderComponent(manager: FeedsManager) {
 
 describe('FeedsManagerCard', () => {
   it('renders a disconnected Feeds Manager', () => {
-    const mgr = buildFeedsManager({
+    const mgr = buildFeedsManagerFields({
       isBootstrapPeer: false,
       bootstrapPeerMultiaddr: '/dns4/blah',
     })
@@ -41,7 +40,7 @@ describe('FeedsManagerCard', () => {
 
   it('renders a connected boostrapper Feeds Manager', () => {
     // Create a new manager with connected bootstrap values
-    const mgr = buildFeedsManager({
+    const mgr = buildFeedsManagerFields({
       jobTypes: [],
       isConnectionActive: true,
       isBootstrapPeer: true,
@@ -59,7 +58,7 @@ describe('FeedsManagerCard', () => {
   })
 
   it('navigates to edit', () => {
-    renderComponent(buildFeedsManager())
+    renderComponent(buildFeedsManagerFields())
 
     userEvent.click(screen.getByTestId('edit'))
 
