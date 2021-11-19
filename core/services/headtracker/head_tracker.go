@@ -270,7 +270,7 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, dep
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
@@ -301,7 +301,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.ParentHash)
 		if existingHead != nil {
-			head = existingHead.Copy()
+			head = existingHead
 			continue
 		}
 		head, err = ht.fetchAndSaveHead(ctx, i)
@@ -316,19 +316,19 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 	return
 }
 
-func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
+func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if err != nil {
-		return eth.Head{}, err
+		return nil, err
 	} else if head == nil {
-		return eth.Head{}, errors.New("got nil head")
+		return nil, errors.New("got nil head")
 	}
 	err = ht.headSaver.Save(ctx, head)
 	if err != nil {
-		return eth.Head{}, err
+		return nil, err
 	}
-	return *head, nil
+	return head, nil
 }
 
 func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
@@ -354,8 +354,8 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error 
 		if headWithChain == nil {
 			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
-		ht.backfillMB.Deliver(headWithChain.Copy())
-		ht.callbackMB.Deliver(headWithChain.Copy())
+		ht.backfillMB.Deliver(headWithChain)
+		ht.callbackMB.Deliver(headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {
