@@ -42,12 +42,16 @@ const (
 		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
 		6685 // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 
+	// maximum request age of requests that continuously fail to fulfill
+	// due to not enough balance in the subscription.
+	maxRequestAge = 24 * time.Hour
 )
 
 type pendingRequest struct {
 	confirmedAtBlock uint64
 	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	lb               log.Broadcast
+	utcTimestamp     time.Time
 }
 
 type listenerV2 struct {
@@ -213,10 +217,10 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 
 func MaybeSubtractReservedLink(l logger.Logger, db *sqlx.DB, fromAddress common.Address, startBalance *big.Int) (*big.Int, error) {
 	var reservedLink string
-	err := db.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0))) 
+	err := db.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 					FROM eth_txes
 					WHERE meta->>'MaxLink' IS NOT NULL
-					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt') 
+					AND (state <> 'fatal_error' AND state <> 'confirmed' AND state <> 'confirmed_missing_receipt')
 					GROUP BY from_address = $1`, fromAddress)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		l.Errorw("Could not get reserved link", "err", err)
@@ -274,6 +278,15 @@ func (lsn *listenerV2) processRequestsPerSub(fromAddress common.Address, startBa
 		if !lsn.shouldProcessLog(req.lb) {
 			continue
 		}
+
+		// Check if we can ignore the request due to it's age.
+		if time.Now().UTC().Sub(req.utcTimestamp) >= maxRequestAge {
+			lsn.l.Infow("Request too old, dropping it", "reqID", req.req.RequestId.String())
+			lsn.markLogAsConsumed(req.lb)
+			processed[req.req.RequestId.String()] = struct{}{}
+			continue
+		}
+
 		// Check if the vrf req has already been fulfilled
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, req.req.RequestId)
@@ -525,6 +538,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		confirmedAtBlock: confirmedAt,
 		req:              req,
 		lb:               lb,
+		utcTimestamp:     time.Now().UTC(),
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()
