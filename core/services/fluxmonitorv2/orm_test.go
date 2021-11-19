@@ -90,7 +90,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr, cfg)
 	orm := newORM(t, db, nil)
 
 	address := cltest.NewAddress()

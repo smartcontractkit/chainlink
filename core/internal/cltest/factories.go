@@ -495,7 +495,7 @@ func MustInsertV2JobSpec(t *testing.T, db *sqlx.DB, transmitterAddress common.Ad
 		PipelineSpecID:                pipelineSpec.ID,
 	}
 
-	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t))
+	jorm := job.NewORM(db, nil, nil, nil, logger.TestLogger(t), NewTestGeneralConfig(t))
 	err = jorm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
@@ -569,7 +569,7 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t)), nil, logger.TestLogger(t))
+	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t)), nil, logger.TestLogger(t), NewTestGeneralConfig(t))
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb

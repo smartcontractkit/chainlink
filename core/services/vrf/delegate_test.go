@@ -73,7 +73,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks, lggr)
+	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))

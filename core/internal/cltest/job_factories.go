@@ -112,7 +112,7 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	keyStore := NewKeyStore(t, db)
 	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t))
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM = job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t))
+	jobORM = job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t), config)
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

@@ -589,7 +589,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 
 	pipelineORM := pipeline.NewORM(db, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
+	orm := job.NewORM(db, cc, pipelineORM, keyStore, lggr, config)
 	defer orm.Close()
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)

@@ -7,17 +7,16 @@ import (
 	"net/http"
 
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/sqlx"
-
-	"github.com/pkg/errors"
 )
 
 //go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore

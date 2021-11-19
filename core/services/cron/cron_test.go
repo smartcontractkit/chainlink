@@ -29,7 +29,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr)
-	jobORM := job.NewORM(db, cc, orm, keyStore, lggr)
+	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
 
 	jb := &job.Job{
 		Type:          job.Cron,

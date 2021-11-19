@@ -210,7 +210,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger, cfg)
 		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger)
 	)
 
