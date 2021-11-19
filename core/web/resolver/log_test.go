@@ -117,7 +117,6 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 			"enabled": true,
 		},
 	}
-	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "setSQLLogging"),
@@ -138,25 +137,6 @@ func TestResolver_SetSQLLogging(t *testing.T) {
 						}
 					}
 				}`,
-		},
-		{
-			name:          "general set sql log error",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.Mocks.cfg.On("SetLogSQLStatements", true).Return(gError)
-				f.App.On("GetConfig").Return(f.Mocks.cfg)
-			},
-			query:     mutation,
-			variables: variables,
-			result:    `null`,
-			errors: []*gqlerrors.QueryError{
-				{
-					Extensions:    nil,
-					ResolverError: gError,
-					Path:          []interface{}{"setSQLLogging"},
-					Message:       "error",
-				},
-			},
 		},
 	}
 
