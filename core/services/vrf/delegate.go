@@ -1,7 +1,6 @@
 package vrf
 
 import (
-	"context"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -100,10 +99,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 
-	latestHead, err := chain.Client().HeadByNumber(context.Background(), nil)
-	if err != nil {
-		return nil, err
-	}
 	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
@@ -125,7 +120,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.db, lV2, latestHead, chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV2(d.db, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -152,7 +147,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.db, lV1, latestHead, chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.db, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -161,12 +156,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func GetStartingResponseCountsV1(db *gorm.DB, l logger.Logger, latestHead *eth.Head, evmFinalityDepth uint32) map[[32]byte]uint64 {
+func GetStartingResponseCountsV1(db *gorm.DB, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
 	respCounts := map[[32]byte]uint64{}
 
-	// Only check as far back as the evm finality depth.
-	cutoffBlockNumber := latestHead.Number - int64(evmFinalityDepth)
-	counts, err := getRespCounts(db, cutoffBlockNumber)
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(db, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
@@ -192,14 +186,13 @@ func GetStartingResponseCountsV1(db *gorm.DB, l logger.Logger, latestHead *eth.H
 func GetStartingResponseCountsV2(
 	db *gorm.DB,
 	l logger.Logger,
-	latestHead *eth.Head,
+	chainID uint64,
 	evmFinalityDepth uint32,
 ) map[string]uint64 {
 	respCounts := map[string]uint64{}
 
-	// Only check as far back as the evm finality depth.
-	cutoffBlockNumber := latestHead.Number - int64(evmFinalityDepth)
-	counts, err := getRespCounts(db, cutoffBlockNumber)
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(db, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
@@ -221,7 +214,7 @@ func GetStartingResponseCountsV2(
 	return respCounts
 }
 
-func getRespCounts(db *gorm.DB, cutoffBlockNumber int64) (
+func getRespCounts(db *gorm.DB, chainID uint64, evmFinalityDepth uint32) (
 	[]struct {
 		RequestID string
 		Count     int
@@ -249,11 +242,11 @@ SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
 FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
 	join eth_receipts er on eta.hash = er.tx_hash
 WHERE et.meta->'RequestID' is not null
-AND er.block_number >= ?
+AND er.block_number >= (SELECT number FROM heads WHERE evm_chain_id = ? ORDER BY number DESC LIMIT 1) - ?
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery
-	err := db.Raw(query, cutoffBlockNumber).Scan(&counts).Error
+	err := db.Raw(query, chainID, evmFinalityDepth).Scan(&counts).Error
 	if err != nil {
 		return nil, err
 	}

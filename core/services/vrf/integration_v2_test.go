@@ -36,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
@@ -646,10 +645,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	chain, err := app.ChainSet.Get(big.NewInt(1337))
 	require.NoError(t, err)
 
-	latestHead, err := chain.Client().HeadByNumber(context.Background(), nil)
-	require.NoError(t, err)
-
-	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger, latestHead, chain.Config().EvmFinalityDepth())
+	counts := vrf.GetStartingResponseCountsV2(app.GetDB(), app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -888,11 +884,12 @@ func TestFulfillmentCost(t *testing.T) {
 func TestStartingCountsV1(t *testing.T) {
 	_, _, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
 	require.NoError(t, db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
+		VALUES (?, 4, ?, NOW(), NOW(), 1337)`, utils.NewHash(), utils.NewHash()).Error)
 
 	lggr := logger.TestLogger(t)
-	currentHead := &eth.Head{Number: 4}
 	finalityDepth := 3
-	counts := vrf.GetStartingResponseCountsV1(db, lggr, currentHead, uint32(finalityDepth))
+	counts := vrf.GetStartingResponseCountsV1(db, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	err := ks.Unlock("p4SsW0rD1!@#_")
@@ -1045,13 +1042,13 @@ func TestStartingCountsV1(t *testing.T) {
 	}
 	require.NoError(t, db.Create(&receipts).Error, "failed to add eth_receipts")
 
-	counts = vrf.GetStartingResponseCountsV1(db, lggr, currentHead, uint32(finalityDepth))
+	counts = vrf.GetStartingResponseCountsV1(db, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 3, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x12)])
 
-	countsV2 := vrf.GetStartingResponseCountsV2(db, lggr, currentHead, uint32(finalityDepth))
+	countsV2 := vrf.GetStartingResponseCountsV2(db, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 3, len(countsV2))
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
