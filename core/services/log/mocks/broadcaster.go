@@ -108,7 +108,7 @@ func (_m *Broadcaster) MarkConsumed(lb log.Broadcast, qopts ...pg.QOpt) error {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *Broadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (_m *Broadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	_m.Called(ctx, head)
 }
 
