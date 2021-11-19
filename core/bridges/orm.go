@@ -69,7 +69,6 @@ func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count in
 		if err = q.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to get count")
 		}
-
 		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
 		if err = o.ormQ.Select(&bridges, sql, limit, offset); err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to load bridge_types")

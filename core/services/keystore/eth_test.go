@@ -3,6 +3,7 @@ package keystore_test
 import (
 	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 )
@@ -65,6 +67,23 @@ func Test_EthKeyStore(t *testing.T) {
 		retrievedKeys, err = ethKeyStore.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 2, len(retrievedKeys))
+	})
+
+	t.Run("GetAll ordering", func(t *testing.T) {
+		defer reset()
+		var keys []ethkey.KeyV2
+		for i := 0; i < 5; i++ {
+			key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+			require.NoError(t, err)
+			keys = append(keys, key)
+		}
+		retrievedKeys, err := ethKeyStore.GetAll()
+		require.NoError(t, err)
+		require.Equal(t, 5, len(retrievedKeys))
+
+		sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
+
+		assert.Equal(t, keys, retrievedKeys)
 	})
 
 	t.Run("RemoveKey", func(t *testing.T) {

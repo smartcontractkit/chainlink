@@ -1,8 +1,5 @@
 package pg
 
-// TODO: Rename this package to "pg"
-// https://app.shortcut.com/chainlinklabs/story/20021/rename-postgres-to-pg
-
 import (
 	"context"
 	"database/sql"
@@ -57,7 +54,7 @@ func WithQueryer(queryer Queryer) func(q *Q) {
 	}
 }
 
-// WithParentCtx sets the parent ctx
+// WithParentCtx sets or overwrites the parent ctx
 func WithParentCtx(ctx context.Context) func(q *Q) {
 	return func(q *Q) {
 		q.ParentCtx = ctx
@@ -72,6 +69,12 @@ func WithLogger(logger logger.Logger, config LogConfig) func(q *Q) {
 	return func(q *Q) {
 		q.logger = logger
 		q.config = config
+    
+// MergeCtx allows callers to combine a ctx with a previously set parent context
+// Resonsibility for cancelling the passed context lies with caller
+func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
+	return func(q *Q) {
+		q.ParentCtx = fn(q.ParentCtx)
 	}
 }
 

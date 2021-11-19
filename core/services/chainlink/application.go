@@ -561,7 +561,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 		return errors.New("job must be deleted in the feeds manager")
 	}
 
-	return app.jobSpawner.DeleteJob(ctx, jobID)
+	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {

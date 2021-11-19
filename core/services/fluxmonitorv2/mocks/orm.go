@@ -36,13 +36,20 @@ func (_m *ORM) CountFluxMonitorRoundStats() (int, error) {
 	return r0, r1
 }
 
-// CreateEthTransaction provides a mock function with given fields: fromAddress, toAddress, payload, gasLimit
-func (_m *ORM) CreateEthTransaction(fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64) error {
-	ret := _m.Called(fromAddress, toAddress, payload, gasLimit)
+// CreateEthTransaction provides a mock function with given fields: fromAddress, toAddress, payload, gasLimit, qopts
+func (_m *ORM) CreateEthTransaction(fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint64, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, fromAddress, toAddress, payload, gasLimit)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address, []byte, uint64) error); ok {
-		r0 = rf(fromAddress, toAddress, payload, gasLimit)
+	if rf, ok := ret.Get(0).(func(common.Address, common.Address, []byte, uint64, ...pg.QOpt) error); ok {
+		r0 = rf(fromAddress, toAddress, payload, gasLimit, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

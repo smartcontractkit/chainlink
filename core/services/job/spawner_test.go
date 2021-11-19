@@ -1,7 +1,6 @@
 package job_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -131,17 +130,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		eventuallyB.AwaitOrFail(t, 20*time.Second)
 		mock.AssertExpectationsForObjects(t, serviceB1, serviceB2)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once()
-		err = spawner.DeleteJob(ctx, jobSpecIDA)
+		err = spawner.DeleteJob(jobSpecIDA)
 		require.NoError(t, err)
 
 		serviceB1.On("Close").Return(nil).Once()
 		serviceB2.On("Close").Return(nil).Once()
-		err = spawner.DeleteJob(ctx, jobSpecIDB)
+		err = spawner.DeleteJob(jobSpecIDB)
 		require.NoError(t, err)
 
 		require.NoError(t, spawner.Close())
@@ -227,7 +223,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Close").Return(nil).Once()
 		serviceA2.On("Close").Return(nil).Once().Run(func(mock.Arguments) { eventuallyClose.ItHappened() })
 
-		err = spawner.DeleteJob(context.Background(), jobSpecIDA)
+		err = spawner.DeleteJob(jobSpecIDA)
 		require.NoError(t, err)
 
 		eventuallyClose.AwaitOrFail(t)

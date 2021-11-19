@@ -101,9 +101,9 @@ func TestORM(t *testing.T) {
 
 		ocrSpecError1 := "ocr spec 1 errored"
 		ocrSpecError2 := "ocr spec 2 errored"
-		orm.RecordError(jobSpec.ID, ocrSpecError1)
-		orm.RecordError(jobSpec.ID, ocrSpecError1)
-		orm.RecordError(jobSpec.ID, ocrSpecError2)
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError1))
+		require.NoError(t, orm.RecordError(jobSpec.ID, ocrSpecError2))
 
 		var specErrors []job.SpecError
 		err = db.Select(&specErrors, "SELECT * FROM job_spec_errors")
@@ -297,9 +297,7 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		jb, err := orm.FindJobByExternalJobID(ctx, externalJobID)
+		jb, err := orm.FindJobByExternalJobID(externalJobID)
 		require.NoError(t, err)
 
 		assert.Equal(t, jb.ID, jb.ID)

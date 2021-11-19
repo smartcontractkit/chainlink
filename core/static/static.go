@@ -16,6 +16,9 @@ var Version = "unset"
 // Sha string "unset"
 var Sha = "unset"
 
+// SentryDSN ought to be set at compile-time
+var SentryDSN = ""
+
 var InitTime time.Time
 
 const (
