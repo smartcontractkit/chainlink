@@ -4,17 +4,17 @@ package logger
 
 import "fmt"
 
-const tracePrefix = "[TRACE]"
+const tracePrefix = "[TRACE] "
 
 func (l *zapLogger) Trace(args ...interface{}) {
 	args[0] = fmt.Sprint(tracePrefix, args[0])
-	l.sugaredWithCallerSkip(1).Debug(args...)
+	l.sugaredHelper(1).Debug(args...)
 }
 
 func (l *zapLogger) Tracef(format string, values ...interface{}) {
-	l.sugaredWithCallerSkip(1).Debugf(fmt.Sprint(tracePrefix, format), values...)
+	l.sugaredHelper(1).Debugf(fmt.Sprint(tracePrefix, format), values...)
 }
 
 func (l *zapLogger) Tracew(msg string, keysAndValues ...interface{}) {
-	l.sugaredWithCallerSkip(1).Debugw(fmt.Sprint(tracePrefix, msg), keysAndValues...)
+	l.sugaredHelper(1).Debugw(fmt.Sprint(tracePrefix, msg), keysAndValues...)
 }

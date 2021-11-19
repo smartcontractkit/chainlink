@@ -3,7 +3,6 @@
 package logger
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,11 +32,11 @@ func TestTrace(t *testing.T) {
 		testMessage = "Trace message"
 	)
 	lgr.Trace(testMessage)
-	// [DEBUG] [TRACE] Trace message		logger/test_logger_test.go:23    logger=TestLogger
-	requireNotContains("[TRACE]", testMessage, fmt.Sprintf("logger=%s", testName))
+	// [DEBUG] [TRACE] Trace message
+	requireNotContains(testMessage)
 
 	lgr.SetLogLevel(zapcore.DebugLevel)
 	lgr.Trace(testMessage)
-	// [DEBUG] [TRACE] Trace message		logger/test_logger_test.go:23    logger=TestLogger
-	requireContains("[DEBUG]", "[TRACE]", testMessage, fmt.Sprintf("logger=%s", testName))
+	// [DEBUG] [TRACE] Trace message
+	requireContains("[DEBUG]", "[TRACE]", testMessage)
 }
