@@ -13,9 +13,9 @@ generates:
     config:
       immutableTypes: true
       enumsAsTypes: true
-      flattenGeneratedTypes: true
       omitOperationSuffix: true
       globalNamespace: true
+      exportFragmentSpreadSubTypes: true
 
   ./graphql.schema.json:
     plugins:
