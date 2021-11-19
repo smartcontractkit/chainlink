@@ -35,7 +35,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	namedLogger := lggr.Named("BridgeORM")
-	return &orm{namedLogger, pg.NewQ(db, pg.WithLogger(namedLogger, cfg))}
+	return &orm{namedLogger, pg.NewNewQ(db, namedLogger, cfg)}
 }
 
 // FindBridge looks up a Bridge by its Name.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -44,6 +46,10 @@ import (
 // 	orm.GetFoo(q, pg.WithQueryer(tx), pg.WithParentCtx(ctx)) // options can be combined
 type QOpt func(*Q)
 
+type LogConfig interface {
+	LogSQLStatements() bool
+}
+
 // WithQueryer sets the queryer
 func WithQueryer(queryer Queryer) func(q *Q) {
 	return func(q *Q) {
@@ -61,19 +67,8 @@ func WithParentCtx(ctx context.Context) func(q *Q) {
 	}
 }
 
-type LogConfig interface {
-	LogSQLStatements() bool
-}
-
-func WithLogger(logger logger.Logger, config LogConfig) func(q *Q) {
-	return func(q *Q) {
-		q.logger = logger
-		q.config = config
-	}
-}
-
 // MergeCtx allows callers to combine a ctx with a previously set parent context
-// Resonsibility for cancelling the passed context lies with caller
+// Responsibility for cancelling the passed context lies with caller
 func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
 	return func(q *Q) {
 		q.ParentCtx = fn(q.ParentCtx)
@@ -81,7 +76,18 @@ func MergeCtx(fn func(parentCtx context.Context) context.Context) func(q *Q) {
 }
 
 var _ Queryer = Q{}
-var slowThreshold = time.Second
+var slowSqlThreshold = time.Second
+
+func init() {
+	slowSqlThresholdStr := os.Getenv("SLOW_SQL_THRESHOLD")
+	if len(slowSqlThresholdStr) > 0 {
+		d, err := time.ParseDuration(slowSqlThresholdStr)
+		if err != nil {
+			log.Fatalf("failed to parse SLOW_SQL_THRESHOLD: %s", err)
+		}
+		slowSqlThreshold = d
+	}
+}
 
 // Q wraps an underlying queryer (either a *sqlx.DB or a *sqlx.Tx)
 //
@@ -120,12 +126,33 @@ func NewQ(queryer Queryer, qopts ...QOpt) (q Q) {
 	return
 }
 
+// TODO: this has to become new NewQ after all usages are fixed
+func NewNewQ(queryer Queryer, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+	q = NewQFromOpts(qopts)
+	if q.Queryer == nil {
+		q.Queryer = queryer
+	}
+	q.logger = logger
+	q.config = config
+	return
+}
+
 func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
 	stmt, err := q.PrepareNamed(sql)
 	if err != nil {
 		return errors.Wrap(err, "error preparing named statement")
 	}
 	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
+}
+
+func (q Q) WithOpts(qopts ...QOpt) (nq Q) {
+	nq = NewQFromOpts(qopts)
+	if nq.Queryer == nil {
+		nq.Queryer = q
+	}
+	nq.logger = q.logger
+	nq.config = q.config
+	return
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
@@ -236,25 +263,30 @@ func (q queryFmt) String() string {
 }
 
 func (q Q) logSqlQuery(query string, args ...interface{}) {
-	if q.logger == nil || q.config == nil || !q.config.LogSQLStatements() {
+	if q.config == nil || q.logger == nil {
 		return
 	}
-	q.logger.Debugf("SQL: %s", queryFmt{query, args})
+	if q.config.LogSQLStatements() {
+		q.logger.Debugf("SQL: %s", queryFmt{query, args})
+	}
 }
 
 func (q Q) withLogError(err error) error {
-	if err != nil && q.logger != nil {
+	if err != nil && err != sql.ErrNoRows && q.logger != nil && q.config.LogSQLStatements() {
 		q.logger.Errorf("SQL ERROR: %v", err)
 	}
 	return err
 }
 
 func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
+	if q.logger == nil {
+		return
+	}
 	elapsed := time.Since(begin)
-	if ctx.Err() != nil && q.logger != nil {
+	if ctx.Err() != nil {
 		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
 	}
-	if q.logger != nil && elapsed > slowThreshold {
+	if slowSqlThreshold > 0 && elapsed > slowSqlThreshold {
 		q.logger.Warnf("SLOW SQL QUERY: %d ms", elapsed.Milliseconds())
 	}
 }
