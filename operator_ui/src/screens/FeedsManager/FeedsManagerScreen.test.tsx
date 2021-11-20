@@ -1,6 +1,5 @@
 import * as React from 'react'
 
-import globPath from 'test-helpers/globPath'
 import { GraphQLError } from 'graphql'
 import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'support/test-utils'
@@ -10,7 +9,7 @@ import {
   FeedsManagerScreen,
   FEEDS_MANAGERS_WITH_PROPOSALS_QUERY,
 } from './FeedsManagerScreen'
-import { buildFeedsManagerFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { buildFeedsManagerResultFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 
 const { findByText } = screen
 
@@ -38,15 +37,12 @@ describe('FeedsManagerScreen', () => {
         result: {
           data: {
             feedsManagers: {
-              results: [buildFeedsManagerFields()],
+              results: [buildFeedsManagerResultFields()],
             },
           },
         },
       },
     ]
-
-    // Temporary until we switch it out for GQL
-    global.fetch.getOnce(globPath('/v2/job_proposals'), { data: [] })
 
     renderComponent(mocks)
 
