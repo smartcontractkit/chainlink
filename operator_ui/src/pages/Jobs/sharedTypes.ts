@@ -23,6 +23,7 @@ export type JobV2 = BaseJob & {
   type: 'v2'
   specType: JobSpecType
   evmChainID: string | null
+  externalJobID?: string
 }
 
 export type BaseJobRun = {
