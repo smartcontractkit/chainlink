@@ -124,7 +124,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		)
 
 		head := newHead()
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(context.Background(), &head)
 		ethTxCreated.AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -156,7 +156,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
-		head := *cltest.Head(36)
+		head := cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -167,12 +167,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
-			head = *cltest.Head(i)
+			head = cltest.Head(i)
 			executer.OnNewLongestChain(context.Background(), head)
 		}
 
 		// head 40 triggers a new run
-		head = *cltest.Head(40)
+		head = cltest.Head(40)
 
 		txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
@@ -206,7 +206,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := newHead()
-	executer.OnNewLongestChain(context.TODO(), head)
+	executer.OnNewLongestChain(context.TODO(), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
 	cltest.AssertCountStays(t, db, "eth_txes", 0)

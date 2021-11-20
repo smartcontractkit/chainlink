@@ -1,12 +1,19 @@
-import { FeedsManager, JobProposals } from 'screens/FeedsManager/types'
-
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 
-// buildFeedsManager builds a feeds manager for a FetchFeedsManagersWithProposals
-// query
-export function buildFeedsManager(
-  overrides?: Partial<FeedsManager>,
-): FeedsManager {
+// buildFeedsManagerResultFields is a convenience function to construct a result
+// with default build values.
+export function buildFeedsManagerResultFields(): FeedsManagerPayload_ResultsFields {
+  return {
+    ...buildFeedsManagerFields(),
+    jobProposals: buildJobProposals(),
+  }
+}
+
+// buildFeedsManagerFields builds the feeds manager fields for a
+// FetchFeedsManagersWithProposals query.
+export function buildFeedsManagerFields(
+  overrides?: Partial<FeedsManagerFields>,
+): FeedsManagerFields {
   return {
     __typename: 'FeedsManager',
     id: '1',
@@ -17,15 +24,13 @@ export function buildFeedsManager(
     isConnectionActive: false,
     isBootstrapPeer: false,
     bootstrapPeerMultiaddr: null,
-    createdAt: new Date(),
-    jobProposals: [],
     ...overrides,
   }
 }
 
 // buildJobProposals builds a list of job proposals each containing a different
 // status for a FetchFeedsManagersWithProposals query
-export function buildJobProposals(): JobProposals {
+export function buildJobProposals(): FeedsManager_JobProposalsFields[] {
   const minuteAgo = isoDate(Date.now() - MINUTE_MS)
 
   return [

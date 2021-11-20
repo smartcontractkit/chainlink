@@ -18,7 +18,7 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 	orm := headtracker.NewORM(db, cltest.FixtureChainID)
 
 	// Returns nil when inserting first head
-	head := *cltest.Head(0)
+	head := cltest.Head(0)
 	require.NoError(t, orm.IdempotentInsertHead(context.TODO(), head))
 
 	// Head is inserted

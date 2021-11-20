@@ -202,8 +202,10 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		defer cancel()
 		q.ParentCtx = ctx
 	}
+	ctx, cancel := q.Context()
+	defer cancel()
 
-	err := js.orm.CreateJob(jb, pg.WithQueryer(q))
+	err := js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
 	if err != nil {
 		js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
 		return err

@@ -469,7 +469,7 @@ func MustInsertHead(t *testing.T, db *sqlx.DB, number int64) eth.Head {
 	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
 	horm := headtracker.NewORM(db, FixtureChainID)
 
-	err := horm.IdempotentInsertHead(context.Background(), h)
+	err := horm.IdempotentInsertHead(context.Background(), &h)
 	require.NoError(t, err)
 	return h
 }

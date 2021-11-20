@@ -4,29 +4,18 @@ import { gql, useQuery } from '@apollo/client'
 import { Redirect, useLocation } from 'react-router-dom'
 
 import { GraphqlErrorHandler } from 'src/components/ErrorHandler/GraphqlErrorHandler'
-import { FeedsManagerView } from './FeedsManagerView'
+import {
+  FeedsManagerView,
+  FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS,
+} from './FeedsManagerView'
 import { Loading } from 'src/components/Feedback/Loading'
 
 export const FEEDS_MANAGERS_WITH_PROPOSALS_QUERY = gql`
+  ${FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS}
   query FetchFeedManagersWithProposals {
     feedsManagers {
       results {
-        __typename
-        id
-        name
-        uri
-        publicKey
-        jobTypes
-        isBootstrapPeer
-        isConnectionActive
-        bootstrapPeerMultiaddr
-        createdAt
-        jobProposals {
-          id
-          externalJobID
-          proposedAt
-          status
-        }
+        ...FeedsManagerPayload_ResultsFields
       }
     }
   }

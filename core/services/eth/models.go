@@ -44,15 +44,11 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (h *Head) EarliestInChain() Head {
-	for {
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
+func (h *Head) EarliestInChain() *Head {
+	for h.Parent != nil {
+		h = h.Parent
 	}
-	return *h
+	return h
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain

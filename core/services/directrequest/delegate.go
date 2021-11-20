@@ -27,7 +27,7 @@ type (
 		logger         logger.Logger
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
-		chHeads        chan eth.Head
+		chHeads        chan *eth.Head
 		chainSet       evm.ChainSet
 	}
 
@@ -49,7 +49,7 @@ func NewDelegate(
 		logger.Named("DirectRequest"),
 		pipelineRunner,
 		pipelineORM,
-		make(chan eth.Head, 1),
+		make(chan *eth.Head, 1),
 		chainSet,
 	}
 }
