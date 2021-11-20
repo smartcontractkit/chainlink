@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // QOpt pattern for ORM methods aims to clarify usage and remove some common footguns, notably:
@@ -105,13 +106,14 @@ func init() {
 type Q struct {
 	Queryer
 	ParentCtx context.Context
+	db        *sqlx.DB
 	logger    logger.Logger
 	config    LogConfig
 }
 
-// NewQFromOpts is intended to be used in ORMs where the caller may wish to use
+// newQFromOpts is intended to be used in ORMs where the caller may wish to use
 // either the default DB or pass an explicit Tx
-func NewQFromOpts(qopts []QOpt) (q Q) {
+func newQFromOpts(qopts []QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
@@ -119,7 +121,7 @@ func NewQFromOpts(qopts []QOpt) (q Q) {
 }
 
 func NewQ(queryer Queryer, qopts ...QOpt) (q Q) {
-	q = NewQFromOpts(qopts)
+	q = newQFromOpts(qopts)
 	if q.Queryer == nil {
 		q.Queryer = queryer
 	}
@@ -127,11 +129,12 @@ func NewQ(queryer Queryer, qopts ...QOpt) (q Q) {
 }
 
 // TODO: this has to become new NewQ after all usages are fixed
-func NewNewQ(queryer Queryer, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
-	q = NewQFromOpts(qopts)
+func NewNewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+	q = newQFromOpts(qopts)
 	if q.Queryer == nil {
-		q.Queryer = queryer
+		q.Queryer = db
 	}
+	q.db = db
 	q.logger = logger
 	q.config = config
 	return
@@ -146,10 +149,11 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 }
 
 func (q Q) WithOpts(qopts ...QOpt) (nq Q) {
-	nq = NewQFromOpts(qopts)
+	nq = newQFromOpts(qopts)
 	if nq.Queryer == nil {
 		nq.Queryer = q
 	}
+	nq.db = q.db
 	nq.logger = q.logger
 	nq.config = q.config
 	return

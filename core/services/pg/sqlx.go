@@ -52,6 +52,8 @@ func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func
 		err = fc(db)
 	case *sqlx.DB:
 		err = sqlxTransactionQ(ctx, db, lggr, fc, txOpts...)
+	case Q:
+		err = sqlxTransactionQ(ctx, db.db, lggr, fc, txOpts...)
 	default:
 		// Allows use of mock queryer in tests
 		if AllowMockQueryerTypeInTransaction && fmt.Sprintf("%T", db) == "*mocks.Queryer" {
