@@ -33,7 +33,7 @@ type (
 		utils.StartStopOnce
 		Peerstore     p2ppeerstore.Peerstore
 		peerID        string
-		db            *sqlx.DB
+		q             pg.Q
 		writeInterval time.Duration
 		ctx           context.Context
 		ctxCancel     context.CancelFunc
@@ -48,19 +48,21 @@ func (P2PPeer) TableName() string {
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
-func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger) (*Pstorewrapper, error) {
+func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger, cfg pg.LogConfig) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
+	namedLogger := lggr.Named("PeerStore")
+	q := pg.NewNewQ(db, namedLogger, cfg)
 
 	return &Pstorewrapper{
 		utils.StartStopOnce{},
 		pstoremem.NewPeerstore(),
 		peerID.Raw(),
-		db,
+		q,
 		writeInterval,
 		ctx,
 		cancel,
 		make(chan struct{}),
-		lggr.Named("PeerStore"),
+		namedLogger,
 	}, nil
 }
 
@@ -121,7 +123,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := pg.NewQ(p.db, pg.WithParentCtx(p.ctx)).Query(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
+	rows, err := p.q.WithOpts(pg.WithParentCtx(p.ctx)).Query(`SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
@@ -144,7 +146,7 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 }
 
 func (p *Pstorewrapper) WriteToDB() error {
-	err := pg.NewQ(p.db, pg.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx pg.Queryer) error {
+	err := p.q.WithOpts(pg.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx pg.Queryer) error {
 		_, err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 		if err != nil {
 			return errors.Wrap(err, "delete from p2p_peers failed")
