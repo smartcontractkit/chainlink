@@ -1,8 +1,10 @@
-package offchainreporting_test
+package ocrcommon_test
 
 import (
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -11,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +51,7 @@ func Test_Peerstore_Start(t *testing.T) {
 	`, p2pkey.PeerID(peerID), p2pkey.PeerID(peerID), p2pkey.PeerID(nonExistentP2PPeerID)))
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t))
+	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t))
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -72,7 +73,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t))
+	wrapper, err := ocrcommon.NewPeerstoreWrapper(db, 1*time.Second, p2pkey.PeerID(peerID), logger.TestLogger(t))
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
@@ -85,7 +86,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	err = wrapper.WriteToDB()
 	require.NoError(t, err)
 
-	peers := make([]offchainreporting.P2PPeer, 0)
+	peers := make([]ocrcommon.P2PPeer, 0)
 	err = db.Select(&peers, `SELECT * FROM p2p_peers`)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(peers))

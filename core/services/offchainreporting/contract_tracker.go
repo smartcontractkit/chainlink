@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -59,8 +61,8 @@ type (
 		logger           logger.Logger
 		ocrdb            OCRContractTrackerDB
 		db               *sqlx.DB
-		blockTranslator  BlockTranslator
-		cfg              Config
+		blockTranslator  ocrcommon.BlockTranslator
+		cfg              ocrcommon.Config
 
 		// HeadBroadcaster
 		headBroadcaster  httypes.HeadBroadcaster
@@ -102,7 +104,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	db *sqlx.DB,
 	ocrdb OCRContractTrackerDB,
-	cfg Config,
+	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -118,7 +120,7 @@ func NewOCRContractTracker(
 		logger,
 		ocrdb,
 		db,
-		NewBlockTranslator(cfg, ethClient, logger),
+		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
 		nil,

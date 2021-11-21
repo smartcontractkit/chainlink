@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -30,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 //go:generate mockery --name GeneralConfig --output ./mocks/ --case=underscore
@@ -96,6 +97,7 @@ type GeneralOnlyConfig interface {
 	FMSimulateTransactions() bool
 	FeatureExternalInitiators() bool
 	FeatureOffchainReporting() bool
+	FeatureOffchainReporting2() bool
 	FeatureUICSAKeys() bool
 	FeatureUIFeedsManager() bool
 	GetAdvisoryLockIDConfiguredOrDefault() int64
@@ -159,7 +161,7 @@ type GeneralOnlyConfig interface {
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
 	P2PV2AnnounceAddressesRaw() []string
-	P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator)
+	P2PV2Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator)
 	P2PV2BootstrappersRaw() []string
 	P2PV2DeltaDial() models.Duration
 	P2PV2DeltaReconcile() models.Duration
@@ -599,6 +601,11 @@ func (c *generalConfig) FeatureExternalInitiators() bool {
 // FeatureOffchainReporting enables the OCR job type.
 func (c *generalConfig) FeatureOffchainReporting() bool {
 	return c.getWithFallback("FeatureOffchainReporting", ParseBool).(bool)
+}
+
+// FeatureOffchainReporting2 enables the OCR2 job type.
+func (c *generalConfig) FeatureOffchainReporting2() bool {
+	return c.getWithFallback("FeatureOffchainReporting2", ParseBool).(bool)
 }
 
 // FMDefaultTransactionQueueDepth controls the queue size for DropOldestStrategy in Flux Monitor
@@ -1097,10 +1104,10 @@ func (c *generalConfig) P2PV2AnnounceAddressesRaw() []string {
 
 // P2PV2Bootstrappers returns the default bootstrapper peers for libocr's v2
 // networking stack
-func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrtypes.BootstrapperLocator) {
+func (c *generalConfig) P2PV2Bootstrappers() (locators []ocrcommontypes.BootstrapperLocator) {
 	bootstrappers := c.P2PV2BootstrappersRaw()
 	for _, s := range bootstrappers {
-		var locator ocrtypes.BootstrapperLocator
+		var locator ocrcommontypes.BootstrapperLocator
 		err := locator.UnmarshalText([]byte(s))
 		if err != nil {
 			logger.Fatalf("invalid format for bootstrapper '%s', got error: %s", s, err)

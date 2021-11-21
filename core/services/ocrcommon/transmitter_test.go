@@ -1,14 +1,15 @@
-package offchainreporting_test
+package ocrcommon_test
 
 import (
 	"context"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	bptxmmocks "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
@@ -25,7 +26,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := offchainreporting.NewTransmitter(txm, fromAddress, gasLimit, strategy)
+	transmitter := ocrcommon.NewTransmitter(txm, fromAddress, gasLimit, strategy)
 
 	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,

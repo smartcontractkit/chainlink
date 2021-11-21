@@ -7,6 +7,8 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
+	commontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	config "github.com/smartcontractkit/chainlink/core/config"
 
 	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -26,8 +28,6 @@ import (
 	sessions "github.com/gin-gonic/contrib/sessions"
 
 	time "time"
-
-	types "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	url "net/url"
 
@@ -2507,15 +2507,15 @@ func (_m *GeneralConfig) P2PV2AnnounceAddressesRaw() []string {
 }
 
 // P2PV2Bootstrappers provides a mock function with given fields:
-func (_m *GeneralConfig) P2PV2Bootstrappers() []types.BootstrapperLocator {
+func (_m *GeneralConfig) P2PV2Bootstrappers() []commontypes.BootstrapperLocator {
 	ret := _m.Called()
 
-	var r0 []types.BootstrapperLocator
-	if rf, ok := ret.Get(0).(func() []types.BootstrapperLocator); ok {
+	var r0 []commontypes.BootstrapperLocator
+	if rf, ok := ret.Get(0).(func() []commontypes.BootstrapperLocator); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.BootstrapperLocator)
+			r0 = ret.Get(0).([]commontypes.BootstrapperLocator)
 		}
 	}
 

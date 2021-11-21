@@ -1,7 +1,7 @@
 package logger
 
 import (
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 var _ ocrtypes.Logger = &ocrWrapper{}

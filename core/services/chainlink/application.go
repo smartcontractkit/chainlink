@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gobuffalo/packr"
@@ -266,7 +268,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		concretePW := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,

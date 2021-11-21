@@ -1,30 +1,32 @@
-package offchainreporting
+package ocrcommon
 
 import (
+	"io"
 	"net"
+	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/sqlx"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"go.uber.org/multierr"
 )
 
 type NetworkingConfig interface {
-	OCRBootstrapCheckInterval() time.Duration
 	OCRDHTLookupInterval() int
 	OCRIncomingMessageBufferSize() int
 	OCRNewStreamTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
-	OCRTraceLogging() bool
 	P2PAnnounceIP() net.IP
 	P2PAnnouncePort() uint16
 	P2PBootstrapPeers() ([]string, error)
@@ -35,29 +37,39 @@ type NetworkingConfig interface {
 	P2PPeerID() p2pkey.PeerID
 	P2PPeerstoreWriteInterval() time.Duration
 	P2PV2AnnounceAddresses() []string
-	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
+	P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator
 	P2PV2DeltaDial() models.Duration
 	P2PV2DeltaReconcile() models.Duration
 	P2PV2ListenAddresses() []string
+	OCRBootstrapCheckInterval() time.Duration
+	OCRTraceLogging() bool
 }
 
 type (
-	peer interface {
-		ocrtypes.BootstrapperFactory
+	peerAdapter struct {
+		io.Closer
 		ocrtypes.BinaryNetworkEndpointFactory
-		Close() error
+		ocrtypes.BootstrapperFactory
+	}
+
+	peerAdapter2 struct {
+		io.Closer
+		ocr2types.BinaryNetworkEndpointFactory
+		ocr2types.BootstrapperFactory
 	}
 
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		keyStore keystore.Master
 		config   NetworkingConfig
-		db       *sqlx.DB
-		lggr     logger.Logger
+		//db       *gorm.DB
+		db   *sqlx.DB
+		lggr logger.Logger
 
 		pstoreWrapper *Pstorewrapper
 		PeerID        p2pkey.PeerID
-		Peer          peer
+		Peer          *peerAdapter
+		Peer2         *peerAdapter2
 
 		utils.StartStopOnce
 	}
@@ -83,27 +95,42 @@ func (p *SingletonPeerWrapper) Start() error {
 	return p.StartOnce("SingletonPeerWrapper", func() (err error) {
 		p2pkeys, err := p.keyStore.P2P().GetAll()
 		if err != nil {
-			return err
+			return nil
 		}
 		listenPort := p.config.P2PListenPort()
 		if listenPort == 0 {
-			return errors.New("failed to instantiate oracle or bootstrapper service. If FEATURE_OFFCHAIN_REPORTING is on, then P2P_LISTEN_PORT is required and must be set to a non-zero value")
+			return errors.New("failed to instantiate oracle or bootstrapper service. If FEATURE_OFFCHAIN_REPORTING2 is on, then P2P_LISTEN_PORT is required and must be set to a non-zero value")
 		}
 
 		if len(p2pkeys) == 0 {
-			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
 			return nil
 		}
 
-		key, err := p.keyStore.P2P().GetOrFirst(p.config.P2PPeerID())
-		if err != nil {
-			return errors.Wrap(err, "while fetching configured key")
+		var key p2pkey.KeyV2
+		var matched bool
+		checkedKeys := []string{}
+		configuredPeerID := p.config.P2PPeerID()
+		if configuredPeerID == "" {
+			return errors.Wrap(err, "failed to start peer wrapper")
+		}
+		for _, k := range p2pkeys {
+			peerID := k.PeerID()
+			if peerID == configuredPeerID {
+				key = k
+				matched = true
+				break
+			}
+			checkedKeys = append(checkedKeys, peerID.String())
+		}
+		keys := strings.Join(checkedKeys, ", ")
+		if !matched {
+			if configuredPeerID == "" {
+				return errors.Errorf("multiple p2p keys found but peer ID was not set. You must specify P2P_PEER_ID if you have more than one key. Keys available: %s", keys)
+			}
+			return errors.Errorf("multiple p2p keys found but none matched the given P2P_PEER_ID of '%s'. Keys available: %s", configuredPeerID, keys)
 		}
 
 		p.PeerID = key.PeerID()
-		if p.PeerID == "" {
-			return errors.Wrap(err, "could not get peer ID")
-		}
 		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
@@ -121,7 +148,7 @@ func (p *SingletonPeerWrapper) Start() error {
 
 		peerLogger := logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {})
 
-		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
+		peerConfig := ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),
 			PrivKey:              key.PrivKey,
 			V1ListenIP:           p.config.P2PListenIP(),
@@ -143,9 +170,21 @@ func (p *SingletonPeerWrapper) Start() error {
 				BootstrapCheckInterval:    p.config.OCRBootstrapCheckInterval(),
 			},
 			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
-		})
+		}
+		p.lggr.Debugw("Creating OCR/OCR2 Peer", "config", peerConfig)
+		peer, err := ocrnetworking.NewPeer(peerConfig)
 		if err != nil {
 			return errors.Wrap(err, "error calling NewPeer")
+		}
+		p.Peer = &peerAdapter{
+			peer,
+			peer.OCR1BinaryNetworkEndpointFactory(),
+			peer.OCR1BootstrapperFactory(),
+		}
+		p.Peer2 = &peerAdapter2{
+			peer,
+			peer.OCR2BinaryNetworkEndpointFactory(),
+			peer.OCR2BootstrapperFactory(),
 		}
 		return p.pstoreWrapper.Start()
 	})
@@ -156,6 +195,9 @@ func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
 		if p.Peer != nil {
 			err = p.Peer.Close()
+		}
+		if p.Peer2 != nil {
+			err = p.Peer2.Close()
 		}
 
 		if p.pstoreWrapper != nil {

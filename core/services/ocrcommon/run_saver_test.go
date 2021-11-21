@@ -1,4 +1,4 @@
-package offchainreporting
+package ocrcommon
 
 import (
 	"testing"

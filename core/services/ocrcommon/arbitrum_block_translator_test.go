@@ -1,10 +1,12 @@
-package offchainreporting_test
+package ocrcommon_test
 
 import (
 	"context"
 	"math/big"
 	mrand "math/rand"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -28,7 +29,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("returns range of current to nil if target is above current block number", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5541
@@ -46,7 +47,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("returns error if changedInL1Block is less than the lowest possible L1 block on the L2 chain", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 42
@@ -68,7 +69,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("returns error if L1 block number does not exist for any range of L2 blocks", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5043
@@ -90,7 +91,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("returns correct range of L2 blocks that encompasses all possible blocks that might contain the given L1 block number", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5042
@@ -115,7 +116,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("handles edge case where L1 is the smallest possible value", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5000
@@ -140,7 +141,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("leaves upper bound unbounded where L1 is the largest possible value", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5540
@@ -166,7 +167,7 @@ func TestArbitrumBlockTranslator_BinarySearch(t *testing.T) {
 
 	t.Run("caches duplicate lookups", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 
 		var changedInL1Block int64 = 5042
@@ -219,7 +220,7 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 
 	t.Run("falls back to whole range on error", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 		var changedInL1Block uint64 = 5042
 
@@ -232,7 +233,7 @@ func TestArbitrumBlockTranslator_NumberToQueryRange(t *testing.T) {
 
 	t.Run("falls back to whole range on missing head", func(t *testing.T) {
 		client := cltest.NewEthClientMock(t)
-		abt := offchainreporting.NewArbitrumBlockTranslator(client, lggr)
+		abt := ocrcommon.NewArbitrumBlockTranslator(client, lggr)
 		ctx := context.Background()
 		var changedInL1Block uint64 = 5042
 

@@ -1,4 +1,4 @@
-package offchainreporting
+package ocrcommon
 
 import (
 	"context"
@@ -11,6 +11,11 @@ import (
 
 type txManager interface {
 	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (etx bulletprooftxmanager.EthTx, err error)
+}
+
+type Transmitter interface {
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error
+	FromAddress() common.Address
 }
 
 type transmitter struct {

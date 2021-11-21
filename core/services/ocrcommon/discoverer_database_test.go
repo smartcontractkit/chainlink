@@ -1,11 +1,13 @@
-package offchainreporting_test
+package ocrcommon_test
 
 import (
+	"context"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -19,8 +21,10 @@ func Test_DiscovererDatabase(t *testing.T) {
 	localPeerID1 := cltest.MustRandomP2PPeerID(t)
 	localPeerID2 := cltest.MustRandomP2PPeerID(t)
 
-	dd1 := offchainreporting.NewDiscovererDatabase(db, localPeerID1)
-	dd2 := offchainreporting.NewDiscovererDatabase(db, localPeerID2)
+	dd1 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
+	dd2 := ocrcommon.NewDiscovererDatabase(db, localPeerID2)
+
+	ctx := context.Background()
 
 	t.Run("StoreAnnouncement writes a value", func(t *testing.T) {
 		ann := []byte{1, 2, 3}
@@ -70,7 +74,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 	})
 
 	t.Run("persists data across restarts", func(t *testing.T) {
-		dd3 := offchainreporting.NewDiscovererDatabase(db, localPeerID1)
+		dd3 := ocrcommon.NewDiscovererDatabase(db, localPeerID1)
 
 		announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})
 		require.NoError(t, err)

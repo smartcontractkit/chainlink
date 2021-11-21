@@ -106,14 +106,19 @@ const (
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
+	// DefaultOCR2KeyBundleID is the ID of the fixture ocr2 key bundle
+	DefaultOCR2KeyBundleID = "92be59c45d0d7b192ef88d391f444ea7c78644f8607f567aab11d53668c27a4d"
 )
 
 var (
+	DefaultP2PPeerID     p2pkey.PeerID
+	NonExistentP2PPeerID p2pkey.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
-	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
-	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	FixtureChainID              = *big.NewInt(0)
-	source                      rand.Source
+	DefaultOCRKeyBundleIDSha256  models.Sha256Hash
+	DefaultOCR2KeyBundleIDSha256 models.Sha256Hash
+	FluxAggAddress               = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	FixtureChainID               = *big.NewInt(0)
+	source                       rand.Source
 
 	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))

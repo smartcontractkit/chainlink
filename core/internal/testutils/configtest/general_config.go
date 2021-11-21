@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -88,6 +91,7 @@ type GeneralConfigOverrides struct {
 	OCRKeyBundleID                            null.String
 	OCRObservationGracePeriod                 *time.Duration
 	OCRObservationTimeout                     *time.Duration
+	OCRDatabaseTimeout                        *time.Duration
 	OCRTransmitterAddress                     *ethkey.EIP55Address
 	P2PBootstrapPeers                         []string
 	P2PListenPort                             null.Int
@@ -96,6 +100,12 @@ type GeneralConfigOverrides struct {
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
+	FeatureOffchainReporting                  null.Bool
+	FeatureOffchainReporting2                 null.Bool
+	P2PNetworkingStack                        ocrnetworking.NetworkingStack
+	P2PV2ListenAddresses                      []string
+	P2PV2AnnounceAddresses                    []string
+	P2PV2Bootstrappers                        []ocrcommontypes.BootstrapperLocator
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -276,6 +286,20 @@ func (c *TestGeneralConfig) FeatureExternalInitiators() bool {
 	return c.GeneralConfig.FeatureExternalInitiators()
 }
 
+func (c *TestGeneralConfig) FeatureOffchainReporting() bool {
+	if c.Overrides.FeatureOffchainReporting.Valid {
+		return c.Overrides.FeatureOffchainReporting.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting()
+}
+
+func (c *TestGeneralConfig) FeatureOffchainReporting2() bool {
+	if c.Overrides.FeatureOffchainReporting2.Valid {
+		return c.Overrides.FeatureOffchainReporting2.Bool
+	}
+	return c.GeneralConfig.FeatureOffchainReporting2()
+}
+
 func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	if c.Overrides.TriggerFallbackDBPollInterval != nil {
 		return *c.Overrides.TriggerFallbackDBPollInterval
@@ -288,6 +312,13 @@ func (c *TestGeneralConfig) OCRBootstrapCheckInterval() time.Duration {
 		return *c.Overrides.OCRBootstrapCheckInterval
 	}
 	return c.GeneralConfig.OCRBootstrapCheckInterval()
+}
+
+func (c *TestGeneralConfig) OCRDatabaseTimeout() time.Duration {
+	if c.Overrides.OCRDatabaseTimeout != nil {
+		return *c.Overrides.OCRDatabaseTimeout
+	}
+	return c.GeneralConfig.OCRDatabaseTimeout()
 }
 
 func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
@@ -330,6 +361,34 @@ func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
 		return c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Bool
 	}
 	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
+}
+
+func (c *TestGeneralConfig) P2PNetworkingStack() ocrnetworking.NetworkingStack {
+	if c.Overrides.P2PNetworkingStack != 0 {
+		return c.Overrides.P2PNetworkingStack
+	}
+	return c.GeneralConfig.P2PNetworkingStack()
+}
+
+func (c *TestGeneralConfig) P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator {
+	if len(c.Overrides.P2PV2Bootstrappers) != 0 {
+		return c.Overrides.P2PV2Bootstrappers
+	}
+	return c.GeneralConfig.P2PV2Bootstrappers()
+}
+
+func (c *TestGeneralConfig) P2PV2ListenAddresses() []string {
+	if len(c.Overrides.P2PV2ListenAddresses) != 0 {
+		return c.Overrides.P2PV2ListenAddresses
+	}
+	return c.GeneralConfig.P2PV2ListenAddresses()
+}
+
+func (c *TestGeneralConfig) P2PV2AnnounceAddresses() []string {
+	if len(c.Overrides.P2PV2AnnounceAddresses) != 0 {
+		return c.Overrides.P2PV2AnnounceAddresses
+	}
+	return c.GeneralConfig.P2PV2AnnounceAddresses()
 }
 
 func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
