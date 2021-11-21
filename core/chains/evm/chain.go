@@ -134,7 +134,8 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logBroadcaster = log.NewBroadcaster(log.NewORM(db, *chainID), client, cfg, l, highestSeenHead)
+		logORM := log.NewORM(db, l, cfg, *chainID)
+		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}

@@ -12,15 +12,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
+	lggr := logger.NewNullLogger()
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
@@ -80,7 +82,9 @@ func TestORM_broadcasts(t *testing.T) {
 
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	cfg := cltest.NewTestGeneralConfig(t)
+	lggr := logger.NewNullLogger()
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock()
 	require.NoError(t, err)
@@ -152,7 +156,9 @@ func TestORM_Reinitialize(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := log.NewORM(db, cltest.FixtureChainID)
+			cfg := cltest.NewTestGeneralConfig(t)
+			lggr := logger.NewNullLogger()
+			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
