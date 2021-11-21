@@ -587,7 +587,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 	lggr := logger.TestLogger(t)
 
-	pipelineORM := pipeline.NewORM(db, lggr)
+	pipelineORM := pipeline.NewORM(db, lggr, config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewORM(db, cc, pipelineORM, keyStore, lggr, config)
 	defer orm.Close()

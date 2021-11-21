@@ -98,7 +98,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, db)
 
-		orm := pipeline.NewORM(db, logger.TestLogger(t))
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config)
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		cfg := cltest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t))
+		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
 		defer runner.Close()

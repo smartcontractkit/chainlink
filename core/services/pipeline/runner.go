@@ -227,7 +227,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).queryer = r.orm.DB()
+			task.(*BridgeTask).queryer = r.orm.GetQ()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
@@ -467,7 +467,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = pg.NewQ(r.orm.DB(), pg.WithParentCtx(ctx)).Transaction(r.lggr, func(tx pg.Queryer) error {
+	q := r.orm.GetQ().WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(r.lggr, func(tx pg.Queryer) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()

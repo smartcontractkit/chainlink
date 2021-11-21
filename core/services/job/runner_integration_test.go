@@ -53,7 +53,7 @@ func TestRunner(t *testing.T) {
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config})
 	runner := pipeline.NewRunner(pipelineORM, config, cc, nil, nil, logger.TestLogger(t))
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
@@ -773,7 +773,7 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t))
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
 		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume
@@ -808,7 +808,7 @@ observationSource   = """
 	t.Run("simulate request from EI -> Core node with erroring callback", func(t *testing.T) {
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t))
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
 		jobORM := job.NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, app.KeyStore, cfg)
 
 		// Trigger v2/resume

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -34,8 +35,9 @@ import (
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
 
-	orm.On("DB").Return(db)
+	orm.On("GetQ").Return(q)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
 	return r, orm
@@ -373,7 +375,9 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(db)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+
+	orm.On("GetQ").Return(q)
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		res.WriteHeader(http.StatusOK)
@@ -420,7 +424,8 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	orm.On("DB").Return(db)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+	orm.On("GetQ").Return(q)
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
 			args.Get(0).(*pipeline.Run).ID = 1

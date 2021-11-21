@@ -110,7 +110,7 @@ func MustInsertWebhookSpec(t *testing.T, db *sqlx.DB) (job.Job, job.WebhookSpec)
 func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.ORM) {
 	config := NewTestGeneralConfig(t)
 	keyStore := NewKeyStore(t, db)
-	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM = pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM = job.NewORM(db, cc, pipelineORM, keyStore, logger.TestLogger(t), config)
 	t.Cleanup(func() { jobORM.Close() })

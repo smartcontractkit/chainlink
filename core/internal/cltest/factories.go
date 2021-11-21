@@ -569,7 +569,8 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 		PipelineSpec:   &pipelineSpec,
 		PipelineSpecID: pipelineSpec.ID,
 	}
-	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t)), nil, logger.TestLogger(t), NewTestGeneralConfig(t))
+	cfg := NewTestGeneralConfig(t)
+	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t), cfg), nil, logger.TestLogger(t), cfg)
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb

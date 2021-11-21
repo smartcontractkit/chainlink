@@ -206,7 +206,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)

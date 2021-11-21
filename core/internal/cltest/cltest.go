@@ -171,7 +171,7 @@ type JobPipelineV2TestHelper struct {
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr)
+	prm := pipeline.NewORM(db, lggr, cfg)
 	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr)
 	return JobPipelineV2TestHelper{

@@ -70,7 +70,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr)
+	prm := pipeline.NewORM(db, lggr, configtest.NewTestGeneralConfig(t))
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
@@ -554,7 +554,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
-	err = vuni.prm.DB().Select(&ethTxes, `SELECT * FROM eth_txes;`)
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }

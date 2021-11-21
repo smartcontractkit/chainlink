@@ -36,7 +36,7 @@ func TestORM(t *testing.T) {
 
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
@@ -164,7 +164,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
@@ -259,7 +259,7 @@ func Test_FindJob(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
@@ -318,7 +318,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
@@ -376,7 +376,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
@@ -434,7 +434,7 @@ func Test_PipelineRunsByJobsIDs(t *testing.T) {
 	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
 	require.NoError(t, err)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
 	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
