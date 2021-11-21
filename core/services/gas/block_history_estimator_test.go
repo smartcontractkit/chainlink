@@ -177,7 +177,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 
 		head := cltest.Head(42)
-		err := bhe.FetchBlocks(context.Background(), *head)
+		err := bhe.FetchBlocks(context.Background(), head)
 		require.Error(t, err)
 		require.EqualError(t, err, "BlockHistoryEstimator: history size must be > 0, got: 0")
 	})
@@ -194,7 +194,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		for i := -1; i < 3; i++ {
 			head := cltest.Head(i)
-			err := bhe.FetchBlocks(context.Background(), *head)
+			err := bhe.FetchBlocks(context.Background(), head)
 			require.Error(t, err)
 			require.EqualError(t, err, fmt.Sprintf("BlockHistoryEstimator: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=3", i))
 		}
@@ -217,7 +217,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
-		err := bhe.FetchBlocks(context.Background(), *cltest.Head(42))
+		err := bhe.FetchBlocks(context.Background(), cltest.Head(42))
 		require.Error(t, err)
 		assert.EqualError(t, err, "BlockHistoryEstimator#fetchBlocks error fetching blocks with BatchCallContext: something exploded")
 
@@ -271,7 +271,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[0].Result = &b43
 		})
 
-		err := bhe.FetchBlocks(context.Background(), *cltest.Head(43))
+		err := bhe.FetchBlocks(context.Background(), cltest.Head(43))
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
@@ -307,7 +307,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			elems[0].Result = &b44
 		})
 
-		err = bhe.FetchBlocks(context.Background(), *cltest.Head(44))
+		err = bhe.FetchBlocks(context.Background(), cltest.Head(44))
 		require.NoError(t, err)
 
 		assert.Len(t, bhe.RollingBlockHistory(), 3)
@@ -366,7 +366,7 @@ func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T)
 		elems[2].Result = &b3
 	})
 
-	bhe.FetchBlocksAndRecalculate(context.Background(), *cltest.Head(3))
+	bhe.FetchBlocksAndRecalculate(context.Background(), cltest.Head(3))
 
 	price := gas.GetGasPrice(bhe)
 	require.Equal(t, big.NewInt(100), price)
@@ -394,15 +394,15 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		blocks := []gas.Block{}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		blocks = []gas.Block{gas.Block{}}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		blocks = []gas.Block{gas.Block{Transactions: []gas.Transaction{}}}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
@@ -433,7 +433,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, maxGasPrice, price)
@@ -467,7 +467,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, minGasPrice, price)
@@ -512,7 +512,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(2))
+		bhe.Recalculate(cltest.Head(2))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(70), price)
@@ -545,7 +545,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(0))
+		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(0), price)
@@ -580,7 +580,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(0))
+		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(100), price)
@@ -628,7 +628,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(0))
+		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, reasonablyHugeGasPrice, price)
@@ -663,7 +663,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(0))
+		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetGasPrice(bhe)
 		require.Equal(t, big.NewInt(100), price)
@@ -693,27 +693,27 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		blocks := []gas.Block{}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		blocks = []gas.Block{gas.Block{}} // No base fee (doesn't crash)
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		blocks = []gas.Block{newBlockWithBaseFee()}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		empty := newBlockWithBaseFee()
 		empty.Transactions = []gas.Transaction{}
 		blocks = []gas.Block{empty}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		withOnlyLegacyTransactions := newBlockWithBaseFee()
 		withOnlyLegacyTransactions.Transactions = cltest.LegacyTransactionsFromGasPrices(9001)
 		blocks = []gas.Block{withOnlyLegacyTransactions}
 		gas.SetRollingBlockHistory(bhe, blocks)
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		ethClient.AssertExpectations(t)
 		config.AssertExpectations(t)
@@ -747,7 +747,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		tipCap := gas.GetTipCap(bhe)
 		require.Greater(t, tipCap.Int64(), maxGasPrice.Int64())
@@ -784,7 +784,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(1))
+		bhe.Recalculate(cltest.Head(1))
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(10), price)
@@ -831,7 +831,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(2))
+		bhe.Recalculate(cltest.Head(2))
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(60), price)
@@ -866,7 +866,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 
 		gas.SetRollingBlockHistory(bhe, blocks)
 
-		bhe.Recalculate(*cltest.Head(0))
+		bhe.Recalculate(cltest.Head(0))
 
 		price := gas.GetTipCap(bhe)
 		require.Equal(t, big.NewInt(0), price)

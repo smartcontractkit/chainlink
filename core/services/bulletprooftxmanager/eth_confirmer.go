@@ -168,7 +168,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(eth.Head)
+				h, is := head.(*eth.Head)
 				if !is {
 					ec.lggr.Errorf("Invariant violation, expected %T but got %T", eth.Head{}, head)
 					continue
@@ -185,7 +185,7 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *eth.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
@@ -193,7 +193,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head *eth.Head) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead", "headNum", head.Number, "id", "eth_confirmer")
@@ -1192,7 +1192,7 @@ func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAtte
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *eth.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"evmChainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -1266,7 +1266,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
-func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head *eth.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1278,11 +1278,11 @@ func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
 		if head.Parent == nil {
 			return false
 		}
-		head = *head.Parent
+		head = head.Parent
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head eth.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *eth.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1425,7 +1425,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *eth.Head) error {
 	type x struct {
 		ID      uuid.UUID
 		Receipt []byte
