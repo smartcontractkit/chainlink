@@ -22,7 +22,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("returns error if PendingNonceAt fails", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		cfg := cltest.NewTestGeneralConfig(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -48,7 +49,8 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("does nothing if chain nonce reflects local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		cfg := cltest.NewTestGeneralConfig(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
@@ -71,9 +73,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("does nothing if chain nonce is behind local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
+		cfg := cltest.NewTestGeneralConfig(t)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
 
@@ -96,9 +99,10 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("fast forwards if chain nonce is ahead of local nonce", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
+		cfg := cltest.NewTestGeneralConfig(t)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
 		_, key2 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
@@ -124,8 +128,9 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
+		cfg := cltest.NewTestGeneralConfig(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
 

@@ -64,8 +64,8 @@ func assertLastRunHeight(t *testing.T, db *sqlx.DB, upkeep keeper.UpkeepRegistra
 
 func TestKeeperDB_Registries(t *testing.T) {
 	t.Parallel()
-	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
@@ -77,8 +77,8 @@ func TestKeeperDB_Registries(t *testing.T) {
 
 func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	t.Parallel()
-	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	upkeep := keeper.UpkeepRegistration{
@@ -115,7 +115,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, job := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 
@@ -137,8 +137,8 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 	t.Parallel()
-	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	blockheight := int64(63)
 	gracePeriod := int64(10)
@@ -188,8 +188,8 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 
 func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 	t.Parallel()
-	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	blockheight := int64(120)
 	gracePeriod := int64(100)
@@ -219,7 +219,7 @@ func TestKeeperDB_EligibleUpkeeps_GracePeriod(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	registry.NumKeepers = 5
@@ -249,7 +249,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	require.NoError(t, db.Get(&registry, `UPDATE keeper_registries SET num_keepers = 5, keeper_index = 3 WHERE id = $1 RETURNING *`, registry.ID))
@@ -280,7 +280,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
 func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry1, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	registry2, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
@@ -302,8 +302,8 @@ func TestKeeperDB_EligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 
 func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	t.Parallel()
-	db, _, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db, config, orm := setupKeeperDB(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, _ := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 
@@ -331,7 +331,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 func TestKeeperDB_SetLastRunHeightForUpkeepOnJob(t *testing.T) {
 	t.Parallel()
 	db, config, orm := setupKeeperDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	registry, j := cltest.MustInsertKeeperRegistry(t, orm, ethKeyStore)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, config, registry)

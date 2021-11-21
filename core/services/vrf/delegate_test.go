@@ -72,7 +72,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, configtest.NewTestGeneralConfig(t))
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
@@ -178,10 +178,11 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	q := pg.NewNewQ(db, lggr, configtest.NewTestGeneralConfig(t))
+	cfg := configtest.NewTestGeneralConfig(t)
+	q := pg.NewNewQ(db, lggr, cfg)
 	counts := getStartingResponseCounts(q, lggr)
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	err := ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(0))

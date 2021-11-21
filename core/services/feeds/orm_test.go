@@ -582,7 +582,7 @@ func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 
 func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	config := cltest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 	keyStore.P2P().Add(cltest.DefaultP2PKey)
 	lggr := logger.TestLogger(t)

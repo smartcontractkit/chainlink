@@ -31,7 +31,7 @@ func TestORM(t *testing.T) {
 	t.Parallel()
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
@@ -161,7 +161,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
@@ -256,7 +256,7 @@ func Test_FindJob(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
@@ -315,7 +315,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
@@ -373,7 +373,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
@@ -430,7 +430,7 @@ func Test_PipelineRunsByJobsIDs(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
 	require.NoError(t, err)
 

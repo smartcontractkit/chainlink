@@ -15,20 +15,21 @@ import (
 	"github.com/smartcontractkit/sqlx"
 )
 
-func NewORM(db *sqlx.DB, lggr logger.Logger) ksORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ksORM {
+	namedLogger := lggr.Named("KeystoreORM")
 	return ksORM{
-		db:   db,
-		lggr: lggr.Named("KeystoreORM"),
+		q:    pg.NewNewQ(db, namedLogger, cfg),
+		lggr: namedLogger,
 	}
 }
 
 type ksORM struct {
-	db   *sqlx.DB
+	q    pg.Q
 	lggr logger.Logger
 }
 
 func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
-	return pg.NewQ(orm.db).Transaction(orm.lggr, func(tx pg.Queryer) error {
+	return orm.q.Transaction(orm.lggr, func(tx pg.Queryer) error {
 		_, err := tx.Exec(`
 		UPDATE encrypted_key_rings
 		SET encrypted_keys = $1
@@ -47,10 +48,10 @@ func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg
 }
 
 func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
-	err = orm.db.Get(&kr, `SELECT * FROM encrypted_key_rings LIMIT 1`)
+	err = orm.q.Get(&kr, `SELECT * FROM encrypted_key_rings LIMIT 1`)
 	if errors.Is(err, sql.ErrNoRows) {
 		sql := `INSERT INTO encrypted_key_rings (encrypted_keys, updated_at) VALUES (NULL, NOW()) RETURNING *;`
-		err2 := orm.db.Get(&kr, sql)
+		err2 := orm.q.Get(&kr, sql)
 
 		if err2 != nil {
 			return kr, err2
@@ -64,7 +65,7 @@ func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
 func (orm ksORM) loadKeyStates() (keyStates, error) {
 	ks := newKeyStates()
 	var ethkeystates []ethkey.State
-	if err := orm.db.Select(&ethkeystates, `SELECT * FROM eth_key_states`); err != nil {
+	if err := orm.q.Select(&ethkeystates, `SELECT * FROM eth_key_states`); err != nil {
 		return ks, errors.Wrap(err, "error loading eth_key_states from DB")
 	}
 	for i := 0; i < len(ethkeystates); i++ {
@@ -76,21 +77,21 @@ func (orm ksORM) loadKeyStates() (keyStates, error) {
 // ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~
 
 func (orm ksORM) GetEncryptedV1CSAKeys() (retrieved []csakey.Key, err error) {
-	return retrieved, orm.db.Select(&retrieved, `SELECT * FROM csa_keys`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM csa_keys`)
 }
 
 func (orm ksORM) GetEncryptedV1EthKeys() (retrieved []ethkey.Key, err error) {
-	return retrieved, orm.db.Select(&retrieved, `SELECT * FROM keys`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM keys`)
 }
 
 func (orm ksORM) GetEncryptedV1OCRKeys() (retrieved []ocrkey.EncryptedKeyBundle, err error) {
-	return retrieved, orm.db.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles`)
 }
 
 func (orm ksORM) GetEncryptedV1P2PKeys() (retrieved []p2pkey.EncryptedP2PKey, err error) {
-	return retrieved, orm.db.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys`)
 }
 
 func (orm ksORM) GetEncryptedV1VRFKeys() (retrieved []vrfkey.EncryptedVRFKey, err error) {
-	return retrieved, orm.db.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys`)
+	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys`)
 }

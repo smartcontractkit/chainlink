@@ -49,7 +49,7 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 

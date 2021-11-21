@@ -89,14 +89,14 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	config := newTestChainScopedConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
@@ -139,14 +139,14 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	config := newTestChainScopedConfig(t)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	state := cltest.MustGetStateForKey(t, ethKeyStore, key)
 
-	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
 	nonce := int64(0)
@@ -510,15 +510,15 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(2)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	cfg := configtest.NewTestGeneralConfig(t)
-	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(2)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
@@ -572,15 +572,15 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(6)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	cfg := configtest.NewTestGeneralConfig(t)
-	cfg.Overrides.GlobalEvmRPCDefaultBatchSize = null.IntFrom(6)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
 	ec := cltest.NewEthConfirmer(t, db, ethClient, evmcfg, ethKeyStore, []ethkey.State{state}, nil)
@@ -632,14 +632,14 @@ func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	config := newTestChainScopedConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	config := newTestChainScopedConfig(t)
 	ec := cltest.NewEthConfirmer(t, db, ethClient, config, ethKeyStore, []ethkey.State{state}, nil)
 
 	ctx := context.Background()
@@ -664,14 +664,14 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmFinalityDepth = null.IntFrom(50)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -925,8 +925,9 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 	_, otherAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -985,8 +986,9 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -1257,11 +1259,11 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
-	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmMaxGasPriceWei = assets.GWei(500)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -1903,9 +1905,10 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -2043,8 +2046,9 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
@@ -2224,8 +2228,9 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	state, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	config := newTestChainScopedConfig(t)
@@ -2333,15 +2338,15 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	config := configtest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, config).Eth()
 
 	key, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	state := cltest.MustGetStateForKey(t, ethKeyStore, key)
 
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
-	config := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, config)
 
 	head := eth.Head{

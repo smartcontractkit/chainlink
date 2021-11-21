@@ -17,7 +17,8 @@ import (
 
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	orm := log.NewORM(db, cltest.FixtureChainID)
 

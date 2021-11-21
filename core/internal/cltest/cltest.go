@@ -414,7 +414,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		chainORM = evm.NewORM(db)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
@@ -639,8 +639,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *sqlx.DB) keystore.Master {
-	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
+func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.LogConfig) keystore.Master {
+	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
 }

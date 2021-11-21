@@ -100,7 +100,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Clien
 		DB:             c.db,
 		LogBroadcaster: &log.NullBroadcaster{},
 	})
-	kst := cltest.NewKeyStore(t, c.db)
+	kst := cltest.NewKeyStore(t, c.db, globalConfig)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config, cc, c.db, kst)
 
 	return &broadcasterHelper{

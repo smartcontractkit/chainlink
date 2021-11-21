@@ -41,10 +41,10 @@ import (
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := configtest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	cfg := configtest.NewTestGeneralConfig(t)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -417,7 +417,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	chStartEstimate := make(chan struct{})
@@ -474,11 +474,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmGasLimitMultiplier = null.FloatFrom(1.3)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -510,13 +510,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_WithMultiplier(t *testing
 func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	var err error
 	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	k1, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, true)
 	k2, dummyAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, false)
 	keyStates := []ethkey.State{k1, k2}
 
-	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(true)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
@@ -601,7 +601,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		firstInProgress := bulletprooftxmanager.EthTx{
@@ -638,7 +638,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -673,7 +673,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -708,7 +708,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -742,7 +742,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -778,7 +778,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
@@ -815,7 +815,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		borm := cltest.NewBulletproofTxManagerORM(t, db)
 
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, nextNonce)
 
 		cfg := cltest.NewTestGeneralConfig(t)
@@ -880,11 +880,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
@@ -1359,11 +1359,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	realKeystore := cltest.NewKeyStore(t, db)
+	realKeystore := cltest.NewKeyStore(t, db, cfg)
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, realKeystore.Eth())
 
-	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
@@ -1416,8 +1416,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	nonce, err := bulletprooftxmanager.GetNextNonce(pg.NewQ(db), keyState.Address.Address(), &cltest.FixtureChainID)
@@ -1428,8 +1429,9 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 
 func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	// Cannot increment if supplied nonce doesn't match existing
@@ -1451,7 +1453,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	eb := cltest.NewEthBroadcaster(t, db, cltest.NewEthClientMockWithDefaultChain(t), ethKeyStore, evmcfg, []ethkey.State{})
 
 	eb.Trigger(cltest.NewAddress())
@@ -1466,7 +1468,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	eventBroadcaster := cltest.NewEventBroadcaster(t, evmcfg.DatabaseURL())
 	require.NoError(t, eventBroadcaster.Start())

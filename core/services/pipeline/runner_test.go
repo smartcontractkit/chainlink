@@ -38,7 +38,7 @@ func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pi
 	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
 
 	orm.On("GetQ").Return(q)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, logger.TestLogger(t))
 	return r, orm
 }
@@ -433,7 +433,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		Return(nil)
 	cfg := cltest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, cfg, cc, ethKeyStore, nil, lggr)
 

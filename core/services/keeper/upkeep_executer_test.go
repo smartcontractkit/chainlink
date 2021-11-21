@@ -51,7 +51,7 @@ func setup(t *testing.T) (
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	txm := new(bptxmmocks.TxManager)
 	txm.Test(t)

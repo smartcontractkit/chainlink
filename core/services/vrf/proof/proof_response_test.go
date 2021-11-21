@@ -21,7 +21,8 @@ import (
 
 func TestMarshaledProof(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	key := cltest.DefaultVRFKey
 	keyStore.VRF().Add(key)
 	blockHash := common.Hash{}

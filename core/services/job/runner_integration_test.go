@@ -46,7 +46,7 @@ func TestRunner(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	config.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess = null.BoolFrom(true)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
