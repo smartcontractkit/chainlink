@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
@@ -63,7 +64,7 @@ type service struct {
 
 	orm         ORM
 	jobORM      job.ORM
-	queryer     pg.Queryer
+	q           pg.Q
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
 	p2pKeyStore keystore.P2P
@@ -79,7 +80,7 @@ type service struct {
 func NewService(
 	orm ORM,
 	jobORM job.ORM,
-	queryer pg.Queryer,
+	db *sqlx.DB,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	cfg Config,
@@ -91,7 +92,7 @@ func NewService(
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
-		queryer:     queryer,
+		q:           pg.NewNewQ(db, lggr, cfg),
 		jobSpawner:  jobSpawner,
 		p2pKeyStore: keyStore.P2P(),
 		csaKeyStore: keyStore.CSA(),
@@ -380,7 +381,8 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
@@ -422,7 +424,8 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
 		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
@@ -463,7 +466,9 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, pg.DefaultQueryTimeout)
 	defer cancel()
-	err = pg.NewQ(s.queryer, pg.WithParentCtx(ctx)).Transaction(s.lggr, func(tx pg.Queryer) error {
+
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
 		if err = s.orm.CancelJobProposal(id, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
