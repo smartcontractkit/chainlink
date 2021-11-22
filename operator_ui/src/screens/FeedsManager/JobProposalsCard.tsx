@@ -1,5 +1,7 @@
 import React from 'react'
 
+import { gql } from '@apollo/client'
+
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
 import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
@@ -15,7 +17,15 @@ import { TimeAgo } from 'src/components/TimeAgo'
 import Link from 'components/Link'
 import { SearchTextField } from 'src/components/SearchTextField'
 import { tableStyles } from 'components/Table'
-import { JobProposal } from './types'
+
+export const FEEDS_MANAGER__JOB_PROPOSAL_FIELDS = gql`
+  fragment FeedsManager_JobProposalsFields on JobProposal {
+    id
+    externalJobID
+    proposedAt
+    status
+  }
+`
 
 const tabToStatus: { [key: number]: string } = {
   0: 'PENDING',
@@ -33,7 +43,7 @@ const styles = () => {
 }
 
 interface JobProposalRowProps extends WithStyles<typeof tableStyles> {
-  proposal: JobProposal
+  proposal: FeedsManager_JobProposalsFields
 }
 
 const JobProposalRow = withStyles(tableStyles)(
@@ -63,16 +73,17 @@ const searchIncludes = (searchParam: string) => {
   }
 }
 
-export const search = (term: string) => (proposal: JobProposal) => {
-  if (term === '') {
-    return true
+export const search =
+  (term: string) => (proposal: FeedsManager_JobProposalsFields) => {
+    if (term === '') {
+      return true
+    }
+
+    return matchSimple(proposal, term)
   }
 
-  return matchSimple(proposal, term)
-}
-
 // matchSimple does a simple match on the id
-function matchSimple(proposal: JobProposal, term: string) {
+function matchSimple(proposal: FeedsManager_JobProposalsFields, term: string) {
   const match = searchIncludes(term)
 
   const dataset: string[] = [proposal.id]
@@ -84,7 +95,7 @@ function matchSimple(proposal: JobProposal, term: string) {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  proposals: FetchFeedManagersWithProposals['feedsManagers']['results'][number]['jobProposals']
+  proposals: readonly FeedsManager_JobProposalsFields[]
 }
 
 export const JobProposalsCard = withStyles(styles)(
@@ -92,15 +103,16 @@ export const JobProposalsCard = withStyles(styles)(
     const [tabValue, setTabValue] = React.useState(0)
     const [searchTerm, setSearchTerm] = React.useState('')
 
-    const filteredProposals: JobProposal[] = React.useMemo(() => {
-      if (!proposals) {
-        return []
-      }
+    const filteredProposals: FeedsManager_JobProposalsFields[] =
+      React.useMemo(() => {
+        if (!proposals) {
+          return []
+        }
 
-      return proposals.filter(
-        (p) => p.status === tabToStatus[tabValue] && search(searchTerm)(p),
-      )
-    }, [tabValue, proposals, searchTerm])
+        return proposals.filter(
+          (p) => p.status === tabToStatus[tabValue] && search(searchTerm)(p),
+        )
+      }, [tabValue, proposals, searchTerm])
 
     return (
       <Card>

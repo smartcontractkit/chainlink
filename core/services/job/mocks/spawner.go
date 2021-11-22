@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	context "context"
-
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 
@@ -67,13 +65,20 @@ func (_m *Spawner) CreateJob(jb *job.Job, qopts ...pg.QOpt) error {
 	return r0
 }
 
-// DeleteJob provides a mock function with given fields: ctx, jobID
-func (_m *Spawner) DeleteJob(ctx context.Context, jobID int32) error {
-	ret := _m.Called(ctx, jobID)
+// DeleteJob provides a mock function with given fields: jobID, qopts
+func (_m *Spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
-		r0 = rf(ctx, jobID)
+	if rf, ok := ret.Get(0).(func(int32, ...pg.QOpt) error); ok {
+		r0 = rf(jobID, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -1502,7 +1502,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		etx, err = borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx.State)
 
 		// Got the new attempt
 		attempt1_4 = etx.EthTxAttempts[0]
@@ -1601,7 +1601,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	// Set BroadcastBeforeBlockNum again so the next test will pick it up
 	require.NoError(t, db.Get(&attempt2_2, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_2.ID))
 
-	t.Run("assumes that 'nonce too low' error means success", func(t *testing.T) {
+	t.Run("assumes that 'nonce too low' error means confirmed_missing_receipt", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
@@ -1625,7 +1625,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), currentHead))
 		etx2, err = borm.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
-		assert.Equal(t, bulletprooftxmanager.EthTxUnconfirmed, etx2.State)
+		assert.Equal(t, bulletprooftxmanager.EthTxConfirmedMissingReceipt, etx2.State)
 
 		// One new attempt saved
 		require.Len(t, etx2.EthTxAttempts, 3)
@@ -2068,14 +2068,14 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	}
 
 	t.Run("does nothing if there aren't any transactions", func(t *testing.T) {
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 	})
 
 	t.Run("does nothing to unconfirmed transactions", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2088,7 +2088,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Number, head.Hash, attempt.Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2102,7 +2102,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Parent.Parent.Number-1, utils.NewHash(), attempt.Hash)
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2123,7 +2123,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2146,7 +2146,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.Anything).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2183,7 +2183,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		})).Return(nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2205,7 +2205,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 		// Add receipt that is higher than head
 		cltest.MustInsertEthReceipt(t, borm, head.Number+1, utils.NewHash(), attempt.Hash)
 
-		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), head))
+		require.NoError(t, ec.EnsureConfirmedTransactionsInLongestChain(context.TODO(), &head))
 
 		etx, err := borm.FindEthTxWithAttempts(etx.ID)
 		require.NoError(t, err)
@@ -2376,7 +2376,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		cltest.MustInsertEthReceipt(t, borm, head.Number-minConfirmations, head.Hash, attempt.Hash)
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(context.Background(), head)
+		err := ec.ResumePendingTaskRuns(context.Background(), &head)
 		require.NoError(t, err)
 
 	})
@@ -2396,7 +2396,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
-		err := ec.ResumePendingTaskRuns(context.Background(), head)
+		err := ec.ResumePendingTaskRuns(context.Background(), &head)
 		require.NoError(t, err)
 
 	})
@@ -2420,7 +2420,7 @@ func TestEthConfirmer_ResumePendingRuns(t *testing.T) {
 		pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 		go func() {
-			err := ec.ResumePendingTaskRuns(context.Background(), head)
+			err := ec.ResumePendingTaskRuns(context.Background(), &head)
 			require.NoError(t, err)
 		}()
 

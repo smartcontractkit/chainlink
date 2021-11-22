@@ -39,8 +39,8 @@ import (
 )
 
 func init() {
-	// AllowUnknownQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
-	pg.AllowUnknownQueryerTypeInTransaction = true
+	// AllowMockQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
+	pg.AllowMockQueryerTypeInTransaction = true
 }
 
 const TestSpec = `
@@ -729,8 +729,8 @@ func Test_Service_CancelJobProposal(t *testing.T) {
 					jp.ID,
 					mock.Anything,
 				).Return(nil)
-				svc.jobORM.On("FindJobByExternalJobID", mock.AnythingOfType("*context.timerCtx"), externalJobID).Return(j, nil)
-				svc.spawner.On("DeleteJob", mock.AnythingOfType("*context.timerCtx"), j.ID).Return(nil)
+				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(j, nil)
+				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.fmsClient.On("CancelledJob",
 					mock.MatchedBy(func(ctx context.Context) bool { return true }),

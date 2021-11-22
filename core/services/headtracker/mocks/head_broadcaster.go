@@ -45,7 +45,7 @@ func (_m *HeadBroadcaster) Healthy() error {
 }
 
 // OnNewLongestChain provides a mock function with given fields: ctx, head
-func (_m *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (_m *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	_m.Called(ctx, head)
 }
 

@@ -113,7 +113,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -138,7 +138,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(eth.Head)
+	head, ok := item.(*eth.Head)
 	if !ok {
 		ex.logger.Errorf("expected `eth.Head`, got %T", head)
 		return
