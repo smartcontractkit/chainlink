@@ -53,7 +53,7 @@ type DynamicFee struct {
 // Estimator provides an interface for estimating gas price and limit
 //go:generate mockery --name Estimator --output ./mocks/ --case=underscore
 type Estimator interface {
-	OnNewLongestChain(context.Context, eth.Head)
+	OnNewLongestChain(context.Context, *eth.Head)
 	Start() error
 	Close() error
 	GetLegacyGas(calldata []byte, gasLimit uint64, opts ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error)

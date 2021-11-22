@@ -87,7 +87,7 @@ type BulletproofTxManager struct {
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
-	chHeads        chan eth.Head
+	chHeads        chan *eth.Head
 	trigger        chan common.Address
 	resumeCallback ResumeCallback
 
@@ -115,7 +115,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, k
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
-		chHeads:          make(chan eth.Head),
+		chHeads:          make(chan *eth.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -237,7 +237,7 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -548,10 +548,10 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
-func (n *NullTxManager) Start() error                                { return nil }
-func (n *NullTxManager) Close() error                                { return nil }
-func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
+func (n *NullTxManager) OnNewLongestChain(context.Context, *eth.Head) {}
+func (n *NullTxManager) Start() error                                 { return nil }
+func (n *NullTxManager) Close() error                                 { return nil }
+func (n *NullTxManager) Trigger(common.Address)                       { panic(n.ErrMsg) }
 func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
