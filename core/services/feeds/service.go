@@ -272,9 +272,9 @@ func (s *service) ListJobProposals() ([]JobProposal, error) {
 	return s.orm.ListJobProposals()
 }
 
-// GetJobProposalByManagersIDs gets job proposals by feeds managers IDs
+// GetJobProposalsByManagersIDs gets job proposals by feeds managers IDs
 func (s *service) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
-	return s.orm.GetJobProposalByManagersIDs(ids)
+	return s.orm.GetJobProposalsByManagersIDs(ids)
 }
 
 // CreateJobProposal creates a job proposal.
