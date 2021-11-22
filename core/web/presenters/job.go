@@ -1,6 +1,7 @@
 package presenters
 
 import (
+	"gopkg.in/guregu/null.v4"
 	"time"
 
 	"github.com/lib/pq"
@@ -164,6 +165,42 @@ func NewOffChainReportingSpec(spec *job.OffchainReportingOracleSpec) *OffChainRe
 	}
 }
 
+// OffChainReporting2Spec defines the spec details of a OffChainReporting2 Job
+type OffChainReporting2Spec struct {
+	ContractAddress                        ethkey.EIP55Address  `json:"contractAddress"`
+	P2PPeerID                              *p2pkey.PeerID       `json:"p2pPeerID"`
+	P2PBootstrapPeers                      pq.StringArray       `json:"p2pBootstrapPeers"`
+	IsBootstrapPeer                        bool                 `json:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                null.String          `json:"keyBundleID"`
+	TransmitterAddress                     *ethkey.EIP55Address `json:"transmitterAddress"`
+	ObservationTimeout                     models.Interval      `json:"observationTimeout"`
+	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout"`
+	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations"`
+	CreatedAt                              time.Time            `json:"createdAt"`
+	UpdatedAt                              time.Time            `json:"updatedAt"`
+}
+
+// NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
+// job.OffchainReporting2OracleSpec
+func NewOffChainReporting2Spec(spec *job.OffchainReporting2OracleSpec) *OffChainReporting2Spec {
+	return &OffChainReporting2Spec{
+		ContractAddress:                        spec.ContractAddress,
+		P2PPeerID:                              spec.P2PPeerID,
+		P2PBootstrapPeers:                      spec.P2PBootstrapPeers,
+		IsBootstrapPeer:                        spec.IsBootstrapPeer,
+		EncryptedOCRKeyBundleID:                spec.EncryptedOCRKeyBundleID,
+		TransmitterAddress:                     spec.TransmitterAddress,
+		BlockchainTimeout:                      spec.BlockchainTimeout,
+		ContractConfigTrackerSubscribeInterval: spec.ContractConfigTrackerSubscribeInterval,
+		ContractConfigTrackerPollInterval:      spec.ContractConfigTrackerPollInterval,
+		ContractConfigConfirmations:            spec.ContractConfigConfirmations,
+		CreatedAt:                              spec.CreatedAt,
+		UpdatedAt:                              spec.UpdatedAt,
+	}
+}
+
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"id"`
@@ -285,6 +322,7 @@ type JobResource struct {
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	CronSpec              *CronSpec              `json:"cronSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	OffChainReporting2Spec *OffChainReporting2Spec `json:"offChainReporting2OracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	VRFSpec               *VRFSpec               `json:"vrfSpec"`
 	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
@@ -313,6 +351,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+	case job.OffchainReporting2:
+		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.Offchainreporting2OracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:

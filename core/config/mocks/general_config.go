@@ -753,6 +753,20 @@ func (_m *GeneralConfig) FeatureOffchainReporting() bool {
 	return r0
 }
 
+// FeatureOffchainReporting2 provides a mock function with given fields:
+func (_m *GeneralConfig) FeatureOffchainReporting2() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // FeatureUICSAKeys provides a mock function with given fields:
 func (_m *GeneralConfig) FeatureUICSAKeys() bool {
 	ret := _m.Called()
@@ -1644,6 +1658,27 @@ func (_m *GeneralConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*assets.Link)
 		}
+	}
+
+	var r1 bool
+	if rf, ok := ret.Get(1).(func() bool); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+
+	return r0, r1
+}
+
+// GlobalOCR2ContractConfirmations provides a mock function with given fields:
+func (_m *GeneralConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
+	ret := _m.Called()
+
+	var r0 uint16
+	if rf, ok := ret.Get(0).(func() uint16); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(uint16)
 	}
 
 	var r1 bool
