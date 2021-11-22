@@ -48,7 +48,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hr := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, *ethClient.ChainID())
+	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()

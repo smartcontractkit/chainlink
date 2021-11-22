@@ -101,7 +101,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
-		orm := headtracker.NewORM(db, *chainID)
+		orm := headtracker.NewORM(db, l, cfg, *chainID)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain)

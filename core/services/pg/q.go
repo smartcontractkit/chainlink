@@ -149,14 +149,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 }
 
 func (q Q) WithOpts(qopts ...QOpt) (nq Q) {
-	nq = newQFromOpts(qopts)
-	if nq.Queryer == nil {
-		nq.Queryer = q
-	}
-	nq.db = q.db
-	nq.logger = q.logger
-	nq.config = q.config
-	return
+	return NewNewQ(q.db, q.logger, q.config, qopts...)
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
