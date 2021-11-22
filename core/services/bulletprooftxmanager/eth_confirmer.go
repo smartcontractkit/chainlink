@@ -363,8 +363,8 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 }
 
 func (ec *EthConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []EthTxAttempt, err error) {
-	err = ec.q.Transaction(func(q pg.Queryer) error {
-		err = q.Select(&attempts, `
+	err = ec.q.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&attempts, `
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = $1
 WHERE eth_tx_attempts.state != 'insufficient_eth'
@@ -373,7 +373,7 @@ ORDER BY eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC, eth_tx_attempts.gas
 		if err != nil {
 			return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_tx_attempts")
 		}
-		err = loadEthTxes(q, attempts)
+		err = loadEthTxes(tx, attempts)
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed to load eth_txes")
 	}, pg.OptReadOnlyTx())
 	return
@@ -737,8 +737,9 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 }
 
 func getInProgressEthTxAttempts(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
-		err = q.Select(&attempts, `
+	qq := q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&attempts, `
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 WHERE eth_tx_attempts.state = 'in_progress' AND eth_txes.from_address = $1 AND eth_txes.evm_chain_id = $2
@@ -844,8 +845,9 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
 func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (etxs []*EthTx, err error) {
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
-		err = q.Select(&etxs, `
+	qq := q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
 WHERE eth_txes.from_address = $1 AND eth_txes.state = 'unconfirmed' AND eth_txes.evm_chain_id = $2
@@ -855,7 +857,7 @@ ORDER BY nonce ASC
 			return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_txes")
 		}
 
-		err = loadEthTxesAttempts(q, etxs)
+		err = loadEthTxesAttempts(tx, etxs)
 		return errors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -888,7 +890,8 @@ func FindEthTxsRequiringGasBump(ctx context.Context, q pg.Q, lggr logger.Logger,
 	if gasBumpThreshold == 0 {
 		return
 	}
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
+	qq := q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT eth_txes.* FROM eth_txes
 LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND (broadcast_before_block_num > $4 OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')
@@ -896,10 +899,10 @@ WHERE eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL AND eth_txes
 	AND (($3 = 0) OR (eth_txes.id IN (SELECT id FROM eth_txes WHERE state = 'unconfirmed' AND from_address = $1 ORDER BY nonce ASC LIMIT $3)))
 ORDER BY nonce ASC
 `
-		if err = q.Select(&etxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
+		if err = tx.Select(&etxs, stmt, address, chainID.String(), depth, blockNum-gasBumpThreshold); err != nil {
 			return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_txes")
 		}
-		err = loadEthTxesAttempts(q, etxs)
+		err = loadEthTxesAttempts(tx, etxs)
 		return errors.Wrap(err, "FindEthTxsRequiringGasBump failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -1032,7 +1035,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 				attempt.GasPrice.String(), sendError.Error()),
 			"previousAttempt", attempt, "replacementAttempt", replacementAttempt)
 
-		if err := saveReplacementInProgressAttempt(ec.lggr, ec.q, attempt, &replacementAttempt); err != nil {
+		if err := saveReplacementInProgressAttempt(ec.q, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
 		return ec.handleInProgressAttempt(ctx, etx, replacementAttempt, blockHeight)
@@ -1250,8 +1253,8 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 }
 
 func findTransactionsConfirmedInBlockRange(q pg.Q, lggr logger.Logger, highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error) {
-	err = q.Transaction(func(q pg.Queryer) error {
-		err = q.Select(&etxs, `
+	err = q.Transaction(func(tx pg.Queryer) error {
+		err = tx.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'
 INNER JOIN eth_receipts ON eth_receipts.tx_hash = eth_tx_attempts.hash
@@ -1261,10 +1264,10 @@ ORDER BY nonce ASC
 		if err != nil {
 			return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_txes")
 		}
-		if err = loadEthTxesAttempts(q, etxs); err != nil {
+		if err = loadEthTxesAttempts(tx, etxs); err != nil {
 			return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_tx_attempts")
 		}
-		err = loadEthTxesAttemptsReceipts(q, etxs)
+		err = loadEthTxesAttemptsReceipts(tx, etxs)
 		return errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed to load eth_receipts")
 	}, pg.OptReadOnlyTx())
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
@@ -1412,14 +1415,14 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 // findEthTxWithNonce returns any broadcast ethtx with the given nonce
 func findEthTxWithNonce(q pg.Q, lggr logger.Logger, fromAddress gethCommon.Address, nonce uint) (etx *EthTx, err error) {
 	etx = new(EthTx)
-	err = q.Transaction(func(q pg.Queryer) error {
-		err = q.Get(etx, `
+	err = q.Transaction(func(tx pg.Queryer) error {
+		err = tx.Get(etx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 `, fromAddress, nonce)
 		if err != nil {
 			return errors.Wrap(err, "findEthTxWithNonce failed to load eth_txes")
 		}
-		err = loadEthTxAttempts(q, etx)
+		err = loadEthTxAttempts(tx, etx)
 		return errors.Wrap(err, "findEthTxWithNonce failed to load eth_tx_attempts")
 	}, pg.OptReadOnlyTx())
 	if errors.Is(err, sql.ErrNoRows) {

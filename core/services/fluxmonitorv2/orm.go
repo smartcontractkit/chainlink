@@ -69,13 +69,13 @@ func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roun
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given
 // oracle on a given round, or creates it if no record exists
 func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (stats FluxMonitorRoundStatsV2, err error) {
-	err = o.q.Transaction(func(q pg.Queryer) error {
-		err = q.Get(&stats,
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		err = tx.Get(&stats,
 			`INSERT INTO flux_monitor_round_stats_v2 (aggregator, round_id, num_new_round_logs, num_submissions) VALUES ($1, $2, $3, 0)
 		ON CONFLICT (aggregator, round_id) DO NOTHING`,
 			aggregator, roundID, newRoundLogs)
 		if errors.Is(err, sql.ErrNoRows) {
-			err = q.Get(&stats, `SELECT * FROM flux_monitor_round_stats_v2 WHERE aggregator=$1 AND round_id=$2`, aggregator, roundID)
+			err = tx.Get(&stats, `SELECT * FROM flux_monitor_round_stats_v2 WHERE aggregator=$1 AND round_id=$2`, aggregator, roundID)
 		}
 		return err
 	})

@@ -491,7 +491,7 @@ VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_n
 RETURNING *;
 `
 
-func saveReplacementInProgressAttempt(lggr logger.Logger, q pg.Q, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
+func saveReplacementInProgressAttempt(q pg.Q, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
 	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}

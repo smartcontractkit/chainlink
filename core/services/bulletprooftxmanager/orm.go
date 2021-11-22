@@ -169,14 +169,14 @@ func (o *orm) InsertEthReceipt(receipt *EthReceipt) error {
 
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
-	err = o.q.Transaction(func(q pg.Queryer) error {
-		if err = q.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		if err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}
-		if err = loadEthTxAttempts(q, &etx); err != nil {
+		if err = loadEthTxAttempts(tx, &etx); err != nil {
 			return errors.Wrapf(err, "failed to load eth_tx_attempts for eth_tx with id %d", etxID)
 		}
-		if err = loadEthTxAttemptsReceipts(q, &etx); err != nil {
+		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
 			return errors.Wrapf(err, "failed to load eth_receipts for eth_tx with id %d", etxID)
 		}
 		return nil
