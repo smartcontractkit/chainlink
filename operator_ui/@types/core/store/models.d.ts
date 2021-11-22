@@ -477,14 +477,6 @@ declare module 'core/store/models' {
     publicKey: string
   }
 
-  export interface JobProposal {
-    spec: string
-    status: string
-    external_job_id: string | null
-    createdAt: time.Time
-    proposedAt: time.Time
-  }
-
   /**
    * Request to begin the process of registering a new MFA token
    */
