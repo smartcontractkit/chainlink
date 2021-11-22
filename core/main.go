@@ -8,11 +8,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 )
 
 func main() {
-	Run(NewProductionClient(), os.Args...)
+	recovery.ReportPanics(func() {
+		Run(NewProductionClient(), os.Args...)
+	})
 }
 
 // Run runs the CLI, providing further command instructions by default.

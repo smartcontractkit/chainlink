@@ -36,7 +36,6 @@ type ETHTxTask struct {
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
-//go:generate mockery --name TxManager --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)

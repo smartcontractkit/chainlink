@@ -168,7 +168,7 @@ func (ec *EthConfirmer) runLoop() {
 				if !exists {
 					break
 				}
-				h, is := head.(eth.Head)
+				h, is := head.(*eth.Head)
 				if !is {
 					ec.lggr.Errorf("Invariant violation, expected %T but got %T", eth.Head{}, head)
 					continue
@@ -185,7 +185,7 @@ func (ec *EthConfirmer) runLoop() {
 }
 
 // ProcessHead takes all required transactions for the confirmer on a new head
-func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) ProcessHead(ctx context.Context, head *eth.Head) error {
 	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
 	defer cancel()
 
@@ -193,7 +193,7 @@ func (ec *EthConfirmer) ProcessHead(ctx context.Context, head eth.Head) error {
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
-func (ec *EthConfirmer) processHead(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) processHead(ctx context.Context, head *eth.Head) error {
 	mark := time.Now()
 
 	ec.lggr.Debugw("processHead", "headNum", head.Number, "id", "eth_confirmer")
@@ -238,7 +238,7 @@ func (ec *EthConfirmer) processHead(ctx context.Context, head eth.Head) error {
 // current block number. This is safe no matter how old the head is because if
 // the attempt is already broadcast it _must_ have been before this head.
 func (ec *EthConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
-	_, err := ec.db.Exec(
+	_, err := pg.NewQ(ec.db).Exec(
 		`UPDATE eth_tx_attempts SET broadcast_before_block_num = $1 WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
 		blockNum,
 	)
@@ -292,7 +292,7 @@ func (ec *EthConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		}
 	}
 
-	if err := ec.markConfirmedMissingReceipt(); err != nil {
+	if err := ec.markAllConfirmedMissingReceipt(); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
@@ -542,11 +542,11 @@ func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
 
-	_, err = ec.db.ExecContext(ctx, stmt, valueArgs...)
+	_, err = pg.NewQ(ec.db).ExecContext(ctx, stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 
-// markConfirmedMissingReceipt
+// markAllConfirmedMissingReceipt
 // It is possible that we can fail to get a receipt for all eth_tx_attempts
 // even though a transaction with this nonce has long since been confirmed (we
 // know this because transactions with higher nonces HAVE returned a receipt).
@@ -566,7 +566,7 @@ func (ec *EthConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 //
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
-func (ec *EthConfirmer) markConfirmedMissingReceipt() (err error) {
+func (ec *EthConfirmer) markAllConfirmedMissingReceipt() (err error) {
 	res, err := pg.NewQ(ec.db).Exec(`
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
@@ -578,11 +578,11 @@ AND nonce < (
 AND evm_chain_id = $1
 	`, ec.chainID.String())
 	if err != nil {
-		return errors.Wrap(err, "markConfirmedMissingReceipt failed")
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt failed")
 	}
 	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "markConfirmedMissingReceipt RowsAffected failed")
+		return errors.Wrap(err, "markAllConfirmedMissingReceipt RowsAffected failed")
 	}
 	if rowsAffected > 0 {
 		ec.lggr.Infow(fmt.Sprintf("%d transactions missing receipt", rowsAffected), "n", rowsAffected)
@@ -1059,7 +1059,7 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		return deleteInProgressAttempt(ec.db, attempt)
+		return deleteInProgressAttempt(pg.NewQ(ec.db, pg.WithParentCtx(ctx)), attempt)
 	}
 
 	if sendError.Fatal() {
@@ -1077,13 +1077,15 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 			"blockHeight", blockHeight,
 		)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
-		return deleteInProgressAttempt(ec.db, attempt)
+		return deleteInProgressAttempt(pg.NewQ(ec.db, pg.WithParentCtx(ctx)), attempt)
 	}
 
 	if sendError.IsNonceTooLowError() {
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
-		// Assume success and hand off to the next cycle to fetch a receipt and mark confirmed.
+		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
 		sendError = nil
+		ec.lggr.Debugw("Nonce already used", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex(), "err", sendError)
+		return saveConfirmedMissingReceiptAttempt(pg.NewQ(ec.db, pg.WithParentCtx(ctx)), ec.lggr, &attempt, now)
 	}
 
 	if sendError.IsReplacementUnderpriced() {
@@ -1130,23 +1132,36 @@ func (ec *EthConfirmer) handleInProgressAttempt(ctx context.Context, etx EthTx, 
 	return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.Hex())
 }
 
-func deleteInProgressAttempt(db *sqlx.DB, attempt EthTxAttempt) error {
+func deleteInProgressAttempt(q pg.Q, attempt EthTxAttempt) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("deleteInProgressAttempt: expected attempt state to be in_progress")
 	}
 	if attempt.ID == 0 {
 		return errors.New("deleteInProgressAttempt: expected attempt to have an id")
 	}
-	_, err := db.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
+	_, err := q.Exec(`DELETE FROM eth_tx_attempts WHERE id = $1`, attempt.ID)
 	return errors.Wrap(err, "deleteInProgressAttempt failed")
 }
 
-func saveSentAttempt(db *sqlx.DB, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
+	err := q.Transaction(lggr, func(tx pg.Queryer) error {
+		if err := saveSentAttempt(tx, lggr, attempt, broadcastAt); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`UPDATE eth_txes SET state = 'confirmed_missing_receipt' WHERE id = $1`, attempt.EthTxID); err != nil {
+			return errors.Wrap(err, "failed to update eth_txes")
+		}
+		return nil
+	})
+	return errors.Wrap(err, "saveConfirmedMissingReceiptAttempt failed")
+}
+
+func saveSentAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
 	if attempt.State != EthTxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = EthTxAttemptBroadcast
-	return errors.Wrap(saveAttemptWithNewState(db, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
+	return errors.Wrap(saveAttemptWithNewState(q, lggr, *attempt, broadcastAt), "saveSentAttempt failed")
 }
 
 func saveInsufficientEthAttempt(db *sqlx.DB, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
@@ -1158,8 +1173,8 @@ func saveInsufficientEthAttempt(db *sqlx.DB, lggr logger.Logger, attempt *EthTxA
 
 }
 
-func saveAttemptWithNewState(db *sqlx.DB, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
-	return pg.NewQ(db).Transaction(lggr, func(tx pg.Queryer) error {
+func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
+	return pg.NewQ(q).Transaction(lggr, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error
@@ -1177,7 +1192,7 @@ func saveAttemptWithNewState(db *sqlx.DB, lggr logger.Logger, attempt EthTxAttem
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head *eth.Head) error {
 	if head.ChainLength() < ec.config.EvmFinalityDepth() {
 		logArgs := []interface{}{
 			"evmChainID", ec.chainID.String(), "chainLength", head.ChainLength(), "evmFinalityDepth", ec.config.EvmFinalityDepth(),
@@ -1251,7 +1266,7 @@ ORDER BY nonce ASC
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedInBlockRange failed")
 }
 
-func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
+func hasReceiptInLongestChain(etx EthTx, head *eth.Head) bool {
 	for {
 		for _, attempt := range etx.EthTxAttempts {
 			for _, receipt := range attempt.EthReceipts {
@@ -1263,11 +1278,11 @@ func hasReceiptInLongestChain(etx EthTx, head eth.Head) bool {
 		if head.Parent == nil {
 			return false
 		}
-		head = *head.Parent
+		head = head.Parent
 	}
 }
 
-func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head eth.Head) error {
+func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *eth.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
@@ -1410,7 +1425,7 @@ SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 }
 
 // ResumePendingTaskRuns issues callbacks to task runs that are pending waiting for receipts
-func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head eth.Head) error {
+func (ec *EthConfirmer) ResumePendingTaskRuns(ctx context.Context, head *eth.Head) error {
 	type x struct {
 		ID      uuid.UUID
 		Receipt []byte

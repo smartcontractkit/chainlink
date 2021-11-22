@@ -1295,7 +1295,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock: test.blockHeight1,
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
 					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
@@ -1340,7 +1340,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			_ = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock: test.blockHeight2,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						chRawLogs2 <- logsA[uint(head.Number)]
 					}
@@ -1525,7 +1525,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		switch x := event.(type) {
 		case *eth.Head:
 			ctx, _ := context.WithTimeout(context.Background(), cltest.DefaultWaitTimeout)
-			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, *x)
+			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			select {
 			case chRawLogs <- x:
@@ -1701,7 +1701,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	helper.lb.OnNewLongestChain(context.Background(), eth.Head{Number: 2})
+	helper.lb.OnNewLongestChain(context.Background(), &eth.Head{Number: 2})
 
 	// The subs should each get exactly 3 broadcasts each
 	// If we do not receive a broadcast for 1 second

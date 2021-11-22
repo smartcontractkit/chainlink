@@ -1,14 +1,29 @@
 import React from 'react'
 
+import { gql } from '@apollo/client'
+
 import Grid from '@material-ui/core/Grid'
 
-import { FeedsManager } from './types'
-import { FeedsManagerCard } from './FeedsManagerCard'
-import { JobProposalsCard } from './JobProposalsCard'
+import { FeedsManagerCard, FEEDS_MANAGER_FIELDS } from './FeedsManagerCard'
+import {
+  JobProposalsCard,
+  FEEDS_MANAGER__JOB_PROPOSAL_FIELDS,
+} from './JobProposalsCard'
 
 interface Props {
-  manager: FeedsManager
+  manager: FeedsManagerPayload_ResultsFields
 }
+
+export const FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS = gql`
+  ${FEEDS_MANAGER_FIELDS}
+  ${FEEDS_MANAGER__JOB_PROPOSAL_FIELDS}
+  fragment FeedsManagerPayload_ResultsFields on FeedsManager {
+    ...FeedsManagerFields
+    jobProposals {
+      ...FeedsManager_JobProposalsFields
+    }
+  }
+`
 
 export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
   return (

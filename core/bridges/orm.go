@@ -68,9 +68,8 @@ func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count in
 		if err = q.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to get count")
 		}
-
 		sql := `SELECT * FROM bridge_types ORDER BY name asc LIMIT $1 OFFSET $2;`
-		if err = o.db.Select(&bridges, sql, limit, offset); err != nil {
+		if err = q.Select(&bridges, sql, limit, offset); err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to load bridge_types")
 		}
 		return nil
@@ -105,12 +104,12 @@ func (o *orm) UpdateBridgeType(bt *BridgeType, btr *BridgeTypeRequest) error {
 // ExternalInitiators returns a list of external initiators sorted by name
 func (o *orm) ExternalInitiators(offset int, limit int) (exis []ExternalInitiator, count int, err error) {
 	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
-		if err = o.db.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
+		if err = q.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
 			return errors.Wrap(err, "ExternalInitiators failed to get count")
 		}
 
 		sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
-		if err = o.db.Select(&exis, sql, limit, offset); err != nil {
+		if err = q.Select(&exis, sql, limit, offset); err != nil {
 			return errors.Wrap(err, "ExternalInitiators failed to load external_initiators")
 		}
 		return nil
@@ -126,7 +125,7 @@ func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) (err
 	`
 	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
 		var stmt *sqlx.NamedStmt
-		stmt, err = o.db.PrepareNamed(query)
+		stmt, err = q.PrepareNamed(query)
 		if err != nil {
 			return errors.Wrap(err, "failed to prepare named stmt")
 		}
@@ -141,7 +140,7 @@ func (o *orm) DeleteExternalInitiator(name string) error {
 	q := pg.NewQ(o.db)
 	ctx, cancel := q.Context()
 	defer cancel()
-	result, err := pg.NewQ(o.db).ExecContext(ctx, query, name)
+	result, err := q.ExecContext(ctx, query, name)
 	if err != nil {
 		return err
 	}
