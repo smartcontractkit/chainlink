@@ -199,8 +199,8 @@ FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
-	err := o.q.WithOpts(qopts...).Select(&jps, stmt, ids)
-	return jps, errors.Wrap(err, "GetJobProposalByManagersIDs failed")
+	err := o.q.WithOpts(o.db, qopts...).Select(&jps, stmt, ids)
+	return jps, errors.Wrap(err, "GetJobProposalsByManagersIDs failed")
 }
 
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid

@@ -72,7 +72,7 @@ func Test_FeedsManagers(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("GetFeedsService").Return(f.Mocks.feedsSvc)
-				f.Mocks.feedsSvc.On("GetJobProposalByManagersIDs", []int64{1}).Return([]feeds.JobProposal{
+				f.Mocks.feedsSvc.On("GetJobProposalsByManagersIDs", []int64{1}).Return([]feeds.JobProposal{
 					{
 						ID:             int64(100),
 						FeedsManagerID: int64(1),
