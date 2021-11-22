@@ -723,7 +723,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		}), nil
 	}
 
-	newToken, err := r.App.SessionORM().GenerateAuthToken(&dbUser)
+	newToken, err := r.App.SessionORM().CreateAndSetAuthToken(&dbUser)
 	if err != nil {
 		return nil, err
 	}

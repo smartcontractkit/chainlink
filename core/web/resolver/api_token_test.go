@@ -57,7 +57,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
-				f.Mocks.sessionsORM.On("GenerateAuthToken", session.User).Return(&auth.Token{
+				f.Mocks.sessionsORM.On("CreateAndSetAuthToken", session.User).Return(&auth.Token{
 					Secret:    "new-secret",
 					AccessKey: "new-access-key",
 				}, nil)
@@ -143,7 +143,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.sessionsORM.On("FindUser").Return(*session.User, nil)
-				f.Mocks.sessionsORM.On("GenerateAuthToken", session.User).Return(nil, gError)
+				f.Mocks.sessionsORM.On("CreateAndSetAuthToken", session.User).Return(nil, gError)
 				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,

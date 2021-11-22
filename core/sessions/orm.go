@@ -28,7 +28,7 @@ type ORM interface {
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
 	SetAuthToken(user *User, token *auth.Token) error
-	GenerateAuthToken(user *User) (*auth.Token, error)
+	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
 	SetPassword(user *User, newPassword string) error
 	Sessions(offset, limit int) ([]Session, error)
@@ -225,7 +225,7 @@ func (o *orm) SetPassword(user *User, newPassword string) error {
 	return o.db.Get(user, sql, hashedPassword, user.Email)
 }
 
-func (o *orm) GenerateAuthToken(user *User) (*auth.Token, error) {
+func (o *orm) CreateAndSetAuthToken(user *User) (*auth.Token, error) {
 	newToken := auth.NewToken()
 
 	err := o.SetAuthToken(user, newToken)
