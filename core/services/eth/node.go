@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
+//go:generate mockery --name Node --output ./mocks/ --case=underscore
+
 type Node interface {
 	Dial(ctx context.Context) error
 	Close()
@@ -39,6 +41,7 @@ type Node interface {
 	HeaderByNumber(context.Context, *big.Int) (*types.Header, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error)
+	ChainID(ctx context.Context) (chainID *big.Int, err error)
 
 	String() string
 }
@@ -62,8 +65,7 @@ type node struct {
 func NewNode(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string) Node {
 	n := new(node)
 	n.name = name
-	n.log = lggr.With(
-		"nodeName", name,
+	n.log = lggr.Named("Node").Named(name).With(
 		"nodeTier", "primary",
 	)
 	n.ws.uri = wsuri
@@ -350,6 +352,18 @@ func (n node) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err error)
 		err = n.wrapHTTP(err)
 	} else {
 		tipCap, err = n.ws.geth.SuggestGasTipCap(ctx)
+		err = n.wrapWS(err)
+	}
+	return
+}
+
+func (n node) ChainID(ctx context.Context) (chainID *big.Int, err error) {
+	n.log.Debugw("eth.Client#ChainID(...)")
+	if n.http != nil {
+		chainID, err = n.http.geth.ChainID(ctx)
+		err = n.wrapHTTP(err)
+	} else {
+		chainID, err = n.ws.geth.ChainID(ctx)
 		err = n.wrapWS(err)
 	}
 	return
