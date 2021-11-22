@@ -25,8 +25,8 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := configtest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -74,8 +74,8 @@ func Test_EthResender_Start(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := configtest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	// This can be anything as long as it isn't zero
 	d := 42 * time.Hour

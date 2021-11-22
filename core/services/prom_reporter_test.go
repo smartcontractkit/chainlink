@@ -55,8 +55,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		borm := cltest.NewBulletproofTxManagerORM(t, db)
 		cfg := cltest.NewTestGeneralConfig(t)
+		borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

@@ -394,7 +394,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
@@ -466,7 +466,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)

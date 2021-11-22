@@ -129,7 +129,7 @@ func Test_NonceSyncer_SyncAll(t *testing.T) {
 	t.Run("counts 'in_progress' eth_tx as bumping the local next nonce by 1", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := cltest.NewTestGeneralConfig(t)
-		borm := cltest.NewBulletproofTxManagerORM(t, db)
+		borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))

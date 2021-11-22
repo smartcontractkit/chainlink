@@ -148,7 +148,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 	return errors.Wrap(stmt.QueryRowx(arg).Scan(dest), "error querying row")
 }
 
-func (q Q) WithOpts(qopts ...QOpt) (nq Q) {
+func (q Q) WithOpts(qopts ...QOpt) Q {
 	return NewNewQ(q.db, q.logger, q.config, qopts...)
 }
 

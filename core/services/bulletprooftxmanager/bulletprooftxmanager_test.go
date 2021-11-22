@@ -45,8 +45,8 @@ func TestBulletproofTxManager_CheckEthTxQueueCapacity(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -138,8 +138,8 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -159,8 +159,8 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -179,8 +179,8 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 
 	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
@@ -313,8 +313,8 @@ func newMockTxStrategy(t *testing.T) *bptxmmocks.TxStrategy {
 
 func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	etKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)

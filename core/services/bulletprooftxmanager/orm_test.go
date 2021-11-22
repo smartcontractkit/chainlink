@@ -15,8 +15,8 @@ import (
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	orm := cltest.NewBulletproofTxManagerORM(t, db)
 	cfg := cltest.NewTestGeneralConfig(t)
+	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -67,7 +67,7 @@ func TestORM(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg)
-	orm := cltest.NewBulletproofTxManagerORM(t, db)
+	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	var err error

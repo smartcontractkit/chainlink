@@ -29,7 +29,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	borm := cltest.NewBulletproofTxManagerORM(t, db)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
