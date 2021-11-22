@@ -5,14 +5,17 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -118,4 +121,44 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	start, err = MaybeSubtractReservedLink(lggr, db, k2.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())
+}
+
+func TestListener_GetConfirmedAt(t *testing.T) {
+	j, err := ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestedConfsDelay: 10,
+	}).Toml())
+	require.NoError(t, err)
+
+	listener := &listenerV2{
+		respCount: map[string]uint64{},
+		job:       j,
+	}
+
+	// Requester asks for 100 confirmations, we have a delay of 10,
+	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 110 confirmations
+	nodeMinConfs := 10
+	confirmedAt := listener.getConfirmedAt(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+		RequestId:                   big.NewInt(1),
+		MinimumRequestConfirmations: 100,
+		Raw: types.Log{
+			BlockNumber: 100,
+		},
+	}, uint32(nodeMinConfs))
+	require.Equal(t, uint64(210), confirmedAt) // log block number + # of confirmations
+
+	// Requester asks for 100 confirmations, we have a delay of 0,
+	// so we should wait for max(nodeMinConfs, requestedConfs + requestedConfsDelay) = 100 confirmations
+	j, err = ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		RequestedConfsDelay: 0,
+	}).Toml())
+	require.NoError(t, err)
+	listener.job = j
+	confirmedAt = listener.getConfirmedAt(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+		RequestId:                   big.NewInt(1),
+		MinimumRequestConfirmations: 100,
+		Raw: types.Log{
+			BlockNumber: 100,
+		},
+	}, uint32(nodeMinConfs))
+	require.Equal(t, uint64(200), confirmedAt) // log block number + # of confirmations
 }

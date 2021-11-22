@@ -210,7 +210,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "jobs", 0)
 	})
 
-	t.Run("it deletes records for vrf jobs", func(t *testing.T) {
+	t.Run("it creates and deletes records for vrf jobs", func(t *testing.T) {
 		key, err := keyStore.VRF().Create()
 		require.NoError(t, err)
 		pk := key.PublicKey
@@ -219,6 +219,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		err = jobORM.CreateJob(&jb)
 		require.NoError(t, err)
+		cltest.AssertCount(t, db, "vrf_specs", 1)
+		cltest.AssertCount(t, db, "jobs", 1)
 		err = jobORM.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, db, "vrf_specs", 0)
@@ -251,6 +253,42 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 }
 
+func TestORM_CreateJob_VRFV2(t *testing.T) {
+	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db)
+	keyStore.OCR().Add(cltest.DefaultOCRKey)
+
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+
+	jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{RequestedConfsDelay: 10}).Toml())
+	require.NoError(t, err)
+
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	var requestedConfsDelay int64
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(10), requestedConfsDelay)
+	jobORM.DeleteJob(jb.ID)
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+
+	jb, err = vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{}).Toml())
+	require.NoError(t, err)
+	err = jobORM.CreateJob(&jb)
+	require.NoError(t, err)
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(0), requestedConfsDelay)
+	jobORM.DeleteJob(jb.ID)
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+}
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
