@@ -14,6 +14,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,14 +24,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocr2aggregator "github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -87,6 +88,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
+	config.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -153,6 +155,7 @@ func TestIntegration_OCR2(t *testing.T) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
+		cfg.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
@@ -325,7 +328,7 @@ observationSource = """
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 30*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, 20*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
 		jobs, _, err := app.JobORM().FindJobs(0, 1000)
@@ -343,4 +346,5 @@ observationSource = """
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+
 }

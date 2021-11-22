@@ -58,6 +58,7 @@ type (
 		minimumContractPayment                     *assets.Link
 		nonceAutoSync                              bool
 		ocrContractConfirmations                   uint16
+		ocr2ContractConfirmations                  uint16
 		rpcDefaultBatchSize                        uint32
 		// set true if fully configured
 		complete bool
@@ -123,6 +124,7 @@ func setChainSpecificConfigDefaultSets() {
 		minimumContractPayment:           DefaultMinimumContractPayment,
 		nonceAutoSync:                    true,
 		ocrContractConfirmations:         4,
+		ocr2ContractConfirmations:        4,
 		rpcDefaultBatchSize:              100,
 		complete:                         true,
 	}

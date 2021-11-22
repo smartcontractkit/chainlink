@@ -106,6 +106,7 @@ type GeneralConfigOverrides struct {
 	P2PV2ListenAddresses                      []string
 	P2PV2AnnounceAddresses                    []string
 	P2PV2Bootstrappers                        []ocrcommontypes.BootstrapperLocator
+	P2PV2DeltaDial                            *time.Duration
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -123,6 +124,9 @@ func (o *GeneralConfigOverrides) SetOCRObservationTimeout(d time.Duration) {
 }
 func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 	o.DefaultHTTPTimeout = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
+	o.P2PV2DeltaDial = &d
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -370,6 +374,13 @@ func (c *TestGeneralConfig) P2PNetworkingStack() ocrnetworking.NetworkingStack {
 	return c.GeneralConfig.P2PNetworkingStack()
 }
 
+func (c *TestGeneralConfig) P2PV2DeltaDial() models.Duration {
+	if c.Overrides.P2PV2DeltaDial != nil {
+		return models.MustMakeDuration(*c.Overrides.P2PV2DeltaDial)
+	}
+	return c.GeneralConfig.P2PV2DeltaDial()
+}
+
 func (c *TestGeneralConfig) P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator {
 	if len(c.Overrides.P2PV2Bootstrappers) != 0 {
 		return c.Overrides.P2PV2Bootstrappers
@@ -396,6 +407,10 @@ func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
 		return c.Overrides.P2PBootstrapPeers, nil
 	}
 	return c.GeneralConfig.P2PBootstrapPeers()
+}
+
+func (c *TestGeneralConfig) P2PV2DeltaReconcile() models.Duration {
+	return models.MustMakeDuration(5 * time.Second)
 }
 
 func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {

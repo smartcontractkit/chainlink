@@ -240,6 +240,7 @@ type GlobalConfig interface {
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCR2ContractConfirmations() (uint16, bool)
 }
 
 type GeneralConfig interface {
@@ -1595,6 +1596,13 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 }
 func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)
+	if val == nil {
+		return 0, false
+	}
+	return val.(uint16), ok
+}
+func (*generalConfig) GlobalOCR2ContractConfirmations() (uint16, bool) {
+	val, ok := lookupEnv(EnvVarName("OCR2ContractConfirmations"), ParseUint16)
 	if val == nil {
 		return 0, false
 	}
