@@ -10,10 +10,6 @@ import {
   FEEDS_MANAGER__JOB_PROPOSAL_FIELDS,
 } from './JobProposalsCard'
 
-interface Props {
-  manager: FeedsManagerPayload_ResultsFields
-}
-
 export const FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS = gql`
   ${FEEDS_MANAGER_FIELDS}
   ${FEEDS_MANAGER__JOB_PROPOSAL_FIELDS}
@@ -24,6 +20,10 @@ export const FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS = gql`
     }
   }
 `
+
+interface Props {
+  manager: FeedsManagerPayload_ResultsFields
+}
 
 export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
   return (
