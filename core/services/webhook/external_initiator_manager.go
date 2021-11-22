@@ -36,7 +36,6 @@ type HTTPClient interface {
 type externalInitiatorManager struct {
 	q          pg.Q
 	httpclient HTTPClient
-	lggr       logger.Logger
 }
 
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
@@ -45,9 +44,8 @@ var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.LogConfig) *externalInitiatorManager {
 	namedLogger := lggr.Named("ExternalInitiatorManager")
 	return &externalInitiatorManager{
-		q:          pg.NewNewQ(db, namedLogger, cfg),
+		q:          pg.NewQ(db, namedLogger, cfg),
 		httpclient: httpclient,
-		lggr:       namedLogger,
 	}
 }
 
@@ -91,7 +89,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	err = m.q.Transaction(m.lggr, func(tx pg.Queryer) error {
+	err = m.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
 			if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
 				return err

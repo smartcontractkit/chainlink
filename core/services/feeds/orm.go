@@ -43,7 +43,7 @@ type orm struct {
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
 	return &orm{
-		q: pg.NewNewQ(db, lggr, cfg),
+		q: pg.NewQ(db, lggr, cfg),
 	}
 }
 

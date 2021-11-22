@@ -24,7 +24,7 @@ type ORM struct {
 func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
-		q:        pg.NewNewQ(db, lggr, config),
+		q:        pg.NewQ(db, lggr, config),
 		txm:      txm,
 		config:   config,
 		strategy: strategy,
@@ -102,7 +102,7 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 	registryAddress ethkey.EIP55Address,
 	blockNumber, gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, err error) {
-	err = korm.q.Transaction(korm.logger, func(tx pg.Queryer) error {
+	err = korm.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id

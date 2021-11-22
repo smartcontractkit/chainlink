@@ -51,7 +51,7 @@ func (P2PPeer) TableName() string {
 func NewPeerstoreWrapper(db *sqlx.DB, writeInterval time.Duration, peerID p2pkey.PeerID, lggr logger.Logger, cfg pg.LogConfig) (*Pstorewrapper, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	namedLogger := lggr.Named("PeerStore")
-	q := pg.NewNewQ(db, namedLogger, cfg)
+	q := pg.NewQ(db, namedLogger, cfg)
 
 	return &Pstorewrapper{
 		utils.StartStopOnce{},
@@ -146,7 +146,8 @@ func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 }
 
 func (p *Pstorewrapper) WriteToDB() error {
-	err := p.q.WithOpts(pg.WithParentCtx(p.ctx)).Transaction(p.lggr, func(tx pg.Queryer) error {
+	q := p.q.WithOpts(pg.WithParentCtx(p.ctx))
+	err := q.Transaction(func(tx pg.Queryer) error {
 		_, err := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, p.peerID)
 		if err != nil {
 			return errors.Wrap(err, "delete from p2p_peers failed")

@@ -76,7 +76,7 @@ func (c *config) LogSQL() bool {
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	q := pg.NewNewQ(db, lggr, &config{})
+	q := pg.NewQ(db, lggr, &config{})
 	ks := keystore.New(db, utils.FastScryptParams, lggr, &config{})
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)

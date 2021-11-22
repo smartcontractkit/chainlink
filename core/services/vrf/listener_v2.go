@@ -315,7 +315,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		lggr.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = lsn.q.Transaction(lsn.l, func(tx pg.Queryer) error {
+		err = lsn.q.Transaction(func(tx pg.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err != nil {
 				return err
 			}

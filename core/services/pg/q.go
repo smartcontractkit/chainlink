@@ -111,7 +111,7 @@ type Q struct {
 	config    LogConfig
 }
 
-func NewNewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
+func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
@@ -133,7 +133,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 }
 
 func (q Q) WithOpts(qopts ...QOpt) Q {
-	return NewNewQ(q.db, q.logger, q.config, qopts...)
+	return NewQ(q.db, q.logger, q.config, qopts...)
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
@@ -143,10 +143,10 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 	return DefaultQueryCtxWithParent(q.ParentCtx)
 }
 
-func (q Q) Transaction(lggr logger.Logger, fc func(q Queryer) error, txOpts ...TxOptions) error {
+func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, lggr, fc, txOpts...)
+	return SqlxTransaction(ctx, q.Queryer, q.logger, fc, txOpts...)
 }
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:

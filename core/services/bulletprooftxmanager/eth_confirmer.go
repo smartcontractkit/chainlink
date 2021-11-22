@@ -110,7 +110,7 @@ func NewEthConfirmer(db *sqlx.DB, ethClient eth.Client, config Config, keystore 
 
 	context, cancel := context.WithCancel(context.Background())
 	lggr = lggr.Named("EthConfirmer")
-	q := pg.NewNewQ(db, lggr, config)
+	q := pg.NewQ(db, lggr, config)
 
 	return &EthConfirmer{
 		utils.StartStopOnce{},
@@ -363,7 +363,7 @@ func (ec *EthConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []Eth
 }
 
 func (ec *EthConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []EthTxAttempt, err error) {
-	err = ec.q.Transaction(ec.lggr, func(q pg.Queryer) error {
+	err = ec.q.Transaction(func(q pg.Queryer) error {
 		err = q.Select(&attempts, `
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt') AND eth_txes.evm_chain_id = $1
@@ -737,7 +737,7 @@ func (ec *EthConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 }
 
 func getInProgressEthTxAttempts(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (attempts []EthTxAttempt, err error) {
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(lggr, func(q pg.Queryer) error {
+	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
 		err = q.Select(&attempts, `
 SELECT eth_tx_attempts.* FROM eth_tx_attempts
 INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
@@ -844,7 +844,7 @@ func FindEthTxsRequiringRebroadcast(ctx context.Context, q pg.Q, lggr logger.Log
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
 func FindEthTxsRequiringResubmissionDueToInsufficientEth(ctx context.Context, q pg.Q, lggr logger.Logger, address gethCommon.Address, chainID big.Int) (etxs []*EthTx, err error) {
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(lggr, func(q pg.Queryer) error {
+	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
 		err = q.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'insufficient_eth'
@@ -888,7 +888,7 @@ func FindEthTxsRequiringGasBump(ctx context.Context, q pg.Q, lggr logger.Logger,
 	if gasBumpThreshold == 0 {
 		return
 	}
-	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(lggr, func(q pg.Queryer) error {
+	err = q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(q pg.Queryer) error {
 		stmt := `
 SELECT eth_txes.* FROM eth_txes
 LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND (broadcast_before_block_num > $4 OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')
@@ -1148,7 +1148,7 @@ func deleteInProgressAttempt(q pg.Q, attempt EthTxAttempt) error {
 }
 
 func saveConfirmedMissingReceiptAttempt(q pg.Q, lggr logger.Logger, attempt *EthTxAttempt, broadcastAt time.Time) error {
-	err := q.Transaction(lggr, func(tx pg.Queryer) error {
+	err := q.Transaction(func(tx pg.Queryer) error {
 		if err := saveSentAttempt(tx, lggr, attempt, broadcastAt); err != nil {
 			return err
 		}
@@ -1250,7 +1250,7 @@ func (ec *EthConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 }
 
 func findTransactionsConfirmedInBlockRange(q pg.Q, lggr logger.Logger, highBlockNumber, lowBlockNumber int64, chainID big.Int) (etxs []*EthTx, err error) {
-	err = q.Transaction(lggr, func(q pg.Queryer) error {
+	err = q.Transaction(func(q pg.Queryer) error {
 		err = q.Select(&etxs, `
 SELECT DISTINCT eth_txes.* FROM eth_txes
 INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'
@@ -1313,7 +1313,7 @@ func (ec *EthConfirmer) markForRebroadcast(etx EthTx, head *eth.Head) error {
 		"id", "eth_confirmer")
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
-	err := ec.q.Transaction(ec.lggr, func(tx pg.Queryer) error {
+	err := ec.q.Transaction(func(tx pg.Queryer) error {
 		if err := deleteAllReceipts(tx, etx.ID); err != nil {
 			return errors.Wrapf(err, "deleteAllReceipts failed for etx %v", etx.ID)
 		}
@@ -1412,7 +1412,7 @@ func (ec *EthConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 // findEthTxWithNonce returns any broadcast ethtx with the given nonce
 func findEthTxWithNonce(q pg.Q, lggr logger.Logger, fromAddress gethCommon.Address, nonce uint) (etx *EthTx, err error) {
 	etx = new(EthTx)
-	err = q.Transaction(lggr, func(q pg.Queryer) error {
+	err = q.Transaction(func(q pg.Queryer) error {
 		err = q.Get(etx, `
 SELECT * FROM eth_txes WHERE from_address = $1 AND nonce = $2 AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')
 `, fromAddress, nonce)

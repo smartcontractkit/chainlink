@@ -74,7 +74,7 @@ func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, db *
 		orm:                 orm,
 		config:              config,
 		jobTypeDelegates:    jobTypeDelegates,
-		q:                   pg.NewNewQ(db, namedLogger, config),
+		q:                   pg.NewQ(db, namedLogger, config),
 		lggr:                namedLogger,
 		activeJobs:          make(map[int32]activeJob),
 		chStop:              make(chan struct{}),

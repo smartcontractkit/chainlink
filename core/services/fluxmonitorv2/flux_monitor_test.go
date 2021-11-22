@@ -211,7 +211,7 @@ func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.pipelineRunner,
 		job.Job{},
 		pipelineSpec,
-		pg.NewNewQ(db, lggr, cltest.NewTestGeneralConfig(t)),
+		pg.NewQ(db, lggr, cltest.NewTestGeneralConfig(t)),
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,

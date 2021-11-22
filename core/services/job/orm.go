@@ -73,7 +73,7 @@ func NewORM(
 ) *orm {
 	namedLogger := lggr.Named("JobORM")
 	return &orm{
-		q:           pg.NewNewQ(db, namedLogger, cfg),
+		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
@@ -108,7 +108,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	}
 
 	var jobID int32
-	err := q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err := q.Transaction(func(tx pg.Queryer) error {
 		// Autogenerate a job ID if not specified
 		if jb.ExternalJobID == (uuid.UUID{}) {
 			jb.ExternalJobID = uuid.NewV4()
@@ -534,7 +534,7 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err := q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {

@@ -54,7 +54,7 @@ func NewDelegate(
 	lggr logger.Logger,
 	cfg pg.LogConfig) *Delegate {
 	return &Delegate{
-		q:    pg.NewNewQ(db, lggr, cfg),
+		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
 		pr:   pr,
 		porm: porm,

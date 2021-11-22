@@ -233,7 +233,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		pg.NewNewQ(db, lggr, cfg),
+		pg.NewQ(db, lggr, cfg),
 		orm,
 		jobORM,
 		pipelineORM,
@@ -753,7 +753,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = fm.q.Transaction(newRoundLogger, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -976,7 +976,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = fm.q.Transaction(l, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}

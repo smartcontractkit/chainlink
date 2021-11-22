@@ -23,7 +23,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, chainID big.Int) 
 	if db == nil {
 		panic("db may not be nil")
 	}
-	return &ORM{pg.NewNewQ(db, lggr, cfg), utils.Big(chainID)}
+	return &ORM{pg.NewQ(db, lggr, cfg), utils.Big(chainID)}
 }
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.

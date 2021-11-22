@@ -41,7 +41,7 @@ func (tc *TransfersController) Create(c *gin.Context) {
 	}
 
 	db := tc.App.GetSqlxDB()
-	q := pg.NewNewQ(db, tc.App.GetLogger(), tc.App.GetConfig())
+	q := pg.NewQ(db, tc.App.GetLogger(), tc.App.GetConfig())
 	etx, err := bulletprooftxmanager.SendEther(q, chain.ID(), tr.FromAddress, tr.DestinationAddress, tr.Amount, chain.Config().EvmGasLimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("transaction failed: %v", err))

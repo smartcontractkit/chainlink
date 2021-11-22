@@ -733,7 +733,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	q := pg.NewNewQ(app.GetSqlxDB(), app.Logger, app.Config)
+	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
 	counts := vrf.GetStartingResponseCountsV2(q, app.Logger)
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])

@@ -18,7 +18,7 @@ import (
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ksORM {
 	namedLogger := lggr.Named("KeystoreORM")
 	return ksORM{
-		q:    pg.NewNewQ(db, namedLogger, cfg),
+		q:    pg.NewQ(db, namedLogger, cfg),
 		lggr: namedLogger,
 	}
 }
@@ -29,7 +29,7 @@ type ksORM struct {
 }
 
 func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
-	return orm.q.Transaction(orm.lggr, func(tx pg.Queryer) error {
+	return orm.q.Transaction(func(tx pg.Queryer) error {
 		_, err := tx.Exec(`
 		UPDATE encrypted_key_rings
 		SET encrypted_keys = $1

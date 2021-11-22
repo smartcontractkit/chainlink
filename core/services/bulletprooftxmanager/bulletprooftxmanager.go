@@ -111,7 +111,7 @@ func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, k
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		db:               db,
-		q:                pg.NewNewQ(db, lggr, config),
+		q:                pg.NewQ(db, lggr, config),
 		ethClient:        ethClient,
 		config:           config,
 		keyStore:         keyStore,
@@ -288,7 +288,7 @@ func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) 
 	}
 
 	value := 0
-	err = q.Transaction(b.logger, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
 			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
 			// If no eth_tx matches (the common case) then continue
@@ -498,7 +498,7 @@ func saveReplacementInProgressAttempt(lggr logger.Logger, q pg.Q, oldAttempt Eth
 	if oldAttempt.ID == 0 {
 		return errors.New("expected oldAttempt to have an ID")
 	}
-	return q.Transaction(lggr, func(tx pg.Queryer) error {
+	return q.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
 		}

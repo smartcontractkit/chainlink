@@ -179,7 +179,7 @@ func TestStartingCounts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	q := pg.NewNewQ(db, lggr, cfg)
+	q := pg.NewQ(db, lggr, cfg)
 	counts := getStartingResponseCounts(q, lggr)
 	assert.Equal(t, 0, len(counts))
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)

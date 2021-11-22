@@ -43,7 +43,7 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
-	return &orm{pg.NewNewQ(db, lggr, cfg), lggr}
+	return &orm{pg.NewQ(db, lggr, cfg), lggr}
 }
 
 func (o *orm) CreateSpec(pipeline Pipeline, maxTaskDuration models.Interval, qopts ...pg.QOpt) (id int32, err error) {
@@ -61,7 +61,7 @@ func (o *orm) CreateRun(run *Run, qopts ...pg.QOpt) (err error) {
 	}
 
 	q := o.q.WithOpts(qopts...)
-	err = q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		if e := o.InsertRun(run, pg.WithQueryer(tx)); e != nil {
 			return errors.Wrap(e, "error inserting pipeline_run")
 		}
@@ -99,7 +99,7 @@ func (o *orm) InsertRun(run *Run, qopts ...pg.QOpt) error {
 // If `restart` is true, then new task run data is available and the run should be resumed immediately.
 func (o *orm) StoreRun(run *Run, qopts ...pg.QOpt) (restart bool, err error) {
 	q := o.q.WithOpts(qopts...)
-	err = q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		finished := run.FinishedAt.Valid
 		if !finished {
 			// Lock the current run. This prevents races with /v2/resume
@@ -185,7 +185,7 @@ func (o *orm) DeleteRun(id int64) error {
 }
 
 func (o *orm) UpdateTaskRunResult(taskID uuid.UUID, result Result) (run Run, start bool, err error) {
-	err = o.q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `
 		SELECT pipeline_runs.*, pipeline_specs.dot_dag_source "pipeline_spec.dot_dag_source"
 		FROM pipeline_runs
@@ -243,7 +243,7 @@ func (o *orm) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...
 	}
 
 	q := o.q.WithOpts(qopts...)
-	err = q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		sql := `INSERT INTO pipeline_runs (pipeline_spec_id, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
 		VALUES (:pipeline_spec_id, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 		RETURNING id;`
@@ -283,7 +283,7 @@ func (o *orm) DeleteRunsOlderThan(ctx context.Context, threshold time.Duration) 
 
 func (o *orm) FindRun(id int64) (r Run, err error) {
 	var runs []Run
-	err = o.q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE id = $1 LIMIT 1`, id); err != nil {
 			return errors.Wrap(err, "failed to load runs")
 		}
@@ -296,7 +296,7 @@ func (o *orm) FindRun(id int64) (r Run, err error) {
 }
 
 func (o *orm) GetAllRuns() (runs []Run, err error) {
-	err = o.q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		err = tx.Select(&runs, `SELECT * from pipeline_runs ORDER BY created_at ASC, id ASC`)
 		if err != nil {
 			return errors.Wrap(err, "failed to load runs")
@@ -312,7 +312,7 @@ func (o *orm) GetUnfinishedRuns(ctx context.Context, now time.Time, fn func(run 
 	return pg.Batch(func(offset, limit uint) (count uint, err error) {
 		var runs []Run
 
-		err = q.Transaction(o.lggr, func(tx pg.Queryer) error {
+		err = q.Transaction(func(tx pg.Queryer) error {
 			err = tx.Select(&runs, `SELECT * from pipeline_runs WHERE state = $1 AND created_at < $2 ORDER BY created_at ASC, id ASC OFFSET $3 LIMIT $4`, RunStatusRunning, now, offset, limit)
 			if err != nil {
 				return errors.Wrap(err, "failed to load runs")

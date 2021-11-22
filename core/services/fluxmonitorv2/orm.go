@@ -37,7 +37,7 @@ type orm struct {
 // NewORM initializes a new ORM
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy bulletprooftxmanager.TxStrategy) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
-	q := pg.NewNewQ(db, namedLogger, cfg)
+	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
 		q,
 		txm,
@@ -69,7 +69,7 @@ func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roun
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given
 // oracle on a given round, or creates it if no record exists
 func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (stats FluxMonitorRoundStatsV2, err error) {
-	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(func(q pg.Queryer) error {
 		err = q.Get(&stats,
 			`INSERT INTO flux_monitor_round_stats_v2 (aggregator, round_id, num_new_round_logs, num_submissions) VALUES ($1, $2, $3, 0)
 		ON CONFLICT (aggregator, round_id) DO NOTHING`,

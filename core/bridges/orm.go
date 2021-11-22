@@ -27,15 +27,14 @@ type ORM interface {
 }
 
 type orm struct {
-	logger logger.Logger
-	q      pg.Q
+	q pg.Q
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	namedLogger := lggr.Named("BridgeORM")
-	return &orm{namedLogger, pg.NewNewQ(db, namedLogger, cfg)}
+	return &orm{pg.NewQ(db, namedLogger, cfg)}
 }
 
 // FindBridge looks up a Bridge by its Name.
@@ -65,7 +64,7 @@ func (o *orm) DeleteBridgeType(bt *BridgeType) error {
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
 func (o *orm) BridgeTypes(offset int, limit int) (bridges []BridgeType, count int, err error) {
-	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(func(q pg.Queryer) error {
 		if err = q.Get(&count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
 			return errors.Wrap(err, "BridgeTypes failed to get count")
 		}
@@ -84,7 +83,7 @@ func (o *orm) CreateBridgeType(bt *BridgeType) error {
 	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, created_at, updated_at)
 	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, now(), now())
 	RETURNING *;`
-	err := o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err := o.q.Transaction(func(q pg.Queryer) error {
 		stmt, err := q.PrepareNamed(stmt)
 		if err != nil {
 			return err
@@ -105,7 +104,7 @@ func (o *orm) UpdateBridgeType(bt *BridgeType,
 
 // ExternalInitiators returns a list of external initiators sorted by name
 func (o *orm) ExternalInitiators(offset int, limit int) (exis []ExternalInitiator, count int, err error) {
-	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(func(q pg.Queryer) error {
 		if err = o.q.Get(&count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
 			return errors.Wrap(err, "ExternalInitiators failed to get count")
 		}
@@ -125,7 +124,7 @@ func (o *orm) CreateExternalInitiator(externalInitiator *ExternalInitiator) (err
 	VALUES (:name, :url, :access_key, :salt, :hashed_secret, :outgoing_secret, :outgoing_token, now(), now())
 	RETURNING *
 	`
-	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(func(q pg.Queryer) error {
 		var stmt *sqlx.NamedStmt
 		stmt, err = o.q.PrepareNamed(query)
 		if err != nil {

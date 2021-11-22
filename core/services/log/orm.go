@@ -50,7 +50,7 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, evmChainID big.Int) *orm {
-	return &orm{pg.NewNewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
+	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {

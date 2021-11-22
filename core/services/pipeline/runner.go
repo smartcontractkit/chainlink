@@ -468,7 +468,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 	preinsert := pipeline.RequiresPreInsert()
 
 	q := r.orm.GetQ().WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(r.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()

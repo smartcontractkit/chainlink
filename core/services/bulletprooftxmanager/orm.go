@@ -31,7 +31,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
 	namedLogger := lggr.Named("BulletproofTxManagerORM")
-	q := pg.NewNewQ(db, namedLogger, cfg)
+	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{q, namedLogger}
 }
 
@@ -169,7 +169,7 @@ func (o *orm) InsertEthReceipt(receipt *EthReceipt) error {
 
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
-	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(func(q pg.Queryer) error {
 		if err = q.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}

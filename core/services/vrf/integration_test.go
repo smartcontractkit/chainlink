@@ -96,7 +96,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
-				q := pg.NewNewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0

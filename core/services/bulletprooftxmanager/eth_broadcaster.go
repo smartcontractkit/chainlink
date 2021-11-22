@@ -79,7 +79,7 @@ func NewEthBroadcaster(db *sqlx.DB, ethClient eth.Client, config Config, keystor
 	return &EthBroadcaster{
 		logger:    logger,
 		db:        db,
-		q:         pg.NewNewQ(db, logger, config),
+		q:         pg.NewQ(db, logger, config),
 		ethClient: ethClient,
 		ChainKeyStore: ChainKeyStore{
 			chainID:  *ethClient.ChainID(),
@@ -494,7 +494,7 @@ func (eb *EthBroadcaster) saveInProgressTransaction(etx *EthTx, attempt *EthTxAt
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = EthTxInProgress
-	return eb.q.Transaction(eb.logger, func(tx pg.Queryer) error {
+	return eb.q.Transaction(func(tx pg.Queryer) error {
 		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, attempt)
 		if e != nil {
 			return errors.Wrap(e, "failed to BindNamed")
@@ -532,7 +532,7 @@ func saveAttempt(q pg.Q, lggr logger.Logger, etx *EthTx, attempt EthTxAttempt, N
 	}
 	etx.State = EthTxUnconfirmed
 	attempt.State = NewAttemptState
-	return q.Transaction(lggr, func(tx pg.Queryer) error {
+	return q.Transaction(func(tx pg.Queryer) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, etx.EVMChainID.ToInt(), *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
@@ -620,7 +620,7 @@ func (eb *EthBroadcaster) saveFatallyErroredTransaction(etx *EthTx) error {
 	}
 	etx.Nonce = nil
 	etx.State = EthTxFatalError
-	return eb.q.Transaction(eb.logger, func(tx pg.Queryer) error {
+	return eb.q.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}

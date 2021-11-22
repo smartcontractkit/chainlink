@@ -67,7 +67,7 @@ type (
 // NewNonceSyncer returns a new syncer
 func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient eth.Client) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
-	q := pg.NewNewQ(db, lggr, cfg)
+	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
 		q,
 		ethClient,
@@ -144,7 +144,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	}
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-	return q.Transaction(s.logger, func(q pg.Queryer) error {
+	return q.Transaction(func(q pg.Queryer) error {
 		res, err := q.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")

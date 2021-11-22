@@ -92,7 +92,7 @@ func NewService(
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
-		q:           pg.NewNewQ(db, lggr, cfg),
+		q:           pg.NewQ(db, lggr, cfg),
 		jobSpawner:  jobSpawner,
 		p2pKeyStore: keyStore.P2P(),
 		csaKeyStore: keyStore.CSA(),
@@ -382,7 +382,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 	}
 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		// Create the job
 		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
@@ -425,7 +425,7 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 	}
 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
@@ -468,7 +468,7 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 	defer cancel()
 
 	q := s.q.WithOpts(pg.WithParentCtx(ctx))
-	err = q.Transaction(s.lggr, func(tx pg.Queryer) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		if err = s.orm.CancelJobProposal(id, pg.WithQueryer(tx)); err != nil {
 			return err
 		}

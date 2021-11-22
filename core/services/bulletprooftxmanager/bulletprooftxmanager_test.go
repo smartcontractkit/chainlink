@@ -36,7 +36,7 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	q := pg.NewNewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
 	_, err := bulletprooftxmanager.SendEther(q, big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
@@ -151,7 +151,7 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
 	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
@@ -173,7 +173,7 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
 	count, err := bulletprooftxmanager.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
