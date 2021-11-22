@@ -19,8 +19,6 @@ func NewClient(lggr logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyR
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	c := client{logger: lggr, chainID: chainID}
-
 	primaries := []Node{NewNode(lggr, *parsed, rpcHTTPURL, "eth-primary-0")}
 
 	var sendonlys []SendOnlyNode
@@ -32,6 +30,6 @@ func NewClient(lggr logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyR
 		sendonlys = append(sendonlys, s)
 	}
 
-	c.pool = NewPool(lggr, primaries, sendonlys, chainID)
-	return &c, nil
+	pool := NewPool(lggr, primaries, sendonlys, chainID)
+	return &client{logger: lggr, pool: pool}, nil
 }

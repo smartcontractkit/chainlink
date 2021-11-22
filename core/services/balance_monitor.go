@@ -85,9 +85,9 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ok := bm.IfStarted(func() {
-		bm.checkBalance(&head)
+		bm.checkBalance(head)
 	})
 	if !ok {
 		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
@@ -201,11 +201,11 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                         { return nil }
-func (*NullBalanceMonitor) Close() error                                         { return nil }
-func (*NullBalanceMonitor) Ready() error                                         { return nil }
-func (*NullBalanceMonitor) Healthy() error                                       { return nil }
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head eth.Head) {}
+func (*NullBalanceMonitor) Start() error                                          { return nil }
+func (*NullBalanceMonitor) Close() error                                          { return nil }
+func (*NullBalanceMonitor) Ready() error                                          { return nil }
+func (*NullBalanceMonitor) Healthy() error                                        { return nil }
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())

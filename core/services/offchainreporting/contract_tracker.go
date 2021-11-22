@@ -159,7 +159,7 @@ func (t *OCRContractTracker) Start() error {
 		var latestHead *eth.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
-			t.setLatestBlockHeight(*latestHead)
+			t.setLatestBlockHeight(latestHead)
 		}
 
 		t.wg.Add(1)
@@ -181,11 +181,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h eth.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h eth.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h *eth.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64

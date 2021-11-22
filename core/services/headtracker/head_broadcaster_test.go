@@ -60,7 +60,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	assert.Equal(t, (*eth.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := eth.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash()}
+	h := eth.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
@@ -71,7 +71,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash}
+	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())

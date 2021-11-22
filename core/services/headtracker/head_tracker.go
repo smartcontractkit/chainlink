@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -116,7 +115,7 @@ func (ht *HeadTracker) Start() error {
 		if err != nil {
 			return err
 		} else if initialHead != nil {
-			if err := ht.handleNewHead(ctx, *initialHead); err != nil {
+			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
 			}
 		} else {
@@ -156,13 +155,10 @@ func (ht *HeadTracker) Stop() error {
 	})
 }
 
-func (ht *HeadTracker) Save(ctx context.Context, h eth.Head) error {
+func (ht *HeadTracker) Save(ctx context.Context, h *eth.Head) error {
 	return ht.headSaver.Save(ctx, h)
 }
 
-func (ht *HeadTracker) Chain(hash common.Hash) *eth.Head {
-	return ht.headSaver.Chain(hash)
-}
 func (ht *HeadTracker) LatestChain() *eth.Head {
 	return ht.headSaver.LatestChain()
 }
@@ -219,7 +215,7 @@ func (ht *HeadTracker) callbackOnLatestHead(item interface{}) {
 	ctx, cancel := utils.ContextFromChan(ht.chStop)
 	defer cancel()
 
-	head, ok := item.(eth.Head)
+	head, ok := item.(*eth.Head)
 	if !ok {
 		panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
 	}
@@ -239,9 +235,9 @@ func (ht *HeadTracker) backfiller() {
 				if !exists {
 					break
 				}
-				h, is := head.(eth.Head)
+				h, is := head.(*eth.Head)
 				if !is {
-					panic(fmt.Sprintf("expected `eth.Head`, got %T", head))
+					panic(fmt.Sprintf("expected `*eth.Head`, got %T", head))
 				}
 				{
 					ctx, cancel := eth.DefaultQueryCtx()
@@ -260,7 +256,7 @@ func (ht *HeadTracker) backfiller() {
 }
 
 // Backfill given a head will fill in any missing heads up to the given depth
-func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, depth uint) (err error) {
+func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain *eth.Head, depth uint) (err error) {
 	if uint(headWithChain.ChainLength()) >= depth {
 		return nil
 	}
@@ -274,28 +270,24 @@ func (ht *HeadTracker) Backfill(ctx context.Context, headWithChain eth.Head, dep
 }
 
 // backfill fetches all missing heads up until the base height
-func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHeight int64) (err error) {
+func (ht *HeadTracker) backfill(ctxParent context.Context, head *eth.Head, baseHeight int64) (err error) {
 	if head.Number <= baseHeight {
 		return nil
 	}
 	mark := time.Now()
 	fetched := 0
-	ht.log.Debugw("Starting backfill",
-		"blockNumber", head.Number,
+	l := ht.log.With("blockNumber", head.Number,
 		"n", head.Number-baseHeight,
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
+	l.Debug("Starting backfill")
 	defer func() {
 		if ctxParent.Err() != nil {
 			return
 		}
-		ht.log.Debugw("Finished backfill",
+		l.Debugw("Finished backfill",
 			"fetched", fetched,
-			"blockNumber", head.Number,
 			"time", time.Since(mark),
-			"n", head.Number-baseHeight,
-			"fromBlockHeight", baseHeight,
-			"toBlockHeight", head.Number-1,
 			"err", err)
 	}()
 
@@ -305,7 +297,7 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		existingHead := ht.headSaver.Chain(head.ParentHash)
 		if existingHead != nil {
-			head = *existingHead
+			head = existingHead
 			continue
 		}
 		head, err = ht.fetchAndSaveHead(ctx, i)
@@ -320,22 +312,22 @@ func (ht *HeadTracker) backfill(ctxParent context.Context, head eth.Head, baseHe
 	return
 }
 
-func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (eth.Head, error) {
+func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (*eth.Head, error) {
 	ht.log.Debugw("Fetching head", "blockHeight", n)
 	head, err := ht.ethClient.HeadByNumber(ctx, big.NewInt(n))
 	if err != nil {
-		return eth.Head{}, err
+		return nil, err
 	} else if head == nil {
-		return eth.Head{}, errors.New("got nil head")
+		return nil, errors.New("got nil head")
 	}
-	err = ht.headSaver.Save(ctx, *head)
+	err = ht.headSaver.Save(ctx, head)
 	if err != nil {
-		return eth.Head{}, err
+		return nil, err
 	}
-	return *head, nil
+	return head, nil
 }
 
-func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
+func (ht *HeadTracker) handleNewHead(ctx context.Context, head *eth.Head) error {
 	prevHead := ht.LatestChain()
 
 	ht.log.Debugw(fmt.Sprintf("Received new head %v", config.FriendlyBigInt(head.ToInt())),
@@ -358,9 +350,8 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head eth.Head) error {
 		if headWithChain == nil {
 			return errors.Errorf("HeadTracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
-
-		ht.backfillMB.Deliver(*headWithChain)
-		ht.callbackMB.Deliver(*headWithChain)
+		ht.backfillMB.Deliver(headWithChain)
+		ht.callbackMB.Deliver(headWithChain)
 		return nil
 	}
 	if head.Number == prevHead.Number {

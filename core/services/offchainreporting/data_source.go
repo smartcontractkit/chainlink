@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"context"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -19,21 +20,38 @@ import (
 // and capturing the result. Additionally, it converts the result to an
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
-	pipelineRunner        pipeline.Runner
-	jobSpec               job.Job
-	spec                  pipeline.Spec
-	ocrLogger             logger.Logger
-	runResults            chan<- pipeline.Run
-	currentBridgeMetadata bridges.BridgeMetaData
+	pipelineRunner pipeline.Runner
+	jobSpec        job.Job
+	spec           pipeline.Spec
+	ocrLogger      logger.Logger
+	runResults     chan<- pipeline.Run
+
+	current bridges.BridgeMetaData
+	mu      sync.RWMutex
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
+
+func (ds *dataSource) updateAnswer(a *big.Int) {
+	ds.mu.Lock()
+	defer ds.mu.Unlock()
+	ds.current = bridges.BridgeMetaData{
+		LatestAnswer: a,
+		UpdatedAt:    big.NewInt(time.Now().Unix()),
+	}
+}
+
+func (ds *dataSource) currentAnswer() (*big.Int, *big.Int) {
+	ds.mu.RLock()
+	defer ds.mu.RUnlock()
+	return ds.current.LatestAnswer, ds.current.UpdatedAt
+}
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
-	md, err := bridges.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
+	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
@@ -80,9 +98,6 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot convert observation to decimal")
 	}
-	ds.currentBridgeMetadata = bridges.BridgeMetaData{
-		LatestAnswer: asDecimal.BigInt(),
-		UpdatedAt:    big.NewInt(time.Now().Unix()),
-	}
+	ds.updateAnswer(asDecimal.BigInt())
 	return asDecimal.BigInt(), nil
 }

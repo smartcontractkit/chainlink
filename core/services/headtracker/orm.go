@@ -27,7 +27,7 @@ func NewORM(db *sqlx.DB, chainID big.Int) *ORM {
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
-func (orm *ORM) IdempotentInsertHead(ctx context.Context, h eth.Head) error {
+func (orm *ORM) IdempotentInsertHead(ctx context.Context, h *eth.Head) error {
 	if h.EVMChainID == nil {
 		h.EVMChainID = &orm.chainID
 	} else if ((*big.Int)(h.EVMChainID)).Cmp((*big.Int)(&orm.chainID)) != 0 {

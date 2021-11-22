@@ -21,7 +21,7 @@ type Tracker interface {
 // after being subscribed to HeadBroadcaster
 //go:generate mockery --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable interface {
-	OnNewLongestChain(ctx context.Context, head eth.Head)
+	OnNewLongestChain(ctx context.Context, head *eth.Head)
 }
 
 type SubscribeFunc func(callback HeadTrackable) (unsubscribe func())
