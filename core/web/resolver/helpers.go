@@ -31,22 +31,22 @@ func int64GQLID(i int64) graphql.ID {
 
 // pageOffset returns the default page offset if nil, otherwise it returns the
 // provided offset.
-func pageOffset(offset *int) int {
+func pageOffset(offset *int32) int {
 	if offset == nil {
 		return PageDefaultOffset
 	}
 
-	return *offset
+	return int(*offset)
 }
 
 // pageLimit returns the default page limit if nil, otherwise it returns the
 // provided limit.
-func pageLimit(limit *int) int {
+func pageLimit(limit *int32) int {
 	if limit == nil {
 		return PageDefaultLimit
 	}
 
-	return *limit
+	return int(*limit)
 }
 
 // ValidateBridgeTypeUniqueness checks that a bridge has not already been created
