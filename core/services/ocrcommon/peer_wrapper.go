@@ -146,7 +146,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			announcePort = listenPort
 		}
 
-		peerLogger := logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {})
+		peerLogger := logger.NewOCRWrapper(p.lggr, true, func(string) {})
 
 		peerConfig := ocrnetworking.PeerConfig{
 			NetworkingStack:      p.config.P2PNetworkingStack(),

@@ -165,11 +165,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	d.lggr.Debugw("Using bootstrap peers", "v1", bootstrapPeers, "v2", v2BootstrapPeers)
 
 	loggerWith := d.lggr.With(
+		"OCRLogger", "true",
 		"contractAddress", spec.ContractAddress,
 		"jobName", jobSpec.Name.ValueOrZero(),
 		"jobID", jobSpec.ID,
 	)
-	ocrLogger := logger.NewOCRWrapper(loggerWith, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
 		d.jobORM.RecordError(jobSpec.ID, msg)
 	})
 
@@ -245,6 +246,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			ocrcommon.NewTransmitter(chain.TxManager(), ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 			chain.LogBroadcaster(),
 			tracker,
+			d.lggr,
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())

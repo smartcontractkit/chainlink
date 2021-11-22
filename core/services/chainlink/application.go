@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -267,21 +269,41 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		)
 	}
 
+	// We need p2p networking if either ocr1 or ocr2 is enabled
+	var peerWrapper *ocrcommon.SingletonPeerWrapper
+	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
+		subservices = append(subservices, peerWrapper)
+	}
+
 	if (cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting() {
-		concretePW := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
-		subservices = append(subservices, concretePW)
 		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			keyStore,
 			pipelineRunner,
-			concretePW,
+			peerWrapper,
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting disabled")
+	}
+	if cfg.FeatureOffchainReporting2() {
+		globalLogger.Debug("Off-chain reporting v2 enabled")
+		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
+			db,
+			jobORM,
+			keyStore.OCR2(),
+			pipelineRunner,
+			peerWrapper,
+			monitoringEndpointGen,
+			chainSet,
+			globalLogger,
+		)
+	} else {
+		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
 	var lbs []utils.DependentAwaiter

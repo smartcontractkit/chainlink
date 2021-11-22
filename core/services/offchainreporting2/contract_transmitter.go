@@ -2,8 +2,11 @@ package offchainreporting2
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -28,6 +31,7 @@ type (
 		transmitter     Transmitter
 		contractCaller  *ocr2aggregator.OCR2AggregatorCaller
 		tracker         *OCRContractTracker
+		lggr            logger.Logger
 	}
 
 	Transmitter interface {
@@ -43,6 +47,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	logBroadcaster log.Broadcaster,
 	tracker *OCRContractTracker,
+	lggr logger.Logger,
 ) *OCRContractTransmitter {
 	return &OCRContractTransmitter{
 		contractAddress: address,
@@ -50,6 +55,7 @@ func NewOCRContractTransmitter(
 		transmitter:     transmitter,
 		contractCaller:  contractCaller,
 		tracker:         tracker,
+		lggr:            lggr,
 	}
 }
 
@@ -68,7 +74,7 @@ func (oc *OCRContractTransmitter) Transmit(ctx context.Context, reportCtx ocrtyp
 	}
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
-	//logger.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress)
+	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", oc.contractAddress)
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
