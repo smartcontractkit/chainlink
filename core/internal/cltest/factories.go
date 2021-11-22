@@ -526,11 +526,11 @@ func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	return spec
 }
 
-func MustInsertKeeperJob(t *testing.T, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
+func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey.EIP55Address, contract ethkey.EIP55Address) job.Job {
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.DB.Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
+	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -557,7 +557,7 @@ perform_upkeep_tx        [type=ethtx
                           gasLimit="$(jobSpec.performUpkeepGasLimit)"
                           txMeta="{\"jobID\":$(jobSpec.jobID)}"]
 encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_perform_upkeep_tx -> perform_upkeep_tx`
-	err = korm.DB.Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
+	err = korm.Q().Get(&pipelineSpec, `INSERT INTO pipeline_specs (dot_dag_source,created_at) VALUES ($1,NOW()) RETURNING *`, dds)
 	require.NoError(t, err)
 
 	jb := job.Job{
@@ -570,18 +570,20 @@ encode_check_upkeep_tx -> check_upkeep_tx -> decode_check_upkeep_tx -> encode_pe
 		PipelineSpecID: pipelineSpec.ID,
 	}
 	cfg := NewTestGeneralConfig(t)
-	jrm := job.NewORM(korm.DB, nil, pipeline.NewORM(korm.DB, logger.TestLogger(t), cfg), nil, logger.TestLogger(t), cfg)
+	tlg := logger.TestLogger(t)
+	prm := pipeline.NewORM(db, tlg, cfg)
+	jrm := job.NewORM(db, nil, prm, nil, tlg, cfg)
 	err = jrm.InsertJob(&jb)
 	require.NoError(t, err)
 	return jb
 }
 
-func MustInsertKeeperRegistry(t *testing.T, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
+func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
 	from := key.Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
-	job := MustInsertKeeperJob(t, korm, from, contractAddress)
+	job := MustInsertKeeperJob(t, db, korm, from, contractAddress)
 	registry := keeper.Registry{
 		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,

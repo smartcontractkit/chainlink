@@ -61,7 +61,7 @@ func setupRegistrySync(t *testing.T) (
 	lbMock := new(logmocks.Broadcaster)
 	lbMock.Test(t)
 	lbMock.On("AddDependents", 1).Maybe()
-	j := cltest.MustInsertKeeperJob(t, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	cfg := cltest.NewTestGeneralConfig(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg})
 	ch := evmtest.MustGetDefaultChain(t, cc)
