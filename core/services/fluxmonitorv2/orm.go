@@ -28,22 +28,29 @@ type ORM interface {
 }
 
 type orm struct {
-	db       *sqlx.DB
+	q        pg.Q
 	txm      transmitter
 	strategy bulletprooftxmanager.TxStrategy
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, strategy bulletprooftxmanager.TxStrategy) ORM {
-	return &orm{db, txm, strategy, lggr.Named("FluxMonitorORM")}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, txm transmitter, strategy bulletprooftxmanager.TxStrategy) ORM {
+	namedLogger := lggr.Named("FluxMonitorORM")
+	q := pg.NewNewQ(db, namedLogger, cfg)
+	return &orm{
+		q,
+		txm,
+		strategy,
+		namedLogger,
+	}
 }
 
 // MostRecentFluxMonitorRoundID finds roundID of the most recent round that the
 // provided oracle address submitted to
 func (o *orm) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, error) {
 	var stats FluxMonitorRoundStatsV2
-	err := pg.NewQ(o.db).Get(&stats, `SELECT * FROM flux_monitor_round_stats_v2 WHERE aggregator = $1 ORDER BY round_id DESC LIMIT 1`, aggregator)
+	err := o.q.Get(&stats, `SELECT * FROM flux_monitor_round_stats_v2 WHERE aggregator = $1 ORDER BY round_id DESC LIMIT 1`, aggregator)
 	return stats.RoundID, errors.Wrap(err, "MostRecentFluxMonitorRoundID failed")
 }
 
@@ -51,7 +58,7 @@ func (o *orm) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32, e
 // given oracle address starting from the most recent round back through the
 // given round
 func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error {
-	_, err := pg.NewQ(o.db).Exec(`
+	_, err := o.q.Exec(`
         DELETE FROM flux_monitor_round_stats_v2
         WHERE aggregator = $1
           AND round_id >= $2
@@ -62,7 +69,7 @@ func (o *orm) DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roun
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given
 // oracle on a given round, or creates it if no record exists
 func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (stats FluxMonitorRoundStatsV2, err error) {
-	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
+	err = o.q.Transaction(o.logger, func(q pg.Queryer) error {
 		err = q.Get(&stats,
 			`INSERT INTO flux_monitor_round_stats_v2 (aggregator, round_id, num_new_round_logs, num_submissions) VALUES ($1, $2, $3, 0)
 		ON CONFLICT (aggregator, round_id) DO NOTHING`,
@@ -79,7 +86,7 @@ func (o *orm) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, round
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
 func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO flux_monitor_round_stats_v2 (
             aggregator, round_id, pipeline_run_id, num_new_round_logs, num_submissions
@@ -96,7 +103,7 @@ func (o *orm) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uin
 
 // CountFluxMonitorRoundStats counts the total number of records
 func (o *orm) CountFluxMonitorRoundStats() (count int, err error) {
-	err = pg.NewQ(o.db).Get(&count, `SELECT count(*) FROM flux_monitor_round_stats_v2`)
+	err = o.q.Get(&count, `SELECT count(*) FROM flux_monitor_round_stats_v2`)
 	return count, errors.Wrap(err, "CountFluxMonitorRoundStats failed")
 }
 

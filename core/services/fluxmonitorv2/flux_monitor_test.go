@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/sqlx"
@@ -45,8 +46,8 @@ const oracleCount uint8 = 17
 
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), txm, bulletprooftxmanager.SendEveryStrategy{})
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, txm bulletprooftxmanager.TxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, bulletprooftxmanager.SendEveryStrategy{})
 }
 
 var (
@@ -210,7 +211,7 @@ func setup(t *testing.T, db *sqlx.DB, optionFns ...func(*setupOptions)) (*fluxmo
 		tm.pipelineRunner,
 		job.Job{},
 		pipelineSpec,
-		db,
+		pg.NewNewQ(db, lggr, cltest.NewTestGeneralConfig(t)),
 		options.orm,
 		tm.jobORM,
 		tm.pipelineORM,
@@ -762,6 +763,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 	}
 
 	db, nodeAddr := setupStoreWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	for _, tc := range testCases {
@@ -770,7 +772,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			t.Parallel()
 
 			var (
-				orm = newORM(t, db, nil)
+				orm = newORM(t, db, cfg, nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(tc.idleTimerDisabled), setIdleTimerPeriod(tc.idleDuration), withORM(orm))
@@ -1167,10 +1169,11 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	var (
 		oracles = []common.Address{nodeAddr, cltest.NewAddress()}
-		orm     = newORM(t, db, nil)
+		orm     = newORM(t, db, cfg, nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1233,8 +1236,9 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
+			cfg := cltest.NewTestGeneralConfig(t)
 			var (
-				orm = newORM(t, db, nil)
+				orm = newORM(t, db, cfg, nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1302,9 +1306,10 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
+			cfg := cltest.NewTestGeneralConfig(t)
 
 			var (
-				orm = newORM(t, db, nil)
+				orm = newORM(t, db, cfg, nil)
 			)
 
 			fm, tm := setup(t,
@@ -1366,9 +1371,10 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	g := gomega.NewWithT(t)
 	db, nodeAddr := setupStoreWithKey(t)
 	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	var (
-		orm = newORM(t, db, nil)
+		orm = newORM(t, db, cfg, nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))

@@ -67,7 +67,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.Service, err erro
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, d.lggr, chain.TxManager(), strategy),
+		NewORM(d.db, d.lggr, chain.Config(), chain.TxManager(), strategy),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),

@@ -24,7 +24,8 @@ func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := newORM(t, db, nil)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 
@@ -91,7 +92,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr, cfg)
-	orm := newORM(t, db, nil)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
@@ -169,7 +170,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), txm, strategy)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy)
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()
