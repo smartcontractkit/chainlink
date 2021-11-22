@@ -8,7 +8,6 @@ import {
   TableRow,
   Typography,
 } from '@material-ui/core'
-import Content from 'components/Content'
 import { TimeAgo } from 'components/TimeAgo'
 import { JobData } from './sharedTypes'
 
@@ -25,7 +24,7 @@ export const JobsErrors: React.FC<{
   const tableHeaders = ['Occurrences', 'Created', 'Last Seen', 'Message']
 
   return (
-    <Content>
+    <>
       <ErrorComponent />
       <LoadingPlaceholder />
 
@@ -80,7 +79,7 @@ export const JobsErrors: React.FC<{
           </Table>
         </Card>
       )}
-    </Content>
+    </>
   )
 }
 
