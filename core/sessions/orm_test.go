@@ -169,7 +169,7 @@ func TestOrm_GenerateAuthToken(t *testing.T) {
 	initial := cltest.MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&initial))
 
-	token, err := orm.GenerateAuthToken(&initial)
+	token, err := orm.CreateAndSetAuthToken(&initial)
 	require.NoError(t, err)
 
 	dbUser, err := orm.FindUser()
