@@ -12,6 +12,10 @@ import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
 import { transformPipelineJobRun } from './transformJobRuns'
 
+import { DetailsBox } from './DetailsBox'
+import { JobTabs } from './JobTabs'
+import Content from 'src/components/Content'
+
 interface RouteParams {
   jobId: string
 }
@@ -105,6 +109,7 @@ export const JobsShow = () => {
             name: jobSpec.attributes.name,
             specType: jobSpec.attributes.type,
             errors: jobSpec.attributes.errors,
+            externalJobID: jobSpec.attributes.externalJobID,
             createdAt,
             evmChainID,
           }
@@ -126,14 +131,21 @@ export const JobsShow = () => {
   }, [getJobSpec])
 
   return (
-    <div>
+    <Content>
       <RegionalNav
         jobId={jobId}
         externalJobID={externalJobID}
         job={job}
         getJobSpecRuns={getJobRuns}
+      />
+
+      <DetailsBox job={job} />
+      <JobTabs
+        id={jobId}
+        errorsCount={job?.errors.length || 0}
         runsCount={state.recentRunsCount}
       />
+
       <Switch>
         <Route path={`${path}/definition`}>
           <JobDefinition
@@ -178,7 +190,7 @@ export const JobsShow = () => {
           />
         </Route>
       </Switch>
-    </div>
+    </Content>
   )
 }
 

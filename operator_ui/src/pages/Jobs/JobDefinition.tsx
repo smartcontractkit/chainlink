@@ -2,7 +2,6 @@ import React from 'react'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-import Content from 'components/Content'
 import { JobData } from './sharedTypes'
 
 import Card from '@material-ui/core/Card'
@@ -46,7 +45,7 @@ export const JobDefinition = withStyles(definitionStyles)(
     }, [job])
 
     return (
-      <Content>
+      <>
         <ErrorComponent />
         <LoadingPlaceholder />
 
@@ -84,7 +83,7 @@ export const JobDefinition = withStyles(definitionStyles)(
             </CardContent>
           </Card>
         )}
-      </Content>
+      </>
     )
   },
 )
