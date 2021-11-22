@@ -36,7 +36,8 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	to := utils.ZeroAddress
 	value := assets.NewEth(1)
 
-	_, err := bulletprooftxmanager.SendEther(db, big.NewInt(0), from, to, *value, 21000)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+	_, err := bulletprooftxmanager.SendEther(q, big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
 }
@@ -150,7 +151,8 @@ func TestBulletproofTxManager_CountUnconfirmedTransactions(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(db, fromAddress, cltest.FixtureChainID)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
+	count, err := bulletprooftxmanager.CountUnconfirmedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 3)
 }
@@ -171,7 +173,8 @@ func TestBulletproofTxManager_CountUnstartedTransactions(t *testing.T) {
 	cltest.MustInsertUnstartedEthTx(t, borm, otherAddress)
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
 
-	count, err := bulletprooftxmanager.CountUnstartedTransactions(db, fromAddress, cltest.FixtureChainID)
+	q := pg.NewNewQ(db, logger.NewNullLogger(), cfg)
+	count, err := bulletprooftxmanager.CountUnstartedTransactions(q, fromAddress, cltest.FixtureChainID)
 	require.NoError(t, err)
 	assert.Equal(t, int(count), 2)
 }
@@ -192,6 +195,7 @@ func TestBulletproofTxManager_CreateEthTransaction(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 
 	lggr := logger.TestLogger(t)
@@ -328,6 +332,7 @@ func TestBulletproofTxManager_CreateEthTransaction_OutOfEth(t *testing.T) {
 	config.On("EthTxResendAfterThreshold").Return(time.Duration(0))
 	config.On("EthTxReaperThreshold").Return(time.Duration(0))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	lggr := logger.TestLogger(t)
 	bptxm := bulletprooftxmanager.NewBulletproofTxManager(db, ethClient, config, nil, nil, lggr)
@@ -420,6 +425,7 @@ func TestBulletproofTxManager_Lifecycle(t *testing.T) {
 	config.On("EvmMaxInFlightTransactions").Return(uint32(42))
 	config.On("EvmFinalityDepth").Maybe().Return(uint32(42))
 	config.On("GasEstimatorMode").Return("FixedPrice")
+	config.On("LogSQL").Return(false)
 	kst.On("GetStatesForChain", &cltest.FixtureChainID).Return([]ethkey.State{}, nil).Once()
 
 	keyChangeCh := make(chan struct{})

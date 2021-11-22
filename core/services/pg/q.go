@@ -111,26 +111,10 @@ type Q struct {
 	config    LogConfig
 }
 
-// newQFromOpts is intended to be used in ORMs where the caller may wish to use
-// either the default DB or pass an explicit Tx
-func newQFromOpts(qopts []QOpt) (q Q) {
+func NewNewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
 	for _, opt := range qopts {
 		opt(&q)
 	}
-	return q
-}
-
-func NewQ(queryer Queryer, qopts ...QOpt) (q Q) {
-	q = newQFromOpts(qopts)
-	if q.Queryer == nil {
-		q.Queryer = queryer
-	}
-	return
-}
-
-// TODO: this has to become new NewQ after all usages are fixed
-func NewNewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q Q) {
-	q = newQFromOpts(qopts)
 	if q.Queryer == nil {
 		q.Queryer = db
 	}
