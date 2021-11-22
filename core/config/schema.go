@@ -100,6 +100,7 @@ type ConfigSchema struct {
 	FMSimulateTransactions                     bool                          `env:"FM_SIMULATE_TRANSACTIONS" default:"false"`
 	FeatureExternalInitiators                  bool                          `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureOffchainReporting                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
+	FeatureOffchainReporting2                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING2" default:"false"`
 	FeatureUICSAKeys                           bool                          `env:"FEATURE_UI_CSA_KEYS" default:"false"`
 	FeatureUIFeedsManager                      bool                          `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"`
 	FlagsContractAddress                       string                        `env:"FLAGS_CONTRACT_ADDRESS"`

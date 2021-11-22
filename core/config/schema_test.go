@@ -93,6 +93,7 @@ func TestConfigSchema(t *testing.T) {
 		"FMSimulateTransactions":                     "FM_SIMULATE_TRANSACTIONS",
 		"FeatureExternalInitiators":                  "FEATURE_EXTERNAL_INITIATORS",
 		"FeatureOffchainReporting":                   "FEATURE_OFFCHAIN_REPORTING",
+		"FeatureOffchainReporting2":                   "FEATURE_OFFCHAIN_REPORTING2",
 		"FeatureUICSAKeys":                           "FEATURE_UI_CSA_KEYS",
 		"FeatureUIFeedsManager":                      "FEATURE_UI_FEEDS_MANAGER",
 		"FlagsContractAddress":                       "FLAGS_CONTRACT_ADDRESS",
