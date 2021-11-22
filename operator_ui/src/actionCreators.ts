@@ -581,12 +581,6 @@ export const fetchConfiguration = requestFetch(
   (json) => normalize(json, { camelizeKeys: false }),
 )
 
-export const fetchBridges = requestFetch(
-  'BRIDGES',
-  api.v2.bridgeTypes.getBridges,
-  (json) => normalize(json, { endpoint: 'currentPageBridges' }),
-)
-
 export const fetchBridgeSpec = requestFetch(
   'BRIDGE',
   api.v2.bridgeTypes.getBridgeSpec,
