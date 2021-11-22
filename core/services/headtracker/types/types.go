@@ -3,9 +3,10 @@ package types
 import (
 	"context"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"go.uber.org/zap/zapcore"
 )
 
 type Tracker interface {
