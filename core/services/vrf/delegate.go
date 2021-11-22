@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
@@ -119,10 +120,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				job:                jb,
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
 				respCount:          GetStartingResponseCountsV2(d.db, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
+				headBroadcaster:    chain.HeadBroadcaster(),
+				wg:                 &sync.WaitGroup{},
 			}}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
