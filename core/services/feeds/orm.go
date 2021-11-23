@@ -199,7 +199,7 @@ FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
-	err := o.q.WithOpts(o.db, qopts...).Select(&jps, stmt, ids)
+	err := o.q.WithOpts(qopts...).Select(&jps, stmt, ids)
 	return jps, errors.Wrap(err, "GetJobProposalsByManagersIDs failed")
 }
 
