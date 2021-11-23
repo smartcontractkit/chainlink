@@ -49,13 +49,13 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	ethClient, _, _ := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
@@ -68,7 +68,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
-		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr), keyStore)
+		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
 		a := utils.NewDependentAwaiter()
 		a.AddDependents(1)
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
@@ -91,7 +91,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobB := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		lggr := logger.TestLogger(t)
-		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr), keyStore)
+		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
@@ -159,7 +159,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
 		lggr := logger.TestLogger(t)
-		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr), keyStore)
+		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
 		d := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateA := &delegate{jobA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
@@ -195,7 +195,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyStart.ItHappened() })
 
 		lggr := logger.TestLogger(t)
-		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr), keyStore)
+		orm := job.NewTestORM(t, db, cc, pipeline.NewORM(db, lggr, config), keyStore, config)
 		d := offchainreporting.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, cc, logger.TestLogger(t))
 		delegateA := &delegate{jobA.Type, []job.Service{serviceA1, serviceA2}, 0, nil, d}
 		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{

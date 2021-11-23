@@ -52,7 +52,7 @@ type (
 	// This gives us re-org protection up to ETH_FINALITY_DEPTH deep in the
 	// worst case, which is in line with our other guarantees.
 	NonceSyncer struct {
-		db        *sqlx.DB
+		q         pg.Q
 		ethClient eth.Client
 		chainID   *big.Int
 		logger    logger.Logger
@@ -65,10 +65,11 @@ type (
 )
 
 // NewNonceSyncer returns a new syncer
-func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, ethClient eth.Client) *NonceSyncer {
+func NewNonceSyncer(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, ethClient eth.Client) *NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
+	q := pg.NewQ(db, lggr, cfg)
 	return &NonceSyncer{
-		db,
+		q,
 		ethClient,
 		ethClient.ChainID(),
 		lggr,
@@ -109,7 +110,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 		return nil
 	}
 
-	q := pg.NewQ(s.db, pg.WithParentCtx(ctx))
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
 	keyNextNonce, err := GetNextNonce(q, address, s.chainID)
 	if err != nil {
 		return err
@@ -143,8 +144,8 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 	}
 	//  We pass in next_nonce here as an optimistic lock to make sure it
 	//  didn't get changed out from under us. Shouldn't happen but can't hurt.
-	return q.Transaction(s.logger, func(q pg.Queryer) error {
-		res, err := q.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
+	return q.Transaction(func(tx pg.Queryer) error {
+		res, err := tx.Exec(`UPDATE eth_key_states SET next_nonce = $1, updated_at = $2 WHERE address = $3 AND next_nonce = $4 AND evm_chain_id = $5`, newNextNonce, time.Now(), address, keyNextNonce, s.chainID.String())
 		if err != nil {
 			return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to update keys.next_nonce")
 		}

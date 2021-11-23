@@ -48,7 +48,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	config.Overrides.SetDefaultHTTPTimeout(30 * time.Millisecond)
 	config.Overrides.DefaultMaxHTTPAttempts = null.IntFrom(1)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
@@ -92,13 +92,13 @@ func TestPipelineORM_Integration(t *testing.T) {
 	ds1.BaseTask = pipeline.NewBaseTask(0, "ds1", nil, []pipeline.Task{ds1_parse}, 0)
 	ds2.BaseTask = pipeline.NewBaseTask(3, "ds2", nil, []pipeline.Task{ds2_parse}, 0)
 	expectedTasks := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	t.Run("creates task DAGs", func(t *testing.T) {
 		clearJobsDb(t, db)
 
-		orm := pipeline.NewORM(db, logger.TestLogger(t))
+		orm := pipeline.NewORM(db, logger.TestLogger(t), config)
 
 		p, err := pipeline.Parse(DotStr)
 		require.NoError(t, err)
@@ -120,12 +120,13 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 	t.Run("creates runs", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
+		cfg := cltest.NewTestGeneralConfig(t)
 		clearJobsDb(t, db)
-		orm := pipeline.NewORM(db, logger.TestLogger(t))
+		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg)
 		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: cltest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config})
 		runner := pipeline.NewRunner(orm, config, cc, nil, nil, lggr)
 		defer runner.Close()
-		jobORM := job.NewTestORM(t, db, cc, orm, keyStore)
+		jobORM := job.NewTestORM(t, db, cc, orm, keyStore, cfg)
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 

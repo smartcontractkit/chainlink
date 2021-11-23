@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
@@ -24,8 +25,9 @@ func Test_EthKeyStore(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ethKeyStore := keyStore.Eth()
@@ -124,8 +126,9 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethKeyStore := keyStore.Eth()
 
 	t.Run("should error when no addresses", func(t *testing.T) {
@@ -194,7 +197,8 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 
 func Test_EthKeyStore_SignTx(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	config := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
@@ -214,8 +218,9 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 
 func Test_EthKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	err := keyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
 	ks := keyStore.Eth()
@@ -296,7 +301,8 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 	chDone := make(chan struct{})
 	defer func() { close(chDone) }()
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ks := keyStore.Eth()
 	chSub, unsubscribe := ks.SubscribeToKeyChanges()
 	defer unsubscribe()

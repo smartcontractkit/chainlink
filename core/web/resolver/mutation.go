@@ -697,9 +697,7 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if err := r.App.GetConfig().SetLogSQLStatements(args.Input.Enabled); err != nil {
-		return nil, err
-	}
+	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
 
 	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
 }

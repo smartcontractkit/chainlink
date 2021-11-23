@@ -39,6 +39,7 @@ type NetworkingConfig interface {
 	P2PV2DeltaDial() models.Duration
 	P2PV2DeltaReconcile() models.Duration
 	P2PV2ListenAddresses() []string
+	LogSQL() bool
 }
 
 type (
@@ -104,7 +105,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		if p.PeerID == "" {
 			return errors.Wrap(err, "could not get peer ID")
 		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr)
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}

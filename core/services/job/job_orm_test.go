@@ -31,19 +31,19 @@ func TestORM(t *testing.T) {
 	t.Parallel()
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	ethKeyStore := keyStore.Eth()
 
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
-	borm := bridges.NewORM(db, logger.TestLogger(t))
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
+	borm := bridges.NewORM(db, logger.TestLogger(t), config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 	_, address := cltest.MustInsertRandomKey(t, ethKeyStore)
 	jb := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
@@ -146,7 +146,7 @@ func TestORM(t *testing.T) {
 			{Name: eiFoo.Name, Spec: cltest.JSONFromString(t, `{}`)},
 			{Name: eiBar.Name, Spec: cltest.JSONFromString(t, `{"bar": 1}`)},
 		}
-		eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
+		eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t), config)
 		jb, err := webhook.ValidatedWebhookSpec(testspecs.GenerateWebhookSpec(testspecs.WebhookSpecParams{ExternalInitiators: eiWS}).Toml(), eim)
 		require.NoError(t, err)
 
@@ -161,17 +161,17 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	config := evmtest.NewChainScopedConfig(t, cltest.NewTestGeneralConfig(t))
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	jobORM := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 	korm := keeper.NewORM(db, logger.TestLogger(t), nil, nil, nil)
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
-		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 		jb, err := offchainreporting.ValidatedOracleSpecToml(cc, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -195,7 +195,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, korm, keyStore.Eth())
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, db, korm, keyStore.Eth())
 		cltest.MustInsertUpkeepForRegistry(t, db, config, registry)
 
 		cltest.AssertCount(t, db, "keeper_specs", 1)
@@ -226,7 +226,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for webhook jobs", func(t *testing.T) {
-		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t)))
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t), config))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
 		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
@@ -241,7 +241,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {
 		// create new db because this will rollback transaction and poison it
 		db := pgtest.NewSqlxDB(t)
-		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t)))
+		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db, logger.TestLogger(t), config))
 		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
 		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
@@ -256,15 +256,15 @@ func Test_FindJob(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -315,15 +315,15 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -373,15 +373,15 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	keyStore.OCR().Add(cltest.DefaultOCRKey)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -430,16 +430,16 @@ func Test_PipelineRunsByJobsIDs(t *testing.T) {
 	config := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, config)
 	err := keyStore.OCR().Add(cltest.DefaultOCRKey)
 	require.NoError(t, err)
 
-	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t))
+	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config})
-	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore)
+	orm := job.NewTestORM(t, db, cc, pipelineORM, keyStore, config)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
 
 	externalJobID := uuid.NewV4()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())

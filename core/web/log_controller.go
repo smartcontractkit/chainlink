@@ -31,7 +31,7 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	logSvcs := logger.GetLogServices()
 	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
@@ -87,17 +87,12 @@ func (cc *LogController) Patch(c *gin.Context) {
 	svcs = append(svcs, "Global")
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
-	// NOTE: This doesn't actually do anything right now since sqlx doesn't support query logging
-	// TODO: Consider removing it?
-	// See: https://app.shortcut.com/chainlinklabs/story/21518/log-sql-env-var-now-does-nothing
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
+		cc.App.GetConfig().SetLogSQL(*request.SqlEnabled)
 	}
+
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	if len(request.ServiceLogLevel) > 0 {
 		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())

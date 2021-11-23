@@ -13,7 +13,7 @@ import (
 
 // ORM implements ORM layer using PostgreSQL
 type ORM struct {
-	DB       *sqlx.DB
+	q        pg.Q
 	txm      transmitter
 	config   Config
 	strategy bulletprooftxmanager.TxStrategy
@@ -24,7 +24,7 @@ type ORM struct {
 func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, config Config, strategy bulletprooftxmanager.TxStrategy) ORM {
 	lggr = lggr.Named("KeeperORM")
 	return ORM{
-		DB:       db,
+		q:        pg.NewQ(db, lggr, config),
 		txm:      txm,
 		config:   config,
 		strategy: strategy,
@@ -32,17 +32,21 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, txm transmitter, config Config, str
 	}
 }
 
+func (korm ORM) Q() pg.Q {
+	return korm.q
+}
+
 // Registries returns all registries
 func (korm ORM) Registries() ([]Registry, error) {
 	var registries []Registry
-	err := pg.NewQ(korm.DB).Select(&registries, `SELECT * FROM keeper_registries ORDER BY id ASC`)
+	err := korm.q.Select(&registries, `SELECT * FROM keeper_registries ORDER BY id ASC`)
 	return registries, errors.Wrap(err, "failed to get registries")
 }
 
 // RegistryForJob returns a specific registry for a job with the given ID
 func (korm ORM) RegistryForJob(jobID int32) (Registry, error) {
 	var registry Registry
-	err := pg.NewQ(korm.DB).Get(&registry, `SELECT * FROM keeper_registries WHERE job_id = $1 LIMIT 1`, jobID)
+	err := korm.q.Get(&registry, `SELECT * FROM keeper_registries WHERE job_id = $1 LIMIT 1`, jobID)
 	return registry, errors.Wrapf(err, "failed to get registry with job_id %d", jobID)
 }
 
@@ -58,7 +62,7 @@ INSERT INTO keeper_registries (job_id, keeper_index, contract_address, from_addr
 	num_keepers = :num_keepers
 RETURNING *
 `
-	err := pg.NewQ(korm.DB).GetNamed(stmt, registry, registry)
+	err := korm.q.GetNamed(stmt, registry, registry)
 	return errors.Wrap(err, "failed to upsert registry")
 }
 
@@ -73,13 +77,13 @@ INSERT INTO upkeep_registrations (registry_id, execute_gas, check_data, upkeep_i
 	positioning_constant = :positioning_constant
 RETURNING *
 `
-	err := pg.NewQ(korm.DB).GetNamed(stmt, registration, registration)
+	err := korm.q.GetNamed(stmt, registration, registration)
 	return errors.Wrap(err, "failed to upsert upkeep")
 }
 
 // BatchDeleteUpkeepsForJob deletes all upkeeps by the given IDs for the job with the given ID
 func (korm ORM) BatchDeleteUpkeepsForJob(jobID int32, upkeepIDs []int64) (int64, error) {
-	res, err := pg.NewQ(korm.DB).Exec(`
+	res, err := korm.q.Exec(`
 DELETE FROM upkeep_registrations WHERE registry_id IN (
 	SELECT id FROM keeper_registries WHERE job_id = $1
 ) AND upkeep_id = ANY($2)
@@ -98,7 +102,7 @@ func (korm ORM) EligibleUpkeepsForRegistry(
 	registryAddress ethkey.EIP55Address,
 	blockNumber, gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, err error) {
-	err = pg.NewQ(korm.DB).Transaction(korm.logger, func(tx pg.Queryer) error {
+	err = korm.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT upkeep_registrations.* FROM upkeep_registrations
 INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id
@@ -154,7 +158,7 @@ func loadUpkeepsRegistry(q pg.Queryer, upkeeps []UpkeepRegistration) error {
 // LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
 func (korm ORM) LowestUnsyncedID(regID int64) (nextID int64, err error) {
-	err = pg.NewQ(korm.DB).Get(&nextID, `
+	err = korm.q.Get(&nextID, `
 SELECT coalesce(max(upkeep_id), -1) + 1
 FROM upkeep_registrations
 WHERE registry_id = $1
@@ -163,7 +167,7 @@ WHERE registry_id = $1
 }
 
 func (korm ORM) SetLastRunHeightForUpkeepOnJob(jobID int32, upkeepID, height int64, qopts ...pg.QOpt) error {
-	_, err := pg.NewQ(korm.DB, qopts...).Exec(`
+	_, err := korm.q.WithOpts(qopts...).Exec(`
 UPDATE upkeep_registrations
 SET last_run_block_height = $1
 WHERE upkeep_id = $2 AND

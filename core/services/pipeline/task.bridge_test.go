@@ -126,7 +126,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -179,7 +179,7 @@ func TestBridgeTask_AsyncJobPendingState(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -351,7 +351,7 @@ func TestBridgeTask_Variables(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -415,7 +415,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -463,7 +463,7 @@ func TestBridgeTask_IncludeInputAtKey(t *testing.T) {
 			feedURL, err := url.ParseRequestURI(s1.URL)
 			require.NoError(t, err)
 
-			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+			_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 			task := pipeline.BridgeTask{
 				BaseTask:          pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
@@ -514,7 +514,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
@@ -548,7 +548,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()})
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: feedURL.String()}, cfg)
 
 	task := pipeline.BridgeTask{
 		Name:        bridge.Name.String(),
