@@ -47,6 +47,7 @@ interface OwnProps extends Partial<FormValues>, WithStyles<typeof styles> {
   onSubmit: (values: FormValues, onSuccess: Function, onError: Function) => void
   onSuccess: Function
   onError: Function
+  refetchGQL: Function
 }
 
 type Props = FormikProps<FormValues> & OwnProps
@@ -91,7 +92,7 @@ function isDirty(props: Props): boolean {
   return !isEqual(props.values, initial) && props.submitCount === 0
 }
 
-const Form: React.SFC<Props> = (props) => (
+const Form: React.FC<Props> = (props) => (
   <>
     <Prompt
       when={isDirty(props)}
@@ -189,6 +190,7 @@ const WithFormikForm = withFormik<OwnProps, FormValues>({
     )
     setTimeout(() => {
       setSubmitting(false)
+      props.refetchGQL()
     }, SUBMITTING_TIMEOUT_MS)
   },
 })(Form)
