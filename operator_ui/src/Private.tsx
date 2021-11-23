@@ -10,7 +10,6 @@ import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
 import DashboardIndex from 'pages/Dashboards/Index'
-import BridgesShow from 'pages/Bridges/Show'
 import BridgesNew from 'pages/Bridges/New'
 import BridgesEdit from 'pages/Bridges/Edit'
 import Configuration from 'pages/Configuration/Index'
@@ -122,11 +121,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
 
               <PrivateRoute exact path="/bridges/new" component={BridgesNew} />
-              <PrivateRoute
-                exact
-                path="/bridges/:bridgeId"
-                component={BridgesShow}
-              />
+
               <PrivateRoute
                 exact
                 path="/bridges/:bridgeId/edit"
@@ -150,7 +145,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
 
-              <PrivateRoute exact path="/bridges">
+              <PrivateRoute path="/bridges">
                 <BridgesPage />
               </PrivateRoute>
 
