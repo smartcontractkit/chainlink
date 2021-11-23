@@ -336,7 +336,7 @@ func Test_ORM_GetJobProposalByManagersIDs(t *testing.T) {
 	id, err := orm.CreateJobProposal(jp)
 	require.NoError(t, err)
 
-	jps, err := orm.GetJobProposalByManagersIDs([]int64{fmID})
+	jps, err := orm.GetJobProposalsByManagersIDs([]int64{fmID})
 	require.NoError(t, err)
 	require.Len(t, jps, 1)
 
