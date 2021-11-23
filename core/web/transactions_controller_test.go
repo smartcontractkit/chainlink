@@ -25,7 +25,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	db := app.GetSqlxDB()
 	borm := app.BPTXMORM()
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, app.Config).Eth()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 

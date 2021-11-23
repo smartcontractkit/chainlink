@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/keystest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/feeds/mocks"
@@ -24,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	pgmocks "github.com/smartcontractkit/chainlink/core/services/pg/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -37,11 +36,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
-
-func init() {
-	// AllowMockQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
-	pg.AllowMockQueryerTypeInTransaction = true
-}
 
 const TestSpec = `
 type              = "fluxmonitor"
@@ -83,7 +77,6 @@ func setupTestService(t *testing.T) *TestService {
 	var (
 		orm         = &mocks.ORM{}
 		jobORM      = &jobmocks.ORM{}
-		queryer     = &pgmocks.Queryer{}
 		connMgr     = &mocks.ConnectionsManager{}
 		spawner     = &jobmocks.Spawner{}
 		fmsClient   = &mocks.FeedsManagerClient{}
@@ -98,7 +91,6 @@ func setupTestService(t *testing.T) *TestService {
 		mock.AssertExpectationsForObjects(t,
 			orm,
 			jobORM,
-			queryer,
 			connMgr,
 			spawner,
 			fmsClient,
@@ -108,6 +100,7 @@ func setupTestService(t *testing.T) *TestService {
 		)
 	})
 
+	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewTestGeneralConfig(t)
 	gcfg.Overrides.EthereumDisabled = null.BoolFrom(true)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg})
@@ -115,7 +108,7 @@ func setupTestService(t *testing.T) *TestService {
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("Eth").Return(ethKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
-	svc := feeds.NewService(orm, jobORM, queryer, spawner, keyStore, cfg, cc, logger.TestLogger(t), "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, cfg, cc, logger.TestLogger(t), "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -449,7 +442,7 @@ func Test_Service_ListJobProposals(t *testing.T) {
 	assert.Equal(t, actual, jps)
 }
 
-func Test_Service_GetJobProposalByManagersIDs(t *testing.T) {
+func Test_Service_GetJobProposalsByManagersIDs(t *testing.T) {
 	t.Parallel()
 
 	var (
@@ -459,10 +452,10 @@ func Test_Service_GetJobProposalByManagersIDs(t *testing.T) {
 	)
 	svc := setupTestService(t)
 
-	svc.orm.On("GetJobProposalByManagersIDs", fmIDs).
+	svc.orm.On("GetJobProposalsByManagersIDs", fmIDs).
 		Return(jps, nil)
 
-	actual, err := svc.GetJobProposalByManagersIDs(fmIDs)
+	actual, err := svc.GetJobProposalsByManagersIDs(fmIDs)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, jps)

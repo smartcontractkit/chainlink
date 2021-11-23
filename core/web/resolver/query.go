@@ -15,12 +15,12 @@ import (
 )
 
 // Bridge retrieves a bridges by name.
-func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
+func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*BridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	name, err := bridges.NewTaskType(args.Name)
+	name, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -39,8 +39,8 @@ func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*Bri
 
 // Bridges retrieves a paginated list of bridges.
 func (r *Resolver) Bridges(ctx context.Context, args struct {
-	Offset *int
-	Limit  *int
+	Offset *int32
+	Limit  *int32
 }) (*BridgesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -83,8 +83,8 @@ func (r *Resolver) Chain(ctx context.Context, args struct{ ID graphql.ID }) (*Ch
 
 // Chains retrieves a paginated list of chains.
 func (r *Resolver) Chains(ctx context.Context, args struct {
-	Offset *int
-	Limit  *int
+	Offset *int32
+	Limit  *int32
 }) (*ChainsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -115,13 +115,13 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 	mgr, err := r.App.GetFeedsService().GetManager(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewFeedsManagerPayload(nil), nil
+			return NewFeedsManagerPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewFeedsManagerPayload(mgr), nil
+	return NewFeedsManagerPayload(mgr, nil), nil
 }
 
 func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadResolver, error) {
@@ -163,8 +163,8 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 
 // Jobs fetches a paginated list of jobs
 func (r *Resolver) Jobs(ctx context.Context, args struct {
-	Offset *int
-	Limit  *int
+	Offset *int32
+	Limit  *int32
 }) (*JobsPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err

@@ -1,8 +1,9 @@
 package presenters
 
 import (
-	"gopkg.in/guregu/null.v4"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
@@ -313,21 +314,21 @@ func NewJobError(e job.SpecError) JobError {
 // JobResource represents a JobResource
 type JobResource struct {
 	JAID
-	Name                  string                 `json:"name"`
-	Type                  JobSpecType            `json:"type"`
-	SchemaVersion         uint32                 `json:"schemaVersion"`
-	MaxTaskDuration       models.Interval        `json:"maxTaskDuration"`
-	ExternalJobID         uuid.UUID              `json:"externalJobID"`
-	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
-	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
-	CronSpec              *CronSpec              `json:"cronSpec"`
-	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	Name                   string                  `json:"name"`
+	Type                   JobSpecType             `json:"type"`
+	SchemaVersion          uint32                  `json:"schemaVersion"`
+	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
+	ExternalJobID          uuid.UUID               `json:"externalJobID"`
+	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
+	FluxMonitorSpec        *FluxMonitorSpec        `json:"fluxMonitorSpec"`
+	CronSpec               *CronSpec               `json:"cronSpec"`
+	OffChainReportingSpec  *OffChainReportingSpec  `json:"offChainReportingOracleSpec"`
 	OffChainReporting2Spec *OffChainReporting2Spec `json:"offChainReporting2OracleSpec"`
-	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
-	VRFSpec               *VRFSpec               `json:"vrfSpec"`
-	WebhookSpec           *WebhookSpec           `json:"webhookSpec"`
-	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
-	Errors                []JobError             `json:"errors"`
+	KeeperSpec             *KeeperSpec             `json:"keeperSpec"`
+	VRFSpec                *VRFSpec                `json:"vrfSpec"`
+	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
+	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
+	Errors                 []JobError              `json:"errors"`
 }
 
 // NewJobResource initializes a new JSONAPI job resource

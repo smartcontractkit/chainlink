@@ -28,7 +28,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no p2p keys returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start())
@@ -37,7 +37,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	var k p2pkey.KeyV2
 
 	t.Run("with one p2p key and matching P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
 		k, err = keyStore.P2P().Create()
 		require.NoError(t, err)
 
@@ -52,7 +52,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with one p2p key and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
 
 		cfg.Overrides.P2PPeerID = p2pkey.PeerID(peerID)
 
@@ -64,7 +64,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	var k2 p2pkey.KeyV2
 
 	t.Run("with multiple p2p keys and valid P2P_PEER_ID returns nil", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
 		k2, err = keyStore.P2P().Create()
 		require.NoError(t, err)
 
@@ -79,7 +79,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P_PEER_ID returns error", func(t *testing.T) {
-		keyStore := cltest.NewKeyStore(t, db)
+		keyStore := cltest.NewKeyStore(t, db, cfg)
 
 		cfg.Overrides.P2PPeerID = p2pkey.PeerID(peerID)
 

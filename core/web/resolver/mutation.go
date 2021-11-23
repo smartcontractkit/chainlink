@@ -13,6 +13,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
@@ -27,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
-	"github.com/smartcontractkit/chainlink/core/web/auth"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
 type Resolver struct {
@@ -171,7 +172,7 @@ type updateBridgeInput struct {
 }
 
 func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
-	Name  string
+	ID    graphql.ID
 	Input updateBridgeInput
 }) (*UpdateBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
@@ -198,7 +199,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		MinimumContractPayment: minContractPayment,
 	}
 
-	taskType, err := bridges.NewTaskType(args.Name)
+	taskType, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +355,10 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 	err = r.App.EVMORM().DeleteNode(int64(args.ID))
 	if err != nil {
 		if errors.Is(err, evm.ErrNoRowsAffected) {
-			return NewDeleteNodePayloadResolver(nil, err), nil
+			// Sending the SQL error as the expected error to happen
+			// though the prior check should take this into consideration
+			// so this should never happen anyway
+			return NewDeleteNodePayloadResolver(nil, sql.ErrNoRows), nil
 		}
 
 		return nil, err
@@ -364,13 +368,13 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 }
 
 func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
-	Name string
+	ID graphql.ID
 }) (*DeleteBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	taskType, err := bridges.NewTaskType(args.Name)
+	taskType, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return NewDeleteBridgePayload(nil, err), nil
 	}
@@ -385,7 +389,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(args.Name)
+	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +666,7 @@ func (r *Resolver) UpdateUserPassword(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	session, ok := auth.GetGQLAuthenticatedSession(ctx)
+	session, ok := webauth.GetGQLAuthenticatedSession(ctx)
 	if !ok {
 		return nil, errors.New("couldn't retrieve user session")
 	}
@@ -697,9 +701,61 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if err := r.App.GetConfig().SetLogSQLStatements(args.Input.Enabled); err != nil {
+	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
+
+	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
+}
+
+func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
+	Input struct{ Password string }
+}) (*CreateAPITokenPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	return NewSetSQLLoggingPayload(args.Input.Enabled), nil
+	dbUser, err := r.App.SessionORM().FindUser()
+	if err != nil {
+		return nil, err
+	}
+
+	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+		return NewCreateAPITokenPayload(nil, map[string]string{
+			"password": "incorrect password",
+		}), nil
+	}
+
+	newToken, err := r.App.SessionORM().CreateAndSetAuthToken(&dbUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateAPITokenPayload(newToken, nil), nil
+}
+
+func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
+	Input struct{ Password string }
+}) (*DeleteAPITokenPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	dbUser, err := r.App.SessionORM().FindUser()
+	if err != nil {
+		return nil, err
+	}
+
+	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+		return NewDeleteAPITokenPayload(nil, map[string]string{
+			"password": "incorrect password",
+		}), nil
+	}
+
+	err = r.App.SessionORM().DeleteAuthToken(&dbUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteAPITokenPayload(&auth.Token{
+		AccessKey: dbUser.TokenKey.String,
+	}, nil), nil
 }

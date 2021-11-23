@@ -85,7 +85,7 @@ type GeneralConfigOverrides struct {
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LogLevel                                  *config.LogLevel
 	DefaultLogLevel                           *config.LogLevel
-	LogSQLStatements                          null.Bool
+	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
 	OCRBootstrapCheckInterval                 *time.Duration
 	OCRKeyBundleID                            null.String
@@ -490,11 +490,11 @@ func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
 	return c.GeneralConfig.DefaultLogLevel()
 }
 
-func (c *TestGeneralConfig) LogSQLStatements() bool {
-	if c.Overrides.LogSQLStatements.Valid {
-		return c.Overrides.LogSQLStatements.Bool
+func (c *TestGeneralConfig) LogSQL() bool {
+	if c.Overrides.LogSQL.Valid {
+		return c.Overrides.LogSQL.Bool
 	}
-	return c.GeneralConfig.LogSQLStatements()
+	return c.GeneralConfig.LogSQL()
 }
 
 func (c *TestGeneralConfig) EVMDisabled() bool {

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
@@ -42,14 +43,14 @@ type ORM interface {
 }
 
 type orm struct {
-	db         *sqlx.DB
+	q          pg.Q
 	evmChainID utils.Big
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, evmChainID big.Int) *orm {
-	return &orm{db, *utils.NewBig(&evmChainID)}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, evmChainID big.Int) *orm {
+	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {
@@ -66,7 +67,7 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 		jobID,
 		o.evmChainID,
 	}
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err = q.Get(&consumed, query, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
@@ -82,7 +83,7 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 		AND block_number <= $2
 		AND evm_chain_id = $3
 	`
-	err := o.db.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
+	err := o.q.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find log broadcasts")
 	}
@@ -90,7 +91,7 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 }
 
 func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
@@ -99,7 +100,7 @@ func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logInde
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
@@ -140,7 +141,7 @@ func (o *orm) Reinitialize(qopts ...pg.QOpt) (*int64, error) {
 }
 
 func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts_pending (evm_chain_id, block_number, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
@@ -149,7 +150,7 @@ func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...pg.QOpt) error {
 }
 
 func (o *orm) GetPendingMinBlock(qopts ...pg.QOpt) (*int64, error) {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	var blockNumber *int64
 	err := q.Get(&blockNumber, `
         SELECT block_number FROM log_broadcasts_pending WHERE evm_chain_id = $1
@@ -163,7 +164,7 @@ func (o *orm) GetPendingMinBlock(qopts ...pg.QOpt) (*int64, error) {
 }
 
 func (o *orm) getUnconsumedMinBlock(qopts ...pg.QOpt) (*int64, error) {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	var blockNumber *int64
 	err := q.Get(&blockNumber, `
         SELECT min(block_number) FROM log_broadcasts
@@ -180,7 +181,7 @@ func (o *orm) getUnconsumedMinBlock(qopts ...pg.QOpt) (*int64, error) {
 }
 
 func (o *orm) removeUnconsumed(qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         DELETE FROM log_broadcasts
 			WHERE evm_chain_id = $1

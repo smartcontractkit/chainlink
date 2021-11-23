@@ -13,7 +13,7 @@ type CSAKeyResolver struct {
 }
 
 func NewCSAKey(key csakey.KeyV2) *CSAKeyResolver {
-	return &CSAKeyResolver{key}
+	return &CSAKeyResolver{key: key}
 }
 
 // Version resolves the CSA Key version number.
@@ -33,7 +33,7 @@ type CSAKeysPayloadResolver struct {
 }
 
 func NewCSAKeysResolver(keys []csakey.KeyV2) *CSAKeysPayloadResolver {
-	return &CSAKeysPayloadResolver{keys}
+	return &CSAKeysPayloadResolver{keys: keys}
 }
 
 func (r *CSAKeysPayloadResolver) Results() []*CSAKeyResolver {
@@ -58,7 +58,7 @@ type CreateCSAKeyPayloadResolver struct {
 }
 
 func NewCreateCSAKeyPayload(key *csakey.KeyV2, err error) *CreateCSAKeyPayloadResolver {
-	return &CreateCSAKeyPayloadResolver{key, err}
+	return &CreateCSAKeyPayloadResolver{key: key, err: err}
 }
 
 func (r *CreateCSAKeyPayloadResolver) ToCreateCSAKeySuccess() (*CreateCSAKeySuccessResolver, bool) {
@@ -82,7 +82,7 @@ type CreateCSAKeySuccessResolver struct {
 }
 
 func NewCreateCSAKeySuccessResolver(key *csakey.KeyV2) *CreateCSAKeySuccessResolver {
-	return &CreateCSAKeySuccessResolver{key}
+	return &CreateCSAKeySuccessResolver{key: key}
 }
 
 func (r *CreateCSAKeySuccessResolver) CSAKey() *CSAKeyResolver {

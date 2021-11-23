@@ -11,6 +11,7 @@ import (
 )
 
 type Config interface {
+	LogSQL() bool
 	DefaultChainID() *big.Int
 	Dev() bool
 	EvmGasLimitDefault() uint64

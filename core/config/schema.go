@@ -100,7 +100,7 @@ type ConfigSchema struct {
 	FMSimulateTransactions                     bool                          `env:"FM_SIMULATE_TRANSACTIONS" default:"false"`
 	FeatureExternalInitiators                  bool                          `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureOffchainReporting                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
-	FeatureOffchainReporting2                   bool                          `env:"FEATURE_OFFCHAIN_REPORTING2" default:"false"`
+	FeatureOffchainReporting2                  bool                          `env:"FEATURE_OFFCHAIN_REPORTING2" default:"false"`
 	FeatureUICSAKeys                           bool                          `env:"FEATURE_UI_CSA_KEYS" default:"false"`
 	FeatureUIFeedsManager                      bool                          `env:"FEATURE_UI_FEEDS_MANAGER" default:"false"`
 	FlagsContractAddress                       string                        `env:"FLAGS_CONTRACT_ADDRESS"`
@@ -125,7 +125,7 @@ type ConfigSchema struct {
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
-	LogSQLStatements                           bool                          `env:"LOG_SQL" default:"false"`
+	LogSQL                                     bool                          `env:"LOG_SQL" default:"false"`
 	LogToDisk                                  bool                          `env:"LOG_TO_DISK" default:"false"`
 	LogUnixTS                                  bool                          `env:"LOG_UNIX_TS" default:"false"`
 	MigrateDatabase                            bool                          `env:"MIGRATE_DATABASE" default:"true"`

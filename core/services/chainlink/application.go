@@ -19,7 +19,6 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -50,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -210,12 +210,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db, globalLogger)
-		bridgeORM      = bridges.NewORM(db, globalLogger)
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
 		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger, cfg)
+		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger, cfg)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -242,7 +242,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				pipelineORM,
 				chainSet,
-				globalLogger),
+				globalLogger,
+				cfg),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
@@ -313,7 +314,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db)
+	feedsORM := feeds.NewORM(db, opts.Logger, cfg)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm

@@ -43,6 +43,7 @@ type NetworkingConfig interface {
 	P2PV2ListenAddresses() []string
 	OCRBootstrapCheckInterval() time.Duration
 	OCRTraceLogging() bool
+	LogSQL() bool
 }
 
 type (
@@ -131,7 +132,10 @@ func (p *SingletonPeerWrapper) Start() error {
 		}
 
 		p.PeerID = key.PeerID()
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr)
+		if p.PeerID == "" {
+			return errors.Wrap(err, "could not get peer ID")
+		}
+		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
 		if err != nil {
 			return errors.Wrap(err, "could not make new pstorewrapper")
 		}
