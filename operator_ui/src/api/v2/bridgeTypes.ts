@@ -18,12 +18,6 @@ interface UpdatePathParams {
 }
 const UPDATE_ENDPOINT = '/v2/bridge_types/:bridgeName'
 
-// Destroy deletes a bridge.
-interface DestroyPathParams {
-  bridgeName: string
-}
-const DESTROY_ENDPOINT = '/v2/bridge_types/:bridgeName'
-
 export class BridgeTypes {
   constructor(private api: Api) {}
 
@@ -60,11 +54,6 @@ export class BridgeTypes {
     })
   }
 
-  @boundMethod
-  public destroyBridge(name: string): Promise<jsonapi.ApiResponse<null>> {
-    return this.destroy(undefined, { bridgeName: name })
-  }
-
   private create = this.api.createResource<
     models.BridgeTypeRequest,
     models.BridgeTypeAuthentication
@@ -79,8 +68,4 @@ export class BridgeTypes {
     models.BridgeType,
     UpdatePathParams
   >(UPDATE_ENDPOINT)
-
-  private destroy = this.api.deleteResource<undefined, null, DestroyPathParams>(
-    DESTROY_ENDPOINT,
-  )
 }
