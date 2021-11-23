@@ -15,12 +15,12 @@ import (
 )
 
 // Bridge retrieves a bridges by name.
-func (r *Resolver) Bridge(ctx context.Context, args struct{ Name string }) (*BridgePayloadResolver, error) {
+func (r *Resolver) Bridge(ctx context.Context, args struct{ ID graphql.ID }) (*BridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	name, err := bridges.NewTaskType(args.Name)
+	name, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
