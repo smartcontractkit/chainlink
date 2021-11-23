@@ -124,7 +124,7 @@ type ConfigSchema struct {
 	LinkContractAddress                        string                        `env:"LINK_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel                      `env:"LOG_LEVEL"`
 	LogSQLMigrations                           bool                          `env:"LOG_SQL_MIGRATIONS" default:"true"`
-	LogSQLStatements                           bool                          `env:"LOG_SQL" default:"false"`
+	LogSQL                                     bool                          `env:"LOG_SQL" default:"false"`
 	LogToDisk                                  bool                          `env:"LOG_TO_DISK" default:"false"`
 	LogUnixTS                                  bool                          `env:"LOG_UNIX_TS" default:"false"`
 	MigrateDatabase                            bool                          `env:"MIGRATE_DATABASE" default:"true"`

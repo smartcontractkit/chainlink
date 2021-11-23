@@ -330,7 +330,7 @@ func (ks *eth) SetState(state ethkey.State) error {
 	ks.keyStates.Eth[state.KeyID()] = &state
 	sql := `UPDATE eth_key_states SET address = :address, next_nonce = :next_nonce, is_funding = :is_funding, evm_chain_id = :evm_chain_id, updated_at = NOW()
 	WHERE address = :address;`
-	_, err := ks.orm.db.NamedExec(sql, state)
+	_, err := ks.orm.q.NamedExec(sql, state)
 	return errors.Wrap(err, "SetState#Exec failed")
 }
 
@@ -425,7 +425,7 @@ func (ks *eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
 		sql := `INSERT INTO eth_key_states (address, next_nonce, is_funding, evm_chain_id, created_at, updated_at)
 VALUES (:address, :next_nonce, :is_funding, :evm_chain_id, NOW(), NOW())
 RETURNING *;`
-		if err := pg.NewQ(ks.orm.db).GetNamed(sql, &state, state); err != nil {
+		if err := ks.orm.q.GetNamed(sql, &state, state); err != nil {
 			return errors.Wrap(err, "failed to insert eth_key_state")
 		}
 		ks.keyStates.Eth[key.ID()] = &state

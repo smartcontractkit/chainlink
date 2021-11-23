@@ -51,6 +51,29 @@ func (_m *ORM) ClearNonCurrentSessions(sessionID string) error {
 	return r0
 }
 
+// CreateAndSetAuthToken provides a mock function with given fields: user
+func (_m *ORM) CreateAndSetAuthToken(user *sessions.User) (*auth.Token, error) {
+	ret := _m.Called(user)
+
+	var r0 *auth.Token
+	if rf, ok := ret.Get(0).(func(*sessions.User) *auth.Token); ok {
+		r0 = rf(user)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*auth.Token)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(*sessions.User) error); ok {
+		r1 = rf(user)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateSession provides a mock function with given fields: sr
 func (_m *ORM) CreateSession(sr sessions.SessionRequest) (string, error) {
 	ret := _m.Called(sr)

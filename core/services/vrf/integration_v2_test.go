@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"math/big"
 	"strconv"
 	"strings"
@@ -738,7 +739,8 @@ func TestIntegrationVRFV2(t *testing.T) {
 	chain, err := app.ChainSet.Get(big.NewInt(1337))
 	require.NoError(t, err)
 
-	counts := vrf.GetStartingResponseCountsV2(app.GetSqlxDB(), app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
+	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -975,7 +977,7 @@ func TestFulfillmentCost(t *testing.T) {
 }
 
 func TestStartingCountsV1(t *testing.T) {
-	_, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
+	cfg, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
 	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
@@ -983,10 +985,11 @@ func TestStartingCountsV1(t *testing.T) {
 	require.NoError(t, err)
 
 	lggr := logger.TestLogger(t)
+	q := pg.NewQ(db, lggr, cfg)
 	finalityDepth := 3
-	counts := vrf.GetStartingResponseCountsV1(db, lggr, 1337, uint32(finalityDepth))
+	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	err = ks.Unlock("p4SsW0rD1!@#_")
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(1337))
@@ -1137,13 +1140,13 @@ func TestStartingCountsV1(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	counts = vrf.GetStartingResponseCountsV1(db, lggr, 1337, uint32(finalityDepth))
+	counts = vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 3, len(counts))
 	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x12)])
 
-	countsV2 := vrf.GetStartingResponseCountsV2(db, lggr, 1337, uint32(finalityDepth))
+	countsV2 := vrf.GetStartingResponseCountsV2(q, lggr, 1337, uint32(finalityDepth))
 	t.Log(countsV2)
 	assert.Equal(t, 3, len(countsV2))
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
