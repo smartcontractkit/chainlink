@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 )
 
@@ -11,7 +13,7 @@ type OCRKeyBundleResolver struct {
 }
 
 func NewOCRKeyBundleResolver(key ocrkey.KeyV2) OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{key}
+	return OCRKeyBundleResolver{key: key}
 }
 
 func (k OCRKeyBundleResolver) ID() graphql.ID {
@@ -35,7 +37,7 @@ type OCRKeyBundlesPayloadResolver struct {
 }
 
 func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadResolver {
-	return &OCRKeyBundlesPayloadResolver{keys}
+	return &OCRKeyBundlesPayloadResolver{keys: keys}
 }
 
 func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
@@ -51,11 +53,11 @@ type CreateOCRKeyBundlePayloadResolver struct {
 }
 
 func NewCreateOCRKeyBundlePayloadResolver(key ocrkey.KeyV2) *CreateOCRKeyBundlePayloadResolver {
-	return &CreateOCRKeyBundlePayloadResolver{key}
+	return &CreateOCRKeyBundlePayloadResolver{key: key}
 }
 
 func (r *CreateOCRKeyBundlePayloadResolver) Bundle() OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{r.key}
+	return OCRKeyBundleResolver{key: r.key}
 }
 
 type DeleteOCRKeyBundleSuccessResolver struct {
@@ -63,32 +65,33 @@ type DeleteOCRKeyBundleSuccessResolver struct {
 }
 
 func NewDeleteOCRKeyBundleSuccessResolver(key ocrkey.KeyV2) *DeleteOCRKeyBundleSuccessResolver {
-	return &DeleteOCRKeyBundleSuccessResolver{key}
+	return &DeleteOCRKeyBundleSuccessResolver{key: key}
 }
 
 func (r *DeleteOCRKeyBundleSuccessResolver) Bundle() OCRKeyBundleResolver {
-	return OCRKeyBundleResolver{r.key}
+	return OCRKeyBundleResolver{key: r.key}
 }
 
 type DeleteOCRKeyBundlePayloadResolver struct {
 	key ocrkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteOCRKeyBundlePayloadResolver(key ocrkey.KeyV2, err error) *DeleteOCRKeyBundlePayloadResolver {
-	return &DeleteOCRKeyBundlePayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.As(err, &keystore.KeyNotFoundError{})
+		}}
+	}
+
+	return &DeleteOCRKeyBundlePayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteOCRKeyBundlePayloadResolver) ToDeleteOCRKeyBundleSuccess() (*DeleteOCRKeyBundleSuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteOCRKeyBundleSuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteOCRKeyBundlePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

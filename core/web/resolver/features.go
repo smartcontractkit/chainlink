@@ -7,7 +7,7 @@ type FeaturesResolver struct {
 }
 
 func NewFeaturesResolver(cfg config.GeneralConfig) *FeaturesResolver {
-	return &FeaturesResolver{cfg}
+	return &FeaturesResolver{cfg: cfg}
 }
 
 // CSA resolves to whether CSA Keys are enabled
@@ -25,7 +25,7 @@ type FeaturesPayloadResolver struct {
 }
 
 func NewFeaturesPayloadResolver(cfg config.GeneralConfig) *FeaturesPayloadResolver {
-	return &FeaturesPayloadResolver{cfg}
+	return &FeaturesPayloadResolver{cfg: cfg}
 }
 
 func (r *FeaturesPayloadResolver) ToFeatures() (*FeaturesResolver, bool) {

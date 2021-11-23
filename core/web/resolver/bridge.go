@@ -1,10 +1,7 @@
 package resolver
 
 import (
-	"database/sql"
-
 	"github.com/graph-gophers/graphql-go"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 )
@@ -65,29 +62,19 @@ func (r *BridgeResolver) CreatedAt() graphql.Time {
 // BridgePayloadResolver resolves a single bridge response
 type BridgePayloadResolver struct {
 	bridge bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewBridgePayload(bridge bridges.BridgeType, err error) *BridgePayloadResolver {
-	return &BridgePayloadResolver{
-		bridge: bridge,
-		err:    err,
-	}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &BridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 // ToBridge implements the Bridge union type of the payload
 func (r *BridgePayloadResolver) ToBridge() (*BridgeResolver, bool) {
 	if r.err == nil {
 		return NewBridge(r.bridge), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *BridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("bridge not found"), true
 	}
 
 	return nil, false
@@ -157,27 +144,18 @@ func (r *CreateBridgeSuccessResolver) IncomingToken() string {
 
 type UpdateBridgePayloadResolver struct {
 	bridge *bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewUpdateBridgePayload(bridge *bridges.BridgeType, err error) *UpdateBridgePayloadResolver {
-	return &UpdateBridgePayloadResolver{
-		bridge: bridge,
-		err:    err,
-	}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &UpdateBridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 func (r *UpdateBridgePayloadResolver) ToUpdateBridgeSuccess() (*UpdateBridgeSuccessResolver, bool) {
 	if r.bridge != nil {
 		return NewUpdateBridgeSuccess(*r.bridge), true
-	}
-
-	return nil, false
-}
-
-func (r *UpdateBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError("bridge not found"), true
 	}
 
 	return nil, false
@@ -203,11 +181,13 @@ func (r *UpdateBridgeSuccessResolver) Bridge() *BridgeResolver {
 
 type DeleteBridgePayloadResolver struct {
 	bridge *bridges.BridgeType
-	err    error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteBridgePayload(bridge *bridges.BridgeType, err error) *DeleteBridgePayloadResolver {
-	return &DeleteBridgePayloadResolver{bridge, err}
+	e := NotFoundErrorUnionType{err: err, message: "bridge not found"}
+
+	return &DeleteBridgePayloadResolver{bridge: bridge, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteBridgePayloadResolver) ToDeleteBridgeSuccess() (*DeleteBridgeSuccessResolver, bool) {
@@ -234,20 +214,12 @@ func (r *DeleteBridgePayloadResolver) ToDeleteBridgeInvalidNameError() (*DeleteB
 	return nil, false
 }
 
-func (r *DeleteBridgePayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("bridge not found"), true
-	}
-
-	return nil, false
-}
-
 type DeleteBridgeSuccessResolver struct {
 	bridge *bridges.BridgeType
 }
 
 func NewDeleteBridgeSuccess(bridge *bridges.BridgeType) *DeleteBridgeSuccessResolver {
-	return &DeleteBridgeSuccessResolver{bridge}
+	return &DeleteBridgeSuccessResolver{bridge: bridge}
 }
 
 func (r *DeleteBridgeSuccessResolver) Bridge() *BridgeResolver {
@@ -259,7 +231,7 @@ type DeleteBridgeConflictErrorResolver struct {
 }
 
 func NewDeleteBridgeConflictError(message string) *DeleteBridgeConflictErrorResolver {
-	return &DeleteBridgeConflictErrorResolver{message}
+	return &DeleteBridgeConflictErrorResolver{message: message}
 }
 
 func (r *DeleteBridgeConflictErrorResolver) Message() string {
@@ -275,7 +247,7 @@ type DeleteBridgeInvalidNameErrorResolver struct {
 }
 
 func NewDeleteBridgeInvalidNameError(message string) *DeleteBridgeInvalidNameErrorResolver {
-	return &DeleteBridgeInvalidNameErrorResolver{message}
+	return &DeleteBridgeInvalidNameErrorResolver{message: message}
 }
 
 func (r *DeleteBridgeInvalidNameErrorResolver) Message() string {
