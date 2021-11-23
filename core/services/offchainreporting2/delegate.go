@@ -1,7 +1,6 @@
 package offchainreporting2
 
 import (
-	"math/big"
 	"strings"
 	"time"
 
@@ -250,6 +249,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		)
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
+		juelsPerFeeCoinPipelineSpec := pipeline.Spec{
+			ID:           jobSpec.ID,
+			DotDagSource: jobSpec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline,
+			CreatedAt:    time.Now(),
+		}
 		numericalMedianFactory := median.NumericalMedianFactory{
 			ContractTransmitter: contractTransmitter,
 			DataSource: ocrcommon.NewDataSourceV2(d.pipelineRunner,
@@ -258,9 +262,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				loggerWith,
 				runResults,
 			),
-			// TODO: Need to include juels/eth data source in ocr2 spec
-			// Mocking for now at current rates of 0.007e18 juels per unit eth
-			JuelsPerFeeCoinDataSource: NewMockJuelsEthDatasource(big.NewInt(7e15)),
+			JuelsPerFeeCoinDataSource: NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
 			ReportCodec:               evmreportcodec.ReportCodec{},
 			Logger:                    ocrLogger,
 		}
