@@ -34,7 +34,7 @@ type inMemoryDataSource struct {
 // dataSource uses inMemoryDataSource and implements capturing the result to be stored in the DB
 type dataSource struct {
 	inMemoryDataSource
-	runResults     chan<- pipeline.Run
+	runResults chan<- pipeline.Run
 }
 
 // dataSourceV2 implements dataSource with the proper Observe return type
@@ -54,7 +54,7 @@ func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogg
 			spec:           spec,
 			ocrLogger:      ocrLogger,
 		},
-		runResults:     runResults,
+		runResults: runResults,
 	}
 }
 
@@ -67,7 +67,7 @@ func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogg
 				spec:           spec,
 				ocrLogger:      ocrLogger,
 			},
-			runResults:     runResults,
+			runResults: runResults,
 		},
 	}
 }
