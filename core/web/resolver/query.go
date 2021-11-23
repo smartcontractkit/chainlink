@@ -115,13 +115,13 @@ func (r *Resolver) FeedsManager(ctx context.Context, args struct{ ID graphql.ID 
 	mgr, err := r.App.GetFeedsService().GetManager(id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return NewFeedsManagerPayload(nil), nil
+			return NewFeedsManagerPayload(nil, err), nil
 		}
 
 		return nil, err
 	}
 
-	return NewFeedsManagerPayload(mgr), nil
+	return NewFeedsManagerPayload(mgr, nil), nil
 }
 
 func (r *Resolver) FeedsManagers(ctx context.Context) (*FeedsManagersPayloadResolver, error) {
