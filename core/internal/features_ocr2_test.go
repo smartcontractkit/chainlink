@@ -138,7 +138,8 @@ func TestIntegration_OCR2(t *testing.T) {
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
 	bootstrapNodePort := uint16(19999)
-	appBootstrap, bootstrapPeerID, _, _, _ := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
+	appBootstrap, bootstrapPeerID, _, _, cfg := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
+	cfg.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 
 	var (
 		oracles      []confighelper2.OracleIdentityExtra
@@ -329,7 +330,7 @@ observationSource = """
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 20*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, 1*time.Minute, 200*time.Millisecond).Should(gomega.Equal("20"))
 
 	for _, app := range apps {
 		jobs, _, err := app.JobORM().FindJobs(0, 1000)
