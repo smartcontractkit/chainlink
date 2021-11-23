@@ -220,10 +220,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.MinIncomingConfirmations != 0 {
 		confirmations = params.MinIncomingConfirmations
 	}
-	requestedConfsDelay := 0
-	if params.RequestedConfsDelay != 0 {
-		requestedConfsDelay = params.RequestedConfsDelay
-	}
 	publicKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
 	if params.PublicKey != "" {
 		publicKey = params.PublicKey
@@ -288,7 +284,7 @@ observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, requestedConfsDelay, publicKey, observationSource)
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay, publicKey, observationSource)
 	if params.FromAddress != "" {
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
@@ -300,7 +296,7 @@ observationSource = """
 		MinIncomingConfirmations: confirmations,
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
-		RequestedConfsDelay:      requestedConfsDelay,
+		RequestedConfsDelay:      params.RequestedConfsDelay,
 	}, toml: toml}
 }
 
