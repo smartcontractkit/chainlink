@@ -9,6 +9,8 @@ import {
   JobProposalsCard,
   FEEDS_MANAGER__JOB_PROPOSAL_FIELDS,
 } from './JobProposalsCard'
+import { Heading1 } from 'src/components/Heading/Heading1'
+import { Heading2 } from 'src/components/Heading/Heading2'
 
 export const FEEDS_MANAGERS_PAYLOAD__RESULTS_FIELDS = gql`
   ${FEEDS_MANAGER_FIELDS}
@@ -28,11 +30,18 @@ interface Props {
 export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
   return (
     <Grid container>
-      <Grid item xs={12} lg={8}>
-        <JobProposalsCard proposals={manager.jobProposals} />
+      <Grid item xs={12}>
+        <Heading1>Feeds Manager</Heading1>
       </Grid>
-      <Grid item xs={12} lg={4}>
+      <Grid item xs={12}>
         <FeedsManagerCard manager={manager} />
+      </Grid>
+
+      <Grid item xs={12}>
+        <Heading2>Job Proposals</Heading2>
+      </Grid>
+      <Grid item xs={12}>
+        <JobProposalsCard proposals={manager.jobProposals} />
       </Grid>
     </Grid>
   )
