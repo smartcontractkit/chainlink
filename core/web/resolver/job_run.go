@@ -13,7 +13,7 @@ type JobRunResolver struct {
 }
 
 func NewJobRun(run pipeline.Run) *JobRunResolver {
-	return &JobRunResolver{run}
+	return &JobRunResolver{run: run}
 }
 
 func NewJobRuns(runs []pipeline.Run) []*JobRunResolver {

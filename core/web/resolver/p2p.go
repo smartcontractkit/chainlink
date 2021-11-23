@@ -2,7 +2,9 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 )
 
@@ -11,7 +13,7 @@ type P2PKeyResolver struct {
 }
 
 func NewP2PKeyResolver(key p2pkey.KeyV2) P2PKeyResolver {
-	return P2PKeyResolver{key}
+	return P2PKeyResolver{key: key}
 }
 
 func (k P2PKeyResolver) ID() graphql.ID {
@@ -31,7 +33,7 @@ type P2PKeysPayloadResolver struct {
 }
 
 func NewP2PKeysPayloadResolver(keys []p2pkey.KeyV2) *P2PKeysPayloadResolver {
-	return &P2PKeysPayloadResolver{keys}
+	return &P2PKeysPayloadResolver{keys: keys}
 }
 
 func (r *P2PKeysPayloadResolver) Results() []P2PKeyResolver {
@@ -47,7 +49,7 @@ type CreateP2PKeyPayloadResolver struct {
 }
 
 func NewCreateP2PKeyPayloadResolver(key p2pkey.KeyV2) *CreateP2PKeyPayloadResolver {
-	return &CreateP2PKeyPayloadResolver{key}
+	return &CreateP2PKeyPayloadResolver{key: key}
 }
 
 func (r *CreateP2PKeyPayloadResolver) Key() P2PKeyResolver {
@@ -59,7 +61,7 @@ type DeleteP2PKeySuccessResolver struct {
 }
 
 func NewDeleteP2PKeySuccessResolver(key p2pkey.KeyV2) *DeleteP2PKeySuccessResolver {
-	return &DeleteP2PKeySuccessResolver{key}
+	return &DeleteP2PKeySuccessResolver{key: key}
 }
 
 func (r *DeleteP2PKeySuccessResolver) Key() P2PKeyResolver {
@@ -68,23 +70,24 @@ func (r *DeleteP2PKeySuccessResolver) Key() P2PKeyResolver {
 
 type DeleteP2PKeyPayloadResolver struct {
 	key p2pkey.KeyV2
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewDeleteP2PKeyPayloadResolver(key p2pkey.KeyV2, err error) *DeleteP2PKeyPayloadResolver {
-	return &DeleteP2PKeyPayloadResolver{key, err}
+	var e NotFoundErrorUnionType
+
+	if err != nil {
+		e = NotFoundErrorUnionType{err: err, message: err.Error(), isExpectedErrorFn: func(err error) bool {
+			return errors.As(err, &keystore.KeyNotFoundError{})
+		}}
+	}
+
+	return &DeleteP2PKeyPayloadResolver{key: key, NotFoundErrorUnionType: e}
 }
 
 func (r *DeleteP2PKeyPayloadResolver) ToDeleteP2PKeySuccess() (*DeleteP2PKeySuccessResolver, bool) {
 	if r.err == nil {
 		return NewDeleteP2PKeySuccessResolver(r.key), true
-	}
-	return nil, false
-}
-
-func (r *DeleteP2PKeyPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil {
-		return NewNotFoundError(r.err.Error()), true
 	}
 	return nil, false
 }

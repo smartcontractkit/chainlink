@@ -24,7 +24,7 @@ type UserResolver struct {
 }
 
 func NewUser(user *sessions.User) *UserResolver {
-	return &UserResolver{user}
+	return &UserResolver{user: user}
 }
 
 // Email resolves the user's email
@@ -52,7 +52,7 @@ type UpdatePasswordPayloadResolver struct {
 }
 
 func NewUpdatePasswordPayload(user *sessions.User, inputErrs map[string]string) *UpdatePasswordPayloadResolver {
-	return &UpdatePasswordPayloadResolver{user, inputErrs}
+	return &UpdatePasswordPayloadResolver{user: user, inputErrs: inputErrs}
 }
 
 func (r *UpdatePasswordPayloadResolver) ToUpdatePasswordSuccess() (*UpdatePasswordSuccessResolver, bool) {
@@ -82,7 +82,7 @@ type UpdatePasswordSuccessResolver struct {
 }
 
 func NewUpdatePasswordSuccess(user *sessions.User) *UpdatePasswordSuccessResolver {
-	return &UpdatePasswordSuccessResolver{user}
+	return &UpdatePasswordSuccessResolver{user: user}
 }
 
 func (r *UpdatePasswordSuccessResolver) User() *UserResolver {
