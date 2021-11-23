@@ -20,6 +20,7 @@ import Title from 'components/Title'
 
 export const BRIDGES_PAYLOAD__RESULTS_FIELDS = gql`
   fragment BridgesPayload_ResultsFields on Bridge {
+    id
     name
     url
     confirmations

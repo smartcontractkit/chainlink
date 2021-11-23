@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react'
+
+import { useQuery } from '@apollo/client'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
@@ -14,6 +16,7 @@ import { fetchBridgeSpec, updateBridge } from 'actionCreators'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
+import { BRIDGES_QUERY } from 'src/screens/Bridges/BridgesScreen'
 
 const SuccessNotification = ({ id }) => {
   return (
@@ -24,11 +27,19 @@ const SuccessNotification = ({ id }) => {
 }
 
 export const Edit = (props) => {
+  // This is a hacky fix to refetch the page data after an edit so changes
+  // appear on the table. Once this gets moved to GQL, we can use the
+  // refetchQueries on the mutation.
+  const { refetch } = useQuery(BRIDGES_QUERY, {
+    variables: { offset: 0, limit: 10 },
+  })
+
   const { fetchBridgeSpec, match, bridge, updateBridge } = props
   useEffect(() => {
     document.title = 'Edit Bridge'
     fetchBridgeSpec(match.params.bridgeId)
   }, [fetchBridgeSpec, match])
+
   const checkLoaded = () => bridge
   const onLoad = (buildLoadedComponent) => {
     if (checkLoaded()) return buildLoadedComponent(props)
@@ -78,6 +89,7 @@ export const Edit = (props) => {
                   minimumContractPayment={bridge.minimumContractPayment}
                   onSuccess={SuccessNotification}
                   onError={ErrorMessage}
+                  refetchGQL={refetch}
                 />
               ))}
             </CardContent>
