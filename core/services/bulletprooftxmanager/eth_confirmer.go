@@ -1181,7 +1181,7 @@ func saveInsufficientEthAttempt(q pg.Queryer, lggr logger.Logger, attempt *EthTx
 }
 
 func saveAttemptWithNewState(q pg.Queryer, lggr logger.Logger, attempt EthTxAttempt, broadcastAt time.Time) error {
-	return pg.SqlxTransaction(context.Background(), q, lggr, func(tx pg.Queryer) error {
+	return pg.SqlxTransactionWithDefaultCtx(q, lggr, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error

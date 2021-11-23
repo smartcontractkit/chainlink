@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils/crypto"
@@ -37,11 +36,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
-
-func init() {
-	// AllowMockQueryerTypeInTransaction allows us to pass mocks in place of a real *sqlx.DB or *sqlx.Tx
-	pg.AllowMockQueryerTypeInTransaction = true
-}
 
 const TestSpec = `
 type              = "fluxmonitor"
