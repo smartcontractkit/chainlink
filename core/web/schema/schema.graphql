@@ -27,12 +27,14 @@ type Query {
 type Mutation {
     approveJobProposal(id: ID!): ApproveJobProposalPayload!
     cancelJobProposal(id: ID!): CancelJobProposalPayload!
+    createAPIToken(input: CreateAPITokenInput!): CreateAPITokenPayload!
     createBridge(input: CreateBridgeInput!): CreateBridgePayload!
     createCSAKey: CreateCSAKeyPayload!
     createFeedsManager(input: CreateFeedsManagerInput!): CreateFeedsManagerPayload!
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
+    deleteAPIToken(input: DeleteAPITokenInput!): DeleteAPITokenPayload!
     deleteBridge(id: ID!): DeleteBridgePayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
