@@ -880,7 +880,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
-	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
@@ -1421,7 +1421,7 @@ func TestEthBroadcaster_GetNextNonce(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	keyState, _ := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
-	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 	nonce, err := bulletprooftxmanager.GetNextNonce(q, keyState.Address.Address(), &cltest.FixtureChainID)
 	assert.NoError(t, err)
 	require.NotNil(t, nonce)

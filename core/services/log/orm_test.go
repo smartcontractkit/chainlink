@@ -19,7 +19,7 @@ import (
 func TestORM_broadcasts(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	lggr := logger.NewNullLogger()
+	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
@@ -83,7 +83,7 @@ func TestORM_broadcasts(t *testing.T) {
 func TestORM_pending(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
-	lggr := logger.NewNullLogger()
+	lggr := logger.TestLogger(t)
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock()
@@ -157,7 +157,7 @@ func TestORM_Reinitialize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			cfg := cltest.NewTestGeneralConfig(t)
-			lggr := logger.NewNullLogger()
+			lggr := logger.TestLogger(t)
 			orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID

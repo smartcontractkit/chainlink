@@ -2,11 +2,11 @@ package webhook_test
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 
 	uuid "github.com/satori/go.uuid"

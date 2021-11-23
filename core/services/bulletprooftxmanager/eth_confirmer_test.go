@@ -927,7 +927,7 @@ func TestEthConfirmer_FindEthTxsRequiringResubmissionDueToInsufficientEth(t *tes
 	db := pgtest.NewSqlxDB(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
-	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
@@ -989,7 +989,7 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
-	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 

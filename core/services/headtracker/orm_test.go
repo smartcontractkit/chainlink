@@ -16,7 +16,7 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	logger := logger.NewNullLogger()
+	logger := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	orm := headtracker.NewORM(db, logger, cfg, cltest.FixtureChainID)
 

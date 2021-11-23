@@ -41,7 +41,7 @@ func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	lggr := logger.NewNullLogger()
+	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 	orm := feeds.NewORM(db, lggr, cfg)
 

@@ -35,7 +35,7 @@ import (
 func newRunner(t testing.TB, db *sqlx.DB, cfg *configtest.TestGeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg})
 	orm := new(mocks.ORM)
-	q := pg.NewQ(db, logger.NewNullLogger(), cfg)
+	q := pg.NewQ(db, logger.TestLogger(t), cfg)
 
 	orm.On("GetQ").Return(q)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
@@ -375,7 +375,7 @@ func Test_PipelineRunner_HandleFaults(t *testing.T) {
 	// and so we can still obtain a median.
 	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	q := pg.NewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 	orm.On("GetQ").Return(q)
 	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
@@ -424,7 +424,7 @@ answer1 [type=median                      index=0];
 func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := new(mocks.ORM)
-	q := pg.NewQ(db, logger.NewNullLogger(), cltest.NewTestGeneralConfig(t))
+	q := pg.NewQ(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 	orm.On("GetQ").Return(q)
 	orm.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {

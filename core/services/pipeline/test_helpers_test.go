@@ -3,7 +3,6 @@ package pipeline_test
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
 

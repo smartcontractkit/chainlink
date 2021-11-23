@@ -91,10 +91,10 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient eth.Clien
 	globalConfig := cltest.NewTestGeneralConfig(t)
 	globalConfig.Overrides.LogSQL = null.BoolFrom(true)
 	config := evmtest.NewChainScopedConfig(t, globalConfig)
-	lggr := logger.NewNullLogger()
+	lggr := logger.TestLogger(t)
 
 	orm := log.NewORM(c.db, lggr, config, cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config, logger.TestLogger(t), c.highestSeenHead)
+	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead)
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{
 		Client:         ethClient,

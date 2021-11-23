@@ -189,7 +189,7 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	lggr := logger.NewNullLogger()
+	lggr := logger.TestLogger(t)
 	cfg := cltest.NewTestGeneralConfig(t)
 
 	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)

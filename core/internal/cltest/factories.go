@@ -467,7 +467,7 @@ func MustGenerateRandomKeyState(t testing.TB) ethkey.State {
 
 func MustInsertHead(t *testing.T, db *sqlx.DB, cfg pg.LogConfig, number int64) eth.Head {
 	h := eth.NewHead(big.NewInt(number), utils.NewHash(), utils.NewHash(), 0, utils.NewBig(&FixtureChainID))
-	horm := headtracker.NewORM(db, logger.NewNullLogger(), cfg, FixtureChainID)
+	horm := headtracker.NewORM(db, logger.TestLogger(t), cfg, FixtureChainID)
 
 	err := horm.IdempotentInsertHead(context.Background(), &h)
 	require.NoError(t, err)
