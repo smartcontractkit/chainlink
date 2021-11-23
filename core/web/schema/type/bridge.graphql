@@ -1,4 +1,5 @@
 type Bridge {
+    id: ID!
     name: String!
     url: String!
     confirmations: Int!
