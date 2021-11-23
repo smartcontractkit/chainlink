@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -37,12 +38,12 @@ type ORM interface {
 var _ ORM = &orm{}
 
 type orm struct {
-	db *sqlx.DB
+	q pg.Q
 }
 
-func NewORM(db *sqlx.DB) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) *orm {
 	return &orm{
-		db: db,
+		q: pg.NewQ(db, lggr, cfg),
 	}
 }
 
@@ -53,7 +54,7 @@ INSERT INTO feeds_managers (name, uri, public_key, job_types, is_ocr_bootstrap_p
 VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW())
 RETURNING id;
 `
-	err = pg.NewQ(o.db).Get(&id, stmt,
+	err = o.q.Get(&id, stmt,
 		ms.Name, ms.URI, ms.PublicKey, ms.JobTypes, ms.IsOCRBootstrapPeer, ms.OCRBootstrapPeerMultiaddr,
 	)
 	if err != nil {
@@ -69,7 +70,7 @@ SELECT id, name, uri, public_key, job_types, is_ocr_bootstrap_peer, ocr_bootstra
 FROM feeds_managers;
 `
 
-	err = pg.NewQ(o.db).Select(&mgrs, stmt)
+	err = o.q.Select(&mgrs, stmt)
 	return mgrs, errors.Wrap(err, "ListManagers failed")
 }
 
@@ -82,7 +83,7 @@ WHERE id = $1
 `
 
 	mgr = new(FeedsManager)
-	err = pg.NewQ(o.db).Get(mgr, stmt, id)
+	err = o.q.Get(mgr, stmt, id)
 	return mgr, errors.Wrap(err, "GetManager failed")
 }
 
@@ -95,7 +96,7 @@ WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
 	mgrIds := pq.Array(ids)
-	err = pg.NewQ(o.db).Select(&managers, stmt, mgrIds)
+	err = o.q.Select(&managers, stmt, mgrIds)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }
@@ -107,7 +108,7 @@ SET name = $1, uri = $2, public_key = $3, job_types = $4, is_ocr_bootstrap_peer 
 WHERE id = $7;
 `
 
-	res, err := pg.NewQ(o.db, qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, mgr.ID)
+	res, err := o.q.WithOpts(qopts...).Exec(stmt, mgr.Name, mgr.URI, mgr.PublicKey, mgr.JobTypes, mgr.IsOCRBootstrapPeer, mgr.OCRBootstrapPeerMultiaddr, mgr.ID)
 	if err != nil {
 		return errors.Wrap(err, "UpdateManager failed to update feeds_managers")
 	}
@@ -129,7 +130,7 @@ SELECT COUNT(*)
 FROM feeds_managers
 	`
 
-	err = pg.NewQ(o.db).Get(&count, stmt)
+	err = o.q.Get(&count, stmt)
 	return count, errors.Wrap(err, "CountManagers failed")
 }
 
@@ -141,7 +142,7 @@ VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), NOW())
 RETURNING id;
 `
 
-	err = pg.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
@@ -163,7 +164,7 @@ DO
 RETURNING id;
 `
 
-	err = pg.NewQ(o.db).Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -174,7 +175,7 @@ SELECT remote_uuid, id, spec, status, external_job_id, feeds_manager_id, multiad
 FROM job_proposals;
 `
 
-	err = pg.NewQ(o.db).Select(&jps, stmt)
+	err = o.q.Select(&jps, stmt)
 	return jps, errors.Wrap(err, "ListJobProposals failed")
 }
 
@@ -186,7 +187,7 @@ FROM job_proposals
 WHERE id = $1
 `
 	jp = new(JobProposal)
-	err = pg.NewQ(o.db, qopts...).Get(jp, stmt, id)
+	err = o.q.WithOpts(qopts...).Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
@@ -198,7 +199,7 @@ FROM job_proposals
 WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
-	err := pg.NewQ(o.db, qopts...).Select(&jps, stmt, ids)
+	err := o.q.WithOpts(qopts...).Select(&jps, stmt, ids)
 	return jps, errors.Wrap(err, "GetJobProposalByManagersIDs failed")
 }
 
@@ -211,7 +212,7 @@ WHERE remote_uuid = $1;
 `
 
 	jp = new(JobProposal)
-	err = pg.NewQ(o.db).Get(jp, stmt, id)
+	err = o.q.Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
 }
 
@@ -224,7 +225,7 @@ SET status = $1,
 WHERE id = $2;
 `
 
-	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, status, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, status, id)
 	if err != nil {
 		return err
 	}
@@ -249,7 +250,7 @@ SET spec = $1,
 WHERE id = $2;
 `
 
-	res, err := pg.NewQ(o.db, qopts...).Exec(stmt, spec, id)
+	res, err := o.q.WithOpts(qopts...).Exec(stmt, spec, id)
 	if err != nil {
 		return errors.Wrap(err, "UpdateJobProposalSpec failed to update job_proposals")
 	}
@@ -276,7 +277,7 @@ SET status = $1,
 WHERE id = $3;
 `
 
-	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, status, externalJobID, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, status, externalJobID, id)
 	if err != nil {
 		return err
 	}
@@ -302,7 +303,7 @@ SET status = $1,
 WHERE id = $3;
 `
 
-	result, err := pg.NewQ(o.db, qopts...).Exec(stmt, JobProposalStatusCancelled, nil, id)
+	result, err := o.q.WithOpts(qopts...).Exec(stmt, JobProposalStatusCancelled, nil, id)
 	if err != nil {
 		return err
 	}
@@ -322,7 +323,7 @@ WHERE id = $3;
 func (o *orm) CountJobProposals() (count int64, err error) {
 	stmt := `SELECT COUNT(*) FROM job_proposals`
 
-	err = pg.NewQ(o.db).Get(&count, stmt)
+	err = o.q.Get(&count, stmt)
 	return count, errors.Wrap(err, "CountJobProposals failed")
 }
 
@@ -337,6 +338,6 @@ SELECT exists (
 );
 `
 
-	err = pg.NewQ(o.db, qopts...).Get(&exists, stmt, jobID)
+	err = o.q.WithOpts(qopts...).Get(&exists, stmt, jobID)
 	return exists, errors.Wrap(err, "IsJobManaged failed")
 }

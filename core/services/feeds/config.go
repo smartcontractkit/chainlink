@@ -22,4 +22,5 @@ type Config interface {
 	OCRDatabaseTimeout() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCRObservationGracePeriod() time.Duration
+	LogSQL() bool
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/stretchr/testify/require"
@@ -14,8 +15,9 @@ func TestMasterKeystore_Unlock_Save(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	const tableName = "encrypted_key_rings"
 	reset := func() {
 		keyStore.ResetXXXTestOnly()

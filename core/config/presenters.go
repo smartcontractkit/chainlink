@@ -67,7 +67,7 @@ type EnvPrinter struct {
 	FlagsContractAddress                       string          `json:"FLAGS_CONTRACT_ADDRESS"`
 	LogLevel                                   LogLevel        `json:"LOG_LEVEL"`
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
-	LogSQLStatements                           bool            `json:"LOG_SQL"`
+	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
 	OCRBootstrapCheckInterval                  time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
@@ -150,7 +150,7 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			KeeperGasTipCapBufferPercent:          cfg.KeeperGasTipCapBufferPercent(),
 			LogLevel:                              LogLevel{Level: cfg.LogLevel()},
 			LogSQLMigrations:                      cfg.LogSQLMigrations(),
-			LogSQLStatements:                      cfg.LogSQLStatements(),
+			LogSQL:                                cfg.LogSQL(),
 			LogToDisk:                             cfg.LogToDisk(),
 			OCRBootstrapCheckInterval:             cfg.OCRBootstrapCheckInterval(),
 			OCRContractTransmitterTransmitTimeout: cfg.OCRContractTransmitterTransmitTimeout(),

@@ -54,7 +54,7 @@ type ORM interface {
 }
 
 type orm struct {
-	db          *sqlx.DB
+	q           pg.Q
 	chainSet    evm.ChainSet
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
@@ -69,13 +69,15 @@ func NewORM(
 	pipelineORM pipeline.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
 	lggr logger.Logger,
+	cfg pg.LogConfig,
 ) *orm {
+	namedLogger := lggr.Named("JobORM")
 	return &orm{
-		db:          db,
+		q:           pg.NewQ(db, namedLogger, cfg),
 		chainSet:    chainSet,
 		keyStore:    keyStore,
 		pipelineORM: pipelineORM,
-		lggr:        lggr.Named("JobORM"),
+		lggr:        namedLogger,
 	}
 }
 func (o *orm) Close() error {
@@ -86,7 +88,7 @@ func (o *orm) Close() error {
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	p := jb.Pipeline
 	for _, task := range p.Tasks {
 		if task.Type() == pipeline.TaskTypeBridge {
@@ -106,7 +108,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	}
 
 	var jobID int32
-	err := q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	err := q.Transaction(func(tx pg.Queryer) error {
 		// Autogenerate a job ID if not specified
 		if jb.ExternalJobID == (uuid.UUID{}) {
 			jb.ExternalJobID = uuid.NewV4()
@@ -237,7 +239,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 }
 
 func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	query := `INSERT INTO webhook_specs (created_at, updated_at)
 			VALUES (NOW(), NOW())
 			RETURNING *;`
@@ -245,7 +247,7 @@ func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) erro
 }
 
 func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	query := `INSERT INTO jobs (pipeline_spec_id, offchainreporting_oracle_spec_id, name, schema_version, type, max_task_duration, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, external_job_id, created_at)
 		VALUES (:pipeline_spec_id, :offchainreporting_oracle_spec_id, :name, :schema_version, :type, :max_task_duration, :direct_request_spec_id, :flux_monitor_spec_id,
@@ -256,7 +258,7 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 
 // DeleteJob removes a job
 func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	query := `
 		WITH deleted_jobs AS (
 			DELETE FROM jobs WHERE id = $1 RETURNING
@@ -307,7 +309,7 @@ func (o *orm) DeleteJob(id int32, qopts ...pg.QOpt) error {
 }
 
 func (o *orm) RecordError(jobID int32, description string, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	sql := `INSERT INTO job_spec_errors (job_id, description, occurrences, created_at, updated_at)
 	VALUES ($1, $2, 1, $3, $3)
 	ON CONFLICT (job_id, description) DO UPDATE SET
@@ -329,7 +331,7 @@ func (o *orm) TryRecordError(jobID int32, description string, qopts ...pg.QOpt) 
 }
 
 func (o *orm) DismissError(ctx context.Context, ID int32) error {
-	q := pg.NewQ(o.db, pg.WithParentCtx(ctx))
+	q := o.q.WithOpts(pg.WithParentCtx(ctx))
 	res, cancel, err := q.ExecQIter("DELETE FROM job_spec_errors WHERE id = $1", ID)
 	defer cancel()
 	if err != nil {
@@ -346,7 +348,7 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
+	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
 		sql := `SELECT count(*) FROM jobs;`
 		err = tx.QueryRowx(sql).Scan(&count)
 		if err != nil {
@@ -531,8 +533,8 @@ func (o *orm) FindJobByExternalJobID(externalJobID uuid.UUID, qopts ...pg.QOpt) 
 }
 
 func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) error {
-	q := pg.NewQ(o.db, qopts...)
-	err := q.Transaction(o.lggr, func(tx pg.Queryer) error {
+	q := o.q.WithOpts(qopts...)
+	err := q.Transaction(func(tx pg.Queryer) error {
 		sql := fmt.Sprintf(`SELECT * FROM jobs WHERE %s = $1 LIMIT 1`, col)
 		err := tx.Get(jb, sql, arg)
 		if err != nil {
@@ -552,7 +554,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
+	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
 		query := `SELECT jobs.id, dot_dag_source FROM jobs JOIN pipeline_specs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
 		var rows *sqlx.Rows
 		rows, err = tx.Queryx(query, name)
@@ -593,7 +595,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
 func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
+	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
 		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
 
@@ -612,7 +614,7 @@ func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err e
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.db, o.lggr, func(tx pg.Queryer) error {
+	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
 		var args []interface{}
 		var where string
 		if jobID != nil {
@@ -656,7 +658,7 @@ func (o *orm) loadPipelineRunsRelations(runs []pipeline.Run, tx pg.Queryer) ([]p
 	}
 	stmt := `SELECT pipeline_specs.*, jobs.id AS job_id FROM pipeline_specs JOIN jobs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE pipeline_specs.id = ANY($1);`
 	var specs []pipeline.Spec
-	if err := o.db.Select(&specs, stmt, specIDs); err != nil {
+	if err := o.q.Select(&specs, stmt, specIDs); err != nil {
 		return nil, errors.Wrap(err, "error loading specs")
 	}
 	for _, spec := range specs {

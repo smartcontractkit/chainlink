@@ -2513,8 +2513,8 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 	return r0
 }
 
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLMigrations() bool {
+// LogSQL provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogSQL() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2527,8 +2527,8 @@ func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	return r0
 }
 
-// LogSQLStatements provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLStatements() bool {
+// LogSQLMigrations provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3420,18 +3420,9 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQLStatements provides a mock function with given fields: logSQLStatements
-func (_m *ChainScopedConfig) SetLogSQLStatements(logSQLStatements bool) error {
-	ret := _m.Called(logSQLStatements)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(bool) error); ok {
-		r0 = rf(logSQLStatements)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// SetLogSQL provides a mock function with given fields: logSQL
+func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
+	_m.Called(logSQL)
 }
 
 // StatsPusherLogging provides a mock function with given fields:

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -65,10 +66,18 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 	require.NoError(t, err)
 }
 
+// cannot import cltest, because of circular imports
+type config struct{}
+
+func (c *config) LogSQL() bool {
+	return false
+}
+
 func TestMaybeSubtractReservedLink(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	q := pg.NewQ(db, lggr, &config{})
+	ks := keystore.New(db, utils.FastScryptParams, lggr, &config{})
 	require.NoError(t, ks.Unlock("blah"))
 	chainID := uint64(1337)
 	k, err := ks.Eth().Create(big.NewInt(int64(chainID)))
@@ -78,19 +87,19 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 
 	// Insert an unstarted eth tx with link metadata
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err := MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err := MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// A confirmed tx should not affect the starting balance
 	addConfirmedEthTx(t, db, k.Address.Address(), "10000", subID, 1)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "90000", start.String())
 
 	// An unconfirmed tx _should_ affect the starting balance.
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	assert.Equal(t, "80000", start.String())
 
@@ -98,7 +107,7 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 	otherSubID := uint64(2)
 	require.NoError(t, err)
 	addEthTx(t, db, k.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", otherSubID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
@@ -108,14 +117,14 @@ func TestMaybeSubtractReservedLink(t *testing.T) {
 
 	anotherSubID := uint64(3)
 	addEthTx(t, db, k2.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", anotherSubID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, k.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "80000", start.String())
 
 	// A subscriber's balance is deducted with the link reserved across multiple keys,
 	// i.e, gas lanes.
 	addEthTx(t, db, k2.Address.Address(), bulletprooftxmanager.EthTxUnstarted, "10000", subID)
-	start, err = MaybeSubtractReservedLink(lggr, db, k2.Address.Address(), big.NewInt(100_000), chainID, subID)
+	start, err = MaybeSubtractReservedLink(lggr, q, k2.Address.Address(), big.NewInt(100_000), chainID, subID)
 	require.NoError(t, err)
 	require.Equal(t, "70000", start.String())
 }

@@ -122,7 +122,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 			// create job
 			regAddrEIP55 := ethkey.EIP55AddressFromAddress(regAddr)
-			job := cltest.MustInsertKeeperJob(t, korm, nodeAddressEIP55, regAddrEIP55)
+			job := cltest.MustInsertKeeperJob(t, db, korm, nodeAddressEIP55, regAddrEIP55)
 			err = app.JobSpawner().StartService(job)
 			require.NoError(t, err)
 
