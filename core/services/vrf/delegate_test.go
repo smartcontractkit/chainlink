@@ -66,11 +66,11 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr)
+	prm := pipeline.NewORM(db, lggr, cfg)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks, lggr)
+	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
@@ -136,8 +136,8 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewSqlxDB(t)
-	c := configtest.NewTestGeneralConfig(t)
-	vuni := buildVrfUni(t, db, c)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
 
 	vd := NewDelegate(
 		db,
@@ -145,7 +145,8 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.pr,
 		vuni.prm,
 		vuni.cc,
-		logger.TestLogger(t))
+		logger.TestLogger(t),
+		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
@@ -260,9 +261,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
+			preSeed,                 // preSeed
+			utils.NewHash().Bytes(), // sender
+			utils.NewHash().Bytes(), // fee
 			reqID.Bytes()}, []byte{}, // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
@@ -309,7 +310,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID1.Bytes()},                          // requestID
+					reqID1.Bytes()}, // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
@@ -330,7 +331,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID2.Bytes()},                          // requestID
+					reqID2.Bytes()}, // requestID
 					[]byte{}),
 				Topics: []common.Hash{
 					VRFRandomnessRequestLogTopic(),
@@ -431,7 +432,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			utils.NewHash().Bytes(), // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
@@ -470,7 +471,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
-	err = vuni.prm.DB().Select(&ethTxes, `SELECT * FROM eth_txes;`)
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
@@ -499,7 +500,7 @@ func TestFulfilledCheck(t *testing.T) {
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				utils.NewHash().Bytes()}, // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{

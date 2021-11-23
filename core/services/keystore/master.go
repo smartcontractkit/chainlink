@@ -43,13 +43,13 @@ type master struct {
 	vrf *vrf
 }
 
-func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) Master {
-	return newMaster(db, scryptParams, lggr)
+func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) Master {
+	return newMaster(db, scryptParams, lggr, cfg)
 }
 
-func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger) *master {
+func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.LogConfig) *master {
 	km := &keyManager{
-		orm:          NewORM(db, lggr),
+		orm:          NewORM(db, lggr, cfg),
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
 		logger:       lggr.Named("KeyStore"),
@@ -87,7 +87,7 @@ func (ks *master) VRF() VRF {
 
 func (ks *master) IsEmpty() (bool, error) {
 	var count int64
-	err := ks.orm.db.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
+	err := ks.orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
 	if err != nil {
 		return false, err
 	}

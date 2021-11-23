@@ -7,17 +7,16 @@ import (
 	"net/http"
 
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/sqlx"
-
-	"github.com/pkg/errors"
 )
 
 //go:generate mockery --name ExternalInitiatorManager --output ./mocks/ --case=underscore
@@ -35,16 +34,19 @@ type HTTPClient interface {
 }
 
 type externalInitiatorManager struct {
-	db         *sqlx.DB
+	q          pg.Q
 	httpclient HTTPClient
-	lggr       logger.Logger
 }
 
 var _ ExternalInitiatorManager = (*externalInitiatorManager)(nil)
 
 // NewExternalInitiatorManager returns the concrete externalInitiatorManager
-func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger) *externalInitiatorManager {
-	return &externalInitiatorManager{db, httpclient, lggr.Named("ExternalInitiatorManager")}
+func NewExternalInitiatorManager(db *sqlx.DB, httpclient HTTPClient, lggr logger.Logger, cfg pg.LogConfig) *externalInitiatorManager {
+	namedLogger := lggr.Named("ExternalInitiatorManager")
+	return &externalInitiatorManager{
+		q:          pg.NewQ(db, namedLogger, cfg),
+		httpclient: httpclient,
+	}
 }
 
 // Notify sends a POST notification to the External Initiator
@@ -87,8 +89,7 @@ func (m externalInitiatorManager) Notify(webhookSpecID int32) error {
 }
 
 func (m externalInitiatorManager) Load(webhookSpecID int32) (eiWebhookSpecs []job.ExternalInitiatorWebhookSpec, jobID uuid.UUID, err error) {
-	q := pg.NewQ(m.db)
-	err = q.Transaction(m.lggr, func(tx pg.Queryer) error {
+	err = m.q.Transaction(func(tx pg.Queryer) error {
 		if err = tx.Get(&jobID, "SELECT external_job_id FROM jobs WHERE webhook_spec_id = $1", webhookSpecID); err != nil {
 			if err = errors.Wrapf(err, "failed to load job ID from job for webhook spec with ID %d", webhookSpecID); err != nil {
 				return err
@@ -165,8 +166,7 @@ func (m externalInitiatorManager) DeleteJob(webhookSpecID int32) error {
 
 func (m externalInitiatorManager) FindExternalInitiatorByName(name string) (bridges.ExternalInitiator, error) {
 	var exi bridges.ExternalInitiator
-	q := pg.NewQ(m.db)
-	err := q.Get(&exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
+	err := m.q.Get(&exi, "SELECT * FROM external_initiators WHERE lower(external_initiators.name) = lower($1)", name)
 	return exi, err
 }
 

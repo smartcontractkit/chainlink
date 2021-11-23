@@ -3,7 +3,6 @@ package pg
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/pkg/errors"
 	mapper "github.com/scylladb/go-reflectx"
@@ -11,9 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/sqlx"
 )
-
-// AllowMockQueryerTypeInTransaction can be set by tests to allow a mock to be passed as a Queryer
-var AllowMockQueryerTypeInTransaction bool
 
 //go:generate mockery --name Queryer --output ./mocks/ --case=underscore
 type Queryer interface {
@@ -52,13 +48,10 @@ func SqlxTransaction(ctx context.Context, q Queryer, lggr logger.Logger, fc func
 		err = fc(db)
 	case *sqlx.DB:
 		err = sqlxTransactionQ(ctx, db, lggr, fc, txOpts...)
+	case Q:
+		err = sqlxTransactionQ(ctx, db.db, lggr, fc, txOpts...)
 	default:
-		// Allows use of mock queryer in tests
-		if AllowMockQueryerTypeInTransaction && fmt.Sprintf("%T", db) == "*mocks.Queryer" {
-			err = fc(q)
-		} else {
-			err = errors.Errorf("invalid db type: %T", q)
-		}
+		err = errors.Errorf("invalid db type: %T", q)
 	}
 
 	return

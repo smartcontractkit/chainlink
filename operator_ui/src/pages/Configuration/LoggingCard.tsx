@@ -112,7 +112,7 @@ const LogConfigurationForm = withStyles(styles)(
             label="Log SQL Statements (debug only)"
           />
           <FormHelperText className={classes.logLevelHelperText}>
-            Override the LOG_SQL_STATEMENTS environment variable (until restart)
+            Override the LOG_SQL environment variable (until restart)
           </FormHelperText>
         </FormGroup>
 

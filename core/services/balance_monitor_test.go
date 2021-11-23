@@ -23,9 +23,11 @@ import (
 var nilBigInt *big.Int
 
 func TestBalanceMonitor_Start(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -56,7 +58,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("handles nil head", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -78,7 +80,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 	t.Run("recovers on error", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -101,9 +103,11 @@ func TestBalanceMonitor_Start(t *testing.T) {
 }
 
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -164,7 +168,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 

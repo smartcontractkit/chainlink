@@ -49,6 +49,7 @@ type Config interface {
 	P2PV2Bootstrappers() []ocrtypes.BootstrapperLocator
 	FlagsContractAddress() string
 	ChainType() chains.ChainType
+	LogSQL() bool
 }
 
 type Delegate struct {

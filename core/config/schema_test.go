@@ -122,7 +122,7 @@ func TestConfigSchema(t *testing.T) {
 		"LinkContractAddress":                        "LINK_CONTRACT_ADDRESS",
 		"LogLevel":                                   "LOG_LEVEL",
 		"LogSQLMigrations":                           "LOG_SQL_MIGRATIONS",
-		"LogSQLStatements":                           "LOG_SQL",
+		"LogSQL":                                     "LOG_SQL",
 		"LogToDisk":                                  "LOG_TO_DISK",
 		"LogUnixTS":                                  "LOG_UNIX_TS",
 		"MaximumServiceDuration":                     "MAXIMUM_SERVICE_DURATION",

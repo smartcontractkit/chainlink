@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,8 +20,8 @@ func mustNewEthKey(t *testing.T) *ethkey.KeyV2 {
 
 type ExportedEncryptedKeyRing = encryptedKeyRing
 
-func ExposedNewMaster(t *testing.T, db *sqlx.DB) *master {
-	return newMaster(db, utils.FastScryptParams, logger.TestLogger(t))
+func ExposedNewMaster(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) *master {
+	return newMaster(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 }
 
 func (m *master) ExportedSave() error {
