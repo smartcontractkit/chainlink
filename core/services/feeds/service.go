@@ -47,7 +47,7 @@ type Service interface {
 	GetManagers(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	ListJobProposals() ([]JobProposal, error)
-	GetJobProposalByManagersIDs(ids []int64) ([]JobProposal, error)
+	GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ProposeJob(jp *JobProposal) (int64, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
 	RejectJobProposal(ctx context.Context, id int64) error
@@ -272,9 +272,9 @@ func (s *service) ListJobProposals() ([]JobProposal, error) {
 	return s.orm.ListJobProposals()
 }
 
-// GetJobProposalByManagersIDs gets job proposals by feeds managers IDs
-func (s *service) GetJobProposalByManagersIDs(ids []int64) ([]JobProposal, error) {
-	return s.orm.GetJobProposalByManagersIDs(ids)
+// GetJobProposalsByManagersIDs gets job proposals by feeds managers IDs
+func (s *service) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
+	return s.orm.GetJobProposalsByManagersIDs(ids)
 }
 
 // CreateJobProposal creates a job proposal.

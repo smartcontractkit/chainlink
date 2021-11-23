@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/graph-gophers/dataloader"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -55,7 +54,7 @@ func (b *jobRunBatcher) loadByPipelineSpecIDs(_ context.Context, keys dataloader
 
 	// fill array positions without any job runs
 	for _, ix := range keyOrder {
-		results[ix] = &dataloader.Result{Data: nil, Error: errors.New("job run not found")}
+		results[ix] = &dataloader.Result{Data: []pipeline.Run{}, Error: nil}
 	}
 
 	return results

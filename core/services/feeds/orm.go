@@ -22,7 +22,7 @@ type ORM interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	CreateManager(ms *FeedsManager) (int64, error)
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
-	GetJobProposalByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
+	GetJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
 	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	GetManagers(ids []int64) ([]FeedsManager, error)
@@ -191,8 +191,8 @@ WHERE id = $1
 	return jp, errors.Wrap(err, "GetJobProposal failed")
 }
 
-// GetJobProposalByManagersIDs gets job proposals by feeds managers IDs
-func (o *orm) GetJobProposalByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
+// GetJobProposalsByManagersIDs gets job proposals by feeds managers IDs
+func (o *orm) GetJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error) {
 	stmt := `
 SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
 FROM job_proposals
@@ -200,7 +200,7 @@ WHERE feeds_manager_id = ANY($1)
 `
 	var jps []JobProposal
 	err := o.q.WithOpts(qopts...).Select(&jps, stmt, ids)
-	return jps, errors.Wrap(err, "GetJobProposalByManagersIDs failed")
+	return jps, errors.Wrap(err, "GetJobProposalsByManagersIDs failed")
 }
 
 // GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid
