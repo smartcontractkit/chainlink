@@ -6,7 +6,7 @@ schema {
 }
 
 type Query {
-    bridge(name: String!): BridgePayload!
+    bridge(id: ID!): BridgePayload!
     bridges(offset: Int, limit: Int): BridgesPayload!
     chain(id: ID!): ChainPayload!
     chains(offset: Int, limit: Int): ChainsPayload!
@@ -33,7 +33,7 @@ type Mutation {
     createNode(input: CreateNodeInput!): CreateNodePayload!
     createOCRKeyBundle: CreateOCRKeyBundlePayload!
     createP2PKey: CreateP2PKeyPayload!
-    deleteBridge(name: String!): DeleteBridgePayload!
+    deleteBridge(id: ID!): DeleteBridgePayload!
     deleteNode(id: ID!): DeleteNodePayload!
     deleteOCRKeyBundle(id: ID!): DeleteOCRKeyBundlePayload!
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
@@ -42,7 +42,7 @@ type Mutation {
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!
-    updateBridge(name: String!, input: UpdateBridgeInput!): UpdateBridgePayload!
+    updateBridge(id: ID!, input: UpdateBridgeInput!): UpdateBridgePayload!
     updateFeedsManager(id: ID!, input: UpdateFeedsManagerInput!): UpdateFeedsManagerPayload!
     updateJobProposalSpec(id: ID!, input: UpdateJobProposalSpecInput!): UpdateJobProposalSpecPayload!
     updateUserPassword(input: UpdatePasswordInput!): UpdatePasswordPayload!
