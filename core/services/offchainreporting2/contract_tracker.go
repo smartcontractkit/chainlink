@@ -252,16 +252,12 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	raw := lb.RawLog()
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
-		//t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(lb) })
-		// return
-		t.logBroadcaster.MarkConsumed(lb)
+		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
-		//t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(lb) })
-		//return
-		t.logBroadcaster.MarkConsumed(lb)
+		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 		return
 	}
 
@@ -272,9 +268,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		configSet, err = t.contractFilterer.ParseConfigSet(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
-			//t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(lb) })
-			//return
-			t.logBroadcaster.MarkConsumed(lb)
+			t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -289,9 +283,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		rr, err = t.contractFilterer.ParseRoundRequested(raw)
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
-			//t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(lb) })
-			//return
-			t.logBroadcaster.MarkConsumed(lb)
+			t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
@@ -317,10 +309,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		t.logger.Debugw("OCRContractTracker: got unrecognised log topic", "topic", topics[0])
 	}
 	if !consumed {
-		//ctx, cancel := postgres.DefaultQueryCtx()
-		//defer cancel()
-		//t.logger.ErrorIfCalling(func() error { return t.logBroadcaster.MarkConsumed(lb) })
-		t.logBroadcaster.MarkConsumed(lb)
+		t.logger.ErrorIf(t.logBroadcaster.MarkConsumed(lb), "unable to mark consumed")
 	}
 }
 

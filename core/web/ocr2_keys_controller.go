@@ -36,3 +36,21 @@ func (ocr2kc *OCR2KeysController) Create(c *gin.Context) {
 	}
 	jsonAPIResponse(c, presenters.NewOCR2KeysBundleResource(key), "offChainReportingKeyBundle")
 }
+
+// Delete an OCR key bundle
+// Example:
+// "DELETE <application>/keys/ocr/:keyID"
+func (ocrkc *OCR2KeysController) Delete(c *gin.Context) {
+	id := c.Param("keyID")
+	key, err := ocrkc.App.GetKeyStore().OCR2().Get(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusNotFound, err)
+		return
+	}
+	err = ocrkc.App.GetKeyStore().OCR2().Delete(id)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	jsonAPIResponse(c, presenters.NewOCR2KeysBundleResource(key), "offChainReportingKeyBundle")
+}

@@ -149,6 +149,24 @@ func init() {
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
+	defaultP2PPeerID, err := p2ppeer.Decode(configtest.DefaultPeerID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultP2PPeerID = p2pkey.PeerID(defaultP2PPeerID)
+	nonExistentP2PPeerID, err := p2ppeer.Decode(NonExistentPeerID)
+	if err != nil {
+		panic(err)
+	}
+	NonExistentP2PPeerID = p2pkey.PeerID(nonExistentP2PPeerID)
+	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultOCR2KeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCR2KeyBundleID)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func NewRandomInt64() int64 {

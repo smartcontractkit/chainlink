@@ -171,7 +171,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"jobID", jobSpec.ID,
 	)
 	ocrLogger := logger.NewOCRWrapper(loggerWith, true, func(msg string) {
-		d.jobORM.RecordError(jobSpec.ID, msg)
+		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
 	lc := computeLocalConfig(chain.Config(), *spec)

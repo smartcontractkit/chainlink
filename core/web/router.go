@@ -280,6 +280,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ocr2kc := OCR2KeysController{app}
 		authv2.GET("/keys/ocr2", ocr2kc.Index)
 		authv2.POST("/keys/ocr2", ocr2kc.Create)
+		authv2.DELETE("/keys/ocr2/:keyID", ocr2kc.Delete)
 
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)

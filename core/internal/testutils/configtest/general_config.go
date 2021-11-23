@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
@@ -222,10 +220,7 @@ func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
 	if c.Overrides.P2PPeerID.String() != "" {
 		return c.Overrides.P2PPeerID
 	}
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
-	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID)
-	//return ""
+	return ""
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
