@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2relay"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/services/relay/solana"
 
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
@@ -303,6 +306,23 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
+		)
+		// TODO [relay]: add job.OffchainReporting2Relay
+		relays := relay.Relays{
+			Solana: solana.NewRelay(),
+		}
+		subservices = append(subservices, relays.Solana)
+		delegates[job.OffchainReporting2Relay] = offchainreporting2relay.NewDelegate(
+			db,
+			jobORM,
+			// TODO [relay]: solana OCR2 keys, or OCR2 keys for all relays?
+			keyStore.OCR2(),
+			pipelineRunner,
+			peerWrapper,
+			monitoringEndpointGen,
+			chainSet,
+			globalLogger,
+			relays,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

@@ -23,14 +23,15 @@ import (
 )
 
 const (
-	Cron               Type = "cron"
-	DirectRequest      Type = "directrequest"
-	FluxMonitor        Type = "fluxmonitor"
-	OffchainReporting  Type = "offchainreporting"
-	OffchainReporting2 Type = "offchainreporting2"
-	Keeper             Type = "keeper"
-	VRF                Type = "vrf"
-	Webhook            Type = "webhook"
+	Cron                    Type = "cron"
+	DirectRequest           Type = "directrequest"
+	FluxMonitor             Type = "fluxmonitor"
+	OffchainReporting       Type = "offchainreporting"
+	OffchainReporting2      Type = "offchainreporting2"
+	OffchainReporting2Relay Type = "offchainreporting2-relay"
+	Keeper                  Type = "keeper"
+	VRF                     Type = "vrf"
+	Webhook                 Type = "webhook"
 )
 
 //revive:disable:redefines-builtin-id
