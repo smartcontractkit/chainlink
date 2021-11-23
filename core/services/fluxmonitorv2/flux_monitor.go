@@ -58,7 +58,7 @@ type FluxMonitor struct {
 	jobSpec           job.Job
 	spec              pipeline.Spec
 	runner            pipeline.Runner
-	db                *sqlx.DB
+	q                 pg.Q
 	orm               ORM
 	jobORM            job.ORM
 	pipelineORM       pipeline.ORM
@@ -87,7 +87,7 @@ func NewFluxMonitor(
 	pipelineRunner pipeline.Runner,
 	jobSpec job.Job,
 	spec pipeline.Spec,
-	db *sqlx.DB,
+	q pg.Q,
 	orm ORM,
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
@@ -104,7 +104,7 @@ func NewFluxMonitor(
 	fmLogger logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
-		db:                db,
+		q:                 q,
 		runner:            pipelineRunner,
 		jobSpec:           jobSpec,
 		spec:              spec,
@@ -233,7 +233,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		db,
+		pg.NewQ(db, lggr, cfg),
 		orm,
 		jobORM,
 		pipelineORM,
@@ -753,7 +753,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = pg.NewQ(fm.db).Transaction(newRoundLogger, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
@@ -976,7 +976,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
-	err = pg.NewQ(fm.db).Transaction(l, func(tx pg.Queryer) error {
+	err = fm.q.Transaction(func(tx pg.Queryer) error {
 		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}

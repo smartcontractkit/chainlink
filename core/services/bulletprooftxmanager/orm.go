@@ -7,6 +7,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
@@ -23,14 +24,16 @@ type ORM interface {
 }
 
 type orm struct {
-	db     *sqlx.DB
+	q      pg.Q
 	logger logger.Logger
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger) ORM {
-	return &orm{db, lggr.Named("BulletproofTxManagerORM")}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig) ORM {
+	namedLogger := lggr.Named("BulletproofTxManagerORM")
+	q := pg.NewQ(db, namedLogger, cfg)
+	return &orm{q, namedLogger}
 }
 
 func (o *orm) preloadTxAttempts(txs []EthTx) error {
@@ -48,8 +51,8 @@ func (o *orm) preloadTxAttempts(txs []EthTx) error {
 	if err != nil {
 		return err
 	}
-	query = o.db.Rebind(query)
-	if err = o.db.Select(&attempts, query, args...); err != nil {
+	query = o.q.Rebind(query)
+	if err = o.q.Select(&attempts, query, args...); err != nil {
 		return err
 	}
 	// fill in attempts
@@ -77,8 +80,8 @@ func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
 	if err != nil {
 		return err
 	}
-	query = o.db.Rebind(query)
-	if err = o.db.Select(&txs, query, args...); err != nil {
+	query = o.q.Rebind(query)
+	if err = o.q.Select(&txs, query, args...); err != nil {
 		return err
 	}
 	// fill in txs
@@ -96,12 +99,12 @@ func (o *orm) preloadTxes(attempts []EthTxAttempt) error {
 // limited by passed parameters. Attempts are sorted by id.
 func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count int, err error) {
 	sql := `SELECT count(*) FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts)`
-	if err = o.db.Get(&count, sql); err != nil {
+	if err = o.q.Get(&count, sql); err != nil {
 		return
 	}
 
 	sql = `SELECT * FROM eth_txes WHERE id IN (SELECT DISTINCT eth_tx_id FROM eth_tx_attempts) ORDER BY id desc LIMIT $1 OFFSET $2`
-	if err = o.db.Select(&txs, sql, limit, offset); err != nil {
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
 		return
 	}
 
@@ -112,12 +115,12 @@ func (o *orm) EthTransactionsWithAttempts(offset, limit int) (txs []EthTx, count
 // EthTxAttempts returns the last tx attempts sorted by created_at descending.
 func (o *orm) EthTxAttempts(offset, limit int) (txs []EthTxAttempt, count int, err error) {
 	sql := `SELECT count(*) FROM eth_tx_attempts`
-	if err = o.db.Get(&count, sql); err != nil {
+	if err = o.q.Get(&count, sql); err != nil {
 		return
 	}
 
 	sql = `SELECT * FROM eth_tx_attempts ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`
-	if err = o.db.Select(&txs, sql, limit, offset); err != nil {
+	if err = o.q.Select(&txs, sql, limit, offset); err != nil {
 		return
 	}
 	err = o.preloadTxes(txs)
@@ -128,7 +131,7 @@ func (o *orm) EthTxAttempts(offset, limit int) (txs []EthTxAttempt, count int, e
 func (o *orm) FindEthTxAttempt(hash common.Hash) (*EthTxAttempt, error) {
 	ethTxAttempt := EthTxAttempt{}
 	sql := `SELECT * FROM eth_tx_attempts WHERE hash = $1`
-	if err := o.db.Get(&ethTxAttempt, sql, hash); err != nil {
+	if err := o.q.Get(&ethTxAttempt, sql, hash); err != nil {
 		return nil, err
 	}
 	// reuse the preload
@@ -145,7 +148,7 @@ func (o *orm) InsertEthTx(etx *EthTx) error {
 	const insertEthTxSQL = `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, access_list, simulate) VALUES (
 :nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :access_list, :simulate
 ) RETURNING *`
-	err := pg.NewQ(o.db).GetNamed(insertEthTxSQL, etx, etx)
+	err := o.q.GetNamed(insertEthTxSQL, etx, etx)
 	return errors.Wrap(err, "InsertEthTx failed")
 }
 
@@ -153,7 +156,7 @@ func (o *orm) InsertEthTxAttempt(attempt *EthTxAttempt) error {
 	const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 :eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 ) RETURNING *`
-	err := pg.NewQ(o.db).GetNamed(insertEthTxAttemptSQL, attempt, attempt)
+	err := o.q.GetNamed(insertEthTxAttemptSQL, attempt, attempt)
 	return errors.Wrap(err, "InsertEthTxAttempt failed")
 }
 
@@ -161,20 +164,20 @@ func (o *orm) InsertEthReceipt(receipt *EthReceipt) error {
 	const insertEthReceiptSQL = `INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at) VALUES (
 :tx_hash, :block_hash, :block_number, :transaction_index, :receipt, NOW()
 ) RETURNING *`
-	err := pg.NewQ(o.db).GetNamed(insertEthReceiptSQL, receipt, receipt)
+	err := o.q.GetNamed(insertEthReceiptSQL, receipt, receipt)
 	return errors.Wrap(err, "InsertEthReceipt failed")
 }
 
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (o *orm) FindEthTxWithAttempts(etxID int64) (etx EthTx, err error) {
-	err = pg.NewQ(o.db).Transaction(o.logger, func(q pg.Queryer) error {
-		if err = q.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		if err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
 			return errors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}
-		if err = loadEthTxAttempts(q, &etx); err != nil {
+		if err = loadEthTxAttempts(tx, &etx); err != nil {
 			return errors.Wrapf(err, "failed to load eth_tx_attempts for eth_tx with id %d", etxID)
 		}
-		if err = loadEthTxAttemptsReceipts(q, &etx); err != nil {
+		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
 			return errors.Wrapf(err, "failed to load eth_receipts for eth_tx with id %d", etxID)
 		}
 		return nil

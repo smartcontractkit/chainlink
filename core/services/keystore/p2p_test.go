@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
@@ -15,8 +16,9 @@ import (
 
 func Test_P2PKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
 
-	keyStore := keystore.ExposedNewMaster(t, db)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.P2P()
 	reset := func() {
