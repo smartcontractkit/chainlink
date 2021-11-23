@@ -3,7 +3,6 @@ package ocrcommon
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/lib/pq"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -29,7 +28,6 @@ func NewDiscovererDatabase(db *sql.DB, peerID p2ppeer.ID) *DiscovererDatabase {
 // StoreAnnouncement has key-value-store semantics and stores a peerID (key) and an associated serialized
 // announcement (value).
 func (d *DiscovererDatabase) StoreAnnouncement(ctx context.Context, peerID string, ann []byte) error {
-	fmt.Println("STORING ANNOUNCEMENT", peerID, ann)
 	_, err := d.db.ExecContext(ctx, `
 INSERT INTO offchainreporting_discoverer_announcements (local_peer_id, remote_peer_id, ann, created_at, updated_at)
 VALUES ($1,$2,$3,NOW(),NOW()) ON CONFLICT (local_peer_id, remote_peer_id) DO UPDATE SET 
@@ -42,7 +40,6 @@ updated_at = EXCLUDED.updated_at
 // ReadAnnouncements returns one serialized announcement (if available) for each of the peerIDs in the form of a map
 // keyed by each announcement's corresponding peer ID.
 func (d *DiscovererDatabase) ReadAnnouncements(ctx context.Context, peerIDs []string) (map[string][]byte, error) {
-	fmt.Println("READING ANNOUNCEMENT", peerIDs)
 	rows, err := d.db.QueryContext(ctx, `
 SELECT remote_peer_id, ann FROM offchainreporting_discoverer_announcements WHERE remote_peer_id = ANY($1) AND local_peer_id = $2`, pq.Array(peerIDs), d.peerID)
 	if err != nil {

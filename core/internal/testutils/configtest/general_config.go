@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
@@ -31,6 +33,7 @@ const (
 	// RootDir the root directory for test
 	RootDir                    = "/tmp/chainlink_test"
 	HeadSamplingIntervalInTest = 0 * time.Millisecond
+	DefaultPeerID              = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 )
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
@@ -107,6 +110,7 @@ type GeneralConfigOverrides struct {
 	P2PV2AnnounceAddresses                    []string
 	P2PV2Bootstrappers                        []ocrcommontypes.BootstrapperLocator
 	P2PV2DeltaDial                            *time.Duration
+	P2PV2DeltaReconcile                       *time.Duration
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -127,6 +131,9 @@ func (o *GeneralConfigOverrides) SetDefaultHTTPTimeout(d time.Duration) {
 }
 func (o *GeneralConfigOverrides) SetP2PV2DeltaDial(d time.Duration) {
 	o.P2PV2DeltaDial = &d
+}
+func (o *GeneralConfigOverrides) SetP2PV2DeltaReconcile(d time.Duration) {
+	o.P2PV2DeltaReconcile = &d
 }
 
 // TestGeneralConfig defaults to whatever config.NewGeneralConfig()
@@ -215,7 +222,10 @@ func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
 	if c.Overrides.P2PPeerID.String() != "" {
 		return c.Overrides.P2PPeerID
 	}
-	return ""
+	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
+	require.NoError(c.t, err)
+	return p2pkey.PeerID(defaultP2PPeerID)
+	//return ""
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
@@ -410,7 +420,10 @@ func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
 }
 
 func (c *TestGeneralConfig) P2PV2DeltaReconcile() models.Duration {
-	return models.MustMakeDuration(5 * time.Second)
+	if c.Overrides.P2PV2DeltaReconcile != nil {
+		return models.MustMakeDuration(*c.Overrides.P2PV2DeltaReconcile)
+	}
+	return c.GeneralConfig.P2PV2DeltaReconcile()
 }
 
 func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {

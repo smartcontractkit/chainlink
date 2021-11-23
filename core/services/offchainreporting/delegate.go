@@ -214,13 +214,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
-			Datasource: &dataSource{
-				pipelineRunner: d.pipelineRunner,
-				ocrLogger:      loggerWith,
-				jobSpec:        jobSpec,
-				spec:           *jobSpec.PipelineSpec,
-				runResults:     runResults,
-			},
+			Datasource: ocrcommon.NewDataSourceV1(
+				d.pipelineRunner,
+				jobSpec,
+				*jobSpec.PipelineSpec,
+				loggerWith,
+				runResults,
+			),
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,

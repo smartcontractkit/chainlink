@@ -58,7 +58,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", p2pkey.PeerID(peerID)))
+		require.Contains(t, pw.Start().Error(), fmt.Sprintf("multiple p2p keys found but none matched the given P2P_PEER_ID of"))
 	})
 
 	var k2 p2pkey.KeyV2
@@ -85,6 +85,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, logger.TestLogger(t))
 
-		require.Contains(t, pw.Start().Error(), fmt.Sprintf("unable to find P2P key with id %s", p2pkey.PeerID(peerID)))
+		require.Contains(t, pw.Start().Error(), fmt.Sprintf("multiple p2p keys found but none matched the given P2P_PEER_ID"))
 	})
 }

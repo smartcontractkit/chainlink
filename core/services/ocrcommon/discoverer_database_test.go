@@ -15,9 +15,6 @@ import (
 func Test_DiscovererDatabase(t *testing.T) {
 	db := pgtest.NewSqlDB(t)
 
-	_, err := db.Exec(`SET CONSTRAINTS offchainreporting_discoverer_announcements_local_peer_id_fkey DEFERRED`)
-	require.NoError(t, err)
-
 	localPeerID1 := cltest.MustRandomP2PPeerID(t)
 	localPeerID2 := cltest.MustRandomP2PPeerID(t)
 

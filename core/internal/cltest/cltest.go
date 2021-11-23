@@ -967,7 +967,6 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 				matched = append(matched, pr)
 			}
 		}
-		fmt.Println("Num runs", len(prs))
 		if len(matched) >= expectedPipelineRuns {
 			pr = matched
 			return true

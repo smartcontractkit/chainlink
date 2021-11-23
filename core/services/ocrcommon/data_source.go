@@ -1,10 +1,12 @@
-package offchainreporting
+package ocrcommon
 
 import (
 	"context"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 
@@ -21,13 +23,43 @@ import (
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
 	pipelineRunner pipeline.Runner
-	jobSpec        job.Job
+	jb             job.Job
 	spec           pipeline.Spec
 	ocrLogger      logger.Logger
 	runResults     chan<- pipeline.Run
 
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
+}
+
+type dataSourceV2 struct {
+	dataSource
+}
+
+func (ds *dataSourceV2) Observe(ctx context.Context) (*big.Int, error) {
+	return ds.dataSource.Observe(ctx)
+}
+
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) ocrtypes.DataSource {
+	return &dataSource{
+		pipelineRunner: pr,
+		jb:             jb,
+		spec:           spec,
+		ocrLogger:      ocrLogger,
+		runResults:     runResults,
+	}
+}
+
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) median.DataSource {
+	return &dataSourceV2{
+		dataSource: dataSource{
+			pipelineRunner: pr,
+			jb:             jb,
+			spec:           spec,
+			ocrLogger:      ocrLogger,
+			runResults:     runResults,
+		},
+	}
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
@@ -57,10 +89,10 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
-		"jobSpec": map[string]interface{}{
-			"databaseID":    ds.jobSpec.ID,
-			"externalJobID": ds.jobSpec.ExternalJobID,
-			"name":          ds.jobSpec.Name.ValueOrZero(),
+		"jb": map[string]interface{}{
+			"databaseID":    ds.jb.ID,
+			"externalJobID": ds.jb.ExternalJobID,
+			"name":          ds.jb.Name.ValueOrZero(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta": md,

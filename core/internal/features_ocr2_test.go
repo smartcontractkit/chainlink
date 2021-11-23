@@ -156,6 +156,7 @@ func TestIntegration_OCR2(t *testing.T) {
 			}},
 		}
 		cfg.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
+		cfg.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)

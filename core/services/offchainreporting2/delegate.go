@@ -252,13 +252,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
 		numericalMedianFactory := median.NumericalMedianFactory{
 			ContractTransmitter: contractTransmitter,
-			DataSource: &dataSource{
-				pipelineRunner: d.pipelineRunner,
-				ocrLogger:      loggerWith,
-				jobSpec:        jobSpec,
-				spec:           *jobSpec.PipelineSpec,
-				runResults:     runResults,
-			},
+			DataSource: ocrcommon.NewDataSourceV2(d.pipelineRunner,
+				jobSpec,
+				*jobSpec.PipelineSpec,
+				loggerWith,
+				runResults,
+			),
 			// TODO: Need to include juels/eth data source in ocr2 spec
 			// Mocking for now at current rates of 0.007e18 juels per unit eth
 			JuelsPerFeeCoinDataSource: NewMockJuelsEthDatasource(big.NewInt(7e15)),
