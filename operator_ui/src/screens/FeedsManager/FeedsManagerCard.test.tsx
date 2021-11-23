@@ -6,8 +6,9 @@ import userEvent from '@testing-library/user-event'
 
 import { FeedsManagerCard } from './FeedsManagerCard'
 import { buildFeedsManagerFields } from 'support/factories/gql/fetchFeedsManagersWithProposals'
+import { shortenHex } from 'src/utils/shortenHex'
 
-const { queryByText } = screen
+const { getByRole, queryByText } = screen
 
 function renderComponent(manager: FeedsManagerFields) {
   renderWithRouter(
@@ -31,8 +32,8 @@ describe('FeedsManagerCard', () => {
 
     expect(queryByText(mgr.name)).toBeInTheDocument()
     expect(queryByText(mgr.uri)).toBeInTheDocument()
-    expect(queryByText(mgr.publicKey)).toBeInTheDocument()
-    expect(queryByText('FLUX_MONITOR')).toBeInTheDocument()
+    expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
+    expect(queryByText('Flux Monitor')).toBeInTheDocument()
     expect(queryByText('Disconnected')).toBeInTheDocument()
     // We should not see the multiaddr because isBootstrapPeer is false
     expect(queryByText('/dns4/blah')).toBeNull()
@@ -51,8 +52,8 @@ describe('FeedsManagerCard', () => {
 
     expect(queryByText(mgr.name)).toBeInTheDocument()
     expect(queryByText(mgr.uri)).toBeInTheDocument()
-    expect(queryByText(mgr.publicKey)).toBeInTheDocument()
-    expect(queryByText('FLUX_MONITOR')).toBeNull()
+    expect(queryByText(shortenHex(mgr.publicKey))).toBeInTheDocument()
+    expect(queryByText('Flux Monitor')).toBeNull()
     expect(queryByText('Connected')).toBeInTheDocument()
     expect(queryByText('/dns4/blah')).toBeInTheDocument()
   })
@@ -60,7 +61,7 @@ describe('FeedsManagerCard', () => {
   it('navigates to edit', () => {
     renderComponent(buildFeedsManagerFields())
 
-    userEvent.click(screen.getByTestId('edit'))
+    userEvent.click(getByRole('link', { name: /edit/i }))
 
     expect(queryByText('Redirect Success')).toBeInTheDocument()
   })

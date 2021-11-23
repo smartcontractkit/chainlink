@@ -3,7 +3,6 @@ import React from 'react'
 import { gql } from '@apollo/client'
 
 import Card from '@material-ui/core/Card'
-import CardHeader from '@material-ui/core/CardHeader'
 import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
 import Tab from '@material-ui/core/Tab'
 import Tabs from '@material-ui/core/Tabs'
@@ -15,7 +14,7 @@ import TableRow from '@material-ui/core/TableRow'
 import { TimeAgo } from 'src/components/TimeAgo'
 
 import Link from 'components/Link'
-import { SearchTextField } from 'src/components/SearchTextField'
+import { SearchTextField } from 'src/components/Search/SearchTextField'
 import { tableStyles } from 'components/Table'
 
 export const FEEDS_MANAGER__JOB_PROPOSAL_FIELDS = gql`
@@ -115,44 +114,44 @@ export const JobProposalsCard = withStyles(styles)(
       }, [tabValue, proposals, searchTerm])
 
     return (
-      <Card>
-        <CardHeader
-          title="Job Proposals"
-          action={
-            <SearchTextField value={searchTerm} onChange={setSearchTerm} />
-          }
+      <>
+        <SearchTextField
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search job proposals"
         />
+        <Card>
+          <Tabs
+            value={tabValue}
+            className={classes.tabsRoot}
+            indicatorColor="primary"
+            onChange={(_, value) => {
+              setTabValue(value)
+            }}
+          >
+            <Tab label="Pending" />
+            <Tab label="Approved" />
+            <Tab label="Rejected" />
+            <Tab label="Cancelled" />
+          </Tabs>
 
-        <Tabs
-          value={tabValue}
-          className={classes.tabsRoot}
-          indicatorColor="primary"
-          onChange={(_, value) => {
-            setTabValue(value)
-          }}
-        >
-          <Tab label="Pending" />
-          <Tab label="Approved" />
-          <Tab label="Rejected" />
-          <Tab label="Cancelled" />
-        </Tabs>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>External Job ID</TableCell>
+                <TableCell>Proposed At</TableCell>
+              </TableRow>
+            </TableHead>
 
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>External Job ID</TableCell>
-              <TableCell>Proposed At</TableCell>
-            </TableRow>
-          </TableHead>
-
-          <TableBody>
-            {filteredProposals?.map((proposal) => (
-              <JobProposalRow key={proposal.id} proposal={proposal} />
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+            <TableBody>
+              {filteredProposals?.map((proposal) => (
+                <JobProposalRow key={proposal.id} proposal={proposal} />
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </>
     )
   },
 )
