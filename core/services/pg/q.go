@@ -244,25 +244,19 @@ func (q queryFmt) String() string {
 }
 
 func (q Q) logSqlQuery(query string, args ...interface{}) {
-	if q.config == nil || q.logger == nil {
-		return
-	}
-	if q.config.LogSQL() {
+	if q.config != nil && q.config.LogSQL() {
 		q.logger.Debugf("SQL: %s", queryFmt{query, args})
 	}
 }
 
 func (q Q) withLogError(err error) error {
-	if err != nil && err != sql.ErrNoRows && q.logger != nil && q.config.LogSQL() {
+	if err != nil && err != sql.ErrNoRows && q.config != nil && q.config.LogSQL() {
 		q.logger.Errorf("SQL ERROR: %v", err)
 	}
 	return err
 }
 
 func (q Q) postSqlLog(ctx context.Context, begin time.Time) {
-	if q.logger == nil {
-		return
-	}
 	elapsed := time.Since(begin)
 	if ctx.Err() != nil {
 		q.logger.Debugf("SQL CONTEXT CANCELLED: %d ms, err=%v", elapsed.Milliseconds(), ctx.Err())
