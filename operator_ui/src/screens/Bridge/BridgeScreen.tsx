@@ -5,7 +5,6 @@ import { useDispatch } from 'react-redux'
 import { useHistory, useParams } from 'react-router-dom'
 
 import { notifySuccessMsg, notifyErrorMsg } from 'actionCreators'
-import { BRIDGES_QUERY } from '../Bridges/BridgesScreen'
 import { BridgeView, BRIDGE_PAYLOAD_FIELDS } from './BridgeView'
 import { GraphqlErrorHandler } from 'src/components/ErrorHandler/GraphqlErrorHandler'
 import { Loading } from 'src/components/Feedback/Loading'
@@ -60,18 +59,10 @@ export const BridgeScreen = () => {
 
   const { data, loading, error } = useQuery<FetchBridge, FetchBridgeVariables>(
     BRIDGE_QUERY,
-    { variables: { id }, nextFetchPolicy: 'cache-only' },
+    { variables: { id } },
   )
   const [deleteBridge] = useMutation<DeleteBridge, DeleteBridgeVariables>(
     DELETE_BRIDGE_MUTATION,
-    {
-      refetchQueries: [
-        // We have to pass in the pagination variables here because apollo uses
-        // it in the cache name. This is not great since we are hardcoding the
-        // limit, but since limits are not configurable, it's ok for now.
-        { query: BRIDGES_QUERY, variables: { offset: 0, limit: 10 } },
-      ],
-    },
   )
 
   React.useEffect(() => {
