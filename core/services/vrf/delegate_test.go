@@ -3,7 +3,6 @@ package vrf
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -25,8 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
-	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
@@ -40,7 +37,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/theodesp/go-heaps/pairing"
-	"gopkg.in/guregu/null.v4"
 )
 
 type vrfUniverse struct {
@@ -70,7 +66,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, configtest.NewTestGeneralConfig(t))
+	prm := pipeline.NewORM(db, lggr, cfg)
 	txm := new(bptxmmocks.TxManager)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
@@ -140,8 +136,8 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 	db := pgtest.NewSqlxDB(t)
-	c := configtest.NewTestGeneralConfig(t)
-	vuni := buildVrfUni(t, db, c)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
 
 	vd := NewDelegate(
 		db,
@@ -150,7 +146,7 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.prm,
 		vuni.cc,
 		logger.TestLogger(t),
-		c)
+		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
@@ -173,86 +169,6 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.txm.AssertExpectations(t)
 	})
 	return vuni, listener, jb
-}
-
-func TestStartingCounts(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	q := pg.NewQ(db, lggr, cfg)
-	counts := getStartingResponseCounts(q, lggr)
-	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
-	err := ks.Unlock("p4SsW0rD1!@#_")
-	require.NoError(t, err)
-	k, err := ks.Eth().Create(big.NewInt(0))
-	require.NoError(t, err)
-	b := time.Now()
-	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
-	m1 := bulletprooftxmanager.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x10),
-	}
-	md1, err := json.Marshal(&m1)
-	require.NoError(t, err)
-	md1_ := datatypes.JSON(md1)
-	m2 := bulletprooftxmanager.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x11),
-	}
-	md2, err := json.Marshal(&m2)
-	md2_ := datatypes.JSON(md2)
-	require.NoError(t, err)
-	var txes = []bulletprooftxmanager.EthTx{
-		{
-			Nonce:          &n1,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &datatypes.JSON{},
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n2,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md1_,
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n3,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md2_,
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n4,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md2_,
-			EncodedPayload: []byte{},
-		},
-	}
-	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate) 
-			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate);`
-	for _, tx := range txes {
-		_, err = db.NamedExec(sql, &tx)
-		require.NoError(t, err)
-	}
-	counts = getStartingResponseCounts(q, logger.TestLogger(t))
-	assert.Equal(t, 2, len(counts))
-	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
-	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 }
 
 func TestConfirmedLogExtraction(t *testing.T) {
@@ -345,9 +261,9 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: bytes.Join([][]byte{pk.MustHash().Bytes(), // key hash
-			preSeed,                  // preSeed
-			utils.NewHash().Bytes(),  // sender
-			utils.NewHash().Bytes(),  // fee
+			preSeed,                 // preSeed
+			utils.NewHash().Bytes(), // sender
+			utils.NewHash().Bytes(), // fee
 			reqID.Bytes()}, []byte{}, // requestID
 		),
 		// JobID is indexed, thats why it lives in the Topics.
@@ -394,7 +310,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID1.Bytes()},                          // requestID
+					reqID1.Bytes()}, // requestID
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
@@ -415,7 +331,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					utils.NewHash().Bytes(),                  // sender
 					utils.NewHash().Bytes(),                  // fee
-					reqID2.Bytes()},                          // requestID
+					reqID2.Bytes()}, // requestID
 					[]byte{}),
 				Topics: []common.Hash{
 					VRFRandomnessRequestLogTopic(),
@@ -516,7 +432,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
-			utils.NewHash().Bytes(),                      // key hash
+			utils.NewHash().Bytes(), // key hash
 			common.BigToHash(big.NewInt(42)).Bytes()...), // seed
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
@@ -584,7 +500,7 @@ func TestFulfilledCheck(t *testing.T) {
 				common.BigToHash(big.NewInt(42)).Bytes(), // seed
 				utils.NewHash().Bytes(),                  // sender
 				utils.NewHash().Bytes(),                  // fee
-				utils.NewHash().Bytes()},                 // requestID
+				utils.NewHash().Bytes()}, // requestID
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{

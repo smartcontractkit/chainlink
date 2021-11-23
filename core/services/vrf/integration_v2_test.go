@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"math/big"
 	"strconv"
 	"strings"
@@ -35,11 +36,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_single_consumer_example"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -733,8 +736,11 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
+	chain, err := app.ChainSet.Get(big.NewInt(1337))
+	require.NoError(t, err)
+
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config)
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger)
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -968,6 +974,184 @@ func TestFulfillmentCost(t *testing.T) {
 	// Establish very rough bounds on fulfillment cost
 	assert.Greater(t, estimate, uint64(120000))
 	assert.Less(t, estimate, uint64(500000))
+}
+
+func TestStartingCountsV1(t *testing.T) {
+	cfg, db := heavyweight.FullTestDB(t, "vrf_test_starting_counts", true, false)
+	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES (1337, NOW(), NOW())`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO heads (hash, number, parent_hash, created_at, timestamp, evm_chain_id)
+	VALUES ($1, 4, $2, NOW(), NOW(), 1337)`, utils.NewHash(), utils.NewHash())
+	require.NoError(t, err)
+
+	lggr := logger.TestLogger(t)
+	q := pg.NewQ(db, lggr, cfg)
+	finalityDepth := 3
+	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
+	assert.Equal(t, 0, len(counts))
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	err = ks.Unlock("p4SsW0rD1!@#_")
+	require.NoError(t, err)
+	k, err := ks.Eth().Create(big.NewInt(1337))
+	require.NoError(t, err)
+	b := time.Now()
+	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
+	m1 := bulletprooftxmanager.EthTxMeta{
+		RequestID: utils.PadByteToHash(0x10),
+	}
+	md1, err := json.Marshal(&m1)
+	require.NoError(t, err)
+	md1_ := datatypes.JSON(md1)
+	m2 := bulletprooftxmanager.EthTxMeta{
+		RequestID: utils.PadByteToHash(0x11),
+	}
+	md2, err := json.Marshal(&m2)
+	md2_ := datatypes.JSON(md2)
+	require.NoError(t, err)
+	chainID := utils.NewBig(big.NewInt(1337))
+	confirmedTxes := []bulletprooftxmanager.EthTx{
+		{
+			Nonce:          &n1,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           &datatypes.JSON{},
+			EncodedPayload: []byte{},
+			EVMChainID:     *chainID,
+		},
+		{
+			Nonce:          &n2,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           &md1_,
+			EncodedPayload: []byte{},
+			EVMChainID:     *chainID,
+		},
+		{
+			Nonce:          &n3,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           &md2_,
+			EncodedPayload: []byte{},
+			EVMChainID:     *chainID,
+		},
+		{
+			Nonce:          &n4,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			BroadcastAt:    &b,
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxConfirmed,
+			Meta:           &md2_,
+			EncodedPayload: []byte{},
+			EVMChainID:     *chainID,
+		},
+	}
+	// add unconfirmed txes
+	unconfirmedTxes := []bulletprooftxmanager.EthTx{}
+	for i := int64(4); i < 6; i++ {
+		md, err := json.Marshal(&bulletprooftxmanager.EthTxMeta{
+			RequestID: utils.PadByteToHash(0x12),
+		})
+		require.NoError(t, err)
+		md1 := datatypes.JSON(md)
+		newNonce := i + 1
+		unconfirmedTxes = append(unconfirmedTxes, bulletprooftxmanager.EthTx{
+			Nonce:          &newNonce,
+			FromAddress:    k.Address.Address(),
+			Error:          null.String{},
+			CreatedAt:      b,
+			State:          bulletprooftxmanager.EthTxUnconfirmed,
+			BroadcastAt:    &b,
+			Meta:           &md1,
+			EncodedPayload: []byte{},
+			EVMChainID:     *chainID,
+		})
+	}
+	txes := append(confirmedTxes, unconfirmedTxes...)
+	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
+			VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id, :simulate);`
+	for _, tx := range txes {
+		_, err = db.NamedExec(sql, &tx)
+		require.NoError(t, err)
+	}
+
+	// add eth_tx_attempts for confirmed
+	broadcastBlock := int64(1)
+	txAttempts := []bulletprooftxmanager.EthTxAttempt{}
+	for i := range confirmedTxes {
+		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
+			EthTxID:                 int64(i + 1),
+			GasPrice:                utils.NewBig(big.NewInt(100)),
+			SignedRawTx:             []byte(`blah`),
+			Hash:                    utils.NewHash(),
+			BroadcastBeforeBlockNum: &broadcastBlock,
+			State:                   bulletprooftxmanager.EthTxAttemptBroadcast,
+			CreatedAt:               time.Now(),
+			ChainSpecificGasLimit:   uint64(100),
+		})
+	}
+	// add eth_tx_attempts for unconfirmed
+	for i := range unconfirmedTxes {
+		txAttempts = append(txAttempts, bulletprooftxmanager.EthTxAttempt{
+			EthTxID:               int64(i + 1 + len(confirmedTxes)),
+			GasPrice:              utils.NewBig(big.NewInt(100)),
+			SignedRawTx:           []byte(`blah`),
+			Hash:                  utils.NewHash(),
+			State:                 bulletprooftxmanager.EthTxAttemptInProgress,
+			CreatedAt:             time.Now(),
+			ChainSpecificGasLimit: uint64(100),
+		})
+	}
+	for _, txAttempt := range txAttempts {
+		t.Log("tx attempt eth tx id: ", txAttempt.EthTxID)
+	}
+	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
+		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
+	for _, attempt := range txAttempts {
+		_, err = db.NamedExec(sql, &attempt)
+		require.NoError(t, err)
+	}
+
+	// add eth_receipts
+	receipts := []bulletprooftxmanager.EthReceipt{}
+	for i := 0; i < 4; i++ {
+		receipts = append(receipts, bulletprooftxmanager.EthReceipt{
+			BlockHash:        utils.NewHash(),
+			TxHash:           txAttempts[i].Hash,
+			BlockNumber:      broadcastBlock,
+			TransactionIndex: 1,
+			Receipt:          []byte(`{}`),
+			CreatedAt:        time.Now(),
+		})
+	}
+	sql = `INSERT INTO eth_receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
+		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
+	for _, r := range receipts {
+		_, err := db.NamedExec(sql, &r)
+		require.NoError(t, err)
+	}
+
+	counts = vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
+	assert.Equal(t, 3, len(counts))
+	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
+	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
+	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x12)])
+
+	countsV2 := vrf.GetStartingResponseCountsV2(q, lggr, 1337, uint32(finalityDepth))
+	t.Log(countsV2)
+	assert.Equal(t, 3, len(countsV2))
+	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
+	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
+	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])
 }
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
