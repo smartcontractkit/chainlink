@@ -262,7 +262,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				loggerWith,
 				runResults,
 			),
-			JuelsPerFeeCoinDataSource: NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
+			JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
 			ReportCodec:               evmreportcodec.ReportCodec{},
 			Logger:                    ocrLogger,
 		}

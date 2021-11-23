@@ -18,20 +18,26 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-// dataSource is an abstraction over the process of initiating a pipeline run
-// and capturing the result. Additionally, it converts the result to an
+// inMemoryDataSource is an abstraction over the process of initiating a pipeline run
+// and returning the result. Additionally, it converts the result to an
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
-type dataSource struct {
+type inMemoryDataSource struct {
 	pipelineRunner pipeline.Runner
 	jb             job.Job
 	spec           pipeline.Spec
 	ocrLogger      logger.Logger
-	runResults     chan<- pipeline.Run
 
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
 }
 
+// dataSource uses inMemoryDataSource and implements capturing the result to be stored in the DB
+type dataSource struct {
+	inMemoryDataSource
+	runResults     chan<- pipeline.Run
+}
+
+// dataSourceV2 implements dataSource with the proper Observe return type
 type dataSourceV2 struct {
 	dataSource
 }
@@ -42,10 +48,12 @@ func (ds *dataSourceV2) Observe(ctx context.Context) (*big.Int, error) {
 
 func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) ocrtypes.DataSource {
 	return &dataSource{
-		pipelineRunner: pr,
-		jb:             jb,
-		spec:           spec,
-		ocrLogger:      ocrLogger,
+		inMemoryDataSource: inMemoryDataSource{
+			pipelineRunner: pr,
+			jb:             jb,
+			spec:           spec,
+			ocrLogger:      ocrLogger,
+		},
 		runResults:     runResults,
 	}
 }
@@ -53,18 +61,29 @@ func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogg
 func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger, runResults chan<- pipeline.Run) median.DataSource {
 	return &dataSourceV2{
 		dataSource: dataSource{
-			pipelineRunner: pr,
-			jb:             jb,
-			spec:           spec,
-			ocrLogger:      ocrLogger,
+			inMemoryDataSource: inMemoryDataSource{
+				pipelineRunner: pr,
+				jb:             jb,
+				spec:           spec,
+				ocrLogger:      ocrLogger,
+			},
 			runResults:     runResults,
 		},
 	}
 }
 
+func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, ocrLogger logger.Logger) median.DataSource {
+	return &inMemoryDataSource{
+		pipelineRunner: pr,
+		jb:             jb,
+		spec:           spec,
+		ocrLogger:      ocrLogger,
+	}
+}
+
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
-func (ds *dataSource) updateAnswer(a *big.Int) {
+func (ds *inMemoryDataSource) updateAnswer(a *big.Int) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	ds.current = bridges.BridgeMetaData{
@@ -73,7 +92,7 @@ func (ds *dataSource) updateAnswer(a *big.Int) {
 	}
 }
 
-func (ds *dataSource) currentAnswer() (*big.Int, *big.Int) {
+func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 	ds.mu.RLock()
 	defer ds.mu.RUnlock()
 	return ds.current.LatestAnswer, ds.current.UpdatedAt
@@ -81,8 +100,7 @@ func (ds *dataSource) currentAnswer() (*big.Int, *big.Int) {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	var observation ocrtypes.Observation
+func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
 		logger.Warnw("unable to attach metadata for run", "err", err)
@@ -101,22 +119,15 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.ocrLogger)
 	if err != nil {
-		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	finalResult := trrs.FinalResult()
 
-	// Do the database write in a non-blocking fashion
-	// so we can return the observation results immediately.
-	// This is helpful in the case of a blocking API call, where
-	// we reach the passed in context deadline and we want to
-	// immediately return any result we have and do not want to have
-	// a db write block that.
-	select {
-	case ds.runResults <- run:
-	default:
-		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.spec.JobID)
-	}
+	return run, finalResult, err
+}
 
+// parse uses the finalResult into a big.Int and stores it in the bridge metadata
+func (ds *inMemoryDataSource) parse(finalResult pipeline.FinalResult) (*big.Int, error) {
 	result, err := finalResult.SingularResult()
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.spec.JobID)
@@ -132,4 +143,35 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	}
 	ds.updateAnswer(asDecimal.BigInt())
 	return asDecimal.BigInt(), nil
+}
+
+// Observe without saving to DB
+func (ds *inMemoryDataSource) Observe(ctx context.Context) (*big.Int, error) {
+	_, finalResult, err := ds.executeRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ds.parse(finalResult)
+}
+
+// Observe with saving to DB
+func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
+	run, finalResult, err := ds.inMemoryDataSource.executeRun(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Do the database write in a non-blocking fashion
+	// so we can return the observation results immediately.
+	// This is helpful in the case of a blocking API call, where
+	// we reach the passed in context deadline and we want to
+	// immediately return any result we have and do not want to have
+	// a db write block that.
+	select {
+	case ds.runResults <- run:
+	default:
+		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.inMemoryDataSource.spec.JobID)
+	}
+
+	return ds.inMemoryDataSource.parse(finalResult)
 }
