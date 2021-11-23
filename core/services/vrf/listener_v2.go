@@ -41,12 +41,16 @@ const (
 		4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
 		6685 // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
 
+	// maximum request age of requests that continuously fail to fulfill
+	// due to not enough balance in the subscription.
+	maxRequestAge = 24 * time.Hour
 )
 
 type pendingRequest struct {
 	confirmedAtBlock uint64
 	req              *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
 	lb               log.Broadcast
+	utcTimestamp     time.Time
 }
 
 type listenerV2 struct {
@@ -288,6 +292,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 
 		vrfRequest := req.req
+
+		// Check if we can ignore the request due to it's age.
+		if time.Now().UTC().Sub(req.utcTimestamp) >= maxRequestAge {
+			lsn.l.Infow("Request too old, dropping it", "reqID", vrfRequest.RequestId.String())
+			lsn.markLogAsConsumed(req.lb)
+			processed[vrfRequest.RequestId.String()] = struct{}{}
+			continue
+		}
+
 		// Check if the vrf req has already been fulfilled
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, vrfRequest.RequestId)
@@ -538,6 +551,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		confirmedAtBlock: confirmedAt,
 		req:              req,
 		lb:               lb,
+		utcTimestamp:     time.Now().UTC(),
 	})
 	lsn.reqAdded()
 	lsn.reqsMu.Unlock()

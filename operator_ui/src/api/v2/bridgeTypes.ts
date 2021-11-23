@@ -6,10 +6,6 @@ import * as models from 'core/store/models'
 // Create adds the BridgeType to the given context.
 const CREATE_ENDPOINT = '/v2/bridge_types'
 
-// Index lists Bridges, one page at a time.
-const INDEX_ENDPOINT = '/v2/bridge_types'
-type IndexRequestParams = jsonapi.PaginatedRequestParams
-
 // Show returns the details of a specific Bridge.
 const SHOW_ENDPOINT = '/v2/bridge_types/:bridgeName'
 interface ShowPathParams {
@@ -30,14 +26,6 @@ const DESTROY_ENDPOINT = '/v2/bridge_types/:bridgeName'
 
 export class BridgeTypes {
   constructor(private api: Api) {}
-
-  @boundMethod
-  public getBridges(
-    page: number,
-    size: number,
-  ): Promise<jsonapi.PaginatedApiResponse<models.BridgeType[]>> {
-    return this.index({ page, size })
-  }
 
   /**
    * Get a bridge spec
@@ -81,11 +69,6 @@ export class BridgeTypes {
     models.BridgeTypeRequest,
     models.BridgeTypeAuthentication
   >(CREATE_ENDPOINT)
-
-  private index = this.api.fetchResource<
-    IndexRequestParams,
-    models.BridgeType[]
-  >(INDEX_ENDPOINT)
 
   private show = this.api.fetchResource<{}, models.BridgeType, ShowPathParams>(
     SHOW_ENDPOINT,
