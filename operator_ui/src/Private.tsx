@@ -27,11 +27,12 @@ import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
-import { JobProposalScreen } from 'pages/JobProposal/JobProposalScreen'
 import NodesIndex from './pages/NodesIndex/NodesIndex'
 
 import { BridgesPage } from 'pages/Bridges' // Rename to lower case when completed
+
 import { FeedsManagerPage } from 'pages/feeds_manager'
+import { JobProposalsPage } from './pages/job_proposals'
 
 const styles = (theme: Theme) => {
   return {
@@ -149,16 +150,16 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
 
-              <PrivateRoute path="/job_proposals/:id">
-                <JobProposalScreen />
+              <PrivateRoute exact path="/bridges">
+                <BridgesPage />
               </PrivateRoute>
 
               <PrivateRoute path="/feeds_manager">
                 <FeedsManagerPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/bridges">
-                <BridgesPage />
+              <PrivateRoute path="/job_proposals">
+                <JobProposalsPage />
               </PrivateRoute>
 
               <PrivateRoute component={NotFound} />
