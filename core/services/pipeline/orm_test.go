@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -70,7 +71,7 @@ func setupORM(t *testing.T) (*sqlx.DB, pipeline.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := pipeline.NewORM(db, logger.TestLogger(t))
+	orm := pipeline.NewORM(db, logger.TestLogger(t), cltest.NewTestGeneralConfig(t))
 
 	return db, orm
 }

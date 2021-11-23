@@ -39,7 +39,7 @@ type (
 		jobTypeDelegates map[Type]Delegate
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
-		db               *sqlx.DB
+		q                pg.Q
 		lggr             logger.Logger
 
 		utils.StartStopOnce
@@ -69,12 +69,13 @@ type (
 var _ Spawner = (*spawner)(nil)
 
 func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate, db *sqlx.DB, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
+	namedLogger := lggr.Named("JobSpawner")
 	s := &spawner{
 		orm:                 orm,
 		config:              config,
 		jobTypeDelegates:    jobTypeDelegates,
-		db:                  db,
-		lggr:                lggr.Named("JobSpawner"),
+		q:                   pg.NewQ(db, namedLogger, config),
+		lggr:                namedLogger,
 		activeJobs:          make(map[int32]activeJob),
 		chStop:              make(chan struct{}),
 		lbDependentAwaiters: lbDependentAwaiters,
@@ -192,7 +193,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		return errors.Errorf("job type '%s' has not been registered with the job.Spawner", jb.Type)
 	}
 
-	q := pg.NewQ(js.db, qopts...)
+	q := js.q.WithOpts(qopts...)
 	if q.ParentCtx != nil {
 		ctx, cancel := utils.CombinedContext(js.chStop, q.ParentCtx)
 		defer cancel()

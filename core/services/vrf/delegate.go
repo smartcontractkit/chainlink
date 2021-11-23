@@ -5,26 +5,25 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/sqlx"
-
-	"github.com/theodesp/go-heaps/pairing"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/theodesp/go-heaps/pairing"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type Delegate struct {
-	db   *sqlx.DB
+	q    pg.Q
 	pr   pipeline.Runner
 	porm pipeline.ORM
 	ks   keystore.Master
@@ -51,9 +50,10 @@ func NewDelegate(
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
-	lggr logger.Logger) *Delegate {
+	lggr logger.Logger,
+	cfg pg.LogConfig) *Delegate {
 	return &Delegate{
-		db:   db,
+		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
@@ -106,7 +106,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
-				db:                 d.db,
+				q:                  d.q,
 				abi:                abiV2,
 				coordinator:        coordinatorV2,
 				txm:                chain.TxManager(),
@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.db, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -129,7 +129,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
-				db:              d.db,
+				q:               d.q,
 				txm:             chain.TxManager(),
 				abi:             abi,
 				coordinator:     coordinator,
@@ -144,7 +144,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.db, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -153,11 +153,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func GetStartingResponseCountsV1(db *sqlx.DB, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
+func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
 	respCounts := map[[32]byte]uint64{}
 
 	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := getRespCounts(db, chainID, evmFinalityDepth)
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
@@ -182,7 +182,7 @@ func GetStartingResponseCountsV1(db *sqlx.DB, l logger.Logger, chainID uint64, e
 }
 
 func GetStartingResponseCountsV2(
-	db *sqlx.DB,
+	q pg.Q,
 	l logger.Logger,
 	chainID uint64,
 	evmFinalityDepth uint32,
@@ -190,7 +190,7 @@ func GetStartingResponseCountsV2(
 	respCounts := map[string]uint64{}
 
 	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := getRespCounts(db, chainID, evmFinalityDepth)
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
@@ -212,7 +212,7 @@ func GetStartingResponseCountsV2(
 	return respCounts
 }
 
-func getRespCounts(db *sqlx.DB, chainID uint64, evmFinalityDepth uint32) (
+func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
 	[]struct {
 		RequestID string
 		Count     int
@@ -244,7 +244,7 @@ AND er.block_number >= (SELECT number FROM heads WHERE evm_chain_id = $1 ORDER B
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery
-	err := db.Select(&counts, query, chainID, evmFinalityDepth)
+	err := q.Select(&counts, query, chainID, evmFinalityDepth)
 	if err != nil {
 		return nil, err
 	}

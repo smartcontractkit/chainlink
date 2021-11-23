@@ -17,8 +17,9 @@ import (
 func setupORM(t *testing.T) (*sqlx.DB, bridges.ORM) {
 	t.Helper()
 
+	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t))
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	return db, orm
 }

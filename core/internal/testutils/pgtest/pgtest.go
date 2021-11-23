@@ -10,13 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-func init() {
-	pg.AllowMockQueryerTypeInTransaction = true
-}
 
 func NewSqlDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("txdb", uuid.NewV4().String())

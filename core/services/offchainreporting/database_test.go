@@ -26,7 +26,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	sqlDB := db.DB
 
 	configDigest := cltest.MakeConfigDigest(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
 
@@ -105,6 +106,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 func Test_DB_ReadWriteConfig(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db.DB
+	cfg := cltest.NewTestGeneralConfig(t)
 
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
@@ -114,7 +116,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)
 	transmitterAddress := key.Address.Address()
@@ -186,7 +188,8 @@ func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTrans
 func Test_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db.DB
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.Address)

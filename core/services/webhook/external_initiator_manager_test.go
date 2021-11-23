@@ -23,7 +23,8 @@ import (
 
 func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)
@@ -36,7 +37,7 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiBar.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiFoo.ID, webhookSpecOneEI.ID, `{"ei": "foo", "name": "webhookSpecOneEI"}`)
 
-	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, nil, logger.TestLogger(t), cfg)
 
 	eiWebhookSpecs, jobID, err := eim.Load(webhookSpecNoEIs.ID)
 	require.NoError(t, err)
@@ -58,7 +59,8 @@ func Test_ExternalInitiatorManager_Load(t *testing.T) {
 
 func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -74,7 +76,7 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
 	eim.Notify(webhookSpecNoEIs.ID)
@@ -98,7 +100,8 @@ func Test_ExternalInitiatorManager_Notify(t *testing.T) {
 
 func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiWithURL := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		URL:            cltest.MustWebURL(t, "http://example.com/foo"),
@@ -114,7 +117,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 	pgtest.MustExec(t, db, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, eiNoURL.ID, webhookSpecTwoEIs.ID, `{"ei": "bar", "name": "webhookSpecTwoEIs"}`)
 
 	client := new(webhookmocks.HTTPClient)
-	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t))
+	eim := webhook.NewExternalInitiatorManager(db, client, logger.TestLogger(t), cfg)
 
 	// Does nothing with no EI
 	eim.DeleteJob(webhookSpecNoEIs.ID)

@@ -13,10 +13,9 @@ import (
 )
 
 type Config struct {
-	Logger           logger.Logger
-	LogSQLStatements bool
-	MaxOpenConns     int
-	MaxIdleConns     int
+	Logger       logger.Logger
+	MaxOpenConns int
+	MaxIdleConns int
 }
 
 func NewConnection(uri string, dialect string, config Config) (db *sqlx.DB, err error) {
