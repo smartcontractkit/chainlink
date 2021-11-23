@@ -1,7 +1,7 @@
-import { Contract, ContractTransaction } from 'ethers'
+import { Contract, ContractTransaction, BigNumberish } from 'ethers'
 import { providers } from 'ethers'
-import { assert } from 'chai'
-import { ethers } from 'hardhat'
+import { assert, expect } from 'chai'
+import { ethers, network } from 'hardhat'
 import cbor from 'cbor'
 
 /**
@@ -234,4 +234,41 @@ export function publicAbi(contract: Contract, expectedPublic: string[]) {
     const index = actualPublic.indexOf(method)
     assert.isAtLeast(index, 0, `#${method} is expected to be public`)
   }
+}
+
+export async function assertBalance(
+  address: string,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect(await ethers.provider.getBalance(address)).equal(balance, msg)
+}
+
+export async function setTimestamp(timestamp: number) {
+  await network.provider.request({
+    method: 'evm_setNextBlockTimestamp',
+    params: [timestamp],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function fastForward(duration: number) {
+  await network.provider.request({
+    method: 'evm_increaseTime',
+    params: [duration],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function reset() {
+  await network.provider.request({
+    method: 'hardhat_reset',
+    params: [],
+  })
 }
