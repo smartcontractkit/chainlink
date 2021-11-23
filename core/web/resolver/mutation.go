@@ -171,7 +171,7 @@ type updateBridgeInput struct {
 }
 
 func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
-	Name  string
+	ID    graphql.ID
 	Input updateBridgeInput
 }) (*UpdateBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
@@ -198,7 +198,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		MinimumContractPayment: minContractPayment,
 	}
 
-	taskType, err := bridges.NewTaskType(args.Name)
+	taskType, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -364,13 +364,13 @@ func (r *Resolver) DeleteNode(ctx context.Context, args struct {
 }
 
 func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
-	Name string
+	ID graphql.ID
 }) (*DeleteBridgePayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
 
-	taskType, err := bridges.NewTaskType(args.Name)
+	taskType, err := bridges.NewTaskType(string(args.ID))
 	if err != nil {
 		return NewDeleteBridgePayload(nil, err), nil
 	}
@@ -385,7 +385,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(args.Name)
+	jobsUsingBridge, err := r.App.JobORM().FindJobIDsWithBridge(string(args.ID))
 	if err != nil {
 		return nil, err
 	}

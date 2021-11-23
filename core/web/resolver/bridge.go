@@ -27,9 +27,14 @@ func NewBridges(bridges []bridges.BridgeType) []*BridgeResolver {
 	return resolvers
 }
 
+// ID resolves the bridge's name as the id (Bridge does not have an id).
+func (r *BridgeResolver) ID() graphql.ID {
+	return graphql.ID(r.bridge.Name.String())
+}
+
 // Name resolves the bridge's name.
 func (r *BridgeResolver) Name() string {
-	return string(r.bridge.Name)
+	return r.bridge.Name.String()
 }
 
 // URL resolves the bridge's url.
