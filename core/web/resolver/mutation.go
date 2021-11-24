@@ -789,7 +789,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 	}
 
 	if args.Input.KeySpecificConfigs != nil {
-		var sCfgs map[string]types.ChainCfg
+		sCfgs := make(map[string]types.ChainCfg)
 
 		for _, cfg := range args.Input.KeySpecificConfigs {
 			if cfg != nil {
