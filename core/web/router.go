@@ -453,7 +453,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
 			"query", redact(c.Request.URL.Query()),
-			"body", readBody(rdr),
+			"body", readBody(rdr, lggr),
 			"clientIP", c.ClientIP(),
 			"errors", c.Errors.String(),
 			"servedAt", end.Format("2006-01-02 15:04:05"),
@@ -479,11 +479,11 @@ func uiCorsHandler(config WebSecurityConfig) gin.HandlerFunc {
 	return cors.New(c)
 }
 
-func readBody(reader io.Reader) string {
+func readBody(reader io.Reader, lggr logger.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {
-		logger.Warn("unable to read from body for sanitization: ", err)
+		lggr.Warn("unable to read from body for sanitization: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 
@@ -493,7 +493,7 @@ func readBody(reader io.Reader) string {
 
 	s, err := readSanitizedJSON(buf)
 	if err != nil {
-		logger.Warn("unable to sanitize json for logging: ", err)
+		lggr.Warn("unable to sanitize json for logging: ", err)
 		return "*FAILED TO READ BODY*"
 	}
 	return s
