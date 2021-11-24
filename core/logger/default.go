@@ -44,7 +44,7 @@ func InitLogger(newLogger Logger) {
 			}
 		}(helper)
 	}
-	helper = newLogger.withCallerSkip(1)
+	helper = newLogger.Helper(1)
 }
 
 // Warnw logs a debug message and any additional given information.

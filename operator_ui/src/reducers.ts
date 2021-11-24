@@ -2,7 +2,6 @@ import { useSelector, TypedUseSelectorHook } from 'react-redux'
 import { combineReducers } from 'redux'
 import accountBalances from './reducers/accountBalances'
 import authentication from './reducers/authentication'
-import bridges from './reducers/bridges'
 import configuration from './reducers/configuration'
 import fetching from './reducers/fetching'
 import notifications from './reducers/notifications'
@@ -13,7 +12,6 @@ import transactionsIndex from './reducers/transactionsIndex'
 const reducer = combineReducers({
   accountBalances,
   authentication,
-  bridges,
   configuration,
   fetching,
   notifications,
