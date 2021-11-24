@@ -14,7 +14,7 @@ type chainBatcher struct {
 	app chainlink.Application
 }
 
-func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*dataloader.Result {
+func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dataloader.Result {
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
@@ -37,7 +37,7 @@ func (b *chainBatcher) loadByIDs(ctx context.Context, keys dataloader.Keys) []*d
 	results := make([]*dataloader.Result, len(keys))
 	for _, c := range chains {
 		ix, ok := keyOrder[c.ID.String()]
-		// if found, remove from index lookup map so we know elements were found
+		// if found, remove from index lookup map, so we know elements were found
 		if ok {
 			results[ix] = &dataloader.Result{Data: c, Error: nil}
 			delete(keyOrder, c.ID.String())
