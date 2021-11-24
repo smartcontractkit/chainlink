@@ -264,9 +264,7 @@ func (fm *FluxMonitor) Start() error {
 	return fm.StartOnce("FluxMonitor", func() error {
 		fm.logger.Debug("Starting Flux Monitor for job")
 
-		go gracefulpanic.WrapRecover(func() {
-			fm.consume()
-		})
+		go fm.consume()
 
 		return nil
 	})
@@ -386,38 +384,52 @@ func (fm *FluxMonitor) consume() {
 			return
 
 		case <-fm.chProcessLogs:
-			fm.processLogs()
+			gracefulpanic.WrapRecover(fm.processLogs)
 
 		case at := <-fm.pollManager.PollTickerTicks():
 			tickLogger.Debugf("Poll ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker, nil)
+			})
 
 		case at := <-fm.pollManager.IdleTimerTicks():
 			tickLogger.Debugf("Idle timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(), nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker(), nil)
+			})
 
 		case at := <-fm.pollManager.RoundTimerTicks():
 			tickLogger.Debugf("Round timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker, nil)
+			})
 
 		case at := <-fm.pollManager.HibernationTimerTicks():
 			tickLogger.Debugf("Hibernation timer fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(), nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker(), nil)
+			})
 
 		case at := <-fm.pollManager.RetryTickerTicks():
 			tickLogger.Debugf("Retry ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker(), nil)
+			})
 
 		case at := <-fm.pollManager.DrumbeatTicks():
 			tickLogger.Debugf("Drumbeat ticker fired on %v", formatTime(at))
-			fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
+			gracefulpanic.WrapRecover(func() {
+				fm.pollIfEligible(PollRequestTypeDrumbeat, NewZeroDeviationChecker(), nil)
+			})
 
 		case request := <-fm.pollManager.Poll():
 			switch request.Type {
 			case PollRequestTypeUnknown:
 				break
 			default:
-				fm.pollIfEligible(request.Type, fm.deviationChecker, nil)
+				gracefulpanic.WrapRecover(func() {
+					fm.pollIfEligible(request.Type, fm.deviationChecker, nil)
+				})
 			}
 		}
 	}

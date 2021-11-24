@@ -297,7 +297,7 @@ func (c *evmConfig) SetEvmGasPriceDefault(value *big.Int) error {
 func (c *evmConfig) EvmFinalityDepth() uint {
 	val, ok := lookupEnv("ETH_FINALITY_DEPTH", parseUint64)
 	if ok {
-		return val.(uint)
+		return uint(val.(uint64))
 	}
 	return c.chainSpecificConfig.FinalityDepth
 }
@@ -309,7 +309,7 @@ func (c *evmConfig) EvmFinalityDepth() uint {
 func (c *evmConfig) EvmHeadTrackerHistoryDepth() uint {
 	val, ok := lookupEnv("ETH_HEAD_TRACKER_HISTORY_DEPTH", parseUint64)
 	if ok {
-		return val.(uint)
+		return uint(val.(uint64))
 	}
 	return c.chainSpecificConfig.HeadTrackerHistoryDepth
 }

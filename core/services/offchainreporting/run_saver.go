@@ -1,7 +1,6 @@
 package offchainreporting
 
 import (
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -33,7 +32,7 @@ func NewResultRunSaver(db *sqlx.DB, runResults <-chan pipeline.Run, pipelineRunn
 
 func (r *RunResultSaver) Start() error {
 	return r.StartOnce("RunResultSaver", func() error {
-		go gracefulpanic.WrapRecover(func() {
+		go func() {
 			for {
 				select {
 				case run := <-r.runResults:
@@ -48,7 +47,7 @@ func (r *RunResultSaver) Start() error {
 					return
 				}
 			}
-		})
+		}()
 		return nil
 	})
 }
