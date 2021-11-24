@@ -64,4 +64,10 @@ func TestTestLogger(t *testing.T) {
 	// [INFO]	Did some work		logger/test_logger_test.go:49    logger=TestLogger.ServiceName.WorkerName result=success workerId=42
 	requireContains("[INFO]", workerMessage, fmt.Sprintf("%s=%s", idKey, workerId),
 		fmt.Sprintf("%s=%s", resultKey, resultVal), fmt.Sprintf("logger=%s.%s.%s", testName, serviceName, workerName))
+
+	const (
+		critMsg = "Critical error"
+	)
+	lgr.Critical(critMsg)
+	requireContains("[CRIT]", critMsg, fmt.Sprintf("logger=%s", testName))
 }

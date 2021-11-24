@@ -119,9 +119,13 @@ func NewQ(db *sqlx.DB, logger logger.Logger, config LogConfig, qopts ...QOpt) (q
 		q.Queryer = db
 	}
 	q.db = db
-	q.logger = logger
+	q.logger = logger.Helper(2)
 	q.config = config
 	return
+}
+
+func (q Q) originalLogger() logger.Logger {
+	return q.logger.Helper(-2)
 }
 
 func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) error {
@@ -133,7 +137,7 @@ func PrepareQueryRowx(q Queryer, sql string, dest interface{}, arg interface{}) 
 }
 
 func (q Q) WithOpts(qopts ...QOpt) Q {
-	return NewQ(q.db, q.logger, q.config, qopts...)
+	return NewQ(q.db, q.originalLogger(), q.config, qopts...)
 }
 
 func (q Q) Context() (context.Context, context.CancelFunc) {
@@ -146,7 +150,7 @@ func (q Q) Context() (context.Context, context.CancelFunc) {
 func (q Q) Transaction(fc func(q Queryer) error, txOpts ...TxOptions) error {
 	ctx, cancel := q.Context()
 	defer cancel()
-	return SqlxTransaction(ctx, q.Queryer, q.logger, fc, txOpts...)
+	return SqlxTransaction(ctx, q.Queryer, q.originalLogger(), fc, txOpts...)
 }
 
 // CAUTION: A subtle problem lurks here, because the following code is buggy:
@@ -177,16 +181,30 @@ func (q Q) ExecQIter(query string, args ...interface{}) (sql.Result, context.Can
 	return res, cancel, q.withLogError(err)
 }
 func (q Q) ExecQ(query string, args ...interface{}) error {
-	_, cancel, err := q.ExecQIter(query, args...)
-	cancel()
-	return err
+	ctx, cancel := q.Context()
+	defer cancel()
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
+	_, err := q.Queryer.ExecContext(ctx, query, args...)
+	return q.withLogError(err)
 }
 func (q Q) ExecQNamed(query string, arg interface{}) (err error) {
 	query, args, err := q.BindNamed(query, arg)
 	if err != nil {
 		return errors.Wrap(err, "error binding arg")
 	}
-	return q.ExecQ(query, args...)
+	ctx, cancel := q.Context()
+	defer cancel()
+
+	q.logSqlQuery(query, args...)
+	begin := time.Now()
+	defer q.postSqlLog(ctx, begin)
+
+	_, err = q.Queryer.ExecContext(ctx, query, args...)
+	return q.withLogError(err)
 }
 
 // Select and Get are safe to wrap the context cancellation because the rows

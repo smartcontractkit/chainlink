@@ -25,7 +25,7 @@ func WrapRecover(lggr logger.Logger, fn func()) {
 			sentry.CurrentHub().Recover(err)
 			sentry.Flush(logger.SentryFlushDeadline)
 
-			lggr.Errorw("goroutine panicked", "panic", err, "stacktrace", string(debug.Stack()))
+			lggr.CriticalW("Recovered goroutine panic", "panic", err, "stacktrace", string(debug.Stack()))
 		}
 	}()
 	fn()
@@ -37,7 +37,7 @@ func WrapRecoverHandle(lggr logger.Logger, fn func(), onPanic func(interface{}))
 			sentry.CurrentHub().Recover(err)
 			sentry.Flush(logger.SentryFlushDeadline)
 
-			lggr.Errorw("goroutine panicked", "panic", err, "stacktrace", string(debug.Stack()))
+			lggr.CriticalW("Recovered goroutine panic", "panic", err, "stacktrace", string(debug.Stack()))
 
 			if onPanic != nil {
 				onPanic(err)
