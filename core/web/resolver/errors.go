@@ -1,5 +1,11 @@
 package resolver
 
+import (
+	"database/sql"
+
+	"github.com/pkg/errors"
+)
+
 type ErrorCode string
 
 const (
@@ -8,6 +14,31 @@ const (
 	ErrorCodeUnprocessable  ErrorCode = "UNPROCESSABLE"
 	ErrorCodeStatusConflict ErrorCode = "STATUS_CONFLICT"
 )
+
+type NotFoundErrorUnionType struct {
+	err               error
+	message           string
+	isExpectedErrorFn func(err error) bool
+}
+
+// ToNotFoundError resolves to the not found error resolver
+func (e *NotFoundErrorUnionType) ToNotFoundError() (*NotFoundErrorResolver, bool) {
+	isErrFn := isNotFoundSQLError
+
+	if e.isExpectedErrorFn != nil {
+		isErrFn = e.isExpectedErrorFn
+	}
+
+	if e.err != nil && isErrFn(e.err) {
+		return NewNotFoundError(e.message), true
+	}
+
+	return nil, false
+}
+
+func isNotFoundSQLError(err error) bool {
+	return errors.Is(err, sql.ErrNoRows)
+}
 
 type NotFoundErrorResolver struct {
 	message string

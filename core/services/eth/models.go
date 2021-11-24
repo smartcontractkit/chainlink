@@ -25,8 +25,8 @@ type Head struct {
 	Number        int64
 	L1BlockNumber null.Int64
 	ParentHash    common.Hash
-	Parent        *Head      `gorm:"-"`
-	EVMChainID    *utils.Big `gorm:"column:evm_chain_id"`
+	Parent        *Head
+	EVMChainID    *utils.Big
 	Timestamp     time.Time
 	CreatedAt     time.Time
 	BaseFeePerGas *utils.Big
@@ -44,15 +44,11 @@ func NewHead(number *big.Int, blockHash common.Hash, parentHash common.Hash, tim
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
-func (h *Head) EarliestInChain() Head {
-	for {
-		if h.Parent != nil {
-			h = h.Parent
-		} else {
-			break
-		}
+func (h *Head) EarliestInChain() *Head {
+	for h.Parent != nil {
+		h = h.Parent
 	}
-	return *h
+	return h
 }
 
 // IsInChain returns true if the given hash matches the hash of a head in the chain

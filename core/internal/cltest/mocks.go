@@ -343,7 +343,7 @@ type MockHeadTrackable struct {
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, eth.Head) {
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *eth.Head) {
 	m.onNewHeadCount.Inc()
 }
 

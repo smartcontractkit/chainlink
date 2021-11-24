@@ -3,9 +3,10 @@ package types
 import (
 	"context"
 
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"go.uber.org/zap/zapcore"
 )
 
 type Tracker interface {
@@ -21,7 +22,7 @@ type Tracker interface {
 // after being subscribed to HeadBroadcaster
 //go:generate mockery --name HeadTrackable --output ../mocks/ --case=underscore
 type HeadTrackable interface {
-	OnNewLongestChain(ctx context.Context, head eth.Head)
+	OnNewLongestChain(ctx context.Context, head *eth.Head)
 }
 
 type SubscribeFunc func(callback HeadTrackable) (unsubscribe func())

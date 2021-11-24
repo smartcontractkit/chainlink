@@ -77,7 +77,7 @@ func (hb *headBroadcaster) Close() error {
 	})
 }
 
-func (hb *headBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (hb *headBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	hb.mailbox.Deliver(head)
 }
 
@@ -125,14 +125,14 @@ func (hb *headBroadcaster) executeCallbacks() {
 		hb.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
-	head, ok := item.(eth.Head)
+	head, ok := item.(*eth.Head)
 	if !ok {
 		hb.logger.Errorf("Expected `eth.Head`, got %T", head)
 		return
 	}
 	hb.mutex.Lock()
 	callbacks := hb.callbacks.clone()
-	hb.latest = &head
+	hb.latest = head
 	hb.mutex.Unlock()
 
 	hb.logger.Debugw("Initiating callbacks",
@@ -171,9 +171,9 @@ func newID() (id callbackID, _ error) {
 
 type NullBroadcaster struct{}
 
-func (*NullBroadcaster) Start() error                                         { return nil }
-func (*NullBroadcaster) Close() error                                         { return nil }
-func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head eth.Head) {}
+func (*NullBroadcaster) Start() error                                          { return nil }
+func (*NullBroadcaster) Close() error                                          { return nil }
+func (*NullBroadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
 func (*NullBroadcaster) Subscribe(callback httypes.HeadTrackable) (currentLongestChain *eth.Head, unsubscribe func()) {
 	return nil, func() {}
 }

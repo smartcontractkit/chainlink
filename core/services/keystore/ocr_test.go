@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
@@ -13,7 +14,8 @@ import (
 
 func Test_OCRKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	keyStore := keystore.ExposedNewMaster(t, db)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.OCR()
 	reset := func() {

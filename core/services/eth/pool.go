@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/multierr"
 
@@ -27,9 +28,26 @@ type Pool struct {
 }
 
 func NewPool(logger logger.Logger, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int) *Pool {
-	return &Pool{nodes, sendonlys, chainID, atomic.Uint32{}, logger}
+	if len(nodes) == 0 {
+		panic("must provide at least one node")
+	}
+	p := &Pool{
+		nodes:     nodes,
+		sendonlys: sendonlys,
+		logger:    logger.Named("Pool"),
+	}
+	if chainID != nil {
+		p.initChainID(chainID)
+	}
+	return p
 }
 
+func (p *Pool) initChainID(chainID *big.Int) {
+	p.chainID = chainID
+	p.logger = p.logger.With("evmChainID", chainID.String())
+}
+
+// Dial dials every node in the pool and verifies their chain IDs are consistent.
 func (p *Pool) Dial(ctx context.Context) (err error) {
 	for _, n := range p.nodes {
 		err = multierr.Combine(err, n.Dial(ctx))
@@ -43,9 +61,14 @@ func (p *Pool) Dial(ctx context.Context) (err error) {
 	return p.verifyChainIDs(ctx)
 }
 
+// verifyChainIDs checks that every node's chain ID is consistent, initializing from the first node if nil.
 func (p *Pool) verifyChainIDs(ctx context.Context) (err error) {
 	if p.chainID == nil {
-		return nil
+		chainID, err2 := p.nodes[0].ChainID(ctx)
+		if err2 != nil {
+			return errors.Wrap(err, "failed to get chain ID from first node")
+		}
+		p.initChainID(chainID)
 	}
 	for _, n := range p.nodes {
 		err = multierr.Combine(err, n.Verify(ctx, p.chainID))

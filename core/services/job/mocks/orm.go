@@ -8,9 +8,9 @@ import (
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	uuid "github.com/satori/go.uuid"
 )
@@ -35,7 +35,7 @@ func (_m *ORM) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: jb, qopts
-func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
+func (_m *ORM) CreateJob(jb *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -46,7 +46,7 @@ func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*job.Job, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(*job.Job, ...pg.QOpt) error); ok {
 		r0 = rf(jb, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -56,7 +56,7 @@ func (_m *ORM) CreateJob(jb *job.Job, qopts ...postgres.QOpt) error {
 }
 
 // DeleteJob provides a mock function with given fields: id, qopts
-func (_m *ORM) DeleteJob(id int32, qopts ...postgres.QOpt) error {
+func (_m *ORM) DeleteJob(id int32, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -67,7 +67,7 @@ func (_m *ORM) DeleteJob(id int32, qopts ...postgres.QOpt) error {
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int32, ...postgres.QOpt) error); ok {
+	if rf, ok := ret.Get(0).(func(int32, ...pg.QOpt) error); ok {
 		r0 = rf(id, qopts...)
 	} else {
 		r0 = ret.Error(0)
@@ -111,20 +111,27 @@ func (_m *ORM) FindJob(ctx context.Context, id int32) (job.Job, error) {
 	return r0, r1
 }
 
-// FindJobByExternalJobID provides a mock function with given fields: ctx, _a1
-func (_m *ORM) FindJobByExternalJobID(ctx context.Context, _a1 uuid.UUID) (job.Job, error) {
-	ret := _m.Called(ctx, _a1)
+// FindJobByExternalJobID provides a mock function with given fields: _a0, qopts
+func (_m *ORM) FindJobByExternalJobID(_a0 uuid.UUID, qopts ...pg.QOpt) (job.Job, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID) job.Job); ok {
-		r0 = rf(ctx, _a1)
+	if rf, ok := ret.Get(0).(func(uuid.UUID, ...pg.QOpt) job.Job); ok {
+		r0 = rf(_a0, qopts...)
 	} else {
 		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
-		r1 = rf(ctx, _a1)
+	if rf, ok := ret.Get(1).(func(uuid.UUID, ...pg.QOpt) error); ok {
+		r1 = rf(_a0, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -206,6 +213,48 @@ func (_m *ORM) FindJobs(offset int, limit int) ([]job.Job, int, error) {
 	return r0, r1, r2
 }
 
+// InsertJob provides a mock function with given fields: _a0, qopts
+func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*job.Job, ...pg.QOpt) error); ok {
+		r0 = rf(_a0, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// InsertWebhookSpec provides a mock function with given fields: webhookSpec, qopts
+func (_m *ORM) InsertWebhookSpec(webhookSpec *job.WebhookSpec, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, webhookSpec)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*job.WebhookSpec, ...pg.QOpt) error); ok {
+		r0 = rf(webhookSpec, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // PipelineRuns provides a mock function with given fields: jobID, offset, size
 func (_m *ORM) PipelineRuns(jobID *int32, offset int, size int) ([]pipeline.Run, int, error) {
 	ret := _m.Called(jobID, offset, size)
@@ -236,7 +285,58 @@ func (_m *ORM) PipelineRuns(jobID *int32, offset int, size int) ([]pipeline.Run,
 	return r0, r1, r2
 }
 
-// RecordError provides a mock function with given fields: ctx, jobID, description
-func (_m *ORM) RecordError(ctx context.Context, jobID int32, description string) {
-	_m.Called(ctx, jobID, description)
+// PipelineRunsByJobsIDs provides a mock function with given fields: jobsIDs
+func (_m *ORM) PipelineRunsByJobsIDs(jobsIDs []int32) ([]pipeline.Run, error) {
+	ret := _m.Called(jobsIDs)
+
+	var r0 []pipeline.Run
+	if rf, ok := ret.Get(0).(func([]int32) []pipeline.Run); ok {
+		r0 = rf(jobsIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pipeline.Run)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func([]int32) error); ok {
+		r1 = rf(jobsIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RecordError provides a mock function with given fields: jobID, description, qopts
+func (_m *ORM) RecordError(jobID int32, description string, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID, description)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int32, string, ...pg.QOpt) error); ok {
+		r0 = rf(jobID, description, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// TryRecordError provides a mock function with given fields: jobID, description, qopts
+func (_m *ORM) TryRecordError(jobID int32, description string, qopts ...pg.QOpt) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, jobID, description)
+	_ca = append(_ca, _va...)
+	_m.Called(_ca...)
 }

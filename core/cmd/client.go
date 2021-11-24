@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -99,7 +99,7 @@ func retryLogMsg(count int) string {
 }
 
 // Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
@@ -108,7 +108,7 @@ func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout t
 
 	initCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	lock, err := postgres.NewLock(initCtx, lockID, db)
+	lock, err := pg.NewLock(initCtx, lockID, db)
 	if err != nil {
 		return nil, err
 	}
@@ -153,11 +153,10 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	uri := cfg.DatabaseURL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
-		Logger:           appLggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
+		Logger:       appLggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	if err != nil {
 		return nil, err
@@ -167,16 +166,16 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 
 	// Lease will be explicitly released on application stop
 	// Take the lease before any other DB operations
-	var leaseLock postgres.LeaseLock
+	var leaseLock pg.LeaseLock
 	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
-		leaseLock = postgres.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
 		if err = leaseLock.TakeAndHold(); err != nil {
 			return nil, errors.Wrap(err, "failed to take initial lease on database")
 		}
 	}
 
 	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	var advisoryLock postgres.Locker
+	var advisoryLock pg.Locker
 	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -186,7 +185,7 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		}
 	}
 
-	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr)
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
 	verORM := versioning.NewORM(db, appLggr)
@@ -239,17 +238,16 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	if cfg.UseLegacyEthEnvVars() {
-		if err = evm.ClobberDBFromEnv(gormDB, cfg, appLggr); err != nil {
+		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
 		Logger:           appLggr,
-		GormDB:           gormDB,
-		SQLxDB:           db,
+		DB:               db,
 		ORM:              evm.NewORM(db),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
@@ -258,11 +256,10 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	if err != nil {
 		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           shutdownSignal,
-		GormDB:                   gormDB,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
@@ -487,12 +484,13 @@ type SessionCookieAuthenticatorConfig interface {
 type SessionCookieAuthenticator struct {
 	config SessionCookieAuthenticatorConfig
 	store  CookieStore
+	lggr   logger.Logger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store}
+func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore, lggr logger.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -519,7 +517,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer logger.ErrorIfClosing(resp.Body, "Authenticate response body")
+	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {

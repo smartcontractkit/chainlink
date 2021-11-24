@@ -15,7 +15,8 @@ import (
 
 func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
@@ -25,7 +26,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	txm := new(bptxmmocks.TxManager)
 	strategy := new(bptxmmocks.TxStrategy)
 
-	transmitter := offchainreporting.NewTransmitter(txm, pgtest.GormDBFromSql(t, db.DB), fromAddress, gasLimit, strategy)
+	transmitter := offchainreporting.NewTransmitter(txm, fromAddress, gasLimit, strategy)
 
 	txm.On("CreateEthTransaction", bulletprooftxmanager.NewTx{
 		FromAddress:    fromAddress,

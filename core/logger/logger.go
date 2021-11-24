@@ -1,10 +1,3 @@
-// Logger is the main interface of this package.
-//
-// The package-level helper functions are being phased out. Loggers should be injected
-// instead (and usually Named as well): e.g. lggr.Named("<service name>")
-//
-// Tests should use a TestLogger, with NewLogger being reserved for actual
-// runtime and limited direct testing.
 package logger
 
 import (
@@ -13,21 +6,69 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	"github.com/fatih/color"
+	"github.com/getsentry/sentry-go"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+const SentryFlushDeadline = 5 * time.Second
 
 var envLvl = zapcore.InfoLevel
 
 func init() {
 	_ = envLvl.Set(os.Getenv("LOG_LEVEL"))
+
+	// If SENTRY_ENVIRONMENT is set, it will override everything. Otherwise infers from CHAINLINK_DEV.
+	var sentryenv string
+	if env := os.Getenv("SENTRY_ENVIRONMENT"); env != "" {
+		sentryenv = env
+	} else if os.Getenv("CHAINLINK_DEV") == "true" {
+		sentryenv = "dev"
+	} else {
+		sentryenv = "prod"
+	}
+	// If SENTRY_DSN is set, it will override everything. Otherwise static.SentryDSN will be used.
+	// If neither are set, sentry is disabled.
+	var sentrydsn string
+	if dsn := os.Getenv("SENTRY_DSN"); dsn != "" {
+		sentrydsn = dsn
+	} else {
+		sentrydsn = static.SentryDSN
+	}
+	// If SENTRY_RELEASE is set, it will override everything. Otherwise, static.Version will be used.
+	var sentryrelease string
+	if release := os.Getenv("SENTRY_RELEASE"); release != "" {
+		sentryrelease = release
+	} else {
+		sentryrelease = static.Version
+	}
+	err := sentry.Init(sentry.ClientOptions{
+		// AttachStacktrace is needed to send stacktrace alongside panics
+		AttachStacktrace: true,
+		Dsn:              sentrydsn,
+		Environment:      sentryenv,
+		Release:          sentryrelease,
+		// Enable printing of SDK debug messages.
+		// Uncomment line below to debug sentry
+		// Debug: true,
+	})
+	if err != nil {
+		log.Fatalf("sentry.Init: %s", err)
+	}
 }
 
 // Logger is the main interface of this package.
 // It implements uber/zap's SugaredLogger interface and adds conditional logging helpers.
-// TestLogger should be used in tests.
+//
+// The package-level helper functions are being phased out. Loggers should be injected
+// instead (and usually Named as well): e.g. lggr.Named("<service name>")
+//
+// Tests should use a TestLogger, with NewLogger being reserved for actual
+// runtime and limited direct testing.
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...interface{}) Logger
@@ -64,11 +105,8 @@ type Logger interface {
 	Fatalw(msg string, keysAndValues ...interface{})
 	Panicw(msg string, keysAndValues ...interface{})
 
-	// WarnIf logs the error if present.
-	WarnIf(err error, msg string)
 	// ErrorIf logs the error if present.
 	ErrorIf(err error, msg string)
-	PanicIf(err error, msg string)
 
 	// ErrorIfClosing calls c.Close() and logs any returned error along with name.
 	ErrorIfClosing(c io.Closer, name string)
@@ -164,28 +202,136 @@ func (l *zapLogger) withCallerSkip(skip int) Logger {
 	return &newLogger
 }
 
-func (l *zapLogger) WarnIf(err error, msg string) {
-	if err != nil {
-		l.withCallerSkip(1).Warnw(msg, "err", err)
-	}
+func (l *zapLogger) sugaredWithCallerSkip(skip int) *zap.SugaredLogger {
+	return l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(skip)).Sugar()
 }
 
 func (l *zapLogger) ErrorIf(err error, msg string) {
 	if err != nil {
+		sentry.CaptureException(err)
 		l.withCallerSkip(1).Errorw(msg, "err", err)
 	}
 }
 
 func (l *zapLogger) ErrorIfClosing(c io.Closer, name string) {
 	if err := c.Close(); err != nil {
+		sentry.CaptureException(err)
 		l.withCallerSkip(1).Errorw(fmt.Sprintf("Error closing %s", name), "err", err)
 	}
 }
 
-func (l *zapLogger) PanicIf(err error, msg string) {
-	if err != nil {
-		l.withCallerSkip(1).Panicw(msg, "err", err)
+func (l *zapLogger) Error(args ...interface{}) {
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", map[string]interface{}{
+			"args": args,
+		})
+		scope.SetLevel(sentry.LevelError)
+	})
+	hub.CaptureMessage(fmt.Sprintf("%v", args))
+	l.sugaredWithCallerSkip(1).Error(args...)
+}
+
+func (l *zapLogger) Fatal(args ...interface{}) {
+	defer sentry.Flush(SentryFlushDeadline)
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", map[string]interface{}{
+			"args": args,
+		})
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	hub.CaptureMessage(fmt.Sprintf("%v", args))
+	l.sugaredWithCallerSkip(1).Fatal(args...)
+}
+
+func (l *zapLogger) Panic(args ...interface{}) {
+	defer sentry.Flush(SentryFlushDeadline)
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", map[string]interface{}{
+			"args": args,
+		})
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	hub.CaptureMessage(fmt.Sprintf("%v", args))
+	l.sugaredWithCallerSkip(1).Panic(args...)
+}
+
+func (l *zapLogger) Errorf(format string, values ...interface{}) {
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", map[string]interface{}{
+			"values": values,
+		})
+		scope.SetLevel(sentry.LevelError)
+	})
+	hub.CaptureMessage(fmt.Sprintf(format, values...))
+	l.sugaredWithCallerSkip(1).Errorf(format, values...)
+}
+
+func (l *zapLogger) Fatalf(format string, values ...interface{}) {
+	defer sentry.Flush(SentryFlushDeadline)
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", map[string]interface{}{
+			"values": values,
+		})
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	hub.CaptureMessage(fmt.Sprintf(format, values...))
+	l.sugaredWithCallerSkip(1).Fatalf(format, values...)
+}
+
+func (l *zapLogger) Errorw(msg string, keysAndValues ...interface{}) {
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetLevel(sentry.LevelError)
+	})
+	hub.CaptureMessage(msg)
+	l.sugaredWithCallerSkip(1).Errorw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+	defer sentry.Flush(SentryFlushDeadline)
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	hub.CaptureMessage(msg)
+	l.sugaredWithCallerSkip(1).Fatalw(msg, keysAndValues...)
+}
+
+func (l *zapLogger) Panicw(msg string, keysAndValues ...interface{}) {
+	defer sentry.Flush(SentryFlushDeadline)
+	hub := sentry.CurrentHub().Clone()
+	hub.ConfigureScope(func(scope *sentry.Scope) {
+		scope.SetContext("logger", toMap(keysAndValues))
+		scope.SetLevel(sentry.LevelFatal)
+	})
+	hub.CaptureMessage(msg)
+	l.sugaredWithCallerSkip(1).Panicw(msg, keysAndValues...)
+}
+
+func toMap(args ...interface{}) (m map[string]interface{}) {
+	m = make(map[string]interface{}, len(args)/2)
+	for i := 0; i < len(args); {
+		// Make sure this element isn't a dangling key
+		if i == len(args)-1 {
+			break
+		}
+
+		// Consume this value and the next, treating them as a key-value pair. If the
+		// key isn't a string ignore it
+		key, val := args[i], args[i+1]
+		if keyStr, ok := key.(string); ok {
+			m[keyStr] = val
+		}
+		i += 2
 	}
+	return m
 }
 
 func (l *zapLogger) Sync() error {

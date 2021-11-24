@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -66,6 +67,10 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 
 		resources = append(resources, *r)
 	}
+	// Put funding keys to the end
+	sort.SliceStable(resources, func(i, j int) bool {
+		return !resources[i].IsFunding && resources[j].IsFunding
+	})
 
 	jsonAPIResponse(c, resources, "keys")
 }

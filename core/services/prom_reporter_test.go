@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -55,9 +54,10 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	})
 
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		sqlxdb := postgres.UnwrapGormDB(db)
-		ethKeyStore := cltest.NewKeyStore(t, sqlxdb).Eth()
+		db := pgtest.NewSqlxDB(t)
+		cfg := cltest.NewTestGeneralConfig(t)
+		borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
@@ -75,18 +75,17 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Inc()
 			}).
 			Return()
-		d, _ := db.DB()
-		reporter := services.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := services.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 		reporter.Start()
 		defer reporter.Close()
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 0, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 1, fromAddress)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, db, 2, fromAddress)
-		require.NoError(t, db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = ?`, etx.ID).Error)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 0, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 1, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, borm, 2, fromAddress)
+		require.NoError(t, utils.JustError(db.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 
@@ -94,15 +93,13 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	})
 
 	t.Run("with unfinished pipeline task runs", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		d, _ := db.DB()
+		db := pgtest.NewSqlxDB(t)
 
-		_, err := d.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
-		require.NoError(t, err)
+		pgtest.MustExec(t, db, `SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`)
 
 		backend := new(mocks.PrometheusBackend)
 		backend.Test(t)
-		reporter := services.NewPromReporter(d, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := services.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, db, 1)
@@ -123,7 +120,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer reporter.Close()
 
 		head := newHead()
-		reporter.OnNewLongestChain(context.Background(), head)
+		reporter.OnNewLongestChain(context.Background(), &head)
 
 		require.Eventually(t, func() bool { return subscribeCalls.Load() >= 1 }, 12*time.Second, 100*time.Millisecond)
 

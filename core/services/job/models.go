@@ -10,7 +10,6 @@ import (
 	"github.com/lib/pq"
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -83,7 +82,7 @@ var (
 )
 
 type Job struct {
-	ID                            int32     `toml:"-" gorm:"primary_key"`
+	ID                            int32     `toml:"-"`
 	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
@@ -101,12 +100,12 @@ type Job struct {
 	WebhookSpec                   *WebhookSpec
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
-	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
+	JobSpecErrors                 []SpecError
 	Type                          Type
 	SchemaVersion                 uint32
 	Name                          null.String
 	MaxTaskDuration               models.Interval
-	Pipeline                      pipeline.Pipeline `toml:"observationSource" gorm:"-"`
+	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
 	CreatedAt                     time.Time
 }
 
@@ -147,7 +146,7 @@ func (j *Job) SetID(value string) error {
 }
 
 type SpecError struct {
-	ID          int64 `gorm:"primary_key"`
+	ID          int64
 	JobID       int32
 	Description string
 	Occurrences uint
@@ -160,7 +159,7 @@ func (SpecError) TableName() string {
 }
 
 type PipelineRun struct {
-	ID int64 `json:"-" gorm:"primary_key"`
+	ID int64 `json:"-"`
 }
 
 func (pr PipelineRun) GetID() string {
@@ -176,32 +175,30 @@ func (pr *PipelineRun) SetID(value string) error {
 	return nil
 }
 
-// TODO: remove pointers when upgrading to gormv2
-// which has https://github.com/go-gorm/gorm/issues/2748 fixed.
 type OffchainReportingOracleSpec struct {
-	ID                                        int32                `toml:"-" gorm:"primary_key"`
-	ContractAddress                           ethkey.EIP55Address  `toml:"contractAddress"`
-	P2PPeerID                                 p2pkey.PeerID        `toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null" db:"p2p_peer_id"`
-	P2PPeerIDEnv                              bool                 `gorm:"-"`
-	P2PBootstrapPeers                         pq.StringArray       `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]" db:"p2p_bootstrap_peers"`
-	IsBootstrapPeer                           bool                 `toml:"isBootstrapPeer"`
-	EncryptedOCRKeyBundleID                   *models.Sha256Hash   `toml:"keyBundleID" gorm:"type:bytea"`
-	EncryptedOCRKeyBundleIDEnv                bool                 `gorm:"-"`
+	ID                                        int32               `toml:"-"`
+	ContractAddress                           ethkey.EIP55Address `toml:"contractAddress"`
+	P2PPeerID                                 p2pkey.PeerID       `toml:"p2pPeerID" db:"p2p_peer_id"`
+	P2PPeerIDEnv                              bool
+	P2PBootstrapPeers                         pq.StringArray     `toml:"p2pBootstrapPeers" db:"p2p_bootstrap_peers"`
+	IsBootstrapPeer                           bool               `toml:"isBootstrapPeer"`
+	EncryptedOCRKeyBundleID                   *models.Sha256Hash `toml:"keyBundleID"`
+	EncryptedOCRKeyBundleIDEnv                bool
 	TransmitterAddress                        *ethkey.EIP55Address `toml:"transmitterAddress"`
-	TransmitterAddressEnv                     bool                 `gorm:"-"`
-	ObservationTimeout                        models.Interval      `toml:"observationTimeout" gorm:"type:bigint;default:null"`
-	ObservationTimeoutEnv                     bool                 `gorm:"-"`
-	BlockchainTimeout                         models.Interval      `toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
-	BlockchainTimeoutEnv                      bool                 `gorm:"-"`
-	ContractConfigTrackerSubscribeInterval    models.Interval      `toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
-	ContractConfigTrackerSubscribeIntervalEnv bool                 `gorm:"-"`
-	ContractConfigTrackerPollInterval         models.Interval      `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
-	ContractConfigTrackerPollIntervalEnv      bool                 `gorm:"-"`
-	ContractConfigConfirmations               uint16               `toml:"contractConfigConfirmations"`
-	ContractConfigConfirmationsEnv            bool                 `gorm:"-"`
-	EVMChainID                                *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
-	CreatedAt                                 time.Time            `toml:"-"`
-	UpdatedAt                                 time.Time            `toml:"-"`
+	TransmitterAddressEnv                     bool
+	ObservationTimeout                        models.Interval `toml:"observationTimeout"`
+	ObservationTimeoutEnv                     bool
+	BlockchainTimeout                         models.Interval `toml:"blockchainTimeout"`
+	BlockchainTimeoutEnv                      bool
+	ContractConfigTrackerSubscribeInterval    models.Interval `toml:"contractConfigTrackerSubscribeInterval"`
+	ContractConfigTrackerSubscribeIntervalEnv bool
+	ContractConfigTrackerPollInterval         models.Interval `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigTrackerPollIntervalEnv      bool
+	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
+	ContractConfigConfirmationsEnv            bool
+	EVMChainID                                *utils.Big `toml:"evmChainID" db:"evm_chain_id"`
+	CreatedAt                                 time.Time  `toml:"-"`
+	UpdatedAt                                 time.Time  `toml:"-"`
 }
 
 func (s OffchainReportingOracleSpec) GetID() string {
@@ -217,31 +214,20 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 	return nil
 }
 
-func (s *OffchainReportingOracleSpec) BeforeCreate(db *gorm.DB) error {
-	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
-	return nil
-}
-
-func (s *OffchainReportingOracleSpec) BeforeSave(db *gorm.DB) error {
-	s.UpdatedAt = time.Now()
-	return nil
-}
-
 func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
 }
 
 type ExternalInitiatorWebhookSpec struct {
 	ExternalInitiatorID int64
-	ExternalInitiator   bridges.ExternalInitiator `gorm:"foreignkey:ExternalInitiatorID;->"`
+	ExternalInitiator   bridges.ExternalInitiator
 	WebhookSpecID       int32
-	WebhookSpec         WebhookSpec `gorm:"foreignkey:WebhookSpecID;->"`
+	WebhookSpec         WebhookSpec
 	Spec                models.JSON
 }
 
 type WebhookSpec struct {
-	ID                            int32 `toml:"-" gorm:"primary_key"`
+	ID                            int32 `toml:"-"`
 	ExternalInitiatorWebhookSpecs []ExternalInitiatorWebhookSpec
 	CreatedAt                     time.Time `json:"createdAt" toml:"-"`
 	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
@@ -265,13 +251,13 @@ func (WebhookSpec) TableName() string {
 }
 
 type DirectRequestSpec struct {
-	ID                          int32                    `toml:"-" gorm:"primary_key"`
+	ID                          int32                    `toml:"-"`
 	ContractAddress             ethkey.EIP55Address      `toml:"contractAddress"`
 	MinIncomingConfirmations    clnull.Uint32            `toml:"minIncomingConfirmations"`
-	MinIncomingConfirmationsEnv bool                     `toml:"minIncomingConfirmationsEnv" gorm:"-"`
+	MinIncomingConfirmationsEnv bool                     `toml:"minIncomingConfirmationsEnv"`
 	Requesters                  models.AddressCollection `toml:"requesters"`
 	MinContractPayment          *assets.Link             `toml:"minContractPaymentLinkJuels"`
-	EVMChainID                  *utils.Big               `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	EVMChainID                  *utils.Big               `toml:"evmChainID"`
 	CreatedAt                   time.Time                `toml:"-"`
 	UpdatedAt                   time.Time                `toml:"-"`
 }
@@ -281,7 +267,7 @@ func (DirectRequestSpec) TableName() string {
 }
 
 type CronSpec struct {
-	ID           int32     `toml:"-" gorm:"primary_key"`
+	ID           int32     `toml:"-"`
 	CronSchedule string    `toml:"schedule"`
 	CreatedAt    time.Time `toml:"-"`
 	UpdatedAt    time.Time `toml:"-"`
@@ -297,17 +283,6 @@ func (s *CronSpec) SetID(value string) error {
 		return err
 	}
 	s.ID = int32(ID)
-	return nil
-}
-
-func (s *CronSpec) BeforeCreate(db *gorm.DB) error {
-	s.CreatedAt = time.Now()
-	s.UpdatedAt = time.Now()
-	return nil
-}
-
-func (s *CronSpec) BeforeSave(db *gorm.DB) error {
-	s.UpdatedAt = time.Now()
 	return nil
 }
 
@@ -336,13 +311,13 @@ type FluxMonitorSpecIntThreshold struct {
 }
 
 type FluxMonitorSpec struct {
-	ID              int32               `toml:"-" gorm:"primary_key"`
+	ID              int32               `toml:"-"`
 	ContractAddress ethkey.EIP55Address `toml:"contractAddress"`
 	Threshold       float32             `toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   float32 `toml:"absoluteThreshold,float" gorm:"type:float;not null"`
+	AbsoluteThreshold   float32 `toml:"absoluteThreshold,float"`
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -351,17 +326,17 @@ type FluxMonitorSpec struct {
 	DrumbeatRandomDelay time.Duration
 	DrumbeatEnabled     bool
 	MinPayment          *assets.Link
-	EVMChainID          *utils.Big `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	EVMChainID          *utils.Big `toml:"evmChainID"`
 	CreatedAt           time.Time  `toml:"-"`
 	UpdatedAt           time.Time  `toml:"-"`
 }
 
 type KeeperSpec struct {
-	ID                       int32               `toml:"-" gorm:"primary_key"`
+	ID                       int32               `toml:"-"`
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
 	MinIncomingConfirmations *uint32             `toml:"minIncomingConfirmations"`
 	FromAddress              ethkey.EIP55Address `toml:"fromAddress"`
-	EVMChainID               *utils.Big          `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	EVMChainID               *utils.Big          `toml:"evmChainID"`
 	CreatedAt                time.Time           `toml:"-"`
 	UpdatedAt                time.Time           `toml:"-"`
 }
@@ -371,11 +346,11 @@ type VRFSpec struct {
 	CoordinatorAddress       ethkey.EIP55Address  `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey  `toml:"publicKey"`
 	MinIncomingConfirmations uint32               `toml:"minIncomingConfirmations"`
-	ConfirmationsEnv         bool                 `toml:"-" gorm:"-"`
-	EVMChainID               *utils.Big           `toml:"evmChainID" gorm:"column:evm_chain_id" db:"evm_chain_id"`
+	ConfirmationsEnv         bool                 `toml:"-"`
+	EVMChainID               *utils.Big           `toml:"evmChainID"`
 	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
-	PollPeriodEnv            bool                 `gorm:"-"`
-	CreatedAt                time.Time            `toml:"-"`
-	UpdatedAt                time.Time            `toml:"-"`
+	PollPeriodEnv            bool
+	CreatedAt                time.Time `toml:"-"`
+	UpdatedAt                time.Time `toml:"-"`
 }

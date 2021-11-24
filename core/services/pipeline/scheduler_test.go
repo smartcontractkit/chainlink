@@ -6,6 +6,7 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
@@ -133,7 +134,7 @@ func Test_Scheduler(t *testing.T) {
 		require.NoError(t, err)
 		vars := NewVarsFrom(nil)
 		run := NewRun(Spec{}, vars)
-		s := newScheduler(p, &run, vars)
+		s := newScheduler(p, &run, vars, logger.TestLogger(t))
 
 		go s.Run()
 

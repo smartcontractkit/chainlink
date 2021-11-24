@@ -1,14 +1,15 @@
 package resolver
 
 import (
-	"database/sql"
+	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 type JobType string
@@ -57,7 +58,7 @@ func NewFeedsManager(mgr feeds.FeedsManager) *FeedsManagerResolver {
 }
 
 func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
-	resolvers := []*FeedsManagerResolver{}
+	var resolvers []*FeedsManagerResolver
 	for _, mgr := range mgrs {
 		resolvers = append(resolvers, NewFeedsManager(mgr))
 	}
@@ -67,7 +68,7 @@ func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
 
 // ID resolves the feed managers's unique identifier.
 func (r *FeedsManagerResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(r.mgr.ID, 10))
+	return int64GQLID(r.mgr.ID)
 }
 
 // Name resolves the feed managers's name field.
@@ -87,7 +88,7 @@ func (r *FeedsManagerResolver) PublicKey() string {
 
 // JobTypes resolves the feed managers's jobTypes field.
 func (r *FeedsManagerResolver) JobTypes() []JobType {
-	jts := []JobType{}
+	var jts []JobType
 
 	for _, s := range r.mgr.JobTypes {
 		if jt, err := ToJobType(s); err == nil {
@@ -96,6 +97,15 @@ func (r *FeedsManagerResolver) JobTypes() []JobType {
 	}
 
 	return jts
+}
+
+func (r *FeedsManagerResolver) JobProposals(ctx context.Context) ([]*JobProposalResolver, error) {
+	jps, err := loader.GetJobProposalsByFeedsManagerID(ctx, stringutils.FromInt64(r.mgr.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobProposals(jps), nil
 }
 
 // IsBootstrapPeer resolves the feed managers's isBootstrapPeer field.
@@ -122,25 +132,19 @@ func (r *FeedsManagerResolver) CreatedAt() graphql.Time {
 
 type FeedsManagerPayloadResolver struct {
 	mgr *feeds.FeedsManager
+	NotFoundErrorUnionType
 }
 
-func NewFeedsManagerPayload(mgr *feeds.FeedsManager) *FeedsManagerPayloadResolver {
-	return &FeedsManagerPayloadResolver{mgr: mgr}
+func NewFeedsManagerPayload(mgr *feeds.FeedsManager, err error) *FeedsManagerPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
+
+	return &FeedsManagerPayloadResolver{mgr: mgr, NotFoundErrorUnionType: e}
 }
 
 // ToFeedsManager implements the FeedsManager union type of the payload
 func (r *FeedsManagerPayloadResolver) ToFeedsManager() (*FeedsManagerResolver, bool) {
 	if r.mgr != nil {
 		return NewFeedsManager(*r.mgr), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *FeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.mgr == nil {
-		return NewNotFoundError("feeds manager not found"), true
 	}
 
 	return nil, false
@@ -169,16 +173,18 @@ func (r *FeedsManagersPayloadResolver) Results() []*FeedsManagerResolver {
 // CreateFeedsManagerPayloadResolver
 type CreateFeedsManagerPayloadResolver struct {
 	mgr *feeds.FeedsManager
-	err error
 	// inputErrors maps an input path to a string
 	inputErrs map[string]string
+	NotFoundErrorUnionType
 }
 
 func NewCreateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *CreateFeedsManagerPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
+
 	return &CreateFeedsManagerPayloadResolver{
-		mgr:       mgr,
-		err:       err,
-		inputErrs: inputErrs,
+		mgr:                    mgr,
+		inputErrs:              inputErrs,
+		NotFoundErrorUnionType: e,
 	}
 }
 
@@ -198,17 +204,9 @@ func (r *CreateFeedsManagerPayloadResolver) ToSingleFeedsManagerError() (*Single
 	return nil, false
 }
 
-func (r *CreateFeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("feeds manager not found"), true
-	}
-
-	return nil, false
-}
-
 func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		errs := []*InputErrorResolver{}
+		var errs []*InputErrorResolver
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))
@@ -257,15 +255,17 @@ func (r *SingleFeedsManagerErrorResolver) Code() ErrorCode {
 // UpdateFeedsManagerPayloadResolver
 type UpdateFeedsManagerPayloadResolver struct {
 	mgr       *feeds.FeedsManager
-	err       error
 	inputErrs map[string]string
+	NotFoundErrorUnionType
 }
 
 func NewUpdateFeedsManagerPayload(mgr *feeds.FeedsManager, err error, inputErrs map[string]string) *UpdateFeedsManagerPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "feeds manager not found", isExpectedErrorFn: nil}
+
 	return &UpdateFeedsManagerPayloadResolver{
-		mgr:       mgr,
-		err:       err,
-		inputErrs: inputErrs,
+		mgr:                    mgr,
+		inputErrs:              inputErrs,
+		NotFoundErrorUnionType: e,
 	}
 }
 
@@ -277,17 +277,9 @@ func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*Upda
 	return nil, false
 }
 
-func (r *UpdateFeedsManagerPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("feeds manager not found"), true
-	}
-
-	return nil, false
-}
-
 func (r *UpdateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		errs := []*InputErrorResolver{}
+		var errs []*InputErrorResolver
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))

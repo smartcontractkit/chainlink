@@ -25,14 +25,12 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/health"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
@@ -141,7 +139,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer func() { lggr.WarnIf(app.Stop(), "Error stopping app") }()
+	defer func() { lggr.ErrorIf(app.Stop(), "Error stopping app") }()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
@@ -514,13 +512,12 @@ func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, erro
 	if parsed.String() == "" {
 		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 	}
-	config := postgres.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	config := pg.Config{
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	}
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := pg.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
 	return db, err
 }
 
@@ -658,11 +655,8 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
 	nextNonce := c.Uint64("nextNonce")
-	dbURL := cli.Config.DatabaseURL()
 
-	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -672,11 +666,15 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := db.Exec(`UPDATE eth_key_states SET next_nonce = ? WHERE address = ?`, nextNonce, address)
-	if res.Error != nil {
+	res, err := db.Exec(`UPDATE eth_key_states SET next_nonce = $1 WHERE address = $2`, nextNonce, address)
+	if err != nil {
 		return cli.errorOut(err)
 	}
-	if res.RowsAffected == 0 {
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if rowsAffected == 0 {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
 	return nil

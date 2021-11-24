@@ -18,15 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewGormDB(t)
-
-	orm := fluxmonitorv2.NewORM(db, nil, nil)
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 
@@ -80,21 +79,20 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
+	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	pipelineORM := pipeline.NewORM(db, lggr)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg)
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: gdb})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr)
-	orm := fluxmonitorv2.NewORM(gdb, nil, nil)
+	jobORM := job.NewORM(db, cc, pipelineORM, keyStore, lggr, cfg)
+	orm := newORM(t, db, cfg, nil)
 
 	address := cltest.NewAddress()
 	var roundID uint32 = 1
@@ -164,15 +162,15 @@ func makeJob(t *testing.T) *job.Job {
 func TestORM_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	strategy := new(bptxmmocks.TxStrategy)
 
 	var (
 		txm = new(bptxmmocks.TxManager)
-		orm = fluxmonitorv2.NewORM(gdb, txm, strategy)
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy)
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = cltest.NewAddress()

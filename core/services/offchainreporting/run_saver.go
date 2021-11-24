@@ -1,8 +1,6 @@
 package offchainreporting
 
 import (
-	"github.com/smartcontractkit/chainlink/core/shutdown"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -30,7 +28,7 @@ func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.R
 
 func (r *RunResultSaver) Start() error {
 	return r.StartOnce("RunResultSaver", func() error {
-		go shutdown.WrapRecover(r.logger, func() {
+		go func() {
 			for {
 				select {
 				case run := <-r.runResults:
@@ -44,7 +42,7 @@ func (r *RunResultSaver) Start() error {
 					return
 				}
 			}
-		})
+		}()
 		return nil
 	})
 }
@@ -58,7 +56,7 @@ func (r *RunResultSaver) Close() error {
 		for {
 			select {
 			case run := <-r.runResults:
-				r.logger.Infow("RunSaver: saving job run before exiting", "run", run, "task results")
+				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
 				if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}

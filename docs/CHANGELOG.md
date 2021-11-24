@@ -5,9 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Fixed
+
+- Proper handling for "nonce too low" errors on Avalanche
+
 ## [Unreleased]
 
-### New locking mode: 'lease'
+### Changed
+
+- The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
+
+### Added
+
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting
+
+#### New locking mode: 'lease'
 
 Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
 
@@ -34,11 +46,11 @@ For this reason, we have introduced a new locking mode, `lease`, which is likely
 
 The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
 
-### Duplicate Job Configuration
+#### Duplicate Job Configuration
 
-When duplicating a job, the new job's configuration settings that have not been overridden by the user, can still reflect the chainlink node configuration.
+When duplicating a job, the new job's configuration settings that have not been overridden by the user can still reflect the chainlink node configuration.
 
-### Log to Disk
+#### Log to Disk
 
 This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
@@ -50,6 +62,25 @@ This feature has been disabled by default, turn on with LOG_TO_DISK. For most pr
 - CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
 - CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
 - Add partial support for Moonriver chain
+
+#### Nurse (automatic pprof profiler)
+
+Added new automatic pprof profiling service. Profiling is triggered when the node exceeds certain resource thresholds (currently, memory and goroutine count). The following environment variables have been added to allow configuring this service:
+
+- `AUTO_PPROF_ENABLED`: Set to `true` to enable the automatic profiling service. Defaults to `false`.
+- `AUTO_PPROF_PROFILE_ROOT`: The location on disk where pprof profiles will be stored. Defaults to `$CHAINLINK_ROOT`.
+- `AUTO_PPROF_POLL_INTERVAL`: The interval at which the node's resources are checked. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_DURATION`: The duration for which profiles are gathered when profiling is kicked off. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_TRACE_DURATION`: The duration for which traces are gathered when profiling is kicked off. This is separately configurable because traces are significantly larger than other types of profiles. Defaults to `5s`.
+- `AUTO_PPROF_MAX_PROFILE_SIZE`: The maximum amount of disk space that profiles may consume before profiling is disabled. Defaults to `100mb`.
+- `AUTO_PPROF_CPU_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetCPUProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MEM_PROFILE_RATE`: See https://pkg.go.dev/runtime#pkg-variables. Defaults to `1`.
+- `AUTO_PPROF_BLOCK_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetBlockProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MUTEX_PROFILE_FRACTION`: See https://pkg.go.dev/runtime#SetMutexProfileFraction. Defaults to `1`.
+- `AUTO_PPROF_MEM_THRESHOLD`: The maximum amount of memory the node can actively consume before profiling begins. Defaults to `4gb`.
+- `AUTO_PPROF_GOROUTINE_THRESHOLD`: The maximum number of actively-running goroutines the node can spawn before profiling begins. Defaults to `5000`.
+
+**Adventurous node operators are encouraged to read [this guide on how to analyze pprof profiles](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/).**
 
 #### `merge` task type
 

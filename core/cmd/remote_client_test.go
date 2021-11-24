@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/sessions"
@@ -162,7 +163,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			require.NoError(t, err)
 
 			var exi bridges.ExternalInitiator
-			err = app.GetDB().Where("name = ?", test.args[0]).Find(&exi).Error
+			err = app.GetSqlxDB().Get(&exi, `SELECT * FROM external_initiators WHERE name = $1`, test.args[0])
 			require.NoError(t, err)
 
 			if len(test.args) > 1 {
@@ -190,7 +191,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			app := startNewApplication(t)
 			client, _ := app.NewClientAndRenderer()
 
-			initialExis := len(cltest.AllExternalInitiators(t, app.GetDB()))
+			initialExis := len(cltest.AllExternalInitiators(t, app.GetSqlxDB()))
 
 			set := flag.NewFlagSet("create", 0)
 			assert.NoError(t, set.Parse(test.args))
@@ -199,7 +200,7 @@ func TestClient_CreateExternalInitiator_Errors(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.Error(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.GetDB())
+			exis := cltest.AllExternalInitiators(t, app.GetSqlxDB())
 			assert.Len(t, exis, initialExis)
 		})
 	}
@@ -399,7 +400,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
 	assert.Equal(t, cp.EnvPrinter.LogLevel, config.LogLevel{Level: cfg.LogLevel()})
-	assert.Equal(t, cp.EnvPrinter.LogSQLStatements, cfg.LogSQLStatements())
+	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
@@ -416,8 +417,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
@@ -482,7 +483,7 @@ func TestClient_AutoLogin(t *testing.T) {
 		Password: cltest.Password,
 	}
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{})
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.GetConfig(), &cmd.MemoryCookieStore{}, logger.TestLogger(t))
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
@@ -490,7 +491,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	require.NoError(t, app.GetDB().Exec("delete from sessions;").Error)
+	pgtest.MustExec(t, app.GetSqlxDB(), "TRUNCATE sessions")
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
@@ -549,7 +550,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
@@ -558,7 +559,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
 }
 
 func TestClient_SetPkgLogLevel(t *testing.T) {
@@ -577,7 +578,7 @@ func TestClient_SetPkgLogLevel(t *testing.T) {
 	err := client.SetLogPkg(c)
 	require.NoError(t, err)
 
-	level, ok := logger.NewORM(app.GetDB()).GetServiceLogLevel(logPkg)
+	level, ok := logger.NewORM(app.GetSqlxDB(), logger.TestLogger(t)).GetServiceLogLevel(logPkg)
 	require.True(t, ok)
 	assert.Equal(t, logLevel, level)
 }

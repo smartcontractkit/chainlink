@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -59,7 +60,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	jobSpec := job.Job{}
 	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
-		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(c.Request.Context(), externalJobID)
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
 		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
@@ -134,7 +135,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == keystore.ErrMissingP2PKey || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

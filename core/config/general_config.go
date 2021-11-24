@@ -51,6 +51,18 @@ type GeneralOnlyConfig interface {
 	AllowOrigins() string
 	AuthenticatedRateLimit() int64
 	AuthenticatedRateLimitPeriod() models.Duration
+	AutoPprofEnabled() bool
+	AutoPprofProfileRoot() string
+	AutoPprofPollInterval() models.Duration
+	AutoPprofGatherDuration() models.Duration
+	AutoPprofGatherTraceDuration() models.Duration
+	AutoPprofMaxProfileSize() utils.FileSize
+	AutoPprofCPUProfileRate() int
+	AutoPprofMemProfileRate() int
+	AutoPprofBlockProfileRate() int
+	AutoPprofMutexProfileFraction() int
+	AutoPprofMemThreshold() utils.FileSize
+	AutoPprofGoroutineThreshold() int
 	BlockBackfillDepth() uint64
 	BlockBackfillSkip() bool
 	BridgeResponseURL() *url.URL
@@ -109,7 +121,7 @@ type GeneralOnlyConfig interface {
 	LogLevel() zapcore.Level
 	DefaultLogLevel() zapcore.Level
 	LogSQLMigrations() bool
-	LogSQLStatements() bool
+	LogSQL() bool
 	LogToDisk() bool
 	LogUnixTimestamps() bool
 	MigrateDatabase() bool
@@ -164,7 +176,7 @@ type GeneralOnlyConfig interface {
 	SessionTimeout() models.Duration
 	SetDialect(dialects.DialectName)
 	SetLogLevel(lvl zapcore.Level) error
-	SetLogSQLStatements(logSQLStatements bool) error
+	SetLogSQL(logSQL bool)
 	StatsPusherLogging() bool
 	TLSCertPath() string
 	TLSDir() string
@@ -247,7 +259,7 @@ type generalConfig struct {
 	advisoryLockID   int64
 	logLevel         zapcore.Level
 	defaultLogLevel  zapcore.Level
-	logSQLStatements bool
+	logSQL           bool
 	logMutex         sync.RWMutex
 }
 
@@ -300,7 +312,7 @@ func newGeneralConfigWithViper(v *viper.Viper) *generalConfig {
 		}
 	}
 	config.logLevel = config.defaultLogLevel
-	config.logSQLStatements = viper.GetBool(EnvVarName("LogSQLStatements"))
+	config.logSQL = viper.GetBool(EnvVarName("LogSQL"))
 	config.logMutex = sync.RWMutex{}
 
 	return config
@@ -395,6 +407,58 @@ func (c *generalConfig) AuthenticatedRateLimit() int64 {
 // AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
 func (c *generalConfig) AuthenticatedRateLimitPeriod() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofEnabled() bool {
+	return c.viper.GetBool(EnvVarName("AutoPprofEnabled"))
+}
+
+func (c *generalConfig) AutoPprofProfileRoot() string {
+	root := c.viper.GetString(EnvVarName("AutoPprofProfileRoot"))
+	if root == "" {
+		return c.RootDir()
+	}
+	return root
+}
+
+func (c *generalConfig) AutoPprofPollInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofPollInterval", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofGatherDuration() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherDuration", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofGatherTraceDuration() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AutoPprofGatherTraceDuration", ParseDuration).(time.Duration))
+}
+
+func (c *generalConfig) AutoPprofMaxProfileSize() utils.FileSize {
+	return c.getWithFallback("AutoPprofMaxProfileSize", ParseFileSize).(utils.FileSize)
+}
+
+func (c *generalConfig) AutoPprofCPUProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofCPUProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofMemProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofMemProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofBlockProfileRate() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofBlockProfileRate"))
+}
+
+func (c *generalConfig) AutoPprofMutexProfileFraction() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofMutexProfileFraction"))
+}
+
+func (c *generalConfig) AutoPprofMemThreshold() utils.FileSize {
+	return c.getWithFallback("AutoPprofMemThreshold", ParseFileSize).(utils.FileSize)
+}
+
+func (c *generalConfig) AutoPprofGoroutineThreshold() int {
+	return c.viper.GetInt(EnvVarName("AutoPprofGoroutineThreshold"))
 }
 
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
@@ -874,19 +938,18 @@ func (c *generalConfig) LogToDisk() bool {
 	return c.viper.GetBool(EnvVarName("LogToDisk"))
 }
 
-// LogSQLStatements tells chainlink to log all SQL statements made using the default logger
-func (c *generalConfig) LogSQLStatements() bool {
+// LogSQL tells chainlink to log all SQL statements made using the default logger
+func (c *generalConfig) LogSQL() bool {
 	c.logMutex.RLock()
 	defer c.logMutex.RUnlock()
-	return c.logSQLStatements
+	return c.logSQL
 }
 
-// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
-func (c *generalConfig) SetLogSQLStatements(logSQLStatements bool) error {
+// SetLogSQL saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c *generalConfig) SetLogSQL(logSQL bool) {
 	c.logMutex.Lock()
 	defer c.logMutex.Unlock()
-	c.logSQLStatements = logSQLStatements
-	return nil
+	c.logSQL = logSQL
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
@@ -924,7 +987,7 @@ func (c *generalConfig) P2PListenPort() uint16 {
 	}
 	r, err := rand.Int(rand.Reader, big.NewInt(65535-1023))
 	if err != nil {
-		logger.Fatalw("unexpected error generating random port", "err", err)
+		panic(fmt.Errorf("unexpected error generating random port: %w", err))
 	}
 	randPort := uint16(r.Int64() + 1024)
 	logger.Warnw(fmt.Sprintf("P2P_LISTEN_PORT was not set, listening on random port %d. A new random port will be generated on every boot, for stability it is recommended to set P2P_LISTEN_PORT to a fixed value in your environment", randPort), "p2pPort", randPort)

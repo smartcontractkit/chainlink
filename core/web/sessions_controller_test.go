@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -72,6 +73,11 @@ func TestSessionsController_Create(t *testing.T) {
 	}
 }
 
+func mustInsertSession(t *testing.T, q pg.Q, session *sessions.Session) {
+	err := q.GetNamed(`INSERT INTO sessions (id, last_used, created_at) VALUES (:id, :last_used, :created_at) RETURNING *`, session, session)
+	require.NoError(t, err)
+}
+
 func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +86,8 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.GetDB().Save(&staleSession).Error)
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+	mustInsertSession(t, q, &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmail, cltest.Password)
 	resp, err := http.Post(app.Config.ClientNodeURL()+"/sessions", "application/json", bytes.NewBufferString(body))
@@ -90,7 +97,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	var s []sessions.Session
-	cltest.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+	gomega.NewWithT(t).Eventually(func() []sessions.Session {
 		s, err = app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
 		return s
@@ -108,7 +115,8 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.GetDB().Save(&correctSession).Error)
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+	mustInsertSession(t, q, &correctSession)
 
 	config := app.GetConfig()
 	client := http.Client{}
@@ -146,15 +154,16 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	client := http.Client{}
 	app := cltest.NewApplicationEVMDisabled(t)
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
 	require.NoError(t, app.Start())
 
 	correctSession := sessions.NewSession()
-	require.NoError(t, app.GetDB().Save(&correctSession).Error)
+	mustInsertSession(t, q, &correctSession)
 	cookie := cltest.MustGenerateSessionCookie(t, correctSession.ID)
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	require.NoError(t, app.GetDB().Save(&staleSession).Error)
+	mustInsertSession(t, q, &staleSession)
 
 	request, err := http.NewRequest("DELETE", app.Config.ClientNodeURL()+"/sessions", nil)
 	assert.NoError(t, err)
@@ -164,7 +173,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	cltest.NewGomegaWithT(t).Eventually(func() []sessions.Session {
+	gomega.NewWithT(t).Eventually(func() []sessions.Session {
 		sessions, err := app.SessionORM().Sessions(0, 10)
 		assert.NoError(t, err)
 		return sessions

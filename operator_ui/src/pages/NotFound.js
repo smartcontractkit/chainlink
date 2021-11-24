@@ -12,7 +12,7 @@ const styles = () => ({
 })
 
 const Logo = ({ classes }) => (
-  <div className={classes.logo}>
+  <div className={classes.logo} data-testid="not-found-page">
     <NotFoundSVG />
   </div>
 )

@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -32,10 +31,10 @@ func (cc *LogController) Get(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	logSvcs := logger.GetLogServices()
-	logORM := logger.NewORM(cc.App.GetDB())
+	logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 	for _, svcName := range logSvcs {
 		lvl, _ := logORM.GetServiceLogLevel(svcName)
 
@@ -89,17 +88,14 @@ func (cc *LogController) Patch(c *gin.Context) {
 	lvls = append(lvls, cc.App.GetConfig().LogLevel().String())
 
 	if request.SqlEnabled != nil {
-		if err := cc.App.GetConfig().SetLogSQLStatements(*request.SqlEnabled); err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
-		postgres.SetLogAllQueries(cc.App.GetDB(), *request.SqlEnabled)
+		cc.App.GetConfig().SetLogSQL(*request.SqlEnabled)
 	}
+
 	svcs = append(svcs, "IsSqlEnabled")
-	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQLStatements()))
+	lvls = append(lvls, strconv.FormatBool(cc.App.GetConfig().LogSQL()))
 
 	if len(request.ServiceLogLevel) > 0 {
-		logORM := logger.NewORM(cc.App.GetDB())
+		logORM := logger.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger())
 		for _, svcLogLvl := range request.ServiceLogLevel {
 			svcName := svcLogLvl[0]
 			svcLvl := svcLogLvl[1]

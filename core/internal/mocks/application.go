@@ -16,8 +16,6 @@ import (
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
 
-	gorm "gorm.io/gorm"
-
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
@@ -30,9 +28,9 @@ import (
 
 	packr "github.com/gobuffalo/packr"
 
-	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
+	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
 
@@ -160,32 +158,16 @@ func (_m *Application) GetConfig() config.GeneralConfig {
 	return r0
 }
 
-// GetDB provides a mock function with given fields:
-func (_m *Application) GetDB() *gorm.DB {
-	ret := _m.Called()
-
-	var r0 *gorm.DB
-	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gorm.DB)
-		}
-	}
-
-	return r0
-}
-
 // GetEventBroadcaster provides a mock function with given fields:
-func (_m *Application) GetEventBroadcaster() postgres.EventBroadcaster {
+func (_m *Application) GetEventBroadcaster() pg.EventBroadcaster {
 	ret := _m.Called()
 
-	var r0 postgres.EventBroadcaster
-	if rf, ok := ret.Get(0).(func() postgres.EventBroadcaster); ok {
+	var r0 pg.EventBroadcaster
+	if rf, ok := ret.Get(0).(func() pg.EventBroadcaster); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(postgres.EventBroadcaster)
+			r0 = ret.Get(0).(pg.EventBroadcaster)
 		}
 	}
 

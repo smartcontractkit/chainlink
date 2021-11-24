@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -28,6 +28,7 @@ type ORM interface {
 	ClearNonCurrentSessions(sessionID string) error
 	CreateUser(user *User) error
 	SetAuthToken(user *User, token *auth.Token) error
+	CreateAndSetAuthToken(user *User) (*auth.Token, error)
 	DeleteAuthToken(user *User) error
 	SetPassword(user *User, newPassword string) error
 	Sessions(offset, limit int) ([]Session, error)
@@ -83,9 +84,9 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 
 // DeleteUser will delete the API User in the db.
 func (o *orm) DeleteUser() error {
-	ctx, cancel := postgres.DefaultQueryCtx()
+	ctx, cancel := pg.DefaultQueryCtx()
 	defer cancel()
-	return postgres.SqlxTransaction(ctx, o.db, o.lggr, func(tx postgres.Queryer) error {
+	return pg.SqlxTransaction(ctx, o.db, o.lggr, func(tx pg.Queryer) error {
 		if _, err := tx.Exec("DELETE FROM users"); err != nil {
 			return err
 		}
@@ -222,6 +223,17 @@ func (o *orm) SetPassword(user *User, newPassword string) error {
 	}
 	sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
 	return o.db.Get(user, sql, hashedPassword, user.Email)
+}
+
+func (o *orm) CreateAndSetAuthToken(user *User) (*auth.Token, error) {
+	newToken := auth.NewToken()
+
+	err := o.SetAuthToken(user, newToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return newToken, nil
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.

@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/config"
@@ -21,7 +20,7 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -260,10 +259,9 @@ func (cll *chainSet) ORM() types.ORM {
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
-	GormDB           *gorm.DB
-	SQLxDB           *sqlx.DB
+	DB               *sqlx.DB
 	KeyStore         keystore.Eth
-	EventBroadcaster postgres.EventBroadcaster
+	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
@@ -330,7 +328,7 @@ func checkOpts(opts *ChainSetOpts) error {
 		return errors.New("config must be non-nil")
 	}
 	if opts.ORM == nil {
-		opts.ORM = NewORM(opts.SQLxDB)
+		opts.ORM = NewORM(opts.DB)
 	}
 	return nil
 }

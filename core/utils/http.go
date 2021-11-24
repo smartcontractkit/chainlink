@@ -35,6 +35,7 @@ func init() {
 type HTTPRequest struct {
 	Request *http.Request
 	Config  HTTPRequestConfig
+	Logger  logger.Logger
 }
 
 // HTTPRequestConfig holds the configurable settings for a http request
@@ -56,23 +57,23 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 
 	r, err := client.Do(h.Request)
 	if err != nil {
-		logger.Warnw("http adapter got error", "error", err)
+		h.Logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, nil, err
 	}
-	defer logger.ErrorIfClosing(r.Body, "SendRequest response body")
+	defer h.Logger.ErrorIfClosing(r.Body, "SendRequest response body")
 
 	statusCode = r.StatusCode
 	elapsed := time.Since(start)
-	logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	h.Logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 	source := http.MaxBytesReader(nil, r.Body, h.Config.SizeLimit)
 	bytes, err := io.ReadAll(source)
 	if err != nil {
-		logger.Errorw("http adapter error reading body", "error", err)
+		h.Logger.Errorw("http adapter error reading body", "error", err)
 		return nil, statusCode, nil, err
 	}
 	elapsed = time.Since(start)
-	logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	h.Logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 	responseBody = bytes
 

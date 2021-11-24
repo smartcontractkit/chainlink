@@ -18,20 +18,24 @@ import (
 	jobORMMocks "github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	keystoreMocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	sessionsMocks "github.com/smartcontractkit/chainlink/core/sessions/mocks"
 	"github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/chainlink/core/web/loader"
 	"github.com/smartcontractkit/chainlink/core/web/schema"
 )
 
 type mocks struct {
-	bridgeORM *bridgeORMMocks.ORM
-	evmORM    *evmORMMocks.ORM
-	jobORM    *jobORMMocks.ORM
-	feedsSvc  *feedsMocks.Service
-	cfg       *configMocks.GeneralConfig
-	ocr       *keystoreMocks.OCR
-	csa       *keystoreMocks.CSA
-	keystore  *keystoreMocks.Master
+	bridgeORM   *bridgeORMMocks.ORM
+	evmORM      *evmORMMocks.ORM
+	jobORM      *jobORMMocks.ORM
+	sessionsORM *sessionsMocks.ORM
+	feedsSvc    *feedsMocks.Service
+	cfg         *configMocks.GeneralConfig
+	ocr         *keystoreMocks.OCR
+	csa         *keystoreMocks.CSA
+	keystore    *keystoreMocks.Master
+	p2p         *keystoreMocks.P2P
+	vrf         *keystoreMocks.VRF
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -67,14 +71,17 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 	// Setup mocks
 	// Note - If you add a new mock make sure you assert it's expectation below.
 	m := &mocks{
-		bridgeORM: &bridgeORMMocks.ORM{},
-		evmORM:    &evmORMMocks.ORM{},
-		jobORM:    &jobORMMocks.ORM{},
-		feedsSvc:  &feedsMocks.Service{},
-		cfg:       &configMocks.GeneralConfig{},
-		ocr:       &keystoreMocks.OCR{},
-		csa:       &keystoreMocks.CSA{},
-		keystore:  &keystoreMocks.Master{},
+		bridgeORM:   &bridgeORMMocks.ORM{},
+		evmORM:      &evmORMMocks.ORM{},
+		jobORM:      &jobORMMocks.ORM{},
+		feedsSvc:    &feedsMocks.Service{},
+		sessionsORM: &sessionsMocks.ORM{},
+		cfg:         &configMocks.GeneralConfig{},
+		ocr:         &keystoreMocks.OCR{},
+		csa:         &keystoreMocks.CSA{},
+		keystore:    &keystoreMocks.Master{},
+		p2p:         &keystoreMocks.P2P{},
+		vrf:         &keystoreMocks.VRF{},
 	}
 
 	// Assert expectations for any mocks that we set up
@@ -84,11 +91,14 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 			m.bridgeORM,
 			m.evmORM,
 			m.jobORM,
+			m.sessionsORM,
 			m.feedsSvc,
 			m.cfg,
 			m.ocr,
 			m.csa,
 			m.keystore,
+			m.p2p,
+			m.vrf,
 		)
 	})
 
@@ -120,7 +130,7 @@ func (f *gqlTestFramework) injectAuthenticatedUser() {
 
 	user := clsessions.User{Email: "gqltester@chain.link"}
 
-	f.Ctx = auth.SetGQLAuthenticatedUser(f.Ctx, user)
+	f.Ctx = auth.SetGQLAuthenticatedSession(f.Ctx, user, "gqltesterSession")
 }
 
 // GQLTestCase represents a single GQL request test.

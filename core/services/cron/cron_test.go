@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipelinemocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -24,14 +23,13 @@ import (
 func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipelinemocks.Runner)
 	cfg := configtest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	sqlxdb := postgres.UnwrapGormDB(db)
+	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, sqlxdb)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: cltest.NewEthClientMockWithDefaultChain(t)})
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(sqlxdb, lggr)
-	jobORM := job.NewORM(sqlxdb, cc, orm, keyStore, lggr)
+	orm := pipeline.NewORM(db, lggr, cfg)
+	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
 
 	jb := &job.Job{
 		Type:          job.Cron,

@@ -1,13 +1,13 @@
 package resolver
 
 import (
-	"database/sql"
-	"errors"
+	"context"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/web/loader"
 )
 
 // JobResolver resolves the Job type.
@@ -20,7 +20,7 @@ func NewJob(j job.Job) *JobResolver {
 }
 
 func NewJobs(jobs []job.Job) []*JobResolver {
-	resolvers := []*JobResolver{}
+	var resolvers []*JobResolver
 	for _, j := range jobs {
 		resolvers = append(resolvers, NewJob(j))
 	}
@@ -30,7 +30,7 @@ func NewJobs(jobs []job.Job) []*JobResolver {
 
 // ID resolves the job's id.
 func (r *JobResolver) ID() graphql.ID {
-	return graphql.ID(strconv.FormatInt(int64(r.j.ID), 10))
+	return int32GQLID(r.j.ID)
 }
 
 // CreatedAt resolves the job's created at timestamp.
@@ -67,7 +67,7 @@ func (r *JobResolver) Name() string {
 
 // ObservationSource resolves the job's observation source.
 //
-// This could potentially by moved to a dataloader in the future as we are
+// This could potentially be moved to a dataloader in the future as we are
 // fetching it from a relationship.
 func (r *JobResolver) ObservationSource() string {
 	return r.j.PipelineSpec.DotDagSource
@@ -81,6 +81,15 @@ func (r *JobResolver) SchemaVersion() int32 {
 // Spec resolves the job's spec.
 func (r *JobResolver) Spec() *SpecResolver {
 	return NewSpec(r.j)
+}
+
+func (r *JobResolver) Runs(ctx context.Context) ([]*JobRunResolver, error) {
+	runs, err := loader.GetJobRunsByPipelineSpecID(ctx, strconv.Itoa(int(r.j.PipelineSpecID)))
+	if err != nil {
+		return nil, err
+	}
+
+	return NewJobRuns(runs), nil
 }
 
 // JobsPayloadResolver resolves a page of jobs
@@ -108,29 +117,18 @@ func (r *JobsPayloadResolver) Metadata() *PaginationMetadataResolver {
 
 type JobPayloadResolver struct {
 	job *job.Job
-	err error
+	NotFoundErrorUnionType
 }
 
 func NewJobPayload(j *job.Job, err error) *JobPayloadResolver {
-	return &JobPayloadResolver{
-		job: j,
-		err: err,
-	}
+	e := NotFoundErrorUnionType{err, "job not found", nil}
+	return &JobPayloadResolver{job: j, NotFoundErrorUnionType: e}
 }
 
 // ToJob implements the JobPayload union type of the payload
 func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
 	if r.job != nil {
 		return NewJob(*r.job), true
-	}
-
-	return nil, false
-}
-
-// ToNotFoundError implements the NotFoundError union type of the payload
-func (r *JobPayloadResolver) ToNotFoundError() (*NotFoundErrorResolver, bool) {
-	if r.err != nil && errors.Is(r.err, sql.ErrNoRows) {
-		return NewNotFoundError("job not found"), true
 	}
 
 	return nil, false

@@ -37,6 +37,8 @@ import (
 
 	url "net/url"
 
+	utils "github.com/smartcontractkit/chainlink/core/utils"
+
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -96,6 +98,174 @@ func (_m *ChainScopedConfig) AuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofBlockProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofBlockProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofCPUProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofCPUProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherDuration provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGatherDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherTraceDuration provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGatherTraceDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGoroutineThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGoroutineThreshold() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMaxProfileSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMaxProfileSize() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMemProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMemProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMemThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMemThreshold() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMutexProfileFraction provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMutexProfileFraction() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofPollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofPollInterval() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofProfileRoot provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofProfileRoot() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -2343,8 +2513,8 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 	return r0
 }
 
-// LogSQLMigrations provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLMigrations() bool {
+// LogSQL provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogSQL() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2357,8 +2527,8 @@ func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	return r0
 }
 
-// LogSQLStatements provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLStatements() bool {
+// LogSQLMigrations provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3250,18 +3420,9 @@ func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
 	return r0
 }
 
-// SetLogSQLStatements provides a mock function with given fields: logSQLStatements
-func (_m *ChainScopedConfig) SetLogSQLStatements(logSQLStatements bool) error {
-	ret := _m.Called(logSQLStatements)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(bool) error); ok {
-		r0 = rf(logSQLStatements)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// SetLogSQL provides a mock function with given fields: logSQL
+func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
+	_m.Called(logSQL)
 }
 
 // StatsPusherLogging provides a mock function with given fields:

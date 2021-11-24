@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 //go:generate mockery --name P2P --output ./mocks/ --case=underscore --filename p2p.go
@@ -94,7 +95,7 @@ func (ks *p2p) Delete(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	if err != nil {
 		return p2pkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(tx postgres.Queryer) error {
+	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
 		_, err2 := tx.Exec(`DELETE FROM p2p_peers WHERE peer_id = $1`, key.ID())
 		return err2
 	})
@@ -162,8 +163,7 @@ func (ks *p2p) GetV1KeysAsV2() (keys []p2pkey.KeyV2, _ error) {
 }
 
 var (
-	ErrNoP2PKey      = errors.New("no p2p keys exist")
-	ErrMissingP2PKey = errors.New("unable to find P2P key")
+	ErrNoP2PKey = errors.New("no p2p keys exist")
 )
 
 func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
@@ -191,7 +191,7 @@ func (ks *p2p) GetOrFirst(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 func (ks *p2p) getByID(id p2pkey.PeerID) (p2pkey.KeyV2, error) {
 	key, found := ks.keyRing.P2P[id.Raw()]
 	if !found {
-		return p2pkey.KeyV2{}, errors.Wrapf(ErrMissingP2PKey, "unable to find P2P key with id %s", id)
+		return p2pkey.KeyV2{}, KeyNotFoundError{ID: id.String(), KeyType: "P2P"}
 	}
 	return key, nil
 }

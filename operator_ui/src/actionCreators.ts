@@ -49,10 +49,20 @@ export const notifySuccess = (component: React.ReactNode, props: object) => {
   }
 }
 
+export const notifySuccessMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_SUCCESS_MSG,
+  msg,
+})
+
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NotifyActionType.NOTIFY_ERROR,
   component,
   error,
+})
+
+export const notifyErrorMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_ERROR_MSG,
+  msg,
 })
 
 /**
@@ -569,12 +579,6 @@ export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
   (json) => normalize(json, { camelizeKeys: false }),
-)
-
-export const fetchBridges = requestFetch(
-  'BRIDGES',
-  api.v2.bridgeTypes.getBridges,
-  (json) => normalize(json, { endpoint: 'currentPageBridges' }),
 )
 
 export const fetchBridgeSpec = requestFetch(

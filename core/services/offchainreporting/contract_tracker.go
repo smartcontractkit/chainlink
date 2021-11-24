@@ -13,6 +13,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -20,12 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"gorm.io/gorm"
 )
 
 // configMailboxSanityLimit is the maximum number of configs that can be held
@@ -57,8 +57,8 @@ type (
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
-		db               OCRContractTrackerDB
-		gdb              *gorm.DB
+		ocrdb            OCRContractTrackerDB
+		q                pg.Q
 		blockTranslator  BlockTranslator
 		cfg              Config
 
@@ -86,7 +86,7 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(tx postgres.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error
+		SaveLatestRoundRequested(tx pg.Queryer, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
 	}
 )
@@ -100,8 +100,8 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
-	gdb *gorm.DB,
-	db OCRContractTrackerDB,
+	db *sqlx.DB,
+	ocrdb OCRContractTrackerDB,
 	cfg Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
@@ -116,8 +116,8 @@ func NewOCRContractTracker(
 		logBroadcaster,
 		jobID,
 		logger,
-		db,
-		gdb,
+		ocrdb,
+		pg.NewQ(db, logger, cfg),
 		NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
@@ -139,7 +139,7 @@ func NewOCRContractTracker(
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.ocrdb.LoadLatestRoundRequested()
 		if err != nil {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
@@ -157,7 +157,7 @@ func (t *OCRContractTracker) Start() error {
 		var latestHead *eth.Head
 		latestHead, t.unsubscribeHeads = t.headBroadcaster.Subscribe(t)
 		if latestHead != nil {
-			t.setLatestBlockHeight(*latestHead)
+			t.setLatestBlockHeight(latestHead)
 		}
 
 		t.wg.Add(1)
@@ -179,11 +179,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h eth.Head) {
+func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *eth.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h eth.Head) {
+func (t *OCRContractTracker) setLatestBlockHeight(h *eth.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
@@ -289,11 +289,11 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = postgres.NewQ(postgres.UnwrapGormDB(t.gdb)).Transaction(t.logger, func(tx postgres.Queryer) error {
-				if err = t.db.SaveLatestRoundRequested(tx, *rr); err != nil {
+			err = t.q.Transaction(func(tx pg.Queryer) error {
+				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx))
+				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))
 			})
 			if err != nil {
 				t.logger.Error(err)

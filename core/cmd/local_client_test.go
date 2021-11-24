@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"database/sql"
 	"flag"
 	"fmt"
 	"math/big"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
@@ -42,7 +42,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db)
+			keyStore := cltest.NewKeyStore(t, db, cfg)
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
@@ -237,9 +237,9 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	t.Parallel()
 
 	cfg := cltest.NewTestGeneralConfig(t)
-	db := pgtest.NewGormDB(t)
-	sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute, logger.TestLogger(t))
-	keyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
+	db := pgtest.NewSqlxDB(t)
+	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -267,9 +267,8 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	}
 
 	var keyState = ethkey.State{}
-	err = db.Where("is_funding = TRUE").Find(&keyState).Error
-	require.NoError(t, err)
-	assert.Empty(t, keyState.ID, "expected no funding key")
+	err = db.Get(&keyState, `SELECT * FROM eth_key_states WHERE is_funding = TRUE`)
+	assert.EqualError(t, err, sql.ErrNoRows.Error())
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
@@ -277,7 +276,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 
 	assert.NoError(t, client.RunNode(ctx))
 
-	assert.NoError(t, db.Where("is_funding = TRUE").First(&keyState).Error)
+	assert.NoError(t, db.Get(&keyState, `SELECT * FROM eth_key_states WHERE is_funding = TRUE`))
 	assert.NotEmpty(t, keyState.ID, "expected a new funding key")
 }
 
@@ -297,12 +296,12 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
-			db := pgtest.NewGormDB(t)
-			sessionORM := sessions.NewORM(postgres.UnwrapGormDB(db), time.Minute, logger.TestLogger(t))
+			db := pgtest.NewSqlxDB(t)
+			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
-			keyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db))
+			keyStore := cltest.NewKeyStore(t, db, cfg)
 			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -377,8 +376,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
-	config, sqlxDB, db := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
-	keyStore := cltest.NewKeyStore(t, sqlxDB)
+	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
+	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	beginningNonce := uint(7)
@@ -395,7 +394,8 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 7, 42, fromAddress)
+	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
 	app.Test(t)
@@ -449,10 +449,10 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Use the a non-transactional db for this test because we need to
 			// test multiple connections to the database, and changes made within
 			// the transaction cannot be seen from another connection.
-			config, sqlxDB, db := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
+			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
 			config.SetDialect(dialects.Postgres)
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB)
+			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -466,11 +466,11 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, int64(test.nonce), 42, fromAddress)
+			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
+			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)
 			app.Test(t)
-			app.On("GetDB").Return(db)
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("Stop").Return(nil)
@@ -498,7 +498,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 			assert.NoError(t, client.RebroadcastTransactions(c))
 
-			cltest.AssertEthTxAttemptCountStays(t, app.GetDB(), 1)
+			cltest.AssertEthTxAttemptCountStays(t, app.GetSqlxDB(), 1)
 			app.AssertExpectations(t)
 			ethClient.AssertExpectations(t)
 		})
@@ -507,8 +507,8 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
-	config, sqlxDB, db := heavyweight.FullTestDB(t, "setnextnonce", true, true)
-	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
+	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce", true, true)
+	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
 
 	client := cmd.Client{
 		Config: config,
@@ -527,7 +527,7 @@ func TestClient_SetNextNonce(t *testing.T) {
 	require.NoError(t, client.SetNextNonce(c))
 
 	var state ethkey.State
-	require.NoError(t, db.First(&state).Error)
+	require.NoError(t, sqlxDB.Get(&state, `SELECT * FROM eth_key_states`))
 	require.NotNil(t, state.NextNonce)
 	require.Equal(t, int64(42), state.NextNonce)
 }

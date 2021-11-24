@@ -18,15 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 var nilBigInt *big.Int
 
 func TestBalanceMonitor_Start(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+
 	t.Run("updates balance from nil for multiple keys", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
+		db := pgtest.NewSqlxDB(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -34,7 +35,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		k0bal := big.NewInt(42)
@@ -47,24 +48,24 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal))
 	})
 
 	t.Run("handles nil head", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
+		db := pgtest.NewSqlxDB(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 		k0bal := big.NewInt(42)
 
@@ -72,21 +73,21 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
 	})
 
 	t.Run("recovers on error", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
+		db := pgtest.NewSqlxDB(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
 
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer bm.Close()
 
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
@@ -95,16 +96,18 @@ func TestBalanceMonitor_Start(t *testing.T) {
 
 		assert.NoError(t, bm.Start())
 
-		cltest.NewGomegaWithT(t).Consistently(func() *big.Int {
+		gomega.NewWithT(t).Consistently(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.BeNil())
 	})
 }
 
 func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
+	cfg := cltest.NewTestGeneralConfig(t)
+
 	t.Run("updates balance for multiple keys", func(t *testing.T) {
-		db := pgtest.NewGormDB(t)
-		ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
+		db := pgtest.NewSqlxDB(t)
+		ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 		ethClient := NewEthClientMock(t)
 		defer ethClient.AssertExpectations(t)
@@ -112,7 +115,7 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-		bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.TestLogger(t))
+		bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		k0bal := big.NewInt(42)
 		// Deliberately larger than a 64 bit unsigned integer to test overflow
 		k1bal := big.NewInt(0)
@@ -132,12 +135,12 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		// Do the thing
-		bm.OnNewLongestChain(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), head)
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal))
 
@@ -150,12 +153,12 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
 		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
 
-		bm.OnNewLongestChain(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), head)
 
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal2))
-		cltest.NewGomegaWithT(t).Eventually(func() *big.Int {
+		gomega.NewWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal2))
 
@@ -164,14 +167,15 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 }
 
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, postgres.UnwrapGormDB(db)).Eth()
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	ethClient := NewEthClientMock(t)
 
-	bm := services.NewBalanceMonitor(db, ethClient, ethKeyStore, logger.TestLogger(t))
+	bm := services.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Once().
 		Return(big.NewInt(1), nil)
@@ -196,7 +200,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Do the thing multiple times
 	for i := 0; i < 10; i++ {
-		bm.OnNewLongestChain(context.TODO(), *head)
+		bm.OnNewLongestChain(context.TODO(), head)
 	}
 
 	// Unblock the first mock

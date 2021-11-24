@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -67,7 +67,7 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	cfg.Overrides.DefaultChainID = chainId
 
 	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), 0, 0, logger.TestLogger(t), uuid.NewV4())
 
 	zero := models.MustMakeDuration(0 * time.Millisecond)
 	reaperThreshold := models.MustMakeDuration(100 * time.Millisecond)
@@ -329,60 +329,61 @@ func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.A
 }
 
 type headSubscription struct {
-	close        chan struct{}
+	unSub        chan chan struct{}
 	subscription ethereum.Subscription
 }
 
 var _ ethereum.Subscription = (*headSubscription)(nil)
 
 func (h *headSubscription) Unsubscribe() {
-	h.subscription.Unsubscribe()
-	close(h.close)
+	done := make(chan struct{})
+	h.unSub <- done
+	<-done
 }
 
 func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
 
-// SubscribeToNewHeads registers a subscription for push notifications of new
-// blocks.
+// SubscribeNewHead registers a subscription for push notifications of new blocks.
 // Note the sim's API only accepts types.Head so we have this goroutine
 // to convert those into eth.Head.
 func (c *SimulatedBackendClient) SubscribeNewHead(
 	ctx context.Context,
 	channel chan<- *eth.Head,
 ) (ethereum.Subscription, error) {
-	subscription := &headSubscription{close: make(chan struct{})}
+	subscription := &headSubscription{unSub: make(chan chan struct{})}
 	ch := make(chan *types.Header)
-	go func() {
-		var lastHead *eth.Head
 
-		for {
-			select {
-			case h := <-ch:
-				switch h {
-				case nil:
-					channel <- nil
-				default:
-					head := &eth.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
-					lastHead = head
-					select {
-					// In head tracker shutdown the heads reader is closed, so the channel <- head write
-					// may hang.
-					case channel <- head:
-					case <-subscription.close:
-						return
-					}
-				}
-			case <-subscription.close:
-				return
-			}
-		}
-	}()
 	var err error
 	subscription.subscription, err = c.b.SubscribeNewHead(ctx, ch)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not subscribe to new heads on "+
 			"simulated backend")
 	}
+	go func() {
+		var lastHead *eth.Head
+		for {
+			select {
+			case h := <-ch:
+				var head *eth.Head
+				if h != nil {
+					head = &eth.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead, EVMChainID: utils.NewBig(c.chainId)}
+					lastHead = head
+				}
+				select {
+				case channel <- head:
+				case done := <-subscription.unSub:
+					subscription.subscription.Unsubscribe()
+					close(done)
+					return
+				}
+
+			case done := <-subscription.unSub:
+				subscription.subscription.Unsubscribe()
+				close(done)
+				return
+			}
+		}
+	}()
 	return subscription, err
 }
 

@@ -48,7 +48,7 @@ export const ConfirmationDialog: React.FC<Props> = ({
 }) => {
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>
+      <DialogTitle disableTypography>
         <Typography variant="h5"> {title}</Typography>
       </DialogTitle>
       <DialogContent>

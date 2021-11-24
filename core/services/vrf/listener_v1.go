@@ -10,19 +10,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -48,7 +47,7 @@ type listenerV1 struct {
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
 	job             job.Job
-	db              *gorm.DB
+	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           keystore.VRF
@@ -77,7 +76,7 @@ type listenerV1 struct {
 }
 
 // Note that we have 2 seconds to do this processing
-func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	lsn.setLatestHead(head)
 	select {
 	case lsn.newHead <- struct{}{}:
@@ -85,7 +84,7 @@ func (lsn *listenerV1) OnNewLongestChain(_ context.Context, head eth.Head) {
 	}
 }
 
-func (lsn *listenerV1) setLatestHead(h eth.Head) {
+func (lsn *listenerV1) setLatestHead(h *eth.Head) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(h.Number)
@@ -128,14 +127,10 @@ func (lsn *listenerV1) Start() error {
 		// per request conf requirements.
 		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
 		if latestHead != nil {
-			lsn.setLatestHead(*latestHead)
+			lsn.setLatestHead(latestHead)
 		}
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
-		})
-		go shutdown.WrapRecover(lsn.l, func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		go lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
+		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
 }
@@ -201,11 +196,13 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.newHead:
-			toProcess := lsn.extractConfirmedLogs()
-			for _, r := range toProcess {
-				lsn.ProcessRequest(r.req, r.lb)
-			}
-			lsn.pruneConfirmedRequestCounts()
+			recovery.WrapRecover(lsn.l, func() {
+				toProcess := lsn.extractConfirmedLogs()
+				for _, r := range toProcess {
+					lsn.ProcessRequest(r.req, r.lb)
+				}
+				lsn.pruneConfirmedRequestCounts()
+			})
 		}
 	}
 }
@@ -233,7 +230,9 @@ func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListener: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				recovery.WrapRecover(lsn.l, func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}
@@ -369,9 +368,9 @@ func (lsn *listenerV1) ProcessRequest(req *solidity_vrf_coordinator_interface.VR
 	})
 
 	run := pipeline.NewRun(*lsn.job.PipelineSpec, vars)
-	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx postgres.Queryer) error {
+	if _, err = lsn.pipelineRunner.Run(context.Background(), &run, lsn.l, true, func(tx pg.Queryer) error {
 		// Always mark consumed regardless of whether the proof failed or not.
-		if err = lsn.logBroadcaster.MarkConsumed(lb, postgres.WithQueryer(tx)); err != nil {
+		if err = lsn.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx)); err != nil {
 			lsn.l.Errorw("Failed mark consumed", "err", err)
 		}
 		return nil

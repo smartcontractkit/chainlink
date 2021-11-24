@@ -88,7 +88,8 @@ func TestEthTx_GetID(t *testing.T) {
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
@@ -362,8 +363,6 @@ func Test_NullableEIP2930AccessList(t *testing.T) {
 
 	nNull := bulletprooftxmanager.NullableEIP2930AccessList{}
 	nValid := bulletprooftxmanager.NullableEIP2930AccessListFrom(al)
-
-	assert.Equal(t, "jsonb", nNull.GormDataType())
 
 	t.Run("MarshalJSON", func(t *testing.T) {
 		_, err := json.Marshal(nNull)

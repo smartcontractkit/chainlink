@@ -15,6 +15,7 @@ type Config interface {
 	EvmGasLimitDefault() uint64
 	EvmMaxQueuedTransactions() uint64
 	FMDefaultTransactionQueueDepth() uint32
+	LogSQL() bool
 }
 
 // MinimumPollingInterval returns the minimum duration between polling ticks

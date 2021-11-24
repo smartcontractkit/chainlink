@@ -8,7 +8,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -25,34 +26,34 @@ type ORM interface {
 	// FindBroadcasts returns broadcasts for a range of block numbers, both consumed and unconsumed.
 	FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadcast, error)
 	// CreateBroadcast inserts an unconsumed log broadcast for jobID.
-	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error
+	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
 	// WasBroadcastConsumed returns true if jobID consumed the log broadcast.
-	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...postgres.QOpt) (bool, error)
+	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (bool, error)
 	// MarkBroadcastConsumed marks the log broadcast as consumed by jobID.
-	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error
+	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error
 
 	// SetPendingMinBlock sets the minimum block number for which there are pending broadcasts in the pool, or nil if empty.
-	SetPendingMinBlock(blockNum *int64, qopts ...postgres.QOpt) error
+	SetPendingMinBlock(blockNum *int64, qopts ...pg.QOpt) error
 	// GetPendingMinBlock returns the minimum block number for which there were pending broadcasts in the pool, or nil if it was empty.
-	GetPendingMinBlock(qopts ...postgres.QOpt) (blockNumber *int64, err error)
+	GetPendingMinBlock(qopts ...pg.QOpt) (blockNumber *int64, err error)
 
 	// Reinitialize cleans up the database by removing any unconsumed broadcasts, then updating (if necessary) and
 	// returning the pending minimum block number.
-	Reinitialize(qopts ...postgres.QOpt) (blockNumber *int64, err error)
+	Reinitialize(qopts ...pg.QOpt) (blockNumber *int64, err error)
 }
 
 type orm struct {
-	db         *sqlx.DB
+	q          pg.Q
 	evmChainID utils.Big
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, evmChainID big.Int) *orm {
-	return &orm{db, *utils.NewBig(&evmChainID)}
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.LogConfig, evmChainID big.Int) *orm {
+	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 
-func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...postgres.QOpt) (consumed bool, err error) {
+func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {
 	query := `
 		SELECT consumed FROM log_broadcasts
 		WHERE block_hash = $1
@@ -66,7 +67,7 @@ func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID i
 		jobID,
 		o.evmChainID,
 	}
-	q := postgres.NewQ(o.db, qopts...)
+	q := o.q.WithOpts(qopts...)
 	err = q.Get(&consumed, query, args...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
@@ -82,15 +83,15 @@ func (o *orm) FindBroadcasts(fromBlockNum int64, toBlockNum int64) ([]LogBroadca
 		AND block_number <= $2
 		AND evm_chain_id = $3
 	`
-	err := o.db.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
+	err := o.q.Select(&broadcasts, query, fromBlockNum, toBlockNum, o.evmChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find log broadcasts")
 	}
 	return broadcasts, err
 }
 
-func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), false, $5)
@@ -98,8 +99,8 @@ func (o *orm) CreateBroadcast(blockHash common.Hash, blockNumber uint64, logInde
 	return errors.Wrap(err, "failed to create log broadcast")
 }
 
-func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...postgres.QOpt) error {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, created_at, updated_at, consumed, evm_chain_id)
 		VALUES ($1, $2, $3, $4, NOW(), NOW(), true, $5)
@@ -109,7 +110,7 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, l
 	return errors.Wrap(err, "failed to mark log broadcast as consumed")
 }
 
-func (o *orm) Reinitialize(qopts ...postgres.QOpt) (*int64, error) {
+func (o *orm) Reinitialize(qopts ...pg.QOpt) (*int64, error) {
 	// Minimum block number from the set of unconsumed logs, which we'll remove later.
 	minUnconsumed, err := o.getUnconsumedMinBlock(qopts...)
 	if err != nil {
@@ -139,8 +140,8 @@ func (o *orm) Reinitialize(qopts ...postgres.QOpt) (*int64, error) {
 	return minPending, nil
 }
 
-func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...postgres.QOpt) error {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         INSERT INTO log_broadcasts_pending (evm_chain_id, block_number, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())
 		ON CONFLICT (evm_chain_id) DO UPDATE SET block_number = $3, updated_at = NOW() 
@@ -148,8 +149,8 @@ func (o *orm) SetPendingMinBlock(blockNumber *int64, qopts ...postgres.QOpt) err
 	return errors.Wrap(err, "failed to set pending broadcast block number")
 }
 
-func (o *orm) GetPendingMinBlock(qopts ...postgres.QOpt) (*int64, error) {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) GetPendingMinBlock(qopts ...pg.QOpt) (*int64, error) {
+	q := o.q.WithOpts(qopts...)
 	var blockNumber *int64
 	err := q.Get(&blockNumber, `
         SELECT block_number FROM log_broadcasts_pending WHERE evm_chain_id = $1
@@ -162,8 +163,8 @@ func (o *orm) GetPendingMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 	return blockNumber, nil
 }
 
-func (o *orm) getUnconsumedMinBlock(qopts ...postgres.QOpt) (*int64, error) {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) getUnconsumedMinBlock(qopts ...pg.QOpt) (*int64, error) {
+	q := o.q.WithOpts(qopts...)
 	var blockNumber *int64
 	err := q.Get(&blockNumber, `
         SELECT min(block_number) FROM log_broadcasts
@@ -179,8 +180,8 @@ func (o *orm) getUnconsumedMinBlock(qopts ...postgres.QOpt) (*int64, error) {
 	return blockNumber, nil
 }
 
-func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
-	q := postgres.NewQ(o.db, qopts...)
+func (o *orm) removeUnconsumed(qopts ...pg.QOpt) error {
+	q := o.q.WithOpts(qopts...)
 	err := q.ExecQ(`
         DELETE FROM log_broadcasts
 			WHERE evm_chain_id = $1
@@ -190,7 +191,7 @@ func (o *orm) removeUnconsumed(qopts ...postgres.QOpt) error {
 	return errors.Wrap(err, "failed to delete unconsumed broadcasts")
 }
 
-// LogBroadcast - gorm-compatible receive data from log_broadcasts table columns
+// LogBroadcast - data from log_broadcasts table columns
 type LogBroadcast struct {
 	BlockHash common.Hash
 	Consumed  bool

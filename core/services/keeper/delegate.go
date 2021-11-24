@@ -2,27 +2,27 @@ package keeper
 
 import (
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 // To make sure Delegate struct implements job.Delegate interface
 var _ job.Delegate = (*Delegate)(nil)
 
 type transmitter interface {
-	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...postgres.QOpt) (etx bulletprooftxmanager.EthTx, err error)
+	CreateEthTransaction(newTx bulletprooftxmanager.NewTx, qopts ...pg.QOpt) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 type Delegate struct {
 	logger   logger.Logger
-	db       *gorm.DB
+	db       *sqlx.DB
 	jrm      job.ORM
 	pr       pipeline.Runner
 	chainSet evm.ChainSet
@@ -30,7 +30,7 @@ type Delegate struct {
 
 // NewDelegate is the constructor of Delegate
 func NewDelegate(
-	db *gorm.DB,
+	db *sqlx.DB,
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
@@ -77,7 +77,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	}
 	strategy := bulletprooftxmanager.NewQueueingTxStrategy(spec.ExternalJobID, chain.Config().KeeperDefaultTransactionQueueDepth(), false)
 
-	orm := NewORM(d.db, chain.TxManager(), chain.Config(), strategy)
+	orm := NewORM(d.db, d.logger, chain.TxManager(), chain.Config(), strategy)
 
 	svcLogger := d.logger.With(
 		"jobID", spec.ID,

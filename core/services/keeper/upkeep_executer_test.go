@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -29,9 +28,9 @@ import (
 	gasmocks "github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
+	"github.com/smartcontractkit/sqlx"
 )
 
 func newHead() eth.Head {
@@ -39,7 +38,7 @@ func newHead() eth.Head {
 }
 
 func setup(t *testing.T) (
-	*gorm.DB,
+	*sqlx.DB,
 	*configtest.TestGeneralConfig,
 	*mocks.Client,
 	*keeper.UpkeepExecuter,
@@ -51,28 +50,27 @@ func setup(t *testing.T) (
 ) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	cfg.Overrides.KeeperMaximumGracePeriod = null.IntFrom(0)
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	keyStore := cltest.NewKeyStore(t, db)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
-	registry, job := cltest.MustInsertKeeperRegistry(t, gdb, keyStore.Eth())
 	txm := new(bptxmmocks.TxManager)
 	txm.Test(t)
 	estimator := new(gasmocks.Estimator)
 	estimator.Test(t)
 	txm.On("GetGasEstimator").Return(estimator)
 	estimator.On("GetLegacyGas", mock.Anything, mock.Anything).Maybe().Return(assets.GWei(60), uint64(0), nil)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: gdb, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg})
 	jpv2 := cltest.NewJobPipelineV2(t, cfg, cc, db, keyStore)
 	ch := evmtest.MustGetDefaultChain(t, cc)
-	orm := keeper.NewORM(gdb, txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	orm := keeper.NewORM(db, logger.TestLogger(t), txm, ch.Config(), bulletprooftxmanager.SendEveryStrategy{})
+	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth())
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.TxManager().GetGasEstimator(), lggr, ch.Config())
-	upkeep := cltest.MustInsertUpkeepForRegistry(t, gdb, ch.Config(), registry)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config(), registry)
 	err := executer.Start()
 	t.Cleanup(func() { txm.AssertExpectations(t); estimator.AssertExpectations(t); executer.Close() })
 	require.NoError(t, err)
-	return gdb, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
+	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm
 }
 
 var checkUpkeepResponse = struct {
@@ -126,7 +124,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		)
 
 		head := newHead()
-		executer.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(context.Background(), &head)
 		ethTxCreated.AwaitOrFail(t)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -158,7 +156,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
-		head := *cltest.Head(36)
+		head := cltest.Head(36)
 
 		executer.OnNewLongestChain(context.Background(), head)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 5, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -169,12 +167,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
-			head = *cltest.Head(i)
+			head = cltest.Head(i)
 			executer.OnNewLongestChain(context.Background(), head)
 		}
 
 		// head 40 triggers a new run
-		head = *cltest.Head(40)
+		head = cltest.Head(40)
 
 		txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool { return newTx.GasLimit == gasLimit }),
@@ -197,7 +195,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	db, _, ethMock, executer, registry, _, _, _, _ := setup(t)
 
@@ -208,9 +206,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := newHead()
-	executer.OnNewLongestChain(context.TODO(), head)
+	executer.OnNewLongestChain(context.TODO(), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, bulletprooftxmanager.EthTx{}, 0)
+	cltest.AssertCountStays(t, db, "eth_txes", 0)
 	ethMock.AssertExpectations(t)
 }

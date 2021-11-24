@@ -25,12 +25,11 @@ import (
 	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 123
 	helper := newBroadcasterHelper(t, blockHeight, 1)
@@ -105,8 +104,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.start()
 
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 1 }, cltest.DefaultWaitTimeout, time.Second)
-	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
-	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(0)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 1 }, cltest.DefaultWaitTimeout, 100*time.Millisecond)
 	helper.unsubscribeAll()
@@ -121,8 +120,8 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	helper.register(listenerLast, newMockContract(), 1)
 
 	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, cltest.DefaultWaitTimeout, time.Second)
-	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
-	cltest.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(2)))
+	gomega.NewWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }, 1*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(int32(1)))
 
 	require.Eventually(t, func() bool { return backfillCount.Load() == 2 }, cltest.DefaultWaitTimeout, time.Second)
 
@@ -189,12 +188,13 @@ func TestBroadcaster_BackfillOnNodeStartAndOnReplay(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	cfg := cltest.NewTestGeneralConfig(t)
 
-	helperCfg := broadcasterHelperCfg{gdb: gdb}
+	orm := log.NewORM(db, lggr, cfg, cltest.FixtureChainID)
 
+	helperCfg := broadcasterHelperCfg{db: db}
 	contract1 := newMockContract()
 	contract2 := newMockContract()
 
@@ -482,7 +482,7 @@ func TestBroadcaster_BackfillInBatches(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	const (
 		lastStoredBlockHeight int64 = 10
 
@@ -1297,7 +1297,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock: test.blockHeight1,
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
 					lggr.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
@@ -1342,7 +1342,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			_ = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock: test.blockHeight2,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head eth.Head) {
+				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *eth.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						chRawLogs2 <- logsA[uint(head.Number)]
 					}
@@ -1463,7 +1463,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 }
 
 func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	const startBlockHeight int64 = 0
 	helper := newBroadcasterHelper(t, startBlockHeight, 1)
@@ -1527,7 +1527,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 		switch x := event.(type) {
 		case *eth.Head:
 			ctx, _ := context.WithTimeout(context.Background(), cltest.DefaultWaitTimeout)
-			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, *x)
+			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			select {
 			case chRawLogs <- x:
@@ -1552,7 +1552,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
-	g := cltest.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 2)
@@ -1615,7 +1615,7 @@ func (s sub) Err() <-chan error {
 }
 
 func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
-	gm := cltest.NewGomegaWithT(t)
+	gm := gomega.NewWithT(t)
 
 	ethClient := new(ethmocks.Client)
 	ethClient.Test(t)
@@ -1703,7 +1703,7 @@ func TestBroadcaster_BroadcastsWithZeroConfirmations(t *testing.T) {
 
 	// Send a block to trigger sending the logs from the pool
 	// to the subscribers
-	helper.lb.OnNewLongestChain(context.Background(), eth.Head{Number: 2})
+	helper.lb.OnNewLongestChain(context.Background(), &eth.Head{Number: 2})
 
 	// The subs should each get exactly 3 broadcasts each
 	// If we do not receive a broadcast for 1 second

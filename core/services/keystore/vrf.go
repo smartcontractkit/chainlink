@@ -5,8 +5,11 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 )
+
+//go:generate mockery --name VRF --output ./mocks/ --case=underscore --filename vrf.go
 
 type VRF interface {
 	Get(id string) (vrfkey.KeyV2, error)
@@ -21,6 +24,10 @@ type VRF interface {
 
 	GetV1KeysAsV2(password string) ([]vrfkey.KeyV2, error)
 }
+
+var (
+	ErrMissingVRFKey = errors.New("unable to find VRF key")
+)
 
 type vrf struct {
 	*keyManager
@@ -157,7 +164,7 @@ func (ks *vrf) GetV1KeysAsV2(password string) (keys []vrfkey.KeyV2, _ error) {
 func (ks *vrf) getByID(id string) (vrfkey.KeyV2, error) {
 	key, found := ks.keyRing.VRF[id]
 	if !found {
-		return vrfkey.KeyV2{}, fmt.Errorf("unable to find VRF key with id %s", id)
+		return vrfkey.KeyV2{}, KeyNotFoundError{ID: id, KeyType: "VRF"}
 	}
 	return key, nil
 }

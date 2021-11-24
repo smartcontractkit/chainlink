@@ -28,8 +28,9 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	gdb := pgtest.GormDBFromSql(t, db.DB)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	var nonce int64 = 0
@@ -48,7 +49,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 	})
 
 	// Confirmed in block number 5
-	cltest.MustInsertConfirmedEthTxWithReceipt(t, gdb, from, nonce, 5)
+	cltest.MustInsertConfirmedEthTxWithReceipt(t, borm, from, nonce, 5)
 	nonce++
 
 	t.Run("skips if threshold=0", func(t *testing.T) {
@@ -92,7 +93,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		// Didn't delete because eth_tx was not old enough
 		cltest.AssertCount(t, db, "eth_txes", 1)
 
-		require.NoError(t, gdb.Exec(`UPDATE eth_txes SET created_at=?`, oneDayAgo).Error)
+		pgtest.MustExec(t, db, `UPDATE eth_txes SET created_at=$1`, oneDayAgo)
 
 		err = r.ReapEthTxes(12)
 		assert.NoError(t, err)
@@ -105,7 +106,7 @@ func TestReaper_ReapEthTxes(t *testing.T) {
 		cltest.AssertCount(t, db, "eth_txes", 0)
 	})
 
-	cltest.MustInsertFatalErrorEthTx(t, gdb, from)
+	cltest.MustInsertFatalErrorEthTx(t, borm, from)
 
 	t.Run("deletes errored eth_txes that exceed the age threshold", func(t *testing.T) {
 		config := new(mocks.ReaperConfig)

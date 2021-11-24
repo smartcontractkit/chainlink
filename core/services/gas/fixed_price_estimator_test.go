@@ -4,10 +4,12 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/gas"
-	"github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/gas"
+	"github.com/smartcontractkit/chainlink/core/services/gas/mocks"
 )
 
 func Test_FixedPriceEstimator(t *testing.T) {
@@ -15,7 +17,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("GetLegacyGas returns EvmGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
 		config := new(mocks.Config)
-		f := gas.NewFixedPriceEstimator(config)
+		f := gas.NewFixedPriceEstimator(config, logger.TestLogger(t))
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
@@ -30,7 +32,8 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("BumpLegacyGas calls BumpLegacyGasPriceOnly", func(t *testing.T) {
 		config := new(mocks.Config)
-		f := gas.NewFixedPriceEstimator(config)
+		lggr := logger.TestLogger(t)
+		f := gas.NewFixedPriceEstimator(config, lggr)
 
 		config.On("EvmGasPriceDefault").Return(big.NewInt(42))
 		config.On("EvmGasBumpPercent").Return(uint16(10))
@@ -41,7 +44,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		gasPrice, gasLimit, err := f.BumpLegacyGas(big.NewInt(42), 100000)
 		require.NoError(t, err)
 
-		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, nil, big.NewInt(42), 100000)
+		expectedGasPrice, expectedGasLimit, err := gas.BumpLegacyGasPriceOnly(config, lggr, nil, big.NewInt(42), 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
@@ -52,7 +55,8 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("GetDynamicFee returns defaults from config, with multiplier applied", func(t *testing.T) {
 		config := new(mocks.Config)
-		f := gas.NewFixedPriceEstimator(config)
+		lggr := logger.TestLogger(t)
+		f := gas.NewFixedPriceEstimator(config, lggr)
 
 		config.On("EvmGasLimitMultiplier").Return(float32(1.1))
 		config.On("EvmGasTipCapDefault").Return(big.NewInt(52))
@@ -70,7 +74,8 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("BumpDynamicFee calls BumpDynamicFeeOnly", func(t *testing.T) {
 		config := new(mocks.Config)
-		f := gas.NewFixedPriceEstimator(config)
+		lggr := logger.TestLogger(t)
+		f := gas.NewFixedPriceEstimator(config, lggr)
 
 		config.On("EvmGasBumpPercent").Return(uint16(10))
 		config.On("EvmGasBumpWei").Return(big.NewInt(150))
@@ -82,7 +87,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		fee, gasLimit, err := f.BumpDynamicFee(originalFee, 100000)
 		require.NoError(t, err)
 
-		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, nil, originalFee, 100000)
+		expectedFee, expectedGasLimit, err := gas.BumpDynamicFeeOnly(config, lggr, nil, originalFee, 100000)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)

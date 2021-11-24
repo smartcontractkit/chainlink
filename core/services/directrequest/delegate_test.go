@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -33,13 +33,13 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	runner := new(pipeline_mocks.Runner)
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, db, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -72,15 +72,14 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	runner := new(pipeline_mocks.Runner)
 	broadcaster.On("AddDependents", 1)
 
-	gdb := pgtest.NewGormDB(t)
-	db := postgres.UnwrapGormDB(gdb)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: gdb, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
+	db := pgtest.NewSqlxDB(t)
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr)
+	orm := pipeline.NewORM(db, lggr, cfg)
 
-	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(postgres.UnwrapGormDB(gdb), cc, orm, keyStore, lggr)
-	delegate := directrequest.NewDelegate(lggr, runner, orm, gdb, cc)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
+	delegate := directrequest.NewDelegate(lggr, runner, orm, cc)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
 	jb.ExternalJobID = uuid.NewV4()
@@ -147,7 +146,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Return(false, nil).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(postgres.Queryer) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once()
 
@@ -203,7 +202,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(postgres.Queryer) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once().Return(false, nil)
 
@@ -362,7 +361,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(postgres.Queryer) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 
@@ -457,7 +456,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(postgres.Queryer) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 

@@ -3,10 +3,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/recovery"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -30,14 +31,14 @@ type Runner interface {
 	// Run is a blocking call that will execute the run until no further progress can be made.
 	// If `incomplete` is true, the run is only partially complete and is suspended, awaiting to be resumed when more data comes in.
 	// Note that `saveSuccessfulTaskRuns` value is ignored if the run contains async tasks.
-	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx postgres.Queryer) error) (incomplete bool, err error)
+	Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error)
 	ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
-	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...postgres.QOpt) error
+	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
 
 	// ExecuteAndInsertFinishedRun executes a new run in-memory according to a spec, persists and saves the results.
 	// It is a combination of ExecuteRun and InsertFinishedRun.
@@ -107,7 +108,7 @@ func NewRunner(orm ORM, config Config, chainSet evm.ChainSet, ethks ETHKeyStore,
 		lggr:        lggr.Named("PipelineRunner"),
 	}
 	r.runReaperWorker = utils.NewSleeperTask(
-		utils.SleeperTaskFuncWorker(r.runReaper),
+		utils.SleeperFuncTask(r.runReaper, "PipelineRunnerReaper"),
 	)
 	return r
 }
@@ -183,6 +184,8 @@ func (r *runner) OnRunFinished(fn func(*Run)) {
 	r.runFinished = fn
 }
 
+// Be careful with the ctx passed in here: it applies to requests in individual
+// tasks but should _not_ apply to the scheduler or run itself
 func (r *runner) ExecuteRun(
 	ctx context.Context,
 	spec Spec,
@@ -224,7 +227,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*HTTPTask).config = r.config
 		case TaskTypeBridge:
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).queryer = r.orm.DB()
+			task.(*BridgeTask).queryer = r.orm.GetQ()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).config = r.config
@@ -259,7 +262,7 @@ func (r *runner) run(
 ) (TaskRunResults, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", run.PipelineSpec.JobID, "job name", run.PipelineSpec.JobName)
 
-	scheduler := newScheduler(pipeline, run, vars)
+	scheduler := newScheduler(pipeline, run, vars, l)
 	go scheduler.Run()
 
 	// This is "just in case" for cleaning up any stray reports.
@@ -267,29 +270,30 @@ func (r *runner) run(
 	reportCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for taskRun := range scheduler.taskCh {
-		// execute
-		go func(taskRun *memoryTaskRun) {
-			defer func() {
-				if err := recover(); err != nil {
-					l.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+	if pipelineTimeout := r.config.JobPipelineMaxRunDuration(); pipelineTimeout != 0 {
+		ctx, cancel = context.WithTimeout(ctx, pipelineTimeout)
+		defer cancel()
+	}
 
-					t := time.Now()
-					scheduler.report(reportCtx, TaskRunResult{
-						ID:         uuid.NewV4(),
-						Task:       taskRun.task,
-						Result:     Result{Error: ErrRunPanicked{err}},
-						FinishedAt: null.TimeFrom(t),
-						CreatedAt:  t, // TODO: more accurate start time
-					})
-				}
-			}()
+	for taskRun := range scheduler.taskCh {
+		taskRun := taskRun
+		// execute
+		go recovery.WrapRecoverHandle(l, func() {
 			result := r.executeTaskRun(ctx, run.PipelineSpec, taskRun, l)
 
 			logTaskRunToPrometheus(result, run.PipelineSpec)
 
 			scheduler.report(reportCtx, result)
-		}(taskRun)
+		}, func(err interface{}) {
+			t := time.Now()
+			scheduler.report(reportCtx, TaskRunResult{
+				ID:         uuid.NewV4(),
+				Task:       taskRun.task,
+				Result:     Result{Error: ErrRunPanicked{err}},
+				FinishedAt: null.TimeFrom(t),
+				CreatedAt:  t, // TODO: more accurate start time
+			})
+		})
 	}
 
 	// if the run is suspended, awaiting resumption
@@ -371,18 +375,24 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		"taskType", taskRun.task.Type(),
 		"attempt", taskRun.attempts)
 
-	// Order of precedence for task timeout:
+	// Task timeout will be whichever of the following timesout/cancels first:
+	// - Pipeline-level timeout
 	// - Specific task timeout (task.TaskTimeout)
 	// - Job level task timeout (spec.MaxTaskDuration)
 	// - Passed in context
-	taskTimeout, isSet := taskRun.task.TaskTimeout()
-	if isSet {
-		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(ctx, r.chStop, taskTimeout)
+
+	// CAUTION: Think twice before changing any of the context handling code
+	// below. It has already been changed several times trying to "fix" a bug,
+	// but actually introducing new ones. Please leave it as-is unless you have
+	// an extremely good reason to change it.
+	ctx, cancel := utils.CombinedContext(ctx, r.chStop)
+	defer cancel()
+	if taskTimeout, isSet := taskRun.task.TaskTimeout(); isSet {
+		ctx, cancel = context.WithTimeout(ctx, taskTimeout)
 		defer cancel()
-	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
-		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(ctx, r.chStop, time.Duration(spec.MaxTaskDuration))
+	}
+	if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
 
@@ -449,7 +459,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 
 }
 
-func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx postgres.Queryer) error) (incomplete bool, err error) {
+func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccessfulTaskRuns bool, fn func(tx pg.Queryer) error) (incomplete bool, err error) {
 	pipeline, err := r.initializePipeline(run)
 	if err != nil {
 		return false, err
@@ -457,7 +467,8 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 
 	preinsert := pipeline.RequiresPreInsert()
 
-	err = postgres.NewQ(r.orm.DB(), postgres.WithParentCtx(ctx)).Transaction(r.lggr, func(tx postgres.Queryer) error {
+	q := r.orm.GetQ().WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
 		// OPTIMISATION: avoid an extra db write if there is no async tasks present or if this is a resumed run
 		if preinsert && run.ID == 0 {
 			now := time.Now()
@@ -476,7 +487,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				default:
 				}
 			}
-			if err = r.orm.CreateRun(run, postgres.WithQueryer(tx)); err != nil {
+			if err = r.orm.CreateRun(run, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
 		}
@@ -524,7 +535,7 @@ func (r *runner) Run(ctx context.Context, run *Run, l logger.Logger, saveSuccess
 				return false, nil
 			}
 
-			if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, postgres.WithParentCtx(ctx)); err != nil {
+			if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, pg.WithParentCtx(ctx)); err != nil {
 				return false, errors.Wrapf(err, "error storing run for spec ID %v", run.PipelineSpec.ID)
 			}
 		}
@@ -558,7 +569,7 @@ func (r *runner) ResumeRun(taskID uuid.UUID, value interface{}, err error) error
 	return nil
 }
 
-func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...postgres.QOpt) error {
+func (r *runner) InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
 	return r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns, qopts...)
 }
 

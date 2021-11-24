@@ -15,8 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Service --output ./mocks/ --case=underscore
@@ -43,8 +44,10 @@ type Service interface {
 	CreateJobProposal(jp *JobProposal) (int64, error)
 	GetJobProposal(id int64) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
+	GetManagers(ids []int64) ([]FeedsManager, error)
 	ListManagers() ([]FeedsManager, error)
 	ListJobProposals() ([]JobProposal, error)
+	GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error)
 	ProposeJob(jp *JobProposal) (int64, error)
 	RegisterManager(ms *FeedsManager) (int64, error)
 	RejectJobProposal(ctx context.Context, id int64) error
@@ -61,7 +64,7 @@ type service struct {
 
 	orm         ORM
 	jobORM      job.ORM
-	queryer     postgres.Queryer
+	q           pg.Q
 	csaKeyStore keystore.CSA
 	ethKeyStore keystore.Eth
 	p2pKeyStore keystore.P2P
@@ -77,7 +80,7 @@ type service struct {
 func NewService(
 	orm ORM,
 	jobORM job.ORM,
-	queryer postgres.Queryer,
+	db *sqlx.DB,
 	jobSpawner job.Spawner,
 	keyStore keystore.Master,
 	cfg Config,
@@ -89,7 +92,7 @@ func NewService(
 	svc := &service{
 		orm:         orm,
 		jobORM:      jobORM,
-		queryer:     queryer,
+		q:           pg.NewQ(db, lggr, cfg),
 		jobSpawner:  jobSpawner,
 		p2pKeyStore: keyStore.P2P(),
 		csaKeyStore: keyStore.CSA(),
@@ -117,7 +120,7 @@ func (s *service) RegisterManager(mgr *FeedsManager) (int64, error) {
 		return 0, ErrSingleFeedsManager
 	}
 
-	id, err := s.orm.CreateManager(context.Background(), mgr)
+	id, err := s.orm.CreateManager(mgr)
 	if err != nil {
 		return 0, err
 	}
@@ -174,7 +177,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 	_, err = fmsClient.UpdateNode(context.Background(), &pb.UpdateNodeRequest{
 		JobTypes: jobtypes,
 		// ChainID is deprecated but we still need to pass it in for backwards
-		// compatability. We now use ChainIds in order to support multichain.
+		// compatibility. We now use ChainIds in order to support multichain.
 		//
 		// We can remove it once the Feeds Manager has been updated and released
 		// https://app.clubhouse.io/chainlinklabs/story/14983/support-multichain-nodes
@@ -195,7 +198,7 @@ func (s *service) SyncNodeInfo(id int64) error {
 // UpdateFeedsManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
 func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) error {
-	err := s.orm.UpdateManager(ctx, mgr)
+	err := s.orm.UpdateManager(mgr, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
 	}
@@ -219,7 +222,7 @@ func (s *service) UpdateFeedsManager(ctx context.Context, mgr FeedsManager) erro
 
 // ListManagerServices lists all the manager services.
 func (s *service) ListManagers() ([]FeedsManager, error) {
-	managers, err := s.orm.ListManagers(context.Background())
+	managers, err := s.orm.ListManagers()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get a list of managers")
 	}
@@ -233,7 +236,7 @@ func (s *service) ListManagers() ([]FeedsManager, error) {
 
 // GetManager gets a manager service by id.
 func (s *service) GetManager(id int64) (*FeedsManager, error) {
-	manager, err := s.orm.GetManager(context.Background(), id)
+	manager, err := s.orm.GetManager(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get manager by ID")
 	}
@@ -242,9 +245,23 @@ func (s *service) GetManager(id int64) (*FeedsManager, error) {
 	return manager, nil
 }
 
+// GetManagers get managers services by ids.
+func (s *service) GetManagers(ids []int64) ([]FeedsManager, error) {
+	managers, err := s.orm.GetManagers(ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get managers by IDs")
+	}
+
+	for _, manager := range managers {
+		manager.IsConnectionActive = s.connMgr.IsConnected(manager.ID)
+	}
+
+	return managers, nil
+}
+
 // CountManagerServices gets the total number of manager services
 func (s *service) CountManagers() (int64, error) {
-	return s.orm.CountManagers(context.Background())
+	return s.orm.CountManagers()
 }
 
 // Lists all JobProposals
@@ -252,7 +269,12 @@ func (s *service) CountManagers() (int64, error) {
 // When we support multiple feed managers, we will need to change this to filter
 // by feeds manager
 func (s *service) ListJobProposals() ([]JobProposal, error) {
-	return s.orm.ListJobProposals(context.Background())
+	return s.orm.ListJobProposals()
+}
+
+// GetJobProposalsByManagersIDs gets job proposals by feeds managers IDs
+func (s *service) GetJobProposalsByManagersIDs(ids []int64) ([]JobProposal, error) {
+	return s.orm.GetJobProposalsByManagersIDs(ids)
 }
 
 // CreateJobProposal creates a job proposal.
@@ -261,7 +283,7 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 		return 0, err
 	}
 
-	return s.orm.CreateJobProposal(context.Background(), jp)
+	return s.orm.CreateJobProposal(jp)
 }
 
 // ProposeJob creates a job proposal if it does not exist. If it already exists
@@ -273,8 +295,6 @@ func (s *service) CreateJobProposal(jp *JobProposal) (int64, error) {
 // generated by another feeds manager or they maliciously send an existing uuid
 // belonging to another feeds manager, we do not update it.
 func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
-	ctx := context.Background()
-
 	// Track the given job proposal request
 	promJobProposalRequest.Inc()
 
@@ -284,15 +304,14 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 		return 0, err
 	}
 
-	existing, err := s.orm.GetJobProposalByRemoteUUID(ctx, jp.RemoteUUID)
+	existing, err := s.orm.GetJobProposalByRemoteUUID(jp.RemoteUUID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, errors.Wrap(err, "failed to check existence of job proposal")
 		}
 	}
 
-	// Validation checks if a job proposal exists
-	if existing != nil {
+	if err == nil {
 		// Ensure that if the job proposal exists, that it belongs to the feeds manager.
 		if jp.FeedsManagerID != existing.FeedsManagerID {
 			return 0, errors.New("cannot update a job proposal belonging to another feeds manager")
@@ -307,7 +326,7 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 	jp.Status = JobProposalStatusPending
 
 	// Upsert job proposal
-	id, err := s.orm.UpsertJobProposal(ctx, jp)
+	id, err := s.orm.UpsertJobProposal(jp)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to upsert job proposal")
 	}
@@ -317,11 +336,11 @@ func (s *service) ProposeJob(jp *JobProposal) (int64, error) {
 
 // GetJobProposal gets a job proposal by id.
 func (s *service) GetJobProposal(id int64) (*JobProposal, error) {
-	return s.orm.GetJobProposal(context.Background(), id)
+	return s.orm.GetJobProposal(id)
 }
 
 func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec string) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Wrap(err, "job proposal does not exist")
@@ -335,7 +354,7 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 	}
 
 	// Update the spec
-	if err = s.orm.UpdateJobProposalSpec(ctx, id, spec); err != nil {
+	if err = s.orm.UpdateJobProposalSpec(id, spec, pg.WithParentCtx(ctx)); err != nil {
 		return errors.Wrap(err, "could not update job proposal")
 	}
 
@@ -343,7 +362,7 @@ func (s *service) UpdateJobProposalSpec(ctx context.Context, id int64, spec stri
 }
 
 func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal error")
 	}
@@ -362,14 +381,15 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "could not generate job from spec")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
 		// Create the job
-		if err = s.jobSpawner.CreateJob(j, postgres.WithQueryer(tx)); err != nil {
+		if err = s.jobSpawner.CreateJob(j, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
 		// Approve the job
-		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, postgres.WithQueryer(tx)); err != nil {
+		if err = s.orm.ApproveJobProposal(id, j.ExternalJobID, JobProposalStatusApproved, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -390,7 +410,7 @@ func (s *service) ApproveJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
 	}
@@ -404,8 +424,9 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 		return errors.New("must be a pending job proposal")
 	}
 
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
-		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, postgres.WithQueryer(tx)); err != nil {
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		if err = s.orm.UpdateJobProposalStatus(id, JobProposalStatusRejected, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
@@ -425,11 +446,11 @@ func (s *service) RejectJobProposal(ctx context.Context, id int64) error {
 }
 
 func (s *service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
-	return s.orm.IsJobManaged(ctx, jobID)
+	return s.orm.IsJobManaged(jobID, pg.WithParentCtx(ctx))
 }
 
 func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
-	jp, err := s.orm.GetJobProposal(ctx, id)
+	jp, err := s.orm.GetJobProposal(id, pg.WithParentCtx(ctx))
 	if err != nil {
 		return errors.Wrap(err, "job proposal does not exist")
 	}
@@ -443,21 +464,23 @@ func (s *service) CancelJobProposal(ctx context.Context, id int64) error {
 		return errors.Wrap(err, "fms rpc client")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, postgres.DefaultQueryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, pg.DefaultQueryTimeout)
 	defer cancel()
-	err = postgres.NewQ(s.queryer, postgres.WithParentCtx(ctx)).Transaction(s.lggr, func(tx postgres.Queryer) error {
-		if err = s.orm.CancelJobProposal(id, postgres.WithQueryer(tx)); err != nil {
+
+	q := s.q.WithOpts(pg.WithParentCtx(ctx))
+	err = q.Transaction(func(tx pg.Queryer) error {
+		if err = s.orm.CancelJobProposal(id, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 
 		// Delete the job
 		var j job.Job
-		j, err = s.jobORM.FindJobByExternalJobID(ctx, jp.ExternalJobID.UUID)
+		j, err = s.jobORM.FindJobByExternalJobID(jp.ExternalJobID.UUID, pg.WithQueryer(tx))
 		if err != nil {
 			return errors.Wrap(err, "job does not exist")
 		}
 
-		if err = s.jobSpawner.DeleteJob(ctx, j.ID); err != nil {
+		if err = s.jobSpawner.DeleteJob(j.ID, pg.WithQueryer(tx)); err != nil {
 			return err
 		}
 

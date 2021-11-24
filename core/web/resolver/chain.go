@@ -19,7 +19,7 @@ func NewChain(chain types.Chain) *ChainResolver {
 }
 
 func NewChains(chains []types.Chain) []*ChainResolver {
-	resolvers := []*ChainResolver{}
+	var resolvers []*ChainResolver
 	for _, c := range chains {
 		resolvers = append(resolvers, NewChain(c))
 	}
@@ -54,4 +54,40 @@ func (r *ChainResolver) Nodes(ctx context.Context) ([]*NodeResolver, error) {
 	}
 
 	return NewNodes(nodes), nil
+}
+
+type ChainPayloadResolver struct {
+	chain types.Chain
+	NotFoundErrorUnionType
+}
+
+func NewChainPayload(chain types.Chain, err error) *ChainPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
+
+	return &ChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
+}
+
+func (r *ChainPayloadResolver) ToChain() (*ChainResolver, bool) {
+	if r.err != nil {
+		return nil, false
+	}
+
+	return NewChain(r.chain), true
+}
+
+type ChainsPayloadResolver struct {
+	chains []types.Chain
+	total  int32
+}
+
+func NewChainsPayload(chains []types.Chain, total int32) *ChainsPayloadResolver {
+	return &ChainsPayloadResolver{chains: chains, total: total}
+}
+
+func (r *ChainsPayloadResolver) Results() []*ChainResolver {
+	return NewChains(r.chains)
+}
+
+func (r *ChainsPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
 }

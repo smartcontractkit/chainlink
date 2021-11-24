@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
@@ -66,7 +66,7 @@ func newRegistrations(logger logger.Logger, evmChainID big.Int) *registrations {
 		subscribers: make(map[uint32]*subscribers),
 		decoders:    make(map[common.Address]ParseLogFunc),
 		evmChainID:  evmChainID,
-		logger:      logger,
+		logger:      logger.Named("Registrations"),
 	}
 }
 
@@ -260,7 +260,7 @@ func (r *subscribers) isAddressRegistered(address common.Address) bool {
 var _ broadcastCreator = &orm{}
 
 type broadcastCreator interface {
-	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...postgres.QOpt) error
+	CreateBroadcast(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID int32, pqOpts ...pg.QOpt) error
 }
 
 func (r *subscribers) sendLog(log types.Log, latestHead eth.Head,
