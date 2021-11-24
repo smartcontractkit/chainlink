@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	offchainreporting "github.com/smartcontractkit/libocr/offchainreporting2"
 	"go.uber.org/multierr"
 )
@@ -120,6 +121,13 @@ func validateNonBootstrapSpec(tree *toml.Tree, config ValidationConfig, spec job
 	}
 	if spec.Pipeline.Source == "" {
 		return errors.New("no pipeline specified")
+	}
+	if spec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline == "" {
+		return errors.New("no juelsPerFeeCoinSource specified")
+	}
+	// validate that the JuelsPerFeeCoinPipeline is valid (not checked later because it's not a normal pipeline)
+	if _, err := pipeline.Parse(spec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline); err != nil {
+		return errors.Wrap(err, "invalid juelsPerFeeCoinSource pipeline")
 	}
 
 	return nil

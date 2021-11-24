@@ -238,6 +238,7 @@ type OffchainReporting2OracleSpec struct {
 	ContractConfigTrackerPollInterval      models.Interval      `toml:"contractConfigTrackerPollInterval"`
 	ContractConfigConfirmations            uint16               `toml:"contractConfigConfirmations"`
 	EVMChainID                             *utils.Big           `toml:"evmChainID"`
+	JuelsPerFeeCoinPipeline                string               `toml:"juelsPerFeeCoinSource"`
 	CreatedAt                              time.Time            `toml:"-"`
 	UpdatedAt                              time.Time            `toml:"-"`
 }

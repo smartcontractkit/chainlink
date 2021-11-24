@@ -301,7 +301,23 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+juelsPerFeeCoinSource = """
+		// data source 1
+		ds1          [type=bridge name="%s"];
+		ds1_parse    [type=jsonparse path="data"];
+		ds1_multiply [type=multiply times=%d];
+
+		// data source 2
+		ds2          [type=http method=GET url="%s"];
+		ds2_parse    [type=jsonparse path="data"];
+		ds2_multiply [type=multiply times=%d];
+
+		ds1 -> ds1_parse -> ds1_multiply -> answer1;
+		ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+	answer1 [type=median index=0];
+"""
+`, ocrContractAddress, kbs[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i, fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		err = apps[i].AddJobV2(context.Background(), &ocrJob)
 		require.NoError(t, err)
