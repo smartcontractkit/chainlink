@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
-	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -312,9 +311,8 @@ func (r *Resolver) JobProposal(ctx context.Context, args struct {
 
 // Nodes retrieves a paginated list of nodes.
 func (r *Resolver) Nodes(ctx context.Context, args struct {
-	ChainID *graphql.ID
-	Offset  *int32
-	Limit   *int32
+	Offset *int32
+	Limit  *int32
 }) (*NodesPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -323,22 +321,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	var nodes []types.Node
-	var count int
-	var err error
-
-	if args.ChainID != nil {
-		// fetch nodes for chain ID
-		chainID := utils.Big{}
-		if err = chainID.UnmarshalText([]byte(*args.ChainID)); err != nil {
-			return nil, err
-		}
-
-		nodes, count, err = r.App.EVMORM().NodesForChain(chainID, offset, limit)
-	} else {
-		nodes, count, err = r.App.EVMORM().Nodes(offset, limit)
-	}
-
+	nodes, count, err := r.App.EVMORM().Nodes(offset, limit)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/guregu/null.v4"
 
@@ -38,6 +39,7 @@ func TestResolver_Nodes(t *testing.T) {
 				}
 			}`
 	)
+	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "nodes"),
@@ -82,7 +84,7 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "generic error",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				f.Mocks.evmORM.On("Nodes", PageDefaultOffset, PageDefaultLimit).Return([]types.Node{}, 0, sql.ErrNoRows)
+				f.Mocks.evmORM.On("Nodes", PageDefaultOffset, PageDefaultLimit).Return([]types.Node{}, 0, gError)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:  query,
@@ -90,9 +92,9 @@ func TestResolver_Nodes(t *testing.T) {
 			errors: []*gqlerrors.QueryError{
 				{
 					Extensions:    nil,
-					ResolverError: sql.ErrNoRows,
+					ResolverError: gError,
 					Path:          []interface{}{"nodes"},
-					Message:       sql.ErrNoRows.Error(),
+					Message:       gError.Error(),
 				},
 			},
 		},
