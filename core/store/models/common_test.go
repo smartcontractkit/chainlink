@@ -141,59 +141,6 @@ func TestJSON_ParseJSON(t *testing.T) {
 	}
 }
 
-func TestJSON_Add(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		key     string
-		value   interface{}
-		errored bool
-		want    string
-	}{
-		{"adding string", "b", "2", false, `{"a":"1","b":"2"}`},
-		{"adding int", "b", 2, false, `{"a":"1","b":2}`},
-		{"overriding", "a", "2", false, `{"a":"2"}`},
-		{"escaped quote", "a", `"2"`, false, `{"a":"\"2\""}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1"}`)
-
-			json, err := json.Add(test.key, test.value)
-			assert.Equal(t, test.errored, (err != nil))
-			if err == nil {
-				assert.Equal(t, test.want, json.String())
-			}
-		})
-	}
-}
-
-func TestJSON_Delete(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		key  string
-		want string
-	}{
-		{"remove existing key", "b", `{"a":"1"}`},
-		{"remove non-existing key", "c", `{"a":"1","b":2}`},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			json := cltest.JSONFromString(t, `{"a":"1","b":2}`)
-
-			json, err := json.Delete(test.key)
-
-			assert.NoError(t, err)
-			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
 func TestWebURL_UnmarshalJSON_Error(t *testing.T) {
 	t.Parallel()
 	j := []byte(`"NotAUrl"`)
