@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2021-11-23
+
+### Added
+
+- Improved error reporting
+- Panic and recovery improvements
+
+### Fixed
+
+- Resolved config conversion errors for ETH_FINALITY_DEPTH, ETH_HEAD_TRACKER_HISTORY, and ETH_GAS_LIMIT_MULTIPLIER
+- Proper handling for "nonce too low" errors on Avalanche
+
 ## [1.0.0] - 2021-10-19
 
 ### Added

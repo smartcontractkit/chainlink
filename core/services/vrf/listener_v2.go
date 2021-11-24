@@ -119,12 +119,8 @@ func (lsn *listenerV2) Start() error {
 			lsn.setLatestHead(*latestHead)
 		}
 
-		go gracefulpanic.WrapRecover(func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
-		})
-		go gracefulpanic.WrapRecover(func() {
-			lsn.runHeadListener(unsubscribeHeadBroadcaster)
-		})
+		go lsn.runLogListener([]func(){unsubscribeLogs}, minConfs)
+		go lsn.runHeadListener(unsubscribeHeadBroadcaster)
 		return nil
 	})
 }
@@ -250,7 +246,9 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
 				if !ok {
 					panic(fmt.Sprintf("VRFListenerV2: invariant violated, expected log.Broadcast got %T", i))
 				}
-				lsn.handleLog(lb, minConfs)
+				gracefulpanic.WrapRecover(func() {
+					lsn.handleLog(lb, minConfs)
+				})
 			}
 		}
 	}
