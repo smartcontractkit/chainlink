@@ -86,16 +86,9 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 	return p.State() == utils.StartStopOnce_Started
 }
 
+// Note a p2p key is always created on boot so we can assume at least one exists
 func (p *SingletonPeerWrapper) getPeerKey() (p2pkey.KeyV2, error) {
 	var key p2pkey.KeyV2
-	p2pkeys, err := p.keyStore.P2P().GetAll()
-	if err != nil {
-		return key, err
-	}
-	// TODO: I'm not sure this should be supported?
-	if len(p2pkeys) == 0 {
-		return key, nil
-	}
 	peerID := p.config.P2PPeerID()
 	if peerID == "" {
 		return key, errors.New("no peer ID specified")
@@ -109,6 +102,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		if err != nil {
 			return err
 		}
+		p.PeerID = key.PeerID()
 
 		// We need to start the peer store wrapper if v1 is required.
 		// Also fallback to listen params if announce params not specified.
