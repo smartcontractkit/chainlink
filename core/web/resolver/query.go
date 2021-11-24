@@ -308,3 +308,23 @@ func (r *Resolver) JobProposal(ctx context.Context, args struct {
 
 	return NewJobProposalPayload(jp, err), nil
 }
+
+// Nodes retrieves a paginated list of nodes.
+func (r *Resolver) Nodes(ctx context.Context, args struct {
+	Offset *int32
+	Limit  *int32
+}) (*NodesPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	offset := pageOffset(args.Offset)
+	limit := pageLimit(args.Limit)
+
+	nodes, count, err := r.App.EVMORM().Nodes(offset, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewNodesPayload(nodes, int32(count)), nil
+}
