@@ -15,6 +15,7 @@ CREATE TABLE offchainreporting2_oracle_specs (
      contract_config_tracker_subscribe_interval bigint,
      contract_config_tracker_poll_interval bigint,
      contract_config_confirmations integer NOT NULL,
+     juels_per_fee_coin_pipeline text NOT NULL,
      created_at timestamp with time zone NOT NULL,
      updated_at timestamp with time zone NOT NULL,
      CONSTRAINT chk_contract_address_length CHECK ((octet_length(contract_address) = 20))
