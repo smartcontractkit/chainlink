@@ -10,8 +10,6 @@ import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
 import DashboardIndex from 'pages/Dashboards/Index'
-import BridgesNew from 'pages/Bridges/New'
-import BridgesEdit from 'pages/Bridges/Edit'
 import Configuration from 'pages/Configuration/Index'
 import JobsIndex from 'pages/JobsIndex/JobsIndex'
 import JobsShow from 'pages/Jobs/Show'
@@ -28,10 +26,9 @@ import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
 import NodesIndex from './pages/NodesIndex/NodesIndex'
 
-import { BridgesPage } from 'pages/Bridges' // Rename to lower case when completed
-
+import { BridgesPage } from 'pages/bridges'
 import { FeedsManagerPage } from 'pages/feeds_manager'
-import { JobProposalsPage } from './pages/job_proposals'
+import { JobProposalsPage } from 'pages/job_proposals'
 
 const styles = (theme: Theme) => {
   return {
@@ -120,13 +117,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <NodeShow />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/bridges/new" component={BridgesNew} />
-
-              <PrivateRoute
-                exact
-                path="/bridges/:bridgeId/edit"
-                component={BridgesEdit}
-              />
               <PrivateRoute
                 exact
                 path="/transactions"

@@ -3,14 +3,14 @@ import React from 'react'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 import { GraphQLError } from 'graphql'
 import { Route } from 'react-router-dom'
-import { renderWithRouter, screen, waitForElementToBeRemoved } from 'test-utils'
+import { renderWithRouter, screen } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 
 import { BridgesScreen, BRIDGES_QUERY } from './BridgesScreen'
 import { buildBridge, buildBridges } from 'support/factories/gql/fetchBridges'
+import { waitForLoading } from 'support/test-helpers/wait'
 
-const { findAllByRole, findByText, getByRole, queryByTestId, queryByText } =
-  screen
+const { findAllByRole, findByText, getByRole, queryByText } = screen
 
 function renderComponent(mocks: MockedResponse[]) {
   renderWithRouter(
@@ -114,7 +114,7 @@ describe('pages/Bridges/Index', () => {
     renderComponent(mocks)
 
     // Page 1
-    await waitForElementToBeRemoved(queryByTestId('loading-spinner'))
+    await waitForLoading()
 
     expect(queryByText('bridge-api1')).toBeInTheDocument()
     expect(queryByText('bridge-api2')).toBeInTheDocument()
@@ -124,7 +124,7 @@ describe('pages/Bridges/Index', () => {
     // Page 2
     userEvent.click(getByRole('button', { name: /next-page/i }))
 
-    await waitForElementToBeRemoved(queryByTestId('loading-spinner'))
+    await waitForLoading()
 
     expect(queryByText('bridge-api3')).toBeInTheDocument()
     expect(queryByText('3-3 of 3')).toBeInTheDocument()
@@ -132,6 +132,8 @@ describe('pages/Bridges/Index', () => {
 
     // Page 1
     userEvent.click(getByRole('button', { name: /prev-page/i }))
+
+    await waitForLoading()
 
     expect(queryByText('bridge-api1')).toBeInTheDocument()
     expect(queryByText('bridge-api2')).toBeInTheDocument()
