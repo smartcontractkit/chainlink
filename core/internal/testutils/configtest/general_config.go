@@ -88,27 +88,37 @@ type GeneralConfigOverrides struct {
 	DefaultLogLevel                           *config.LogLevel
 	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
-	OCRBootstrapCheckInterval                 *time.Duration
-	OCRKeyBundleID                            null.String
-	OCRObservationGracePeriod                 *time.Duration
-	OCRObservationTimeout                     *time.Duration
-	OCRDatabaseTimeout                        *time.Duration
-	OCRTransmitterAddress                     *ethkey.EIP55Address
-	P2PBootstrapPeers                         []string
-	P2PListenPort                             null.Int
-	P2PPeerID                                 p2pkey.PeerID
-	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
 	KeySpecific                               map[string]types.ChainCfg
 	FeatureOffchainReporting                  null.Bool
 	FeatureOffchainReporting2                 null.Bool
-	P2PNetworkingStack                        ocrnetworking.NetworkingStack
-	P2PV2ListenAddresses                      []string
-	P2PV2AnnounceAddresses                    []string
-	P2PV2Bootstrappers                        []ocrcommontypes.BootstrapperLocator
-	P2PV2DeltaDial                            *time.Duration
-	P2PV2DeltaReconcile                       *time.Duration
+
+	// OCR v1 and v2
+	OCRKeyBundleID     null.String
+	OCRDatabaseTimeout *time.Duration
+
+	// OCR v1
+	OCRObservationGracePeriod *time.Duration
+	OCRObservationTimeout     *time.Duration
+	OCRTransmitterAddress     *ethkey.EIP55Address
+
+	// P2P v1 and V2
+	P2PPeerID          p2pkey.PeerID
+	P2PPeerIDError     error
+	P2PNetworkingStack ocrnetworking.NetworkingStack
+
+	// P2P v1
+	P2PBootstrapCheckInterval *time.Duration
+	P2PBootstrapPeers         []string
+	P2PListenPort             null.Int
+
+	// P2PV2
+	P2PV2ListenAddresses   []string
+	P2PV2AnnounceAddresses []string
+	P2PV2Bootstrappers     []ocrcommontypes.BootstrapperLocator
+	P2PV2DeltaDial         *time.Duration
+	P2PV2DeltaReconcile    *time.Duration
 }
 
 // FIXME: This is a hack, the proper fix is here: https://app.clubhouse.io/chainlinklabs/story/15103/use-in-memory-event-broadcaster-instead-of-postgres-event-broadcaster-in-transactional-tests-so-it-actually-works
@@ -116,7 +126,7 @@ func (o *GeneralConfigOverrides) SetTriggerFallbackDBPollInterval(d time.Duratio
 	o.TriggerFallbackDBPollInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRBootstrapCheckInterval(d time.Duration) {
-	o.OCRBootstrapCheckInterval = &d
+	o.P2PBootstrapCheckInterval = &d
 }
 func (o *GeneralConfigOverrides) SetOCRObservationGracePeriod(d time.Duration) {
 	o.OCRObservationGracePeriod = &d
@@ -207,20 +217,6 @@ func (c *TestGeneralConfig) SessionTimeout() models.Duration {
 
 func (c *TestGeneralConfig) InsecureFastScrypt() bool {
 	return true
-}
-
-func (c *TestGeneralConfig) P2PListenPort() uint16 {
-	if c.Overrides.P2PListenPort.Valid {
-		return uint16(c.Overrides.P2PListenPort.Int64)
-	}
-	return 12345
-}
-
-func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
-	if c.Overrides.P2PPeerID.String() != "" {
-		return c.Overrides.P2PPeerID
-	}
-	return ""
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
@@ -316,34 +312,6 @@ func (c *TestGeneralConfig) TriggerFallbackDBPollInterval() time.Duration {
 	return c.GeneralConfig.TriggerFallbackDBPollInterval()
 }
 
-func (c *TestGeneralConfig) OCRBootstrapCheckInterval() time.Duration {
-	if c.Overrides.OCRBootstrapCheckInterval != nil {
-		return *c.Overrides.OCRBootstrapCheckInterval
-	}
-	return c.GeneralConfig.OCRBootstrapCheckInterval()
-}
-
-func (c *TestGeneralConfig) OCRDatabaseTimeout() time.Duration {
-	if c.Overrides.OCRDatabaseTimeout != nil {
-		return *c.Overrides.OCRDatabaseTimeout
-	}
-	return c.GeneralConfig.OCRDatabaseTimeout()
-}
-
-func (c *TestGeneralConfig) OCRObservationGracePeriod() time.Duration {
-	if c.Overrides.OCRObservationGracePeriod != nil {
-		return *c.Overrides.OCRObservationGracePeriod
-	}
-	return c.GeneralConfig.OCRObservationGracePeriod()
-}
-
-func (c *TestGeneralConfig) OCRObservationTimeout() time.Duration {
-	if c.Overrides.OCRObservationTimeout != nil {
-		return *c.Overrides.OCRObservationTimeout
-	}
-	return c.GeneralConfig.OCRObservationTimeout()
-}
-
 func (c *TestGeneralConfig) LogToDisk() bool {
 	if c.Overrides.LogToDisk.Valid {
 		return c.Overrides.LogToDisk.Bool
@@ -370,69 +338,6 @@ func (c *TestGeneralConfig) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
 		return c.Overrides.DefaultHTTPAllowUnrestrictedNetworkAccess.Bool
 	}
 	return c.GeneralConfig.DefaultHTTPAllowUnrestrictedNetworkAccess()
-}
-
-func (c *TestGeneralConfig) P2PNetworkingStack() ocrnetworking.NetworkingStack {
-	if c.Overrides.P2PNetworkingStack != 0 {
-		return c.Overrides.P2PNetworkingStack
-	}
-	return c.GeneralConfig.P2PNetworkingStack()
-}
-
-func (c *TestGeneralConfig) P2PV2DeltaDial() models.Duration {
-	if c.Overrides.P2PV2DeltaDial != nil {
-		return models.MustMakeDuration(*c.Overrides.P2PV2DeltaDial)
-	}
-	return c.GeneralConfig.P2PV2DeltaDial()
-}
-
-func (c *TestGeneralConfig) P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator {
-	if len(c.Overrides.P2PV2Bootstrappers) != 0 {
-		return c.Overrides.P2PV2Bootstrappers
-	}
-	return c.GeneralConfig.P2PV2Bootstrappers()
-}
-
-func (c *TestGeneralConfig) P2PV2ListenAddresses() []string {
-	if len(c.Overrides.P2PV2ListenAddresses) != 0 {
-		return c.Overrides.P2PV2ListenAddresses
-	}
-	return c.GeneralConfig.P2PV2ListenAddresses()
-}
-
-func (c *TestGeneralConfig) P2PV2AnnounceAddresses() []string {
-	if len(c.Overrides.P2PV2AnnounceAddresses) != 0 {
-		return c.Overrides.P2PV2AnnounceAddresses
-	}
-	return c.GeneralConfig.P2PV2AnnounceAddresses()
-}
-
-func (c *TestGeneralConfig) P2PBootstrapPeers() ([]string, error) {
-	if c.Overrides.P2PBootstrapPeers != nil {
-		return c.Overrides.P2PBootstrapPeers, nil
-	}
-	return c.GeneralConfig.P2PBootstrapPeers()
-}
-
-func (c *TestGeneralConfig) P2PV2DeltaReconcile() models.Duration {
-	if c.Overrides.P2PV2DeltaReconcile != nil {
-		return models.MustMakeDuration(*c.Overrides.P2PV2DeltaReconcile)
-	}
-	return c.GeneralConfig.P2PV2DeltaReconcile()
-}
-
-func (c *TestGeneralConfig) OCRKeyBundleID() (string, error) {
-	if c.Overrides.OCRKeyBundleID.Valid {
-		return c.Overrides.OCRKeyBundleID.String, nil
-	}
-	return c.GeneralConfig.OCRKeyBundleID()
-}
-
-func (c *TestGeneralConfig) OCRTransmitterAddress() (ethkey.EIP55Address, error) {
-	if c.Overrides.OCRTransmitterAddress != nil {
-		return *c.Overrides.OCRTransmitterAddress, nil
-	}
-	return c.GeneralConfig.OCRTransmitterAddress()
 }
 
 func (c *TestGeneralConfig) DefaultHTTPTimeout() models.Duration {

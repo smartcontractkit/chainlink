@@ -3,10 +3,8 @@ package ocrcommon
 import (
 	"io"
 	"net"
-	"strings"
-	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/sqlx"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -15,33 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocrnetworkingtypes "github.com/smartcontractkit/libocr/networking/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"go.uber.org/multierr"
 )
 
-type NetworkingConfig interface {
-	OCRDHTLookupInterval() int
-	OCRIncomingMessageBufferSize() int
-	OCRNewStreamTimeout() time.Duration
-	OCROutgoingMessageBufferSize() int
-	P2PAnnounceIP() net.IP
-	P2PAnnouncePort() uint16
-	P2PBootstrapPeers() ([]string, error)
-	P2PDHTAnnouncementCounterUserPrefix() uint32
-	P2PListenIP() net.IP
-	P2PListenPort() uint16
-	P2PNetworkingStack() ocrnetworking.NetworkingStack
-	P2PPeerID() p2pkey.PeerID
-	P2PPeerstoreWriteInterval() time.Duration
-	P2PV2AnnounceAddresses() []string
-	P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator
-	P2PV2DeltaDial() models.Duration
-	P2PV2DeltaReconcile() models.Duration
-	P2PV2ListenAddresses() []string
-	OCRBootstrapCheckInterval() time.Duration
+type PeerWrapperConfig interface {
+	config.P2PNetworking
 	OCRTraceLogging() bool
 	LogSQL() bool
 }
@@ -62,24 +42,38 @@ type (
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
 		keyStore keystore.Master
-		config   NetworkingConfig
-		//db       *gorm.DB
-		db   *sqlx.DB
-		lggr logger.Logger
+		config   PeerWrapperConfig
+		db       *sqlx.DB
+		lggr     logger.Logger
+		PeerID   p2pkey.PeerID
 
+		// V1 peer
 		pstoreWrapper *Pstorewrapper
-		PeerID        p2pkey.PeerID
 		Peer          *peerAdapter
-		Peer2         *peerAdapter2
+
+		// V2 peer
+		Peer2 *peerAdapter2
 
 		utils.StartStopOnce
 	}
 )
 
+// TODO
+func ValidatePeerWrapperConfig(config PeerWrapperConfig) error {
+	switch config.P2PNetworkingStack() {
+	case ocrnetworking.NetworkingStackV1:
+	case ocrnetworking.NetworkingStackV2:
+	case ocrnetworking.NetworkingStackV1V2:
+	default:
+		return errors.New("unknown networking stack")
+	}
+	return nil
+}
+
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, config NetworkingConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
+func NewSingletonPeerWrapper(keyStore keystore.Master, config PeerWrapperConfig, db *sqlx.DB, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
 		keyStore: keyStore,
 		config:   config,
@@ -92,89 +86,93 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 	return p.State() == utils.StartStopOnce_Started
 }
 
+func (p *SingletonPeerWrapper) getPeerKey() (p2pkey.KeyV2, error) {
+	var key p2pkey.KeyV2
+	p2pkeys, err := p.keyStore.P2P().GetAll()
+	if err != nil {
+		return key, err
+	}
+	// TODO: I'm not sure this should be supported?
+	if len(p2pkeys) == 0 {
+		return key, nil
+	}
+	peerID := p.config.P2PPeerID()
+	if peerID == "" {
+		return key, errors.New("no peer ID specified")
+	}
+	return p.keyStore.P2P().Get(peerID)
+}
+
 func (p *SingletonPeerWrapper) Start() error {
 	return p.StartOnce("SingletonPeerWrapper", func() (err error) {
-		p2pkeys, err := p.keyStore.P2P().GetAll()
+		key, err := p.getPeerKey()
 		if err != nil {
-			return nil
-		}
-		listenPort := p.config.P2PListenPort()
-		if listenPort == 0 {
-			return errors.New("failed to instantiate oracle or bootstrapper service. If FEATURE_OFFCHAIN_REPORTING2 is on, then P2P_LISTEN_PORT is required and must be set to a non-zero value")
+			return err
 		}
 
-		if len(p2pkeys) == 0 {
-			return nil
-		}
-
-		var key p2pkey.KeyV2
-		var matched bool
-		checkedKeys := []string{}
-		configuredPeerID := p.config.P2PPeerID()
-		if configuredPeerID == "" {
-			return errors.Wrap(err, "failed to start peer wrapper")
-		}
-		for _, k := range p2pkeys {
-			peerID := k.PeerID()
-			if peerID == configuredPeerID {
-				key = k
-				matched = true
-				break
-			}
-			checkedKeys = append(checkedKeys, peerID.String())
-		}
-		keys := strings.Join(checkedKeys, ", ")
-		if !matched {
-			if configuredPeerID == "" {
-				return errors.Errorf("multiple p2p keys found but peer ID was not set. You must specify P2P_PEER_ID if you have more than one key. Keys available: %s", keys)
-			}
-			return errors.Errorf("multiple p2p keys found but none matched the given P2P_PEER_ID of '%s'. Keys available: %s", configuredPeerID, keys)
-		}
-
-		p.PeerID = key.PeerID()
-		if p.PeerID == "" {
-			return errors.Wrap(err, "could not get peer ID")
-		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
-		if err != nil {
-			return errors.Wrap(err, "could not make new pstorewrapper")
-		}
-		discovererDB := NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
-
-		// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
-		// Fallback to P2PListenPort if it wasn't made explicit
+		// We need to start the peer store wrapper if v1 is required.
+		// Also fallback to listen params if announce params not specified.
 		var announcePort uint16
-		if p.config.P2PAnnounceIP() != nil && p.config.P2PAnnouncePort() != 0 {
-			announcePort = p.config.P2PAnnouncePort()
-		} else if p.config.P2PAnnounceIP() != nil {
-			announcePort = listenPort
+		var announceIP net.IP
+		if p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 || p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1V2 {
+			p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
+			if err != nil {
+				return errors.Wrap(err, "could not make new pstorewrapper")
+			}
+			announcePort = p.config.P2PListenPort()
+			if p.config.P2PAnnouncePort() != 0 {
+				announcePort = p.config.P2PAnnouncePort()
+			}
+			announceIP = p.config.P2PListenIP()
+			if p.config.P2PAnnounceIP() != nil {
+				announceIP = p.config.P2PAnnounceIP()
+			}
 		}
 
-		peerLogger := logger.NewOCRWrapper(p.lggr, true, func(string) {})
+		// Discover DB is only required for v2
+		// Also fallback to listen addresses if announce not specified
+		var discovererDB ocrnetworkingtypes.DiscovererDatabase
+		var announceAddresses []string
+		if p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV2 {
+			discovererDB = NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
+			announceAddresses = p.config.P2PV2ListenAddresses()
+			if len(p.config.P2PV2AnnounceAddresses()) != 0 {
+				announceAddresses = p.config.P2PV2AnnounceAddresses()
+			}
+		}
 
 		peerConfig := ocrnetworking.PeerConfig{
-			NetworkingStack:      p.config.P2PNetworkingStack(),
-			PrivKey:              key.PrivKey,
-			V1ListenIP:           p.config.P2PListenIP(),
-			V1ListenPort:         listenPort,
-			V1AnnounceIP:         p.config.P2PAnnounceIP(),
-			V1AnnouncePort:       announcePort,
-			Logger:               peerLogger,
-			V1Peerstore:          p.pstoreWrapper.Peerstore,
+			NetworkingStack: p.config.P2PNetworkingStack(),
+			PrivKey:         key.PrivKey,
+			Logger:          logger.NewOCRWrapper(p.lggr, p.config.OCRTraceLogging(), func(string) {}),
+
+			// V1 config
+			V1ListenIP:                         p.config.P2PListenIP(),
+			V1ListenPort:                       p.config.P2PListenPort(),
+			V1AnnounceIP:                       announceIP,
+			V1AnnouncePort:                     announcePort,
+			V1Peerstore:                        p.pstoreWrapper.Peerstore,
+			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
+
+			// V2 config
 			V2ListenAddresses:    p.config.P2PV2ListenAddresses(),
-			V2AnnounceAddresses:  p.config.P2PV2AnnounceAddresses(),
+			V2AnnounceAddresses:  announceAddresses,
 			V2DeltaReconcile:     p.config.P2PV2DeltaReconcile().Duration(),
 			V2DeltaDial:          p.config.P2PV2DeltaDial().Duration(),
 			V2DiscovererDatabase: discovererDB,
+
 			EndpointConfig: ocrnetworking.EndpointConfig{
-				IncomingMessageBufferSize: p.config.OCRIncomingMessageBufferSize(),
-				OutgoingMessageBufferSize: p.config.OCROutgoingMessageBufferSize(),
-				NewStreamTimeout:          p.config.OCRNewStreamTimeout(),
-				DHTLookupInterval:         p.config.OCRDHTLookupInterval(),
-				BootstrapCheckInterval:    p.config.OCRBootstrapCheckInterval(),
+				// V1 and V2 config
+				IncomingMessageBufferSize: p.config.P2PIncomingMessageBufferSize(),
+				OutgoingMessageBufferSize: p.config.P2POutgoingMessageBufferSize(),
+
+				// V1 Config
+				NewStreamTimeout:       p.config.P2PNewStreamTimeout(),
+				DHTLookupInterval:      p.config.P2PDHTLookupInterval(),
+				BootstrapCheckInterval: p.config.P2PBootstrapCheckInterval(),
 			},
-			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
 		}
+
 		p.lggr.Debugw("Creating OCR/OCR2 Peer", "config", peerConfig)
 		peer, err := ocrnetworking.NewPeer(peerConfig)
 		if err != nil {

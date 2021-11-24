@@ -2690,8 +2690,8 @@ func (_m *ChainScopedConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRBootstrapCheckInterval() time.Duration {
+// P2PBootstrapCheckInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) P2PBootstrapCheckInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -2761,7 +2761,7 @@ func (_m *ChainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Durati
 }
 
 // OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRDHTLookupInterval() int {
+func (_m *ChainScopedConfig) P2PDHTLookupInterval() int {
 	ret := _m.Called()
 
 	var r0 int
@@ -2803,7 +2803,7 @@ func (_m *ChainScopedConfig) OCRDefaultTransactionQueueDepth() uint32 {
 }
 
 // OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRIncomingMessageBufferSize() int {
+func (_m *ChainScopedConfig) P2PIncomingMessageBufferSize() int {
 	ret := _m.Called()
 
 	var r0 int
@@ -2852,7 +2852,7 @@ func (_m *ChainScopedConfig) OCRMonitoringEndpoint() string {
 }
 
 // OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCRNewStreamTimeout() time.Duration {
+func (_m *ChainScopedConfig) P2PNewStreamTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -2894,7 +2894,7 @@ func (_m *ChainScopedConfig) OCRObservationTimeout() time.Duration {
 }
 
 // OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *ChainScopedConfig) OCROutgoingMessageBufferSize() int {
+func (_m *ChainScopedConfig) P2POutgoingMessageBufferSize() int {
 	ret := _m.Called()
 
 	var r0 int

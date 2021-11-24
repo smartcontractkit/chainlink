@@ -2048,8 +2048,8 @@ func (_m *GeneralConfig) OCRBlockchainTimeout() time.Duration {
 	return r0
 }
 
-// OCRBootstrapCheckInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRBootstrapCheckInterval() time.Duration {
+// P2PBootstrapCheckInterval provides a mock function with given fields:
+func (_m *GeneralConfig) P2PBootstrapCheckInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -2105,7 +2105,7 @@ func (_m *GeneralConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
 }
 
 // OCRDHTLookupInterval provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDHTLookupInterval() int {
+func (_m *GeneralConfig) P2PDHTLookupInterval() int {
 	ret := _m.Called()
 
 	var r0 int
@@ -2147,7 +2147,7 @@ func (_m *GeneralConfig) OCRDefaultTransactionQueueDepth() uint32 {
 }
 
 // OCRIncomingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCRIncomingMessageBufferSize() int {
+func (_m *GeneralConfig) P2PIncomingMessageBufferSize() int {
 	ret := _m.Called()
 
 	var r0 int
@@ -2196,7 +2196,7 @@ func (_m *GeneralConfig) OCRMonitoringEndpoint() string {
 }
 
 // OCRNewStreamTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRNewStreamTimeout() time.Duration {
+func (_m *GeneralConfig) P2PNewStreamTimeout() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration
@@ -2238,7 +2238,7 @@ func (_m *GeneralConfig) OCRObservationTimeout() time.Duration {
 }
 
 // OCROutgoingMessageBufferSize provides a mock function with given fields:
-func (_m *GeneralConfig) OCROutgoingMessageBufferSize() int {
+func (_m *GeneralConfig) P2POutgoingMessageBufferSize() int {
 	ret := _m.Called()
 
 	var r0 int
