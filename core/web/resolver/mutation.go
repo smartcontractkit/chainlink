@@ -768,11 +768,8 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 func (r *Resolver) CreateChain(ctx context.Context, args struct {
 	Input struct {
 		ID                 graphql.ID
-		Config             types.ChainCfg
-		KeySpecificConfigs []struct {
-			Address string
-			Config  types.ChainCfg
-		}
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
 	}
 }) (*CreateChainPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
@@ -785,17 +782,31 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if args.Input.KeySpecificConfigs != nil {
-		var sCfg map[string]types.ChainCfg
-
-		for _, cfg := range args.Input.KeySpecificConfigs {
-			sCfg[cfg.Address] = cfg.Config
-		}
-
-		args.Input.Config.KeySpecific = sCfg
+	var chainCfg types.ChainCfg
+	err = chainCfg.Scan(args.Input.Config)
+	if err != nil {
+		return nil, err
 	}
 
-	chain, err := r.App.GetChainSet().Add(id.ToInt(), args.Input.Config)
+	if args.Input.KeySpecificConfigs != nil {
+		var sCfgs map[string]types.ChainCfg
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				var sCfg types.ChainCfg
+				err = sCfg.Scan(cfg.Config)
+				if err != nil {
+					return nil, err
+				}
+
+				sCfgs[cfg.Address] = sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChainSet().Add(id.ToInt(), chainCfg)
 	if err != nil {
 		return nil, err
 	}

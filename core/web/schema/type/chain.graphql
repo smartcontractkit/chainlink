@@ -17,7 +17,7 @@ type ChainsPayload implements PaginatedPayload {
 input CreateChainInput {
     id: ID!
     config: ChainConfigInput!
-    keySpecificConfigs: [KeySpecificChainConfigInput]
+    keySpecificConfigs: [KeySpecificChainConfigInput]!
 }
 
 type CreateChainSuccess {

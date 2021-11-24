@@ -383,3 +383,39 @@ func (r *KeySpecificChainConfigResolver) Address() string {
 func (r *KeySpecificChainConfigResolver) Config() *ChainConfigResolver {
 	return NewChainConfig(r.cfg)
 }
+
+type ChainConfigInput struct {
+	BlockHistoryEstimatorBlockDelay       *int
+	BlockHistoryEstimatorBlockHistorySize *int
+	EthTxReaperThreshold                  *string
+	EthTxResendAfterThreshold             *string
+	EvmEIP1559DynamicFees                 *bool
+	EvmFinalityDepth                      *int
+	EvmGasBumpPercent                     *int
+	EvmGasBumpTxDepth                     *int
+	EvmGasBumpWei                         *string
+	EvmGasLimitDefault                    *int
+	EvmGasLimitMultiplier                 *float64
+	EvmGasPriceDefault                    *string
+	EvmGasTipCapDefault                   *string
+	EvmGasTipCapMinimum                   *string
+	EvmHeadTrackerHistoryDepth            *int
+	EvmHeadTrackerMaxBufferSize           *int
+	EvmHeadTrackerSamplingInterval        *string
+	EvmLogBackfillBatchSize               *int
+	EvmMaxGasPriceWei                     *string
+	EvmNonceAutoSync                      *bool
+	EvmRPCDefaultBatchSize                *int
+	FlagsContractAddress                  *string
+	GasEstimatorMode                      string
+	ChainType                             string
+	MinIncomingConfirmations              *int
+	MinRequiredOutgoingConfirmations      *int
+	MinimumContractPayment                *string
+	OCRObservationTimeout                 *string
+}
+
+type KeySpecificChainConfigInput struct {
+	Address string
+	Config  ChainConfigInput
+}
