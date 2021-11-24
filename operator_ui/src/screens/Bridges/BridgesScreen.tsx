@@ -33,6 +33,7 @@ export const BridgesScreen: React.FC = () => {
     FetchBridgesVariables
   >(BRIDGES_QUERY, {
     variables: { offset: (page - 1) * pageSize, limit: pageSize },
+    nextFetchPolicy: 'cache-and-network',
   })
 
   if (loading) {

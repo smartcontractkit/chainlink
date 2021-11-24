@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -48,7 +47,7 @@ type listenerV1 struct {
 	pipelineRunner  pipeline.Runner
 	pipelineORM     pipeline.ORM
 	job             job.Job
-	db              *sqlx.DB
+	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
 	txm             bulletprooftxmanager.TxManager
 	vrfks           keystore.VRF

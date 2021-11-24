@@ -10,7 +10,6 @@ import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
 import DashboardIndex from 'pages/Dashboards/Index'
-import BridgesShow from 'pages/Bridges/Show'
 import BridgesNew from 'pages/Bridges/New'
 import BridgesEdit from 'pages/Bridges/Edit'
 import Configuration from 'pages/Configuration/Index'
@@ -27,11 +26,12 @@ import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
-import { JobProposalScreen } from 'pages/JobProposal/JobProposalScreen'
 import NodesIndex from './pages/NodesIndex/NodesIndex'
 
 import { BridgesPage } from 'pages/Bridges' // Rename to lower case when completed
+
 import { FeedsManagerPage } from 'pages/feeds_manager'
+import { JobProposalsPage } from './pages/job_proposals'
 
 const styles = (theme: Theme) => {
   return {
@@ -121,11 +121,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               </PrivateRoute>
 
               <PrivateRoute exact path="/bridges/new" component={BridgesNew} />
-              <PrivateRoute
-                exact
-                path="/bridges/:bridgeId"
-                component={BridgesShow}
-              />
+
               <PrivateRoute
                 exact
                 path="/bridges/:bridgeId/edit"
@@ -149,16 +145,16 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
 
-              <PrivateRoute path="/job_proposals/:id">
-                <JobProposalScreen />
+              <PrivateRoute path="/bridges">
+                <BridgesPage />
               </PrivateRoute>
 
               <PrivateRoute path="/feeds_manager">
                 <FeedsManagerPage />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/bridges">
-                <BridgesPage />
+              <PrivateRoute path="/job_proposals">
+                <JobProposalsPage />
               </PrivateRoute>
 
               <PrivateRoute component={NotFound} />

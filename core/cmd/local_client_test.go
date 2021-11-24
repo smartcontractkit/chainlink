@@ -42,7 +42,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	cfg.Overrides.LogToDisk = null.BoolFrom(true)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -189,7 +189,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := cltest.NewTestGeneralConfig(t)
 			db := pgtest.NewSqlxDB(t)
-			keyStore := cltest.NewKeyStore(t, db)
+			keyStore := cltest.NewKeyStore(t, db, cfg)
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
@@ -239,7 +239,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
 	sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
-	keyStore := cltest.NewKeyStore(t, db)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
 	_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
 
@@ -301,7 +301,7 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// Clear out fixture
 			err := sessionORM.DeleteUser()
 			require.NoError(t, err)
-			keyStore := cltest.NewKeyStore(t, db)
+			keyStore := cltest.NewKeyStore(t, db, cfg)
 			_, err = keyStore.Eth().Create(&cltest.FixtureChainID)
 			require.NoError(t, err)
 
@@ -377,7 +377,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
 	config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions", true, true)
-	keyStore := cltest.NewKeyStore(t, sqlxDB)
+	keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 	beginningNonce := uint(7)
@@ -394,7 +394,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+	borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, 7, 42, fromAddress)
 
 	app := new(mocks.Application)
@@ -452,7 +452,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			config, sqlxDB := heavyweight.FullTestDB(t, "rebroadcasttransactions_outsiderange", true, true)
 			config.SetDialect(dialects.Postgres)
 
-			keyStore := cltest.NewKeyStore(t, sqlxDB)
+			keyStore := cltest.NewKeyStore(t, sqlxDB, config)
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
@@ -466,7 +466,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			set.String("password", "../internal/fixtures/correct_password.txt", "")
 			c := cli.NewContext(nil, set, nil)
 
-			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB)
+			borm := cltest.NewBulletproofTxManagerORM(t, sqlxDB, config)
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, borm, int64(test.nonce), 42, fromAddress)
 
 			app := new(mocks.Application)
@@ -508,7 +508,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
 	config, sqlxDB := heavyweight.FullTestDB(t, "setnextnonce", true, true)
-	ethKeyStore := cltest.NewKeyStore(t, sqlxDB).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, sqlxDB, config).Eth()
 
 	client := cmd.Client{
 		Config: config,

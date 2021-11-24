@@ -1,22 +1,24 @@
 import React from 'react'
 
 import { gql } from '@apollo/client'
-import { useHistory } from 'react-router-dom'
 
 import CancelIcon from '@material-ui/icons/Cancel'
-import Card from '@material-ui/core/Card'
-import CardHeader from '@material-ui/core/CardHeader'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
-import IconButton from '@material-ui/core/IconButton'
-import EditIcon from '@material-ui/icons/Edit'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableRow from '@material-ui/core/TableRow'
+import Grid from '@material-ui/core/Grid'
+import {
+  createStyles,
+  Theme,
+  WithStyles,
+  withStyles,
+} from '@material-ui/core/styles'
+import Paper from '@material-ui/core/Paper'
 import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
+
+import { CopyIconButton } from 'src/components/Copy/CopyIconButton'
+import { shortenHex } from 'src/utils/shortenHex'
+import Link from 'components/Link'
 
 export const FEEDS_MANAGER_FIELDS = gql`
   fragment FeedsManagerFields on FeedsManager {
@@ -31,7 +33,7 @@ export const FEEDS_MANAGER_FIELDS = gql`
   }
 `
 
-const cardSubheaderStyles = () => {
+const connectionStatusStyles = () => {
   return createStyles({
     root: {
       display: 'flex',
@@ -48,12 +50,13 @@ const cardSubheaderStyles = () => {
   })
 }
 
-interface CardSubheaderProps extends WithStyles<typeof cardSubheaderStyles> {
+interface ConnectionStatusProps
+  extends WithStyles<typeof connectionStatusStyles> {
   isConnected: boolean
 }
 
-const CardSubheader = withStyles(cardSubheaderStyles)(
-  ({ isConnected, classes }: CardSubheaderProps) => {
+const ConnectionStatus = withStyles(connectionStatusStyles)(
+  ({ isConnected, classes }: ConnectionStatusProps) => {
     return (
       <div className={classes.root}>
         {isConnected ? (
@@ -62,12 +65,7 @@ const CardSubheader = withStyles(cardSubheaderStyles)(
           <CancelIcon fontSize="small" className={classes.disconnectedIcon} />
         )}
 
-        <Typography
-          variant="body1"
-          color="textSecondary"
-          inline
-          className={classes.text}
-        >
+        <Typography variant="body1" inline className={classes.text}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </Typography>
       </div>
@@ -75,10 +73,19 @@ const CardSubheader = withStyles(cardSubheaderStyles)(
   },
 )
 
-const styles = () => {
+const styles = (theme: Theme) => {
   return createStyles({
     tableRoot: {
       tableLayout: 'fixed',
+    },
+    paper: {
+      marginBottom: theme.spacing.unit * 2.5,
+      padding: theme.spacing.unit * 3,
+    },
+    editGridItem: {
+      display: 'flex',
+      alignItems: 'flex-end',
+      justifyContent: 'flex-end',
     },
   })
 }
@@ -89,73 +96,82 @@ interface Props extends WithStyles<typeof styles> {
 
 export const FeedsManagerCard = withStyles(styles)(
   ({ classes, manager }: Props) => {
-    const history = useHistory()
+    const jobTypes = React.useMemo(() => {
+      return manager.jobTypes
+        .map((type) => {
+          switch (type) {
+            case 'FLUX_MONITOR':
+              return 'Flux Monitor'
+            case 'OCR':
+              return 'OCR'
+          }
+        })
+        .join(', ')
+    }, [manager.jobTypes])
 
     return (
-      <Card>
-        <CardHeader
-          title="Feeds Manager"
-          subheader={<CardSubheader isConnected={manager.isConnectionActive} />}
-          action={
-            <IconButton
-              onClick={() => history.push('/feeds_manager/edit')}
-              data-testid="edit"
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          }
-        />
-        <Table className={classes.tableRoot}>
-          <TableBody>
-            <TableRow>
-              <TableCell>
-                <Typography>Name</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.name}
-                </Typography>
-              </TableCell>
-            </TableRow>
+      <Paper className={classes.paper}>
+        <Grid container>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              Status
+            </Typography>
+            <ConnectionStatus isConnected={manager.isConnectionActive} />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              Name
+            </Typography>
+            <Typography variant="body1" noWrap>
+              {manager.name}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              Job Types
+            </Typography>
+            <Typography variant="body1" noWrap>
+              {jobTypes}
+            </Typography>
+          </Grid>
 
-            <TableRow>
-              <TableCell>
-                <Typography>URI</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.uri}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell>
-                <Typography>Public Key</Typography>
-                <Typography variant="subtitle1" color="textSecondary" noWrap>
-                  {manager.publicKey}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
-            <TableRow>
-              <TableCell>
-                <Typography>Job Types</Typography>
-                <Typography variant="subtitle1" color="textSecondary">
-                  {manager.jobTypes.join(',')}
-                </Typography>
-              </TableCell>
-            </TableRow>
-
+          <Grid item xs={12} sm={6} md={3}>
             {manager.isBootstrapPeer && (
-              <TableRow>
-                <TableCell>
-                  <Typography>Bootstrap Peer Multiaddress</Typography>
-                  <Typography variant="subtitle1" color="textSecondary">
-                    {manager.bootstrapPeerMultiaddr}
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              <>
+                <Typography variant="subtitle2" gutterBottom>
+                  Bootstrap Multiaddress
+                </Typography>
+                <Typography variant="body1" noWrap>
+                  {manager.bootstrapPeerMultiaddr}
+                </Typography>
+              </>
             )}
-          </TableBody>
-        </Table>
-      </Card>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" gutterBottom noWrap>
+              CSA Public Key
+            </Typography>
+            <Typography variant="body1" gutterBottom noWrap>
+              {shortenHex(manager.publicKey, { start: 6, end: 6 })}
+              <CopyIconButton data={manager.publicKey} />
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              RPC URL
+            </Typography>
+            <Typography variant="body1" noWrap>
+              {manager.uri}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={6} className={classes.editGridItem}>
+            <Link variant="body1" color="primary" href="/feeds_manager/edit">
+              Edit
+            </Link>
+          </Grid>
+        </Grid>
+      </Paper>
     )
   },
 )

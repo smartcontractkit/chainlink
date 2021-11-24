@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/sqlx"
 
 	uuid "github.com/satori/go.uuid"
@@ -17,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newBridgeORM(t *testing.T, db *sqlx.DB) bridges.ORM {
-	return bridges.NewORM(db, logger.TestLogger(t))
+func newBridgeORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bridges.ORM {
+	return bridges.NewORM(db, logger.TestLogger(t), cfg)
 }
 
 type eiEnabledCfg struct{}
@@ -31,7 +32,8 @@ func (eiDisabledCfg) FeatureExternalInitiators() bool { return false }
 
 func Test_Authorizer(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
-	borm := newBridgeORM(t, db)
+	cfg := cltest.NewTestGeneralConfig(t)
+	borm := newBridgeORM(t, db, cfg)
 
 	eiFoo := cltest.MustInsertExternalInitiator(t, borm)
 	eiBar := cltest.MustInsertExternalInitiator(t, borm)

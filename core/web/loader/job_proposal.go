@@ -28,7 +28,7 @@ func (b *jobProposalBatcher) loadByManagersIDs(_ context.Context, keys dataloade
 		keyOrder[key.String()] = ix
 	}
 
-	jps, err := b.app.GetFeedsService().GetJobProposalByManagersIDs(mgrsIDs)
+	jps, err := b.app.GetFeedsService().GetJobProposalsByManagersIDs(mgrsIDs)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

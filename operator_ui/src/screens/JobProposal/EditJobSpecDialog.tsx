@@ -1,5 +1,5 @@
 import React from 'react'
-import { Field, Form, Formik } from 'formik'
+import { Field, Form, Formik, FormikHelpers } from 'formik'
 import { TextField } from 'formik-material-ui'
 import * as Yup from 'yup'
 
@@ -23,11 +23,14 @@ export type FormValues = {
   spec: string
 }
 
-interface Props extends WithStyles<typeof styles> {
+export interface Props extends WithStyles<typeof styles> {
   onClose: () => void
   open: boolean
   initialValues: FormValues
-  onSubmit: (values: FormValues) => Promise<void>
+  onSubmit: (
+    values: FormValues,
+    formikHelpers: FormikHelpers<FormValues>,
+  ) => void | Promise<any>
 }
 
 const ValidationSchema = Yup.object().shape({
@@ -40,12 +43,10 @@ export const EditJobSpecDialog = withStyles(styles)(
       <Formik
         initialValues={initialValues}
         validationSchema={ValidationSchema}
-        onSubmit={async (values, actions) => {
-          try {
-            await onSubmit(values)
-          } finally {
-            actions.setSubmitting(false)
-          }
+        onSubmit={async (values, formikHelper) => {
+          await onSubmit(values, formikHelper)
+
+          onClose()
         }}
       >
         {({ isSubmitting, submitForm }) => (
@@ -55,7 +56,7 @@ export const EditJobSpecDialog = withStyles(styles)(
               onClose={onClose}
               classes={{ paper: classes.paperRoot }}
             >
-              <DialogTitle>
+              <DialogTitle disableTypography>
                 <Typography variant="h5">Edit Job Spec</Typography>
               </DialogTitle>
               <DialogContent>
@@ -72,7 +73,7 @@ export const EditJobSpecDialog = withStyles(styles)(
                   autoComplete="off"
                   margin="normal"
                   fullWidth
-                  spellcheck="false"
+                  spellCheck="false"
                 />
               </DialogContent>
               <DialogActions>

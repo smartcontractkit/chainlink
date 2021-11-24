@@ -58,7 +58,7 @@ type (
 		jobID            int32
 		logger           logger.Logger
 		ocrdb            OCRContractTrackerDB
-		db               *sqlx.DB
+		q                pg.Q
 		blockTranslator  BlockTranslator
 		cfg              Config
 
@@ -117,7 +117,7 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		ocrdb,
-		db,
+		pg.NewQ(db, logger, cfg),
 		NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
 		headBroadcaster,
@@ -289,7 +289,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = pg.NewQ(t.db).Transaction(t.logger, func(tx pg.Queryer) error {
+			err = t.q.Transaction(func(tx pg.Queryer) error {
 				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}

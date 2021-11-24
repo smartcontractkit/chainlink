@@ -400,7 +400,7 @@ func TestClient_GetConfiguration(t *testing.T) {
 	assert.Equal(t, cp.EnvPrinter.DefaultChainID, cfg.DefaultChainID().String())
 	assert.Equal(t, cp.EnvPrinter.Dev, cfg.Dev())
 	assert.Equal(t, cp.EnvPrinter.LogLevel, config.LogLevel{Level: cfg.LogLevel()})
-	assert.Equal(t, cp.EnvPrinter.LogSQLStatements, cfg.LogSQLStatements())
+	assert.Equal(t, cp.EnvPrinter.LogSQL, cfg.LogSQL())
 	assert.Equal(t, cp.EnvPrinter.RootDir, cfg.RootDir())
 	assert.Equal(t, cp.EnvPrinter.SessionTimeout, cfg.SessionTimeout())
 }
@@ -417,8 +417,8 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	app.KeyStore.OCR().Add(cltest.DefaultOCRKey)
 	app.KeyStore.P2P().Add(cltest.DefaultP2PKey)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{})
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
@@ -550,7 +550,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
 
 	sqlEnabled = false
 	set = flag.NewFlagSet("logsql", 0)
@@ -559,7 +559,7 @@ func TestClient_SetLogConfig(t *testing.T) {
 
 	err = client.SetLogSQL(c)
 	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+	assert.Equal(t, sqlEnabled, app.Config.LogSQL())
 }
 
 func TestClient_SetPkgLogLevel(t *testing.T) {

@@ -6,15 +6,13 @@ import { renderWithRouter, screen } from 'support/test-utils'
 import { buildJobProposals } from 'support/factories/gql/fetchFeedsManagersWithProposals'
 import { JobProposalsCard } from './JobProposalsCard'
 
-const { findByText, findAllByRole, getByRole } = screen
+const { findAllByRole, getByRole } = screen
 
 describe('JobProposalsCard', () => {
   it('renders the pending job proposals ', async () => {
     const proposals = buildJobProposals()
 
     renderWithRouter(<JobProposalsCard proposals={proposals} />)
-
-    expect(await findByText('Job Proposals')).toBeInTheDocument()
 
     const rows = await findAllByRole('row')
     expect(rows).toHaveLength(2)
@@ -28,8 +26,6 @@ describe('JobProposalsCard', () => {
     const proposals = buildJobProposals()
 
     renderWithRouter(<JobProposalsCard proposals={proposals} />)
-
-    expect(await findByText('Job Proposals')).toBeInTheDocument()
 
     userEvent.click(getByRole('tab', { name: /approved/i }))
 
@@ -46,8 +42,6 @@ describe('JobProposalsCard', () => {
 
     renderWithRouter(<JobProposalsCard proposals={proposals} />)
 
-    expect(await findByText('Job Proposals')).toBeInTheDocument()
-
     userEvent.click(getByRole('tab', { name: /rejected/i }))
 
     const rows = await findAllByRole('row')
@@ -62,8 +56,6 @@ describe('JobProposalsCard', () => {
     const proposals = buildJobProposals()
 
     renderWithRouter(<JobProposalsCard proposals={proposals} />)
-
-    expect(await findByText('Job Proposals')).toBeInTheDocument()
 
     userEvent.click(getByRole('tab', { name: /cancelled/i }))
 

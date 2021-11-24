@@ -22,7 +22,8 @@ func TestValidateBridgeType(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	tests := []struct {
 		description string
@@ -115,7 +116,8 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db, logger.TestLogger(t))
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := bridges.NewORM(db, logger.TestLogger(t), cfg)
 
 	// Create a duplicate
 	bt := bridges.BridgeType{}

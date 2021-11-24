@@ -171,8 +171,8 @@ type JobPipelineV2TestHelper struct {
 
 func NewJobPipelineV2(t testing.TB, cfg config.GeneralConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr)
-	jrm := job.NewORM(db, cc, prm, keyStore, lggr)
+	prm := pipeline.NewORM(db, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, keyStore, lggr, cfg)
 	pr := pipeline.NewRunner(prm, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr)
 	return JobPipelineV2TestHelper{
 		prm,
@@ -374,10 +374,9 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 
 	url := cfg.DatabaseURL()
 	db, err := pg.NewConnection(url.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), pg.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
@@ -403,7 +402,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, lggr, cfg)
 			}
 
 		}
@@ -415,7 +414,7 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 		chainORM = evm.NewORM(db)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	chainSet, err := evm.LoadChainSet(evm.ChainSetOpts{
 		ORM:              chainORM,
 		Config:           cfg,
@@ -640,8 +639,8 @@ func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.C
 }
 
 // NewKeyStore returns a new, unlocked keystore
-func NewKeyStore(t testing.TB, db *sqlx.DB) keystore.Master {
-	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t))
+func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.LogConfig) keystore.Master {
+	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
 }
@@ -1720,6 +1719,6 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 	return states[0]
 }
 
-func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB) bulletprooftxmanager.ORM {
-	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t))
+func NewBulletproofTxManagerORM(t *testing.T, db *sqlx.DB, cfg pg.LogConfig) bulletprooftxmanager.ORM {
+	return bulletprooftxmanager.NewORM(db, logger.TestLogger(t), cfg)
 }

@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -66,7 +65,7 @@ type listenerV2 struct {
 	pipelineRunner pipeline.Runner
 	pipelineORM    pipeline.ORM
 	job            job.Job
-	db             *sqlx.DB
+	q              pg.Q
 	vrfks          keystore.VRF
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox
@@ -218,9 +217,9 @@ func (lsn *listenerV2) processPendingVRFRequests() {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(l logger.Logger, db *sqlx.DB, fromAddress common.Address, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
+func MaybeSubtractReservedLink(l logger.Logger, q pg.Q, fromAddress common.Address, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
 	var reservedLink string
-	err := db.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
+	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 				   FROM eth_txes
 				   WHERE meta->>'MaxLink' IS NOT NULL
 				   AND evm_chain_id = $1
@@ -270,7 +269,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 	reqs []pendingRequest,
 ) {
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.l, lsn.db, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
+		lsn.l, lsn.q, fromAddress, startBalance, lsn.ethClient.ChainID().Uint64(), subID)
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubId)
 		return
@@ -329,7 +328,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 		lggr.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
 		// We have enough balance to service it, lets enqueue for bptxm
-		err = pg.NewQ(lsn.db).Transaction(lsn.l, func(tx pg.Queryer) error {
+		err = lsn.q.Transaction(func(tx pg.Queryer) error {
 			if err = lsn.pipelineRunner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err != nil {
 				return err
 			}
