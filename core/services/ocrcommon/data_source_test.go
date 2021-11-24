@@ -55,6 +55,6 @@ func Test_NewDataSourceV2(t *testing.T) {
 	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), resChan)
 	val, err := ds.Observe(context.TODO())
 	require.NoError(t, err)
-  assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
+	assert.Equal(t, mockValue, val.String())   // returns expected value after pipeline run
 	assert.Equal(t, pipeline.Run{}, <-resChan) // expected data properly passed to channel
 }

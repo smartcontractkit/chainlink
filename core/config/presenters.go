@@ -69,12 +69,12 @@ type EnvPrinter struct {
 	LogSQLMigrations                           bool            `json:"LOG_SQL_MIGRATIONS"`
 	LogSQL                                     bool            `json:"LOG_SQL"`
 	LogToDisk                                  bool            `json:"LOG_TO_DISK"`
-	OCRBootstrapCheckInterval                  time.Duration   `json:"OCR_BOOTSTRAP_CHECK_INTERVAL"`
+	P2PBootstrapCheckInterval                  time.Duration   `json:"P2P_BOOTSTRAP_CHECK_INTERVAL"`
 	TriggerFallbackDBPollInterval              time.Duration   `json:"JOB_PIPELINE_DB_POLL_INTERVAL"`
 	OCRContractTransmitterTransmitTimeout      time.Duration   `json:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT"`
 	OCRDatabaseTimeout                         time.Duration   `json:"OCR_DATABASE_TIMEOUT"`
 	OCRDefaultTransactionQueueDepth            uint32          `json:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH"`
-	OCRIncomingMessageBufferSize               int             `json:"OCR_INCOMING_MESSAGE_BUFFER_SIZE"`
+	P2PIncomingMessageBufferSize               int             `json:"P2P_INCOMING_MESSAGE_BUFFER_SIZE"`
 	P2PBootstrapPeers                          []string        `json:"P2P_BOOTSTRAP_PEERS"`
 	P2PListenIP                                string          `json:"P2P_LISTEN_IP"`
 	P2PListenPort                              string          `json:"P2P_LISTEN_PORT"`
@@ -85,9 +85,9 @@ type EnvPrinter struct {
 	P2PV2DeltaDial                             models.Duration `json:"P2PV2_DELTA_DIAL"`
 	P2PV2DeltaReconcile                        models.Duration `json:"P2PV2_DELTA_RECONCILE"`
 	P2PV2ListenAddresses                       []string        `json:"P2PV2_LISTEN_ADDRESSES"`
-	OCROutgoingMessageBufferSize               int             `json:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE"`
-	OCRNewStreamTimeout                        time.Duration   `json:"OCR_NEW_STREAM_TIMEOUT"`
-	OCRDHTLookupInterval                       int             `json:"OCR_DHT_LOOKUP_INTERVAL"`
+	P2POutgoingMessageBufferSize               int             `json:"P2P_OUTGOING_MESSAGE_BUFFER_SIZE"`
+	P2PNewStreamTimeout                        time.Duration   `json:"P2P_NEW_STREAM_TIMEOUT"`
+	P2PDHTLookupInterval                       int             `json:"P2P_DHT_LOOKUP_INTERVAL"`
 	OCRTraceLogging                            bool            `json:"OCR_TRACE_LOGGING"`
 	Port                                       uint16          `json:"CHAINLINK_PORT"`
 	ReaperExpiration                           models.Duration `json:"REAPER_EXPIRATION"`
@@ -152,14 +152,14 @@ func NewConfigPrinter(cfg GeneralConfig) (ConfigPrinter, error) {
 			LogSQLMigrations:                      cfg.LogSQLMigrations(),
 			LogSQL:                                cfg.LogSQL(),
 			LogToDisk:                             cfg.LogToDisk(),
-			OCRBootstrapCheckInterval:             cfg.P2PBootstrapCheckInterval(),
+			P2PBootstrapCheckInterval:             cfg.P2PBootstrapCheckInterval(),
 			OCRContractTransmitterTransmitTimeout: cfg.OCRContractTransmitterTransmitTimeout(),
-			OCRDHTLookupInterval:                  cfg.P2PDHTLookupInterval(),
+			P2PDHTLookupInterval:                  cfg.P2PDHTLookupInterval(),
 			OCRDatabaseTimeout:                    cfg.OCRDatabaseTimeout(),
 			OCRDefaultTransactionQueueDepth:       cfg.OCRDefaultTransactionQueueDepth(),
-			OCRIncomingMessageBufferSize:          cfg.P2PIncomingMessageBufferSize(),
-			OCRNewStreamTimeout:                   cfg.P2PNewStreamTimeout(),
-			OCROutgoingMessageBufferSize:          cfg.P2POutgoingMessageBufferSize(),
+			P2PIncomingMessageBufferSize:          cfg.P2PIncomingMessageBufferSize(),
+			P2PNewStreamTimeout:                   cfg.P2PNewStreamTimeout(),
+			P2POutgoingMessageBufferSize:          cfg.P2POutgoingMessageBufferSize(),
 			OCRTraceLogging:                       cfg.OCRTraceLogging(),
 			P2PBootstrapPeers:                     p2pBootstrapPeers,
 			P2PListenIP:                           cfg.P2PListenIP().String(),

@@ -4,6 +4,8 @@ import (
 	"io"
 	"net"
 
+	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
+
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/sqlx"
 
@@ -108,11 +110,17 @@ func (p *SingletonPeerWrapper) Start() error {
 		// Also fallback to listen params if announce params not specified.
 		var announcePort uint16
 		var announceIP net.IP
+		var peerStore p2ppeerstore.Peerstore
 		if p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 || p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1V2 {
 			p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
 			if err != nil {
 				return errors.Wrap(err, "could not make new pstorewrapper")
 			}
+			if err = p.pstoreWrapper.Start(); err != nil {
+				return errors.Wrap(err, "failed to start peer store wrapper")
+			}
+
+			peerStore = p.pstoreWrapper.Peerstore
 			announcePort = p.config.P2PListenPort()
 			if p.config.P2PAnnouncePort() != 0 {
 				announcePort = p.config.P2PAnnouncePort()
@@ -145,7 +153,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			V1ListenPort:                       p.config.P2PListenPort(),
 			V1AnnounceIP:                       announceIP,
 			V1AnnouncePort:                     announcePort,
-			V1Peerstore:                        p.pstoreWrapper.Peerstore,
+			V1Peerstore:                        peerStore,
 			V1DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
 
 			// V2 config
@@ -182,7 +190,7 @@ func (p *SingletonPeerWrapper) Start() error {
 			peer.OCR2BinaryNetworkEndpointFactory(),
 			peer.OCR2BootstrapperFactory(),
 		}
-		return p.pstoreWrapper.Start()
+		return nil
 	})
 }
 
