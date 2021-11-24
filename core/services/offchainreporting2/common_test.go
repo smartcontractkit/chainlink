@@ -50,9 +50,14 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, db *sqlx.DB, transmitte
 	//	ContractConfigConfirmations:            0,
 	//}
 	spec := job.OffchainReporting2OracleSpec{}
-	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, monitoring_endpoint, transmitter_address, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations) VALUES (
-NOW(),NOW(),$1,'{}',false,$2,$3,$4,0,0,0,0
-) RETURNING *`, cltest.NewEIP55Address(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", &transmitterAddress))
+	mockJuelsPerFeeCoinSource := `ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+	ds1_multiply [type=multiply times=1.23];
+	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	answer1      [type=median index=0];`
+	require.NoError(t, db.Get(&spec, `INSERT INTO offchainreporting2_oracle_specs (created_at, updated_at, contract_address, p2p_bootstrap_peers, is_bootstrap_peer, encrypted_ocr_key_bundle_id, monitoring_endpoint, transmitter_address, blockchain_timeout, contract_config_tracker_subscribe_interval, contract_config_tracker_poll_interval, contract_config_confirmations, juels_per_fee_coin_pipeline) VALUES (
+NOW(),NOW(),$1,'{}',false,$2,$3,$4,0,0,0,0,$5
+) RETURNING *`, cltest.NewEIP55Address(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", &transmitterAddress, mockJuelsPerFeeCoinSource))
 	//require.NoError(t, db.Create(&spec).Error)
 	return spec
 }
