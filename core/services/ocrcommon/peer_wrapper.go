@@ -89,7 +89,7 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 }
 
 func (p *SingletonPeerWrapper) Start() error {
-	return p.StartOnce("SingletonPeerWrapper", func() (err error) {
+	return p.StartOnce("SingletonPeerWrapper", func() error {
 		// If there are no keys, permit the peer to start without a key
 		// TODO: This appears only a requirement for the tests, normally the node
 		// always ensures a key is available on boot. We should update the tests
