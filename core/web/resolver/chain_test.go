@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func Test_Chains(t *testing.T) {
+func TestResolver_Chains(t *testing.T) {
 	var (
 		chainID = *utils.NewBigI(1)
 		nodeID  = int32(200)
@@ -38,8 +38,10 @@ func Test_Chains(t *testing.T) {
 							gasEstimatorMode
 							keySpecificConfigs {
 								address
-								blockHistoryEstimatorBlockDelay
-								evmEIP1559DynamicFees
+								config {
+									blockHistoryEstimatorBlockDelay
+									evmEIP1559DynamicFees
+								}
 							}
 						}
 					}
@@ -108,8 +110,10 @@ func Test_Chains(t *testing.T) {
 							"gasEstimatorMode": "BLOCK_HISTORY",
 							"keySpecificConfigs": [{
 								"address": "test-address",
-								"blockHistoryEstimatorBlockDelay": 0,
-								"evmEIP1559DynamicFees": false
+								"config": {
+									"blockHistoryEstimatorBlockDelay": 0,
+									"evmEIP1559DynamicFees": false
+								}
 							}]
 						},
 						"nodes": [{
@@ -151,8 +155,10 @@ func TestResolver_Chain(t *testing.T) {
 							gasEstimatorMode
 							keySpecificConfigs {
 								address
-								blockHistoryEstimatorBlockDelay
-								evmEIP1559DynamicFees
+								config {
+									blockHistoryEstimatorBlockDelay
+									evmEIP1559DynamicFees
+								}
 							}
 						}
 					}
@@ -220,8 +226,10 @@ func TestResolver_Chain(t *testing.T) {
 							"gasEstimatorMode": "BLOCK_HISTORY",
 							"keySpecificConfigs": [{
 								"address": "test-address",
-								"blockHistoryEstimatorBlockDelay": 0,
-								"evmEIP1559DynamicFees": false
+								"config": {
+									"blockHistoryEstimatorBlockDelay": 0,
+									"evmEIP1559DynamicFees": false
+								}
 							}]
 						},
 						"nodes": [{

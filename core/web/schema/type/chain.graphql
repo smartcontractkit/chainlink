@@ -13,3 +13,15 @@ type ChainsPayload implements PaginatedPayload {
     results: [Chain!]!
     metadata: PaginationMetadata!
 }
+
+input CreateChainInput {
+    id: ID!
+    config: ChainConfigInput!
+    keySpecificConfigs: [KeySpecificChainConfigInput]
+}
+
+type CreateChainSuccess {
+    chain: Chain!
+}
+
+union CreateChainPayload = CreateChainSuccess

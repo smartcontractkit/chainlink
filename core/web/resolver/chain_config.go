@@ -63,14 +63,14 @@ func NewChainConfig(cfg types.ChainCfg) *ChainConfigResolver {
 }
 
 type KeySpecificChainConfigResolver struct {
-	address string
-	ChainConfigResolver
+	addr string
+	cfg  types.ChainCfg
 }
 
 func NewKeySpecificChainConfig(address string, cfg types.ChainCfg) *KeySpecificChainConfigResolver {
 	return &KeySpecificChainConfigResolver{
-		address:             address,
-		ChainConfigResolver: ChainConfigResolver{cfg: cfg},
+		cfg:  cfg,
+		addr: address,
 	}
 }
 
@@ -377,5 +377,9 @@ func (r *ChainConfigResolver) KeySpecificConfigs() []*KeySpecificChainConfigReso
 }
 
 func (r *KeySpecificChainConfigResolver) Address() string {
-	return r.address
+	return r.addr
+}
+
+func (r *KeySpecificChainConfigResolver) Config() *ChainConfigResolver {
+	return NewChainConfig(r.cfg)
 }

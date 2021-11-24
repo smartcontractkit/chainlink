@@ -96,3 +96,29 @@ func (r *ChainsPayloadResolver) Results() []*ChainResolver {
 func (r *ChainsPayloadResolver) Metadata() *PaginationMetadataResolver {
 	return NewPaginationMetadata(r.total)
 }
+
+// -- CreateChain Mutation --
+
+type CreateChainPayloadResolver struct {
+	chain *types.Chain
+}
+
+func NewCreateChainPayload(chain *types.Chain) *CreateChainPayloadResolver {
+	return &CreateChainPayloadResolver{chain: chain}
+}
+
+func (r *CreateChainPayloadResolver) ToCreateChainSuccess() (*CreateChainSuccessResolver, bool) {
+	return NewCreateChainSuccess(r.chain), true
+}
+
+type CreateChainSuccessResolver struct {
+	chain *types.Chain
+}
+
+func NewCreateChainSuccess(chain *types.Chain) *CreateChainSuccessResolver {
+	return &CreateChainSuccessResolver{chain: chain}
+}
+
+func (r *CreateChainSuccessResolver) Chain() *ChainResolver {
+	return NewChain(*r.chain)
+}

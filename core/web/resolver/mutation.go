@@ -764,3 +764,41 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		AccessKey: dbUser.TokenKey.String,
 	}, nil), nil
 }
+
+func (r *Resolver) CreateChain(ctx context.Context, args struct {
+	Input struct {
+		ID                 graphql.ID
+		Config             types.ChainCfg
+		KeySpecificConfigs []struct {
+			Address string
+			Config  types.ChainCfg
+		}
+	}
+}) (*CreateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.Input.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		var sCfg map[string]types.ChainCfg
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			sCfg[cfg.Address] = cfg.Config
+		}
+
+		args.Input.Config.KeySpecific = sCfg
+	}
+
+	chain, err := r.App.GetChainSet().Add(id.ToInt(), args.Input.Config)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateChainPayload(&chain), nil
+}
