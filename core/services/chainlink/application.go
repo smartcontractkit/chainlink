@@ -307,22 +307,27 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			chainSet,
 			globalLogger,
 		)
-		// TODO [relay]: add job.OffchainReporting2Relay
-		relays := relay.Relays{
-			Solana: solana.NewRelay(),
+		// TODO [relay]: add flag for this experimental job type?
+		globalLogger.Debug("Off-chain reporting v2-relay enabled")
+		// TODO [relay]: move relayers creation outside OCR2 context (relayers will be multi-protocol)
+		relayers := relay.Relayers{
+			// TODO [relay]: support Ethereum as a relay
+			// TODO [relay]: solana OCR2 keys ('ocr2key.KeyBundle' is Ethereum specific)
+			relay.TypeSolana: solana.NewRelayer(keyStore.OCR2()),
 		}
-		subservices = append(subservices, relays.Solana)
+		// all relayers are started once, on app start, as root subservices
+		for _, r := range relayers {
+			subservices = append(subservices, r)
+		}
 		delegates[job.OffchainReporting2Relay] = offchainreporting2relay.NewDelegate(
 			db,
 			jobORM,
-			// TODO [relay]: solana OCR2 keys, or OCR2 keys for all relays?
-			keyStore.OCR2(),
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
-			relays,
+			relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

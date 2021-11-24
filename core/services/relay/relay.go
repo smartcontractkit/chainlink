@@ -6,19 +6,24 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-type Relays struct {
-	// TODO: support Ethereum as a relay
-	// Ethereum Relay
-	Solana Relay
+type Type string
+
+var (
+	TypeEthereum = Type("ethereum")
+	TypeSolana   = Type("solana")
+)
+
+type Relayers map[Type]Relayer
+
+type Relayer interface {
+	service.Service
+	NewOCR2Provider(config interface{}) (OCR2Provider, error)
 }
 
-type Relay interface {
+type OCR2Provider interface {
 	service.Service
-	NewOCR2Service(config interface{}) OCR2Service
-}
-
-type OCR2Service interface {
-	service.Service
+	OffchainKeyring() types.OffchainKeyring
+	OnchainKeyring() types.OnchainKeyring
 	ContractTransmitter() types.ContractTransmitter
 	ContractConfigTracker() types.ContractConfigTracker
 	OffchainConfigDigester() types.OffchainConfigDigester

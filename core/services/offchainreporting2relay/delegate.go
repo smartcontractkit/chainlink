@@ -1,6 +1,7 @@
 package offchainreporting2relay
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/smartcontractkit/sqlx"
@@ -10,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
@@ -26,13 +26,12 @@ import (
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
-	keyStore              keystore.OCR2
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
 	lggr                  logger.Logger
-	relays                relay.Relays
+	relayers              relay.Relayers
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -40,24 +39,22 @@ var _ job.Delegate = (*Delegate)(nil)
 func NewDelegate(
 	db *sqlx.DB,
 	jobORM job.ORM,
-	keyStore keystore.OCR2,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
-	relays relay.Relays,
+	relayers relay.Relayers,
 ) *Delegate {
 	return &Delegate{
 		db,
 		jobORM,
-		keyStore,
 		pipelineRunner,
 		peerWrapper,
 		monitoringEndpointGen,
 		chainSet,
 		lggr,
-		relays,
+		relayers,
 	}
 }
 
@@ -84,14 +81,30 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	ocrdb := offchainreporting2.NewDB(d.db.DB, spec.ID)
 
+	var kbID string
+	if spec.EncryptedOCRKeyBundleID.Valid {
+		kbID = spec.EncryptedOCRKeyBundleID.String
+	} else if kbID, err = chain.Config().OCRKeyBundleID(); err != nil {
+		return nil, err
+	}
+
 	// TODO [relay]: make a relay choice depending on job spec
-	relay := d.relays.Solana
-	relayOCR2Service := relay.NewOCR2Service(solana.OCR2ServiceConfig{
-		NodeURL: "", // TODO [relay]: add validator url
-		Address: spec.ContractAddress.String(),
-		JobID:   spec.ID,
+	relayer, ok := d.relayers["solana"]
+	if !ok {
+		return nil, fmt.Errorf("unknown relayer type: %s", "TODO [relay]: spec.relayerType")
+	}
+
+	ocr2Provider, err := relayer.NewOCR2Provider(solana.OCR2ProviderConfig{
+		NodeURL:     "", // TODO [relay]: add validator url from job spec
+		Address:     spec.ContractAddress.String(),
+		JobID:       spec.ID,
+		KeyBundleID: kbID,
 	})
-	services = append(services, relayOCR2Service)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error calling 'relay.NewOCR2Provider'")
+	}
+	services = append(services, ocr2Provider)
 
 	var peerID p2pkey.PeerID
 	if spec.P2PPeerID != nil {
@@ -132,6 +145,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	if cerr := ocr.SanityCheckLocalConfig(lc); cerr != nil {
 		return nil, cerr
 	}
+
 	d.lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
 		"ContractConfigConfirmations", lc.ContractConfigConfirmations,
@@ -140,8 +154,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	tracker := relayOCR2Service.ContractConfigTracker()
-	offchainConfigDigester := relayOCR2Service.OffchainConfigDigester()
+	tracker := ocr2Provider.ContractConfigTracker()
+	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
 
 	if spec.IsBootstrapPeer {
 		bootstrapNodeArgs := ocr.BootstrapperArgs{
@@ -160,21 +174,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 		services = append(services, bootstrapper)
 	} else {
-
 		if len(bootstrapPeers)+len(v2BootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
-		}
-
-		var kb string
-		if spec.EncryptedOCRKeyBundleID.Valid {
-			kb = spec.EncryptedOCRKeyBundleID.String
-		} else if kb, err = chain.Config().OCRKeyBundleID(); err != nil {
-			return nil, err
-		}
-
-		ocrkey, err := d.keyStore.Get(kb)
-		if err != nil {
-			return nil, err
 		}
 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
@@ -185,7 +186,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 
 		numericalMedianFactory := median.NumericalMedianFactory{
-			ContractTransmitter: relayOCR2Service.MedianContract(),
+			ContractTransmitter: ocr2Provider.MedianContract(),
 			DataSource: ocrcommon.NewDataSourceV2(d.pipelineRunner,
 				jobSpec,
 				*jobSpec.PipelineSpec,
@@ -193,7 +194,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				runResults,
 			),
 			JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
-			ReportCodec:               relayOCR2Service.ReportCodec(),
+			ReportCodec:               ocr2Provider.ReportCodec(),
 			Logger:                    ocrLogger,
 		}
 
@@ -202,15 +203,15 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              v2BootstrapPeers,
-			ContractTransmitter:          relayOCR2Service.ContractTransmitter(),
+			ContractTransmitter:          ocr2Provider.ContractTransmitter(),
 			ContractConfigTracker:        tracker,
 			Database:                     ocrdb,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractAddress.Address()),
 			OffchainConfigDigester:       offchainConfigDigester,
-			OffchainKeyring:              &ocrkey.OffchainKeyring,
-			OnchainKeyring:               &ocrkey.OnchainKeyring,
+			OffchainKeyring:              ocr2Provider.OffchainKeyring(),
+			OnchainKeyring:               ocr2Provider.OnchainKeyring(),
 			ReportingPluginFactory:       numericalMedianFactory,
 		})
 		if err != nil {
@@ -232,7 +233,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	return services, nil
 }
 
-func computeLocalConfig(config ValidationConfig, spec job.OffchainReporting2OracleSpec) ocrtypes.LocalConfig {
+func computeLocalConfig(config offchainreporting2.ValidationConfig, spec job.OffchainReporting2OracleSpec) ocrtypes.LocalConfig {
 	var blockchainTimeout time.Duration
 	if spec.BlockchainTimeout != 0 {
 		blockchainTimeout = time.Duration(spec.BlockchainTimeout)
