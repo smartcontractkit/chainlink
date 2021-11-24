@@ -18,6 +18,7 @@ type Query {
     jobs(offset: Int, limit: Int): JobsPayload!
     jobProposal(id: ID!): JobProposalPayload!
     node(id: ID!): NodePayload!
+    nodes(offset: Int, limit: Int): NodesPayload!
     ocrKeyBundles: OCRKeyBundlesPayload!
     p2pKeys: P2PKeysPayload!
     vrfKey(id: ID!): VRFKeyPayload!
