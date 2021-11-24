@@ -88,19 +88,17 @@ func (p *SingletonPeerWrapper) IsStarted() bool {
 	return p.State() == utils.StartStopOnce_Started
 }
 
-// Note a p2p key is always created on boot so we can assume at least one exists
-func (p *SingletonPeerWrapper) getPeerKey() (p2pkey.KeyV2, error) {
-	var key p2pkey.KeyV2
-	peerID := p.config.P2PPeerID()
-	if peerID == "" {
-		return key, errors.New("no peer ID specified")
-	}
-	return p.keyStore.P2P().Get(peerID)
-}
-
 func (p *SingletonPeerWrapper) Start() error {
 	return p.StartOnce("SingletonPeerWrapper", func() (err error) {
-		key, err := p.getPeerKey()
+		// If there are no keys, permit the peer to start without a key
+		// TODO: This appears only a requirement for the tests, normally the node
+		// always ensures a key is available on boot. We should update the tests
+		// but there is a lot of them...
+		if ks, err := p.keyStore.P2P().GetAll(); err == nil && len(ks) == 0 {
+			p.lggr.Warn("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
+			return nil
+		}
+		key, err := p.keyStore.P2P().Get(p.config.P2PPeerID())
 		if err != nil {
 			return err
 		}

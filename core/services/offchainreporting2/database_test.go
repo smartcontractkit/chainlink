@@ -26,8 +26,6 @@ func setupDB(t *testing.T) *sqlx.DB {
 	t.Helper()
 
 	sqlx := pgtest.NewSqlxDB(t)
-	//sqlDB, err := gormDB.DB()
-	//require.NoError(t, err)
 
 	return sqlx
 }
