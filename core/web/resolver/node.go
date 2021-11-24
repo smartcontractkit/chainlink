@@ -89,6 +89,25 @@ func (r *NodePayloadResolver) ToNode() (*NodeResolver, bool) {
 	return nil, false
 }
 
+// -- Nodes Query --
+
+type NodesPayloadResolver struct {
+	nodes []types.Node
+	total int32
+}
+
+func NewNodesPayload(nodes []types.Node, total int32) *NodesPayloadResolver {
+	return &NodesPayloadResolver{nodes: nodes, total: total}
+}
+
+func (r *NodesPayloadResolver) Results() []*NodeResolver {
+	return NewNodes(r.nodes)
+}
+
+func (r *NodesPayloadResolver) Metadata() *PaginationMetadataResolver {
+	return NewPaginationMetadata(r.total)
+}
+
 // -- CreateNode Mutation --
 
 type CreateNodePayloadResolver struct {

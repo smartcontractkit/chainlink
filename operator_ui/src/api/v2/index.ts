@@ -1,5 +1,4 @@
 import { Api } from 'utils/json-api-client'
-import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Chains } from './chains'
 import { CSAKeys } from './csaKeys'
@@ -18,7 +17,6 @@ import { WebAuthn } from './webauthn'
 export class V2 {
   constructor(private api: Api) {}
 
-  public bridgeTypes = new BridgeTypes(this.api)
   public bulkDeleteRuns = new BulkDeleteRuns(this.api)
   public chains = new Chains(this.api)
   public csaKeys = new CSAKeys(this.api)

@@ -2,11 +2,7 @@ import * as React from 'react'
 
 import { GraphQLError } from 'graphql'
 import { Route } from 'react-router-dom'
-import {
-  renderWithRouter,
-  screen,
-  waitForElementToBeRemoved,
-} from 'support/test-utils'
+import { renderWithRouter, screen } from 'support/test-utils'
 import { MockedProvider, MockedResponse } from '@apollo/client/testing'
 import userEvent from '@testing-library/user-event'
 
@@ -17,9 +13,9 @@ import {
 } from './BridgeScreen'
 import { buildBridgePayloadFields } from 'support/factories/gql/fetchBridge'
 import Notifications from 'pages/Notifications'
-import { BRIDGES_QUERY } from '../Bridges/BridgesScreen'
+import { waitForLoading } from 'support/test-helpers/wait'
 
-const { findByTestId, findByText, getByRole, queryByRole } = screen
+const { findByTestId, findByText, getByRole } = screen
 
 function renderComponent(mocks: MockedResponse[]) {
   renderWithRouter(
@@ -53,25 +49,6 @@ function fetchBridgeQuery(bridge: BridgePayload_Fields) {
   }
 }
 
-function refetchBridgesQuery() {
-  return {
-    request: {
-      query: BRIDGES_QUERY,
-      variables: { offset: 0, limit: 10 },
-    },
-    result: {
-      data: {
-        bridges: {
-          results: [],
-          metadata: {
-            total: 0,
-          },
-        },
-      },
-    },
-  }
-}
-
 describe('BridgeScreen', () => {
   it('renders the page', async () => {
     const payload = buildBridgePayloadFields()
@@ -79,7 +56,7 @@ describe('BridgeScreen', () => {
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByText('Bridge Info')).toBeInTheDocument()
   })
@@ -104,7 +81,7 @@ describe('BridgeScreen', () => {
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByTestId('not-found-page')).toBeInTheDocument()
   })
@@ -146,12 +123,11 @@ describe('BridgeScreen', () => {
           },
         },
       },
-      refetchBridgesQuery(),
     ]
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByText('Bridge Info')).toBeInTheDocument()
 
@@ -179,12 +155,11 @@ describe('BridgeScreen', () => {
           },
         },
       },
-      refetchBridgesQuery(),
     ]
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByText('Bridge Info')).toBeInTheDocument()
 
@@ -213,12 +188,11 @@ describe('BridgeScreen', () => {
           },
         },
       },
-      refetchBridgesQuery(),
     ]
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByText('Bridge Info')).toBeInTheDocument()
 
@@ -247,12 +221,11 @@ describe('BridgeScreen', () => {
           },
         },
       },
-      refetchBridgesQuery(),
     ]
 
     renderComponent(mocks)
 
-    await waitForElementToBeRemoved(() => queryByRole('progressbar'))
+    await waitForLoading()
 
     expect(await findByText('Bridge Info')).toBeInTheDocument()
 
