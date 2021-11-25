@@ -12,7 +12,7 @@ import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
 import { transformPipelineJobRun } from './transformJobRuns'
 
-import { DetailsBox } from './DetailsBox'
+import { JobCard } from './JobCard'
 import { JobTabs } from './JobTabs'
 import Content from 'src/components/Content'
 
@@ -139,7 +139,7 @@ export const JobsShow = () => {
         getJobSpecRuns={getJobRuns}
       />
 
-      <DetailsBox job={job} />
+      <JobCard job={job} />
       <JobTabs
         id={jobId}
         errorsCount={job?.errors.length || 0}

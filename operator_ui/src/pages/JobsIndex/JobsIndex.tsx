@@ -7,22 +7,20 @@ import Content from 'components/Content'
 import { JobRow } from './JobRow'
 import Link from 'components/Link'
 import { Resource, Job } from 'core/store/models'
-import { SearchTextField } from 'src/components/SearchTextField'
-import { Title } from 'components/Title'
+import { SearchTextField } from 'src/components/Search/SearchTextField'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
-import CardHeader from '@material-ui/core/CardHeader'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export type JobResource = Resource<Job>
 
@@ -135,18 +133,7 @@ function matchOCR(job: JobResource, term: string) {
   return dataset.some(match)
 }
 
-const styles = () =>
-  createStyles({
-    cardHeader: {
-      borderBottom: 0,
-    },
-  })
-
-export const JobsIndex = ({
-  classes,
-}: {
-  classes: WithStyles<typeof styles>['classes']
-}) => {
+export const JobsIndex = () => {
   const [search, setSearch] = React.useState('')
   const [jobs, setJobs] = React.useState<JobResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
@@ -169,7 +156,7 @@ export const JobsIndex = ({
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <Title>Jobs</Title>
+          <Heading1>Jobs</Heading1>
         </Grid>
         <Grid item xs={3}>
           <Grid container justify="flex-end">
@@ -188,13 +175,14 @@ export const JobsIndex = ({
         <Grid item xs={12}>
           <ErrorComponent />
           <LoadingPlaceholder />
+
+          <SearchTextField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search jobs"
+          />
           {!error && jobs && (
             <Card>
-              <CardHeader
-                title={<SearchTextField value={search} onChange={setSearch} />}
-                className={classes.cardHeader}
-              />
-
               <CardContent>
                 <Table>
                   <TableHead>
@@ -248,4 +236,4 @@ export const JobsIndex = ({
   )
 }
 
-export default withStyles(styles)(JobsIndex)
+export default JobsIndex

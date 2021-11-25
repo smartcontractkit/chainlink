@@ -4,21 +4,22 @@ import { gql } from '@apollo/client'
 
 import CancelIcon from '@material-ui/icons/Cancel'
 import CheckCircleIcon from '@material-ui/icons/CheckCircle'
+import EditIcon from '@material-ui/icons/Edit'
+import IconButton from '@material-ui/core/IconButton'
 import Grid from '@material-ui/core/Grid'
-import {
-  createStyles,
-  Theme,
-  WithStyles,
-  withStyles,
-} from '@material-ui/core/styles'
-import Paper from '@material-ui/core/Paper'
+import ListItemIcon from '@material-ui/core/ListItemIcon'
+import ListItemText from '@material-ui/core/ListItemText'
+import Menu from '@material-ui/core/Menu'
+import MoreVertIcon from '@material-ui/icons/MoreVert'
+import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
 import { CopyIconButton } from 'src/components/Copy/CopyIconButton'
+import { DetailsCard } from 'src/components/Cards/DetailsCard'
 import { shortenHex } from 'src/utils/shortenHex'
-import Link from 'components/Link'
+import { MenuItemLink } from 'src/components/MenuItemLink'
 
 export const FEEDS_MANAGER_FIELDS = gql`
   fragment FeedsManagerFields on FeedsManager {
@@ -73,105 +74,111 @@ const ConnectionStatus = withStyles(connectionStatusStyles)(
   },
 )
 
-const styles = (theme: Theme) => {
-  return createStyles({
-    tableRoot: {
-      tableLayout: 'fixed',
-    },
-    paper: {
-      marginBottom: theme.spacing.unit * 2.5,
-      padding: theme.spacing.unit * 3,
-    },
-    editGridItem: {
-      display: 'flex',
-      alignItems: 'flex-end',
-      justifyContent: 'flex-end',
-    },
-  })
-}
-
-interface Props extends WithStyles<typeof styles> {
+interface Props {
   manager: FeedsManagerFields
 }
 
-export const FeedsManagerCard = withStyles(styles)(
-  ({ classes, manager }: Props) => {
-    const jobTypes = React.useMemo(() => {
-      return manager.jobTypes
-        .map((type) => {
-          switch (type) {
-            case 'FLUX_MONITOR':
-              return 'Flux Monitor'
-            case 'OCR':
-              return 'OCR'
-          }
-        })
-        .join(', ')
-    }, [manager.jobTypes])
+export const FeedsManagerCard = ({ manager }: Props) => {
+  const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
 
-    return (
-      <Paper className={classes.paper}>
-        <Grid container>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" gutterBottom>
-              Status
-            </Typography>
-            <ConnectionStatus isConnected={manager.isConnectionActive} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" gutterBottom>
-              Name
-            </Typography>
-            <Typography variant="body1" noWrap>
-              {manager.name}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" gutterBottom>
-              Job Types
-            </Typography>
-            <Typography variant="body1" noWrap>
-              {jobTypes}
-            </Typography>
-          </Grid>
+  const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget)
+  }
 
-          <Grid item xs={12} sm={6} md={3}>
-            {manager.isBootstrapPeer && (
-              <>
-                <Typography variant="subtitle2" gutterBottom>
-                  Bootstrap Multiaddress
-                </Typography>
-                <Typography variant="body1" noWrap>
-                  {manager.bootstrapPeerMultiaddr}
-                </Typography>
-              </>
-            )}
-          </Grid>
+  const handleClose = () => {
+    setAnchorEl(null)
+  }
 
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" gutterBottom noWrap>
-              CSA Public Key
-            </Typography>
-            <Typography variant="body1" gutterBottom noWrap>
-              {shortenHex(manager.publicKey, { start: 6, end: 6 })}
-              <CopyIconButton data={manager.publicKey} />
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" gutterBottom>
-              RPC URL
-            </Typography>
-            <Typography variant="body1" noWrap>
-              {manager.uri}
-            </Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} md={6} className={classes.editGridItem}>
-            <Link variant="body1" color="primary" href="/feeds_manager/edit">
-              Edit
-            </Link>
-          </Grid>
+  const jobTypes = React.useMemo(() => {
+    return manager.jobTypes
+      .map((type) => {
+        switch (type) {
+          case 'FLUX_MONITOR':
+            return 'Flux Monitor'
+          case 'OCR':
+            return 'OCR'
+        }
+      })
+      .join(', ')
+  }, [manager.jobTypes])
+
+  return (
+    <DetailsCard
+      actions={
+        <div>
+          <IconButton onClick={handleOpen} aria-label="open-menu">
+            <MoreVertIcon />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+          >
+            <MenuItemLink to="/feeds_manager/edit">
+              <ListItemIcon>
+                <EditIcon />
+              </ListItemIcon>
+              <ListItemText>Edit</ListItemText>
+            </MenuItemLink>
+          </Menu>
+        </div>
+      }
+    >
+      <Grid container>
+        <Grid item xs={12} sm={6} md={3}>
+          <Typography variant="subtitle2" gutterBottom>
+            Status
+          </Typography>
+          <ConnectionStatus isConnected={manager.isConnectionActive} />
         </Grid>
-      </Paper>
-    )
-  },
-)
+        <Grid item xs={12} sm={6} md={3}>
+          <Typography variant="subtitle2" gutterBottom>
+            Name
+          </Typography>
+          <Typography variant="body1" noWrap>
+            {manager.name}
+          </Typography>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Typography variant="subtitle2" gutterBottom>
+            Job Types
+          </Typography>
+          <Typography variant="body1" noWrap>
+            {jobTypes}
+          </Typography>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          {manager.isBootstrapPeer && (
+            <>
+              <Typography variant="subtitle2" gutterBottom>
+                Bootstrap Multiaddress
+              </Typography>
+              <Typography variant="body1" noWrap>
+                {manager.bootstrapPeerMultiaddr}
+              </Typography>
+            </>
+          )}
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Typography variant="subtitle2" gutterBottom noWrap>
+            CSA Public Key
+          </Typography>
+          <Typography variant="body1" gutterBottom noWrap>
+            {shortenHex(manager.publicKey, { start: 6, end: 6 })}
+            <CopyIconButton data={manager.publicKey} />
+          </Typography>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Typography variant="subtitle2" gutterBottom>
+            RPC URL
+          </Typography>
+          <Typography variant="body1" noWrap>
+            {manager.uri}
+          </Typography>
+        </Grid>
+      </Grid>
+    </DetailsCard>
+  )
+}
