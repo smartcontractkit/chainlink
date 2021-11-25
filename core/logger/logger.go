@@ -141,7 +141,8 @@ func newLogger(logLevel zapcore.Level, dir string, jsonConsole bool, toDisk bool
 	if err != nil {
 		log.Fatal(err)
 	}
-	return newSentryLogger(l)
+	s := newSentryLogger(l)
+	return newPrometheusLogger(s)
 }
 
 // InitColor explicitly sets the global color.NoColor option.

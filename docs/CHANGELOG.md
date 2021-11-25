@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count` and `log_critical_count` representing the corresponding number of warning/error/critical messages in the log.
 
 #### New locking mode: 'lease'
 
