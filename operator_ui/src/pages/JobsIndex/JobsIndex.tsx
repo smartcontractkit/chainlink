@@ -8,7 +8,6 @@ import { JobRow } from './JobRow'
 import Link from 'components/Link'
 import { Resource, Job } from 'core/store/models'
 import { SearchTextField } from 'src/components/SearchTextField'
-import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
@@ -23,6 +22,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export type JobResource = Resource<Job>
 
@@ -169,7 +169,7 @@ export const JobsIndex = ({
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <Title>Jobs</Title>
+          <Heading1>Jobs</Heading1>
         </Grid>
         <Grid item xs={3}>
           <Grid container justify="flex-end">

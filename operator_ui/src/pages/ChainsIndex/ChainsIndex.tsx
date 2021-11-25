@@ -7,7 +7,6 @@ import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
 import { Resource, Chain } from 'core/store/models'
 import { SearchTextField } from 'src/components/SearchTextField'
-import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
@@ -22,6 +21,8 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export type ChainResource = Resource<Chain>
 
@@ -98,7 +99,7 @@ export const ChainsIndex = ({
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <Title>Chains</Title>
+          <Heading1>Chains</Heading1>
         </Grid>
 
         <Grid item xs={3}>

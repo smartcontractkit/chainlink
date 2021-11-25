@@ -1,37 +1,23 @@
 import React from 'react'
 
 import Grid from '@material-ui/core/Grid'
-import Paper from '@material-ui/core/Paper'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles,
-} from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 
 import { JobData } from './sharedTypes'
+import { DetailsCard } from 'src/components/Cards/DetailsCard'
 import { TimeAgo } from 'src/components/TimeAgo'
 
-const styles = (theme: Theme) =>
-  createStyles({
-    paper: {
-      margin: `${theme.spacing.unit * 2.5}px 0`,
-      padding: theme.spacing.unit * 3,
-    },
-  })
-
-interface Props extends WithStyles<typeof styles> {
+interface Props {
   job: JobData['job']
 }
 
-export const DetailsBox = withStyles(styles)(({ classes, job }: Props) => {
+export const JobCard = ({ job }: Props) => {
   if (!job) {
     return null
   }
 
   return (
-    <Paper className={classes.paper}>
+    <DetailsCard>
       <Grid container>
         <Grid item xs={12} sm={6} md={1}>
           <Typography variant="subtitle2" gutterBottom>
@@ -60,6 +46,6 @@ export const DetailsBox = withStyles(styles)(({ classes, job }: Props) => {
           </Typography>
         </Grid>
       </Grid>
-    </Paper>
+    </DetailsCard>
   )
-})
+}

@@ -5,7 +5,6 @@ import Content from 'components/Content'
 import NodesList from './NodesList'
 import { Resource, Node } from 'core/store/models'
 import { SearchTextField } from 'src/components/SearchTextField'
-import { Title } from 'components/Title'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
@@ -14,6 +13,7 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Grid from '@material-ui/core/Grid'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export type NodeResource = Resource<Node>
 
@@ -94,7 +94,7 @@ export const NodesIndex = ({
     <Content>
       <Grid container>
         <Grid item xs={9}>
-          <Title>Nodes</Title>
+          <Heading1>Nodes</Heading1>
         </Grid>
 
         <Grid item xs={12}>
