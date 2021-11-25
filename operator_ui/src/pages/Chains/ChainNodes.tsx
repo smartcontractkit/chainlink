@@ -2,7 +2,7 @@ import { CardTitle } from 'components/CardTitle'
 import { Card, Grid } from '@material-ui/core'
 import Content from 'components/Content'
 import React from 'react'
-import { ChainResource } from '../ChainsIndex/ChainsIndex'
+import { ChainResource } from './Show'
 import ChainNodesList from './NodesList'
 import { Resource, Node } from 'core/store/models'
 
