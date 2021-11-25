@@ -37,6 +37,11 @@ func (r *ChainResolver) Enabled() bool {
 	return r.chain.Enabled
 }
 
+// Config resolves the chain's configuration field
+func (r *ChainResolver) Config() *ChainConfigResolver {
+	return NewChainConfig(r.chain.Cfg)
+}
+
 // CreatedAt resolves the chains's created at field.
 func (r *ChainResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.chain.CreatedAt}

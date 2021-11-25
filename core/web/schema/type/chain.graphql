@@ -1,13 +1,11 @@
 type Chain {
     id: ID!
     enabled: Boolean!
+    config: ChainConfig!
     nodes: [Node!]!
     createdAt: Time!
     updatedAt: Time!
 }
-
-# TODO - Add Chain config into the response.
-# Config    types.ChainCfg `json:"config"`
 
 union ChainPayload = Chain | NotFoundError
 
