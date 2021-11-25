@@ -21,6 +21,14 @@ var criticalCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "log_critical_count",
 	Help: "Number of critical messages in log",
 })
+var panicCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "log_panic_count",
+	Help: "Number of panic messages in log",
+})
+var fatalCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "log_fatal_count",
+	Help: "Number of fatal messages in log",
+})
 
 type prometheusLogger struct {
 	h Logger
@@ -86,10 +94,12 @@ func (s *prometheusLogger) Critical(args ...interface{}) {
 }
 
 func (s *prometheusLogger) Panic(args ...interface{}) {
+	panicCounter.Inc()
 	s.h.Panic(args...)
 }
 
 func (s *prometheusLogger) Fatal(args ...interface{}) {
+	fatalCounter.Inc()
 	s.h.Fatal(args...)
 }
 
@@ -121,10 +131,12 @@ func (s *prometheusLogger) Criticalf(format string, values ...interface{}) {
 }
 
 func (s *prometheusLogger) Panicf(format string, values ...interface{}) {
+	panicCounter.Inc()
 	s.h.Panicf(format, values...)
 }
 
 func (s *prometheusLogger) Fatalf(format string, values ...interface{}) {
+	fatalCounter.Inc()
 	s.h.Fatalf(format, values...)
 }
 
@@ -156,10 +168,12 @@ func (s *prometheusLogger) CriticalW(msg string, keysAndValues ...interface{}) {
 }
 
 func (s *prometheusLogger) Panicw(msg string, keysAndValues ...interface{}) {
+	panicCounter.Inc()
 	s.h.Panicw(msg, keysAndValues...)
 }
 
 func (s *prometheusLogger) Fatalw(msg string, keysAndValues ...interface{}) {
+	fatalCounter.Inc()
 	s.h.Fatalw(msg, keysAndValues...)
 }
 
