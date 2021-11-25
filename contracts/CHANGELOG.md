@@ -1,5 +1,16 @@
 # @chainlink/contracts CHANGELOG.md
 
+## Unreleased
+
+### Added
+
+- `ArbitrumSequenceStatusRecorderInterface` and ``ArbitrumSequenceStatusRecorder` added in v0.8.
+
+### Changed
+
+- Changed `ArbitrumValidator#validate` target to `ArbitrumSequenceStatusRecorder` instead of
+  Flags contract.
+
 ## 0.3.0 - 2021-12-09
 
 ### Added
