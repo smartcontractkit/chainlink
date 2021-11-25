@@ -2,6 +2,8 @@ package resolver
 
 import (
 	"database/sql"
+	"encoding/json"
+	"math/big"
 	"testing"
 	"time"
 
@@ -251,6 +253,136 @@ func TestResolver_Chain(t *testing.T) {
 					"chain": {
 						"code": "NOT_FOUND",
 						"message": "chain not found"
+					}
+				}`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_CreateChain(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation CreateChain($input: CreateChainInput!) {
+			createChain(input: $input) {
+				... on CreateChainSuccess {
+					chain {
+						id
+						enabled
+						createdAt
+						config {
+							blockHistoryEstimatorBlockDelay
+							ethTxReaperThreshold
+							chainType
+							gasEstimatorMode
+							keySpecificConfigs {
+								address
+								config {
+									blockHistoryEstimatorBlockDelay
+									ethTxReaperThreshold
+									chainType
+									gasEstimatorMode
+								}
+							}
+						}
+					}
+				}
+			}
+		}`
+
+	data, err := json.Marshal(map[string]interface{}{
+		"address": "some-address",
+		"config": map[string]interface{}{
+			"blockHistoryEstimatorBlockDelay": 0,
+			"ethTxReaperThreshold":            "1m0s",
+			"chainType":                       "EXCHAIN",
+			"gasEstimatorMode":                "BLOCK_HISTORY",
+		},
+	})
+	require.NoError(t, err)
+
+	// Ugly hack to avoid type check issues when using slices of maps against the GQL test library...
+	// This is because the library internally is trying to assert the slice values against map[string]interface{}
+	var keySpecificConfig interface{}
+	err = json.Unmarshal(data, &keySpecificConfig)
+	require.NoError(t, err)
+
+	input := map[string]interface{}{
+		"input": map[string]interface{}{
+			"id": "1233",
+			"config": map[string]interface{}{
+				"blockHistoryEstimatorBlockDelay": 1,
+				"ethTxReaperThreshold":            "1m0s",
+				"chainType":                       "OPTIMISM",
+				"gasEstimatorMode":                "BLOCK_HISTORY",
+			},
+			"keySpecificConfigs": []interface{}{
+				keySpecificConfig,
+			},
+		},
+	}
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: input}, "createChain"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				threshold, err := models.MakeDuration(1 * time.Minute)
+				require.NoError(t, err)
+
+				cfg := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+					EthTxReaperThreshold:            &threshold,
+					GasEstimatorMode:                null.StringFrom("BlockHistory"),
+					ChainType:                       null.StringFrom("optimism"),
+					KeySpecific: map[string]types.ChainCfg{
+						"some-address": {
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+							EthTxReaperThreshold:            &threshold,
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("exchain"),
+						},
+					},
+				}
+
+				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+					ID:        *utils.NewBigI(1),
+					Enabled:   true,
+					CreatedAt: f.Timestamp(),
+					Cfg:       cfg,
+				}, nil)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: input,
+			result: `
+				{
+					"createChain": {
+						"chain": {
+							"id": "1",
+							"enabled": true,
+							"createdAt": "2021-01-01T00:00:00Z",
+							"config": {
+								"blockHistoryEstimatorBlockDelay": 1,
+								"ethTxReaperThreshold": "1m0s",
+								"chainType": "OPTIMISM",
+								"gasEstimatorMode": "BLOCK_HISTORY",
+								"keySpecificConfigs": [
+									{
+										"address": "some-address",
+										"config": {
+											"blockHistoryEstimatorBlockDelay": 0,
+											"ethTxReaperThreshold": "1m0s",
+											"chainType": "EXCHAIN",
+											"gasEstimatorMode": "BLOCK_HISTORY"
+										}
+									}
+								]
+							}
+						}
 					}
 				}`,
 		},

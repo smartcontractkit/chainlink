@@ -782,8 +782,7 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	var chainCfg types.ChainCfg
-	err = chainCfg.Scan(args.Input.Config)
+	chainCfg, err := ToChainConfig(args.Input.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -793,20 +792,19 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 
 		for _, cfg := range args.Input.KeySpecificConfigs {
 			if cfg != nil {
-				var sCfg types.ChainCfg
-				err = sCfg.Scan(cfg.Config)
+				sCfg, err := ToChainConfig(cfg.Config)
 				if err != nil {
 					return nil, err
 				}
 
-				sCfgs[cfg.Address] = sCfg
+				sCfgs[cfg.Address] = *sCfg
 			}
 		}
 
 		chainCfg.KeySpecific = sCfgs
 	}
 
-	chain, err := r.App.GetChainSet().Add(id.ToInt(), chainCfg)
+	chain, err := r.App.GetChainSet().Add(id.ToInt(), *chainCfg)
 	if err != nil {
 		return nil, err
 	}

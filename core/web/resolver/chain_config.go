@@ -1,9 +1,16 @@
 package resolver
 
 import (
-	"github.com/pkg/errors"
+	"strings"
 
+	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 type ChainType string
@@ -30,6 +37,21 @@ func ToChainType(s string) (ChainType, error) {
 	}
 }
 
+func FromChainType(ct ChainType) string {
+	switch ct {
+	case ChainTypeArbitrum:
+		return "arbitrum"
+	case ChainTypeExChain:
+		return "exchain"
+	case ChainTypeOptimism:
+		return "optimism"
+	case ChainTypeXDAI:
+		return "xdai"
+	default:
+		return strings.ToLower(string(ct))
+	}
+}
+
 type GasEstimatorMode string
 
 const (
@@ -51,6 +73,21 @@ func ToGasEstimatorMode(s string) (GasEstimatorMode, error) {
 		return GasEstimatorModeOptimism2, nil
 	default:
 		return "", errors.New("invalid gas estimator mode")
+	}
+}
+
+func FromGasEstimatorMode(gsm GasEstimatorMode) string {
+	switch gsm {
+	case GasEstimatorModeBlockHistory:
+		return "BlockHistory"
+	case GasEstimatorModeFixedPrice:
+		return "FixedPrice"
+	case GasEstimatorModeOptimism:
+		return "Optimism"
+	case GasEstimatorModeOptimism2:
+		return "Optimism2"
+	default:
+		return strings.ToLower(string(gsm))
 	}
 }
 
@@ -385,32 +422,32 @@ func (r *KeySpecificChainConfigResolver) Config() *ChainConfigResolver {
 }
 
 type ChainConfigInput struct {
-	BlockHistoryEstimatorBlockDelay       *int
-	BlockHistoryEstimatorBlockHistorySize *int
+	BlockHistoryEstimatorBlockDelay       *int32
+	BlockHistoryEstimatorBlockHistorySize *int32
 	EthTxReaperThreshold                  *string
 	EthTxResendAfterThreshold             *string
 	EvmEIP1559DynamicFees                 *bool
-	EvmFinalityDepth                      *int
-	EvmGasBumpPercent                     *int
-	EvmGasBumpTxDepth                     *int
+	EvmFinalityDepth                      *int32
+	EvmGasBumpPercent                     *int32
+	EvmGasBumpTxDepth                     *int32
 	EvmGasBumpWei                         *string
-	EvmGasLimitDefault                    *int
+	EvmGasLimitDefault                    *int32
 	EvmGasLimitMultiplier                 *float64
 	EvmGasPriceDefault                    *string
 	EvmGasTipCapDefault                   *string
 	EvmGasTipCapMinimum                   *string
-	EvmHeadTrackerHistoryDepth            *int
-	EvmHeadTrackerMaxBufferSize           *int
+	EvmHeadTrackerHistoryDepth            *int32
+	EvmHeadTrackerMaxBufferSize           *int32
 	EvmHeadTrackerSamplingInterval        *string
-	EvmLogBackfillBatchSize               *int
+	EvmLogBackfillBatchSize               *int32
 	EvmMaxGasPriceWei                     *string
 	EvmNonceAutoSync                      *bool
-	EvmRPCDefaultBatchSize                *int
+	EvmRPCDefaultBatchSize                *int32
 	FlagsContractAddress                  *string
-	GasEstimatorMode                      string
-	ChainType                             string
-	MinIncomingConfirmations              *int
-	MinRequiredOutgoingConfirmations      *int
+	GasEstimatorMode                      *GasEstimatorMode
+	ChainType                             *ChainType
+	MinIncomingConfirmations              *int32
+	MinRequiredOutgoingConfirmations      *int32
 	MinimumContractPayment                *string
 	OCRObservationTimeout                 *string
 }
@@ -418,4 +455,172 @@ type ChainConfigInput struct {
 type KeySpecificChainConfigInput struct {
 	Address string
 	Config  ChainConfigInput
+}
+
+func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
+	cfg := types.ChainCfg{}
+
+	if input.BlockHistoryEstimatorBlockDelay != nil {
+		cfg.BlockHistoryEstimatorBlockDelay = null.IntFrom(int64(*input.BlockHistoryEstimatorBlockDelay))
+	}
+
+	if input.BlockHistoryEstimatorBlockHistorySize != nil {
+		cfg.BlockHistoryEstimatorBlockHistorySize = null.IntFrom(int64(*input.BlockHistoryEstimatorBlockHistorySize))
+	}
+
+	if input.EthTxReaperThreshold != nil {
+		d, err := models.MakeDurationFromString(*input.EthTxReaperThreshold)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EthTxReaperThreshold = &d
+	}
+
+	if input.EthTxResendAfterThreshold != nil {
+		d, err := models.MakeDurationFromString(*input.EthTxResendAfterThreshold)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EthTxResendAfterThreshold = &d
+	}
+
+	if input.EvmEIP1559DynamicFees != nil {
+		cfg.EvmEIP1559DynamicFees = null.BoolFrom(*input.EvmEIP1559DynamicFees)
+	}
+
+	if input.EvmFinalityDepth != nil {
+		cfg.EvmFinalityDepth = null.IntFrom(int64(*input.EvmFinalityDepth))
+	}
+
+	if input.EvmGasBumpPercent != nil {
+		cfg.EvmGasBumpPercent = null.IntFrom(int64(*input.EvmGasBumpPercent))
+	}
+
+	if input.EvmGasBumpTxDepth != nil {
+		cfg.EvmGasBumpTxDepth = null.IntFrom(int64(*input.EvmGasBumpTxDepth))
+	}
+
+	if input.EvmGasBumpWei != nil {
+		val, err := stringutils.ToInt64(*input.EvmGasBumpWei)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmGasBumpWei = utils.NewBigI(val)
+	}
+
+	if input.EvmGasLimitDefault != nil {
+		cfg.EvmGasLimitDefault = null.IntFrom(int64(*input.EvmGasLimitDefault))
+	}
+
+	if input.EvmGasLimitMultiplier != nil {
+		cfg.EvmGasLimitMultiplier = null.FloatFrom(*input.EvmGasLimitMultiplier)
+	}
+
+	if input.EvmGasPriceDefault != nil {
+		val, err := stringutils.ToInt64(*input.EvmGasPriceDefault)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmGasPriceDefault = utils.NewBigI(val)
+	}
+
+	if input.EvmGasTipCapDefault != nil {
+		val, err := stringutils.ToInt64(*input.EvmGasTipCapDefault)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmGasTipCapDefault = utils.NewBigI(val)
+	}
+
+	if input.EvmGasTipCapMinimum != nil {
+		val, err := stringutils.ToInt64(*input.EvmGasTipCapMinimum)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmGasTipCapMinimum = utils.NewBigI(val)
+	}
+
+	if input.EvmHeadTrackerHistoryDepth != nil {
+		cfg.EvmHeadTrackerHistoryDepth = null.IntFrom(int64(*input.EvmHeadTrackerHistoryDepth))
+	}
+
+	if input.EvmHeadTrackerMaxBufferSize != nil {
+		cfg.EvmHeadTrackerMaxBufferSize = null.IntFrom(int64(*input.EvmHeadTrackerMaxBufferSize))
+	}
+
+	if input.EvmHeadTrackerSamplingInterval != nil {
+		d, err := models.MakeDurationFromString(*input.EvmHeadTrackerSamplingInterval)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmHeadTrackerSamplingInterval = &d
+	}
+
+	if input.EvmLogBackfillBatchSize != nil {
+		cfg.EvmLogBackfillBatchSize = null.IntFrom(int64(*input.EvmLogBackfillBatchSize))
+	}
+
+	if input.EvmMaxGasPriceWei != nil {
+		val, err := stringutils.ToInt64(*input.EvmMaxGasPriceWei)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.EvmMaxGasPriceWei = utils.NewBigI(val)
+	}
+
+	if input.EvmNonceAutoSync != nil {
+		cfg.EvmNonceAutoSync = null.BoolFrom(*input.EvmNonceAutoSync)
+	}
+
+	if input.EvmRPCDefaultBatchSize != nil {
+		cfg.EvmRPCDefaultBatchSize = null.IntFrom(int64(*input.EvmRPCDefaultBatchSize))
+	}
+
+	if input.FlagsContractAddress != nil {
+		cfg.FlagsContractAddress = null.StringFrom(*input.FlagsContractAddress)
+	}
+
+	if input.GasEstimatorMode != nil {
+		cfg.GasEstimatorMode = null.StringFrom(FromGasEstimatorMode(*input.GasEstimatorMode))
+	}
+
+	if input.ChainType != nil {
+		cfg.ChainType = null.StringFrom(FromChainType(*input.ChainType))
+	}
+
+	if input.MinIncomingConfirmations != nil {
+		cfg.MinIncomingConfirmations = null.IntFrom(int64(*input.MinIncomingConfirmations))
+	}
+
+	if input.MinRequiredOutgoingConfirmations != nil {
+		cfg.MinRequiredOutgoingConfirmations = null.IntFrom(int64(*input.MinRequiredOutgoingConfirmations))
+	}
+
+	if input.MinimumContractPayment != nil {
+		val, err := stringutils.ToInt64(*input.MinimumContractPayment)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.MinimumContractPayment = assets.NewLinkFromJuels(val)
+	}
+
+	if input.OCRObservationTimeout != nil {
+		d, err := models.MakeDurationFromString(*input.OCRObservationTimeout)
+		if err != nil {
+			return nil, err
+		}
+
+		cfg.OCRObservationTimeout = &d
+	}
+
+	return &cfg, nil
 }
