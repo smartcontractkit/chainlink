@@ -117,13 +117,12 @@ func (r *DirectRequestSpecResolver) EVMChainID() *string {
 }
 
 // MinIncomingConfirmations resolves the spec's min incoming confirmations.
-func (r *DirectRequestSpecResolver) MinIncomingConfirmations() *int32 {
+func (r *DirectRequestSpecResolver) MinIncomingConfirmations() int32 {
 	if r.spec.MinIncomingConfirmations.Valid {
-		min := int32(r.spec.MinIncomingConfirmations.Uint32)
-		return &min
+		return int32(r.spec.MinIncomingConfirmations.Uint32)
 	}
 
-	return nil
+	return 0
 }
 
 // EVMChainID resolves the spec's evm chain id.
@@ -137,8 +136,14 @@ func (r *DirectRequestSpecResolver) MinContractPayment() string {
 }
 
 // Requesters resolves the spec's evm chain id.
-func (r *DirectRequestSpecResolver) Requesters() []string {
-	return r.spec.Requesters.ToStrings()
+func (r *DirectRequestSpecResolver) Requesters() *[]string {
+	if r.spec.Requesters == nil {
+		return nil
+	}
+
+	requesters := r.spec.Requesters.ToStrings()
+
+	return &requesters
 }
 
 type FluxMonitorSpecResolver struct {
@@ -368,8 +373,10 @@ func (r *OCRSpecResolver) ObservationTimeoutEnv() bool {
 }
 
 // P2PPeerID resolves the spec's p2p peer id
-func (r *OCRSpecResolver) P2PPeerID() string {
-	return r.spec.P2PPeerID.String()
+func (r *OCRSpecResolver) P2PPeerID() *string {
+	p2pPeerID := r.spec.P2PPeerID.String()
+
+	return &p2pPeerID
 }
 
 // P2PPeerID resolves the whether spec's p2p peer id comes from an env var
@@ -468,8 +475,14 @@ func (r *OCR2SpecResolver) MonitoringEndpoint() *string {
 }
 
 // P2PPeerID resolves the spec's p2p peer id
-func (r *OCR2SpecResolver) P2PPeerID() string {
-	return r.spec.P2PPeerID.String()
+func (r *OCR2SpecResolver) P2PPeerID() *string {
+	if r.spec.P2PPeerID == nil {
+		return nil
+	}
+
+	p2pPeerID := r.spec.P2PPeerID.String()
+
+	return &p2pPeerID
 }
 
 // P2PBootstrapPeers resolves the spec's p2p bootstrap peers
@@ -491,9 +504,14 @@ type VRFSpecResolver struct {
 	spec job.VRFSpec
 }
 
-// CreatedAt resolves the spec's min incoming confirmations.
+// MinIncomingConfirmations resolves the spec's min incoming confirmations.
 func (r *VRFSpecResolver) MinIncomingConfirmations() int32 {
 	return int32(r.spec.MinIncomingConfirmations)
+}
+
+// MinIncomingConfirmations resolves the spec's min incoming confirmations.
+func (r *VRFSpecResolver) MinIncomingConfirmationsEnv() bool {
+	return r.spec.ConfirmationsEnv
 }
 
 // CoordinatorAddress resolves the spec's coordinator address.

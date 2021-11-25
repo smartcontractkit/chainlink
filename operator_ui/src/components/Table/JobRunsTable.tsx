@@ -1,15 +1,18 @@
 import React from 'react'
+
+import classNames from 'classnames'
 import { useHistory } from 'react-router-dom'
-import { TimeAgo } from 'components/TimeAgo'
+
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import classNames from 'classnames'
+
 import titleize from 'utils/titleize'
-import { PipelineTaskRunStatus } from './sharedTypes'
+import { TimeAgo } from 'components/TimeAgo'
+import { getJobStatusGQL } from 'src/pages/Jobs/utils'
 
 const styles = (theme: any) =>
   createStyles({
@@ -72,22 +75,23 @@ const classFromStatus = (classes: any, status: string) => {
   return classes[status.toLowerCase()]
 }
 
-interface Props extends WithStyles<typeof styles> {
+export interface Props extends WithStyles<typeof styles> {
   runs: {
     createdAt: string
     id: string
-    status: PipelineTaskRunStatus
+    errors: ReadonlyArray<string>
+    finishedAt: string | null
     jobId: string
   }[]
 }
 
-const List = ({ runs, classes }: Props) => {
+export const JobRunsTable = withStyles(styles)(({ classes, runs }: Props) => {
   const history = useHistory()
 
   return (
     <Table padding="none">
       <TableBody>
-        {runs && runs.length === 0 && (
+        {runs.length === 0 && (
           <TableRow>
             <TableCell colSpan={5}>
               <Typography
@@ -100,51 +104,51 @@ const List = ({ runs, classes }: Props) => {
             </TableCell>
           </TableRow>
         )}
-        {runs &&
-          runs.length > 0 &&
-          runs.map((r) => (
-            <TableRow
-              key={r.id}
-              style={{ cursor: 'pointer' }}
-              onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
-            >
-              <TableCell className={classes.idCell} scope="row">
-                <div className={classes.runDetails}>
-                  <Typography variant="h5" color={'primary'} component="span">
-                    {r.id}
+
+        {runs.length > 0 &&
+          runs.map((r) => {
+            const status = getJobStatusGQL({
+              finishedAt: r.finishedAt,
+              errors: r.errors,
+            })
+
+            return (
+              <TableRow
+                key={r.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
+              >
+                <TableCell className={classes.idCell} scope="row">
+                  <div className={classes.runDetails}>
+                    <Typography variant="h5" color={'primary'} component="span">
+                      {r.id}
+                    </Typography>
+                  </div>
+                </TableCell>
+                <TableCell className={classes.stampCell}>
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    className={classes.stamp}
+                  >
+                    Created <TimeAgo tooltip>{r.createdAt}</TimeAgo>
                   </Typography>
-                </div>
-              </TableCell>
-              <TableCell className={classes.stampCell}>
-                <Typography
-                  variant="body1"
-                  color="textSecondary"
-                  className={classes.stamp}
-                >
-                  Created <TimeAgo tooltip>{r.createdAt}</TimeAgo>
-                </Typography>
-              </TableCell>
-              <TableCell className={classes.statusCell} scope="row">
-                <Typography
-                  variant="body1"
-                  className={classNames(
-                    classes.status,
-                    classFromStatus(classes, r.status),
-                  )}
-                >
-                  {titleize(r.status)}
-                </Typography>
-              </TableCell>
-            </TableRow>
-          ))}
-        {!runs && (
-          <TableRow>
-            <TableCell colSpan={5}>...</TableCell>
-          </TableRow>
-        )}
+                </TableCell>
+                <TableCell className={classes.statusCell} scope="row">
+                  <Typography
+                    variant="body1"
+                    className={classNames(
+                      classes.status,
+                      classFromStatus(classes, status),
+                    )}
+                  >
+                    {titleize(status)}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            )
+          })}
       </TableBody>
     </Table>
   )
-}
-
-export default withStyles(styles)(List)
+})
