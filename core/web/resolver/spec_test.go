@@ -535,3 +535,51 @@ func TestResolver_VRFSpec(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_WebhookSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "webhook spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+					Type: job.Webhook,
+					WebhookSpec: &job.WebhookSpec{
+						CreatedAt: f.Timestamp(),
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on WebhookSpec {
+									createdAt
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "WebhookSpec",
+							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
