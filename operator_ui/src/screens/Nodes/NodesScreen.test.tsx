@@ -6,8 +6,8 @@ import { Route } from 'react-router-dom'
 import { renderWithRouter, screen } from 'test-utils'
 import userEvent from '@testing-library/user-event'
 
-import { BridgesScreen, BRIDGES_QUERY } from './BridgesScreen'
-import { buildBridge, buildBridges } from 'support/factories/gql/fetchBridges'
+import { NodesScreen, NODES_QUERY } from './NodesScreen'
+import { buildNode, buildNodes } from 'support/factories/gql/fetchNodes'
 import { waitForLoading } from 'support/test-helpers/wait'
 
 const { findAllByRole, findByText, getByRole, queryByText } = screen
@@ -15,30 +15,28 @@ const { findAllByRole, findByText, getByRole, queryByText } = screen
 function renderComponent(mocks: MockedResponse[]) {
   renderWithRouter(
     <>
-      <Route exact path="/bridges">
+      <Route exact path="/nodes">
         <MockedProvider mocks={mocks} addTypename={false}>
-          <BridgesScreen />
+          <NodesScreen />
         </MockedProvider>
       </Route>
-
-      <Route path="/feeds_manager/new">Redirect Success</Route>
     </>,
-    { initialEntries: ['/bridges?per=2'] },
+    { initialEntries: ['/nodes?per=2'] },
   )
 }
 
-describe('BridgesScreen', () => {
-  it('renders the list of bridges', async () => {
+describe('NodesScreen', () => {
+  it('renders the list of nodes', async () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: BRIDGES_QUERY,
+          query: NODES_QUERY,
           variables: { offset: 0, limit: 2 },
         },
         result: {
           data: {
-            bridges: {
-              results: buildBridges(),
+            nodes: {
+              results: buildNodes(),
               metadata: {
                 total: 2,
               },
@@ -50,22 +48,20 @@ describe('BridgesScreen', () => {
 
     renderComponent(mocks)
 
-    const rows = await findAllByRole('row')
-
-    expect(rows).toHaveLength(3)
+    expect(await findAllByRole('row')).toHaveLength(3)
   })
 
-  it('can page through the list of bridges', async () => {
+  it('can page through the list of nodes', async () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: BRIDGES_QUERY,
+          query: NODES_QUERY,
           variables: { offset: 0, limit: 2 },
         },
         result: {
           data: {
-            bridges: {
-              results: buildBridges(),
+            nodes: {
+              results: buildNodes(),
               metadata: {
                 total: 3,
               },
@@ -75,15 +71,15 @@ describe('BridgesScreen', () => {
       },
       {
         request: {
-          query: BRIDGES_QUERY,
+          query: NODES_QUERY,
           variables: { offset: 2, limit: 2 },
         },
         result: {
           data: {
-            bridges: {
+            nodes: {
               results: [
-                buildBridge({
-                  name: 'bridge-api3',
+                buildNode({
+                  name: 'node3',
                 }),
               ],
               metadata: {
@@ -95,13 +91,13 @@ describe('BridgesScreen', () => {
       },
       {
         request: {
-          query: BRIDGES_QUERY,
+          query: NODES_QUERY,
           variables: { offset: 0, limit: 2 },
         },
         result: {
           data: {
-            bridges: {
-              results: buildBridges(),
+            nodes: {
+              results: buildNodes(),
               metadata: {
                 total: 3,
               },
@@ -116,8 +112,8 @@ describe('BridgesScreen', () => {
     // Page 1
     await waitForLoading()
 
-    expect(queryByText('bridge-api1')).toBeInTheDocument()
-    expect(queryByText('bridge-api2')).toBeInTheDocument()
+    expect(queryByText('node1')).toBeInTheDocument()
+    expect(queryByText('node2')).toBeInTheDocument()
     expect(queryByText('1-2 of 3')).toBeInTheDocument()
     expect(getByRole('button', { name: /prev-page/i })).toBeDisabled()
 
@@ -126,7 +122,7 @@ describe('BridgesScreen', () => {
 
     await waitForLoading()
 
-    expect(queryByText('bridge-api3')).toBeInTheDocument()
+    expect(queryByText('node3')).toBeInTheDocument()
     expect(queryByText('3-3 of 3')).toBeInTheDocument()
     expect(getByRole('button', { name: /next-page/i })).toBeDisabled()
 
@@ -135,8 +131,8 @@ describe('BridgesScreen', () => {
 
     await waitForLoading()
 
-    expect(queryByText('bridge-api1')).toBeInTheDocument()
-    expect(queryByText('bridge-api2')).toBeInTheDocument()
+    expect(queryByText('node1')).toBeInTheDocument()
+    expect(queryByText('node2')).toBeInTheDocument()
     expect(queryByText('1-2 of 3')).toBeInTheDocument()
   })
 
@@ -144,7 +140,7 @@ describe('BridgesScreen', () => {
     const mocks: MockedResponse[] = [
       {
         request: {
-          query: BRIDGES_QUERY,
+          query: NODES_QUERY,
           variables: { offset: 0, limit: 2 },
         },
         result: {
