@@ -12,11 +12,11 @@ import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 
+import BaseLink from 'components/BaseLink'
 import { BridgeRow } from './BridgeRow'
 import Button from 'components/Button'
 import Content from 'components/Content'
-import BaseLink from 'components/BaseLink'
-import Title from 'components/Title'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 export const BRIDGES_PAYLOAD__RESULTS_FIELDS = gql`
   fragment BridgesPayload_ResultsFields on Bridge {
@@ -45,9 +45,9 @@ export const BridgesView: React.FC<Props> = ({
 
   return (
     <Content>
-      <Grid container spacing={8}>
+      <Grid container spacing={32}>
         <Grid item xs={9}>
-          <Title>Bridges</Title>
+          <Heading1>Bridges</Heading1>
         </Grid>
         <Grid item xs={3}>
           <Grid container justify="flex-end">
@@ -62,9 +62,7 @@ export const BridgesView: React.FC<Props> = ({
             </Grid>
           </Grid>
         </Grid>
-      </Grid>
 
-      <Grid container spacing={40}>
         <Grid item xs={12}>
           <Card>
             <Table>

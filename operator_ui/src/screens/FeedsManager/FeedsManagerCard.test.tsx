@@ -61,7 +61,8 @@ describe('FeedsManagerCard', () => {
   it('navigates to edit', () => {
     renderComponent(buildFeedsManagerFields())
 
-    userEvent.click(getByRole('link', { name: /edit/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /edit/i }))
 
     expect(queryByText('Redirect Success')).toBeInTheDocument()
   })
