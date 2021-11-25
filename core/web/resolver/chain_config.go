@@ -457,8 +457,9 @@ type KeySpecificChainConfigInput struct {
 	Config  ChainConfigInput
 }
 
-func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
+func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, map[string]string) {
 	cfg := types.ChainCfg{}
+	inputErrs := map[string]string{}
 
 	if input.BlockHistoryEstimatorBlockDelay != nil {
 		cfg.BlockHistoryEstimatorBlockDelay = null.IntFrom(int64(*input.BlockHistoryEstimatorBlockDelay))
@@ -471,19 +472,19 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.EthTxReaperThreshold != nil {
 		d, err := models.MakeDurationFromString(*input.EthTxReaperThreshold)
 		if err != nil {
-			return nil, err
+			inputErrs["EthTxReaperThreshold"] = "invalid value"
+		} else {
+			cfg.EthTxReaperThreshold = &d
 		}
-
-		cfg.EthTxReaperThreshold = &d
 	}
 
 	if input.EthTxResendAfterThreshold != nil {
 		d, err := models.MakeDurationFromString(*input.EthTxResendAfterThreshold)
 		if err != nil {
-			return nil, err
+			inputErrs["EthTxResendAfterThreshold"] = "invalid value"
+		} else {
+			cfg.EthTxResendAfterThreshold = &d
 		}
-
-		cfg.EthTxResendAfterThreshold = &d
 	}
 
 	if input.EvmEIP1559DynamicFees != nil {
@@ -505,10 +506,10 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.EvmGasBumpWei != nil {
 		val, err := stringutils.ToInt64(*input.EvmGasBumpWei)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmGasBumpWei"] = "invalid value"
+		} else {
+			cfg.EvmGasBumpWei = utils.NewBigI(val)
 		}
-
-		cfg.EvmGasBumpWei = utils.NewBigI(val)
 	}
 
 	if input.EvmGasLimitDefault != nil {
@@ -522,28 +523,28 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.EvmGasPriceDefault != nil {
 		val, err := stringutils.ToInt64(*input.EvmGasPriceDefault)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmGasPriceDefault"] = "invalid value"
+		} else {
+			cfg.EvmGasPriceDefault = utils.NewBigI(val)
 		}
-
-		cfg.EvmGasPriceDefault = utils.NewBigI(val)
 	}
 
 	if input.EvmGasTipCapDefault != nil {
 		val, err := stringutils.ToInt64(*input.EvmGasTipCapDefault)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmGasTipCapDefault"] = "invalid value"
+		} else {
+			cfg.EvmGasTipCapDefault = utils.NewBigI(val)
 		}
-
-		cfg.EvmGasTipCapDefault = utils.NewBigI(val)
 	}
 
 	if input.EvmGasTipCapMinimum != nil {
 		val, err := stringutils.ToInt64(*input.EvmGasTipCapMinimum)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmGasTipCapMinimum"] = "invalid value"
+		} else {
+			cfg.EvmGasTipCapMinimum = utils.NewBigI(val)
 		}
-
-		cfg.EvmGasTipCapMinimum = utils.NewBigI(val)
 	}
 
 	if input.EvmHeadTrackerHistoryDepth != nil {
@@ -557,10 +558,10 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.EvmHeadTrackerSamplingInterval != nil {
 		d, err := models.MakeDurationFromString(*input.EvmHeadTrackerSamplingInterval)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmHeadTrackerSamplingInterval"] = "invalid value"
+		} else {
+			cfg.EvmHeadTrackerSamplingInterval = &d
 		}
-
-		cfg.EvmHeadTrackerSamplingInterval = &d
 	}
 
 	if input.EvmLogBackfillBatchSize != nil {
@@ -570,10 +571,10 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.EvmMaxGasPriceWei != nil {
 		val, err := stringutils.ToInt64(*input.EvmMaxGasPriceWei)
 		if err != nil {
-			return nil, err
+			inputErrs["EvmMaxGasPriceWei"] = "invalid value"
+		} else {
+			cfg.EvmMaxGasPriceWei = utils.NewBigI(val)
 		}
-
-		cfg.EvmMaxGasPriceWei = utils.NewBigI(val)
 	}
 
 	if input.EvmNonceAutoSync != nil {
@@ -607,20 +608,20 @@ func ToChainConfig(input ChainConfigInput) (*types.ChainCfg, error) {
 	if input.MinimumContractPayment != nil {
 		val, err := stringutils.ToInt64(*input.MinimumContractPayment)
 		if err != nil {
-			return nil, err
+			inputErrs["MinimumContractPayment"] = "invalid value"
+		} else {
+			cfg.MinimumContractPayment = assets.NewLinkFromJuels(val)
 		}
-
-		cfg.MinimumContractPayment = assets.NewLinkFromJuels(val)
 	}
 
 	if input.OCRObservationTimeout != nil {
 		d, err := models.MakeDurationFromString(*input.OCRObservationTimeout)
 		if err != nil {
-			return nil, err
+			inputErrs["MinimumContractPayment"] = "invalid value"
+		} else {
+			cfg.OCRObservationTimeout = &d
 		}
-
-		cfg.OCRObservationTimeout = &d
 	}
 
-	return &cfg, nil
+	return &cfg, inputErrs
 }

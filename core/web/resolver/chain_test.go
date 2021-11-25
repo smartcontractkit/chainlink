@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -289,6 +291,13 @@ func TestResolver_CreateChain(t *testing.T) {
 						}
 					}
 				}
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
+				}
 			}
 		}`
 
@@ -323,6 +332,22 @@ func TestResolver_CreateChain(t *testing.T) {
 			},
 		},
 	}
+	badInput := map[string]interface{}{
+		"input": map[string]interface{}{
+			"id": "1233",
+			"config": map[string]interface{}{
+				"ethTxReaperThreshold": "asdadadsa",
+				"chainType":            "OPTIMISM",
+				"gasEstimatorMode":     "BLOCK_HISTORY",
+			},
+			"keySpecificConfigs": []interface{}{},
+		},
+	}
+
+	threshold, err := models.MakeDuration(1 * time.Minute)
+	require.NoError(t, err)
+
+	gError := errors.New("error")
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: mutation, variables: input}, "createChain"),
@@ -330,9 +355,6 @@ func TestResolver_CreateChain(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				threshold, err := models.MakeDuration(1 * time.Minute)
-				require.NoError(t, err)
-
 				cfg := types.ChainCfg{
 					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
 					EthTxReaperThreshold:            &threshold,
@@ -385,6 +407,61 @@ func TestResolver_CreateChain(t *testing.T) {
 						}
 					}
 				}`,
+		},
+		{
+			name:          "input errors",
+			authenticated: true,
+			query:         mutation,
+			variables:     badInput,
+			result: `
+				{
+					"createChain": {
+						"errors": [{
+							"path": "EthTxReaperThreshold",
+							"message": "invalid value",
+							"code": "INVALID_INPUT"
+						}]
+					}
+				}`,
+		},
+		{
+			name:          "create chain generic error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				cfg := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+					EthTxReaperThreshold:            &threshold,
+					GasEstimatorMode:                null.StringFrom("BlockHistory"),
+					ChainType:                       null.StringFrom("optimism"),
+					KeySpecific: map[string]types.ChainCfg{
+						"some-address": {
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+							EthTxReaperThreshold:            &threshold,
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("exchain"),
+						},
+					},
+				}
+
+				f.Mocks.chainSet.On("Add", big.NewInt(1233), cfg).Return(types.Chain{
+					ID:        *utils.NewBigI(1),
+					Enabled:   true,
+					CreatedAt: f.Timestamp(),
+					Cfg:       cfg,
+				}, gError)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: input,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"createChain"},
+					Message:       "error",
+				},
+			},
 		},
 	}
 

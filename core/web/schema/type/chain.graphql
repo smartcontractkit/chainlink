@@ -24,4 +24,4 @@ type CreateChainSuccess {
     chain: Chain!
 }
 
-union CreateChainPayload = CreateChainSuccess
+union CreateChainPayload = CreateChainSuccess | InputErrors

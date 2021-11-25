@@ -782,9 +782,9 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	chainCfg, err := ToChainConfig(args.Input.Config)
-	if err != nil {
-		return nil, err
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewCreateChainPayload(nil, inputErrs), nil
 	}
 
 	if args.Input.KeySpecificConfigs != nil {
@@ -792,9 +792,9 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 
 		for _, cfg := range args.Input.KeySpecificConfigs {
 			if cfg != nil {
-				sCfg, err := ToChainConfig(cfg.Config)
-				if err != nil {
-					return nil, err
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewCreateChainPayload(nil, inputErrs), nil
 				}
 
 				sCfgs[cfg.Address] = *sCfg
@@ -809,5 +809,5 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewCreateChainPayload(&chain), nil
+	return NewCreateChainPayload(&chain, nil), nil
 }

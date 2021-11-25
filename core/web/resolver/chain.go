@@ -100,15 +100,34 @@ func (r *ChainsPayloadResolver) Metadata() *PaginationMetadataResolver {
 // -- CreateChain Mutation --
 
 type CreateChainPayloadResolver struct {
-	chain *types.Chain
+	chain     *types.Chain
+	inputErrs map[string]string
 }
 
-func NewCreateChainPayload(chain *types.Chain) *CreateChainPayloadResolver {
-	return &CreateChainPayloadResolver{chain: chain}
+func NewCreateChainPayload(chain *types.Chain, inputErrs map[string]string) *CreateChainPayloadResolver {
+	return &CreateChainPayloadResolver{chain: chain, inputErrs: inputErrs}
 }
 
 func (r *CreateChainPayloadResolver) ToCreateChainSuccess() (*CreateChainSuccessResolver, bool) {
+	if r.chain == nil {
+		return nil, false
+	}
+
 	return NewCreateChainSuccess(r.chain), true
+}
+
+func (r *CreateChainPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
 }
 
 type CreateChainSuccessResolver struct {
