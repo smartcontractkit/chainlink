@@ -22,6 +22,7 @@ import Close from 'components/Icons/Close'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
 import { JobData } from './sharedTypes'
+import { Heading1 } from 'src/components/Heading/Heading1'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -34,10 +35,6 @@ const styles = (theme: Theme) =>
     regionalNavButton: {
       marginLeft: theme.spacing.unit,
       marginRight: theme.spacing.unit,
-    },
-    jobSpecId: {
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
     },
     dialogPaper: {
       minHeight: '240px',
@@ -158,15 +155,7 @@ const RegionalNavComponent = ({
             className={classes.mainRow}
           >
             <Grid item xs={6}>
-              {job && (
-                <Typography
-                  variant="h5"
-                  color="secondary"
-                  className={classes.jobSpecId}
-                >
-                  {job.name || '--'}
-                </Typography>
-              )}
+              {job && <Heading1>{job.name || '--'}</Heading1>}
             </Grid>
             <Grid item xs={6} className={classes.actions}>
               {job && (

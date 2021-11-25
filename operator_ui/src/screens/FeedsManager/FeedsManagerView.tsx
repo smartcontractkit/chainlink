@@ -29,7 +29,7 @@ interface Props {
 
 export const FeedsManagerView: React.FC<Props> = ({ manager }) => {
   return (
-    <Grid container>
+    <Grid container spacing={32}>
       <Grid item xs={12}>
         <Heading1>Feeds Manager</Heading1>
       </Grid>

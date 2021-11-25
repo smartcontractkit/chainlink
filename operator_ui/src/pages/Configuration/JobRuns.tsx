@@ -8,14 +8,8 @@ import {
   notifyError,
 } from 'actionCreators'
 
-import Button from '@material-ui/core/Button'
 import Card from '@material-ui/core/Card'
 import CardHeader from '@material-ui/core/CardHeader'
-import Dialog from '@material-ui/core/Dialog'
-import DialogActions from '@material-ui/core/DialogActions'
-import DialogContent from '@material-ui/core/DialogContent'
-import DialogContentText from '@material-ui/core/DialogContentText'
-import DialogTitle from '@material-ui/core/DialogTitle'
 import IconButton from '@material-ui/core/IconButton'
 import DeleteIcon from '@material-ui/icons/Delete'
 import {
@@ -29,6 +23,7 @@ import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import { ConfirmationDialog } from 'src/components/Dialogs/ConfirmationDialog'
 
 const styles = (theme: Theme) => {
   return createStyles({
@@ -125,63 +120,31 @@ export const JobRuns = withStyles(styles)(({ classes }: Props) => {
         </TableBody>
       </Table>
 
-      <Dialog
+      <ConfirmationDialog
         open={showCompletedConfirm}
-        onClose={() => setCompletedConfirm(false)}
-        PaperProps={{ className: classes.confirmDialog }}
-      >
-        <DialogTitle>
-          <Typography variant="h5"> Delete completed jobs runs</Typography>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete all completed job runs up to{' '}
-            {moment(updatedBefore).format('dddd, MMMM Do YYYY, h:mm:ss a')}?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCompletedConfirm(false)} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={confirmCompletedDelete}
-            color="primary"
-            autoFocus
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title="Delete completed jobs runs"
+        body={`Are you sure you want to delete all completed job runs up to
+                ${moment(updatedBefore).format(
+                  'dddd, MMMM Do YYYY, h:mm:ss a',
+                )}?`}
+        confirmButtonText="Confirm"
+        onConfirm={confirmCompletedDelete}
+        cancelButtonText="Cancel"
+        onCancel={() => setCompletedConfirm(false)}
+      />
 
-      <Dialog
+      <ConfirmationDialog
         open={showErroredConfirm}
-        onClose={() => setErroredConfirm(false)}
-        PaperProps={{ className: classes.confirmDialog }}
-      >
-        <DialogTitle>
-          <Typography variant="h5"> Delete completed jobs runs</Typography>
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete all errored job runs up to{' '}
-            {moment(updatedBefore).format('dddd, MMMM Do YYYY, h:mm:ss a')}?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setErroredConfirm(false)} color="secondary">
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={confirmErroredDeleted}
-            color="primary"
-            autoFocus
-          >
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title="Delete errored jobs runs"
+        body={`Are you sure you want to delete all errored job runs up to
+                ${moment(updatedBefore).format(
+                  'dddd, MMMM Do YYYY, h:mm:ss a',
+                )}?`}
+        confirmButtonText="Confirm"
+        onConfirm={confirmErroredDeleted}
+        cancelButtonText="Cancel"
+        onCancel={() => setErroredConfirm(false)}
+      />
     </Card>
   )
 })
