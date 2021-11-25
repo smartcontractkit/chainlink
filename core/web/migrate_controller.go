@@ -89,6 +89,8 @@ func MigrateJobSpec(c *config.Config, js models.JobSpec) (job.Job, error) {
 		return migrateCronJob(js)
 	case models.InitiatorRunLog:
 		return migrateRunLogJob(js)
+	case models.InitiatorWeb:
+		return migrateWebJob(js)
 	default:
 		return jb, errors.Wrapf(ErrInvalidInitiatorType, "%v", v1JobType)
 	}
@@ -265,6 +267,30 @@ func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
 	return jb, nil
 }
 
+func migrateWebJob(js models.JobSpec) (job.Job, error) {
+	var jb job.Job
+	jb = job.Job{
+		Name: null.StringFrom(js.Name),
+		WebhookSpec: &job.WebhookSpec{
+			ExternalInitiatorWebhookSpecs: make([]job.ExternalInitiatorWebhookSpec, 0),
+			CreatedAt:                     js.CreatedAt,
+			UpdatedAt:                     js.UpdatedAt,
+		},
+		Type:          job.Webhook,
+		SchemaVersion: 1,
+		ExternalJobID: uuid.NewV4(),
+	}
+	ps, pd, err := BuildTaskDAG(js, job.Webhook)
+	if err != nil {
+		return jb, err
+	}
+	jb.PipelineSpec = &pipeline.Spec{
+		DotDagSource: ps,
+	}
+	jb.Pipeline = *pd
+	return jb, nil
+}
+
 func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, error) {
 	replacements := make(map[string]string)
 	dg := pipeline.NewGraph()
@@ -350,12 +376,7 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("http_post_%d", i), attrs)
 
 		case adapters.TaskTypeJSONParse:
-
-			attrs := map[string]string{
-				"type": pipeline.TaskTypeMerge.String(),
-				"left": "$(decode_cbor)",
-			}
-
+			var pathStr *string
 			if ts.Params.Get("path").Exists() {
 
 				path := ts.Params.Get("path")
@@ -367,65 +388,96 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 						pathSegments = append(pathSegments, value.String())
 						return true
 					})
-
 					pathString = strings.Join(pathSegments, ",")
 				}
+				pathStr = &pathString
+			}
 
-				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
-				replacements["\""+template+"\""] = fmt.Sprintf(`{ "path": "%v" }`, pathString)
-				attrs["right"] = template
+			if tpe == job.DirectRequest {
+				attrs := map[string]string{
+					"type": pipeline.TaskTypeMerge.String(),
+					"left": "$(decode_cbor)",
+				}
+
+				if pathStr != nil {
+					template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+					replacements["\""+template+"\""] = fmt.Sprintf(`{ "path": "%v" }`, *pathStr)
+					attrs["right"] = template
+				} else {
+					template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+					replacements["\""+template+"\""] = `{}`
+					attrs["right"] = template
+				}
+
+				n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_jsonparse", attrs)
+				dg.AddNode(n2)
+				if last != nil {
+					dg.SetEdge(dg.NewEdge(last, n2))
+				}
+
+				attrs2 := map[string]string{
+					"type": pipeline.TaskTypeJSONParse.String(),
+					"path": "$(merge_jsonparse.path)",
+					"data": fmt.Sprintf("$(%v)", last.DOTID()),
+				}
+
+				last = n2
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs2)
 			} else {
-				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
-				replacements["\""+template+"\""] = `{}`
-				attrs["right"] = template
-			}
 
-			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_jsonparse", attrs)
-			dg.AddNode(n2)
-			if last != nil {
-				dg.SetEdge(dg.NewEdge(last, n2))
-			}
+				attrs := map[string]string{
+					"type": pipeline.TaskTypeJSONParse.String(),
+					"data": fmt.Sprintf("$(%v)", last.DOTID()),
+				}
 
-			attrs2 := map[string]string{
-				"type": pipeline.TaskTypeJSONParse.String(),
-				"path": "$(merge_jsonparse.path)",
-				"data": fmt.Sprintf("$(%v)", last.DOTID()),
-			}
+				if pathStr != nil {
+					attrs["path"] = *pathStr
+				}
 
-			last = n2
-			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs2)
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("jsonparse_%d", i), attrs)
+			}
 		case adapters.TaskTypeMultiply:
+			if tpe == job.DirectRequest {
+				attrs := map[string]string{
+					"type": pipeline.TaskTypeMerge.String(),
+					"left": "$(decode_cbor)",
+				}
 
-			attrs := map[string]string{
-				"type": pipeline.TaskTypeMerge.String(),
-				"left": "$(decode_cbor)",
-			}
+				if ts.Params.Get("times").Exists() {
+					template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+					replacements["\""+template+"\""] = fmt.Sprintf(`{ "times": "%v" }`, ts.Params.Get("times").String())
+					attrs["right"] = template
+				} else {
+					template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
+					replacements["\""+template+"\""] = `{}`
+					attrs["right"] = template
+				}
 
-			if ts.Params.Get("times").Exists() {
-				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
-				replacements["\""+template+"\""] = fmt.Sprintf(`{ "times": "%v" }`, ts.Params.Get("times").String())
-				attrs["right"] = template
+				n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_multiply", attrs)
+				dg.AddNode(n2)
+				if last != nil {
+					dg.SetEdge(dg.NewEdge(last, n2))
+				}
+
+				attrs2 := map[string]string{
+					"type":  pipeline.TaskTypeMultiply.String(),
+					"times": "$(merge_multiply.times)",
+					"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
+				}
+
+				last = n2
+
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs2)
 			} else {
-				template := fmt.Sprintf("%%REQ_DATA_%v%%", i)
-				replacements["\""+template+"\""] = `{}`
-				attrs["right"] = template
+				attrs := map[string]string{
+					"type":  pipeline.TaskTypeMultiply.String(),
+					"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
+				}
+				if ts.Params.Get("times").Exists() {
+					attrs["times"] = ts.Params.Get("times").String()
+				}
+				n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs)
 			}
-
-			n2 := pipeline.NewGraphNode(dg.NewNode(), "merge_multiply", attrs)
-			dg.AddNode(n2)
-			if last != nil {
-				dg.SetEdge(dg.NewEdge(last, n2))
-			}
-
-			attrs2 := map[string]string{
-				"type":  pipeline.TaskTypeMultiply.String(),
-				"times": "$(merge_multiply.times)",
-				"input": fmt.Sprintf(`$(%v)`, last.DOTID()),
-			}
-
-			last = n2
-
-			n = pipeline.NewGraphNode(dg.NewNode(), fmt.Sprintf("multiply_%d", i), attrs2)
 
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2 / DR
