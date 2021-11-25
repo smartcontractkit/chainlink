@@ -4,10 +4,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+
 	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/libocr/commontypes"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type Config interface {
@@ -33,4 +36,30 @@ type Config interface {
 	P2PV2Bootstrappers() []commontypes.BootstrapperLocator
 	FlagsContractAddress() string
 	ChainType() chains.ChainType
+}
+
+func parseBootstrapPeers(peers []string) (bootstrapPeers []ocrcommontypes.BootstrapperLocator, err error) {
+	for _, bs := range peers {
+		var bsl ocrcommontypes.BootstrapperLocator
+		err = bsl.UnmarshalText([]byte(bs))
+		if err != nil {
+			return nil, err
+		}
+		bootstrapPeers = append(bootstrapPeers, bsl)
+	}
+	return
+}
+
+func GetValidatedBootstrapPeers(specPeers []string, chain evm.Chain) ([]ocrcommontypes.BootstrapperLocator, error) {
+	bootstrapPeers, err := parseBootstrapPeers(specPeers)
+	if err != nil {
+		return nil, err
+	}
+	if len(bootstrapPeers) == 0 {
+		bootstrapPeers = chain.Config().P2PV2Bootstrappers()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return bootstrapPeers, nil
 }

@@ -29,28 +29,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
-//type DelegateConfig interface {
-//	Chain() ocrcommon.NetworkingConfig
-//	ChainID() *big.Int
-//	Dev() bool
-//	EvmGasLimitDefault() uint64
-//	JobPipelineResultWriteQueueDepth() uint64
-//
-//	//OCR2BlockchainTimeout() time.Duration
-//	//OCR2ContractConfirmations() uint16
-//	//OCR2ContractPollInterval() time.Duration
-//	//OCR2ContractTransmitterTransmitTimeout() time.Duration
-//	//OCR2DatabaseTimeout() time.Duration
-//	//OCR2DefaultTransactionQueueDepth() uint32
-//	//OCR2KeyBundleID() (string, error)
-//	//OCR2TraceLogging() bool
-//	//OCR2TransmitterAddress() (ethkey.EIP55Address, error)
-//
-//	P2PBootstrapPeers() ([]string, error)
-//	P2PPeerID() p2pkey.PeerID
-//	P2PV2Bootstrappers() []ocrcommontypes.BootstrapperLocator
-//}
-
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
@@ -153,15 +131,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	} else if peerWrapper.PeerID != peerID {
 		return nil, errors.Errorf("given peer with ID '%s' does not match OCR2 configured peer with ID: %s", peerWrapper.PeerID.String(), peerID.String())
 	}
-	bootstrapPeers := spec.P2PBootstrapPeers
-	if bootstrapPeers == nil {
-		bootstrapPeers, err = chain.Config().P2PBootstrapPeers()
-		if err != nil {
-			return nil, err
-		}
+	bootstrapPeers, err := ocrcommon.GetValidatedBootstrapPeers(spec.P2PBootstrapPeers, chain)
+	if err != nil {
+		return nil, err
 	}
-	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
-	d.lggr.Debugw("Using bootstrap peers", "v1", bootstrapPeers, "v2", v2BootstrapPeers)
+	d.lggr.Debugw("Using bootstrap peers", "peers", bootstrapPeers)
 
 	loggerWith := d.lggr.With(
 		"OCRLogger", "true",
@@ -208,8 +182,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		}
 		services = append(services, bootstrapper)
 	} else {
-
-		if len(bootstrapPeers)+len(v2BootstrapPeers) < 1 {
+		if len(bootstrapPeers) < 1 {
 			return nil, errors.New("need at least one bootstrap peer")
 		}
 
@@ -271,7 +244,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
-			V2Bootstrappers:              v2BootstrapPeers,
+			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
 			Database:                     ocrdb,

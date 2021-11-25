@@ -84,10 +84,17 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 
 func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocr2key.KeyBundle, *configtest.TestGeneralConfig) {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
-	config.Overrides.Dev = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
+	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
+	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
+	p2paddresses := []string{
+		fmt.Sprintf("127.0.0.1:%d", port),
+	}
+	config.Overrides.P2PV2ListenAddresses = p2paddresses
+	// Disables ocr spec validation so we can have fast polling for the test.
+	config.Overrides.Dev = null.BoolFrom(true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -99,15 +106,6 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	peerID := p2pIDs[0].PeerID()
 
 	config.Overrides.P2PPeerID = peerID
-	config.Overrides.P2PListenPort = null.IntFrom(int64(port))
-	p2paddresses := []string{
-		fmt.Sprintf("127.0.0.1:%d", port),
-	}
-	config.Overrides.P2PV2ListenAddresses = p2paddresses
-	config.Overrides.P2PV2AnnounceAddresses = p2paddresses
-
-	// Disables ocr spec validation so we can have fast polling for the test.
-	config.Overrides.Dev = null.BoolFrom(true)
 
 	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
@@ -137,8 +135,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
 	bootstrapNodePort := uint16(19999)
-	appBootstrap, bootstrapPeerID, _, _, cfg := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
-	cfg.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
+	appBootstrap, bootstrapPeerID, _, _, _ := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
 
 	var (
 		oracles      []confighelper2.OracleIdentityExtra
@@ -148,15 +145,12 @@ func TestIntegration_OCR2(t *testing.T) {
 	)
 	for i := uint16(0); i < 4; i++ {
 		app, peerID, transmitter, kb, cfg := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), b)
-
 		// Supply the bootstrap IP and port as a V2 peer address
 		cfg.Overrides.P2PV2Bootstrappers = []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapPeerID, Addrs: []string{
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		cfg.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
-		cfg.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)

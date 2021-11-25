@@ -132,6 +132,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, err
 		}
 	}
+	// TODO: May want to follow up with spec override support for v2 bootstrappers?
 	v2BootstrapPeers := chain.Config().P2PV2Bootstrappers()
 
 	loggerWith := d.lggr.With(
@@ -154,6 +155,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		bootstrapper, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			V1Bootstrappers:       bootstrapPeers,
+			V2Bootstrappers:       v2BootstrapPeers,
 			ContractConfigTracker: tracker,
 			Database:              ocrdb,
 			LocalConfig:           lc,

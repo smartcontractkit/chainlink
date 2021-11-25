@@ -16,6 +16,9 @@ import (
 	"testing"
 	"time"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -490,7 +493,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
+func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
 	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
@@ -502,8 +505,26 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	peerID := p2pIDs[0].PeerID()
 
 	config.Overrides.P2PPeerID = peerID
-	config.Overrides.P2PListenPort = null.IntFrom(int64(port))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
+	config.Overrides.P2PNetworkingStack = ns
+	// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
+	// we'll flood it with messages and slow things down. 5s is about how long it takes the
+	// bootstrap node to come up.
+	config.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
+	// GracePeriod < ObservationTimeout
+	config.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
+	dr := 5 * time.Second
+	switch ns {
+	case ocrnetworking.NetworkingStackV1:
+		config.Overrides.P2PListenPort = null.IntFrom(int64(port))
+	case ocrnetworking.NetworkingStackV2:
+		config.Overrides.P2PV2ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%d", port)}
+		config.Overrides.P2PV2DeltaReconcile = &dr
+	case ocrnetworking.NetworkingStackV1V2:
+		config.Overrides.P2PListenPort = null.IntFrom(int64(port))
+		config.Overrides.P2PV2DeltaReconcile = &dr
+		config.Overrides.P2PV2ListenAddresses = []string{fmt.Sprintf("127.0.0.1:%d", port)}
+	}
 
 	sendingKeys, err := app.KeyStore.Eth().SendingKeys()
 	require.NoError(t, err)
@@ -533,9 +554,12 @@ func TestIntegration_OCR(t *testing.T) {
 	tests := []struct {
 		name    string
 		eip1559 bool
+		ns      ocrnetworking.NetworkingStack
 	}{
-		{"legacy mode", false},
-		{"eip1559 mode", true},
+		{"legacy mode", false, ocrnetworking.NetworkingStackV1},
+		{"eip1559 mode", true, ocrnetworking.NetworkingStackV1},
+		{"legacy mode V1V2", false, ocrnetworking.NetworkingStackV1V2},
+		{"legacy mode V2", false, ocrnetworking.NetworkingStackV2},
 	}
 
 	for _, tt := range tests {
@@ -546,7 +570,7 @@ func TestIntegration_OCR(t *testing.T) {
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v", test.eip1559), b)
+			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v", test.eip1559), b, test.ns)
 
 			var (
 				oracles      []confighelper.OracleIdentityExtra
@@ -556,15 +580,17 @@ func TestIntegration_OCR(t *testing.T) {
 			)
 			for i := 0; i < 4; i++ {
 				port := bootstrapNodePort + 1 + i
-				app, peerID, transmitter, key, cfg := setupNode(t, owner, port, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b)
-				// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
-				// we'll flood it with messages and slow things down. 5s is about how long it takes the
-				// bootstrap node to come up.
-				cfg.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
-				// GracePeriod < ObservationTimeout
-				cfg.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
+				app, peerID, transmitter, key, cfg := setupNode(t, owner, port, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b, test.ns)
 				cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(flagsContractAddress.String())
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
+				if test.ns != ocrnetworking.NetworkingStackV1 {
+					cfg.Overrides.P2PV2Bootstrappers = []ocrcommontypes.BootstrapperLocator{
+						{
+							PeerID: bootstrapPeerID,
+							Addrs:  []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)},
+						},
+					}
+				}
 
 				keys = append(keys, key)
 				apps = append(apps, app)

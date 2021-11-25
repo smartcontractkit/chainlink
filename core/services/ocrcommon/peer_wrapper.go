@@ -43,20 +43,19 @@ type (
 
 	// SingletonPeerWrapper manages all libocr peers for the application
 	SingletonPeerWrapper struct {
-		keyStore keystore.Master
-		config   PeerWrapperConfig
-		db       *sqlx.DB
-		lggr     logger.Logger
-		PeerID   p2pkey.PeerID
-
-		// V1 peer
+		utils.StartStopOnce
+		keyStore      keystore.Master
+		config        PeerWrapperConfig
+		db            *sqlx.DB
+		lggr          logger.Logger
+		PeerID        p2pkey.PeerID
 		pstoreWrapper *Pstorewrapper
-		Peer          *peerAdapter
+
+		// V1V2 adapter
+		Peer *peerAdapter
 
 		// V2 peer
 		Peer2 *peerAdapter2
-
-		utils.StartStopOnce
 	}
 )
 
@@ -106,10 +105,11 @@ func (p *SingletonPeerWrapper) Start() error {
 
 		// We need to start the peer store wrapper if v1 is required.
 		// Also fallback to listen params if announce params not specified.
+		ns := p.config.P2PNetworkingStack()
 		var announcePort uint16
 		var announceIP net.IP
 		var peerStore p2ppeerstore.Peerstore
-		if p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1 || p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV1V2 {
+		if ns == ocrnetworking.NetworkingStackV1 || ns == ocrnetworking.NetworkingStackV1V2 {
 			p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID, p.lggr, p.config)
 			if err != nil {
 				return errors.Wrap(err, "could not make new pstorewrapper")
@@ -133,7 +133,7 @@ func (p *SingletonPeerWrapper) Start() error {
 		// Also fallback to listen addresses if announce not specified
 		var discovererDB ocrnetworkingtypes.DiscovererDatabase
 		var announceAddresses []string
-		if p.config.P2PNetworkingStack() == ocrnetworking.NetworkingStackV2 {
+		if ns == ocrnetworking.NetworkingStackV2 || ns == ocrnetworking.NetworkingStackV1V2 {
 			discovererDB = NewDiscovererDatabase(p.db.DB, p2ppeer.ID(p.PeerID))
 			announceAddresses = p.config.P2PV2ListenAddresses()
 			if len(p.config.P2PV2AnnounceAddresses()) != 0 {
