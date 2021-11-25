@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 )
@@ -139,21 +138,6 @@ func MustJSONMarshal(t *testing.T, val interface{}) string {
 	bs, err := json.Marshal(val)
 	require.NoError(t, err)
 	return string(bs)
-}
-
-// MustJSONSet uses sjson.Set to set a path in a JSON string and returns the string
-// See https://github.com/tidwall/sjson
-func MustJSONSet(t *testing.T, json, path string, value interface{}) string {
-	json, err := sjson.Set(json, path, value)
-	require.NoError(t, err)
-	return json
-}
-
-// MustJSONDel uses sjson.Delete to remove a path from a JSON string and returns the string
-func MustJSONDel(t *testing.T, json, path string) string {
-	json, err := sjson.Delete(json, path)
-	require.NoError(t, err)
-	return json
 }
 
 func EmptyCLIContext() *cli.Context {
@@ -335,14 +319,6 @@ func NewDynamicFeeEthTxAttempt(t *testing.T, etxID int64) bulletprooftxmanager.E
 		State:                 bulletprooftxmanager.EthTxAttemptInProgress,
 		ChainSpecificGasLimit: 42,
 	}
-}
-
-func MustInsertBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, borm bulletprooftxmanager.ORM, gasPrice int64) bulletprooftxmanager.EthTxAttempt {
-	attempt := NewLegacyEthTxAttempt(t, etxID)
-	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
-	attempt.GasPrice = utils.NewBig(big.NewInt(gasPrice))
-	require.NoError(t, borm.InsertEthTxAttempt(&attempt))
-	return attempt
 }
 
 func NewEthReceipt(t *testing.T, blockNumber int64, blockHash common.Hash, txHash common.Hash) bulletprooftxmanager.EthReceipt {
@@ -626,30 +602,6 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, db *sqlx.DB, pipelineRunI
 	/* #nosec G404 */
 	require.NoError(t, db.Get(&tr, `INSERT INTO pipeline_task_runs (dot_id, pipeline_run_id, id, type, created_at) VALUES ($1,$2,$3, '', NOW()) RETURNING *`, strconv.Itoa(mathrand.Int()), pipelineRunID, uuid.NewV4()))
 	return tr
-}
-
-func MustInsertSampleDirectRequestJob(t *testing.T, db *sqlx.DB) job.Job {
-	t.Helper()
-
-	dds := `
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-`
-
-	var pspec pipeline.Spec
-	require.NoError(t, db.Get(&pspec, `INSERT INTO pipeline_specs (dot_dag_source, created_at) VALUES ($1, NOW()) RETURNING *`, dds))
-
-	drspec := job.DirectRequestSpec{}
-	require.NoError(t, db.Get(&drspec, `INSERT INTO direct_request_specs ( created_at) VALUES (NOW()) RETURNING *`))
-
-	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
-	require.NoError(t, db.Get(&drspec, `INSERT INTO jobs (type, schema_version, direct_request_spec_id, pipeline_spec_id, created_at) VALUES ('directrequest', 1, $1, $2, NOW()) RETURNING *`,
-		drspec.ID, pspec.ID,
-	))
-
-	return job
 }
 
 func RandomLog(t *testing.T) types.Log {

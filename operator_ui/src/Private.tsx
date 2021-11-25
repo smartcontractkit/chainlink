@@ -19,7 +19,7 @@ import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
-import NodeShow from 'pages/Nodes/Show'
+import { NodeScreen } from 'screens/Node/NodeScreen'
 import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
@@ -113,8 +113,8 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <NodesIndex />
               </PrivateRoute>
 
-              <PrivateRoute path="/nodes/:nodeId">
-                <NodeShow />
+              <PrivateRoute path="/nodes/:id">
+                <NodeScreen />
               </PrivateRoute>
 
               <PrivateRoute

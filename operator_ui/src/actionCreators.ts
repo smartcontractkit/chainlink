@@ -343,32 +343,6 @@ export const deleteChain = (
   }
 }
 
-export const deleteNode = (
-  id: string,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_DELETE })
-
-    const endpoint = api.v2.nodes
-
-    return endpoint
-      .destroyNode(id)
-      .then((doc) => {
-        dispatch(receiveDeleteSuccess(id))
-        dispatch(notifySuccess(successCallback, doc))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_DELETE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
 export const createJobRunV2 = (
   id: string,
   pipelineInput: string,
