@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 func TestResolver_Nodes(t *testing.T) {
@@ -276,7 +277,7 @@ func Test_DeleteNodeMutation(t *testing.T) {
 	}
 
 	variables := map[string]interface{}{
-		"id": fakeID,
+		"id": stringutils.FromInt32(fakeID),
 	}
 
 	d, err := json.Marshal(map[string]interface{}{
