@@ -15,7 +15,7 @@ import JobsShow from 'pages/Jobs/Show'
 import JobsNew from 'pages/Jobs/New'
 import JobRunsIndex from 'pages/JobRuns/Index'
 import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
-import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
+import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
 import KeysIndex from 'pages/Keys/Index'
@@ -95,7 +95,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               />
 
               <PrivateRoute exact path="/chains">
-                <ChainsIndex />
+                <ChainsScreen />
               </PrivateRoute>
               <PrivateRoute exact path="/chains/new">
                 <ChainsNew />
