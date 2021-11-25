@@ -6,15 +6,13 @@ import Button from 'components/Button'
 import Content from 'components/Content'
 import { ChainRow } from './ChainRow'
 import { Resource, Chain } from 'core/store/models'
-import { SearchTextField } from 'src/components/SearchTextField'
+import { SearchTextField } from 'src/components/Search/SearchTextField'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 import Grid from '@material-ui/core/Grid'
 import Card from '@material-ui/core/Card'
-import CardHeader from '@material-ui/core/CardHeader'
 import CardContent from '@material-ui/core/CardContent'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
@@ -65,18 +63,7 @@ function matchSimple(chain: ChainResource, term: string) {
   return dataset.some(match)
 }
 
-const styles = () =>
-  createStyles({
-    cardHeader: {
-      borderBottom: 0,
-    },
-  })
-
-export const ChainsIndex = ({
-  classes,
-}: {
-  classes: WithStyles<typeof styles>['classes']
-}) => {
+export const ChainsIndex = () => {
   const [search, setSearch] = React.useState('')
   const [chains, setChains] = React.useState<ChainResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
@@ -119,12 +106,13 @@ export const ChainsIndex = ({
         <Grid item xs={12}>
           <ErrorComponent />
           <LoadingPlaceholder />
+          <SearchTextField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search chains"
+          />
           {!error && chains && (
             <Card>
-              <CardHeader
-                title={<SearchTextField value={search} onChange={setSearch} />}
-                className={classes.cardHeader}
-              />
               <CardContent>
                 <Table>
                   <TableHead>
@@ -169,4 +157,4 @@ export const ChainsIndex = ({
   )
 }
 
-export default withStyles(styles)(ChainsIndex)
+export default ChainsIndex

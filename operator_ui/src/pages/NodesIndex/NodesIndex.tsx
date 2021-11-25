@@ -4,15 +4,13 @@ import { v2 } from 'api'
 import Content from 'components/Content'
 import NodesList from './NodesList'
 import { Resource, Node } from 'core/store/models'
-import { SearchTextField } from 'src/components/SearchTextField'
+import { SearchTextField } from 'src/components/Search/SearchTextField'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
-import CardHeader from '@material-ui/core/CardHeader'
 import Grid from '@material-ui/core/Grid'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import { Heading1 } from 'src/components/Heading/Heading1'
 
 export type NodeResource = Resource<Node>
@@ -60,18 +58,7 @@ function matchSimple(node: NodeResource, term: string) {
   return dataset.some(match)
 }
 
-const styles = () =>
-  createStyles({
-    cardHeader: {
-      borderBottom: 0,
-    },
-  })
-
-export const NodesIndex = ({
-  classes,
-}: {
-  classes: WithStyles<typeof styles>['classes']
-}) => {
+export const NodesIndex = () => {
   const [search, setSearch] = React.useState('')
   const [nodes, setNodes] = React.useState<NodeResource[]>()
   const { error, ErrorComponent, setError } = useErrorHandler()
@@ -100,13 +87,13 @@ export const NodesIndex = ({
         <Grid item xs={12}>
           <ErrorComponent />
           <LoadingPlaceholder />
+          <SearchTextField
+            value={search}
+            onChange={setSearch}
+            placeholder="Search nodes"
+          />
           {!error && nodes && (
             <Card>
-              <CardHeader
-                title={<SearchTextField value={search} onChange={setSearch} />}
-                className={classes.cardHeader}
-              />
-
               <CardContent>
                 <NodesList nodes={nodes} nodeFilter={nodeFilter} />
               </CardContent>
@@ -118,4 +105,4 @@ export const NodesIndex = ({
   )
 }
 
-export default withStyles(styles)(NodesIndex)
+export default NodesIndex
