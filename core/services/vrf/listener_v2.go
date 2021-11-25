@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -70,11 +71,10 @@ type listenerV2 struct {
 	gethks         keystore.Eth
 	reqLogs        *utils.Mailbox
 	chStop         chan struct{}
-	waitOnStop     chan struct{}
 	// We can keep these pending logs in memory because we
 	// only mark them confirmed once we send a corresponding fulfillment transaction.
 	// So on node restart in the middle of processing, the lb will resend them.
-	reqsMu   sync.Mutex // Both goroutines write to reqs
+	reqsMu   sync.Mutex // Both the log listener and the request handler write to reqs
 	reqs     []pendingRequest
 	reqAdded func() // A simple debug helper
 
@@ -86,6 +86,14 @@ type listenerV2 struct {
 	// respCount map - we repeatedly want to remove the minimum log.
 	// You could use a sorted list if the completed logs arrive in order, but they may not.
 	blockNumberToReqID *pairing.PairHeap
+
+	// head tracking data structures
+	headBroadcaster  httypes.HeadBroadcasterRegistry
+	latestHeadMu     sync.RWMutex
+	latestHeadNumber uint64
+
+	// Wait group to wait on all goroutines to shut down.
+	wg *sync.WaitGroup
 }
 
 func (lsn *listenerV2) Start() error {
@@ -105,17 +113,44 @@ func (lsn *listenerV2) Start() error {
 			// Do not specify min confirmations, as it varies from request to request.
 		})
 
+		latestHead, unsubscribeHeadBroadcaster := lsn.headBroadcaster.Subscribe(lsn)
+		if latestHead != nil {
+			lsn.setLatestHead(latestHead)
+		}
+
 		// Log listener gathers request logs
+		lsn.wg.Add(1)
 		go func() {
-			lsn.runLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
+			lsn.runLogListener([]func(){unsubscribeLogs, unsubscribeHeadBroadcaster}, spec.MinIncomingConfirmations, lsn.wg)
 		}()
 
 		// Request handler periodically computes a set of logs which can be fulfilled.
+		lsn.wg.Add(1)
 		go func() {
-			lsn.runRequestHandler(spec.PollPeriod)
+			lsn.runRequestHandler(spec.PollPeriod, lsn.wg)
 		}()
 		return nil
 	})
+}
+
+func (lsn *listenerV2) setLatestHead(head *eth.Head) {
+	lsn.latestHeadMu.Lock()
+	defer lsn.latestHeadMu.Unlock()
+	num := uint64(head.Number)
+	if num > lsn.latestHeadNumber {
+		lsn.latestHeadNumber = num
+	}
+}
+
+// OnNewLongestChain is called by the head broadcaster when a new head is available.
+func (lsn *listenerV2) OnNewLongestChain(ctx context.Context, head *eth.Head) {
+	lsn.setLatestHead(head)
+}
+
+func (lsn *listenerV2) getLatestHead() uint64 {
+	lsn.latestHeadMu.RLock()
+	defer lsn.latestHeadMu.RUnlock()
+	return uint64(lsn.latestHeadNumber)
 }
 
 // Returns all the confirmed logs from
@@ -134,16 +169,6 @@ func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uin
 	}
 	lsn.reqs = toKeep
 	return toProcess
-}
-
-// TODO: on second thought, I think it is more efficient to use the HB
-func (lsn *listenerV2) getLatestHead() uint64 {
-	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
-	if err != nil {
-		lsn.l.Errorw("Unable to read latest head", "err", err)
-		return 0
-	}
-	return latestHead.Number.Uint64()
 }
 
 // Remove all entries 10000 blocks or older
@@ -179,12 +204,7 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // Its easier to optimistically assume it will go though and in the rare case of a reversion
 // we simply retry TODO: follow up where if we see a fulfillment revert, return log to the queue.
 func (lsn *listenerV2) processPendingVRFRequests() {
-	latestHead, err := lsn.ethClient.HeaderByNumber(context.Background(), nil)
-	if err != nil {
-		lsn.l.Errorw("Unable to read latest head", "err", err)
-		return
-	}
-	confirmed := lsn.getAndRemoveConfirmedLogsBySub(latestHead.Number.Uint64())
+	confirmed := lsn.getAndRemoveConfirmedLogsBySub(lsn.getLatestHead())
 	keys, err := lsn.gethks.SendingKeys()
 	if err != nil {
 		lsn.l.Errorw("Unable to read sending keys", "err", err)
@@ -438,13 +458,13 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	return maxLink, run, payload, gaslimit, nil
 }
 
-func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration) {
+func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration, wg *sync.WaitGroup) {
+	defer wg.Done()
 	tick := time.NewTicker(pollPeriod)
 	defer tick.Stop()
 	for {
 		select {
 		case <-lsn.chStop:
-			lsn.waitOnStop <- struct{}{}
 			return
 		case <-tick.C:
 			lsn.processPendingVRFRequests()
@@ -452,7 +472,8 @@ func (lsn *listenerV2) runRequestHandler(pollPeriod time.Duration) {
 	}
 }
 
-func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
+func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg *sync.WaitGroup) {
+	defer wg.Done()
 	lsn.l.Infow("Listening for run requests",
 		"minConfs", minConfs)
 	for {
@@ -461,7 +482,6 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32) {
 			for _, f := range unsubscribes {
 				f()
 			}
-			lsn.waitOnStop <- struct{}{}
 			return
 		case <-lsn.reqLogs.Notify():
 			// Process all the logs in the queue if one is added
@@ -568,7 +588,8 @@ func (lsn *listenerV2) markLogAsConsumed(lb log.Broadcast) {
 func (lsn *listenerV2) Close() error {
 	return lsn.StopOnce("VRFListenerV2", func() error {
 		close(lsn.chStop)
-		<-lsn.waitOnStop
+		// wait on the request handler, log listener, and head listener to stop
+		lsn.wg.Wait()
 		return nil
 	})
 }

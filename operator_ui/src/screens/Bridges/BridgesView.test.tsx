@@ -6,7 +6,6 @@ import { renderWithRouter, screen } from 'support/test-utils'
 
 import { buildBridges } from 'support/factories/gql/fetchBridges'
 import { BridgesView, Props as BridgesViewProps } from './BridgesView'
-import bridge from 'src/selectors/bridge'
 
 const { getAllByRole, getByText, findByText, queryByText } = screen
 
@@ -24,13 +23,13 @@ function renderComponent(viewProps: BridgesViewProps) {
   )
 }
 
-describe('BridgeRow', () => {
+describe('BridgesView', () => {
   it('renders the bridges table', () => {
     const bridges = buildBridges()
 
     renderComponent({
       bridges,
-      total: bridge.length,
+      total: bridges.length,
       page: 1,
       pageSize: 10,
     })
@@ -60,7 +59,7 @@ describe('BridgeRow', () => {
 
     renderComponent({
       bridges,
-      total: bridge.length,
+      total: bridges.length,
       page: 1,
       pageSize: 10,
     })

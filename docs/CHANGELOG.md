@@ -38,7 +38,8 @@ Use of this field requires a database migration.
 
 ### Added
 
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
 
 #### New locking mode: 'lease'
 

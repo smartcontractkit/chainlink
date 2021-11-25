@@ -25,7 +25,7 @@ import { Delete } from './Delete'
 import { KeyBundle } from './KeyBundle'
 import { useDispatch } from 'react-redux'
 import { deleteNotification, createNotification } from './Notifications'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -139,7 +139,7 @@ export const P2PKeys = withStyles(styles)(
                         primary={
                           <b>
                             Peer ID: {key.attributes.peerId}{' '}
-                            <Copy data={key.attributes.peerId} />
+                            <CopyIconButton data={key.attributes.peerId} />
                           </b>
                         }
                         secondary={[
