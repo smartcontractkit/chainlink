@@ -18,17 +18,16 @@ import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
 import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
-import { NodeScreen } from 'screens/Node/NodeScreen'
 import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
-import NodesIndex from './pages/NodesIndex/NodesIndex'
 
 import { BridgesPage } from 'pages/bridges'
 import { JobsPage } from 'pages/JobsIndex'
 import { FeedsManagerPage } from 'pages/feeds_manager'
 import { JobProposalsPage } from 'pages/job_proposals'
+import { NodesPage } from 'pages/nodes'
 
 const styles = (theme: Theme) => {
   return {
@@ -106,14 +105,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 <ChainShow />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/nodes">
-                <NodesIndex />
-              </PrivateRoute>
-
-              <PrivateRoute path="/nodes/:id">
-                <NodeScreen />
-              </PrivateRoute>
-
               <PrivateRoute
                 exact
                 path="/transactions"
@@ -146,6 +137,10 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
               <PrivateRoute exact path="/jobs">
                 <JobsPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/nodes">
+                <NodesPage />
               </PrivateRoute>
 
               <PrivateRoute component={NotFound} />
