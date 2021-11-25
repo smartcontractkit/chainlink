@@ -70,42 +70,6 @@ declare module 'core/store/models' {
   type AddressCollection = common.Address[]
   //#endregion common.go
 
-  //#region bridge_type.go
-  /**
-   * BridgeTypeRequest is the incoming record used to create a BridgeType
-   */
-  export interface BridgeTypeRequest {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
-   */
-  export interface BridgeTypeAuthentication {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    incomingToken: string
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeType is used for external adapters and has fields for
-   * the name of the adapter and its URL.
-   */
-  export interface BridgeType {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-  //#endregion bridge_type.go
-
   /**
    * Tx contains fields necessary for an Ethereum transaction with
    * an additional field for the TxAttempt.
