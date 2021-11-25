@@ -1,7 +1,7 @@
 import React from 'react'
 import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
 import { v2 } from 'api'
-import { NodeResource } from '../NodesIndex/NodesIndex'
+import { NodeResource } from './ChainNodes'
 import RegionalNav from './RegionalNav'
 import { ChainResource } from '../ChainsIndex/ChainsIndex'
 import { ChainNodes } from './ChainNodes'

@@ -8,7 +8,7 @@ import {
   Typography,
 } from '@material-ui/core'
 import { NodeRow } from './NodeRow'
-import { NodeResource } from './NodesIndex'
+import { NodeResource } from './ChainNodes'
 
 interface Props {
   nodes: NodeResource[]

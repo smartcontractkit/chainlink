@@ -3,8 +3,10 @@ import { Card, Grid } from '@material-ui/core'
 import Content from 'components/Content'
 import React from 'react'
 import { ChainResource } from '../ChainsIndex/ChainsIndex'
-import ChainNodesList from '../NodesIndex/NodesList'
-import { NodeResource } from '../NodesIndex/NodesIndex'
+import ChainNodesList from './NodesList'
+import { Resource, Node } from 'core/store/models'
+
+export type NodeResource = Resource<Node>
 
 interface Props {
   nodes: NodeResource[]
@@ -12,10 +14,6 @@ interface Props {
 }
 
 export const ChainNodes = ({ nodes, chain }: Props) => {
-  React.useEffect(() => {
-    document.title = chain?.id ? `Chain ${chain.id} | Nodes` : 'Chain | Nodes'
-  }, [chain])
-
   return (
     <Content>
       {chain && (
