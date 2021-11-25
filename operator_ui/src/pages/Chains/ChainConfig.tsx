@@ -9,7 +9,7 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 import { Theme, createStyles, withStyles, WithStyles } from '@material-ui/core'
-import { ChainResource } from '../ChainsIndex/ChainsIndex'
+import { ChainResource } from './Show'
 
 const definitionStyles = (theme: Theme) =>
   createStyles({
