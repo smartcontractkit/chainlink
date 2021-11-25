@@ -23,7 +23,7 @@ function renderComponent(viewProps: BridgesViewProps) {
   )
 }
 
-describe('BridgeRow', () => {
+describe('BridgesView', () => {
   it('renders the bridges table', () => {
     const bridges = buildBridges()
 
