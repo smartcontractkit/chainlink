@@ -27,7 +27,7 @@ function renderComponent(mocks: MockedResponse[]) {
   )
 }
 
-describe('pages/Bridges/Index', () => {
+describe('BridgesScreen', () => {
   it('renders the list of bridges', async () => {
     const mocks: MockedResponse[] = [
       {

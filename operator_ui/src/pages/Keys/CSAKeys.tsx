@@ -17,7 +17,7 @@ import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = () => {
   return createStyles({
@@ -130,7 +130,7 @@ export const CSAKeys = withStyles(styles)(({ classes }: Props) => {
                   <TableCell>
                     <Typography variant="body1">
                       {key.attributes.publicKey}{' '}
-                      <Copy data={key.attributes.publicKey} />
+                      <CopyIconButton data={key.attributes.publicKey} />
                     </Typography>
                   </TableCell>
                 </TableRow>

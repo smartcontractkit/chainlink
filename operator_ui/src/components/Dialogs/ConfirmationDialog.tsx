@@ -28,7 +28,7 @@ const DialogActions = withStyles((theme) => ({
 }))(MuiDialogActions)
 
 type Props = Pick<DialogProps, 'open' | 'onClose'> & {
-  body: string
+  body: string | React.ReactNode
   confirmButtonText?: string
   cancelButtonText?: string
   title: string
