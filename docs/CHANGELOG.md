@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### New optional VRF v2 field: `requestedConfsDelay`
+
+Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
+number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
+the randomness request, i.e the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
+blocks before servicing the request.
+
+It can be used in the following way:
+
+```toml
+type = "vrf"
+externalJobID = "123e4567-e89b-12d3-a456-426655440001"
+schemaVersion = 1
+name = "vrf-v2-secondary"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+requestedConfsDelay = 10
+# ... rest of job spec ...
+```
+
+Use of this field requires a database migration.
+
 ### Changed
 
 - The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.

@@ -491,6 +491,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 						FromAddress:              &fromAddress,
 						PollPeriod:               1 * time.Minute,
 						PublicKey:                pubKey,
+						RequestedConfsDelay:      10,
 					},
 				}, nil)
 			},
@@ -508,6 +509,7 @@ func TestResolver_VRFSpec(t *testing.T) {
 									minIncomingConfirmations
 									pollPeriod
 									publicKey
+									requestedConfsDelay
 								}
 							}
 						}
@@ -525,7 +527,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 							"fromAddress": "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42",
 							"minIncomingConfirmations": 1,
 							"pollPeriod": "1m0s",
-							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01"
+							"publicKey": "0x9dc09a0f898f3b5e8047204e7ce7e44b587920932f08431e29c9bf6923b8450a01",
+							"requestedConfsDelay": 10
 						}
 					}
 				}

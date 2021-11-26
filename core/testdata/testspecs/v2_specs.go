@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 )
 
@@ -189,6 +190,7 @@ type VRFSpecParams struct {
 	FromAddress              string
 	PublicKey                string
 	ObservationSource        string
+	RequestedConfsDelay      int
 	V2                       bool
 }
 
@@ -276,12 +278,13 @@ schemaVersion = 1
 name = "%s"
 coordinatorAddress = "%s"
 minIncomingConfirmations = %d
+requestedConfsDelay = %d
 publicKey = "%s"
 observationSource = """
 %s
 """
 `
-	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, publicKey, observationSource)
+	toml := fmt.Sprintf(template, jobID, name, coordinatorAddress, confirmations, params.RequestedConfsDelay, publicKey, observationSource)
 	if params.FromAddress != "" {
 		toml = toml + "\n" + fmt.Sprintf(`fromAddress = "%s"`, params.FromAddress)
 	}
@@ -293,6 +296,7 @@ observationSource = """
 		MinIncomingConfirmations: confirmations,
 		PublicKey:                publicKey,
 		ObservationSource:        observationSource,
+		RequestedConfsDelay:      params.RequestedConfsDelay,
 	}, toml: toml}
 }
 
