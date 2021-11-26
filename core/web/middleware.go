@@ -20,6 +20,7 @@ import (
 // inside this module. To achieve this, we direct webpack to output all of the compiled assets
 // in this module's folder under the "assets" directory.
 
+//nolint
 //go:embed "assets"
 var uiEmbedFs embed.FS
 var uiFs = http.FS(uiEmbedFs)

@@ -51,7 +51,7 @@ jobs:
           restore-keys: |
             yarn-${{ env.CACHE_VERSION }}
       - name: Build static assets
-        run: make operator-ui
+        run: make yarndep operator-ui
       - name: Cache Go vendor packages
         uses: actions/cache@v2
         with:
