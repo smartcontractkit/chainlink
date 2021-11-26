@@ -16,10 +16,10 @@ import (
 )
 
 // Go's new embed feature doesn't allow us to embed things outside of the current module.
-// To get around this, we basically need to copy over the assets to this module's directory
-// and then do a go:embed, which is a bit wonky.
+// To get around this, we need to make sure that the assets we want to embed are available
+// inside this module. To achieve this, we direct webpack to output all of the compiled assets
+// in this module's folder under the "assets" directory.
 
-//go:generate cp -r ../../operator_ui/dist assets
 //go:embed "assets"
 var uiEmbedFs embed.FS
 var uiFs = http.FS(uiEmbedFs)
