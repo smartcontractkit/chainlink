@@ -428,3 +428,14 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	return NewETHKeysPayload(ethKeys), nil
 }
+
+// Config retrieves the Chainlink node's configuration
+func (r *Resolver) Config(ctx context.Context) (*ConfigPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	cfg := r.App.GetConfig()
+
+	return NewConfigPayload(cfg), nil
+}
