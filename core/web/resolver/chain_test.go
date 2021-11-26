@@ -559,3 +559,239 @@ func TestResolver_DeleteChain(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_UpdateChain(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation UpdateChain($id: ID!, $input: UpdateChainInput!) {
+			updateChain(id: $id, input: $input) {
+				... on UpdateChainSuccess {
+					chain {
+						id
+						enabled
+						createdAt
+						config {
+							blockHistoryEstimatorBlockDelay
+							ethTxReaperThreshold
+							chainType
+							gasEstimatorMode
+							keySpecificConfigs {
+								address
+								config {
+									blockHistoryEstimatorBlockDelay
+									ethTxReaperThreshold
+									chainType
+									gasEstimatorMode
+								}
+							}
+						}
+					}
+				}
+				... on NotFoundError {
+					message
+					code
+				}
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
+				}
+			}
+		}`
+	chainID := *utils.NewBigI(1233)
+	data, err := json.Marshal(map[string]interface{}{
+		"address": "some-address",
+		"config": map[string]interface{}{
+			"blockHistoryEstimatorBlockDelay": 0,
+			"ethTxReaperThreshold":            "1m0s",
+			"chainType":                       "EXCHAIN",
+			"gasEstimatorMode":                "BLOCK_HISTORY",
+		},
+	})
+	require.NoError(t, err)
+
+	var keySpecificConfig interface{}
+	err = json.Unmarshal(data, &keySpecificConfig)
+	require.NoError(t, err)
+
+	input := map[string]interface{}{
+		"id": "1233",
+		"input": map[string]interface{}{
+			"enabled": true,
+			"config": map[string]interface{}{
+				"blockHistoryEstimatorBlockDelay": 1,
+				"ethTxReaperThreshold":            "1m0s",
+				"chainType":                       "OPTIMISM",
+				"gasEstimatorMode":                "BLOCK_HISTORY",
+			},
+			"keySpecificConfigs": []interface{}{
+				keySpecificConfig,
+			},
+		},
+	}
+	badInput := map[string]interface{}{
+		"id": "1233",
+		"input": map[string]interface{}{
+			"enabled": true,
+			"config": map[string]interface{}{
+				"ethTxReaperThreshold": "asdadadsa",
+				"chainType":            "OPTIMISM",
+				"gasEstimatorMode":     "BLOCK_HISTORY",
+			},
+			"keySpecificConfigs": []interface{}{},
+		},
+	}
+
+	threshold, err := models.MakeDuration(1 * time.Minute)
+	require.NoError(t, err)
+
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: input}, "updateChain"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				cfg := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+					EthTxReaperThreshold:            &threshold,
+					GasEstimatorMode:                null.StringFrom("BlockHistory"),
+					ChainType:                       null.StringFrom("optimism"),
+					KeySpecific: map[string]types.ChainCfg{
+						"some-address": {
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+							EthTxReaperThreshold:            &threshold,
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("exchain"),
+						},
+					},
+				}
+
+				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{
+					ID:        chainID,
+					Enabled:   true,
+					CreatedAt: f.Timestamp(),
+					Cfg:       cfg,
+				}, nil)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: input,
+			result: `
+				{
+					"updateChain": {
+						"chain": {
+							"id": "1233",
+							"enabled": true,
+							"createdAt": "2021-01-01T00:00:00Z",
+							"config": {
+								"blockHistoryEstimatorBlockDelay": 1,
+								"ethTxReaperThreshold": "1m0s",
+								"chainType": "OPTIMISM",
+								"gasEstimatorMode": "BLOCK_HISTORY",
+								"keySpecificConfigs": [
+									{
+										"address": "some-address",
+										"config": {
+											"blockHistoryEstimatorBlockDelay": 0,
+											"ethTxReaperThreshold": "1m0s",
+											"chainType": "EXCHAIN",
+											"gasEstimatorMode": "BLOCK_HISTORY"
+										}
+									}
+								]
+							}
+						}
+					}
+				}`,
+		},
+		{
+			name:          "input errors",
+			authenticated: true,
+			query:         mutation,
+			variables:     badInput,
+			result: `
+				{
+					"updateChain": {
+						"errors": [{
+							"path": "EthTxReaperThreshold",
+							"message": "invalid value",
+							"code": "INVALID_INPUT"
+						}]
+					}
+				}`,
+		},
+		{
+			name:          "not found error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				cfg := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+					EthTxReaperThreshold:            &threshold,
+					GasEstimatorMode:                null.StringFrom("BlockHistory"),
+					ChainType:                       null.StringFrom("optimism"),
+					KeySpecific: map[string]types.ChainCfg{
+						"some-address": {
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+							EthTxReaperThreshold:            &threshold,
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("exchain"),
+						},
+					},
+				}
+
+				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, sql.ErrNoRows)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: input,
+			result: `
+				{
+					"updateChain": {
+						"code": "NOT_FOUND",
+						"message": "chain not found"
+					}
+				}`,
+		},
+		{
+			name:          "generic error on update",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				cfg := types.ChainCfg{
+					BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+					EthTxReaperThreshold:            &threshold,
+					GasEstimatorMode:                null.StringFrom("BlockHistory"),
+					ChainType:                       null.StringFrom("optimism"),
+					KeySpecific: map[string]types.ChainCfg{
+						"some-address": {
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+							EthTxReaperThreshold:            &threshold,
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("exchain"),
+						},
+					},
+				}
+
+				f.Mocks.chainSet.On("Configure", chainID.ToInt(), true, cfg).Return(types.Chain{}, gError)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: input,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"updateChain"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

@@ -142,6 +142,52 @@ func (r *CreateChainSuccessResolver) Chain() *ChainResolver {
 	return NewChain(*r.chain)
 }
 
+type UpdateChainPayloadResolver struct {
+	chain     *types.Chain
+	inputErrs map[string]string
+	NotFoundErrorUnionType
+}
+
+func NewUpdateChainPayload(chain *types.Chain, inputErrs map[string]string, err error) *UpdateChainPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
+
+	return &UpdateChainPayloadResolver{chain: chain, inputErrs: inputErrs, NotFoundErrorUnionType: e}
+}
+
+func (r *UpdateChainPayloadResolver) ToUpdateChainSuccess() (*UpdateChainSuccessResolver, bool) {
+	if r.chain == nil {
+		return nil, false
+	}
+
+	return NewUpdateChainSuccess(*r.chain), true
+}
+
+func (r *UpdateChainPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs != nil {
+		var errs []*InputErrorResolver
+
+		for path, message := range r.inputErrs {
+			errs = append(errs, NewInputError(path, message))
+		}
+
+		return NewInputErrors(errs), true
+	}
+
+	return nil, false
+}
+
+type UpdateChainSuccessResolver struct {
+	chain types.Chain
+}
+
+func NewUpdateChainSuccess(chain types.Chain) *UpdateChainSuccessResolver {
+	return &UpdateChainSuccessResolver{chain: chain}
+}
+
+func (r *UpdateChainSuccessResolver) Chain() *ChainResolver {
+	return NewChain(r.chain)
+}
+
 type DeleteChainPayloadResolver struct {
 	chain *types.Chain
 	NotFoundErrorUnionType

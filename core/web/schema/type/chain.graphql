@@ -26,6 +26,18 @@ type CreateChainSuccess {
 
 union CreateChainPayload = CreateChainSuccess | InputErrors
 
+input UpdateChainInput {
+    enabled: Boolean!
+    config: ChainConfigInput!
+    keySpecificConfigs: [KeySpecificChainConfigInput]!
+}
+
+type UpdateChainSuccess {
+    chain: Chain!
+}
+
+union UpdateChainPayload = UpdateChainSuccess | NotFoundError | InputErrors
+
 type DeleteChainSuccess {
     chain: Chain!
 }
