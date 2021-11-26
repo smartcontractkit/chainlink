@@ -42,7 +42,7 @@ ARG ENVIRONMENT
 
 COPY core core
 # Copy over operator-ui build assets to the web module so that we embed them correctly
-COPY --from=0 /chainlink/core/web/assets ./core/web/
+COPY --from=0 /chainlink/core/web/assets ./core/web/assets
 
 RUN make chainlink-build
 
