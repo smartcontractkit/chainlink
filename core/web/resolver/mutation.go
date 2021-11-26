@@ -811,3 +811,33 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 
 	return NewCreateChainPayload(&chain, nil), nil
 }
+
+func (r *Resolver) DeleteChain(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := r.App.EVMORM().Chain(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteChainPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.GetChainSet().Remove(id.ToInt())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteChainPayload(&chain, nil), nil
+}
