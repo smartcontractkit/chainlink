@@ -165,7 +165,7 @@ func (helper *broadcasterHelper) requireBroadcastCount(expectedCount int) {
 		return count.Count, err
 	}
 
-	g.Eventually(comparisonFunc, cltest.DefaultWaitTimeout, time.Second).Should(gomega.Equal(expectedCount))
+	g.Eventually(comparisonFunc, cltest.WaitTimeout(helper.t), time.Second).Should(gomega.Equal(expectedCount))
 	g.Consistently(comparisonFunc, 1*time.Second, 200*time.Millisecond).Should(gomega.Equal(expectedCount))
 }
 
@@ -315,7 +315,7 @@ func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedStat
 	received := listener.received
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
-	}, cltest.DefaultWaitTimeout, time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
+	}, cltest.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
 
 	received.Lock()
 	defer received.Unlock()

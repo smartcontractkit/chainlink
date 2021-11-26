@@ -330,7 +330,7 @@ func (x *sendTxService) SendRawTransaction(ctx context.Context, signRawTx hexuti
 func TestEthClient_SubscribeNewHead(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), cltest.DefaultWaitTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), cltest.WaitTimeout(t))
 	defer cancel()
 
 	chainId := big.NewInt(123456)

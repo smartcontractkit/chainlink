@@ -805,7 +805,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
 
 			if tc.expectedToSubmit {
-				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
+				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(1))
 
 				chBlock := make(chan struct{})
 				// NewRound resets the idle timer
@@ -829,7 +829,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 					idleDurationOccured <- struct{}{}
 				})
 
-				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
+				g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(2))
 			}
 
 			fm.Close()
@@ -887,7 +887,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
+	g.Eventually(func() int { return len(pollOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// hiberation tick 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
@@ -909,7 +909,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
+	g.Eventually(func() int { return len(pollOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(2))
 
 	// hiberation tick 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
@@ -924,7 +924,7 @@ func TestFluxMonitor_HibernationTickerFiresMultipleTimes(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(pollOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(3))
+	g.Eventually(func() int { return len(pollOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(3))
 	tm.AssertExpectations(t)
 }
 
@@ -1101,7 +1101,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		initialPollOccurred <- struct{}{}
 	})
 	require.Len(t, idleDurationOccured, 0, "no Job Runs created")
-	g.Eventually(func() int { return len(initialPollOccurred) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
+	g.Eventually(func() int { return len(initialPollOccurred) }, cltest.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer
 	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
@@ -1122,7 +1122,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		FinishedAt: null.TimeFrom(finishedAt),
 	}, nil)
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(1))
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 2 triggers a new round. Started at is 0
 	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
@@ -1137,7 +1137,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 			NumSubmissions: 0,
 		}, nil).Once()
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(2))
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(2))
 
 	// idleDuration 3 triggers from the previous new round
 	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() - 1000000}
@@ -1160,7 +1160,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 	fm.ExportedBacklog().Add(fluxmonitorv2.PriorityNewRoundLog, tm.logBroadcast)
 	fm.ExportedProcessLogs()
 
-	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.DefaultWaitTimeout).Should(gomega.Equal(4))
+	g.Eventually(func() int { return len(idleDurationOccured) }, cltest.WaitTimeout(t)).Should(gomega.Equal(4))
 	tm.AssertExpectations(t)
 }
 
