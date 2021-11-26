@@ -141,3 +141,34 @@ func NewCreateChainSuccess(chain *types.Chain) *CreateChainSuccessResolver {
 func (r *CreateChainSuccessResolver) Chain() *ChainResolver {
 	return NewChain(*r.chain)
 }
+
+type DeleteChainPayloadResolver struct {
+	chain *types.Chain
+	NotFoundErrorUnionType
+}
+
+func NewDeleteChainPayload(chain *types.Chain, err error) *DeleteChainPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "chain not found", isExpectedErrorFn: nil}
+
+	return &DeleteChainPayloadResolver{chain: chain, NotFoundErrorUnionType: e}
+}
+
+func (r *DeleteChainPayloadResolver) ToDeleteChainSuccess() (*DeleteChainSuccessResolver, bool) {
+	if r.chain == nil {
+		return nil, false
+	}
+
+	return NewDeleteChainSuccess(*r.chain), true
+}
+
+type DeleteChainSuccessResolver struct {
+	chain types.Chain
+}
+
+func NewDeleteChainSuccess(chain types.Chain) *DeleteChainSuccessResolver {
+	return &DeleteChainSuccessResolver{chain: chain}
+}
+
+func (r *DeleteChainSuccessResolver) Chain() *ChainResolver {
+	return NewChain(r.chain)
+}

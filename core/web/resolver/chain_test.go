@@ -467,3 +467,95 @@ func TestResolver_CreateChain(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_DeleteChain(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation DeleteChain($id: ID!) {
+			deleteChain(id: $id) {
+				... on DeleteChainSuccess {
+					chain {
+						id
+					}
+				}
+				... on NotFoundError {
+					message
+					code
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"id": "123",
+	}
+	chainID := *utils.NewBigI(123)
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteChain"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
+					ID: chainID,
+				}, nil)
+				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(nil)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteChain": {
+						"chain": {
+							"id": "123"
+						}
+					}
+				}`,
+		},
+		{
+			name:          "not found error",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{}, sql.ErrNoRows)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteChain": {
+						"code": "NOT_FOUND",
+						"message": "chain not found"
+					}
+				}`,
+		},
+		{
+			name:          "generic error on delete",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
+					ID: chainID,
+				}, nil)
+				f.Mocks.chainSet.On("Remove", chainID.ToInt()).Return(gError)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				f.App.On("GetChainSet").Return(f.Mocks.chainSet)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"deleteChain"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

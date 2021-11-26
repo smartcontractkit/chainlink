@@ -25,3 +25,9 @@ type CreateChainSuccess {
 }
 
 union CreateChainPayload = CreateChainSuccess | InputErrors
+
+type DeleteChainSuccess {
+    chain: Chain!
+}
+
+union DeleteChainPayload = DeleteChainSuccess | NotFoundError
