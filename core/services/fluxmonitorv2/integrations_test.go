@@ -429,7 +429,7 @@ func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, p
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, cltest.DefaultWaitTimeout, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -539,7 +539,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			g.Eventually(func() uint32 {
 				lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -686,7 +686,7 @@ ds1 -> ds1_parse
 	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -817,7 +817,7 @@ ds1 -> ds1_parse
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
 		return len(logs)
-	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(4))
+	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)

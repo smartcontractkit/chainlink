@@ -124,7 +124,7 @@ var (
 func init() {
 	gin.SetMode(gin.TestMode)
 
-	gomega.SetDefaultEventuallyTimeout(DefaultWaitTimeout)
+	gomega.SetDefaultEventuallyTimeout(defaultWaitTimeout)
 	gomega.SetDefaultEventuallyPollingInterval(DBPollingInterval)
 	gomega.SetDefaultConsistentlyDuration(time.Second)
 	gomega.SetDefaultConsistentlyPollingInterval(100 * time.Millisecond)
@@ -898,19 +898,24 @@ func CreateExternalInitiatorViaWeb(
 }
 
 const (
-	// DBWaitTimeout is how long we wait by default for something to appear in
-	// the DB. It needs to be fairly long because integration
-	// tests rely on it.
-	DBWaitTimeout = 20 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
 	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
 	AssertNoActionTimeout = 3 * time.Second
 
-	// DefaultWaitTimeout - to be used especially in parallel tests, as their
-	// individual execution can get paused for multiple seconds.
-	DefaultWaitTimeout = 30 * time.Second
+	defaultWaitTimeout = 30 * time.Second
 )
+
+// WaitTimeout returns a timeout based on the test's Deadline, if available.
+// Especially important to use in parallel tests, as their individual execution
+// can get paused for arbitrary amounts of time.
+func WaitTimeout(t *testing.T) time.Duration {
+	if d, ok := t.Deadline(); ok {
+		// 10% buffer for cleanup and scheduling delay
+		return time.Until(d) * 9 / 10
+	}
+	return defaultWaitTimeout
+}
 
 // WaitForSpecErrorV2 polls until the passed in jobID has count number
 // of job spec errors.
@@ -923,7 +928,7 @@ func WaitForSpecErrorV2(t *testing.T, db *sqlx.DB, jobID int32, count int) []job
 		err := db.Select(&jse, `SELECT * FROM job_spec_errors WHERE job_id = $1`, jobID)
 		assert.NoError(t, err)
 		return jse
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	}, WaitTimeout(t), DBPollingInterval).Should(gomega.HaveLen(count))
 	return jse
 }
 
@@ -1440,7 +1445,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done c
 
 	// Build the full chain of heads
 	heads := args.Blocks.Heads
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), WaitTimeout(t))
 	t.Cleanup(cancel)
 	done = make(chan struct{})
 	go func(t *testing.T) {
@@ -1638,7 +1643,7 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 	require.Equal(t, expected, count)
 }
 
-func WaitForCount(t testing.TB, db *sqlx.DB, tableName string, want int64) {
+func WaitForCount(t *testing.T, db *sqlx.DB, tableName string, want int64) {
 	t.Helper()
 	g := gomega.NewWithT(t)
 	var count int64
@@ -1647,7 +1652,7 @@ func WaitForCount(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, WaitTimeout(t), DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
@@ -1669,7 +1674,7 @@ func AssertRecordEventually(t *testing.T, db *sqlx.DB, model interface{}, stmt s
 		err := db.Get(model, stmt)
 		require.NoError(t, err, "unable to find record in DB")
 		return check()
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
+	}, WaitTimeout(t), DBPollingInterval).Should(gomega.BeTrue())
 }
 
 func MustSendingKeyStates(t *testing.T, ethKeyStore keystore.Eth) []ethkey.State {
