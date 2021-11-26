@@ -50,8 +50,8 @@ jobs:
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+      - name: Build static assets
+        run: make operator-ui
       - name: Cache Go vendor packages
         uses: actions/cache@v2
         with:
