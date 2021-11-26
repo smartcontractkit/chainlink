@@ -49,6 +49,9 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 	if spec.CoordinatorAddress.String() == "" {
 		return jb, errors.Wrap(ErrKeyNotSet, "coordinatorAddress")
 	}
+	if spec.RequestedConfsDelay < 0 {
+		return jb, errors.Wrap(ErrKeyNotSet, "requestedConfsDelay must be >= 0")
+	}
 	var foundVRFTask bool
 	for _, t := range jb.Pipeline.Tasks {
 		if t.Type() == pipeline.TaskTypeVRF || t.Type() == pipeline.TaskTypeVRFV2 {
