@@ -371,7 +371,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 
 	assetsRouterHandlers = append(
 		assetsRouterHandlers,
-		ServeGzippedAssets("/assets", &EmbedFileSystem{uiEmbedFs}, lggr),
+		ServeGzippedAssets("/assets", assetFs, lggr),
 	)
 
 	// Get Operator UI Assets
@@ -406,8 +406,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 		}
 
 		// Render the React index page for any other unknown requests
-		fileSystem := &EmbedFileSystem{uiEmbedFs}
-		file, err := fileSystem.Open("assets/index.html")
+		file, err := assetFs.Open("index.html")
 		if err != nil {
 			if err == fs.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
