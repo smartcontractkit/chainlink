@@ -513,10 +513,12 @@ func (lsn *listenerV2) shouldProcessLog(lb log.Broadcast) bool {
 func (lsn *listenerV2) getConfirmedAt(req *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested, nodeMinConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
-	// Take the max(nodeConfs, requestedConfs)
+	// Take the max(nodeMinConfs, requestedConfs + requestedConfsDelay).
+	// Add the requested confs delay if provided in the jobspec so that we avoid an edge case
+	// where the primary and backup VRF v2 nodes submit a proof at the same time.
 	minConfs := nodeMinConfs
-	if uint32(req.MinimumRequestConfirmations) > nodeMinConfs {
-		minConfs = uint32(req.MinimumRequestConfirmations)
+	if uint32(req.MinimumRequestConfirmations)+uint32(lsn.job.VRFSpec.RequestedConfsDelay) > nodeMinConfs {
+		minConfs = uint32(req.MinimumRequestConfirmations) + uint32(lsn.job.VRFSpec.RequestedConfsDelay)
 	}
 	newConfs := uint64(minConfs) * (1 << lsn.respCount[req.RequestId.String()])
 	// We cap this at 200 because solidity only supports the most recent 256 blocks
