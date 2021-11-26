@@ -45,13 +45,10 @@ install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
 .PHONY: chainlink-build
 chainlink-build:
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 	go build $(GOFLAGS) -o chainlink ./core/
 	cp chainlink $(GOBIN)/chainlink
 
@@ -59,7 +56,6 @@ chainlink-build:
 operator-ui: ## Build the static frontend UI.
 	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
-	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services"
 
 .PHONY: contracts-operator-ui-build
 contracts-operator-ui-build: # only compiles tsc and builds contracts and operator-ui

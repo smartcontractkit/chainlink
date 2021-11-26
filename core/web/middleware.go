@@ -1,7 +1,9 @@
 package web
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path"
@@ -9,9 +11,25 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+// Go's new embed feature doesn't allow us to embed things outside of the current module.
+// To get around this, we basically need to copy over the assets to this module's directory
+// and then do a go:embed, which is a bit wonky.
+
+//go:generate cp -r ../../operator_ui/dist assets
+//go:embed "assets"
+var uiEmbedFs embed.FS
+var uiFs = http.FS(uiEmbedFs)
+
+func init() {
+	fs.WalkDir(uiEmbedFs, ".", func(path string, d fs.DirEntry, err error) error {
+		logger.Warnf("walking embed path %s", path)
+		return nil
+	})
+}
 
 const (
 	acceptEncodingHeader  = "Accept-Encoding"
@@ -27,18 +45,33 @@ type ServeFileSystem interface {
 	Exists(prefix string, path string) bool
 }
 
-// BoxFileSystem implements ServeFileSystem with a packr box
-type BoxFileSystem struct {
-	packr.Box
+type EmbedFileSystem struct {
+	embed.FS
 }
 
 // Exists implements the ServeFileSystem interface
-func (b *BoxFileSystem) Exists(prefix string, filepath string) bool {
-	if p := strings.TrimPrefix(filepath, prefix); len(p) < len(filepath) {
-		return b.Has(p)
+func (e *EmbedFileSystem) Exists(prefix string, filepath string) bool {
+	logger.Warnf("got query for prefix %s and filepath %s", prefix, filepath)
+	found := false
+	if p := path.Base(strings.TrimPrefix(filepath, prefix)); len(p) < len(filepath) {
+		fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
+			logger.Warnf("checking path: %s", fpath)
+			fileName := path.Base(fpath)
+			logger.Warnf("base name: %s, p: %s", fileName, p)
+			if fileName == p {
+				found = true
+			}
+			return nil
+		})
 	}
 
-	return false
+	logger.Warnf("found: %b", found)
+
+	return found
+}
+
+func (e *EmbedFileSystem) Open(name string) (http.File, error) {
+	return uiFs.Open(name)
 }
 
 // gzipFileHandler implements a http.Handler which can serve either the base
@@ -57,7 +90,9 @@ func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {
+	f.lggr.Infof("openAndStat: %s", path)
 	file, err := f.root.Open(path)
+	f.lggr.Infof("openAndStat: error %v", err)
 	var info os.FileInfo
 	// This slightly weird variable reuse is so we can get 100% test coverage
 	// without having to come up with a test file that can be opened, yet
@@ -156,6 +191,8 @@ func negotiateContentEncoding(r *http.Request, available []string) string {
 
 // Implements http.Handler
 func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	f.lggr.Infof("gzipFileHandler got request on path: %s", r.URL.Path)
+
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
 		upath = "/" + upath
@@ -164,6 +201,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	fpath := path.Clean(upath)
 	if strings.HasSuffix(fpath, "/") {
+		f.lggr.Infof("path has / suffix: %s", fpath)
 		http.NotFound(w, r)
 		return
 	}
@@ -175,15 +213,13 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	f.lggr.Infof("could not find file: %s", fpath)
 	http.NotFound(w, r)
 }
 
 // ServeGzippedAssets returns a middleware handler that serves static files in the given directory.
 func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr logger.Logger) gin.HandlerFunc {
 	fileserver := GzipFileServer(fs, lggr)
-	if urlPrefix != "" {
-		fileserver = http.StripPrefix(urlPrefix, fileserver)
-	}
 	return func(c *gin.Context) {
 		if fs.Exists(urlPrefix, c.Request.URL.Path) {
 			fileserver.ServeHTTP(c.Writer, c.Request)
