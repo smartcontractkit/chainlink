@@ -812,6 +812,58 @@ func (r *Resolver) CreateChain(ctx context.Context, args struct {
 	return NewCreateChainPayload(&chain, nil), nil
 }
 
+func (r *Resolver) UpdateChain(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input struct {
+		Enabled            bool
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
+	}
+}) (*UpdateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewUpdateChainPayload(nil, inputErrs, nil), nil
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		sCfgs := make(map[string]types.ChainCfg)
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewUpdateChainPayload(nil, inputErrs, nil), nil
+				}
+
+				sCfgs[cfg.Address] = *sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChainSet().Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateChainPayload(nil, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateChainPayload(&chain, nil, nil), nil
+}
+
 func (r *Resolver) DeleteChain(ctx context.Context, args struct {
 	ID graphql.ID
 }) (*DeleteChainPayloadResolver, error) {
