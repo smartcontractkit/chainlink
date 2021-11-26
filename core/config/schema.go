@@ -136,15 +136,15 @@ type ConfigSchema struct {
 	OCRContractConfirmations                   uint                          `env:"OCR_CONTRACT_CONFIRMATIONS"`
 	OCRContractPollInterval                    time.Duration                 `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
 	OCRContractSubscribeInterval               time.Duration                 `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
-	OCRContractTransmitterTransmitTimeout      time.Duration                 `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
+	OCRContractTransmitterTransmitTimeout      time.Duration                 `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"2s"`
 	OCRDHTLookupInterval                       int                           `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
-	OCRDatabaseTimeout                         time.Duration                 `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
+	OCRDatabaseTimeout                         time.Duration                 `env:"OCR_DATABASE_TIMEOUT" default:"2s"`
 	OCRDefaultTransactionQueueDepth            uint32                        `env:"OCR_DEFAULT_TRANSACTION_QUEUE_DEPTH" default:"1"`
 	OCRIncomingMessageBufferSize               int                           `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRKeyBundleID                             string                        `env:"OCR_KEY_BUNDLE_ID"`
 	OCRMonitoringEndpoint                      string                        `env:"OCR_MONITORING_ENDPOINT"`
 	OCRNewStreamTimeout                        time.Duration                 `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
-	OCRObservationGracePeriod                  time.Duration                 `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
+	OCRObservationGracePeriod                  time.Duration                 `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"500ms"`
 	OCRObservationTimeout                      time.Duration                 `env:"OCR_OBSERVATION_TIMEOUT" default:"12s"`
 	OCROutgoingMessageBufferSize               int                           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRSimulateTransactions                    bool                          `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
