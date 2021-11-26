@@ -359,6 +359,131 @@ func TestMigrateController_MigrateWeb(t *testing.T) {
 	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
 }
 
+func TestMigrateController_MigrateCron(t *testing.T) {
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("ENABLE_LEGACY_JOB_PIPELINE", true)
+	config.Set("ETH_DISABLED", true)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config)
+	t.Cleanup(cleanup)
+	app.Config.Set("FEATURE_CRON_V2", true)
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
+
+	// Create the v1 job
+	resp, cleanup := client.Post("/v2/specs", strings.NewReader(`
+{
+  "name": "",
+  "initiators": [
+    {
+      "id": 52,
+      "jobSpecId": "95311d21-7c9f-4f35-b00c-fa32b5ae97e1",
+      "type": "cron",
+			"params": { "schedule": "CRON_TZ=UTC * * * * *" }
+    }
+  ],
+  "tasks": [
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "httpget",
+      "params": {
+        "get": "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BNT&convert=USD",
+        "headers": {
+          "X_KEY": [
+            "..."
+          ]
+        }
+      }
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "jsonparse",
+      "params": {
+        "path": [
+          "data",
+          "BNT",
+          "quote",
+          "USD",
+          "price"
+        ]
+      }
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "multiply",
+      "params": {
+        "times": 100000000
+      }
+    },
+    {
+      "jobSpecId": "95311d217c9f4f35b00cfa32b5ae97e1",
+      "type": "ethint256"
+    }
+  ]
+}
+`))
+	assert.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var jobV1 presenters.JobSpec
+	cltest.ParseJSONAPIResponse(t, resp, &jobV1)
+
+	expectedDotSpec := `http_get_0 [
+	method=GET
+	type=http
+	url="https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=BNT&convert=USD"
+	];
+	jsonparse_1 [
+	data="$(http_get_0)"
+	path="data,BNT,quote,USD,price"
+	type=jsonparse
+	];
+	multiply_2 [
+	input="$(jsonparse_1)"
+	times=100000000
+	type=multiply
+	];
+	
+	// Edge definitions.
+	http_get_0 -> jsonparse_1;
+	jsonparse_1 -> multiply_2;
+	`
+
+	// Migrate it
+	resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+
+	assert.Equal(t, 200, resp.StatusCode)
+
+	var createdJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
+
+	// v2 job migrated should be identical to v1.
+	assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+	assert.Equal(t, job.Cron.String(), createdJobV2.Type.String())
+	assert.Equal(t, createdJobV2.Name, jobV1.Name)
+	require.NotNil(t, createdJobV2.CronSpec)
+	assert.Equal(t, expectedDotSpec, createdJobV2.PipelineSpec.DotDAGSource)
+
+	// v1 FM job should be archived
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	assert.Equal(t, 404, resp.StatusCode)
+	errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+	require.NotNil(t, errs)
+	require.Len(t, errs.Errors, 1)
+	require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+	// v2 job read should be identical to created.
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+	assert.Equal(t, 200, resp.StatusCode)
+	t.Cleanup(cleanup)
+	var migratedJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+	assert.Equal(t, createdJobV2.PipelineSpec.DotDAGSource, migratedJobV2.PipelineSpec.DotDAGSource)
+}
+
 func TestMigrateController_Migrate(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
