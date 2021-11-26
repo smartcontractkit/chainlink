@@ -68,6 +68,7 @@ type VRFSpec {
     minIncomingConfirmations: Int!
     pollPeriod: String!
     publicKey: String!
+    requestedConfsDelay: Int!
 }
 
 type WebhookSpec {

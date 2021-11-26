@@ -434,6 +434,12 @@ func (r *VRFSpecResolver) PublicKey() string {
 	return r.spec.PublicKey.String()
 }
 
+// RequestedConfsDelay resolves the spec's requested conf delay.
+func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
+	// GraphQL doesn't support 64 bit integers, so we have to cast.
+	return int32(r.spec.RequestedConfsDelay)
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }
