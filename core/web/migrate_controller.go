@@ -268,8 +268,7 @@ func migrateRunLogJob(js models.JobSpec) (job.Job, error) {
 }
 
 func migrateWebJob(js models.JobSpec) (job.Job, error) {
-	var jb job.Job
-	jb = job.Job{
+	jb := job.Job{
 		Name: null.StringFrom(js.Name),
 		WebhookSpec: &job.WebhookSpec{
 			ExternalInitiatorWebhookSpecs: make([]job.ExternalInitiatorWebhookSpec, 0),
