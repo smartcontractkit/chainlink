@@ -39,12 +39,6 @@ func (k *PublicKey) Point() (kyber.Point, error) {
 	return p, p.UnmarshalBinary(k[:])
 }
 
-// NewPublicKey returns the PublicKey corresponding to rawKey
-func NewPublicKey(rawKey [CompressedPublicKeyLength]byte) *PublicKey {
-	rv := PublicKey(rawKey)
-	return &rv
-}
-
 // NewPublicKeyFromHex returns the PublicKey encoded by 0x-hex string hex, or errors
 func NewPublicKeyFromHex(hex string) (PublicKey, error) {
 	rawKey, err := hexutil.Decode(hex)
