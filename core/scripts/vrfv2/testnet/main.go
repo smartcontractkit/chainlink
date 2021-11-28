@@ -381,6 +381,15 @@ func main() {
 		tx, err := coordinator.OwnerCancelSubscription(owner, uint64(*subID))
 		panicErr(err)
 		fmt.Println("sub cancelled", tx.Hash())
-
+	case "sub-balance":
+		consumerBalanceCmd := flag.NewFlagSet("sub-balance", flag.ExitOnError)
+		coordinatorAddress := consumerBalanceCmd.String("coordinator-address", "", "coordinator address")
+		subID := consumerBalanceCmd.Uint64("sub-id", 0, "subscription id")
+		panicErr(consumerBalanceCmd.Parse(os.Args[2:]))
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), ec)
+		panicErr(err)
+		resp, err := coordinator.GetSubscription(nil, *subID)
+		panicErr(err)
+		fmt.Println("sub id", *subID, "balance:", resp.Balance)
 	}
 }
