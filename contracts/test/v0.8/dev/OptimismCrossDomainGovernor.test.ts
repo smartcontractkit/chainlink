@@ -145,7 +145,7 @@ describe('OptimismCrossDomainGovernor', () => {
         crossDomainMessenger // Simulate cross-chain OVM message
           .connect(stranger)
           .sendMessage(governor.address, forwardData, 0),
-      ).to.be.revertedWith('Governor call reverted')
+      ).to.be.revertedWith('Invalid greeting length')
     })
   })
 

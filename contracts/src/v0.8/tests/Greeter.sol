@@ -8,7 +8,7 @@ contract Greeter is ConfirmedOwner {
   constructor(address owner) ConfirmedOwner(owner) {}
 
   function setGreeting(string calldata _greeting) external onlyOwner {
-    require(bytes(_greeting).length > 0);
+    require(bytes(_greeting).length > 0, "Invalid greeting length");
     greeting = _greeting;
   }
 }
