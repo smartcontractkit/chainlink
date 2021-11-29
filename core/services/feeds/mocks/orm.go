@@ -172,13 +172,13 @@ func (_m *ORM) GetJobProposal(id int64, qopts ...pg.QOpt) (*feeds.JobProposal, e
 	return r0, r1
 }
 
-// GetJobProposalByRemoteUUID provides a mock function with given fields: _a0
-func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, error) {
-	ret := _m.Called(_a0)
+// GetJobProposalByRemoteUUID provides a mock function with given fields: id
+func (_m *ORM) GetJobProposalByRemoteUUID(id uuid.UUID) (*feeds.JobProposal, error) {
+	ret := _m.Called(id)
 
 	var r0 *feeds.JobProposal
 	if rf, ok := ret.Get(0).(func(uuid.UUID) *feeds.JobProposal); ok {
-		r0 = rf(_a0)
+		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*feeds.JobProposal)
@@ -187,7 +187,30 @@ func (_m *ORM) GetJobProposalByRemoteUUID(_a0 uuid.UUID) (*feeds.JobProposal, er
 
 	var r1 error
 	if rf, ok := ret.Get(1).(func(uuid.UUID) error); ok {
-		r1 = rf(_a0)
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetJobProposalByRemoteUUIDAndStatus provides a mock function with given fields: id, status
+func (_m *ORM) GetJobProposalByRemoteUUIDAndStatus(id uuid.UUID, status feeds.JobProposalStatus) (*feeds.JobProposal, error) {
+	ret := _m.Called(id, status)
+
+	var r0 *feeds.JobProposal
+	if rf, ok := ret.Get(0).(func(uuid.UUID, feeds.JobProposalStatus) *feeds.JobProposal); ok {
+		r0 = rf(id, status)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*feeds.JobProposal)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(uuid.UUID, feeds.JobProposalStatus) error); ok {
+		r1 = rf(id, status)
 	} else {
 		r1 = ret.Error(1)
 	}

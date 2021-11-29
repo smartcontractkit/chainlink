@@ -23,7 +23,8 @@ type ORM interface {
 	CreateManager(ms *FeedsManager) (int64, error)
 	GetJobProposal(id int64, qopts ...pg.QOpt) (*JobProposal, error)
 	GetJobProposalsByManagersIDs(ids []int64, qopts ...pg.QOpt) ([]JobProposal, error)
-	GetJobProposalByRemoteUUID(uuid uuid.UUID) (*JobProposal, error)
+	GetJobProposalByRemoteUUID(id uuid.UUID) (*JobProposal, error)
+	GetJobProposalByRemoteUUIDAndStatus(id uuid.UUID, status JobProposalStatus) (*JobProposal, error)
 	GetManager(id int64) (*FeedsManager, error)
 	GetManagers(ids []int64) ([]FeedsManager, error)
 	IsJobManaged(jobID int64, qopts ...pg.QOpt) (bool, error)
@@ -146,14 +147,14 @@ RETURNING id;
 	return id, errors.Wrap(err, "CreateJobProposal failed")
 }
 
-// UpsertJobProposal creates a job proposal if it does not exist. If it does exist,
-// then we update the details of the existing job proposal only if the provided
-// feeds manager id exists.
+// UpsertJobProposal creates a pending job proposal if it does not exist. If it
+// does exist, then we update the details of the existing job proposal only if
+// the provided feeds manager id exists.
 func (o *orm) UpsertJobProposal(jp *JobProposal) (id int64, err error) {
 	stmt := `
 INSERT INTO job_proposals (remote_uuid, spec, status, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW(), NOW())
-ON CONFLICT (remote_uuid)
+ON CONFLICT (remote_uuid) WHERE status = $6
 DO
 	UPDATE SET
 		spec = excluded.spec,
@@ -164,7 +165,7 @@ DO
 RETURNING id;
 `
 
-	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
+	err = o.q.Get(&id, stmt, jp.RemoteUUID, jp.Spec, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, JobProposalStatusPending)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -214,6 +215,20 @@ WHERE remote_uuid = $1;
 	jp = new(JobProposal)
 	err = o.q.Get(jp, stmt, id)
 	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUID failed")
+}
+
+// GetJobProposalByRemoteUUID gets a job proposal by the remote FMS uuid and
+// status
+func (o *orm) GetJobProposalByRemoteUUIDAndStatus(id uuid.UUID, status JobProposalStatus) (jp *JobProposal, err error) {
+	stmt := `
+SELECT id, remote_uuid, spec, status, external_job_id, feeds_manager_id, multiaddrs, proposed_at, created_at, updated_at
+FROM job_proposals
+WHERE remote_uuid = $1 AND status = $2;
+`
+
+	jp = new(JobProposal)
+	err = o.q.Get(jp, stmt, id, status)
+	return jp, errors.Wrap(err, "GetJobProposalByRemoteUUIDAndStatus failed")
 }
 
 // UpdateJobProposalStatus updates the status of a job proposal by id.

@@ -427,6 +427,19 @@ func Test_ORM_GetJobProposal(t *testing.T) {
 		_, err = orm.GetJobProposalByRemoteUUID(uuid.NewV4())
 		require.Error(t, err)
 	})
+
+	t.Run("by remote uuid and status", func(t *testing.T) {
+		actual, err := orm.GetJobProposalByRemoteUUIDAndStatus(remoteUUID, feeds.JobProposalStatusPending)
+		require.NoError(t, err)
+
+		assertJobEquals(actual)
+
+		_, err = orm.GetJobProposalByRemoteUUIDAndStatus(uuid.NewV4(), feeds.JobProposalStatusPending)
+		require.Error(t, err)
+
+		_, err = orm.GetJobProposalByRemoteUUIDAndStatus(remoteUUID, feeds.JobProposalStatusApproved)
+		require.Error(t, err)
+	})
 }
 
 func Test_ORM_UpdateJobProposalStatus(t *testing.T) {

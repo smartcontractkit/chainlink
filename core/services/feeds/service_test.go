@@ -246,7 +246,9 @@ func Test_Service_ProposeJob(t *testing.T) {
 			name: "Create success",
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.On("GetJobProposalByRemoteUUID", jp.RemoteUUID).Return(new(feeds.JobProposal), sql.ErrNoRows)
+				svc.orm.
+					On("GetJobProposalByRemoteUUIDAndStatus", jp.RemoteUUID, feeds.JobProposalStatusPending).
+					Return(new(feeds.JobProposal), sql.ErrNoRows)
 				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
 			wantID:   id,
@@ -257,27 +259,11 @@ func Test_Service_ProposeJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUIDAndStatus", jp.RemoteUUID, feeds.JobProposalStatusPending).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: jp.FeedsManagerID,
 						RemoteUUID:     jp.RemoteUUID,
 						Status:         feeds.JobProposalStatusPending,
-					}, nil)
-				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
-			},
-			wantID:   id,
-			proposal: jp,
-		},
-		{
-			name: "Updates the status of a rejected job proposal",
-			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusRejected,
 					}, nil)
 				svc.orm.On("UpsertJobProposal", &jp).Return(id, nil)
 			},
@@ -303,12 +289,12 @@ func Test_Service_ProposeJob(t *testing.T) {
 			wantErr: "only OCR job type supports multiaddr",
 		},
 		{
-			name:     "ensure an upsert validates the job propsal belongs to the feeds manager",
+			name:     "ensure an upsert validates that the job proposal belongs to the feeds manager",
 			proposal: jp,
 			before: func(svc *TestService) {
 				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
 				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
+					On("GetJobProposalByRemoteUUIDAndStatus", jp.RemoteUUID, feeds.JobProposalStatusPending).
 					Return(&feeds.JobProposal{
 						FeedsManagerID: 2,
 						RemoteUUID:     jp.RemoteUUID,
@@ -316,21 +302,6 @@ func Test_Service_ProposeJob(t *testing.T) {
 					}, nil)
 			},
 			wantErr: "cannot update a job proposal belonging to another feeds manager",
-		},
-		{
-			name:     "ensure an upsert does not occur on an approved job proposal",
-			proposal: jp,
-			before: func(svc *TestService) {
-				svc.cfg.On("DefaultHTTPTimeout").Return(httpTimeout)
-				svc.orm.
-					On("GetJobProposalByRemoteUUID", jp.RemoteUUID).
-					Return(&feeds.JobProposal{
-						FeedsManagerID: jp.FeedsManagerID,
-						RemoteUUID:     jp.RemoteUUID,
-						Status:         feeds.JobProposalStatusApproved,
-					}, nil)
-			},
-			wantErr: "cannot re-propose a job that has already been approved",
 		},
 	}
 
