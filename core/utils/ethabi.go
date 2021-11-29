@@ -46,14 +46,6 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 	return out, nil
 }
 
-func MustGenericEncode(types []string, values ...interface{}) []byte {
-	out, err := GenericEncode(types, values)
-	if err != nil {
-		panic(err)
-	}
-	return out
-}
-
 // ConcatBytes appends a bunch of byte arrays into a single byte array
 func ConcatBytes(bufs ...[]byte) []byte {
 	return bytes.Join(bufs, []byte{})

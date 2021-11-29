@@ -351,6 +351,7 @@ type VRFSpec struct {
 	FromAddress              *ethkey.EIP55Address `toml:"fromAddress"`
 	PollPeriod               time.Duration        `toml:"pollPeriod"` // For v2 jobs
 	PollPeriodEnv            bool
+	RequestedConfsDelay      int64     `toml:"requestedConfsDelay"` // For v2 jobs. Optional, defaults to 0 if not provided.
 	CreatedAt                time.Time `toml:"-"`
 	UpdatedAt                time.Time `toml:"-"`
 }

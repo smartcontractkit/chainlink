@@ -387,7 +387,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 		err := db.Get(&upkeep, `SELECT * FROM upkeep_registrations`)
 		require.NoError(t, err)
 		return upkeep.LastRunBlockHeight
-	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(int64(0)))
 
 	ethMock.AssertExpectations(t)
 	logBroadcast.AssertExpectations(t)

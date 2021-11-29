@@ -41,10 +41,6 @@ func OptReadOnlyTx() TxOptions {
 	return TxOptions{TxOptions: sql.TxOptions{ReadOnly: true}}
 }
 
-var (
-	ErrNoDeadlineSet = errors.New("no deadline set")
-)
-
 func applyDefaults(optss []TxOptions) (lockTimeout, idleInTxSessionTimeout time.Duration, txOpts sql.TxOptions) {
 	lockTimeout = DefaultLockTimeout
 	idleInTxSessionTimeout = DefaultIdleInTxSessionTimeout
