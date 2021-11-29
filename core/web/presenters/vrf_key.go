@@ -17,10 +17,10 @@ func (VRFKeyResource) GetName() string {
 	return "encryptedVRFKeys"
 }
 
-func NewVRFKeyResource(key vrfkey.KeyV2) *VRFKeyResource {
+func NewVRFKeyResource(key vrfkey.KeyV2, lggr logger.Logger) *VRFKeyResource {
 	uncompressed, err := key.PublicKey.StringUncompressed()
 	if err != nil {
-		logger.Error("unable to get uncompressed pk", "err", err)
+		lggr.Errorw("Unable to get uncompressed pk", "err", err)
 	}
 	return &VRFKeyResource{
 		JAID:         NewJAID(key.PublicKey.String()),
@@ -30,10 +30,10 @@ func NewVRFKeyResource(key vrfkey.KeyV2) *VRFKeyResource {
 	}
 }
 
-func NewVRFKeyResources(keys []vrfkey.KeyV2) []VRFKeyResource {
+func NewVRFKeyResources(keys []vrfkey.KeyV2, lggr logger.Logger) []VRFKeyResource {
 	rs := []VRFKeyResource{}
 	for _, key := range keys {
-		rs = append(rs, *NewVRFKeyResource(key))
+		rs = append(rs, *NewVRFKeyResource(key, lggr))
 	}
 
 	return rs
