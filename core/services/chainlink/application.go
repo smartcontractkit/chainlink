@@ -300,6 +300,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
 		feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
+		subservices = append(subservices, feedsService)
 	}
 
 	app := &ChainlinkApplication{
@@ -387,12 +388,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	if app.FeedsService != nil {
-		if err := app.FeedsService.Start(); err != nil {
-			app.logger.Infof("[Feeds Service] %v", err)
-		}
-	}
-
 	for _, subservice := range app.subservices {
 		app.logger.Debugw("Starting service...", "serviceType", reflect.TypeOf(subservice))
 		if err := subservice.Start(); err != nil {
@@ -454,10 +449,6 @@ func (app *ChainlinkApplication) stop() (err error) {
 			merr = multierr.Append(merr, app.SessionReaper.Stop())
 			app.logger.Debug("Closing HealthChecker...")
 			merr = multierr.Append(merr, app.HealthChecker.Close())
-			if app.FeedsService != nil {
-				app.logger.Debug("Closing Feeds Service...")
-				merr = multierr.Append(merr, app.FeedsService.Close())
-			}
 
 			// Clean up the advisory lock if present
 			if app.advisoryLock != nil {

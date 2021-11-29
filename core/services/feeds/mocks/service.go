@@ -190,6 +190,20 @@ func (_m *Service) GetManagers(ids []int64) ([]feeds.FeedsManager, error) {
 	return r0, r1
 }
 
+// Healthy provides a mock function with given fields:
+func (_m *Service) Healthy() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // IsJobManaged provides a mock function with given fields: ctx, jobID
 func (_m *Service) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 	ret := _m.Called(ctx, jobID)
@@ -276,6 +290,20 @@ func (_m *Service) ProposeJob(jp *feeds.JobProposal) (int64, error) {
 	}
 
 	return r0, r1
+}
+
+// Ready provides a mock function with given fields:
+func (_m *Service) Ready() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // RegisterManager provides a mock function with given fields: ms

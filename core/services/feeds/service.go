@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	coreservice "github.com/smartcontractkit/chainlink/core/service"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -35,8 +36,7 @@ var (
 
 // Service represents a behavior of the feeds service
 type Service interface {
-	Start() error
-	Close() error
+	coreservice.Service
 
 	ApproveJobProposal(ctx context.Context, id int64) error
 	CountManagers() (int64, error)
@@ -106,6 +106,12 @@ func NewService(
 
 	return svc
 }
+
+// Healthy implements health.Checkable
+func (s *service) Healthy() error { return nil }
+
+// Healthy implements health.Checkable
+func (s *service) Ready() error { return nil }
 
 // RegisterManager registers a new ManagerService and attempts to establish a
 // connection.
