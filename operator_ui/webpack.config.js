@@ -42,7 +42,7 @@ module.exports = {
   },
   output: {
     filename: '[name].[contenthash].js',
-    path: path.resolve(__dirname, 'dist'),
+    path: path.resolve(__dirname, '../core/web/assets'),
     publicPath: '/',
   },
   plugins: [

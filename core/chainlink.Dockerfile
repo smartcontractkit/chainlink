@@ -18,6 +18,9 @@ COPY tsconfig.cjs.json ./
 COPY core/web/schema core/web/schema
 COPY operator_ui ./operator_ui
 
+# Create the directory that the operator-ui build assets will be placed in.
+RUN mkdir -p core/web
+
 # Build operator-ui and the smart contracts
 RUN make contracts-operator-ui-build
 
@@ -37,9 +40,9 @@ RUN go mod download
 ARG COMMIT_SHA
 ARG ENVIRONMENT
 
-COPY --from=0 /chainlink/operator_ui/dist ./operator_ui/dist
 COPY core core
-COPY packr packr
+# Copy over operator-ui build assets to the web module so that we embed them correctly
+COPY --from=0 /chainlink/core/web/assets ./core/web/assets
 
 RUN make chainlink-build
 

@@ -26,8 +26,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	packr "github.com/gobuffalo/packr"
-
 	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -327,20 +325,6 @@ func (_m *Application) JobSpawner() job.Spawner {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(job.Spawner)
 		}
-	}
-
-	return r0
-}
-
-// NewBox provides a mock function with given fields:
-func (_m *Application) NewBox() packr.Box {
-	ret := _m.Called()
-
-	var r0 packr.Box
-	if rf, ok := ret.Get(0).(func() packr.Box); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(packr.Box)
 	}
 
 	return r0
