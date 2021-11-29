@@ -419,7 +419,7 @@ func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
-
+			return
 		}
 		defer lggr.ErrorIfClosing(file, "file")
 
