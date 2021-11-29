@@ -22,7 +22,6 @@ core/sgx/target/
 
 operator_ui/dist/
 operator_ui/artifacts/
-*-packr.go
 
 core/*.Dockerfile
 chainlink
