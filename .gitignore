@@ -30,7 +30,7 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .direnv
-.idea 
+.idea
 
 # codeship
 *.aes
@@ -52,3 +52,6 @@ db/
 
 # can be left behind by tests
 core/cmd/vrfkey1
+
+# left behind by webpack - compiled frontend assets
+core/web/assets

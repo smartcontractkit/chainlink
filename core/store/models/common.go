@@ -12,9 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"github.com/tidwall/gjson"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tidwall/gjson"
 )
 
 // CronParser is the global parser for crontabs.
@@ -201,6 +202,15 @@ func MakeDuration(d time.Duration) (Duration, error) {
 		return Duration{}, fmt.Errorf("cannot make negative time duration: %s", d)
 	}
 	return Duration{d: d}, nil
+}
+
+func MakeDurationFromString(s string) (Duration, error) {
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return Duration{}, err
+	}
+
+	return MakeDuration(d)
 }
 
 func MustMakeDuration(d time.Duration) Duration {
