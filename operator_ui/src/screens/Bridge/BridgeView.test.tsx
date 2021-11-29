@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { BridgeView } from './BridgeView'
 import { buildBridgePayloadFields } from 'support/factories/gql/fetchBridge'
 
-const { getByRole, getByText } = screen
+const { getAllByText, getByRole, getByText } = screen
 
 describe('BridgeView', () => {
   let handleDelete: jest.Mock
@@ -35,10 +35,10 @@ describe('BridgeView', () => {
     expect(getByText('Name')).toBeInTheDocument()
     expect(getByText('URL')).toBeInTheDocument()
     expect(getByText('Confirmations')).toBeInTheDocument()
-    expect(getByText('Minimum Contract Payment')).toBeInTheDocument()
+    expect(getByText('Min. Contract Payment')).toBeInTheDocument()
     expect(getByText('Outgoing Token')).toBeInTheDocument()
 
-    expect(getByText('bridge-api')).toBeInTheDocument()
+    expect(getAllByText('bridge-api')).toHaveLength(2) // In the heading and details
     expect(getByText('http://bridge.com')).toBeInTheDocument()
     expect(getByText(1)).toBeInTheDocument()
     expect(getByText(0)).toBeInTheDocument()
@@ -48,7 +48,8 @@ describe('BridgeView', () => {
   it('links to the edit page', async () => {
     renderComponent(buildBridgePayloadFields())
 
-    userEvent.click(getByRole('link', { name: /edit/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /edit/i }))
 
     expect(getByText('Edit Page')).toBeInTheDocument()
   })
@@ -56,7 +57,8 @@ describe('BridgeView', () => {
   it('handles a bridge delete', async () => {
     renderComponent(buildBridgePayloadFields())
 
-    userEvent.click(getByRole('button', { name: /delete/i }))
+    userEvent.click(getByRole('button', { name: /open-menu/i }))
+    userEvent.click(getByRole('menuitem', { name: /delete/i }))
     userEvent.click(getByRole('button', { name: /confirm/i }))
 
     expect(handleDelete).toHaveBeenCalled()

@@ -186,7 +186,7 @@ type TaskRunResults []TaskRunResult
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult() FinalResult {
+func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
@@ -202,8 +202,7 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 	}
 
 	if !found {
-		logger.Errorw("expected at least one task to be final", "tasks", trrs)
-		panic("expected at least one task to be final")
+		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
 }

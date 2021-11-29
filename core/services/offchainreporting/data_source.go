@@ -53,7 +53,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	var observation ocrtypes.Observation
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		logger.Warnw("unable to attach metadata for run", "err", err)
+		ds.ocrLogger.Warnw("unable to attach metadata for run", "err", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -71,7 +71,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	finalResult := trrs.FinalResult()
+	finalResult := trrs.FinalResult(ds.ocrLogger)
 
 	// Do the database write in a non-blocking fashion
 	// so we can return the observation results immediately.
