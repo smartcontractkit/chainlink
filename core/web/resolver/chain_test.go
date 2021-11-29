@@ -3,8 +3,13 @@ package resolver
 import (
 	"database/sql"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,6 +28,20 @@ func Test_Chains(t *testing.T) {
 						nodes {
 							id
 						}
+						config {
+							blockHistoryEstimatorBlockDelay
+							ethTxReaperThreshold
+							ethTxResendAfterThreshold
+							evmEIP1559DynamicFees
+							evmGasLimitMultiplier
+							chainType
+							gasEstimatorMode
+							keySpecificConfigs {
+								address
+								blockHistoryEstimatorBlockDelay
+								evmEIP1559DynamicFees
+							}
+						}
 					}
 					metadata {
 						total
@@ -37,12 +56,30 @@ func Test_Chains(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
+				threshold, err := models.MakeDuration(1 * time.Minute)
+				require.NoError(t, err)
+
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.evmORM.On("Chains", PageDefaultOffset, PageDefaultLimit).Return([]types.Chain{
 					{
 						ID:        chainID,
 						Enabled:   true,
 						CreatedAt: f.Timestamp(),
+						Cfg: types.ChainCfg{
+							BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+							EthTxReaperThreshold:            &threshold,
+							EthTxResendAfterThreshold:       &threshold,
+							EvmEIP1559DynamicFees:           null.BoolFrom(true),
+							EvmGasLimitMultiplier:           null.FloatFrom(1.23),
+							GasEstimatorMode:                null.StringFrom("BlockHistory"),
+							ChainType:                       null.StringFrom("optimism"),
+							KeySpecific: map[string]types.ChainCfg{
+								"test-address": {
+									BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+									EvmEIP1559DynamicFees:           null.BoolFrom(false),
+								},
+							},
+						},
 					},
 				}, 1, nil)
 				f.Mocks.evmORM.On("GetNodesByChainIDs", []utils.Big{chainID}).
@@ -61,6 +98,20 @@ func Test_Chains(t *testing.T) {
 						"id": "1",
 						"enabled": true,
 						"createdAt": "2021-01-01T00:00:00Z",
+						"config": {
+							"blockHistoryEstimatorBlockDelay": 1,
+							"ethTxReaperThreshold": "1m0s",
+							"ethTxResendAfterThreshold": "1m0s",
+							"evmEIP1559DynamicFees": true,
+							"evmGasLimitMultiplier": 1.23,
+							"chainType": "OPTIMISM",
+							"gasEstimatorMode": "BLOCK_HISTORY",
+							"keySpecificConfigs": [{
+								"address": "test-address",
+								"blockHistoryEstimatorBlockDelay": 0,
+								"evmEIP1559DynamicFees": false
+							}]
+						},
 						"nodes": [{
 							"id": "200"
 						}]
@@ -90,6 +141,20 @@ func TestResolver_Chain(t *testing.T) {
 						nodes {
 							id
 						}
+						config {
+							blockHistoryEstimatorBlockDelay
+							ethTxReaperThreshold
+							ethTxResendAfterThreshold
+							evmEIP1559DynamicFees
+							evmGasLimitMultiplier
+							chainType
+							gasEstimatorMode
+							keySpecificConfigs {
+								address
+								blockHistoryEstimatorBlockDelay
+								evmEIP1559DynamicFees
+							}
+						}
 					}
 					... on NotFoundError {
 						code
@@ -106,11 +171,29 @@ func TestResolver_Chain(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
+				threshold, err := models.MakeDuration(1 * time.Minute)
+				require.NoError(t, err)
+
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.Mocks.evmORM.On("Chain", chainID).Return(types.Chain{
 					ID:        chainID,
 					Enabled:   true,
 					CreatedAt: f.Timestamp(),
+					Cfg: types.ChainCfg{
+						BlockHistoryEstimatorBlockDelay: null.IntFrom(1),
+						EthTxReaperThreshold:            &threshold,
+						EthTxResendAfterThreshold:       &threshold,
+						EvmEIP1559DynamicFees:           null.BoolFrom(true),
+						EvmGasLimitMultiplier:           null.FloatFrom(1.23),
+						GasEstimatorMode:                null.StringFrom("BlockHistory"),
+						ChainType:                       null.StringFrom("optimism"),
+						KeySpecific: map[string]types.ChainCfg{
+							"test-address": {
+								BlockHistoryEstimatorBlockDelay: null.IntFrom(0),
+								EvmEIP1559DynamicFees:           null.BoolFrom(false),
+							},
+						},
+					},
 				}, nil)
 				f.Mocks.evmORM.On("GetNodesByChainIDs", []utils.Big{chainID}).
 					Return([]types.Node{
@@ -127,6 +210,20 @@ func TestResolver_Chain(t *testing.T) {
 						"id": "1",
 						"enabled": true,
 						"createdAt": "2021-01-01T00:00:00Z",
+						"config": {
+							"blockHistoryEstimatorBlockDelay": 1,
+							"ethTxReaperThreshold": "1m0s",
+							"ethTxResendAfterThreshold": "1m0s",
+							"evmEIP1559DynamicFees": true,
+							"evmGasLimitMultiplier": 1.23,
+							"chainType": "OPTIMISM",
+							"gasEstimatorMode": "BLOCK_HISTORY",
+							"keySpecificConfigs": [{
+								"address": "test-address",
+								"blockHistoryEstimatorBlockDelay": 0,
+								"evmEIP1559DynamicFees": false
+							}]
+						},
 						"nodes": [{
 							"id": "200"
 						}]

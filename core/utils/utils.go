@@ -18,8 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
@@ -29,7 +27,6 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -37,8 +34,6 @@ const (
 	DefaultSecretSize = 48
 	// EVMWordByteLen the length of an EVM Word Byte
 	EVMWordByteLen = 32
-	// EVMWordHexLen the length of an EVM Word Hex
-	EVMWordHexLen = EVMWordByteLen * 2
 )
 
 // ZeroAddress is an address of all zeroes, otherwise in Ethereum as
@@ -48,22 +43,6 @@ var ZeroAddress = common.Address{}
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
-
-// WithoutZeroAddresses returns a list of addresses excluding the zero address.
-func WithoutZeroAddresses(addresses []common.Address) []common.Address {
-	var withoutZeros []common.Address
-	for _, address := range addresses {
-		if address != ZeroAddress {
-			withoutZeros = append(withoutZeros, address)
-		}
-	}
-	return withoutZeros
-}
-
-// Uint64ToHex converts the given uint64 value to a hex-value string.
-func Uint64ToHex(i uint64) string {
-	return fmt.Sprintf("0x%x", i)
-}
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
@@ -82,14 +61,6 @@ func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 // ISO8601UTC formats given time to ISO8601.
 func ISO8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
-}
-
-// NullISO8601UTC returns formatted time if valid, empty string otherwise.
-func NullISO8601UTC(t null.Time) string {
-	if t.Valid {
-		return ISO8601UTC(t.Time)
-	}
-	return ""
 }
 
 // DurationFromNow returns the amount of time since the Time
@@ -133,17 +104,6 @@ func RemoveHexPrefix(str string) string {
 // HasHexPrefix returns true if the string starts with 0x.
 func HasHexPrefix(str string) bool {
 	return len(str) >= 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')
-}
-
-// DecodeEthereumTx takes an RLP hex encoded Ethereum transaction and
-// returns a Transaction struct with all the fields accessible.
-func DecodeEthereumTx(hex string) (types.Transaction, error) {
-	var tx types.Transaction
-	b, err := hexutil.Decode(hex)
-	if err != nil {
-		return tx, err
-	}
-	return tx, rlp.DecodeBytes(b, &tx)
 }
 
 // IsEmptyAddress checks that the address is empty, synonymous with the zero
@@ -255,17 +215,6 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	}
 }
 
-// MaxBigs finds the maximum value of a list of big.Ints.
-func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
-	max := first
-	for _, n := range bigs {
-		if max.Cmp(n) < 0 {
-			max = n
-		}
-	}
-	return max
-}
-
 // MaxUint32 finds the maximum value of a list of uint32s.
 func MaxUint32(first uint32, uints ...uint32) uint32 {
 	max := first
@@ -345,11 +294,6 @@ func Sha256(in string) (string, error) {
 	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
-// StripBearer removes the 'Bearer: ' prefix from the HTTP Authorization header.
-func StripBearer(authorizationStr string) string {
-	return strings.TrimPrefix(strings.TrimSpace(authorizationStr), "Bearer ")
-}
-
 // IsQuoted checks if the first and last characters are either " or '.
 func IsQuoted(input []byte) bool {
 	return len(input) >= 2 &&
@@ -403,14 +347,6 @@ func MustHash(in string) common.Hash {
 	return common.BytesToHash(out)
 }
 
-// LogListeningAddress returns the LogListeningAddress
-func LogListeningAddress(address common.Address) string {
-	if address == ZeroAddress {
-		return "[all]"
-	}
-	return address.String()
-}
-
 // JustError takes a tuple and returns the last entry, the error.
 func JustError(_ interface{}, err error) error {
 	return err
@@ -446,14 +382,6 @@ func HexToBig(s string) *big.Int {
 		panic(fmt.Errorf(`failed to convert "%s" as hex to big.Int`, s))
 	}
 	return n
-}
-
-// Uint256ToHex returns the hex representation of n, or error if out of bounds
-func Uint256ToHex(n *big.Int) (string, error) {
-	if err := CheckUint256(n); err != nil {
-		return "", err
-	}
-	return common.BigToHash(n).Hex(), nil
 }
 
 // Uint256ToBytes32 returns the bytes32 encoding of the big int provided
@@ -1080,19 +1008,4 @@ func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
 	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
 	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
 		"\n\n"
-}
-
-func Example_boxOutput() {
-	fmt.Println()
-	fmt.Print(BoxOutput("%s is %d", "foo", 17))
-	// Output:
-	// ↘↓↓↓↓↓↓↓↓↓↓↓↓↓↙
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// →  foo is 17  ←
-	// →             ←
-	// →  README     ←
-	// →             ←
-	// ↗↑↑↑↑↑↑↑↑↑↑↑↑↑↖
 }

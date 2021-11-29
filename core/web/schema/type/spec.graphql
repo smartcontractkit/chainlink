@@ -1,4 +1,4 @@
-union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec
+union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec | WebhookSpec
 
 type CronSpec {
     schedule: String!
@@ -68,4 +68,9 @@ type VRFSpec {
     minIncomingConfirmations: Int!
     pollPeriod: String!
     publicKey: String!
+    requestedConfsDelay: Int!
+}
+
+type WebhookSpec {
+    createdAt: Time!
 }

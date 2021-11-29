@@ -119,16 +119,6 @@ func packUint256s(xs ...*big.Int) ([]byte, error) {
 	return mem, nil
 }
 
-// HashUint256s returns a uint256 representing the hash of the concatenated byte
-// representations of the inputs
-func HashUint256s(xs ...*big.Int) (*big.Int, error) {
-	packed, err := packUint256s(xs...)
-	if err != nil {
-		return &big.Int{}, err
-	}
-	return utils.MustHash(string(packed)).Big(), nil
-}
-
 // FieldHash hashes xs uniformly into {0, ..., fieldSize-1}. msg is assumed to
 // already be a 256-bit hash
 func FieldHash(msg []byte) *big.Int {

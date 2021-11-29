@@ -62,6 +62,14 @@ func (r *SpecResolver) ToVRFSpec() (*VRFSpecResolver, bool) {
 	return &VRFSpecResolver{spec: *r.j.VRFSpec}, true
 }
 
+func (r *SpecResolver) ToWebhookSpec() (*WebhookSpecResolver, bool) {
+	if r.j.Type != job.Webhook {
+		return nil, false
+	}
+
+	return &WebhookSpecResolver{spec: *r.j.WebhookSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -424,4 +432,19 @@ func (r *VRFSpecResolver) PollPeriod() string {
 // PublicKey resolves the spec's public key.
 func (r *VRFSpecResolver) PublicKey() string {
 	return r.spec.PublicKey.String()
+}
+
+// RequestedConfsDelay resolves the spec's requested conf delay.
+func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
+	// GraphQL doesn't support 64 bit integers, so we have to cast.
+	return int32(r.spec.RequestedConfsDelay)
+}
+
+type WebhookSpecResolver struct {
+	spec job.WebhookSpec
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (r *WebhookSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
 }

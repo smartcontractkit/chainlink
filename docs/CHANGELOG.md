@@ -14,6 +14,27 @@ Two new log levels have been added.
 - `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
 - `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
 
+### New optional VRF v2 field: `requestedConfsDelay`
+
+Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
+number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
+the randomness request, i.e the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
+blocks before servicing the request.
+
+It can be used in the following way:
+
+```toml
+type = "vrf"
+externalJobID = "123e4567-e89b-12d3-a456-426655440001"
+schemaVersion = 1
+name = "vrf-v2-secondary"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+requestedConfsDelay = 10
+# ... rest of job spec ...
+```
+
+Use of this field requires a database migration.
+
 ### Changed
 
 - The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
@@ -24,7 +45,8 @@ Two new log levels have been added.
 
 ### Added
 
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
 
 #### New locking mode: 'lease'
 

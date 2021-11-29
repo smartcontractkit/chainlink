@@ -3,7 +3,6 @@ import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/nodes'
-const DESTROY_ENDPOINT = `${ENDPOINT}/:nodeId`
 
 export class Nodes {
   constructor(private api: jsonapi.Api) {}
@@ -11,11 +10,6 @@ export class Nodes {
   @boundMethod
   public getNodes(): Promise<jsonapi.ApiResponse<models.Node[]>> {
     return this.index()
-  }
-
-  @boundMethod
-  public destroyNode(id: string): Promise<jsonapi.ApiResponse<null>> {
-    return this.destroy(undefined, { nodeId: id })
   }
 
   @boundMethod
@@ -31,12 +25,4 @@ export class Nodes {
     models.CreateNodeRequest,
     models.Node
   >(ENDPOINT)
-
-  private destroy = this.api.deleteResource<
-    undefined,
-    null,
-    {
-      nodeId: string
-    }
-  >(DESTROY_ENDPOINT)
 }
