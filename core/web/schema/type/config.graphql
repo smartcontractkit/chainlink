@@ -1,66 +1,10 @@
-type Config {
-    allowOrigins: String!
-    blockBackfillDepth: Int!
-    bridgeResponseURL: String!
-    clientNodeURL: String!
-    databaseBackupFrequency: String!
-    databaseBackupMode: String!
-    databaseMaximumTxDuration: String!
-    databaseTimeout: String!
-    databaseLockingMode: String!
-    defaultChainID: String!
-    defaultHTTPLimit: Int!
-    defaultHTTPTimeout: String!
-    dev: Boolean!
-    ethereumDisabled: Boolean!
-    ethereumHTTPURL: String!
-    ethereumSecondaryURLs: [String!]!
-    ethereumURL: String!
-    explorerURL: String!
-    fmDefaultTransactionQueueDepth: Int!
-    featureExternalInitiators: Boolean!
-    featureOffchainReporting: Boolean!
-    insecureFastScrypt: Boolean!
-    jsonConsole: Boolean!
-    jobPipelineReaperInterval: String!
-    jobPipelineReaperThreshold: String!
-    keeperDefaultTransactionQueueDepth: Int!
-    keeperGasPriceBufferPercent: Int!
-    keeperGasTipCapBufferPercent: Int!
-    logLevel: LogLevel!
-    logSQLMigrations: Boolean!
-    logSQL: Boolean!
-    ocrBootstrapCheckInterval: String!
-    ocrContractTransmitterTransmitTimeout: String!
-    ocrDHTLookupInterval: Int!
-    ocrDatabaseTimeout: String!
-    ocrDefaultTransactionQueueDepth: Int!
-    ocrIncomingMessageBufferSize: Int!
-    ocrNewStreamTimeout: String!
-    ocrOutgoingMessageBufferSize: Int!
-    ocrTraceLogging: Boolean!
-    p2pBootstrapPeers: [String!]!
-    p2pListenIP: String!
-    p2pNetworkingStack: String!
-    p2pPeerID: String!
-    p2pV2AnnounceAddresses: [String!]!
-    p2pV2Bootstrappers: [String!]!
-    p2pV2DeltaDial: String!
-    p2pV2DeltaReconcile: String!
-    p2pV2ListenAddresses: [String!]!
-    port: Int!
-    reaperExpiration: String!
-    replayFromBlock: Int!
-    rootDir: String!
-    secureCookies: Boolean!
-    sessionTimeout: String!
-    tlsHost: String!
-    tlsPort: Int!
-    tlsRedirect: Boolean!
-    telemetryIngressLogging: Boolean!
-    telemetryIngressServerPubKey: String!
-    telemetryIngressURL: String!
-    triggerFallbackDBPollInterval: String!
+scalar ConfigItemValue
+
+type ConfigItem {
+    key: String!
+    config: ConfigItemValue!
 }
 
-union ConfigPayload = Config
+type ConfigPayload {
+    items: [ConfigItem!]!
+}
