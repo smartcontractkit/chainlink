@@ -22,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
@@ -31,6 +30,12 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -67,11 +72,6 @@ import (
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
@@ -516,12 +516,6 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
-}
-
-func (ta *TestApplication) NewBox() packr.Box {
-	ta.t.Helper()
-
-	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
