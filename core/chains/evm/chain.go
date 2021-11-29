@@ -68,10 +68,10 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Wrapf(err, "cannot create new chain with ID %s, config validation failed", dbchain.ID.String())
 	}
-	db := opts.GormDB
 	headTrackerLL := opts.Config.LogLevel().String()
+	db := opts.DB
 	if db != nil {
-		if ll, ok := logger.NewORM(db).GetServiceLogLevel(logger.HeadTracker); ok {
+		if ll, ok := logger.NewORM(db, l).GetServiceLogLevel(logger.HeadTracker); ok {
 			headTrackerLL = ll
 		}
 	}
@@ -101,7 +101,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 		if err2 != nil {
 			return nil, errors.Wrapf(err2, "failed to instantiate head tracker for chain with ID %s", dbchain.ID.String())
 		}
-		orm := headtracker.NewORM(db, *chainID)
+		orm := headtracker.NewORM(db, l, cfg, *chainID)
 		headTracker = headtracker.NewHeadTracker(headTrackerLogger, client, cfg, orm, headBroadcaster)
 	} else {
 		headTracker = opts.GenHeadTracker(dbchain)
@@ -126,7 +126,7 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 
 	var balanceMonitor services.BalanceMonitor
 	if !cfg.EthereumDisabled() && cfg.BalanceMonitorEnabled() {
-		balanceMonitor = services.NewBalanceMonitor(db, client, opts.KeyStore, l)
+		balanceMonitor = services.NewBalanceMonitor(client, opts.KeyStore, l)
 		headBroadcaster.Subscribe(balanceMonitor)
 	}
 
@@ -134,13 +134,15 @@ func newChain(dbchain types.Chain, opts ChainSetOpts) (*chain, error) {
 	if cfg.EthereumDisabled() {
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
-		logBroadcaster = log.NewBroadcaster(log.NewORM(db, *chainID), client, cfg, l, highestSeenHead)
+		logORM := log.NewORM(db, l, cfg, *chainID)
+		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(dbchain)
 	}
 
-	// Log Broadcaster waits for other services' registrations
-	// until app.LogBroadcaster.DependentReady() call (see below)
+	// AddDependent for this chain
+	// log broadcaster will not start until dependent ready is called by a
+	// subsequent routine (job spawner)
 	logBroadcaster.AddDependents(1)
 
 	headBroadcaster.Subscribe(logBroadcaster)
@@ -184,10 +186,6 @@ func (c *chain) Start() error {
 		if merr != nil {
 			return merr
 		}
-
-		// Log Broadcaster fully starts after all initial Register calls are done from other starting services
-		// to make sure the initial backfill covers those subscribers.
-		c.logBroadcaster.DependentReady()
 
 		if !c.cfg.Dev() {
 			return nil

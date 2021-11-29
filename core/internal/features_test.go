@@ -52,6 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -159,10 +160,11 @@ func TestIntegration_ExternalInitiatorV2(t *testing.T) {
 			io.WriteString(w, `{}`)
 		}))
 		u, _ := url.Parse(bridgeServer.URL)
-		app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
+		err := app.BridgeORM().CreateBridgeType(&bridges.BridgeType{
 			Name: bridges.TaskType("substrate-adapter1"),
 			URL:  models.WebURL(*u),
 		})
+		require.NoError(t, err)
 		defer bridgeServer.Close()
 	}
 
@@ -210,7 +212,7 @@ observationSource   = """
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, 401)
 
-		cltest.AssertCountStays(t, app.GetDB(), &pipeline.Run{}, 0)
+		cltest.AssertCountStays(t, app.GetSqlxDB(), "pipeline_runs", 0)
 	})
 
 	t.Run("calling webhook_spec with matching external_initiator_id works", func(t *testing.T) {
@@ -219,8 +221,8 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetDB())
-		jobORM := job.NewORM(app.GetDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t))
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChainSet(), pipelineORM, app.KeyStore, logger.TestLogger(t), cfg)
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -256,8 +258,8 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	url := app.Config.ClientNodeURL() + "/v2/config"
 	headers := make(map[string]string)
-	headers[web.APIKey] = cltest.APIKey
-	headers[web.APISecret] = cltest.APISecret
+	headers[webauth.APIKey] = cltest.APIKey
+	headers[webauth.APISecret] = cltest.APISecret
 	buf := bytes.NewBufferString(`{"ethGasPriceDefault":150000000000}`)
 
 	resp, cleanup := cltest.UnauthenticatedPatch(t, url, buf, headers)
@@ -489,7 +491,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2, *configtest.TestGeneralConfig) {
-	config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
+	config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("%s%d", dbName, port), true, true)
 
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, err := app.GetKeyStore().P2P().Create()
@@ -499,7 +501,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 
-	config.Overrides.P2PPeerID = &peerID
+	config.Overrides.P2PPeerID = peerID
 	config.Overrides.P2PListenPort = null.IntFrom(int64(port))
 	config.Overrides.Dev = null.BoolFrom(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -524,6 +526,9 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 }
 
 func TestIntegration_OCR(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	const bootstrapNodePort = 19999
 	tests := []struct {
 		name    string
@@ -536,7 +541,7 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
 			// Note it's plausible these ports could be occupied on a CI machine.
@@ -605,7 +610,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start()
 			require.NoError(t, err)
 
-			ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
+			jb, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -613,7 +618,8 @@ contractAddress    = "%s"
 isBootstrapPeer    = true
 `, ocrContractAddress))
 			require.NoError(t, err)
-			_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
+			jb.Name = null.NewString("boot", true)
+			err = appBootstrap.AddJobV2(context.Background(), &jb)
 			require.NoError(t, err)
 
 			// Raising flags to initiate hibernation
@@ -662,14 +668,15 @@ isBootstrapPeer    = true
 				}))
 				defer servers[i].Close()
 				u, _ := url.Parse(servers[i].URL)
-				apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
+				err := apps[i].BridgeORM().CreateBridgeType(&bridges.BridgeType{
 					Name: bridges.TaskType(fmt.Sprintf("bridge%d", i)),
 					URL:  models.WebURL(*u),
 				})
+				require.NoError(t, err)
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
+				jb, err := offchainreporting.ValidatedOracleSpecToml(apps[i].GetChainSet(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -701,7 +708,8 @@ observationSource = """
 """
 `, ocrContractAddress, bootstrapNodePort, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
-				jb, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+				jb.Name = null.NewString("testocr", true)
+				err = apps[i].AddJobV2(context.Background(), &jb)
 				require.NoError(t, err)
 				jids = append(jids, jb.ID)
 			}
@@ -722,10 +730,10 @@ observationSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+			}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
-				jobs, _, err := app.JobORM().JobsV2(0, 1000)
+				jobs, _, err := app.JobORM().FindJobs(0, 1000)
 				require.NoError(t, err)
 				// No spec errors
 				for _, j := range jobs {
@@ -751,18 +759,18 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	var initialDefaultGasPrice int64 = 5000000000
 
-	c := cltest.NewTestGeneralConfig(t)
-	c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+	cfg := cltest.NewTestGeneralConfig(t)
+	cfg.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 
 	ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithDefaultChain(t)
 	defer assertMocksCalled()
 	chchNewHeads := make(chan chan<- *eth.Head, 1)
 
-	db := pgtest.NewGormDB(t)
-	kst := cltest.NewKeyStore(t, db)
+	db := pgtest.NewSqlxDB(t)
+	kst := cltest.NewKeyStore(t, db, cfg)
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: c, ChainCfg: evmtypes.ChainCfg{
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg, ChainCfg: evmtypes.ChainCfg{
 		EvmGasPriceDefault:                    utils.NewBigI(initialDefaultGasPrice),
 		GasEstimatorMode:                      null.StringFrom("BlockHistory"),
 		BlockHistoryEstimatorBlockDelay:       null.IntFrom(0),
@@ -812,7 +820,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ChainID", mock.Anything).Return(c.DefaultChainID(), nil)
+	ethClient.On("ChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	require.NoError(t, cc.Start())
@@ -849,11 +857,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	// Simulate one new head and check the gas price got updated
 	newHeads <- cltest.Head(43)
 
-	gomega.NewGomegaWithT(t).Eventually(func() string {
+	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {

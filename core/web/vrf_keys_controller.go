@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -62,7 +62,7 @@ func (vrfkc *VRFKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/vrf/import"
 func (vrfkc *VRFKeysController) Import(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import request body")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -83,7 +83,7 @@ func (vrfkc *VRFKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/vrf/export/:keyID"
 func (vrfkc *VRFKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer vrfkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
 	keyID := c.Param("keyID")
 	// New password to re-encrypt the export with

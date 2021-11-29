@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -43,7 +45,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -100,6 +101,9 @@ func WithMinMaxSubmission(min, max *big.Int) func(cfg *fluxAggregatorUniverseCon
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
 func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAggregatorUniverseConfig)) fluxAggregatorUniverse {
+	if testing.Short() {
+		t.Skip("skipping due to VRFCoordinatorV2Universe")
+	}
 	cfg := &fluxAggregatorUniverseConfig{
 		MinSubmission: big.NewInt(0),
 		MaxSubmission: big.NewInt(100000000000),
@@ -211,7 +215,7 @@ func startApplication(
 	fa fluxAggregatorUniverse,
 	setConfig func(cfg *configtest.TestGeneralConfig),
 ) *cltest.TestApplication {
-	config, _, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
+	config, _ := heavyweight.FullTestDB(t, dbName(t.Name()), true, true)
 	setConfig(config)
 	app := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, fa.key)
 	require.NoError(t, app.Start())
@@ -396,34 +400,36 @@ func assertNoSubmission(t *testing.T,
 
 // assertPipelineRunCreated checks that a pipeline exists for a given round and
 // verifies the answer
-func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) pipeline.Run {
+func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result float64) pipeline.Run {
 	// Fetch the stats to extract the run id
 	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
-	require.NoError(t, db.Where("round_id = ?", roundID).Find(&stats).Error)
+	require.NoError(t, db.Get(&stats, "SELECT * FROM flux_monitor_round_stats_v2 WHERE round_id = $1", roundID))
 	if stats.ID == 0 {
 		t.Fatalf("Stats for round id: %v not found!", roundID)
 	}
 	require.True(t, stats.PipelineRunID.Valid)
 	// Verify the pipeline run data
 	run := pipeline.Run{}
-	require.NoError(t, db.Find(&run, stats.PipelineRunID.Int64).Error, "runID %v", stats.PipelineRunID)
+	require.NoError(t, db.Get(&run, `SELECT * FROM pipeline_runs WHERE id = $1`, stats.PipelineRunID.Int64), "runID %v", stats.PipelineRunID)
 	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *gorm.DB, pipelineSpecID int32, blockNumber uint64) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.LogConfig) {
 	t.Helper()
-	logger.TestLogger(t).Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
+	lggr := logger.TestLogger(t)
+	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
 
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	g.Eventually(func() bool {
 		block := fa.backend.Blockchain().GetBlockByNumber(blockNumber)
 		require.NotNil(t, block)
-		consumed, err := log.NewORM(db, fa.evmChainID).WasBroadcastConsumed(db, block.Hash(), 0, pipelineSpecID)
+		orm := log.NewORM(db, lggr, cfg, fa.evmChainID)
+		consumed, err := orm.WasBroadcastConsumed(block.Hash(), 0, pipelineSpecID)
 		require.NoError(t, err)
 		fa.backend.Commit()
 		return consumed
-	}, cltest.DefaultWaitTimeout, time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
 func TestFluxMonitor_Deviation(t *testing.T) {
@@ -439,7 +445,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			g := gomega.NewGomegaWithT(t)
+			g := gomega.NewWithT(t)
 			fa := setupFluxAggregatorUniverse(t)
 
 			// - add oracles
@@ -533,7 +539,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			g.Eventually(func() uint32 {
 				lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 				return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-			}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
+			}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 1))
 
 			// Initial Poll
 			receiptBlock, answer := awaitSubmission(t, fa.backend, submissionReceived)
@@ -556,12 +562,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetDB(), 1, float64(100))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 1, float64(100))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), receiptBlock)
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -585,12 +591,12 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 				initialBalance-fee,
 				receiptBlock,
 			)
-			assertPipelineRunCreated(t, app.GetDB(), 2, float64(103))
+			assertPipelineRunCreated(t, app.GetSqlxDB(), 2, float64(103))
 
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetDB(), int32(jobId), receiptBlock)
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)
@@ -607,7 +613,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -680,7 +686,7 @@ ds1 -> ds1_parse
 	g.Eventually(func() uint32 {
 		lb := evmtest.MustGetDefaultChain(t, app.GetChainSet()).LogBroadcaster()
 		return lb.(log.BroadcasterInTest).TrackedAddressesCount()
-	}, cltest.DefaultWaitTimeout, 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
+	}, cltest.WaitTimeout(t), 200*time.Millisecond).Should(gomega.BeNumerically(">=", 2))
 
 	// Have the the fake node start a new round
 	submitAnswer(t, answerParams{
@@ -713,7 +719,7 @@ ds1 -> ds1_parse
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 	fa := setupFluxAggregatorUniverse(t)
 
 	// - add oracles
@@ -781,7 +787,7 @@ ds1 -> ds1_parse
 
 	// node doesn't submit initial response, because flag is up
 	// Wait here so the next lower flags doesn't trigger immediately
-	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetDB(), 0)
+	cltest.AssertPipelineRunsStays(t, j.PipelineSpec.ID, app.GetSqlxDB(), 0)
 
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
@@ -811,7 +817,7 @@ ds1 -> ds1_parse
 		require.NoError(t, err)
 		logs := cltest.GetLogs(t, nil, ilogs)
 		return len(logs)
-	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.Equal(4))
+	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.Equal(4))
 
 	// change in price should not trigger run
 	reportPrice.Store(8)
@@ -890,7 +896,7 @@ ds1 -> ds1_parse
 	jobID, err := strconv.ParseInt(j.ID, 10, 32)
 	require.NoError(t, err)
 
-	jse := cltest.WaitForSpecErrorV2(t, app.GetDB(), int32(jobID), 1)
+	jse := cltest.WaitForSpecErrorV2(t, app.GetSqlxDB(), int32(jobID), 1)
 	assert.Contains(t, jse[0].Description, "Answer is outside acceptable range")
 }
 

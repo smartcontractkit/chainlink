@@ -3,7 +3,6 @@ package vrf
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -29,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -37,9 +37,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/theodesp/go-heaps/pairing"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type vrfUniverse struct {
@@ -57,7 +54,7 @@ type vrfUniverse struct {
 	cid       big.Int
 }
 
-func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
+func buildVrfUni(t *testing.T, db *sqlx.DB, cfg *configtest.TestGeneralConfig) vrfUniverse {
 	// Mock all chain interactions
 	lb := new(log_mocks.Broadcaster)
 	lb.Test(t)
@@ -69,11 +66,11 @@ func buildVrfUni(t *testing.T, db *gorm.DB, cfg *configtest.TestGeneralConfig) v
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db)
+	prm := pipeline.NewORM(db, lggr, cfg)
 	txm := new(bptxmmocks.TxManager)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, ks, lggr)
+	jrm := job.NewORM(db, cc, prm, ks, lggr, cfg)
 	t.Cleanup(func() { jrm.Close() })
 	pr := pipeline.NewRunner(prm, cfg, cc, ks.Eth(), ks.VRF(), lggr)
 	require.NoError(t, ks.Unlock("p4SsW0rD1!@#_"))
@@ -138,9 +135,9 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 }
 
 func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
-	db := pgtest.NewGormDB(t)
-	c := configtest.NewTestGeneralConfig(t)
-	vuni := buildVrfUni(t, db, c)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
 
 	vd := NewDelegate(
 		db,
@@ -148,11 +145,12 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.pr,
 		vuni.prm,
 		vuni.cc,
-		logger.TestLogger(t))
+		logger.TestLogger(t),
+		cfg)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
-	jb, err = vuni.jrm.CreateJob(context.Background(), &jb, jb.Pipeline)
+	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
@@ -171,79 +169,6 @@ func setup(t *testing.T) (vrfUniverse, *listenerV1, job.Job) {
 		vuni.txm.AssertExpectations(t)
 	})
 	return vuni, listener, jb
-}
-
-func TestStartingCounts(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	lggr := logger.TestLogger(t)
-	counts := getStartingResponseCounts(db, lggr)
-	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
-	err := ks.Unlock("p4SsW0rD1!@#_")
-	require.NoError(t, err)
-	k, err := ks.Eth().Create(big.NewInt(0))
-	require.NoError(t, err)
-	b := time.Now()
-	n1, n2, n3, n4 := int64(0), int64(1), int64(2), int64(3)
-	m1 := bulletprooftxmanager.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x10),
-	}
-	md1, err := json.Marshal(&m1)
-	require.NoError(t, err)
-	md1_ := datatypes.JSON(md1)
-	m2 := bulletprooftxmanager.EthTxMeta{
-		RequestID: utils.PadByteToHash(0x11),
-	}
-	md2, err := json.Marshal(&m2)
-	md2_ := datatypes.JSON(md2)
-	require.NoError(t, err)
-	var txes = []bulletprooftxmanager.EthTx{
-		{
-			Nonce:          &n1,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &datatypes.JSON{},
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n2,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md1_,
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n3,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md2_,
-			EncodedPayload: []byte{},
-		},
-		{
-			Nonce:          &n4,
-			FromAddress:    k.Address.Address(),
-			Error:          null.String{},
-			BroadcastAt:    &b,
-			CreatedAt:      b,
-			State:          bulletprooftxmanager.EthTxConfirmed,
-			Meta:           &md2_,
-			EncodedPayload: []byte{},
-		},
-	}
-	require.NoError(t, db.Create(&txes).Error)
-	counts = getStartingResponseCounts(db, logger.TestLogger(t))
-	assert.Equal(t, 2, len(counts))
-	assert.Equal(t, uint64(1), counts[utils.PadByteToHash(0x10)])
-	assert.Equal(t, uint64(2), counts[utils.PadByteToHash(0x11)])
 }
 
 func TestConfirmedLogExtraction(t *testing.T) {
@@ -438,7 +363,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to  requestID
-		vuni.txm.On("CreateEthTransaction", mock.AnythingOfType("*gorm.DB"),
+		vuni.txm.On("CreateEthTransaction",
 			mock.MatchedBy(func(newTx bulletprooftxmanager.NewTx) bool {
 				meta := newTx.Meta
 				return newTx.FromAddress == vuni.submitter &&
@@ -452,7 +377,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Wait until the log is present
 		waitForChannel(t, added, time.Second, "request not added to the queue")
 		// Feed it a head which confirms it.
-		listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
+		listener.OnNewLongestChain(context.Background(), &eth.Head{Number: 16})
 		waitForChannel(t, consumed, 2*time.Second, "did not mark consumed")
 
 		// Ensure we created a successful run.
@@ -503,7 +428,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	listener.reqAdded = func() {
 		added <- struct{}{}
 	}
-	// Send a invalid log (keyhash doesnt match)
+	// Send an invalid log (keyhash doesnt match)
 	listener.HandleLog(log.NewLogBroadcast(types.Log{
 		// Data has all the NON-indexed parameters
 		Data: append(append(append(append(
@@ -512,7 +437,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			utils.NewHash().Bytes()...), // sender
 			utils.NewHash().Bytes()...), // fee
 			utils.NewHash().Bytes()...), // requestID
-		// JobID is indexed, thats why it lives in the Topics.
+		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
 			VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeBytesToTopic(), // jobID
@@ -527,7 +452,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	}, vuni.cid, nil))
 	waitForChannel(t, added, time.Second, "request not queued")
 	// Feed it a head which confirms it.
-	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), &eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should create a run that errors in the vrf task
@@ -546,7 +471,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []bulletprooftxmanager.EthTx
-	err = vuni.prm.DB().Find(&ethTxes).Error
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
@@ -566,7 +491,7 @@ func TestFulfilledCheck(t *testing.T) {
 	listener.reqAdded = func() {
 		added <- struct{}{}
 	}
-	// Send a invalid log (keyhash doesnt match)
+	// Send an invalid log (keyhash doesn't match)
 	listener.HandleLog(log.NewLogBroadcast(
 		types.Log{
 			// Data has all the NON-indexed parameters
@@ -577,7 +502,7 @@ func TestFulfilledCheck(t *testing.T) {
 				utils.NewHash().Bytes(),                  // fee
 				utils.NewHash().Bytes()},                 // requestID
 				[]byte{}),
-			// JobID is indexed, thats why it lives in the Topics.
+			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
 				VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
@@ -589,7 +514,7 @@ func TestFulfilledCheck(t *testing.T) {
 
 	// Should queue the request, even though its already fulfilled
 	waitForChannel(t, added, time.Second, "request not queued")
-	listener.OnNewLongestChain(context.Background(), eth.Head{Number: 16})
+	listener.OnNewLongestChain(context.Background(), &eth.Head{Number: 16})
 	waitForChannel(t, done, time.Second, "log not consumed")
 
 	// Should consume the log with no run

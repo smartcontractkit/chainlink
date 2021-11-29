@@ -9,25 +9,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	clsessions "github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/web/auth"
 )
 
 // SessionsController manages session requests.
 type SessionsController struct {
 	App      chainlink.Application
-	Sessions *clsessions.WebAuthnSessionStore
+	sessions *clsessions.WebAuthnSessionStore
+}
+
+func NewSessionsController(app chainlink.Application) *SessionsController {
+	return &SessionsController{app, clsessions.NewWebAuthnSessionStore()}
 }
 
 // Create creates a session ID for the given user credentials, and returns it
 // in a cookie.
 func (sc *SessionsController) Create(c *gin.Context) {
 	defer sc.App.WakeSessionReaper()
-	logger.Debugf("TRACE: Starting Session Creation")
-	if sc.Sessions == nil {
-		sc.Sessions = clsessions.NewWebAuthnSessionStore()
-	}
+	sc.App.GetLogger().Debugf("TRACE: Starting Session Creation")
 
 	session := sessions.Default(c)
 	var sr clsessions.SessionRequest
@@ -39,15 +40,15 @@ func (sc *SessionsController) Create(c *gin.Context) {
 	// Does this user have 2FA enabled?
 	userWebAuthnTokens, err := sc.App.SessionORM().GetUserWebAuthn(sr.Email)
 	if err != nil {
-		logger.Errorf("Error loading user WebAuthn data: %s", err)
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("Internal Server Error"))
+		sc.App.GetLogger().Errorf("Error loading user WebAuthn data: %s", err)
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("internal Server Error"))
 		return
 	}
 
 	// If the user has registered MFA tokens, then populate our session store and context
 	// required for successful WebAuthn authentication
 	if len(userWebAuthnTokens) > 0 {
-		sr.SessionStore = sc.Sessions
+		sr.SessionStore = sc.sessions
 		sr.RequestContext = c
 		sr.WebAuthnConfig = sc.App.GetWebAuthnConfiguration()
 	}
@@ -72,7 +73,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 
 	session := sessions.Default(c)
 	defer session.Clear()
-	sessionID, ok := session.Get(SessionIDKey).(string)
+	sessionID, ok := session.Get(auth.SessionIDKey).(string)
 	if !ok {
 		jsonAPIResponse(c, Session{Authenticated: false}, "session")
 		return
@@ -86,7 +87,7 @@ func (sc *SessionsController) Destroy(c *gin.Context) {
 }
 
 func saveSessionID(session sessions.Session, sessionID string) error {
-	session.Set(SessionIDKey, sessionID)
+	session.Set(auth.SessionIDKey, sessionID)
 	return session.Save()
 }
 

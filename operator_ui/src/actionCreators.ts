@@ -49,10 +49,20 @@ export const notifySuccess = (component: React.ReactNode, props: object) => {
   }
 }
 
+export const notifySuccessMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_SUCCESS_MSG,
+  msg,
+})
+
 export const notifyError = (component: React.ReactNode, error: Error) => ({
   type: NotifyActionType.NOTIFY_ERROR,
   component,
   error,
+})
+
+export const notifyErrorMsg = (msg: string) => ({
+  type: NotifyActionType.NOTIFY_ERROR_MSG,
+  msg,
 })
 
 /**
@@ -300,11 +310,6 @@ const receiveDeleteSuccess = (id: string) => ({
   id,
 })
 
-const receiveUpdateSuccess = (response: Response) => ({
-  type: ResourceActionType.RECEIVE_UPDATE_SUCCESS,
-  response,
-})
-
 export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
 
@@ -338,32 +343,6 @@ export const deleteChain = (
   }
 }
 
-export const deleteNode = (
-  id: string,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_DELETE })
-
-    const endpoint = api.v2.nodes
-
-    return endpoint
-      .destroyNode(id)
-      .then((doc) => {
-        dispatch(receiveDeleteSuccess(id))
-        dispatch(notifySuccess(successCallback, doc))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_DELETE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
 export const createJobRunV2 = (
   id: string,
   pipelineInput: string,
@@ -383,55 +362,6 @@ export const createJobRunV2 = (
         curryErrorHandler(
           dispatch,
           ResourceActionType.RECEIVE_CREATE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
-export const createBridge = (
-  data: Parameter<typeof api.v2.bridgeTypes.createBridge>,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_CREATE })
-
-    return api.v2.bridgeTypes
-      .createBridge(data)
-
-      .then((doc: any) => {
-        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
-        dispatch(notifySuccess(successCallback, doc.data))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_CREATE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
-export const updateBridge = (
-  params: Parameter<typeof api.v2.bridgeTypes.updateBridge>,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_UPDATE })
-
-    return api.v2.bridgeTypes
-      .updateBridge(params)
-      .then((doc: any) => {
-        dispatch(receiveUpdateSuccess(doc.data))
-        dispatch(notifySuccess(successCallback, doc.data))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_UPDATE_ERROR,
         )(error)
         dispatch(notifyError(errorCallback, error))
       })
@@ -569,18 +499,6 @@ export const fetchConfiguration = requestFetch(
   'CONFIGURATION',
   api.v2.config.getConfiguration,
   (json) => normalize(json, { camelizeKeys: false }),
-)
-
-export const fetchBridges = requestFetch(
-  'BRIDGES',
-  api.v2.bridgeTypes.getBridges,
-  (json) => normalize(json, { endpoint: 'currentPageBridges' }),
-)
-
-export const fetchBridgeSpec = requestFetch(
-  'BRIDGE',
-  api.v2.bridgeTypes.getBridgeSpec,
-  (json) => normalize(json),
 )
 
 export const deleteCompletedJobRuns = (updatedBefore: string) =>

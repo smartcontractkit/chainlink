@@ -78,7 +78,7 @@ func NewHeadListener(l logger.Logger,
 	}
 }
 
-func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header eth.Head) error, done func()) {
+func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context, header *eth.Head) error, done func()) {
 	defer done()
 	defer func() {
 		if err := hl.unsubscribeFromHead(); err != nil {
@@ -108,7 +108,7 @@ func (hl *HeadListener) ListenForNewHeads(handleNewHead func(ctx context.Context
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
 // Note: returning nil from receiveHeaders will cause listenForNewHeads to exit completely
-func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header eth.Head) error) error {
+func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(ctx context.Context, header *eth.Head) error) error {
 	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
 	t := time.NewTicker(noHeadsAlarmDuration)
 
@@ -128,10 +128,12 @@ func (hl *HeadListener) receiveHeaders(ctx context.Context, handleNewHead func(c
 				hl.log.Error("got nil block header")
 				continue
 			}
-			blockHeader.EVMChainID = utils.NewBig(&hl.chainID)
+			if blockHeader.EVMChainID == nil || !utils.NewBig(&hl.chainID).Equal(blockHeader.EVMChainID) {
+				panic(fmt.Sprintf("head listener for %s received block header for %s", &hl.chainID, blockHeader.EVMChainID))
+			}
 			promNumHeadsReceived.WithLabelValues(hl.chainID.String()).Inc()
 
-			err := handleNewHead(ctx, *blockHeader)
+			err := handleNewHead(ctx, blockHeader)
 			if ctx.Err() != nil {
 				// the 'ctx' context is closed only on ht.done - on shutdown, so it's safe to return nil
 				return nil

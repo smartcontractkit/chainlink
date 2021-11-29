@@ -12,6 +12,7 @@ import (
 type sessionReaper struct {
 	db     *sql.DB
 	config SessionReaperConfig
+	lggr   logger.Logger
 }
 
 type SessionReaperConfig interface {
@@ -20,11 +21,16 @@ type SessionReaperConfig interface {
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
-func NewSessionReaper(db *sql.DB, config SessionReaperConfig) utils.SleeperTask {
+func NewSessionReaper(db *sql.DB, config SessionReaperConfig, lggr logger.Logger) utils.SleeperTask {
 	return utils.NewSleeperTask(&sessionReaper{
 		db,
 		config,
+		lggr.Named("SessionReaper"),
 	})
+}
+
+func (sr *sessionReaper) Name() string {
+	return "SessionReaper"
 }
 
 func (sr *sessionReaper) Work() {
@@ -32,7 +38,7 @@ func (sr *sessionReaper) Work() {
 		sr.config.SessionTimeout().Before(time.Now()))
 	err := sr.deleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {
-		logger.Error("unable to reap stale sessions: ", err)
+		sr.lggr.Error("unable to reap stale sessions: ", err)
 	}
 }
 

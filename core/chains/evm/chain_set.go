@@ -6,12 +6,13 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -19,14 +20,15 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 var ErrNoChains = errors.New("no chains loaded, are you running with EVM_DISABLED=true ?")
 
 var _ ChainSet = &chainSet{}
+
+type ChainConfigUpdater func(*types.ChainCfg) error
 
 //go:generate mockery --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
@@ -36,6 +38,7 @@ type ChainSet interface {
 	Remove(id *big.Int) error
 	Default() (Chain, error)
 	Configure(id *big.Int, enabled bool, config types.ChainCfg) (types.Chain, error)
+	UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error
 	Chains() []Chain
 	ChainCount() int
 	ORM() types.ORM
@@ -204,6 +207,36 @@ func (cll *chainSet) Configure(id *big.Int, enabled bool, config types.ChainCfg)
 	return dbchain, nil
 }
 
+func (cll *chainSet) UpdateConfig(id *big.Int, updaters ...ChainConfigUpdater) error {
+	bid := utils.NewBig(id)
+	dbchain, err := cll.orm.Chain(*bid)
+	if err != nil {
+		return err
+	}
+
+	cll.chainsMu.RLock()
+	chain, exists := cll.chains[id.String()]
+	cll.chainsMu.RUnlock()
+	if !exists {
+		return errors.New("chain does not exist")
+	}
+
+	updatedConfig := chain.Config().PersistedConfig()
+	for _, updater := range updaters {
+		if err = updater(&updatedConfig); err != nil {
+			cll.chainsMu.RUnlock()
+			return err
+		}
+	}
+
+	_, err = cll.orm.UpdateChain(*bid, dbchain.Enabled, updatedConfig)
+	if err == nil {
+		return chain.Config().Configure(updatedConfig)
+	}
+
+	return err
+}
+
 func (cll *chainSet) Chains() (c []Chain) {
 	cll.chainsMu.RLock()
 	defer cll.chainsMu.RUnlock()
@@ -226,10 +259,9 @@ func (cll *chainSet) ORM() types.ORM {
 type ChainSetOpts struct {
 	Config           config.GeneralConfig
 	Logger           logger.Logger
-	GormDB           *gorm.DB
-	SQLxDB           *sqlx.DB
+	DB               *sqlx.DB
 	KeyStore         keystore.Eth
-	EventBroadcaster postgres.EventBroadcaster
+	EventBroadcaster pg.EventBroadcaster
 	ORM              types.ORM
 
 	// Gen-functions are useful for dependency injection by tests
@@ -296,7 +328,22 @@ func checkOpts(opts *ChainSetOpts) error {
 		return errors.New("config must be non-nil")
 	}
 	if opts.ORM == nil {
-		opts.ORM = NewORM(opts.SQLxDB)
+		opts.ORM = NewORM(opts.DB)
 	}
 	return nil
+}
+
+func UpdateKeySpecificMaxGasPrice(addr common.Address, maxGasPriceWei *big.Int) ChainConfigUpdater {
+	return func(config *types.ChainCfg) error {
+		keyChainConfig, ok := config.KeySpecific[addr.Hex()]
+		if !ok {
+			keyChainConfig = types.ChainCfg{}
+		}
+		keyChainConfig.EvmMaxGasPriceWei = (*utils.Big)(maxGasPriceWei)
+		if config.KeySpecific == nil {
+			config.KeySpecific = map[string]types.ChainCfg{}
+		}
+		config.KeySpecific[addr.Hex()] = keyChainConfig
+		return nil
+	}
 }

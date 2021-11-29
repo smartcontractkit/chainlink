@@ -7,7 +7,6 @@ import (
 	"time"
 
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/stretchr/testify/assert"
@@ -33,13 +33,13 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	ethClient := cltest.NewEthClientMockWithDefaultChain(t)
 	runner := new(pipeline_mocks.Runner)
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	cfg.Overrides.GlobalMinIncomingConfirmations = null.IntFrom(1)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, db, cc)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, cc)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -72,30 +72,29 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg *configtest.TestGenera
 	runner := new(pipeline_mocks.Runner)
 	broadcaster.On("AddDependents", 1)
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster})
-	orm := pipeline.NewORM(db)
-
-	keyStore := cltest.NewKeyStore(t, db)
-	jobORM := job.NewORM(db, cc, orm, keyStore, logger.TestLogger(t))
-
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, orm, db, cc)
+	orm := pipeline.NewORM(db, lggr, cfg)
 
-	spec := cltest.MakeDirectRequestJobSpec(t)
-	spec.ExternalJobID = uuid.NewV4()
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	jobORM := job.NewORM(db, cc, orm, keyStore, lggr, cfg)
+	delegate := directrequest.NewDelegate(lggr, runner, orm, cc)
+
+	jb := cltest.MakeDirectRequestJobSpec(t)
+	jb.ExternalJobID = uuid.NewV4()
 	if specF != nil {
-		specF(spec)
+		specF(jb)
 	}
-	jb, err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	err := jobORM.CreateJob(jb)
 	require.NoError(t, err)
-	serviceArray, err := delegate.ServicesForSpec(jb)
+	serviceArray, err := delegate.ServicesForSpec(*jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
 	service := serviceArray[0]
 
 	uni := &DirectRequestUniverse{
-		spec:           spec,
+		spec:           jb,
 		runner:         runner,
 		service:        service,
 		jobORM:         jobORM,
@@ -147,7 +146,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			Return(false, nil).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(*gorm.DB) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once()
 
@@ -203,7 +202,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Run(func(args mock.Arguments) {
 				runBeganAwaiter.ItHappened()
-				fn := args.Get(4).(func(*gorm.DB) error)
+				fn := args.Get(4).(func(pg.Queryer) error)
 				fn(nil)
 			}).Once().Return(false, nil)
 
@@ -362,7 +361,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(*gorm.DB) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 
@@ -457,7 +456,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runBeganAwaiter := cltest.NewAwaiter()
 		uni.runner.On("Run", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
-			fn := args.Get(4).(func(*gorm.DB) error)
+			fn := args.Get(4).(func(pg.Queryer) error)
 			fn(nil)
 		}).Once().Return(false, nil)
 

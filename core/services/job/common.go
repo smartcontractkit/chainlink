@@ -16,4 +16,5 @@ type Config interface {
 	DatabaseMaximumTxDuration() time.Duration
 	DatabaseURL() url.URL
 	TriggerFallbackDBPollInterval() time.Duration
+	LogSQL() bool
 }

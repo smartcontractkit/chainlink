@@ -36,7 +36,7 @@ func NewApp(client *Client) *cli.App {
 		if c.Bool("json") {
 			client.Renderer = RendererJSON{Writer: os.Stdout}
 		}
-		logger.InitLogger(client.Logger())
+		logger.InitLogger(client.Logger)
 		return nil
 	}
 	app.Commands = removeHidden([]cli.Command{
@@ -128,7 +128,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "show",
-					Usage:  "Show an Bridge's details",
+					Usage:  "Show a Bridge's details",
 					Action: client.ShowBridge,
 				},
 			},
@@ -249,12 +249,27 @@ func NewApp(client *Client) *cli.App {
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
-							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
+							Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
 							Action: client.CreateETHKey,
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "evmChainID",
 									Usage: "Chain ID for the key. If left blank, default chain will be used.",
+								},
+								cli.Uint64Flag{
+									Name:  "maxGasPriceGWei",
+									Usage: "Optional maximum gas price (GWei) for the creating key.",
+								},
+							},
+						},
+						{
+							Name:   "update",
+							Usage:  "Update the existing key's parameters",
+							Action: client.UpdateETHKey,
+							Flags: []cli.Flag{
+								cli.Uint64Flag{
+									Name:  "maxGasPriceGWei",
+									Usage: "Maximum gas price (GWei) for the specified key.",
 								},
 							},
 						},
@@ -382,6 +397,32 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  format(`List available CSA keys`),
 							Action: client.ListCSAKeys,
+						},
+						{
+							Name:  "import",
+							Usage: format(`Imports a CSA key from a JSON file.`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
+								},
+							},
+							Action: client.ImportCSAKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an existing CSA key by its ID.`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "`FILE` where the JSON file will be saved (required)",
+								},
+							},
+							Action: client.ExportCSAKey,
 						},
 					},
 				},
@@ -549,10 +590,10 @@ func NewApp(client *Client) *cli.App {
 						},
 						cli.StringFlag{
 							Name:  "vrfpassword, vp",
-							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
+							Usage: "text file holding the password for the vrf keys; enables Chainlink VRF oracle",
 						},
 					},
-					Usage:  "Run the chainlink node",
+					Usage:  "Run the Chainlink node",
 					Action: client.RunNode,
 				},
 				{
@@ -618,7 +659,12 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Reset database and load fixtures.",
 							Hidden: !client.Config.Dev(),
 							Action: client.PrepareTestDatabase,
-							Flags:  []cli.Flag{},
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "user-only",
+									Usage: "only include test user fixture",
+								},
+							},
 						},
 						{
 							Name:   "version",

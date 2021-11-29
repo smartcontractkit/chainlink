@@ -1,13 +1,15 @@
 import React from 'react'
 import { Switch, Route, useParams, useRouteMatch } from 'react-router-dom'
 import { v2 } from 'api'
-import { NodeResource } from '../NodesIndex/NodesIndex'
+import { NodeResource } from './ChainNodes'
 import RegionalNav from './RegionalNav'
-import { ChainResource } from '../ChainsIndex/ChainsIndex'
+import { Resource, Chain } from 'core/store/models'
 import { ChainNodes } from './ChainNodes'
 import { ChainConfig } from './ChainConfig'
 import NewChainNode from './NewChainNode'
 import UpdateChain from './UpdateChain'
+
+export type ChainResource = Resource<Chain>
 
 interface RouteParams {
   chainId: string

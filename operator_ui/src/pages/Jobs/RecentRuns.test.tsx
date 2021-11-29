@@ -3,9 +3,10 @@ import { Route } from 'react-router-dom'
 import { JobsShow } from 'pages/Jobs/Show'
 import { jsonApiOcrJobSpec } from 'factories/jsonApiJob'
 import { jobRunsAPIResponse } from 'factories/jsonApiOcrJobRun'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
+import { renderWithRouter, screen } from 'support/test-utils'
+
+const { findByText, queryByText } = screen
 
 const JOB_ID = '1'
 
@@ -33,18 +34,14 @@ describe('pages/Jobs/RecentRuns', () => {
       }),
     )
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_ID}`],
-      },
-    )
+    renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+      initialEntries: [`/jobs/${JOB_ID}`],
+    })
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('View more')
-    expect(wrapper.text()).toContain(taskNames[0])
-    expect(wrapper.text()).toContain(taskNames[1])
-    expect(wrapper.text()).toContain(taskNames[2])
+    expect(await findByText('View more')).toBeInTheDocument()
+    expect(await findByText(taskNames[0])).toBeInTheDocument()
+    expect(await findByText(taskNames[1])).toBeInTheDocument()
+    expect(await findByText(taskNames[2])).toBeInTheDocument()
   })
 
   it('works with no tasks (bootstrap node)', async () => {
@@ -60,15 +57,11 @@ describe('pages/Jobs/RecentRuns', () => {
       }),
     )
 
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_ID}`],
-      },
-    )
+    renderWithRouter(<Route path="/jobs/:jobId" component={JobsShow} />, {
+      initialEntries: [`/jobs/${JOB_ID}`],
+    })
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Recent job runs')
-    expect(wrapper.text()).not.toContain('Task list')
+    expect(await findByText('Recent job runs')).toBeInTheDocument()
+    expect(queryByText('Task list')).toBeNull()
   })
 })

@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -15,14 +14,15 @@ import (
 )
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	orm := bulletprooftxmanager.NewORM(postgres.UnwrapGormDB(db))
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
 
 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
-	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 0, 1, from)        // tx1
-	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, db, 1, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, orm, 1, 2, from) // tx2
 
 	// add 2nd attempt to tx2
 	blockNum := int64(3)
@@ -30,18 +30,16 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	attempt.State = bulletprooftxmanager.EthTxAttemptBroadcast
 	attempt.GasPrice = utils.NewBig(big.NewInt(3))
 	attempt.BroadcastBeforeBlockNum = &blockNum
-	require.NoError(t, db.Create(&attempt).Error)
+	require.NoError(t, orm.InsertEthTxAttempt(&attempt))
 
 	// tx 3 has no attempts
 	tx3 := cltest.NewEthTx(t, from)
 	tx3.State = bulletprooftxmanager.EthTxUnstarted
 	tx3.FromAddress = from
-	require.NoError(t, db.Save(&tx3).Error)
+	require.NoError(t, orm.InsertEthTx(&tx3))
 
 	var count int
-	var c int64
-	err := db.Model(bulletprooftxmanager.EthTx{}).Count(&c).Error
-	count = int(c)
+	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -61,4 +59,59 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
 	assert.Len(t, txs, 1, "limit should apply to length of results")
 	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+}
+
+func TestORM(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := cltest.NewTestGeneralConfig(t)
+	keyStore := cltest.NewKeyStore(t, db, cfg)
+	orm := cltest.NewBulletproofTxManagerORM(t, db, cfg)
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+
+	var err error
+	var etx bulletprooftxmanager.EthTx
+	t.Run("InsertEthTx", func(t *testing.T) {
+		etx = cltest.NewEthTx(t, fromAddress)
+		err = orm.InsertEthTx(&etx)
+		require.NoError(t, err)
+		assert.Greater(t, int(etx.ID), 0)
+		cltest.AssertCount(t, db, "eth_txes", 1)
+	})
+	var attemptL bulletprooftxmanager.EthTxAttempt
+	var attemptD bulletprooftxmanager.EthTxAttempt
+	t.Run("InsertEthTxAttempt", func(t *testing.T) {
+		attemptD = cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
+		err = orm.InsertEthTxAttempt(&attemptD)
+		require.NoError(t, err)
+		assert.Greater(t, int(attemptD.ID), 0)
+		cltest.AssertCount(t, db, "eth_tx_attempts", 1)
+
+		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
+		attemptL.State = bulletprooftxmanager.EthTxAttemptBroadcast
+		attemptL.GasPrice = utils.NewBigI(42)
+		err = orm.InsertEthTxAttempt(&attemptL)
+		require.NoError(t, err)
+		assert.Greater(t, int(attemptL.ID), 0)
+		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
+	})
+	var r bulletprooftxmanager.EthReceipt
+	t.Run("InsertEthReceipt", func(t *testing.T) {
+		r = cltest.NewEthReceipt(t, 42, utils.NewHash(), attemptD.Hash)
+		err = orm.InsertEthReceipt(&r)
+		require.NoError(t, err)
+		assert.Greater(t, int(r.ID), 0)
+		cltest.AssertCount(t, db, "eth_receipts", 1)
+	})
+	t.Run("FindEthTxWithAttempts", func(t *testing.T) {
+		etx, err = orm.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 2)
+		assert.Equal(t, etx.EthTxAttempts[0].ID, attemptD.ID)
+		assert.Equal(t, etx.EthTxAttempts[1].ID, attemptL.ID)
+		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 1)
+		require.Len(t, etx.EthTxAttempts[1].EthReceipts, 0)
+		assert.Equal(t, r.BlockHash, etx.EthTxAttempts[0].EthReceipts[0].BlockHash)
+	})
 }

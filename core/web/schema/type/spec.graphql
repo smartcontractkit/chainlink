@@ -1,0 +1,76 @@
+union JobSpec = CronSpec | DirectRequestSpec | KeeperSpec | FluxMonitorSpec | OCRSpec | VRFSpec | WebhookSpec
+
+type CronSpec {
+    schedule: String!
+    createdAt: Time!
+}
+
+type DirectRequestSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    minIncomingConfirmations: Int
+    minIncomingConfirmationsEnv: Boolean!
+    minContractPayment: String!
+    requesters: [String!]!
+}
+
+type FluxMonitorSpec {
+    absoluteThreshold: Float!
+    contractAddress: String!
+    createdAt: Time!
+    drumbeatEnabled: Boolean!
+    drumbeatRandomDelay: String
+    drumbeatSchedule: String
+    evmChainID: String
+    idleTimerDisabled: Boolean!
+    idleTimerPeriod: String!
+    minPayment: String
+    pollTimerDisabled: Boolean!
+    pollTimerPeriod: String!
+    threshold: Float!
+}
+
+type KeeperSpec {
+    contractAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String
+}
+
+type OCRSpec {
+    blockchainTimeout: String!
+    blockchainTimeoutEnv: Boolean!
+    contractAddress: String!
+    contractConfigConfirmations: Int!
+    contractConfigConfirmationsEnv: Boolean!
+    contractConfigTrackerPollInterval: String!
+    contractConfigTrackerPollIntervalEnv: Boolean!
+    contractConfigTrackerSubscribeInterval: String!
+    contractConfigTrackerSubscribeIntervalEnv: Boolean!
+    createdAt: Time!
+    evmChainID: String
+    isBootstrapPeer: Boolean!
+    keyBundleID: String
+    observationTimeout: String!
+    observationTimeoutEnv: Boolean!
+    p2pPeerID: String!
+    p2pPeerIDEnv: Boolean!
+    p2pBootstrapPeers: [String!]!
+    transmitterAddress: String
+}
+
+type VRFSpec {
+    coordinatorAddress: String!
+    createdAt: Time!
+    evmChainID: String
+    fromAddress: String
+    minIncomingConfirmations: Int!
+    pollPeriod: String!
+    publicKey: String!
+    requestedConfsDelay: Int!
+}
+
+type WebhookSpec {
+    createdAt: Time!
+}

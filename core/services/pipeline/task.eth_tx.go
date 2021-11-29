@@ -9,7 +9,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -32,20 +31,14 @@ type ETHTxTask struct {
 	EVMChainID       string `json:"evmChainID" mapstructure:"evmChainID"`
 	Simulate         string `json:"simulate" mapstructure:"simulate"`
 
-	db       *gorm.DB
 	keyStore ETHKeyStore
 	chainSet evm.ChainSet
 }
 
 //go:generate mockery --name ETHKeyStore --output ./mocks/ --case=underscore
-//go:generate mockery --name TxManager --output ./mocks/ --case=underscore
 
 type ETHKeyStore interface {
 	GetRoundRobinAddress(addrs ...common.Address) (common.Address, error)
-}
-
-type TxManager interface {
-	CreateEthTransaction(db *gorm.DB, newTx bulletprooftxmanager.NewTx) (etx bulletprooftxmanager.EthTx, err error)
 }
 
 var _ Task = (*ETHTxTask)(nil)
@@ -54,7 +47,7 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
-func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	chain, err := getChainByString(t.chainSet, t.EVMChainID)
 	if err != nil {
 		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
@@ -88,11 +81,11 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		return Result{Error: err}, runInfo
 	}
 
-	var minConfirmations uint64
+	var minOutgoingConfirmations uint64
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
-		minConfirmations = min
+		minOutgoingConfirmations = min
 	} else {
-		minConfirmations = cfg.MinRequiredOutgoingConfirmations()
+		minOutgoingConfirmations = cfg.MinRequiredOutgoingConfirmations()
 	}
 
 	var txMeta bulletprooftxmanager.EthTxMeta
@@ -126,7 +119,7 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 	fromAddr, err := t.keyStore.GetRoundRobinAddress(fromAddrs...)
 	if err != nil {
 		err = errors.Wrap(err, "ETHTxTask failed to get fromAddress")
-		logger.Error(err)
+		lggr.Error(err)
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while querying keystore: %v", err)}, retryableRunInfo()
 	}
 
@@ -142,18 +135,18 @@ func (t *ETHTxTask) Run(_ context.Context, vars Vars, inputs []Result) (result R
 		Strategy:       strategy,
 	}
 
-	if minConfirmations > 0 {
-		// Store the task run ID so we can resume the pipeline when tx is confirmed
+	if minOutgoingConfirmations > 0 {
+		// Store the task run ID, so we can resume the pipeline when tx is confirmed
 		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = null.Uint32From(uint32(minConfirmations))
+		newTx.MinConfirmations = null.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateEthTransaction(t.db, newTx)
+	_, err = txManager.CreateEthTransaction(newTx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
 
-	if minConfirmations > 0 {
+	if minOutgoingConfirmations > 0 {
 		return Result{}, pendingRunInfo()
 	}
 

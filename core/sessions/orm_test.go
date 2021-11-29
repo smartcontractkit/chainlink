@@ -4,20 +4,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute)
+	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t))
 
 	return db, orm
 }
@@ -59,7 +62,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, test.sessionDuration)
+			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t))
 
 			user := cltest.MustNewUser(t, "have@email", "password")
 			require.NoError(t, orm.CreateUser(&user))
@@ -156,4 +159,28 @@ func TestORM_CreateSession(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOrm_GenerateAuthToken(t *testing.T) {
+	t.Parallel()
+
+	_, orm := setupORM(t)
+
+	initial := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&initial))
+
+	token, err := orm.CreateAndSetAuthToken(&initial)
+	require.NoError(t, err)
+
+	dbUser, err := orm.FindUser()
+	require.NoError(t, err)
+
+	hashedSecret, err := auth.HashedSecret(token, dbUser.TokenSalt.String)
+	require.NoError(t, err)
+
+	assert.NotNil(t, token)
+	assert.NotNil(t, token.Secret)
+	assert.NotEmpty(t, token.AccessKey)
+	assert.Equal(t, dbUser.TokenKey.String, token.AccessKey)
+	assert.Equal(t, dbUser.TokenHashedSecret.String, hashedSecret)
 }

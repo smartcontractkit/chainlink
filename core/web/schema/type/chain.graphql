@@ -1,0 +1,15 @@
+type Chain {
+    id: ID!
+    enabled: Boolean!
+    config: ChainConfig!
+    nodes: [Node!]!
+    createdAt: Time!
+    updatedAt: Time!
+}
+
+union ChainPayload = Chain | NotFoundError
+
+type ChainsPayload implements PaginatedPayload {
+    results: [Chain!]!
+    metadata: PaginationMetadata!
+}

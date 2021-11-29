@@ -4,9 +4,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -14,12 +19,8 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 )
 
 type TestChainOpts struct {
@@ -28,7 +29,7 @@ type TestChainOpts struct {
 	GeneralConfig  config.GeneralConfig
 	ChainCfg       evmtypes.ChainCfg
 	HeadTracker    httypes.Tracker
-	DB             *gorm.DB
+	DB             *sqlx.DB
 	TxManager      bulletprooftxmanager.TxManager
 	KeyStore       keystore.Eth
 }
@@ -43,10 +44,9 @@ func NewChainScopedConfig(t testing.TB, cfg config.GeneralConfig) evmconfig.Chai
 func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 	opts := evm.ChainSetOpts{
 		Config:           testopts.GeneralConfig,
-		GormDB:           testopts.DB,
-		SQLxDB:           postgres.TryUnwrapGormDB(testopts.DB),
+		DB:               testopts.DB,
 		KeyStore:         testopts.KeyStore,
-		EventBroadcaster: postgres.NewNullEventBroadcaster(),
+		EventBroadcaster: pg.NewNullEventBroadcaster(),
 	}
 	if testopts.Client != nil {
 		opts.GenEthClient = func(c evmtypes.Chain) eth.Client {
@@ -96,10 +96,12 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 	return chain
 }
 
-func MustInsertChainWithNode(t testing.TB, db *gorm.DB, chain evmtypes.Chain) evmtypes.Chain {
-	err := db.Create(&chain).Error
+func MustInsertChain(t testing.TB, db *sqlx.DB, chain *evmtypes.Chain) {
+	query, args, e := db.BindNamed(`
+INSERT INTO evm_chains (id, cfg, enabled, created_at, updated_at) VALUES (:id, :cfg, :enabled, NOW(), NOW()) RETURNING *;`, chain)
+	require.NoError(t, e)
+	err := db.Get(chain, query, args...)
 	require.NoError(t, err)
-	return chain
 }
 
 type MockORM struct {
@@ -147,6 +149,10 @@ func (mo *MockORM) Chains(offset int, limit int) ([]evmtypes.Chain, int, error) 
 	panic("not implemented")
 }
 
+func (mo *MockORM) GetChainsByIDs(ids []utils.Big) (chains []evmtypes.Chain, err error) {
+	panic("not implemented")
+}
+
 func (mo *MockORM) CreateNode(data evmtypes.NewNode) (evmtypes.Node, error) {
 	panic("not implemented")
 }
@@ -156,6 +162,14 @@ func (mo *MockORM) DeleteNode(id int64) error {
 }
 
 func (mo *MockORM) Nodes(offset int, limit int) ([]evmtypes.Node, int, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) Node(id int32) (evmtypes.Node, error) {
+	panic("not implemented")
+}
+
+func (mo *MockORM) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []evmtypes.Node, err error) {
 	panic("not implemented")
 }
 

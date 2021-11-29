@@ -1,0 +1,12 @@
+type JobRun {
+    id: ID!
+    outputs: [String]!
+    allErrors: [String!]!
+    fatalErrors: [String!]!
+    inputs: String!
+    createdAt: Time!
+    finishedAt: Time
+    taskRuns: [TaskRun!]!
+}
+
+union JobRunPayload = JobRun | NotFoundError

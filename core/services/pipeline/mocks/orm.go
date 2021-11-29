@@ -5,15 +5,12 @@ package mocks
 import (
 	context "context"
 
-	gorm "gorm.io/gorm"
-
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	time "time"
 
@@ -25,13 +22,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateRun provides a mock function with given fields: db, run
-func (_m *ORM) CreateRun(db postgres.Queryer, run *pipeline.Run) error {
-	ret := _m.Called(db, run)
+// CreateRun provides a mock function with given fields: run, qopts
+func (_m *ORM) CreateRun(run *pipeline.Run, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(postgres.Queryer, *pipeline.Run) error); ok {
-		r0 = rf(db, run)
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) error); ok {
+		r0 = rf(run, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -39,41 +43,32 @@ func (_m *ORM) CreateRun(db postgres.Queryer, run *pipeline.Run) error {
 	return r0
 }
 
-// CreateSpec provides a mock function with given fields: ctx, tx, _a2, maxTaskTimeout
-func (_m *ORM) CreateSpec(ctx context.Context, tx *gorm.DB, _a2 pipeline.Pipeline, maxTaskTimeout models.Interval) (int32, error) {
-	ret := _m.Called(ctx, tx, _a2, maxTaskTimeout)
+// CreateSpec provides a mock function with given fields: _a0, maxTaskTimeout, qopts
+func (_m *ORM) CreateSpec(_a0 pipeline.Pipeline, maxTaskTimeout models.Interval, qopts ...pg.QOpt) (int32, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _a0, maxTaskTimeout)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) int32); ok {
-		r0 = rf(ctx, tx, _a2, maxTaskTimeout)
+	if rf, ok := ret.Get(0).(func(pipeline.Pipeline, models.Interval, ...pg.QOpt) int32); ok {
+		r0 = rf(_a0, maxTaskTimeout, qopts...)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.Pipeline, models.Interval) error); ok {
-		r1 = rf(ctx, tx, _a2, maxTaskTimeout)
+	if rf, ok := ret.Get(1).(func(pipeline.Pipeline, models.Interval, ...pg.QOpt) error); ok {
+		r1 = rf(_a0, maxTaskTimeout, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
-}
-
-// DB provides a mock function with given fields:
-func (_m *ORM) DB() *gorm.DB {
-	ret := _m.Called()
-
-	var r0 *gorm.DB
-	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gorm.DB)
-		}
-	}
-
-	return r0
 }
 
 // DeleteRun provides a mock function with given fields: id
@@ -148,6 +143,20 @@ func (_m *ORM) GetAllRuns() ([]pipeline.Run, error) {
 	return r0, r1
 }
 
+// GetQ provides a mock function with given fields:
+func (_m *ORM) GetQ() pg.Q {
+	ret := _m.Called()
+
+	var r0 pg.Q
+	if rf, ok := ret.Get(0).(func() pg.Q); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(pg.Q)
+	}
+
+	return r0
+}
+
 // GetUnfinishedRuns provides a mock function with given fields: _a0, _a1, _a2
 func (_m *ORM) GetUnfinishedRuns(_a0 context.Context, _a1 time.Time, _a2 func(pipeline.Run) error) error {
 	ret := _m.Called(_a0, _a1, _a2)
@@ -162,41 +171,69 @@ func (_m *ORM) GetUnfinishedRuns(_a0 context.Context, _a1 time.Time, _a2 func(pi
 	return r0
 }
 
-// InsertFinishedRun provides a mock function with given fields: db, run, saveSuccessfulTaskRuns
-func (_m *ORM) InsertFinishedRun(db postgres.Queryer, run pipeline.Run, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(db, run, saveSuccessfulTaskRuns)
+// InsertFinishedRun provides a mock function with given fields: run, saveSuccessfulTaskRuns, qopts
+func (_m *ORM) InsertFinishedRun(run *pipeline.Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run, saveSuccessfulTaskRuns)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
-	var r0 int64
-	if rf, ok := ret.Get(0).(func(postgres.Queryer, pipeline.Run, bool) int64); ok {
-		r0 = rf(db, run, saveSuccessfulTaskRuns)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, bool, ...pg.QOpt) error); ok {
+		r0 = rf(run, saveSuccessfulTaskRuns, qopts...)
 	} else {
-		r0 = ret.Get(0).(int64)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(postgres.Queryer, pipeline.Run, bool) error); ok {
-		r1 = rf(db, run, saveSuccessfulTaskRuns)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
-// StoreRun provides a mock function with given fields: db, run
-func (_m *ORM) StoreRun(db postgres.Queryer, run *pipeline.Run) (bool, error) {
-	ret := _m.Called(db, run)
+// InsertRun provides a mock function with given fields: run, qopts
+func (_m *ORM) InsertRun(run *pipeline.Run, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) error); ok {
+		r0 = rf(run, qopts...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// StoreRun provides a mock function with given fields: run, qopts
+func (_m *ORM) StoreRun(run *pipeline.Run, qopts ...pg.QOpt) (bool, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, run)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(postgres.Queryer, *pipeline.Run) bool); ok {
-		r0 = rf(db, run)
+	if rf, ok := ret.Get(0).(func(*pipeline.Run, ...pg.QOpt) bool); ok {
+		r0 = rf(run, qopts...)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(postgres.Queryer, *pipeline.Run) error); ok {
-		r1 = rf(db, run)
+	if rf, ok := ret.Get(1).(func(*pipeline.Run, ...pg.QOpt) error); ok {
+		r1 = rf(run, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}

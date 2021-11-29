@@ -1,0 +1,20 @@
+type OCRKeyBundle {
+    id: ID!
+    configPublicKey: String!
+    offChainPublicKey: String!
+    onChainSigningAddress: String!
+}
+
+type OCRKeyBundlesPayload {
+    results: [OCRKeyBundle!]!
+}
+
+type CreateOCRKeyBundlePayload {
+    bundle: OCRKeyBundle!
+}
+
+type DeleteOCRKeyBundleSuccess {
+    bundle: OCRKeyBundle!
+}
+
+union DeleteOCRKeyBundlePayload = DeleteOCRKeyBundleSuccess | NotFoundError

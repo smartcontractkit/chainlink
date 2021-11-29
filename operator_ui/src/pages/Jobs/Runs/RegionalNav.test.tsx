@@ -1,13 +1,15 @@
 import React from 'react'
 import RegionalNav from './RegionalNav'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import { renderWithRouter, screen } from 'support/test-utils'
+
+const { queryByText } = screen
 
 describe('pages/Jobs/Runs/RegionalNav', () => {
   it('displays an overview & json tab by default', () => {
-    const component = mountWithTheme(<RegionalNav jobRunId="1" jobId="1" />)
+    renderWithRouter(<RegionalNav jobRunId="1" jobId="1" />)
 
-    expect(component.text()).toContain('Overview')
-    expect(component.text()).toContain('JSON')
-    expect(component.text()).not.toContain('Error Log')
+    expect(queryByText('Overview')).toBeInTheDocument()
+    expect(queryByText('JSON')).toBeInTheDocument()
+    expect(queryByText('Error Log')).toBeNull()
   })
 })

@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +40,7 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()
-	cp := presenters.ConfigPrinter{}
+	cp := config.ConfigPrinter{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
 
 	r := cmd.RendererTable{Writer: ioutil.Discard}

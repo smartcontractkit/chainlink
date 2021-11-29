@@ -5,15 +5,104 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+### Fixed
+
+- Proper handling for "nonce too low" errors on Avalanche
+
 ## [Unreleased]
 
-### Log to Disk
+### New optional VRF v2 field: `requestedConfsDelay`
+
+Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
+number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
+the randomness request, i.e the Chainlink node will wait `max(nodeMinConfs, requestConfirmations + requestedConfsDelay)`
+blocks before servicing the request.
+
+It can be used in the following way:
+
+```toml
+type = "vrf"
+externalJobID = "123e4567-e89b-12d3-a456-426655440001"
+schemaVersion = 1
+name = "vrf-v2-secondary"
+coordinatorAddress = "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
+requestedConfsDelay = 10
+# ... rest of job spec ...
+```
+
+Use of this field requires a database migration.
+
+### Changed
+
+- The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
+
+### Added
+
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
+
+#### New locking mode: 'lease'
+
+Chainlink now supports a new environment variable `DATABASE_LOCKING_MODE`. It can be set to one of the following values:
+
+- `dual` (the default - uses both locking types for backwards and forwards compatibility)
+- `advisorylock` (advisory lock only)
+- `lease` (lease lock only)
+- `none` (no locking at all - useful for certain deployment environments when you can be sure that only one instance of chainlink will ever be running)
+
+The database lock ensures that only one instance of Chainlink can be run on the database at a time. Running multiple instances of Chainlink on a single database at the same time would likely to lead to strange errors and possibly even data integrity failures and should not be allowed.
+
+With that being said, a very common use case is to run multiple Chainlink instances in failover mode. The first instance will take some kind of lock on the database and subsequent instances will wait trying to take this lock in case the first instance disappears or dies.
+
+Traditionally Chainlink has used an advisory lock to manage this. However, advisory locks come with several problems, notably:
+- Postgres does not really like it when you hold locks open for a very long time (hours/days). It hampers certain internal cleanup tasks and is explicitly discouraged by the postgres maintainers
+- The advisory lock can silently disappear on postgres upgrade
+- Advisory locks do not play nicely with pooling tools such as pgbouncer
+- If the application crashes, the advisory lock can be left hanging around for a while (sometimes hours) and can require manual intervention to remove it
+
+For this reason, we have introduced a new locking mode, `lease`, which is likely to become the default in future. `lease`-mode works as follows:
+- Have one row in a database which is updated periodically with the client ID
+- CL node A will run a background process on start that updates this e.g. once per second
+- CL node B will spinlock, checking periodically to see if the update got too old. If it goes more than, say, 5s without updating, it assumes that node A is dead and takes over. Now CL node B is the owner of the row and it updates this every second
+- If CL node A comes back somehow, it will go to take out a lease and realise that the database has been leased to another process, so it will panic and quit immediately
+
+The default is set to `dual` which used both advisory locking AND lease locking, for backwards compatibility. However, it is recommended that node operators who know what they are doing, or explicitly want to stop using the advisory locking mode set `DATABASE_LOCKING_MODE=lease` in their env.
+
+#### Duplicate Job Configuration
+
+When duplicating a job, the new job's configuration settings that have not been overridden by the user can still reflect the chainlink node configuration.
+
+#### Log to Disk
 
 This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
 ### Added
 
-The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
+- The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
+- The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
+- CLI command `keys eth list` is updated to display key specific max gas prices.
+- CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
+- CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
+- Add partial support for Moonriver chain
+
+#### Nurse (automatic pprof profiler)
+
+Added new automatic pprof profiling service. Profiling is triggered when the node exceeds certain resource thresholds (currently, memory and goroutine count). The following environment variables have been added to allow configuring this service:
+
+- `AUTO_PPROF_ENABLED`: Set to `true` to enable the automatic profiling service. Defaults to `false`.
+- `AUTO_PPROF_PROFILE_ROOT`: The location on disk where pprof profiles will be stored. Defaults to `$CHAINLINK_ROOT`.
+- `AUTO_PPROF_POLL_INTERVAL`: The interval at which the node's resources are checked. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_DURATION`: The duration for which profiles are gathered when profiling is kicked off. Defaults to `10s`.
+- `AUTO_PPROF_GATHER_TRACE_DURATION`: The duration for which traces are gathered when profiling is kicked off. This is separately configurable because traces are significantly larger than other types of profiles. Defaults to `5s`.
+- `AUTO_PPROF_MAX_PROFILE_SIZE`: The maximum amount of disk space that profiles may consume before profiling is disabled. Defaults to `100mb`.
+- `AUTO_PPROF_CPU_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetCPUProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MEM_PROFILE_RATE`: See https://pkg.go.dev/runtime#pkg-variables. Defaults to `1`.
+- `AUTO_PPROF_BLOCK_PROFILE_RATE`: See https://pkg.go.dev/runtime#SetBlockProfileRate. Defaults to `1`.
+- `AUTO_PPROF_MUTEX_PROFILE_FRACTION`: See https://pkg.go.dev/runtime#SetMutexProfileFraction. Defaults to `1`.
+- `AUTO_PPROF_MEM_THRESHOLD`: The maximum amount of memory the node can actively consume before profiling begins. Defaults to `4gb`.
+- `AUTO_PPROF_GOROUTINE_THRESHOLD`: The maximum number of actively-running goroutines the node can spawn before profiling begins. Defaults to `5000`.
+
+**Adventurous node operators are encouraged to read [this guide on how to analyze pprof profiles](https://jvns.ca/blog/2017/09/24/profiling-go-with-pprof/).**
 
 #### `merge` task type
 
@@ -84,8 +173,6 @@ submit [type=ethtx to="0xDeadDeadDeadDeadDeadDeadDeadDead" data="0xDead" simulat
 Use at your own risk.
 
 #### Misc
-
-Add support for OKEx/ExChain.
 
 Chainlink now supports more than one primary eth node per chain. Requests are round-robined between available primaries.
 
@@ -164,9 +251,31 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are not required (and do nothing) if `USE_LEGACY_ETH_ENV_VARS=false`. If `USE_LEGACY_ETH_ENV_VARS=true` (the default) these env vars must be explicitly set. This is most likely safe, since almost all node operators set these values explicitly anyway (and we don't even recommend running an eth node on the same box as the CL node).
 
+### Removed
+
+- `belt/` and `evm-test-helpers/` removed from the codebase.
+
+#### Deprecated env vars
+
+`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
+
+### Fixed
+
+- Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+- Fixed a bug where creating lots of jobs very quickly in parallel would cause the node to hang
+- Propagating `evmChainID` parameter in job specs supporting this parameter.
+
+Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator can override `LOG_LEVEL` until the node is restarted.
+
 ### Changed
 
-Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
+- Logging timestamp output has been changed from unix to ISO8601 to aid in readability. To keep the old unix format, you may set `LOG_UNIX_TS=true`
+- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
+
+#### Log to Disk
+
+This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
 #### Async support in external adapters
 
@@ -193,37 +302,11 @@ This only applies to EAs using the `X-Chainlink-Pending` header to signal that t
 
 (NOTE: Official documentation for EAs needs to be updated)
 
-### Removed
-
-- `belt/` and `evm-test-helpers/` removed from the codebase.
-
-#### Deprecated env vars
-
-`LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
-
-### Fixed
-
-Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
-
-## [v1.0.0]
-
-### Added
-
-- `chainlink node db status` will now display a table of applied and pending migrations.
-- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
-
-### Changed
-
-- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs, regardless of the head frequency from the chain.
-- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
-
 #### New env vars
 
 `BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
 
 `ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
-
-`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
 
 #### Removed env vars
 
@@ -338,7 +421,14 @@ To help you work around this, Chainlink now supports setting per-chain configura
 
 TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
 
-#### Legacy pipeline removed
+## [1.0.0] - 2021-10-19
+
+### Added
+
+- `chainlink node db status` will now display a table of applied and pending migrations.
+- Add support for OKEx/ExChain.
+
+### Changed
 
 **Legacy job pipeline (JSON specs) are no longer supported**
 
@@ -348,21 +438,33 @@ For more information on migrating, see [the docs](https://docs.chain.link/chainl
 
 This release will DROP legacy job tables so please take a backup before upgrading.
 
-#### Requesters
+#### KeyStore changes
 
-V2 direct request specs now support "Requesters" key which allows to whitelist requesters. For example:
+* We no longer support "soft deleting", or archiving keys. From now on, keys can only be hard-deleted.
+* Eth keys can no longer be imported directly to the database. If you with to import an eth key, you _must_ start the node first and import through the remote client.
 
-```toml
-type                = "directrequest"
-schemaVersion       = 1
-requesters          = ["0xaaaa1F8ee20f5565510B84f9353F1E333E753B7a", "0xbbbb70F0e81C6F3430dfdC9fa02fB22BdD818C4e"]
-name                = "example eth request event spec with requesters"
-contractAddress     = "..."
-externalJobID     =  "..."
-observationSource   = """
-...
-"""
-```
+#### New env vars
+
+`LAYER_2_TYPE` - For layer 2 chains only. Configure the type of chain, either `Arbitrum` or `Optimism`.
+
+#### Misc
+
+- Head sampling can now be optionally disabled by setting `ETH_HEAD_TRACKER_SAMPLING_INTERVAL = "0s"` - this will result in every new head being delivered to running jobs,
+  regardless of the head frequency from the chain.
+- When creating new FluxMonitor jobs, the validation logic now checks that only one of: drumbeat ticker or idle timer is enabled.
+- Added a new Prometheus metric: `uptime_seconds` which measures the number of seconds the node has been running. It can be helpful in detecting potential crashes.
+
+### Fixed
+
+Fixed a regression whereby the BlockHistoryEstimator would use a bumped value on old gas price even if the new current price was larger than the bumped value.
+
+## [0.10.15] - 2021-10-14
+
+**It is highly recommended to upgrade to this version before upgrading to any newer versions to avoid any complications.**
+
+### Fixed
+
+- Prevent release from clobbering databases that have previously been upgraded
 
 ## [0.10.14] - 2021-09-06
 
@@ -751,8 +853,6 @@ pipeline_tasks_total_finished{job_id="1",job_name="example keeper spec",status="
 ```
 
 ### Changed
-
-- Added WebAuthn support for the Operator UI and corresponding support in the Go backend
 
 - The v2 (TOML) `bridge` task's `includeInputAtKey` parameter is being deprecated in favor of variable interpolation. Please migrate your jobs to the new syntax as soon as possible.
 

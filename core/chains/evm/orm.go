@@ -3,11 +3,12 @@ package evm
 import (
 	"math/big"
 
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type orm struct {
@@ -67,6 +68,18 @@ func (o *orm) Chains(offset, limit int) (chains []types.Chain, count int, err er
 	}
 
 	return
+}
+
+// GetNodesByChainID fetches allow nodes for the given chain ids.
+func (o *orm) GetChainsByIDs(ids []utils.Big) (chains []types.Chain, err error) {
+	sql := `SELECT * FROM evm_chains WHERE id = ANY($1) ORDER BY created_at, id;`
+
+	chainIDs := pq.Array(ids)
+	if err = o.db.Select(&chains, sql, chainIDs); err != nil {
+		return nil, err
+	}
+
+	return chains, nil
 }
 
 func (o *orm) CreateNode(data types.NewNode) (node types.Node, err error) {
@@ -130,6 +143,18 @@ func (o *orm) Nodes(offset, limit int) (nodes []types.Node, count int, err error
 	return
 }
 
+// GetNodesByChainID fetches allow nodes for the given chain ids.
+func (o *orm) GetNodesByChainIDs(chainIDs []utils.Big) (nodes []types.Node, err error) {
+	sql := `SELECT * FROM nodes WHERE evm_chain_id = ANY($1) ORDER BY created_at, id;`
+
+	cids := pq.Array(chainIDs)
+	if err = o.db.Select(&nodes, sql, cids); err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
+}
+
 func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types.Node, count int, err error) {
 	if err = o.db.Get(&count, "SELECT COUNT(*) FROM nodes WHERE evm_chain_id = $1", chainID); err != nil {
 		return
@@ -139,6 +164,12 @@ func (o *orm) NodesForChain(chainID utils.Big, offset, limit int) (nodes []types
 	if err = o.db.Select(&nodes, sql, chainID, limit, offset); err != nil {
 		return
 	}
+
+	return
+}
+
+func (o *orm) Node(id int32) (node types.Node, err error) {
+	err = o.db.Get(&node, "SELECT * FROM nodes WHERE id = $1;", id)
 
 	return
 }

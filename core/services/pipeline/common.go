@@ -33,7 +33,7 @@ type (
 		Type() TaskType
 		ID() int
 		DotID() string
-		Run(ctx context.Context, vars Vars, inputs []Result) (Result, RunInfo)
+		Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (Result, RunInfo)
 		Base() *BaseTask
 		Outputs() []Task
 		Inputs() []Task
@@ -211,19 +211,6 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 type JSONSerializable struct {
 	Val   interface{}
 	Valid bool
-}
-
-// NewJSONSerializable returns an instance of JSONSerializable with the passed parameters.
-func NewJSONSerializable(val interface{}, valid bool) JSONSerializable {
-	return JSONSerializable{
-		Val:   val,
-		Valid: valid,
-	}
-}
-
-// JSONSerializableFrom creates a new JSONSerializable that will always be valid.
-func JSONSerializableFrom(val interface{}) JSONSerializable {
-	return NewJSONSerializable(val, true)
 }
 
 // UnmarshalJSON implements custom unmarshaling logic

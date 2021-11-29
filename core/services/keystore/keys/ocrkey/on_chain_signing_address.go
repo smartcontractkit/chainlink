@@ -17,7 +17,8 @@ const onChainSigningAddressPrefix = "ocrsad_"
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 
 func (ocsa OnChainSigningAddress) String() string {
-	return fmt.Sprintf("%s%s", onChainSigningAddressPrefix, hexutil.Encode(ocsa[:]))
+	address := common.BytesToAddress(ocsa[:])
+	return fmt.Sprintf("%s%s", onChainSigningAddressPrefix, address)
 }
 
 func (ocsa OnChainSigningAddress) MarshalJSON() ([]byte, error) {

@@ -4,11 +4,13 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -16,13 +18,13 @@ import (
 )
 
 type Spec struct {
-	ID              int32           `gorm:"primary_key"`
+	ID              int32
 	DotDagSource    string          `json:"dotDagSource"`
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
 
-	JobID   int32  `gorm:"-" json:"-"`
-	JobName string `gorm:"-" json:"-"`
+	JobID   int32  `json:"-"`
+	JobName string `json:"-"`
 }
 
 func (Spec) TableName() string {
@@ -34,25 +36,25 @@ func (s Spec) Pipeline() (*Pipeline, error) {
 }
 
 type Run struct {
-	ID             int64            `json:"-" gorm:"primary_key"`
+	ID             int64            `json:"-"`
 	PipelineSpecID int32            `json:"-"`
 	PipelineSpec   Spec             `json:"pipelineSpec"`
-	Meta           JSONSerializable `json:"meta" gorm:"type:jsonb"`
+	Meta           JSONSerializable `json:"meta"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
-	AllErrors   RunErrors        `json:"all_errors" gorm:"type:jsonb"`
-	FatalErrors RunErrors        `json:"fatal_errors" gorm:"type:jsonb"`
-	Inputs      JSONSerializable `json:"inputs" gorm:"type:jsonb"`
+	AllErrors   RunErrors        `json:"all_errors"`
+	FatalErrors RunErrors        `json:"fatal_errors"`
+	Inputs      JSONSerializable `json:"inputs"`
 	// Its expected that Output.Val is of type []interface{}.
 	// DB example: [1234, {"a": 10}, null]
-	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
+	Outputs          JSONSerializable `json:"outputs"`
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       null.Time        `json:"finishedAt"`
-	PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
+	PipelineTaskRuns []TaskRun        `json:"taskRuns"`
 	State            RunStatus        `json:"state"`
 
-	Pending   bool `gorm:"-"`
-	FailEarly bool `gorm:"-"`
+	Pending   bool
+	FailEarly bool
 }
 
 func (Run) TableName() string {
@@ -110,6 +112,77 @@ func (r *Run) ByDotID(id string) *TaskRun {
 	return nil
 }
 
+func (r *Run) StringOutputs() ([]*string, error) {
+	// The UI expects all outputs to be strings.
+	var outputs []*string
+	// Note for async jobs, Outputs can be nil/invalid
+	if r.Outputs.Valid {
+		outs, ok := r.Outputs.Val.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unable to process output type %T", r.Outputs.Val)
+		}
+
+		if r.Outputs.Valid && r.Outputs.Val != nil {
+			for _, out := range outs {
+				switch v := out.(type) {
+				case string:
+					s := v
+					outputs = append(outputs, &s)
+				case map[string]interface{}:
+					b, _ := json.Marshal(v)
+					bs := string(b)
+					outputs = append(outputs, &bs)
+				case decimal.Decimal:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case *big.Int:
+					s := v.String()
+					outputs = append(outputs, &s)
+				case float64:
+					s := fmt.Sprintf("%f", v)
+					outputs = append(outputs, &s)
+				case nil:
+					outputs = append(outputs, nil)
+				default:
+					return nil, fmt.Errorf("unable to process output type %T", out)
+				}
+			}
+		}
+	}
+
+	return outputs, nil
+}
+
+func (r *Run) StringFatalErrors() []*string {
+	var fatalErrors []*string
+
+	for _, err := range r.FatalErrors {
+		if err.Valid {
+			s := err.String
+			fatalErrors = append(fatalErrors, &s)
+		} else {
+			fatalErrors = append(fatalErrors, nil)
+		}
+	}
+
+	return fatalErrors
+}
+
+func (r *Run) StringAllErrors() []*string {
+	var allErrors []*string
+
+	for _, err := range r.AllErrors {
+		if err.Valid {
+			s := err.String
+			allErrors = append(allErrors, &s)
+		} else {
+			allErrors = append(allErrors, nil)
+		}
+	}
+
+	return allErrors
+}
+
 type RunErrors []null.String
 
 func (re *RunErrors) Scan(value interface{}) error {
@@ -158,11 +231,11 @@ func (rr ResumeRequest) ToResult() (Result, error) {
 }
 
 type TaskRun struct {
-	ID            uuid.UUID        `json:"id" gorm:"primary_key"`
+	ID            uuid.UUID        `json:"id"`
 	Type          TaskType         `json:"type"`
 	PipelineRun   Run              `json:"-"`
 	PipelineRunID int64            `json:"-"`
-	Output        JSONSerializable `json:"output" gorm:"type:jsonb"`
+	Output        JSONSerializable `json:"output"`
 	Error         null.String      `json:"error"`
 	CreatedAt     time.Time        `json:"createdAt"`
 	FinishedAt    null.Time        `json:"finishedAt"`

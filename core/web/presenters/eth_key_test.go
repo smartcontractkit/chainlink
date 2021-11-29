@@ -39,11 +39,13 @@ func TestETHKeyResource(t *testing.T) {
 	r, err := NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
+		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
 	)
 	require.NoError(t, err)
 
 	assert.Equal(t, assets.NewEth(1), r.EthBalance)
 	assert.Equal(t, assets.NewLinkFromJuels(1), r.LinkBalance)
+	assert.Equal(t, *utils.NewBigI(12345), r.MaxGasPriceWei)
 
 	b, err := jsonapi.Marshal(r)
 	require.NoError(t, err)
@@ -60,7 +62,8 @@ func TestETHKeyResource(t *testing.T) {
 			  "linkBalance":"1",
 			  "isFunding":true,
 			  "createdAt":"2000-01-01T00:00:00Z",
-			  "updatedAt":"2000-01-01T00:00:00Z"
+			  "updatedAt":"2000-01-01T00:00:00Z",
+			  "maxGasPriceWei":"12345"
 		   }
 		}
 	 }
@@ -71,6 +74,7 @@ func TestETHKeyResource(t *testing.T) {
 	r, err = NewETHKeyResource(key, state,
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLinkFromJuels(1)),
+		SetETHKeyMaxGasPriceWei(*utils.NewBigI(12345)),
 	)
 	require.NoError(t, err)
 	b, err = jsonapi.Marshal(r)
@@ -88,7 +92,8 @@ func TestETHKeyResource(t *testing.T) {
 				"linkBalance":"1",
 				"isFunding":true,
 				"createdAt":"2000-01-01T00:00:00Z",
-				"updatedAt":"2000-01-01T00:00:00Z"
+				"updatedAt":"2000-01-01T00:00:00Z",
+				"maxGasPriceWei":"12345"
 			}
 		}
 	}`,

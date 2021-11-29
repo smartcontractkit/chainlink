@@ -5,20 +5,24 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_P2PKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(t, db)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.P2P()
 	reset := func() {
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
 		keyStore.ResetXXXTestOnly()
 		keyStore.Unlock(cltest.Password)
 	}
@@ -40,7 +44,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		defer reset()
 		key, err := ks.Create()
 		require.NoError(t, err)
-		retrievedKey, err := ks.Get(key.ID())
+		retrievedKey, err := ks.Get(key.PeerID())
 		require.NoError(t, err)
 		require.Equal(t, key, retrievedKey)
 	})
@@ -49,16 +53,16 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		defer reset()
 		key, err := ks.Create()
 		require.NoError(t, err)
-		exportJSON, err := ks.Export(key.ID(), cltest.Password)
+		exportJSON, err := ks.Export(key.PeerID(), cltest.Password)
 		require.NoError(t, err)
-		_, err = ks.Delete(key.ID())
+		_, err = ks.Delete(key.PeerID())
 		require.NoError(t, err)
-		_, err = ks.Get(key.ID())
+		_, err = ks.Get(key.PeerID())
 		require.Error(t, err)
 		importedKey, err := ks.Import(exportJSON, cltest.Password)
 		require.NoError(t, err)
-		require.Equal(t, key.ID(), importedKey.ID())
-		retrievedKey, err := ks.Get(key.ID())
+		require.Equal(t, key.PeerID(), importedKey.PeerID())
+		retrievedKey, err := ks.Get(key.PeerID())
 		require.NoError(t, err)
 		require.Equal(t, importedKey, retrievedKey)
 	})
@@ -72,12 +76,12 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 1, len(keys))
-		_, err = ks.Delete(newKey.ID())
+		_, err = ks.Delete(newKey.PeerID())
 		require.NoError(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Equal(t, 0, len(keys))
-		_, err = ks.Get(newKey.ID())
+		_, err = ks.Get(newKey.PeerID())
 		require.Error(t, err)
 	})
 
@@ -98,7 +102,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		defer reset()
 		_, err := ks.GetOrFirst("")
 		require.Contains(t, err.Error(), "no p2p keys exist")
-		id := cltest.DefaultP2PPeerID.Raw()
+		id := p2pkey.PeerID("a0")
 		_, err = ks.GetOrFirst(id)
 		require.Contains(t, err.Error(), fmt.Sprintf("unable to find P2P key with id %s", id))
 		k1, err := ks.Create()
@@ -106,14 +110,14 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		k2, err := ks.GetOrFirst("")
 		require.NoError(t, err)
 		require.Equal(t, k1, k2)
-		k3, err := ks.GetOrFirst(k1.ID())
+		k3, err := ks.GetOrFirst(k1.PeerID())
 		require.NoError(t, err)
 		require.Equal(t, k1, k3)
 		_, err = ks.Create()
 		require.NoError(t, err)
 		_, err = ks.GetOrFirst("")
 		require.Contains(t, err.Error(), "multiple p2p keys found")
-		k4, err := ks.GetOrFirst(k1.ID())
+		k4, err := ks.GetOrFirst(k1.PeerID())
 		require.NoError(t, err)
 		require.Equal(t, k1, k4)
 	})
@@ -122,18 +126,26 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 		key, err := ks.Create()
 		require.NoError(t, err)
 		p2pPeer1 := offchainreporting.P2PPeer{
+			ID:     cltest.NewPeerID().String(),
 			Addr:   cltest.NewAddress().Hex(),
 			PeerID: cltest.DefaultPeerID, // different p2p key
 		}
 		p2pPeer2 := offchainreporting.P2PPeer{
+			ID:     cltest.NewPeerID().String(),
 			Addr:   cltest.NewAddress().Hex(),
 			PeerID: key.PeerID().Raw(),
 		}
-		require.NoError(t, db.Create(&p2pPeer1).Error)
-		require.NoError(t, db.Create(&p2pPeer2).Error)
-		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 2)
-		ks.Delete(key.ID())
-		cltest.AssertCount(t, db, offchainreporting.P2PPeer{}, 1)
+		const p2pTableName = "p2p_peers"
+		sql := fmt.Sprintf(`INSERT INTO %s (id, addr, peer_id, created_at, updated_at) 
+		VALUES (:id, :addr, :peer_id, now(), now()) 
+		RETURNING *;`, p2pTableName)
+		stmt, err := db.PrepareNamed(sql)
+		require.NoError(t, err)
+		require.NoError(t, stmt.Get(&p2pPeer1, &p2pPeer1))
+		require.NoError(t, stmt.Get(&p2pPeer2, &p2pPeer2))
+		cltest.AssertCount(t, db, p2pTableName, 2)
+		ks.Delete(key.PeerID())
+		cltest.AssertCount(t, db, p2pTableName, 1)
 	})
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {

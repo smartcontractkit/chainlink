@@ -7,10 +7,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/atomic"
-	"gorm.io/gorm"
 )
 
 //go:generate mockery --name ReaperConfig --output ./mocks/ --case=underscore
@@ -24,7 +24,7 @@ type ReaperConfig interface {
 
 // Reaper handles periodic database cleanup for BPTXM
 type Reaper struct {
-	db             *gorm.DB
+	db             *sqlx.DB
 	config         ReaperConfig
 	chainID        utils.Big
 	log            logger.Logger
@@ -35,7 +35,7 @@ type Reaper struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr logger.Logger, db *gorm.DB, config ReaperConfig, chainID big.Int) *Reaper {
+func NewReaper(lggr logger.Logger, db *sqlx.DB, config ReaperConfig, chainID big.Int) *Reaper {
 	return &Reaper{
 		db,
 		config,
@@ -116,40 +116,48 @@ func (r *Reaper) ReapEthTxes(headNum int64) error {
 	// Delete old confirmed eth_txes
 	// NOTE that this relies on foreign key triggers automatically removing
 	// the eth_tx_attempts and eth_receipts linked to every eth_tx
-	err := postgres.Batch(func(_, limit uint) (count uint, err error) {
-		res := r.db.Exec(`
+	err := pg.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := r.db.Exec(`
 WITH old_enough_receipts AS (
 	SELECT tx_hash FROM eth_receipts
-	WHERE block_number < ?
+	WHERE block_number < $1
 	ORDER BY block_number ASC, id ASC
-	LIMIT ?
+	LIMIT $2
 )
 DELETE FROM eth_txes
 USING old_enough_receipts, eth_tx_attempts
 WHERE eth_tx_attempts.eth_tx_id = eth_txes.id
 AND eth_tx_attempts.hash = old_enough_receipts.tx_hash
-AND eth_txes.created_at < ?
+AND eth_txes.created_at < $3
 AND eth_txes.state = 'confirmed'
-AND evm_chain_id = ?`, minBlockNumberToKeep, limit, timeThreshold, r.chainID)
-		if res.Error != nil {
-			return count, res.Error
+AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, r.chainID)
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to delete old confirmed eth_txes")
 		}
-		return uint(res.RowsAffected), res.Error
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to get rows affected")
+		}
+		return uint(rowsAffected), err
 	})
 	if err != nil {
 		return errors.Wrap(err, "BPTXMReaper#reapEthTxes batch delete of confirmed eth_txes failed")
 	}
 	// Delete old 'fatal_error' eth_txes
-	err = postgres.Batch(func(_, limit uint) (count uint, err error) {
-		res := r.db.Exec(`
+	err = pg.Batch(func(_, limit uint) (count uint, err error) {
+		res, err := r.db.Exec(`
 DELETE FROM eth_txes
-WHERE created_at < ?
+WHERE created_at < $1
 AND state = 'fatal_error'
-AND evm_chain_id = ?`, timeThreshold, r.chainID)
-		if res.Error != nil {
-			return count, res.Error
+AND evm_chain_id = $2`, timeThreshold, r.chainID)
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to delete old fatally errored eth_txes")
 		}
-		return uint(res.RowsAffected), res.Error
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return count, errors.Wrap(err, "ReapEthTxes failed to get rows affected")
+		}
+		return uint(rowsAffected), err
 	})
 	if err != nil {
 		return errors.Wrap(err, "BPTXMReaper#reapEthTxes batch delete of fatally errored eth_txes failed")

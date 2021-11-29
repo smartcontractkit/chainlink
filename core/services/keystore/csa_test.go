@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
@@ -11,12 +12,14 @@ import (
 )
 
 func Test_CSAKeyStore_E2E(t *testing.T) {
-	db := pgtest.NewGormDB(t)
-	keyStore := keystore.ExposedNewMaster(t, db)
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	keyStore := keystore.ExposedNewMaster(t, db, cfg)
 	keyStore.Unlock(cltest.Password)
 	ks := keyStore.CSA()
 	reset := func() {
-		require.NoError(t, db.Exec("DELETE FROM encrypted_key_rings").Error)
+		_, err := db.Exec("DELETE FROM encrypted_key_rings")
+		require.NoError(t, err)
 		keyStore.ResetXXXTestOnly()
 		keyStore.Unlock(cltest.Password)
 	}

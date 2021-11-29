@@ -22,6 +22,8 @@ export type JobV2 = BaseJob & {
   dotDagSource: string
   type: 'v2'
   specType: JobSpecType
+  evmChainID: string | null
+  externalJobID?: string
 }
 
 export type BaseJobRun = {
@@ -55,6 +57,7 @@ export type PipelineJobRun = BaseJobRun & {
 
 export type JobData = {
   job?: JobV2
+  envAttributesDefinition?: string
   recentRuns?: PipelineJobRun[]
   recentRunsCount: number
   externalJobID?: string

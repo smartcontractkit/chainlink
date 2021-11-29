@@ -5,6 +5,7 @@
 ### Added
 
 - Prettier Solidity formatting applied to v0.7 and above.
+- ERC677ReceiverInterface added in v0.8.
 
 ### Changed:
 

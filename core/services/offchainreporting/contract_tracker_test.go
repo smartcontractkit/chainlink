@@ -78,7 +78,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.hb = new(htmocks.HeadBroadcaster)
 	uni.ec = cltest.NewEthClientMock(t)
 
-	db := pgtest.NewGormDB(t)
+	db := pgtest.NewSqlxDB(t)
 	uni.tracker = offchainreporting.NewOCRContractTracker(
 		contract,
 		filterer,
@@ -142,7 +142,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Run("after first head incoming, uses cached value", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
 
-		uni.tracker.OnNewLongestChain(context.Background(), eth.Head{Number: 42})
+		uni.tracker.OnNewLongestChain(context.Background(), &eth.Head{Number: 42})
 
 		l, err := uni.tracker.LatestBlockHeight(context.Background())
 		require.NoError(t, err)

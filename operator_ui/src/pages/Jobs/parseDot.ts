@@ -18,7 +18,7 @@ export function parseDot(dot: string): Stratify[] {
   // valid HTML inside them, but the frontend dot library graphlibDot does not.
   // Since the dot parsing on the frontend is merely used to display the graph nodes
   // its fine to omit the angle bracket attributes.
-  const dotNoAngleBrackets = dot.replace(/\w+\s*=\s*<.*>/g, '')
+  const dotNoAngleBrackets = dot.replace(/\w+\s*=\s*<([^>]|[\r\n])*>/g, '')
   const digraph = graphlibDot.read(dotNoAngleBrackets)
   const edges = digraph.edges()
 

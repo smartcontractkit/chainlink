@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/config"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -25,7 +26,7 @@ func TestConfigController_Show(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	cp := presenters.ConfigPrinter{}
+	cp := config.ConfigPrinter{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
 
 	assert.Contains(t, cp.RootDir, "/tmp/chainlink_test/")

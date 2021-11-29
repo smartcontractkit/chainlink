@@ -28,7 +28,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
 
-// Show returns the details of a Ethereum Transasction details.
+// Show returns the details of a Ethereum Transaction details.
 // Example:
 //  "<application>/transactions/:TxHash"
 func (tc *TransactionsController) Show(c *gin.Context) {

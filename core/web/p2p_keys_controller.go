@@ -5,8 +5,9 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -44,13 +45,17 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/p2p/:keyID"
 // "DELETE <application>/keys/p2p/:keyID?hard=true"
 func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
-	keyID := c.Param("keyID")
+	keyID, err := p2pkey.MakePeerID(c.Param("keyID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
 	key, err := p2pkc.App.GetKeyStore().P2P().Get(keyID)
 	if err != nil {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	_, err = p2pkc.App.GetKeyStore().P2P().Delete(key.ID())
+	_, err = p2pkc.App.GetKeyStore().P2P().Delete(key.PeerID())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -62,7 +67,7 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/import"
 func (p2pkc *P2PKeysController) Import(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Import ")
 
 	bytes, err := ioutil.ReadAll(c.Request.Body)
 	if err != nil {
@@ -83,11 +88,16 @@ func (p2pkc *P2PKeysController) Import(c *gin.Context) {
 // Example:
 // "Post <application>/keys/p2p/export"
 func (p2pkc *P2PKeysController) Export(c *gin.Context) {
-	defer logger.ErrorIfCalling(c.Request.Body.Close)
+	defer p2pkc.App.GetLogger().ErrorIfClosing(c.Request.Body, "Export request body")
 
-	stringID := c.Param("ID")
+	keyID, err := p2pkey.MakePeerID(c.Param("ID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
 	newPassword := c.Query("newpassword")
-	bytes, err := p2pkc.App.GetKeyStore().P2P().Export(stringID, newPassword)
+	bytes, err := p2pkc.App.GetKeyStore().P2P().Export(keyID, newPassword)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

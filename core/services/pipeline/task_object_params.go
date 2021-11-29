@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type ObjectType int
@@ -46,8 +45,7 @@ func (o ObjectParam) MarshalJSON() ([]byte, error) {
 	case SliceType:
 		return json.Marshal(o.SliceValue)
 	}
-	logger.Fatalf("Invalid type for ObjectParam %v", o.Type)
-	panic(nil) // above does Exit
+	panic(fmt.Sprintf("Invalid type for ObjectParam %v", o.Type))
 }
 
 func (o ObjectParam) Marshal() (string, error) {
@@ -136,8 +134,7 @@ func MustNewObjectParam(val interface{}) *ObjectParam {
 	var value ObjectParam
 	err := value.UnmarshalPipelineParam(val)
 	if err != nil {
-		logger.Fatalf("Failed to init ObjectParam from %v, err: %v", val, err)
-		panic(nil) // above does Exit
+		panic(fmt.Errorf("failed to init ObjectParam from %v, err: %w", val, err))
 	}
 	return &value
 }

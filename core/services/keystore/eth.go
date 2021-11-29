@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 //go:generate mockery --name Eth --output mocks/ --case=underscore
@@ -78,6 +78,7 @@ func (ks *eth) GetAll() (keys []ethkey.KeyV2, _ error) {
 	for _, key := range ks.keyRing.Eth {
 		keys = append(keys, key)
 	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
 	return keys, nil
 }
 
@@ -209,8 +210,9 @@ func (ks *eth) Delete(id string) (ethkey.KeyV2, error) {
 	if err != nil {
 		return ethkey.KeyV2{}, err
 	}
-	err = ks.safeRemoveKey(key, func(db *gorm.DB) error {
-		return db.Where("address = ?", key.Address).Delete(ethkey.State{}).Error
+	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
+		_, err2 := tx.Exec(`DELETE FROM eth_key_states WHERE address = $1`, key.Address)
+		return err2
 	})
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to remove eth key")
@@ -326,10 +328,10 @@ func (ks *eth) SetState(state ethkey.State) error {
 		return errors.Errorf("key not found with ID %s", state.KeyID())
 	}
 	ks.keyStates.Eth[state.KeyID()] = &state
-	return ks.orm.db.
-		Model(ethkey.State{}).
-		Where("address = ?", state.Address).
-		Updates(state).Error
+	sql := `UPDATE eth_key_states SET address = :address, next_nonce = :next_nonce, is_funding = :is_funding, evm_chain_id = :evm_chain_id, updated_at = NOW()
+	WHERE address = :address;`
+	_, err := ks.orm.q.NamedExec(sql, state)
+	return errors.Wrap(err, "SetState#Exec failed")
 }
 
 func (ks *eth) GetStatesForKeys(keys []ethkey.KeyV2) (states []ethkey.State, err error) {
@@ -419,9 +421,12 @@ func (ks *eth) add(key ethkey.KeyV2, chainID *big.Int) error {
 // caller must hold lock!
 func (ks *eth) addEthKeyWithState(key ethkey.KeyV2, state ethkey.State) error {
 	state.Address = key.Address
-	return ks.safeAddKey(key, func(db *gorm.DB) error {
-		if err := db.Create(&state).Error; err != nil {
-			return err
+	return ks.safeAddKey(key, func(tx pg.Queryer) error {
+		sql := `INSERT INTO eth_key_states (address, next_nonce, is_funding, evm_chain_id, created_at, updated_at)
+VALUES (:address, :next_nonce, :is_funding, :evm_chain_id, NOW(), NOW())
+RETURNING *;`
+		if err := ks.orm.q.GetNamed(sql, &state, state); err != nil {
+			return errors.Wrap(err, "failed to insert eth_key_state")
 		}
 		ks.keyStates.Eth[key.ID()] = &state
 		return nil

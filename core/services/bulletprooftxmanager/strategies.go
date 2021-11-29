@@ -1,8 +1,9 @@
 package bulletprooftxmanager
 
 import (
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 )
 
 // TxStrategy controls how txes are queued and sent
@@ -11,7 +12,7 @@ type TxStrategy interface {
 	// Subject will be saved to eth_txes.subject if not null
 	Subject() uuid.NullUUID
 	// PruneQueue is called after eth_tx insertion
-	PruneQueue(tx *gorm.DB) (n int64, err error)
+	PruneQueue(q pg.Queryer) (n int64, err error)
 	// Simulate indicates whether this transaction can be safely simulated using eth_call
 	// Simulating transactions before send and aborting on revert can save gas
 	// BE CAREFUL - not all transaction types are safe to simulate, e.g. if
@@ -40,9 +41,9 @@ type SendEveryStrategy struct {
 	simulate bool
 }
 
-func (SendEveryStrategy) Subject() uuid.NullUUID             { return uuid.NullUUID{} }
-func (SendEveryStrategy) PruneQueue(*gorm.DB) (int64, error) { return 0, nil }
-func (s SendEveryStrategy) Simulate() bool                   { return s.simulate }
+func (SendEveryStrategy) Subject() uuid.NullUUID               { return uuid.NullUUID{} }
+func (SendEveryStrategy) PruneQueue(pg.Queryer) (int64, error) { return 0, nil }
+func (s SendEveryStrategy) Simulate() bool                     { return s.simulate }
 
 var _ TxStrategy = DropOldestStrategy{}
 
@@ -62,20 +63,25 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 	return uuid.NullUUID{UUID: s.subject, Valid: true}
 }
 
-func (s DropOldestStrategy) PruneQueue(tx *gorm.DB) (n int64, err error) {
-	res := tx.Exec(`
+func (s DropOldestStrategy) PruneQueue(q pg.Queryer) (n int64, err error) {
+	ctx, cancel := pg.DefaultQueryCtx()
+	defer cancel()
+	res, err := q.ExecContext(ctx, `
 DELETE FROM eth_txes
-WHERE state = 'unstarted' AND subject = ? AND
+WHERE state = 'unstarted' AND subject = $1 AND
 id < (
 	SELECT min(id) FROM (
 		SELECT id
 		FROM eth_txes
-		WHERE state = 'unstarted' AND subject = ?
+		WHERE state = 'unstarted' AND subject = $2
 		ORDER BY id DESC
-		LIMIT ?
+		LIMIT $3
 	) numbers
 )`, s.subject, s.subject, s.queueSize)
-	return res.RowsAffected, res.Error
+	if err != nil {
+		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
+	}
+	return res.RowsAffected()
 }
 
 func (s DropOldestStrategy) Simulate() bool {

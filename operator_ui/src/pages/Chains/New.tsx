@@ -1,27 +1,31 @@
 import React, { useState } from 'react'
 import { ApiResponse, BadRequestError } from 'utils/json-api-client'
-import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
-import { CreateChainRequest, Chain } from 'core/store/models'
+import { Chain, CreateChainRequest } from 'core/store/models'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import { notifySuccess, notifyError } from 'actionCreators'
+import { notifyError, notifySuccess } from 'actionCreators'
+import Button from 'components/Button'
 import Content from 'components/Content'
 import {
-  TextField,
-  Grid,
   Card,
   CardContent,
-  FormLabel,
   CardHeader,
   CircularProgress,
+  Grid,
+  TextField,
+  Typography,
 } from '@material-ui/core'
 import {
+  ChainConfigFields,
+  ConfigOverrides,
+} from 'pages/Chains/ChainConfigFields'
+import {
   createStyles,
+  Theme,
   withStyles,
   WithStyles,
-  Theme,
 } from '@material-ui/core/styles'
 
 const styles = (theme: Theme) =>
@@ -60,30 +64,23 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const dispatch = useDispatch()
-  const [overrides, setOverrides] = useState<string>('{}')
+
   const [chainID, setChainID] = useState<string>('')
-  const [overridesErrorMsg, setOverridesErrorMsg] = useState<string>('')
+  const [overrides, setOverrides] = useState<ConfigOverrides>({})
+  const [serverErrorMsg, setServerErrorMsg] = useState<string>('')
   const [chainIDErrorMsg, setChainIDErrorMsg] = useState<string>('')
+  const [keySpecificOverridesErrorMsg, setKeySpecificOverridesErrorMsg] =
+    useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
 
-  function validate({
-    chainID,
-    overrides,
-  }: {
-    chainID: string
-    overrides: string
-  }) {
+  function validate(chainID: string) {
     let valid = true
+
     if (!(parseInt(chainID, 10) > 0)) {
       setChainIDErrorMsg('Invalid chain ID')
       valid = false
     }
-    try {
-      JSON.parse(overrides)
-    } catch (e) {
-      setOverridesErrorMsg('Invalid job spec')
-      valid = false
-    }
+
     return valid
   }
 
@@ -92,20 +89,27 @@ export const New = ({
     setChainIDErrorMsg('')
   }
 
-  function handleOverrideChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    setOverrides(event.target.value)
-    setOverridesErrorMsg('')
+  function onConfigChange(config: ConfigOverrides, error: string) {
+    if (error) {
+      setKeySpecificOverridesErrorMsg(error)
+      return
+    }
+
+    setOverrides(config)
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const isValid = validate({ chainID, overrides })
+
+    const isValid = validate(chainID) && !keySpecificOverridesErrorMsg
 
     if (isValid) {
       setLoading(true)
+      setServerErrorMsg('')
+
       apiCall({
         chainID,
-        config: JSON.parse(overrides),
+        config: { ...overrides },
       })
         .then(({ data }) => {
           dispatch(notifySuccess(SuccessNotification, data))
@@ -113,7 +117,9 @@ export const New = ({
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
           if (error instanceof BadRequestError) {
-            setChainIDErrorMsg('Invalid ChainID')
+            setServerErrorMsg('Invalid ChainID')
+          } else {
+            setServerErrorMsg(error.toString())
           }
         })
         .finally(() => {
@@ -131,10 +137,16 @@ export const New = ({
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
+                  {Boolean(serverErrorMsg) && (
+                    <Grid item xs={12}>
+                      <Typography variant="body1">{serverErrorMsg}</Typography>
+                    </Grid>
+                  )}
+
                   <Grid item xs={12}>
                     <TextField
                       error={Boolean(chainIDErrorMsg)}
-                      helperText={Boolean(chainIDErrorMsg) && chainIDErrorMsg}
+                      helperText={Boolean(chainIDErrorMsg)}
                       label="Chain ID"
                       name="ID"
                       placeholder="ID"
@@ -142,28 +154,11 @@ export const New = ({
                       onChange={handleChainIDChange}
                     />
                   </Grid>
-                  <Grid item xs={12}>
-                    <FormLabel>Config Overrides</FormLabel>
-                    <TextField
-                      error={Boolean(overridesErrorMsg)}
-                      value={overrides}
-                      onChange={handleOverrideChange}
-                      helperText={
-                        Boolean(overridesErrorMsg) && overridesErrorMsg
-                      }
-                      autoComplete="off"
-                      label={'JSON'}
-                      rows={10}
-                      rowsMax={25}
-                      placeholder={'Paste JSON'}
-                      multiline
-                      margin="normal"
-                      name="chainConfig"
-                      id="chainConfig"
-                      variant="outlined"
-                      fullWidth
-                    />
-                  </Grid>
+
+                  <Grid item xs={false} md={12}></Grid>
+
+                  <ChainConfigFields onChange={onConfigChange} />
+
                   <Grid item xs={12}>
                     <Button
                       data-testid="new-chain-config-submit"
@@ -172,7 +167,7 @@ export const New = ({
                       size="large"
                       disabled={
                         loading ||
-                        Boolean(overridesErrorMsg) ||
+                        Boolean(keySpecificOverridesErrorMsg) ||
                         Boolean(chainIDErrorMsg)
                       }
                     >

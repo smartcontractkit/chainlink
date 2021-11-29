@@ -1,0 +1,21 @@
+type Job {
+    id: ID!
+    name: String!
+    schemaVersion: Int!
+    maxTaskDuration: String!
+    externalJobID: String!
+    spec: JobSpec!
+    runs: [JobRun!]!
+    observationSource: String!
+    errors: [JobError!]!
+    createdAt: Time!
+}
+
+# JobsPayload defines the response when fetching a page of jobs
+type JobsPayload implements PaginatedPayload {
+    results: [Job!]!
+    metadata: PaginationMetadata!
+}
+
+# JobPayload defines the response when a job
+union JobPayload = Job | NotFoundError

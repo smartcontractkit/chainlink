@@ -3,10 +3,18 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -17,17 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	exchainutils "github.com/okex/exchain-ethereum-compatible/utils"
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 )
 
 // Config encompasses config used by bulletprooftxmanager package
@@ -47,6 +48,7 @@ type Config interface {
 	EvmRPCDefaultBatchSize() uint32
 	KeySpecificMaxGasPriceWei(addr common.Address) *big.Int
 	TriggerFallbackDBPollInterval() time.Duration
+	LogSQL() bool
 }
 
 // KeyStore encompasses the subset of keystore used by bulletprooftxmanager
@@ -69,7 +71,7 @@ type TxManager interface {
 	httypes.HeadTrackable
 	service.Service
 	Trigger(addr common.Address)
-	CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error)
+	CreateEthTransaction(newTx NewTx, qopts ...pg.QOpt) (etx EthTx, err error)
 	GetGasEstimator() gas.Estimator
 	RegisterResumeCallback(fn ResumeCallback)
 }
@@ -78,15 +80,16 @@ type BulletproofTxManager struct {
 	utils.StartStopOnce
 
 	logger           logger.Logger
-	db               *gorm.DB
+	db               *sqlx.DB
+	q                pg.Q
 	ethClient        eth.Client
 	config           Config
 	keyStore         KeyStore
-	eventBroadcaster postgres.EventBroadcaster
+	eventBroadcaster pg.EventBroadcaster
 	gasEstimator     gas.Estimator
 	chainID          big.Int
 
-	chHeads        chan eth.Head
+	chHeads        chan *eth.Head
 	trigger        chan common.Address
 	resumeCallback ResumeCallback
 
@@ -102,18 +105,20 @@ func (b *BulletproofTxManager) RegisterResumeCallback(fn ResumeCallback) {
 	b.resumeCallback = fn
 }
 
-func NewBulletproofTxManager(db *gorm.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster postgres.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+func NewBulletproofTxManager(db *sqlx.DB, ethClient eth.Client, config Config, keyStore KeyStore, eventBroadcaster pg.EventBroadcaster, lggr logger.Logger) *BulletproofTxManager {
+	lggr = lggr.Named("BulletproofTxManager")
 	b := BulletproofTxManager{
 		StartStopOnce:    utils.StartStopOnce{},
 		logger:           lggr,
 		db:               db,
+		q:                pg.NewQ(db, lggr, config),
 		ethClient:        ethClient,
 		config:           config,
 		keyStore:         keyStore,
 		eventBroadcaster: eventBroadcaster,
 		gasEstimator:     gas.NewEstimator(lggr, ethClient, config),
 		chainID:          *ethClient.ChainID(),
-		chHeads:          make(chan eth.Head),
+		chHeads:          make(chan *eth.Head),
 		trigger:          make(chan common.Address),
 		chStop:           make(chan struct{}),
 		chSubbed:         make(chan struct{}),
@@ -140,9 +145,9 @@ func (b *BulletproofTxManager) Start() (merr error) {
 		}
 
 		if len(keyStates) > 0 {
-			b.logger.Debugw(fmt.Sprintf("BulletproofTxManager: booting with %d keys", len(keyStates)), "keys", keyStates)
+			b.logger.Debugw(fmt.Sprintf("Booting with %d keys", len(keyStates)), "keys", keyStates)
 		} else {
-			b.logger.Warnf("BulletproofTxManager: chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
+			b.logger.Warnf("Chain %s does not have any eth keys, no transactions will be sent on this chain", b.chainID.String())
 		}
 
 		eb := NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
@@ -207,31 +212,35 @@ func (b *BulletproofTxManager) runLoop(eb *EthBroadcaster, ec *EthConfirmer) {
 		case head := <-b.chHeads:
 			ec.mb.Deliver(head)
 		case <-b.chStop:
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
+			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 			return
 		case <-keysChanged:
 			keyStates, err := b.keyStore.GetStatesForChain(&b.chainID)
 			if err != nil {
-				b.logger.Errorf("BulletproofTxManager: failed to reload key states after key change")
+				b.logger.Errorf("Failed to reload key states after key change")
 				continue
 			}
-			b.logger.Debugw("BulletproofTxManager: keys changed, reloading", "keyStates", keyStates)
+			b.logger.Debugw("Keys changed, reloading", "keyStates", keyStates)
 
-			b.logger.ErrorIfCalling(eb.Close)
-			b.logger.ErrorIfCalling(ec.Close)
+			b.logger.ErrorIfClosing(eb, "EthBroadcaster")
+			b.logger.ErrorIfClosing(ec, "EthConfirmer")
 
 			eb = NewEthBroadcaster(b.db, b.ethClient, b.config, b.keyStore, b.eventBroadcaster, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 			ec = NewEthConfirmer(b.db, b.ethClient, b.config, b.keyStore, keyStates, b.gasEstimator, b.resumeCallback, b.logger)
 
-			b.logger.ErrorIfCalling(eb.Start)
-			b.logger.ErrorIfCalling(ec.Start)
+			if err := eb.Start(); err != nil {
+				b.logger.Errorw("Failed to start EthBroadcaster", "error", err)
+			}
+			if err := ec.Start(); err != nil {
+				b.logger.Errorw("Failed to start EthConfirmer", "error", err)
+			}
 		}
 	}
 }
 
 // OnNewLongestChain conforms to HeadTrackable
-func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	ok := b.IfStarted(func() {
 		if b.reaper != nil {
 			b.reaper.SetLatestBlockNum(head.Number)
@@ -240,11 +249,11 @@ func (b *BulletproofTxManager) OnNewLongestChain(ctx context.Context, head eth.H
 		select {
 		case b.chHeads <- head:
 		case <-ctx.Done():
-			b.logger.Errorw("BulletproofTxManager: timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
+			b.logger.Errorw("Timed out handling head", "blockNum", head.Number, "ctxErr", ctx.Err())
 		}
 	})
 	if !ok {
-		b.logger.Debugw("BulletproofTxManager: not started; ignoring head", "head", head, "state", b.State())
+		b.logger.Debugw("Not started; ignoring head", "head", head, "state", b.State())
 	}
 }
 
@@ -270,36 +279,37 @@ type NewTx struct {
 }
 
 // CreateEthTransaction inserts a new transaction
-func (b *BulletproofTxManager) CreateEthTransaction(db *gorm.DB, newTx NewTx) (etx EthTx, err error) {
-	err = CheckEthTxQueueCapacity(db, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
+func (b *BulletproofTxManager) CreateEthTransaction(newTx NewTx, qs ...pg.QOpt) (etx EthTx, err error) {
+	q := b.q.WithOpts(qs...)
+
+	err = CheckEthTxQueueCapacity(q, newTx.FromAddress, b.config.EvmMaxQueuedTransactions(), b.chainID)
 	if err != nil {
 		return etx, errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
 	}
 
 	value := 0
-	err = postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
+	err = q.Transaction(func(tx pg.Queryer) error {
 		if newTx.PipelineTaskRunID != nil {
-			err = tx.Raw(`SELECT * FROM eth_txes WHERE pipeline_task_run_id = ? AND evm_chain_id = ?`, newTx.PipelineTaskRunID, b.chainID.String()).Scan(&etx).Error
-			if err != nil {
-				return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
-			}
-
-			// if a previous transaction for this task run exists, immediately return it
-			if etx.ID != 0 {
+			err = tx.Get(&etx, `SELECT * FROM eth_txes WHERE pipeline_task_run_id = $1 AND evm_chain_id = $2`, newTx.PipelineTaskRunID, b.chainID.String())
+			// If no eth_tx matches (the common case) then continue
+			if !errors.Is(err, sql.ErrNoRows) {
+				if err != nil {
+					return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction")
+				}
+				// if a previous transaction for this task run exists, immediately return it
 				return nil
 			}
 		}
 		if err = b.checkStateExists(tx, newTx.FromAddress); err != nil {
 			return err
 		}
-		res := tx.Raw(`
+		err := tx.Get(&etx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, simulate)
 VALUES (
-?,?,?,?,?,'unstarted',NOW(),?,?,?,?,?,?
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
 )
 RETURNING "eth_txes".*
-`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate()).Scan(&etx)
-		err = res.Error
+`, newTx.FromAddress, newTx.ToAddress, newTx.EncodedPayload, value, newTx.GasLimit, newTx.Meta, newTx.Strategy.Subject(), b.chainID.String(), newTx.MinConfirmations, newTx.PipelineTaskRunID, newTx.Strategy.Simulate())
 		if err != nil {
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to insert eth_tx")
 		}
@@ -309,17 +319,17 @@ RETURNING "eth_txes".*
 			return errors.Wrap(err, "BulletproofTxManager#CreateEthTransaction failed to prune eth_txes")
 		}
 		if pruned > 0 {
-			b.logger.Warnw(fmt.Sprintf("BulletproofTxManager: dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
+			b.logger.Warnw(fmt.Sprintf("Dropped %d old transactions from transaction queue", pruned), "fromAddress", newTx.FromAddress, "toAddress", newTx.ToAddress, "meta", newTx.Meta, "subject", newTx.Strategy.Subject(), "replacementID", etx.ID)
 		}
 		return nil
 	})
 	return
 }
 
-func (b *BulletproofTxManager) checkStateExists(tx *gorm.DB, addr common.Address) error {
+func (b *BulletproofTxManager) checkStateExists(q pg.Queryer, addr common.Address) error {
 	var state ethkey.State
-	err := tx.First(&state, "address = ?", addr).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := q.Get(&state, `SELECT * FROM eth_key_states WHERE address = $1`, addr)
+	if errors.Is(err, sql.ErrNoRows) {
 		return errors.Errorf("no eth key exists with address %s", addr.Hex())
 	} else if err != nil {
 		return errors.Wrap(err, "failed to query state")
@@ -336,7 +346,8 @@ func (b *BulletproofTxManager) GetGasEstimator() gas.Estimator {
 }
 
 // SendEther creates a transaction that transfers the given value of ether
-func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
+// TODO: Make this a method on the bulletprooftxmanager
+func SendEther(q pg.Q, chainID *big.Int, from, to common.Address, value assets.Eth, gasLimit uint64) (etx EthTx, err error) {
 	if to == utils.ZeroAddress {
 		return etx, errors.New("cannot send ether to zero address")
 	}
@@ -349,8 +360,11 @@ func SendEther(db *gorm.DB, chainID *big.Int, from, to common.Address, value ass
 		State:          EthTxUnstarted,
 		EVMChainID:     *utils.NewBig(chainID),
 	}
-	err = db.Create(&etx).Error
-	return etx, err
+	query := `INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, evm_chain_id, created_at) VALUES (
+:from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :evm_chain_id, NOW()
+) RETURNING eth_txes.*`
+	err = q.GetNamed(query, &etx, etx)
+	return etx, errors.Wrap(err, "SendEther failed to insert eth_tx")
 }
 
 type ChainKeyStore struct {
@@ -407,10 +421,10 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a EthTxAttempt, 
 	err = errors.WithStack(err)
 
 	a.EthTx = e // for logging
-	logger.Debugw("BulletproofTxManager: Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
+	logger.Debugw("Sent transaction", "ethTxAttemptID", a.ID, "txHash", a.Hash, "err", err, "meta", e.Meta, "gasLimit", e.GasLimit, "attempt", a)
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
-		logger.Debugw("transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
+		logger.Debugw("Transaction already in mempool", "txHash", a.Hash, "nodeErr", sendErr.Error())
 		return nil
 	}
 	return eth.NewSendError(err)
@@ -471,46 +485,55 @@ func makeEmptyTransaction(keyStore KeyStore, nonce uint64, gasLimit uint64, gasP
 	return keyStore.SignTx(fromAddress, tx, chainID)
 }
 
-func saveReplacementInProgressAttempt(db *gorm.DB, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
+const insertIntoEthTxAttemptsQuery = `
+INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap)
+VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap)
+RETURNING *;
+`
+
+func saveReplacementInProgressAttempt(q pg.Q, oldAttempt EthTxAttempt, replacementAttempt *EthTxAttempt) error {
 	if oldAttempt.State != EthTxAttemptInProgress || replacementAttempt.State != EthTxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
 		return errors.New("expected oldAttempt to have an ID")
 	}
-	return postgres.GormTransactionWithDefaultContext(db, func(tx *gorm.DB) error {
-		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
-			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
+	return q.Transaction(func(tx pg.Queryer) error {
+		if _, err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
+			return errors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from eth_tx_attempts")
 		}
-		return errors.Wrap(tx.Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
+		query, args, e := tx.BindNamed(insertIntoEthTxAttemptsQuery, replacementAttempt)
+		if e != nil {
+			return errors.Wrap(e, "saveReplacementInProgressAttempt failed to BindNamed")
+		}
+		return errors.Wrap(tx.Get(replacementAttempt, query, args...), "saveReplacementInProgressAttempt failed to insert replacement attempt")
 	})
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func CountUnconfirmedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
-	return countTransactionsWithState(db, fromAddress, EthTxUnconfirmed, chainID)
+func CountUnconfirmedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+	return countTransactionsWithState(q, fromAddress, EthTxUnconfirmed, chainID)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func CountUnstartedTransactions(db *gorm.DB, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
-	return countTransactionsWithState(db, fromAddress, EthTxUnstarted, chainID)
+func CountUnstartedTransactions(q pg.Q, fromAddress common.Address, chainID big.Int) (count uint32, err error) {
+	return countTransactionsWithState(q, fromAddress, EthTxUnstarted, chainID)
 }
 
-func countTransactionsWithState(db *gorm.DB, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-	err = db.WithContext(ctx).Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = ? AND evm_chain_id = ?`, fromAddress, state, chainID.String()).Scan(&count).Error
-	return
+func countTransactionsWithState(q pg.Q, fromAddress common.Address, state EthTxState, chainID big.Int) (count uint32, err error) {
+	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+		fromAddress, state, chainID.String())
+	return count, errors.Wrap(err, "failed to countTransactionsWithState")
 }
 
 // CheckEthTxQueueCapacity returns an error if inserting this transaction would
 // exceed the maximum queue size.
-func CheckEthTxQueueCapacity(db *gorm.DB, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
+func CheckEthTxQueueCapacity(q pg.Queryer, fromAddress common.Address, maxQueuedTransactions uint64, chainID big.Int) (err error) {
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
 	var count uint64
-	err = db.Raw(`SELECT count(*) FROM eth_txes WHERE from_address = ? AND state = 'unstarted' AND evm_chain_id = ?`, fromAddress, chainID.String()).Scan(&count).Error
+	err = q.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2`, fromAddress, chainID.String())
 	if err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckEthTxQueueCapacity query failed")
 		return
@@ -528,11 +551,11 @@ type NullTxManager struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager) OnNewLongestChain(context.Context, eth.Head) {}
-func (n *NullTxManager) Start() error                                { return nil }
-func (n *NullTxManager) Close() error                                { return nil }
-func (n *NullTxManager) Trigger(common.Address)                      { panic(n.ErrMsg) }
-func (n *NullTxManager) CreateEthTransaction(*gorm.DB, NewTx) (etx EthTx, err error) {
+func (n *NullTxManager) OnNewLongestChain(context.Context, *eth.Head) {}
+func (n *NullTxManager) Start() error                                 { return nil }
+func (n *NullTxManager) Close() error                                 { return nil }
+func (n *NullTxManager) Trigger(common.Address)                       { panic(n.ErrMsg) }
+func (n *NullTxManager) CreateEthTransaction(NewTx, ...pg.QOpt) (etx EthTx, err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 func (n *NullTxManager) Healthy() error                           { return nil }
