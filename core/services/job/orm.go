@@ -348,7 +348,7 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		sql := `SELECT count(*) FROM jobs;`
 		err = tx.QueryRowx(sql).Scan(&count)
 		if err != nil {
@@ -554,7 +554,7 @@ func (o *orm) findJob(jb *Job, col string, arg interface{}, qopts ...pg.QOpt) er
 }
 
 func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		query := `SELECT jobs.id, dot_dag_source FROM jobs JOIN pipeline_specs ON pipeline_specs.id = jobs.pipeline_spec_id WHERE dot_dag_source ILIKE '%' || $1 || '%' ORDER BY id`
 		var rows *sqlx.Rows
 		rows, err = tx.Queryx(query, name)
@@ -595,7 +595,7 @@ func (o *orm) FindJobIDsWithBridge(name string) (jids []int32, err error) {
 
 // PipelineRunsByJobsIDs returns pipeline runs for multiple jobs, not preloading data
 func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		stmt := `SELECT pipeline_runs.* FROM pipeline_runs INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id WHERE jobs.id = ANY($1)
 		ORDER BY pipeline_runs.created_at DESC, pipeline_runs.id DESC;`
 
@@ -614,7 +614,7 @@ func (o *orm) PipelineRunsByJobsIDs(jobsIDs []int32) (runs []pipeline.Run, err e
 // PipelineRuns returns pipeline runs for a job, with spec and taskruns loaded, latest first
 // If jobID is nil, returns all pipeline runs
 func (o *orm) PipelineRuns(jobID *int32, offset, size int) (runs []pipeline.Run, count int, err error) {
-	err = pg.SqlxTransactionWithDefaultCtx(o.q, o.lggr, func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var args []interface{}
 		var where string
 		if jobID != nil {
