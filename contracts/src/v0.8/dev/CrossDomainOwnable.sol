@@ -12,9 +12,6 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
   address internal s_l1Owner;
   address internal s_l1PendingOwner;
 
-  event L1OwnershipTransferRequested(address indexed from, address indexed to);
-  event L1OwnershipTransferred(address indexed from, address indexed to);
-
   constructor(address newl1Owner) ConfirmedOwner(msg.sender) {
     _setL1Owner(newl1Owner);
   }
