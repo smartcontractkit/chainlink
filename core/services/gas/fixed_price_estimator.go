@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
@@ -13,15 +14,16 @@ var _ Estimator = &fixedPriceEstimator{}
 
 type fixedPriceEstimator struct {
 	config Config
+	lggr   logger.Logger
 }
 
-func NewFixedPriceEstimator(config Config) Estimator {
-	return &fixedPriceEstimator{config}
+func NewFixedPriceEstimator(config Config, lggr logger.Logger) Estimator {
+	return &fixedPriceEstimator{config, lggr.Named("FixedPriceEstimator")}
 }
 
-func (f *fixedPriceEstimator) Start() error                                    { return nil }
-func (f *fixedPriceEstimator) Close() error                                    { return nil }
-func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ eth.Head) {}
+func (f *fixedPriceEstimator) Start() error                                     { return nil }
+func (f *fixedPriceEstimator) Close() error                                     { return nil }
+func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *eth.Head) {}
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) (gasPrice *big.Int, chainSpecificGasLimit uint64, err error) {
 	gasPrice = f.config.EvmGasPriceDefault()
@@ -30,7 +32,7 @@ func (f *fixedPriceEstimator) GetLegacyGas(_ []byte, gasLimit uint64, _ ...Opt) 
 }
 
 func (f *fixedPriceEstimator) BumpLegacyGas(originalGasPrice *big.Int, originalGasLimit uint64) (gasPrice *big.Int, gasLimit uint64, err error) {
-	return BumpLegacyGasPriceOnly(f.config, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit)
+	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.EvmGasPriceDefault(), originalGasPrice, originalGasLimit)
 }
 
 func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicFee, chainSpecificGasLimit uint64, err error) {
@@ -46,5 +48,5 @@ func (f *fixedPriceEstimator) GetDynamicFee(originalGasLimit uint64) (d DynamicF
 }
 
 func (f *fixedPriceEstimator) BumpDynamicFee(originalFee DynamicFee, originalGasLimit uint64) (bumped DynamicFee, chainSpecificGasLimit uint64, err error) {
-	return BumpDynamicFeeOnly(f.config, f.config.EvmGasTipCapDefault(), originalFee, originalGasLimit)
+	return BumpDynamicFeeOnly(f.config, f.lggr, f.config.EvmGasTipCapDefault(), originalFee, originalGasLimit)
 }

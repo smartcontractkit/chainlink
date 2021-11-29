@@ -1,7 +1,7 @@
-import { BigNumber, Contract, ContractTransaction } from 'ethers'
+import { BigNumber, BigNumberish, Contract, ContractTransaction } from 'ethers'
 import { providers } from 'ethers'
-import { assert } from 'chai'
-import hre, { ethers } from 'hardhat'
+import { assert, expect } from 'chai'
+import hre, { ethers, network } from 'hardhat'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import cbor from 'cbor'
 
@@ -172,7 +172,7 @@ export function toHex(
 export async function increaseTime5Minutes(
   provider: providers.JsonRpcProvider,
 ): Promise<void> {
-  await increaseTimeBy(5 * 600, provider)
+  await increaseTimeBy(5 * 60, provider)
 }
 
 /**
@@ -264,4 +264,41 @@ export async function impersonateAs(
     params: [address],
   })
   return await ethers.getSigner(address)
+}
+
+export async function assertBalance(
+  address: string,
+  balance: BigNumberish,
+  msg?: string,
+) {
+  expect(await ethers.provider.getBalance(address)).equal(balance, msg)
+}
+
+export async function setTimestamp(timestamp: number) {
+  await network.provider.request({
+    method: 'evm_setNextBlockTimestamp',
+    params: [timestamp],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function fastForward(duration: number) {
+  await network.provider.request({
+    method: 'evm_increaseTime',
+    params: [duration],
+  })
+  await network.provider.request({
+    method: 'evm_mine',
+    params: [],
+  })
+}
+
+export async function reset() {
+  await network.provider.request({
+    method: 'hardhat_reset',
+    params: [],
+  })
 }

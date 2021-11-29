@@ -21,7 +21,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"gorm.io/gorm"
 )
 
 type (
@@ -35,7 +34,6 @@ type (
 	balanceMonitor struct {
 		utils.StartStopOnce
 		logger         logger.Logger
-		db             *gorm.DB
 		ethClient      eth.Client
 		chainID        string
 		ethKeyStore    keystore.Eth
@@ -48,11 +46,10 @@ type (
 )
 
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(db *gorm.DB, ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient eth.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
 		logger,
-		db,
 		ethClient,
 		ethClient.ChainID().String(),
 		ethKeyStore,
@@ -88,9 +85,9 @@ func (bm *balanceMonitor) Healthy() error {
 }
 
 // OnNewLongestChain checks the balance for each key
-func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ok := bm.IfStarted(func() {
-		bm.checkBalance(&head)
+		bm.checkBalance(head)
 	})
 	if !ok {
 		bm.logger.Debugw("BalanceMonitor: ignoring OnNewLongestChain call, balance monitor is not started", "state", bm.State())
@@ -155,6 +152,10 @@ type worker struct {
 	bm *balanceMonitor
 }
 
+func (*worker) Name() string {
+	return "BalanceMonitorWorker"
+}
+
 func (w *worker) Work() {
 	keys, err := w.bm.ethKeyStore.SendingKeys()
 	if err != nil {
@@ -200,11 +201,11 @@ func (w *worker) checkAccountBalance(k ethkey.KeyV2) {
 func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
 	return nil
 }
-func (*NullBalanceMonitor) Start() error                                         { return nil }
-func (*NullBalanceMonitor) Close() error                                         { return nil }
-func (*NullBalanceMonitor) Ready() error                                         { return nil }
-func (*NullBalanceMonitor) Healthy() error                                       { return nil }
-func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head eth.Head) {}
+func (*NullBalanceMonitor) Start() error                                          { return nil }
+func (*NullBalanceMonitor) Close() error                                          { return nil }
+func (*NullBalanceMonitor) Ready() error                                          { return nil }
+func (*NullBalanceMonitor) Healthy() error                                        { return nil }
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head *eth.Head) {}
 
 func ApproximateFloat64(e *assets.Eth) (float64, error) {
 	ef := new(big.Float).SetInt(e.ToInt())

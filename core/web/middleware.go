@@ -46,13 +46,14 @@ func (b *BoxFileSystem) Exists(prefix string, filepath string) bool {
 // existence of the file
 type gzipFileHandler struct {
 	root ServeFileSystem
+	lggr logger.Logger
 }
 
 // GzipFileServer is a drop-in replacement for Go's standard http.FileServer
 // which adds support for static resources precompressed with gzip, at
 // the cost of removing the support for directory browsing.
-func GzipFileServer(root ServeFileSystem) http.Handler {
-	return &gzipFileHandler{root}
+func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
+	return &gzipFileHandler{root, lggr.Named("GzipFilehandler")}
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {
@@ -170,16 +171,16 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Find the best acceptable file, including trying uncompressed
 	if file, info, err := f.findBestFile(w, r, fpath); err == nil {
 		http.ServeContent(w, r, fpath, info.ModTime(), file)
-		logger.ErrorIfCalling(file.Close)
+		f.lggr.ErrorIfClosing(file, "file")
 		return
 	}
 
 	http.NotFound(w, r)
 }
 
-// Static returns a middleware handler that serves static files in the given directory.
-func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem) gin.HandlerFunc {
-	fileserver := GzipFileServer(fs)
+// ServeGzippedAssets returns a middleware handler that serves static files in the given directory.
+func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr logger.Logger) gin.HandlerFunc {
+	fileserver := GzipFileServer(fs, lggr)
 	if urlPrefix != "" {
 		fileserver = http.StripPrefix(urlPrefix, fileserver)
 	}

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gin-gonic/gin"
@@ -20,7 +20,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := presenters.NewConfigPrinter(cc.App.GetConfig())
+	cw, err := config.NewConfigPrinter(cc.App.GetConfig())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
 		return
@@ -67,7 +67,7 @@ func (cc *ConfigController) Patch(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(c, cc.App.GetChainSet(), request.EVMChainID.String())
+	chain, err := getChain(cc.App.GetChainSet(), request.EVMChainID.String())
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

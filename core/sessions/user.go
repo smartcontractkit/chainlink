@@ -16,9 +16,9 @@ import (
 
 // User holds the credentials for API user.
 type User struct {
-	Email             string `gorm:"primary_key"`
+	Email             string
 	HashedPassword    string
-	CreatedAt         time.Time `gorm:"index"`
+	CreatedAt         time.Time
 	TokenKey          null.String
 	TokenSalt         null.String
 	TokenHashedSecret null.String
@@ -71,9 +71,9 @@ type SessionRequest struct {
 
 // Session holds the unique id for the authenticated session.
 type Session struct {
-	ID        string    `json:"id" gorm:"primary_key"`
-	LastUsed  time.Time `json:"lastUsed" gorm:"index"`
-	CreatedAt time.Time `json:"createdAt" gorm:"index"`
+	ID        string    `json:"id"`
+	LastUsed  time.Time `json:"lastUsed"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 // NewSession returns a session instance with ID set to a random ID and

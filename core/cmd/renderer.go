@@ -7,8 +7,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -60,7 +59,7 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
-	case *presenters.ConfigPrinter:
+	case *config.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
 	case *webpresenters.PipelineRunResource:
 		return rt.renderPipelineRun(*typed)
@@ -105,7 +104,7 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 	return nil
 }
 
-func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
+func (rt RendererTable) renderConfiguration(cp config.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
 	schemaT := reflect.TypeOf(config.ConfigSchema{})
 	cpT := reflect.TypeOf(cp.EnvPrinter)

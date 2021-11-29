@@ -28,7 +28,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, logger logger.Logger,
 	return &ethSubscriber{
 		ethClient: ethClient,
 		config:    config,
-		logger:    logger,
+		logger:    logger.Named("EthSubscriber"),
 		chStop:    chStop,
 	}
 }
@@ -37,6 +37,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, logger logger.Logger,
 // note that the whole operation has no timeout - it relies on BlockBackfillSkip (set outside) to optionally prevent very deep, long backfills
 // Max runtime is: (10 sec + 1 min * numBlocks/batchSize) * 3 retries
 func (sub *ethSubscriber) backfillLogs(fromBlockOverride null.Int64, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+	sub.logger.Infow("backfilling logs", "from", fromBlockOverride, "addresses", addresses)
 	if len(addresses) == 0 {
 		sub.logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)

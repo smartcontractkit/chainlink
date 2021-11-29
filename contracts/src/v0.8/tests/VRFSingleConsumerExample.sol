@@ -20,6 +20,7 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
   RequestConfig public s_requestConfig;
   uint256[] public s_randomWords;
   uint256 public s_requestId;
+  address s_owner;
 
   constructor(
     address vrfCoordinator,
@@ -31,20 +32,26 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
   ) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
+    s_owner = msg.sender;
     s_requestConfig = RequestConfig({
-      subId: 0, // Unset
+      subId: 0, // Unset initially
       callbackGasLimit: callbackGasLimit,
       requestConfirmations: requestConfirmations,
       numWords: numWords,
       keyHash: keyHash
     });
+    subscribe();
   }
 
-  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+  function fulfillRandomWords(
+    uint256, /* requestId */
+    uint256[] memory randomWords
+  ) internal override {
     s_randomWords = randomWords;
   }
 
-  function requestRandomWords() external {
+  // Assumes the subscription is funded sufficiently.
+  function requestRandomWords() external onlyOwner {
     RequestConfig memory rc = s_requestConfig;
     // Will revert if subscription is not set and funded.
     s_requestId = COORDINATOR.requestRandomWords(
@@ -57,20 +64,49 @@ contract VRFSingleConsumerExample is VRFConsumerBaseV2 {
   }
 
   // Assumes this contract owns link
-  function topUpSubscription(uint256 amount) external {
+  // This method is analogous to VRFv1, except the amount
+  // should be selected based on the keyHash (each keyHash functions like a "gas lane"
+  // with different link costs).
+  function fundAndRequestRandomWords(uint256 amount) external onlyOwner {
+    RequestConfig memory rc = s_requestConfig;
+    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
+    // Will revert if subscription is not set and funded.
+    s_requestId = COORDINATOR.requestRandomWords(
+      rc.keyHash,
+      rc.subId,
+      rc.requestConfirmations,
+      rc.callbackGasLimit,
+      rc.numWords
+    );
+  }
+
+  // Assumes this contract owns link
+  function topUpSubscription(uint256 amount) external onlyOwner {
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
   }
 
-  function unsubscribe() external {
+  function withdraw(uint256 amount, address to) external onlyOwner {
+    LINKTOKEN.transfer(to, amount);
+  }
+
+  function unsubscribe(address to) external onlyOwner {
     // Returns funds to this address
-    COORDINATOR.cancelSubscription(s_requestConfig.subId, address(this));
+    COORDINATOR.cancelSubscription(s_requestConfig.subId, to);
     s_requestConfig.subId = 0;
   }
 
-  function subscribe() external {
+  // Keep this separate incase the contract want to unsubscribe and then
+  // resubscribe.
+  function subscribe() public onlyOwner {
+    // Create a subscription, current subId
     address[] memory consumers = new address[](1);
     consumers[0] = address(this);
     s_requestConfig.subId = COORDINATOR.createSubscription();
     COORDINATOR.addConsumer(s_requestConfig.subId, consumers[0]);
+  }
+
+  modifier onlyOwner() {
+    require(msg.sender == s_owner);
+    _;
   }
 }

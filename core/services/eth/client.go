@@ -83,12 +83,10 @@ func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel conte
 }
 
 // client represents an abstract client that manages connections to
-// multiple ethereum nodes
+// multiple nodes for a single chain id
 type client struct {
-	logger  logger.Logger
-	pool    *Pool
-	chainID *big.Int
-	mocked  bool
+	logger logger.Logger
+	pool   *Pool
 }
 
 var _ Client = (*client)(nil)
@@ -98,18 +96,14 @@ var _ Client = (*client)(nil)
 func NewClientWithNodes(logger logger.Logger, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int) (*client, error) {
 	pool := NewPool(logger, primaryNodes, sendOnlyNodes, chainID)
 	return &client{
-		logger:  logger,
-		pool:    pool,
-		chainID: chainID,
+		logger: logger,
+		pool:   pool,
 	}, nil
 }
 
-// Dial opens websocket connections if necessary and sanity-checks that tthe
+// Dial opens websocket connections if necessary and sanity-checks that the
 // node's remote chain ID matches the local one
 func (client *client) Dial(ctx context.Context) error {
-	if client.mocked {
-		return nil
-	}
 	if err := client.pool.Dial(ctx); err != nil {
 		return errors.Wrap(err, "failed to dial pool")
 	}
@@ -175,7 +169,7 @@ func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash
 }
 
 func (client *client) ChainID() *big.Int {
-	return client.chainID
+	return client.pool.chainID
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
@@ -229,7 +223,7 @@ func (client *client) HeadByNumber(ctx context.Context, number *big.Int) (head *
 		err = ethereum.NotFound
 		return
 	}
-	head.EVMChainID = utils.NewBig(client.chainID)
+	head.EVMChainID = utils.NewBig(client.ChainID())
 	return
 }
 
@@ -256,7 +250,12 @@ func (client *client) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 }
 
 func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *Head) (ethereum.Subscription, error) {
-	return client.pool.EthSubscribe(ctx, ch, "newHeads")
+	csf := newChainIDSubForwarder(client.ChainID(), ch)
+	err := csf.start(client.pool.EthSubscribe(ctx, csf.srcCh, "newHeads"))
+	if err != nil {
+		return nil, err
+	}
+	return csf, nil
 }
 
 func (client *client) EthSubscribe(ctx context.Context, channel interface{}, args ...interface{}) (ethereum.Subscription, error) {

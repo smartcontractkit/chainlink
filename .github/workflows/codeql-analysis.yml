@@ -2,7 +2,11 @@ name: 'CodeQL'
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - develop
+      - auto
+      - try
+      - rollup
   pull_request:
     # The branches below must be a subset of the branches above
     branches: [develop]
@@ -33,14 +37,14 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@fd3190bba58b65cbefb742009518a03a07af24d7
+        uses: github/codeql-action/init@e891551dd4836643fb9f223d7ff08e83e8073534
         with:
           languages: ${{ matrix.language }}
 
       # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
       # If this step fails, then you should remove it and run the build manually (see below)
       - name: Autobuild
-        uses: github/codeql-action/autobuild@fd3190bba58b65cbefb742009518a03a07af24d7
+        uses: github/codeql-action/autobuild@e891551dd4836643fb9f223d7ff08e83e8073534
 
       # ℹ️ Command-line programs to run using the OS shell.
       # 📚 https://git.io/JvXDl
@@ -54,4 +58,4 @@ jobs:
       #   make release
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@fd3190bba58b65cbefb742009518a03a07af24d7
+        uses: github/codeql-action/analyze@e891551dd4836643fb9f223d7ff08e83e8073534

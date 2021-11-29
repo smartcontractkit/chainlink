@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
@@ -29,6 +30,7 @@ func TestJob(t *testing.T) {
 	contractAddress, err := ethkey.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
 	cronSchedule := "0 0 0 1 1 *"
+	evmChainID := utils.NewBigI(42)
 
 	// Used in OCR tests
 	var (
@@ -59,6 +61,7 @@ func TestJob(t *testing.T) {
 					ContractAddress: contractAddress,
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
+					EVMChainID:      evmChainID,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -93,7 +96,8 @@ func TestJob(t *testing.T) {
 							"requesters": null,
 							"initiator": "runlog",
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
 						"fluxMonitorSpec": null,
@@ -120,6 +124,7 @@ func TestJob(t *testing.T) {
 					MinPayment:        assets.NewLinkFromJuels(1),
 					CreatedAt:         timestamp,
 					UpdatedAt:         timestamp,
+					EVMChainID:        evmChainID,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -155,12 +160,13 @@ func TestJob(t *testing.T) {
 							"idleTimerDisabled": false,
 							"pollTimerPeriod": "1s",
 							"pollTimerDisabled": false,
-              "drumbeatEnabled": false,
-              "drumbeatRandomDelay": null,
-              "drumbeatSchedule": null,
+              				"drumbeatEnabled": false,
+              				"drumbeatRandomDelay": null,
+              				"drumbeatSchedule": null,
 							"minPayment": "1",
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
 						},
 						"offChainReportingOracleSpec": null,
 						"directRequestSpec": null,
@@ -179,7 +185,7 @@ func TestJob(t *testing.T) {
 				ID: 1,
 				OffchainreportingOracleSpec: &job.OffchainReportingOracleSpec{
 					ContractAddress:                        contractAddress,
-					P2PPeerID:                              &peerID,
+					P2PPeerID:                              peerID,
 					P2PBootstrapPeers:                      pq.StringArray{"/dns4/chain.link/tcp/1234/p2p/xxx"},
 					IsBootstrapPeer:                        true,
 					EncryptedOCRKeyBundleID:                &ocrKeyID,
@@ -191,6 +197,7 @@ func TestJob(t *testing.T) {
 					ContractConfigConfirmations:            1,
 					CreatedAt:                              timestamp,
 					UpdatedAt:                              timestamp,
+					EVMChainID:                             evmChainID,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -212,7 +219,7 @@ func TestJob(t *testing.T) {
 						"schemaVersion": 1,
 						"type": "offchainreporting",
 						"maxTaskDuration": "1m0s",
-					    "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
+					  "externalJobID":"0eec7e1d-d0d2-476c-a1a8-72dfb6633f46",
 						"pipelineSpec": {
 							"id": 1,
 							"dotDagSource": "ds1 [type=http method=GET url=\"https://pricesource1.com\"",
@@ -231,7 +238,8 @@ func TestJob(t *testing.T) {
 							"contractConfigTrackerPollInterval": "1m0s",
 							"contractConfigConfirmations": 1,
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
@@ -253,6 +261,7 @@ func TestJob(t *testing.T) {
 					FromAddress:     fromAddress,
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
+					EVMChainID:      evmChainID,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -284,7 +293,8 @@ func TestJob(t *testing.T) {
 							"contractAddress": "%s",
 							"fromAddress": "%s",
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
@@ -407,6 +417,7 @@ func TestJob(t *testing.T) {
 					FromAddress:     fromAddress,
 					CreatedAt:       timestamp,
 					UpdatedAt:       timestamp,
+					EVMChainID:      evmChainID,
 				},
 				ExternalJobID: uuid.FromStringOrNil("0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"),
 				PipelineSpec: &pipeline.Spec{
@@ -448,7 +459,8 @@ func TestJob(t *testing.T) {
 							"contractAddress": "%s",
 							"fromAddress": "%s",
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"
+							"updatedAt":"2000-01-01T00:00:00Z",
+							"evmChainID": "42"
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,

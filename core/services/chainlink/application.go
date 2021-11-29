@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"os/signal"
 	"reflect"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,16 +15,13 @@ import (
 	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/guregu/null.v4"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/bridges"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -41,15 +36,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/sqlx"
 )
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
@@ -60,11 +56,11 @@ type Application interface {
 	Stop() error
 	GetLogger() logger.Logger
 	GetHealthChecker() health.Checker
-	GetDB() *gorm.DB
+	GetSqlxDB() *sqlx.DB
 	GetConfig() config.GeneralConfig
-	SetLogLevel(ctx context.Context, lvl zapcore.Level) error
+	SetLogLevel(lvl zapcore.Level) error
 	GetKeyStore() keystore.Master
-	GetEventBroadcaster() postgres.EventBroadcaster
+	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
 	NewBox() packr.Box
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
@@ -80,7 +76,7 @@ type Application interface {
 	BridgeORM() bridges.ORM
 	SessionORM() sessions.ORM
 	BPTXMORM() bulletprooftxmanager.ORM
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (job.Job, error)
+	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
 	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
@@ -93,6 +89,9 @@ type Application interface {
 
 	// ReplayFromBlock of blocks
 	ReplayFromBlock(chainID *big.Int, number uint64) error
+
+	// ID is unique to this particular application instance
+	ID() uuid.UUID
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -101,7 +100,7 @@ type Application interface {
 type ChainlinkApplication struct {
 	Exiter                   func(int)
 	ChainSet                 evm.ChainSet
-	EventBroadcaster         postgres.EventBroadcaster
+	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineORM              pipeline.ORM
@@ -116,14 +115,16 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	shutdownSignal           gracefulpanic.Signal
+	shutdownSignal           shutdown.Signal
 	explorerClient           synchronization.ExplorerClient
 	subservices              []service.Service
 	HealthChecker            health.Checker
+	Nurse                    *health.Nurse
 	logger                   logger.Logger
 	sqlxDB                   *sqlx.DB
-	gormDB                   *gorm.DB
-	advisoryLock             postgres.Locker
+	advisoryLock             pg.Locker
+	leaseLock                pg.LeaseLock
+	id                       uuid.UUID
 
 	started     bool
 	startStopMu sync.Mutex
@@ -131,16 +132,17 @@ type ChainlinkApplication struct {
 
 type ApplicationOpts struct {
 	Config                   config.GeneralConfig
-	EventBroadcaster         postgres.EventBroadcaster
-	ShutdownSignal           gracefulpanic.Signal
-	GormDB                   *gorm.DB
+	EventBroadcaster         pg.EventBroadcaster
+	ShutdownSignal           shutdown.Signal
 	SqlxDB                   *sqlx.DB
 	KeyStore                 keystore.Master
 	ChainSet                 evm.ChainSet
 	Logger                   logger.Logger
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	Version                  string
-	AdvisoryLock             postgres.Locker
+	AdvisoryLock             pg.Locker
+	LeaseLock                pg.LeaseLock
+	ID                       uuid.UUID
 }
 
 // NewApplication initializes a new store if one is not already
@@ -150,8 +152,7 @@ type ApplicationOpts struct {
 // TODO: Inject more dependencies here to save booting up useless stuff in tests
 func NewApplication(opts ApplicationOpts) (Application, error) {
 	var subservices []service.Service
-	db := opts.GormDB
-	gormTxm := postgres.NewGormTransactionManager(db)
+	db := opts.SqlxDB
 	cfg := opts.Config
 	shutdownSignal := opts.ShutdownSignal
 	keyStore := opts.KeyStore
@@ -160,6 +161,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	eventBroadcaster := opts.EventBroadcaster
 	externalInitiatorManager := opts.ExternalInitiatorManager
 
+	var nurse *health.Nurse
+	if cfg.AutoPprofEnabled() {
+		globalLogger.Info("Nurse service (automatic pprof profiling) is enabled")
+		nurse = health.NewNurse(cfg, globalLogger)
+		err := nurse.Start()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
+	}
+
 	healthChecker := health.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
@@ -167,13 +180,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 	if cfg.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging())
+		explorerClient = synchronization.NewExplorerClient(cfg.ExplorerURL(), cfg.ExplorerAccessKey(), cfg.ExplorerSecret(), cfg.StatsPusherLogging(), globalLogger)
 		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
 	}
 
 	// Use Explorer over TelemetryIngress if both URLs are set
 	if cfg.ExplorerURL() == nil && cfg.TelemetryIngressURL() != nil {
-		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(), cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging())
+		telemetryIngressClient = synchronization.NewTelemetryIngressClient(cfg.TelemetryIngressURL(),
+			cfg.TelemetryIngressServerPubKey(), keyStore.CSA(), cfg.TelemetryIngressLogging(), globalLogger)
 		monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 	}
 	subservices = append(subservices, explorerClient, telemetryIngressClient)
@@ -188,16 +202,16 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	subservices = append(subservices, eventBroadcaster, chainSet)
-	promReporter := services.NewPromReporter(postgres.MustSQLDB(db))
+	promReporter := services.NewPromReporter(db.DB, globalLogger)
 	subservices = append(subservices, promReporter)
 
 	var (
-		pipelineORM    = pipeline.NewORM(db)
-		bridgeORM      = bridges.NewORM(opts.SqlxDB)
-		sessionORM     = sessions.NewORM(opts.SqlxDB, cfg.SessionTimeout().Duration())
+		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg)
+		bridgeORM      = bridges.NewORM(db, globalLogger, cfg)
+		sessionORM     = sessions.NewORM(db, cfg.SessionTimeout().Duration(), globalLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, cfg, chainSet, keyStore.Eth(), keyStore.VRF(), globalLogger)
-		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger)
-		bptxmORM       = bulletprooftxmanager.NewORM(opts.SqlxDB)
+		jobORM         = job.NewORM(db, chainSet, pipelineORM, keyStore, globalLogger, cfg)
+		bptxmORM       = bulletprooftxmanager.NewORM(db, globalLogger, cfg)
 	)
 
 	for _, chain := range chainSet.Chains() {
@@ -211,7 +225,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				db,
 				chainSet),
 			job.Keeper: keeper.NewDelegate(
 				db,
@@ -225,7 +238,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				pipelineRunner,
 				pipelineORM,
 				chainSet,
-				globalLogger),
+				globalLogger,
+				cfg),
 			job.Webhook: webhook.NewDelegate(
 				pipelineRunner,
 				externalInitiatorManager,
@@ -269,10 +283,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting disabled")
 	}
 
-	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, gormTxm)
+	var lbs []utils.DependentAwaiter
+	for _, c := range chainSet.Chains() {
+		lbs = append(lbs, c.LogBroadcaster())
+	}
+	jobSpawner := job.NewSpawner(jobORM, cfg, delegates, db, globalLogger, lbs)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
-	feedsORM := feeds.NewORM(db)
+	feedsORM := feeds.NewORM(db, opts.Logger, cfg)
 
 	// TODO: Make feeds manager compatible with multiple chains
 	// See: https://app.clubhouse.io/chainlinklabs/story/14615/add-ability-to-set-chain-id-in-all-pipeline-tasks-that-interact-with-evm
@@ -281,7 +299,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	if err != nil {
 		globalLogger.Warnw("Unable to load feeds service; no default chain available", "err", err)
 	} else {
-		feedsService = feeds.NewService(feedsORM, jobORM, gormTxm, jobSpawner, keyStore.CSA(), keyStore.Eth(), chain.Config(), chainSet, globalLogger, opts.Version)
+		feedsService = feeds.NewService(feedsORM, jobORM, db, jobSpawner, keyStore, chain.Config(), chainSet, globalLogger, opts.Version)
 	}
 
 	app := &ChainlinkApplication{
@@ -298,18 +316,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(opts.SqlxDB.DB, cfg),
+		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg, globalLogger),
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		shutdownSignal:           shutdownSignal,
 		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
+		Nurse:                    nurse,
 		logger:                   globalLogger,
+		id:                       opts.ID,
 
 		sqlxDB: opts.SqlxDB,
-		gormDB: opts.GormDB,
 
 		advisoryLock: opts.AdvisoryLock,
+		leaseLock:    opts.LeaseLock,
 
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
@@ -325,8 +345,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	return app, nil
 }
 
-func (app *ChainlinkApplication) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	if err := app.Config.SetLogLevel(ctx, lvl); err != nil {
+func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
+	if err := app.Config.SetLogLevel(lvl); err != nil {
 		return err
 	}
 	app.logger.SetLogLevel(lvl)
@@ -348,7 +368,7 @@ func (app *ChainlinkApplication) SetServiceLogLevel(ctx context.Context, service
 		return fmt.Errorf("no service found with name: %s", serviceName)
 	}
 
-	return logger.NewORM(app.GetDB()).SetServiceLogLevel(ctx, serviceName, level.String())
+	return logger.NewORM(app.GetSqlxDB(), app.GetLogger()).SetServiceLogLevel(ctx, serviceName, level.String())
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
@@ -361,13 +381,8 @@ func (app *ChainlinkApplication) Start() error {
 		panic("application is already started")
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		select {
-		case <-sigs:
-		case <-app.shutdownSignal.Wait():
-		}
+		<-app.shutdownSignal.Wait()
 		app.logger.ErrorIf(app.Stop(), "Error stopping application")
 		app.Exiter(0)
 	}()
@@ -451,9 +466,18 @@ func (app *ChainlinkApplication) stop() (err error) {
 				merr = multierr.Append(merr, app.advisoryLock.Unlock(ctx))
 			}
 
-			// DB should pretty much always be closed last
+			// Let go of the lease
+			if app.leaseLock != nil {
+				app.leaseLock.Release()
+			}
+
+			// DB should pretty much always be closed last (apart from the Nurse)
 			app.logger.Debug("Closing DB...")
 			merr = multierr.Append(merr, app.sqlxDB.Close())
+
+			if app.Nurse != nil {
+				merr = multierr.Append(merr, app.Nurse.Close())
+			}
 
 			app.logger.Info("Exited all services")
 
@@ -523,8 +547,8 @@ func (app *ChainlinkApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j job.Job, name null.String) (job.Job, error) {
-	return app.jobSpawner.CreateJob(ctx, j, name)
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
+	return app.jobSpawner.CreateJob(j, pg.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
@@ -538,7 +562,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 		return errors.New("job must be deleted in the feeds manager")
 	}
 
-	return app.jobSpawner.DeleteJob(ctx, jobID)
+	return app.jobSpawner.DeleteJob(jobID, pg.WithParentCtx(ctx))
 }
 
 func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta pipeline.JSONSerializable) (int64, error) {
@@ -605,11 +629,6 @@ func (app *ChainlinkApplication) RunJobV2(
 			}
 		}
 		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.NewVarsFrom(vars), app.logger, saveTasks)
-	} else {
-		// This is a weird situation, even if a job doesn't have a pipeline it needs a pipeline_spec_id in order to insert the run
-		// TODO: Once all jobs have a pipeline this can be removed
-		// See: https://app.clubhouse.io/chainlinklabs/story/6065/hook-keeper-up-to-use-tasks-in-the-pipeline
-		runID, err = app.pipelineRunner.TestInsertFinishedRun(app.GetDB().WithContext(ctx), jb.ID, jb.Name.String, jb.Type.String(), jb.PipelineSpecID)
 	}
 	return runID, err
 }
@@ -645,12 +664,12 @@ func (app *ChainlinkApplication) GetChainSet() evm.ChainSet {
 	return app.ChainSet
 }
 
-func (app *ChainlinkApplication) GetEventBroadcaster() postgres.EventBroadcaster {
+func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {
 	return app.EventBroadcaster
 }
 
-func (app *ChainlinkApplication) GetDB() *gorm.DB {
-	return app.gormDB
+func (app *ChainlinkApplication) GetSqlxDB() *sqlx.DB {
+	return app.sqlxDB
 }
 
 // Returns the configuration to use for creating and authenticating
@@ -670,4 +689,8 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 		RPID:     rpid,
 		RPOrigin: rporigin,
 	}
+}
+
+func (app *ChainlinkApplication) ID() uuid.UUID {
+	return app.id
 }

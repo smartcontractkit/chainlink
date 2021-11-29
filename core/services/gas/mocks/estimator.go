@@ -155,7 +155,7 @@ func (_m *Estimator) GetLegacyGas(calldata []byte, gasLimit uint64, opts ...gas.
 }
 
 // OnNewLongestChain provides a mock function with given fields: _a0, _a1
-func (_m *Estimator) OnNewLongestChain(_a0 context.Context, _a1 eth.Head) {
+func (_m *Estimator) OnNewLongestChain(_a0 context.Context, _a1 *eth.Head) {
 	_m.Called(_a0, _a1)
 }
 

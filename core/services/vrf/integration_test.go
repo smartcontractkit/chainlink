@@ -1,7 +1,6 @@
 package vrf_test
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -18,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -36,7 +36,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			config, _, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
+			config, _ := heavyweight.FullTestDB(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), true, true)
 			config.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 			key := cltest.MustGenerateRandomKey(t)
 			cu := newVRFCoordinatorUniverse(t, key)
@@ -52,15 +52,15 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			require.NoError(t, err)
 			incomingConfs := 2
 			s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-				JobID:              jid.String(),
-				Name:               "vrf-primary",
-				CoordinatorAddress: cu.rootContractAddress.String(),
-				Confirmations:      incomingConfs,
-				PublicKey:          vrfkey.PublicKey.String()}).Toml()
+				JobID:                    jid.String(),
+				Name:                     "vrf-primary",
+				CoordinatorAddress:       cu.rootContractAddress.String(),
+				MinIncomingConfirmations: incomingConfs,
+				PublicKey:                vrfkey.PublicKey.String()}).Toml()
 			jb, err := vrf.ValidatedVRFSpec(s)
 			require.NoError(t, err)
 			assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())
-			jb, err = app.JobSpawner().CreateJob(context.Background(), jb, jb.Name)
+			err = app.JobSpawner().CreateJob(&jb)
 			require.NoError(t, err)
 
 			p, err := vrfkey.PublicKey.Point()
@@ -80,7 +80,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				cu.backend.Commit()
 			}
 			var runs []pipeline.Run
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			gomega.NewWithT(t).Eventually(func() bool {
 				runs, err = app.PipelineORM().GetAllRuns()
 				require.NoError(t, err)
 				// It possible that we send the test request
@@ -95,14 +95,15 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 
 			// Ensure the eth transaction gets confirmed on chain.
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
-				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(app.GetDB(), key.Address.Address(), cltest.FixtureChainID)
+			gomega.NewWithT(t).Eventually(func() bool {
+				q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+				uc, err2 := bulletprooftxmanager.CountUnconfirmedTransactions(q, key.Address.Address(), cltest.FixtureChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 
 			// Assert the request was fulfilled on-chain.
-			gomega.NewGomegaWithT(t).Eventually(func() bool {
+			gomega.NewWithT(t).Eventually(func() bool {
 				rfIterator, err := cu.rootContract.FilterRandomnessRequestFulfilled(nil)
 				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
 				var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled

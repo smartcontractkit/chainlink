@@ -1,5 +1,13 @@
 name: Operator UI
-on: pull_request
+
+on:
+  push:
+    branches:
+      - auto
+      - try
+      - rollup
+  pull_request:
+
 jobs:
   operator-ui:
     name: Operator UI Tests

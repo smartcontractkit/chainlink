@@ -11,12 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,13 +24,8 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
-const (
-	// RootDir the root directory for test
-	RootDir = "/tmp/chainlink_test"
-	// DefaultPeerID is the peer ID of the default p2p key
-	DefaultPeerID              = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-	HeadSamplingIntervalInTest = 0 * time.Millisecond
-)
+// RootDir the root directory for test
+const RootDir = "/tmp/chainlink_test"
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 
@@ -81,11 +75,11 @@ type GeneralConfigOverrides struct {
 	GlobalMinRequiredOutgoingConfirmations    null.Int
 	GlobalMinimumContractPayment              *assets.Link
 	KeeperMaximumGracePeriod                  null.Int
-	KeeperMinimumRequiredConfirmations        null.Int
 	KeeperRegistrySyncInterval                *time.Duration
 	KeeperRegistrySyncUpkeepQueueSize         null.Int
 	LogLevel                                  *config.LogLevel
-	LogSQLStatements                          null.Bool
+	DefaultLogLevel                           *config.LogLevel
+	LogSQL                                    null.Bool
 	LogToDisk                                 null.Bool
 	OCRBootstrapCheckInterval                 *time.Duration
 	OCRKeyBundleID                            null.String
@@ -94,7 +88,7 @@ type GeneralConfigOverrides struct {
 	OCRTransmitterAddress                     *ethkey.EIP55Address
 	P2PBootstrapPeers                         []string
 	P2PListenPort                             null.Int
-	P2PPeerID                                 *p2pkey.PeerID
+	P2PPeerID                                 p2pkey.PeerID
 	P2PPeerIDError                            error
 	SecretGenerator                           config.SecretGenerator
 	TriggerFallbackDBPollInterval             *time.Duration
@@ -201,12 +195,10 @@ func (c *TestGeneralConfig) P2PListenPort() uint16 {
 }
 
 func (c *TestGeneralConfig) P2PPeerID() p2pkey.PeerID {
-	if c.Overrides.P2PPeerID != nil {
-		return *c.Overrides.P2PPeerID
+	if c.Overrides.P2PPeerID.String() != "" {
+		return c.Overrides.P2PPeerID
 	}
-	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
-	require.NoError(c.t, err)
-	return p2pkey.PeerID(defaultP2PPeerID)
+	return ""
 }
 
 func (c *TestGeneralConfig) DatabaseTimeout() models.Duration {
@@ -225,7 +217,10 @@ func (c *TestGeneralConfig) ORMMaxIdleConns() int {
 }
 
 func (c *TestGeneralConfig) ORMMaxOpenConns() int {
-	return 5
+	// HACK: txdb does not appear to use connection pooling properly, so that
+	// if this value is not large enough instead of waiting for a connection the
+	// database call will fail with "conn busy" or some other cryptic error
+	return 20
 }
 
 func (c *TestGeneralConfig) LogSQLMigrations() bool {
@@ -383,13 +378,6 @@ func (c *TestGeneralConfig) BlockBackfillDepth() uint64 {
 	return c.GeneralConfig.BlockBackfillDepth()
 }
 
-func (c *TestGeneralConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	if c.Overrides.KeeperMinimumRequiredConfirmations.Valid {
-		return uint64(c.Overrides.KeeperMinimumRequiredConfirmations.Int64)
-	}
-	return c.GeneralConfig.KeeperMinimumRequiredConfirmations()
-}
-
 func (c *TestGeneralConfig) KeeperMaximumGracePeriod() int64 {
 	if c.Overrides.KeeperMaximumGracePeriod.Valid {
 		return c.Overrides.KeeperMaximumGracePeriod.Int64
@@ -418,11 +406,18 @@ func (c *TestGeneralConfig) LogLevel() zapcore.Level {
 	return c.GeneralConfig.LogLevel()
 }
 
-func (c *TestGeneralConfig) LogSQLStatements() bool {
-	if c.Overrides.LogSQLStatements.Valid {
-		return c.Overrides.LogSQLStatements.Bool
+func (c *TestGeneralConfig) DefaultLogLevel() zapcore.Level {
+	if c.Overrides.DefaultLogLevel != nil {
+		return c.Overrides.DefaultLogLevel.Level
 	}
-	return c.GeneralConfig.LogSQLStatements()
+	return c.GeneralConfig.DefaultLogLevel()
+}
+
+func (c *TestGeneralConfig) LogSQL() bool {
+	if c.Overrides.LogSQL.Valid {
+		return c.Overrides.LogSQL.Bool
+	}
+	return c.GeneralConfig.LogSQL()
 }
 
 func (c *TestGeneralConfig) EVMDisabled() bool {
@@ -622,4 +617,9 @@ func (c *TestGeneralConfig) GlobalEvmGasTipCapMinimum() (*big.Int, bool) {
 
 func (c *TestGeneralConfig) SetDialect(d dialects.DialectName) {
 	c.Overrides.Dialect = d
+}
+
+// There is no need for any database application locking in tests
+func (c *TestGeneralConfig) DatabaseLockingMode() string {
+	return "none"
 }

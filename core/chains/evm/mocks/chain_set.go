@@ -219,3 +219,24 @@ func (_m *ChainSet) Start() error {
 
 	return r0
 }
+
+// UpdateConfig provides a mock function with given fields: id, updaters
+func (_m *ChainSet) UpdateConfig(id *big.Int, updaters ...evm.ChainConfigUpdater) error {
+	_va := make([]interface{}, len(updaters))
+	for _i := range updaters {
+		_va[_i] = updaters[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(*big.Int, ...evm.ChainConfigUpdater) error); ok {
+		r0 = rf(id, updaters...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}

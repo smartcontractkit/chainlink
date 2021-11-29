@@ -15,32 +15,32 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/services/versioning"
-	"github.com/smartcontractkit/chainlink/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/config"
-	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/Depado/ginprom"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/config"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/chainlink/core/services/versioning"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/core/sessions"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/migrate"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web"
 )
 
 var prometheus *ginprom.Prometheus
@@ -61,6 +61,7 @@ var (
 type Client struct {
 	Renderer
 	Config                         config.GeneralConfig
+	Logger                         logger.Logger
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -71,9 +72,6 @@ type Client struct {
 	PromptingSessionRequestBuilder SessionRequestBuilder
 	ChangePasswordPrompter         ChangePasswordPrompter
 	PasswordPrompter               PasswordPrompter
-
-	lggr     logger.Logger
-	lggrOnce sync.Once
 }
 
 func (cli *Client) errorOut(err error) error {
@@ -81,13 +79,6 @@ func (cli *Client) errorOut(err error) error {
 		return clipkg.NewExitError(err.Error(), 1)
 	}
 	return nil
-}
-
-func (cli *Client) Logger() logger.Logger {
-	cli.lggrOnce.Do(func() {
-		cli.lggr = logger.ProductionLogger(cli.Config)
-	})
-	return cli.lggr
 }
 
 // AppFactory implements the NewApplication method.
@@ -98,22 +89,26 @@ type AppFactory interface {
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
-func logRetry(count int) {
+func retryLogMsg(count int) string {
 	if count == 1 {
-		logger.Infow("Could not get lock, retrying...", "failCount", count)
+		return "Could not get lock, retrying..."
 	} else if count%1000 == 0 || count&(count-1) == 0 {
-		logger.Infow("Still waiting for lock...", "failCount", count)
+		return "Still waiting for lock..."
 	}
+	return ""
 }
 
 // Try to immediately acquire an advisory lock. The lock will be released on application stop.
-func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postgres.Locker, error) {
+func AdvisoryLock(ctx context.Context, lggr logger.Logger, db *sql.DB, timeout time.Duration) (pg.Locker, error) {
 	lockID := int64(1027321974924625846)
 	lockRetryInterval := time.Second
 
+	lggr = lggr.Named("AdvisoryLock")
+	lggr.Debug("Taking advisory lock...")
+
 	initCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	lock, err := postgres.NewLock(initCtx, lockID, db)
+	lock, err := pg.NewLock(initCtx, lockID, db)
 	if err != nil {
 		return nil, err
 	}
@@ -135,46 +130,65 @@ func AdvisoryLock(ctx context.Context, db *sql.DB, timeout time.Duration) (postg
 		select {
 		case <-ticker.C:
 			retryCount++
-			logRetry(retryCount)
+			if msg := retryLogMsg(retryCount); msg != "" {
+				lggr.Infow(msg, "failCount", retryCount)
+			}
 			continue
 		case <-ctx.Done():
 			return nil, errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
 		}
 	}
 
+	lggr.Debug("Got advisory lock")
+
 	return &lock, nil
 }
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink.Application, error) {
-	globalLogger := logger.ProductionLogger(cfg)
+	appLggr := logger.NewLogger(cfg)
+	appID := uuid.NewV4()
 
-	shutdownSignal := gracefulpanic.NewSignal()
+	shutdownSignal := shutdown.NewSignal()
 	uri := cfg.DatabaseURL()
+	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.GetDatabaseDialectConfiguredOrDefault()
-	db, gormDB, err := postgres.NewConnection(uri.String(), string(dialect), postgres.Config{
-		Logger:           globalLogger,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	db, err := pg.NewConnection(uri.String(), string(dialect), pg.Config{
+		Logger:       appLggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	advisoryLock, err := AdvisoryLock(ctx, db.DB, time.Second)
-	if err != nil {
-		return nil, errors.Wrap(err, "error acquiring lock")
+	appLggr.Debugf("Using database locking mode: %s", cfg.DatabaseLockingMode())
+
+	// Lease will be explicitly released on application stop
+	// Take the lease before any other DB operations
+	var leaseLock pg.LeaseLock
+	if cfg.DatabaseLockingMode() == "lease" || cfg.DatabaseLockingMode() == "dual" {
+		leaseLock = pg.NewLeaseLock(db, appID, appLggr, 1*time.Second, 5*time.Second)
+		if err = leaseLock.TakeAndHold(); err != nil {
+			return nil, errors.Wrap(err, "failed to take initial lease on database")
+		}
 	}
 
-	keyStore := keystore.New(gormDB, utils.GetScryptParams(cfg), globalLogger)
-	cfg.SetDB(gormDB)
+	// Try to acquire an advisory lock to prevent multiple nodes starting at the same time
+	var advisoryLock pg.Locker
+	if cfg.DatabaseLockingMode() == "advisorylock" || cfg.DatabaseLockingMode() == "dual" {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		advisoryLock, err = AdvisoryLock(ctx, appLggr, db.DB, time.Second)
+		if err != nil {
+			return nil, errors.Wrap(err, "error acquiring lock")
+		}
+	}
+
+	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg)
 
 	// Set up the versioning ORM
-	verORM := versioning.NewORM(db, globalLogger)
+	verORM := versioning.NewORM(db, appLggr)
 
 	// Set up periodic backup
 	if cfg.DatabaseBackupMode() != config.DatabaseBackupModeNone {
@@ -184,9 +198,9 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 		version, err = verORM.FindLatestNodeVersion()
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				globalLogger.Debugf("Failed to find any node version in the DB: %w", err)
+				appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 			} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
-				globalLogger.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
+				appLggr.Debugf("Failed to find any node version in the DB, the node_versions table does not exist yet: %w", err)
 			} else {
 				return nil, errors.Wrap(err, "initializeORM#FindLatestNodeVersion")
 			}
@@ -196,21 +210,21 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 			versionString = version.Version
 		}
 
-		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, globalLogger)
+		databaseBackup := periodicbackup.NewDatabaseBackup(cfg, appLggr)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
 
 	// Check before migration so we don't do anything destructive to the
 	// database if this app version is too old
 	if static.Version != "unset" {
-		if err = versioning.CheckVersion(db, globalLogger, static.Version); err != nil {
+		if err = versioning.CheckVersion(db, appLggr, static.Version); err != nil {
 			return nil, errors.Wrap(err, "CheckVersion")
 		}
 	}
 
 	// Migrate the database
 	if cfg.MigrateDatabase() {
-		if err = migrate.Migrate(db.DB); err != nil {
+		if err = migrate.Migrate(db.DB, appLggr); err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
 	}
@@ -224,39 +238,38 @@ func (n ChainlinkAppFactory) NewApplication(cfg config.GeneralConfig) (chainlink
 	}
 
 	if cfg.UseLegacyEthEnvVars() {
-		if err = evm.ClobberDBFromEnv(gormDB, cfg); err != nil {
+		if err = evm.ClobberDBFromEnv(db, cfg, appLggr); err != nil {
 			return nil, err
 		}
 	}
 
-	eventBroadcaster := postgres.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(),
-		cfg.DatabaseListenerMaxReconnectDuration(), globalLogger)
+	eventBroadcaster := pg.NewEventBroadcaster(cfg.DatabaseURL(), cfg.DatabaseListenerMinReconnectInterval(), cfg.DatabaseListenerMaxReconnectDuration(), appLggr, appID)
 	ccOpts := evm.ChainSetOpts{
 		Config:           cfg,
-		Logger:           globalLogger,
-		GormDB:           gormDB,
-		SQLxDB:           db,
+		Logger:           appLggr,
+		DB:               db,
 		ORM:              evm.NewORM(db),
 		KeyStore:         keyStore.Eth(),
 		EventBroadcaster: eventBroadcaster,
 	}
 	chainSet, err := evm.LoadChainSet(ccOpts)
 	if err != nil {
-		globalLogger.Fatal(err)
+		appLggr.Fatal(err)
 	}
-	externalInitiatorManager := webhook.NewExternalInitiatorManager(gormDB, utils.UnrestrictedClient)
+	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, utils.UnrestrictedClient, appLggr, cfg)
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
 		Config:                   cfg,
 		ShutdownSignal:           shutdownSignal,
-		GormDB:                   gormDB,
 		SqlxDB:                   db,
 		KeyStore:                 keyStore,
 		ChainSet:                 chainSet,
 		EventBroadcaster:         eventBroadcaster,
-		Logger:                   globalLogger,
+		Logger:                   appLggr,
 		ExternalInitiatorManager: externalInitiatorManager,
 		Version:                  static.Version,
 		AdvisoryLock:             advisoryLock,
+		LeaseLock:                leaseLock,
+		ID:                       appID,
 	})
 }
 
@@ -277,6 +290,9 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 		mode = gin.DebugMode
 	}
 	gin.SetMode(mode)
+	gin.DebugPrintRouteFunc = func(httpMethod, absolutePath, handlerName string, nuHandlers int) {
+		app.GetLogger().Debugf("%-6s %-25s --> %s (%d handlers)", httpMethod, absolutePath, handlerName, nuHandlers)
+	}
 	handler := web.Router(app.(*chainlink.ChainlinkApplication), prometheus)
 	var g errgroup.Group
 
@@ -468,12 +484,13 @@ type SessionCookieAuthenticatorConfig interface {
 type SessionCookieAuthenticator struct {
 	config SessionCookieAuthenticatorConfig
 	store  CookieStore
+	lggr   logger.Logger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store}
+func NewSessionCookieAuthenticator(config SessionCookieAuthenticatorConfig, store CookieStore, lggr logger.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: lggr}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -500,7 +517,7 @@ func (t *SessionCookieAuthenticator) Authenticate(sessionRequest sessions.Sessio
 	if err != nil {
 		return nil, err
 	}
-	defer logger.ErrorIfCalling(resp.Body.Close)
+	defer t.lggr.ErrorIfClosing(resp.Body, "Authenticate response body")
 
 	_, err = parseResponse(resp)
 	if err != nil {
@@ -597,15 +614,17 @@ func (p promptingSessionRequestBuilder) Build(string) (sessions.SessionRequest, 
 	return sessions.SessionRequest{Email: email, Password: pwd}, nil
 }
 
-type fileSessionRequestBuilder struct{}
-
-// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
-func NewFileSessionRequestBuilder() SessionRequestBuilder {
-	return fileSessionRequestBuilder{}
+type fileSessionRequestBuilder struct {
+	lggr logger.Logger
 }
 
-func (f fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest, error) {
-	return credentialsFromFile(file)
+// NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
+func NewFileSessionRequestBuilder(lggr logger.Logger) SessionRequestBuilder {
+	return &fileSessionRequestBuilder{lggr: lggr}
+}
+
+func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest, error) {
+	return credentialsFromFile(file, f.lggr.With("file", file))
 }
 
 // APIInitializer is the interface used to create the API User credentials
@@ -652,12 +671,13 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, e
 
 type fileAPIInitializer struct {
 	file string
+	lggr logger.Logger
 }
 
 // NewFileAPIInitializer creates a concrete instance of APIInitializer
 // that pulls API user credentials from the passed file path.
-func NewFileAPIInitializer(file string) APIInitializer {
-	return fileAPIInitializer{file: file}
+func NewFileAPIInitializer(file string, lggr logger.Logger) APIInitializer {
+	return fileAPIInitializer{file: file, lggr: lggr.With("file", file)}
 }
 
 func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) {
@@ -665,7 +685,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 		return user, err
 	}
 
-	request, err := credentialsFromFile(f.file)
+	request, err := credentialsFromFile(f.file, f.lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -679,12 +699,12 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM) (sessions.User, error) 
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
-func credentialsFromFile(file string) (sessions.SessionRequest, error) {
+func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
 		return sessions.SessionRequest{}, ErrNoCredentialFile
 	}
 
-	logger.Debug("Initializing API credentials from ", file)
+	lggr.Debug("Initializing API credentials")
 	dat, err := ioutil.ReadFile(file)
 	if err != nil {
 		return sessions.SessionRequest{}, err

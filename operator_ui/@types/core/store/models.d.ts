@@ -70,42 +70,6 @@ declare module 'core/store/models' {
   type AddressCollection = common.Address[]
   //#endregion common.go
 
-  //#region bridge_type.go
-  /**
-   * BridgeTypeRequest is the incoming record used to create a BridgeType
-   */
-  export interface BridgeTypeRequest {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
-   */
-  export interface BridgeTypeAuthentication {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    incomingToken: string
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-
-  /**
-   * BridgeType is used for external adapters and has fields for
-   * the name of the adapter and its URL.
-   */
-  export interface BridgeType {
-    name: TaskType
-    url: WebURL
-    confirmations: number
-    outgoingToken: string
-    minimumContractPayment: Pointer<assets.Link>
-  }
-  //#endregion bridge_type.go
-
   /**
    * Tx contains fields necessary for an Ethereum transaction with
    * an additional field for the TxAttempt.
@@ -269,7 +233,10 @@ declare module 'core/store/models' {
       initiator: 'runlog'
       contractAddress: common.Address
       minIncomingConfirmations: number | null
+      minIncomingConfirmationsEnv?: boolean
       createdAt: time.Time
+      requesters: common.Address[]
+      evmChainID: string
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
@@ -295,6 +262,7 @@ declare module 'core/store/models' {
       drumbeatRandomDelay?: string
       minPayment: number | null
       createdAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -315,12 +283,18 @@ declare module 'core/store/models' {
       monitoringEndpoint: string
       transmitterAddress: common.Address
       observationTimeout: string
+      observationTimeoutEnv?: boolean
       blockchainTimeout: string
+      blockchainTimeoutEnv?: boolean
       contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerSubscribeIntervalEnv?: boolean
       contractConfigTrackerPollInterval: string
+      contractConfigTrackerPollIntervalEnv?: boolean
       contractConfigConfirmations: number
+      contractConfigConfirmationsEnv?: boolean
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -337,6 +311,7 @@ declare module 'core/store/models' {
       fromAddress: common.Address
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     webhookSpec: null
@@ -379,11 +354,14 @@ declare module 'core/store/models' {
     type: 'vrf'
     keeperSpec: null
     vrfSpec: {
-      confirmations: number
+      minIncomingConfirmations: number
       publicKey: string
       coordinatorAddress: common.Address
+      fromAddress: string
+      pollPeriod: string
       createdAt: time.Time
       updatedAt: time.Time
+      evmChainID: string
     }
     cronSpec: null
     directRequestSpec: null
@@ -451,6 +429,7 @@ declare module 'core/store/models' {
     // Stupidly this also returns boolean strings
     logLevel: LogConfigLevel[]
     serviceName: string[]
+    defaultLogLevel: string
   }
 
   export interface LogConfigRequest {
@@ -462,54 +441,15 @@ declare module 'core/store/models' {
     publicKey: string
   }
 
-  export interface FeedsManager {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    isConnectionActive: boolean
-    bootstrapPeerMultiaddr?: string
-    createdAt: time.Time
-  }
-
-  export interface CreateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
-  export interface UpdateFeedsManagerRequest {
-    name: string
-    uri: string
-    jobTypes: string[]
-    publicKey: string
-    isBootstrapPeer: boolean
-    bootstrapPeerMultiaddr?: string
-  }
-
-  export interface JobProposal {
-    spec: string
-    status: string
-    external_job_id: string | null
-    createdAt: time.Time
-    proposedAt: time.Time
-  }
+  /**
+   * Request to begin the process of registering a new MFA token
+   */
+  export interface BeginWebAuthnRegistrationV2Request {}
 
   /**
    * Request to begin the process of registering a new MFA token
    */
-   export interface BeginWebAuthnRegistrationV2Request {
-  }
-
-  /**
-   * Request to begin the process of registering a new MFA token
-   */
-  export interface BeginWebAuthnRegistrationV2 {
-  }
+  export interface BeginWebAuthnRegistrationV2 {}
 
   /**
    * Request to begin the process of registering a new MFA token

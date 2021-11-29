@@ -25,19 +25,16 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 	null "gopkg.in/guregu/null.v4"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/health"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/sessions"
 	"github.com/smartcontractkit/chainlink/core/static"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -52,8 +49,8 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	lggr := cli.Logger().Named("boot")
-	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
+	lggr := cli.Logger.Named("boot")
+	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
 
 	if cli.Config.Dev() {
 		lggr.Warn("Chainlink is running in DEVELOPMENT mode. This is a security risk if enabled in production.")
@@ -128,7 +125,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	}
 
 	var user sessions.User
-	if _, err = NewFileAPIInitializer(c.String("api")).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
+	if _, err = NewFileAPIInitializer(c.String("api"), lggr).Initialize(sessionORM); err != nil && err != ErrNoCredentialFile {
 		return cli.errorOut(fmt.Errorf("error creating api initializer: %+v", err))
 	}
 	if user, err = cli.FallbackAPIInitializer.Initialize(sessionORM); err != nil {
@@ -142,13 +139,13 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer func() { lggr.WarnIf(app.Stop(), "Error stopping app") }()
+	defer func() { lggr.ErrorIf(app.Stop(), "Error stopping app") }()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	lggr.Infof("Chainlink booted in %s", time.Since(static.InitTime))
+	lggr.Infow(fmt.Sprintf("Chainlink booted in %.2fs", time.Since(static.InitTime).Seconds()), "appID", app.ID())
 	return cli.errorOut(cli.Runner.Run(app))
 }
 
@@ -220,7 +217,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 }
 
 func logConfigVariables(lggr logger.Logger, cfg config.GeneralConfig) error {
-	wlc, err := presenters.NewConfigPrinter(cfg)
+	wlc, err := config.NewConfigPrinter(cfg)
 	if err != nil {
 		return err
 	}
@@ -271,7 +268,6 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	db := app.GetDB()
 	keyStore := app.GetKeyStore()
 
 	ethClient := chain.Client()
@@ -286,13 +282,13 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrap(err, "error authenticating keystore"))
 	}
 
-	cli.Logger().Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
+	cli.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	keyStates, err := keyStore.Eth().GetStatesForChain(chain.ID())
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	ec := bulletprooftxmanager.NewEthConfirmer(db, ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
+	ec := bulletprooftxmanager.NewEthConfirmer(app.GetSqlxDB(), ethClient, chain.Config(), keyStore.Eth(), keyStates, nil, nil, chain.Logger())
 	err = ec.ForceRebroadcast(beginningNonce, endingNonce, gasPriceWei, address, overrideGasLimit)
 	return cli.errorOut(err)
 }
@@ -367,7 +363,7 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	lggr := cli.Logger()
+	lggr := cli.Logger
 	lggr.Infof("Resetting database: %#v", parsed.String())
 	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
 	if err := dropAndCreateDB(parsed); err != nil {
@@ -398,7 +394,25 @@ func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 	cfg := cli.Config
-	if err := insertFixtures(cfg); err != nil {
+	userOnly := c.Bool("user-only")
+	var fixturePath = "../store/fixtures/fixtures.sql"
+	if userOnly {
+		fixturePath = "../store/fixtures/user_only_fixture.sql"
+	}
+	if err := insertFixtures(cfg, fixturePath); err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// testing against testnets. Does not include fake chain fixtures.
+func (cli *Client) PrepareTestDatabaseUserOnly(c *clipkg.Context) error {
+	if err := cli.ResetDatabase(c); err != nil {
+		return cli.errorOut(err)
+	}
+	cfg := cli.Config
+	if err := insertFixtures(cfg, "../store/fixtures/user_only_fixtures.sql"); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -412,8 +426,8 @@ func (cli *Client) MigrateDatabase(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
 	}
 
-	cli.Logger().Infof("Migrating database: %#v", parsed.String())
-	if err := migrateDB(cfg, cli.Logger()); err != nil {
+	cli.Logger.Infof("Migrating database: %#v", parsed.String())
+	if err := migrateDB(cfg, cli.Logger); err != nil {
 		return cli.errorOut(err)
 	}
 	return nil
@@ -431,12 +445,12 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err := migrate.Rollback(db.DB, version); err != nil {
+	if err := migrate.Rollback(db.DB, cli.Logger, version); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
@@ -445,28 +459,28 @@ func (cli *Client) RollbackDatabase(c *clipkg.Context) error {
 
 // VersionDatabase displays the current database version.
 func (cli *Client) VersionDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	version, err := migrate.Current(db.DB)
+	version, err := migrate.Current(db.DB, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 
-	cli.Logger().Infof("Database version: %v", version)
+	cli.Logger.Infof("Database version: %v", version)
 	return nil
 }
 
 // StatusDatabase displays the database migration status
 func (cli *Client) StatusDatabase(c *clipkg.Context) error {
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 
-	if err = migrate.Status(db.DB); err != nil {
+	if err = migrate.Status(db.DB, cli.Logger); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
 	}
 	return nil
@@ -477,7 +491,7 @@ func (cli *Client) CreateMigration(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(cli.Config, cli.Logger())
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -498,13 +512,12 @@ func newConnection(cfg config.GeneralConfig, lggr logger.Logger) (*sqlx.DB, erro
 	if parsed.String() == "" {
 		return nil, errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable")
 	}
-	config := postgres.Config{
-		Logger:           lggr,
-		LogSQLStatements: cfg.LogSQLStatements(),
-		MaxOpenConns:     cfg.ORMMaxOpenConns(),
-		MaxIdleConns:     cfg.ORMMaxIdleConns(),
+	config := pg.Config{
+		Logger:       lggr,
+		MaxOpenConns: cfg.ORMMaxOpenConns(),
+		MaxIdleConns: cfg.ORMMaxIdleConns(),
 	}
-	db, _, err := postgres.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
+	db, err := pg.NewConnection(parsed.String(), string(cfg.GetDatabaseDialectConfiguredOrDefault()), config)
 	return db, err
 }
 
@@ -539,7 +552,7 @@ func migrateDB(config config.GeneralConfig, lggr logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Migrate(db.DB); err != nil {
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -550,10 +563,10 @@ func downAndUpDB(cfg config.GeneralConfig, lggr logger.Logger, baseVersionID int
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
-	if err = migrate.Rollback(db.DB, null.IntFrom(baseVersionID)); err != nil {
+	if err = migrate.Rollback(db.DB, lggr, null.IntFrom(baseVersionID)); err != nil {
 		return fmt.Errorf("test rollback failed: %v", err)
 	}
-	if err = migrate.Migrate(db.DB); err != nil {
+	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("second migrateDB failed: %v", err)
 	}
 	return db.Close()
@@ -589,7 +602,7 @@ func checkSchema(cfg config.GeneralConfig, prevSchema string) error {
 	return nil
 }
 
-func insertFixtures(config config.GeneralConfig) (err error) {
+func insertFixtures(config config.GeneralConfig, pathToFixtures string) (err error) {
 	dbURL := config.DatabaseURL()
 	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
@@ -605,7 +618,7 @@ func insertFixtures(config config.GeneralConfig) (err error) {
 	if !ok {
 		return errors.New("could not get runtime.Caller(1)")
 	}
-	filepath := path.Join(path.Dir(filename), "../store/fixtures/fixtures.sql")
+	filepath := path.Join(path.Dir(filename), pathToFixtures)
 	fixturesSQL, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return err
@@ -642,11 +655,8 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
 	nextNonce := c.Uint64("nextNonce")
-	dbURL := cli.Config.DatabaseURL()
 
-	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: dbURL.String(),
-	}), &gorm.Config{})
+	db, err := newConnection(cli.Config, cli.Logger)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -656,11 +666,15 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 		return cli.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 
-	res := db.Exec(`UPDATE eth_key_states SET next_nonce = ? WHERE address = ?`, nextNonce, address)
-	if res.Error != nil {
+	res, err := db.Exec(`UPDATE eth_key_states SET next_nonce = $1 WHERE address = $2`, nextNonce, address)
+	if err != nil {
 		return cli.errorOut(err)
 	}
-	if res.RowsAffected == 0 {
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	if rowsAffected == 0 {
 		return cli.errorOut(fmt.Errorf("no key found matching address %s", addressHex))
 	}
 	return nil

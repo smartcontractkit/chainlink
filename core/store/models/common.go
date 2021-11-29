@@ -9,18 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm/schema"
-
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
-	"github.com/tidwall/sjson"
 )
 
 // CronParser is the global parser for crontabs.
@@ -37,19 +31,6 @@ func init() {
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
 	gjson.Result
-}
-
-func (JSON) GormDataType() string {
-	return "json"
-}
-
-// GormDBDataType gorm db data type
-func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
-	switch db.Dialector.Name() {
-	case "postgres":
-		return "JSONB"
-	}
-	return ""
 }
 
 // Value returns this instance serialized for database storage.
@@ -72,18 +53,6 @@ func (j *JSON) Scan(value interface{}) error {
 		return fmt.Errorf("unable to convert %v of %T to JSON", value, value)
 	}
 	return nil
-}
-
-func MustParseJSON(b []byte) JSON {
-	var j JSON
-	str := string(b)
-	if len(str) == 0 {
-		panic("empty byte array")
-	}
-	if err := json.Unmarshal([]byte(str), &j); err != nil {
-		panic(err)
-	}
-	return j
 }
 
 // ParseJSON attempts to coerce the input byte array into valid JSON
@@ -135,80 +104,6 @@ func (j JSON) Bytes() []byte {
 		return nil
 	}
 	return []byte(j.String())
-}
-
-// AsMap returns j as a map
-func (j JSON) AsMap() (map[string]interface{}, error) {
-	output := make(map[string]interface{})
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}:
-		for key, value := range v {
-			output[key] = value
-		}
-	case nil:
-	default:
-		return nil, errors.New("can only add to JSON objects or null")
-	}
-	return output, nil
-}
-
-// mapToJSON returns m as a JSON object, or errors
-func mapToJSON(m map[string]interface{}) (JSON, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		return JSON{}, err
-	}
-	return JSON{Result: gjson.ParseBytes(bytes)}, nil
-}
-
-// Add returns a new instance of JSON with the new value added.
-func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
-	return j.MultiAdd(KV{insertKey: insertValue})
-}
-
-func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
-	curr := j.Get(insertKey).Array()
-	updated := make([]interface{}, 0)
-	updated = append(updated, insertValue)
-	for _, c := range curr {
-		updated = append(updated, c.Value())
-	}
-	return j.Add(insertKey, updated)
-}
-
-// KV represents a key/value pair to be added to a JSON object
-type KV map[string]interface{}
-
-// MultiAdd returns a new instance of j with the new values added.
-func (j JSON) MultiAdd(keyValues KV) (JSON, error) {
-	output, err := j.AsMap()
-	if err != nil {
-		return JSON{}, err
-	}
-	for key, value := range keyValues {
-		output[key] = value
-	}
-	return mapToJSON(output)
-}
-
-// Delete returns a new instance of JSON with the specified key removed.
-func (j JSON) Delete(key string) (JSON, error) {
-	js, err := sjson.Delete(j.String(), key)
-	if err != nil {
-		return j, err
-	}
-	return ParseJSON([]byte(js))
-}
-
-// CBOR returns a bytes array of the JSON map or array encoded to CBOR.
-func (j JSON) CBOR() ([]byte, error) {
-	switch v := j.Result.Value().(type) {
-	case map[string]interface{}, []interface{}, nil:
-		return cbor.Marshal(v)
-	default:
-		var b []byte
-		return b, fmt.Errorf("unable to coerce JSON to CBOR for type %T", v)
-	}
 }
 
 // WebURL contains the URL of the endpoint.
@@ -467,16 +362,6 @@ func (r *AddressCollection) Scan(value interface{}) error {
 	}
 	*r = collection
 	return nil
-}
-
-// Configuration stores key value pairs for overriding global configuration
-type Configuration struct {
-	ID        int64  `gorm:"primary_key"`
-	Name      string `gorm:"not null;unique;index"`
-	Value     string `gorm:"not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *gorm.DeletedAt
 }
 
 // Merge returns a new map with all keys merged from left to right

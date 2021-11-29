@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/config"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -40,7 +40,9 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	logLevel := config.LogLevel{Level: zapcore.WarnLevel}
 	cfg.Overrides.LogLevel = &logLevel
 	sqlEnabled := true
-	cfg.Overrides.LogSQLStatements = null.BoolFrom(sqlEnabled)
+	cfg.Overrides.LogSQL = null.BoolFrom(sqlEnabled)
+	defaultLogLevel := config.LogLevel{Level: zapcore.WarnLevel}
+	cfg.Overrides.DefaultLogLevel = &defaultLogLevel
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start())
@@ -54,14 +56,16 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &svcLogConfig))
 
+	require.Equal(t, "warn", svcLogConfig.DefaultLogLevel)
+
 	for i, svcName := range svcLogConfig.ServiceName {
 
 		if svcName == "Global" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], logLevel.String())
+			assert.Equal(t, logLevel.String(), svcLogConfig.LogLevel[i])
 		}
 
 		if svcName == "IsSqlEnabled" {
-			assert.Equal(t, svcLogConfig.LogLevel[i], strconv.FormatBool(sqlEnabled))
+			assert.Equal(t, strconv.FormatBool(sqlEnabled), svcLogConfig.LogLevel[i])
 		}
 	}
 }

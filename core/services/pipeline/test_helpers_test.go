@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+	"github.com/smartcontractkit/sqlx"
 )
 
 func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) http.Handler {
@@ -36,17 +36,15 @@ func fakeExternalAdapter(t *testing.T, expectedRequest, response interface{}) ht
 	})
 }
 
-func makeBridge(t *testing.T, db *gorm.DB, name string, expectedRequest, response interface{}) *httptest.Server {
+func makeBridge(t *testing.T, db *sqlx.DB, expectedRequest, response interface{}, cfg pg.LogConfig) (s *httptest.Server, name string) {
 	t.Helper()
 
 	server := httptest.NewServer(fakeExternalAdapter(t, expectedRequest, response))
 
 	bridgeFeedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
-	bridgeFeedWebURL := (*models.WebURL)(bridgeFeedURL)
 
-	_, bridge := cltest.NewBridgeType(t, name)
-	bridge.URL = *bridgeFeedWebURL
-	require.NoError(t, db.Create(&bridge).Error)
-	return server
+	_, bt := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeFeedURL.String()}, cfg)
+
+	return server, bt.Name.String()
 }

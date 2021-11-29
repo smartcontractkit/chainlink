@@ -14,7 +14,8 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	null "gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 )
 
@@ -33,15 +34,15 @@ func init() {
 }
 
 // Ensure we migrated from v1 migrations to goose_migrations
-func ensureMigrated(db *sql.DB) {
-	sqlxDB := postgres.WrapDbWithSqlx(db)
+func ensureMigrated(db *sql.DB, lggr logger.Logger) {
+	sqlxDB := pg.WrapDbWithSqlx(db)
 	var names []string
 	err := sqlxDB.Select(&names, `SELECT id FROM migrations`)
 	if err != nil {
 		// already migrated
 		return
 	}
-	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		// ensure that no legacy job specs are present: we _must_ bail out early if
 		// so because otherwise we run the risk of dropping working jobs if the
 		// user has not read the release notes
@@ -68,7 +69,7 @@ func ensureMigrated(db *sql.DB) {
 	}
 	// insert records for existing migrations
 	sql := fmt.Sprintf(`INSERT INTO %s (version_id, is_applied) VALUES ($1, true);`, goose.TableName())
-	err = postgres.SqlTransaction(context.Background(), db, func(tx *sqlx.Tx) error {
+	err = pg.SqlTransaction(context.Background(), db, lggr, func(tx *sqlx.Tx) error {
 		for _, name := range names {
 			var id int64
 			// the first migration doesn't follow the naming convention
@@ -100,26 +101,26 @@ func ensureMigrated(db *sql.DB) {
 	}
 }
 
-func Migrate(db *sql.DB) error {
-	ensureMigrated(db)
+func Migrate(db *sql.DB, lggr logger.Logger) error {
+	ensureMigrated(db, lggr)
 	return goose.Up(db, MIGRATIONS_DIR)
 }
 
-func Rollback(db *sql.DB, version null.Int) error {
-	ensureMigrated(db)
+func Rollback(db *sql.DB, lggr logger.Logger, version null.Int) error {
+	ensureMigrated(db, lggr)
 	if version.Valid {
 		return goose.DownTo(db, MIGRATIONS_DIR, version.Int64)
 	}
 	return goose.Down(db, MIGRATIONS_DIR)
 }
 
-func Current(db *sql.DB) (int64, error) {
-	ensureMigrated(db)
+func Current(db *sql.DB, lggr logger.Logger) (int64, error) {
+	ensureMigrated(db, lggr)
 	return goose.EnsureDBVersion(db)
 }
 
-func Status(db *sql.DB) error {
-	ensureMigrated(db)
+func Status(db *sql.DB, lggr logger.Logger) error {
+	ensureMigrated(db, lggr)
 	return goose.Status(db, MIGRATIONS_DIR)
 }
 

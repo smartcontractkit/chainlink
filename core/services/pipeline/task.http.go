@@ -48,7 +48,7 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *HTTPTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	_, err := CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
@@ -74,14 +74,14 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) (result 
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	logger.Debugw("HTTP task: sending request",
+	lggr.Debugw("HTTP task: sending request",
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 		"method", method,
 		"allowUnrestrictedNetworkAccess", allowUnrestrictedNetworkAccess,
 	)
 
-	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
+	responseBytes, statusCode, _, elapsed, err := makeHTTPRequest(ctx, lggr, method, url, requestData, allowUnrestrictedNetworkAccess, t.config)
 	if err != nil {
 		if errors.Cause(err) == utils.ErrDisallowedIP {
 			err = errors.Wrap(err, "connections to local resources are disabled by default, if you are sure this is safe, you can enable on a per-task basis by setting allowUnrestrictedNetworkAccess=true in the pipeline task spec")
@@ -89,7 +89,7 @@ func (t *HTTPTask) Run(ctx context.Context, vars Vars, inputs []Result) (result 
 		return Result{Error: err}, RunInfo{IsRetryable: isRetryableHTTPError(statusCode, err)}
 	}
 
-	logger.Debugw("HTTP task got response",
+	lggr.Debugw("HTTP task got response",
 		"response", string(responseBytes),
 		"url", url.String(),
 		"dotID", t.DotID(),

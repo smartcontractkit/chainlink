@@ -17,12 +17,12 @@ import (
 	evmconfig "github.com/smartcontractkit/chainlink/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/core/cmd"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/sessions"
-	"github.com/smartcontractkit/chainlink/core/store/config"
+	"github.com/smartcontractkit/chainlink/core/shutdown"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"go.uber.org/atomic"
 
@@ -83,47 +83,6 @@ func (InstantClock) After(_ time.Duration) <-chan time.Time {
 	c := make(chan time.Time, 100)
 	c <- time.Now()
 	return c
-}
-
-// TriggerClock implements the AfterNower interface, but must be manually triggered
-// to resume computation on After.
-type TriggerClock struct {
-	triggers chan time.Time
-	t        testing.TB
-}
-
-// NewTriggerClock returns a new TriggerClock, that a test can manually fire
-// to continue processing in a Clock dependency.
-func NewTriggerClock(t testing.TB) *TriggerClock {
-	return &TriggerClock{
-		triggers: make(chan time.Time),
-		t:        t,
-	}
-}
-
-// Trigger sends a time to unblock the After call.
-func (t *TriggerClock) Trigger() {
-	select {
-	case t.triggers <- time.Now():
-	case <-time.After(60 * time.Second):
-		t.t.Error("timed out while trying to trigger clock")
-	}
-}
-
-// TriggerWithoutTimeout is a special case where we know the trigger might
-// block but don't care
-func (t *TriggerClock) TriggerWithoutTimeout() {
-	t.triggers <- time.Now()
-}
-
-// Now returns the current local time
-func (t TriggerClock) Now() time.Time {
-	return time.Now()
-}
-
-// After waits on a manual trigger.
-func (t *TriggerClock) After(_ time.Duration) <-chan time.Time {
-	return t.triggers
 }
 
 // RendererMock a mock renderer
@@ -299,11 +258,6 @@ type MockCron struct {
 	nextID  cron.EntryID
 }
 
-// NewMockCron returns a new mock cron
-func NewMockCron() *MockCron {
-	return &MockCron{}
-}
-
 // Start starts the mockcron
 func (*MockCron) Start() {}
 
@@ -343,7 +297,7 @@ type MockHeadTrackable struct {
 }
 
 // OnNewLongestChain increases the OnNewLongestChainCount count by one
-func (m *MockHeadTrackable) OnNewLongestChain(context.Context, eth.Head) {
+func (m *MockHeadTrackable) OnNewLongestChain(context.Context, *eth.Head) {
 	m.onNewHeadCount.Inc()
 }
 
@@ -456,7 +410,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-var _ gracefulpanic.Signal = &testShutdownSignal{}
+var _ shutdown.Signal = &testShutdownSignal{}
 
 type testShutdownSignal struct {
 	t testing.TB

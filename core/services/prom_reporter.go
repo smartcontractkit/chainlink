@@ -22,6 +22,7 @@ import (
 type (
 	promReporter struct {
 		db           *sql.DB
+		lggr         logger.Logger
 		backend      PrometheusBackend
 		newHeads     *utils.Mailbox
 		chStop       chan struct{}
@@ -85,7 +86,7 @@ func (defaultBackend) SetPipelineTaskRunsQueued(n int) {
 	promPipelineRunsQueued.Set(float64(n))
 }
 
-func NewPromReporter(db *sql.DB, opts ...interface{}) *promReporter {
+func NewPromReporter(db *sql.DB, lggr logger.Logger, opts ...interface{}) *promReporter {
 	var backend PrometheusBackend = defaultBackend{}
 	period := 15 * time.Second
 	for _, opt := range opts {
@@ -100,6 +101,7 @@ func NewPromReporter(db *sql.DB, opts ...interface{}) *promReporter {
 	chStop := make(chan struct{})
 	return &promReporter{
 		db:           db,
+		lggr:         lggr.Named("PromReporter"),
 		backend:      backend,
 		newHeads:     utils.NewMailbox(1),
 		chStop:       chStop,
@@ -123,12 +125,12 @@ func (pr *promReporter) Close() error {
 	})
 }
 
-func (pr *promReporter) OnNewLongestChain(ctx context.Context, head eth.Head) {
+func (pr *promReporter) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 	pr.newHeads.Deliver(head)
 }
 
 func (pr *promReporter) eventLoop() {
-	logger.Debug("PromReporter: starting event loop")
+	pr.lggr.Debug("Starting event loop")
 	defer pr.wgDone.Done()
 	ctx, cancel := utils.ContextFromChan(pr.chStop)
 	defer cancel()
@@ -139,14 +141,14 @@ func (pr *promReporter) eventLoop() {
 			if !exists {
 				continue
 			}
-			head, ok := item.(eth.Head)
+			head, ok := item.(*eth.Head)
 			if !ok {
 				panic(fmt.Sprintf("expected `eth.Head`, got %T", item))
 			}
 			pr.reportHeadMetrics(ctx, head)
 		case <-time.After(pr.reportPeriod):
 			if err := errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"); err != nil {
-				logger.Errorw("Error reporting prometheus metrics", "err", err)
+				pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
 			}
 
 		case <-pr.chStop:
@@ -155,7 +157,7 @@ func (pr *promReporter) eventLoop() {
 	}
 }
 
-func (pr *promReporter) reportHeadMetrics(ctx context.Context, head eth.Head) {
+func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *eth.Head) {
 	evmChainID := head.EVMChainID.ToInt()
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx, evmChainID), "reportPendingEthTxes failed"),
@@ -164,7 +166,7 @@ func (pr *promReporter) reportHeadMetrics(ctx context.Context, head eth.Head) {
 	)
 
 	if err != nil && ctx.Err() == nil {
-		logger.Errorw("Error reporting prometheus metrics", "err", err)
+		pr.lggr.Errorw("Error reporting prometheus metrics", "err", err)
 	}
 }
 
@@ -192,7 +194,7 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID 
 	return nil
 }
 
-func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head eth.Head) (err error) {
+func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *eth.Head) (err error) {
 	var earliestUnconfirmedTxBlock null.Int
 	err = pr.db.QueryRowContext(ctx, `
 SELECT MIN(broadcast_before_block_num) FROM eth_tx_attempts

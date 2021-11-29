@@ -6,10 +6,12 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/recovery"
 	pb "github.com/smartcontractkit/chainlink/core/services/feeds/proto"
 	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/connectivity"
 )
 
 //go:generate mockery --name ConnectionsManager --output ./mocks/ --case=underscore
@@ -92,7 +94,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 	mgr.connections[opts.FeedsManagerID] = conn
 	mgr.mu.Unlock()
 
-	go gracefulpanic.WrapRecover(mgr.lggr, func() {
+	go recovery.WrapRecover(mgr.lggr, func() {
 		defer mgr.wgClosed.Done()
 
 		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
@@ -129,6 +131,26 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		if opts.OnConnect != nil {
 			opts.OnConnect(conn.client)
 		}
+
+		// Detect changes in connection status
+		go func() {
+			for {
+				s := clientConn.GetState()
+
+				clientConn.WaitForStateChange(conn.ctx, s)
+
+				s = clientConn.GetState()
+
+				// Exit the goroutine if we shutdown the connection
+				if s == connectivity.Shutdown {
+					break
+				}
+
+				mgr.mu.Lock()
+				conn.connected = s == connectivity.Ready
+				mgr.mu.Unlock()
+			}
+		}()
 
 		// Wait for close
 		<-conn.ctx.Done()

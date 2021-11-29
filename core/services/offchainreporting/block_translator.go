@@ -36,7 +36,7 @@ func (*l1BlockTranslator) NumberToQueryRange(_ context.Context, changedInL1Block
 	return big.NewInt(int64(changedInL1Block)), big.NewInt(int64(changedInL1Block))
 }
 
-func (*l1BlockTranslator) OnNewLongestChain(context.Context, eth.Head) {}
+func (*l1BlockTranslator) OnNewLongestChain(context.Context, *eth.Head) {}
 
 type optimismBlockTranslator struct{}
 

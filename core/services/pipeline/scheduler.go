@@ -49,6 +49,7 @@ type scheduler struct {
 	waiting      uint
 	results      map[int]TaskRunResult
 	vars         Vars
+	logger       logger.Logger
 
 	pending bool
 	exiting bool
@@ -57,7 +58,8 @@ type scheduler struct {
 	resultCh chan TaskRunResult
 }
 
-func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *scheduler {
+func newScheduler(p *Pipeline, run *Run, vars Vars, lggr logger.Logger) *scheduler {
+	lggr = lggr.Named("Scheduler")
 	dependencies := make(map[int]uint, len(p.Tasks))
 
 	for id, task := range p.Tasks {
@@ -65,7 +67,7 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		dependencies[id] = uint(len)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &scheduler{
 		ctx:          ctx,
@@ -75,6 +77,7 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 		dependencies: dependencies,
 		results:      make(map[int]TaskRunResult, len(p.Tasks)),
 		vars:         vars,
+		logger:       lggr,
 
 		// taskCh should never block
 		taskCh:   make(chan *memoryTaskRun, len(dependencies)),
@@ -98,7 +101,7 @@ func newScheduler(ctx context.Context, p *Pipeline, run *Run, vars Vars) *schedu
 
 		run := s.newMemoryTaskRun(task)
 
-		logger.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
+		lggr.Debugw("scheduling task run", "dot_id", task.DotID(), "attempts", run.attempts)
 
 		s.taskCh <- run
 		s.waiting++
@@ -158,11 +161,9 @@ func (s *scheduler) Run() {
 		// pipeline is completely empty
 
 		result := <-s.resultCh
-		// var result TaskRunResult
-		// select {
-		// case result = <-s.resultCh:
-		// case <-s.ctx.Done():
-		// }
+		// TODO: if for some reason the cleanup didn't succeed and we're stuck waiting for reports forever
+		// we should be able to timeout and finish shutting down
+		// See: https://app.shortcut.com/chainlinklabs/story/21225/straighten-out-and-clarify-context-usage-in-the-pipeline
 
 		s.waiting--
 
@@ -234,7 +235,7 @@ func (s *scheduler) Run() {
 					// schedule a new attempt
 					run := s.newMemoryTaskRun(result.Task)
 					run.attempts = result.Attempts
-					logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+					s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 					s.taskCh <- run
 				}
 			}()
@@ -252,7 +253,7 @@ func (s *scheduler) Run() {
 				task := s.pipeline.Tasks[id]
 				run := s.newMemoryTaskRun(task)
 
-				logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
+				s.logger.Debugw("scheduling task run", "dot_id", run.task.DotID(), "attempts", run.attempts)
 				s.taskCh <- run
 				s.waiting++
 			}
@@ -281,6 +282,6 @@ func (s *scheduler) report(ctx context.Context, result TaskRunResult) {
 	select {
 	case s.resultCh <- result:
 	case <-ctx.Done():
-		logger.Errorw("pipeline.scheduler: timed out reporting result", "result", result)
+		s.logger.Errorw("pipeline.scheduler: discarding result; report context timed out", "result", result, "err", ctx.Err())
 	}
 }

@@ -2,9 +2,9 @@ package pipeline
 
 import (
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/sqlx"
 )
 
 var (
@@ -31,9 +31,9 @@ const (
     `
 )
 
-func (t *BridgeTask) HelperSetDependencies(config Config, db *gorm.DB, id uuid.UUID) {
+func (t *BridgeTask) HelperSetDependencies(config Config, db *sqlx.DB, id uuid.UUID) {
 	t.config = config
-	t.db = db
+	t.queryer = db
 	t.uuid = id
 }
 
@@ -46,8 +46,7 @@ func (t *ETHCallTask) HelperSetDependencies(cc evm.ChainSet, config Config) {
 	t.config = config
 }
 
-func (t *ETHTxTask) HelperSetDependencies(db *gorm.DB, cc evm.ChainSet, keyStore ETHKeyStore) {
-	t.db = db
+func (t *ETHTxTask) HelperSetDependencies(cc evm.ChainSet, keyStore ETHKeyStore) {
 	t.chainSet = cc
 	t.keyStore = keyStore
 }

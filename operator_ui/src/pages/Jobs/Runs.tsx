@@ -1,7 +1,6 @@
 import React from 'react'
 import { useHistory, useLocation } from 'react-router-dom'
 import { Card, TablePagination } from '@material-ui/core'
-import Content from 'components/Content'
 import JobRunsList from './JobRunsList'
 import TableButtons from 'components/TableButtons'
 import { JobData } from './sharedTypes'
@@ -49,7 +48,7 @@ export const Runs = ({
   }, [getJobRuns, history, page, pageSize])
 
   return (
-    <Content>
+    <>
       <ErrorComponent />
       <LoadingPlaceholder />
       <Card>
@@ -78,6 +77,6 @@ export const Runs = ({
           )}
         />
       </Card>
-    </Content>
+    </>
   )
 }

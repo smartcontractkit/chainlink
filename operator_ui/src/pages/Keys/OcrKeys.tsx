@@ -20,7 +20,7 @@ import { Delete } from './Delete'
 import { KeyBundle } from './KeyBundle'
 import { useDispatch } from 'react-redux'
 import { deleteNotification, createNotification } from './Notifications'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = () =>
   createStyles({
@@ -129,7 +129,7 @@ export const OcrKeys = withStyles(styles)(
                       <KeyBundle
                         primary={
                           <b>
-                            Key ID: {key.id} <Copy data={key.id} />
+                            Key ID: {key.id} <CopyIconButton data={key.id} />
                           </b>
                         }
                         secondary={[

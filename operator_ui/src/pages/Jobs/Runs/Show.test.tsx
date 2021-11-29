@@ -1,11 +1,12 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { syncFetch } from 'test-helpers/syncFetch'
 import { jobRunAPIResponse } from 'factories/jsonApiOcrJobRun'
 import { Show } from './Show'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
-import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import globPath from 'test-helpers/globPath'
+import { renderWithRouter, screen } from 'support/test-utils'
+
+const { findByText } = screen
 
 describe('pages/JobRuns/Show/Overview', () => {
   const JOB_ID = '200'
@@ -66,17 +67,16 @@ describe('pages/JobRuns/Show/Overview', () => {
       jobRunAPIResponse(run),
     )
 
-    const wrapper = mountWithProviders(
+    renderWithRouter(
       <Route path={`/jobs/:jobId/runs/:jobRunId`} component={Show} />,
       {
         initialEntries: [`/jobs/${JOB_ID}/runs/${RUN_ID}`],
       },
     )
 
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('Errored')
-    expect(wrapper.text()).toContain('Task list')
-    expect(wrapper.text()).toContain('Errors')
-    expect(wrapper.text()).toContain(`task inputs: too many errors`)
+    expect(await findByText('Errored')).toBeInTheDocument()
+    expect(await findByText('Task list')).toBeInTheDocument()
+    expect(await findByText('Errors')).toBeInTheDocument()
+    expect(await findByText('task inputs: too many errors')).toBeInTheDocument()
   })
 })

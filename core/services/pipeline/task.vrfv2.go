@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -39,7 +40,7 @@ func (t *VRFTaskV2) Type() TaskType {
 	return TaskTypeVRFV2
 }
 
-func (t *VRFTaskV2) Run(_ context.Context, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
+func (t *VRFTaskV2) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	if len(inputs) != 1 {
 		return Result{Error: ErrWrongInputCardinality}, runInfo
 	}

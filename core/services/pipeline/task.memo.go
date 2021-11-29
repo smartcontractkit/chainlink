@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type MemoTask struct {
@@ -17,7 +19,7 @@ func (t *MemoTask) Type() TaskType {
 	return TaskTypeMemo
 }
 
-func (t *MemoTask) Run(_ context.Context, vars Vars, inputs []Result) (Result, RunInfo) {
+func (t *MemoTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Result) (Result, RunInfo) {
 	_, err := CheckInputs(inputs, 0, 1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task value missing")}, RunInfo{}

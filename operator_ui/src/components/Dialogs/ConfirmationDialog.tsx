@@ -28,7 +28,7 @@ const DialogActions = withStyles((theme) => ({
 }))(MuiDialogActions)
 
 type Props = Pick<DialogProps, 'open' | 'onClose'> & {
-  body: string
+  body: string | React.ReactNode
   confirmButtonText?: string
   cancelButtonText?: string
   title: string
@@ -48,7 +48,7 @@ export const ConfirmationDialog: React.FC<Props> = ({
 }) => {
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>
+      <DialogTitle disableTypography>
         <Typography variant="h5"> {title}</Typography>
       </DialogTitle>
       <DialogContent>

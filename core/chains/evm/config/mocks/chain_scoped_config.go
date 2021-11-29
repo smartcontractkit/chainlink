@@ -11,13 +11,11 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	context "context"
+	coreconfig "github.com/smartcontractkit/chainlink/core/config"
 
 	dialects "github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	ethkey "github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
-
-	gorm "gorm.io/gorm"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -33,13 +31,13 @@ import (
 
 	sessions "github.com/gin-gonic/contrib/sessions"
 
-	storeconfig "github.com/smartcontractkit/chainlink/core/store/config"
-
 	time "time"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
 	url "net/url"
+
+	utils "github.com/smartcontractkit/chainlink/core/utils"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -100,6 +98,174 @@ func (_m *ChainScopedConfig) AuthenticatedRateLimitPeriod() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofBlockProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofBlockProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofCPUProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofCPUProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofEnabled provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofEnabled() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherDuration provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGatherDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGatherTraceDuration provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGatherTraceDuration() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofGoroutineThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofGoroutineThreshold() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMaxProfileSize provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMaxProfileSize() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMemProfileRate provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMemProfileRate() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofMemThreshold provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMemThreshold() utils.FileSize {
+	ret := _m.Called()
+
+	var r0 utils.FileSize
+	if rf, ok := ret.Get(0).(func() utils.FileSize); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(utils.FileSize)
+	}
+
+	return r0
+}
+
+// AutoPprofMutexProfileFraction provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofMutexProfileFraction() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
+// AutoPprofPollInterval provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofPollInterval() models.Duration {
+	ret := _m.Called()
+
+	var r0 models.Duration
+	if rf, ok := ret.Get(0).(func() models.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// AutoPprofProfileRoot provides a mock function with given fields:
+func (_m *ChainScopedConfig) AutoPprofProfileRoot() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -334,14 +500,14 @@ func (_m *ChainScopedConfig) DatabaseBackupFrequency() time.Duration {
 }
 
 // DatabaseBackupMode provides a mock function with given fields:
-func (_m *ChainScopedConfig) DatabaseBackupMode() storeconfig.DatabaseBackupMode {
+func (_m *ChainScopedConfig) DatabaseBackupMode() coreconfig.DatabaseBackupMode {
 	ret := _m.Called()
 
-	var r0 storeconfig.DatabaseBackupMode
-	if rf, ok := ret.Get(0).(func() storeconfig.DatabaseBackupMode); ok {
+	var r0 coreconfig.DatabaseBackupMode
+	if rf, ok := ret.Get(0).(func() coreconfig.DatabaseBackupMode); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(storeconfig.DatabaseBackupMode)
+		r0 = ret.Get(0).(coreconfig.DatabaseBackupMode)
 	}
 
 	return r0
@@ -386,6 +552,20 @@ func (_m *ChainScopedConfig) DatabaseListenerMinReconnectInterval() time.Duratio
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// DatabaseLockingMode provides a mock function with given fields:
+func (_m *ChainScopedConfig) DatabaseLockingMode() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
 	}
 
 	return r0
@@ -486,6 +666,20 @@ func (_m *ChainScopedConfig) DefaultHTTPTimeout() models.Duration {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(models.Duration)
+	}
+
+	return r0
+}
+
+// DefaultLogLevel provides a mock function with given fields:
+func (_m *ChainScopedConfig) DefaultLogLevel() zapcore.Level {
+	ret := _m.Called()
+
+	var r0 zapcore.Level
+	if rf, ok := ret.Get(0).(func() zapcore.Level); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(zapcore.Level)
 	}
 
 	return r0
@@ -2205,20 +2399,6 @@ func (_m *ChainScopedConfig) KeeperMaximumGracePeriod() int64 {
 	return r0
 }
 
-// KeeperMinimumRequiredConfirmations provides a mock function with given fields:
-func (_m *ChainScopedConfig) KeeperMinimumRequiredConfirmations() uint64 {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	return r0
-}
-
 // KeeperRegistryCheckGasOverhead provides a mock function with given fields:
 func (_m *ChainScopedConfig) KeeperRegistryCheckGasOverhead() uint64 {
 	ret := _m.Called()
@@ -2333,6 +2513,20 @@ func (_m *ChainScopedConfig) LogLevel() zapcore.Level {
 	return r0
 }
 
+// LogSQL provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogSQL() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // LogSQLMigrations provides a mock function with given fields:
 func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	ret := _m.Called()
@@ -2347,8 +2541,8 @@ func (_m *ChainScopedConfig) LogSQLMigrations() bool {
 	return r0
 }
 
-// LogSQLStatements provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogSQLStatements() bool {
+// LogToDisk provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogToDisk() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -2361,8 +2555,8 @@ func (_m *ChainScopedConfig) LogSQLStatements() bool {
 	return r0
 }
 
-// LogToDisk provides a mock function with given fields:
-func (_m *ChainScopedConfig) LogToDisk() bool {
+// LogUnixTimestamps provides a mock function with given fields:
+func (_m *ChainScopedConfig) LogUnixTimestamps() bool {
 	ret := _m.Called()
 
 	var r0 bool
@@ -3030,6 +3224,20 @@ func (_m *ChainScopedConfig) P2PV2ListenAddresses() []string {
 	return r0
 }
 
+// PersistedConfig provides a mock function with given fields:
+func (_m *ChainScopedConfig) PersistedConfig() types.ChainCfg {
+	ret := _m.Called()
+
+	var r0 types.ChainCfg
+	if rf, ok := ret.Get(0).(func() types.ChainCfg); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(types.ChainCfg)
+	}
+
+	return r0
+}
+
 // Port provides a mock function with given fields:
 func (_m *ChainScopedConfig) Port() uint16 {
 	ret := _m.Called()
@@ -3179,11 +3387,6 @@ func (_m *ChainScopedConfig) SessionTimeout() models.Duration {
 	return r0
 }
 
-// SetDB provides a mock function with given fields: _a0
-func (_m *ChainScopedConfig) SetDB(_a0 *gorm.DB) {
-	_m.Called(_a0)
-}
-
 // SetDialect provides a mock function with given fields: _a0
 func (_m *ChainScopedConfig) SetDialect(_a0 dialects.DialectName) {
 	_m.Called(_a0)
@@ -3203,13 +3406,13 @@ func (_m *ChainScopedConfig) SetEvmGasPriceDefault(value *big.Int) error {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: ctx, lvl
-func (_m *ChainScopedConfig) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	ret := _m.Called(ctx, lvl)
+// SetLogLevel provides a mock function with given fields: lvl
+func (_m *ChainScopedConfig) SetLogLevel(lvl zapcore.Level) error {
+	ret := _m.Called(lvl)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, zapcore.Level) error); ok {
-		r0 = rf(ctx, lvl)
+	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
+		r0 = rf(lvl)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -3217,18 +3420,9 @@ func (_m *ChainScopedConfig) SetLogLevel(ctx context.Context, lvl zapcore.Level)
 	return r0
 }
 
-// SetLogSQLStatements provides a mock function with given fields: ctx, sqlEnabled
-func (_m *ChainScopedConfig) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
-	ret := _m.Called(ctx, sqlEnabled)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, bool) error); ok {
-		r0 = rf(ctx, sqlEnabled)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
+// SetLogSQL provides a mock function with given fields: logSQL
+func (_m *ChainScopedConfig) SetLogSQL(logSQL bool) {
+	_m.Called(logSQL)
 }
 
 // StatsPusherLogging provides a mock function with given fields:

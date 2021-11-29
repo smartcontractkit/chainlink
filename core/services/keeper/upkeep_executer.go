@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/core/utils/big_math"
 )
@@ -113,7 +113,7 @@ func (ex *UpkeepExecuter) Close() error {
 }
 
 // OnNewLongestChain handles the given head of a new longest chain
-func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head eth.Head) {
+func (ex *UpkeepExecuter) OnNewLongestChain(_ context.Context, head *eth.Head) {
 	ex.mailbox.Deliver(head)
 }
 
@@ -138,7 +138,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 		return
 	}
 
-	head, ok := item.(eth.Head)
+	head, ok := item.(*eth.Head)
 	if !ok {
 		ex.logger.Errorf("expected `eth.Head`, got %T", head)
 		return
@@ -146,11 +146,7 @@ func (ex *UpkeepExecuter) processActiveUpkeeps() {
 
 	ex.logger.Debugw("checking active upkeeps", "blockheight", head.Number)
 
-	ctx, cancel := postgres.DefaultQueryCtx()
-	defer cancel()
-
 	activeUpkeeps, err := ex.orm.EligibleUpkeepsForRegistry(
-		ctx,
 		ex.job.KeeperSpec.ContractAddress,
 		head.Number,
 		ex.config.KeeperMaximumGracePeriod(),
@@ -214,7 +210,7 @@ func (ex *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, d
 
 	// Only after task runs where a tx was broadcast
 	if run.State == pipeline.RunStatusCompleted {
-		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ctxService, ex.job.ID, upkeep.UpkeepID, headNumber)
+		err := ex.orm.SetLastRunHeightForUpkeepOnJob(ex.job.ID, upkeep.UpkeepID, headNumber, pg.WithParentCtx(ctxService))
 		if err != nil {
 			ex.logger.With("error", err).Errorw("failed to set last run height for upkeep")
 		}

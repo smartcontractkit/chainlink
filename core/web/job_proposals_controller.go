@@ -3,12 +3,10 @@ package web
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -141,7 +139,7 @@ func (jpc *JobProposalsController) Reject(c *gin.Context) {
 // Example:
 // "POST <application>/job_proposals/<id>/cancel"
 func (jpc *JobProposalsController) Cancel(c *gin.Context) {
-	logger.Debug("Cancelling Job Proposal")
+	jpc.App.GetLogger().Debug("Cancelling Job Proposal")
 
 	id, err := strconv.ParseInt(c.Param("id"), 10, 32)
 	if err != nil {
@@ -158,7 +156,6 @@ func (jpc *JobProposalsController) Cancel(c *gin.Context) {
 			return
 		}
 
-		fmt.Println(err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

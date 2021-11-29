@@ -14,18 +14,37 @@ const peerIDPrefix = "p2p_"
 
 type PeerID peer.ID
 
+func MakePeerID(s string) (PeerID, error) {
+	var peerID PeerID
+	return peerID, peerID.UnmarshalString(s)
+}
+
 func (p PeerID) String() string {
-	return fmt.Sprintf("%s%s", peerIDPrefix, peer.ID(p).String())
+	// Handle a zero peerID more gracefully, i.e. print it as empty string rather
+	// than `p2p_`
+	raw := p.Raw()
+	if raw == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s%s", peerIDPrefix, raw)
 }
 
 func (p PeerID) Raw() string {
 	return peer.ID(p).String()
 }
 
+func (p *PeerID) UnmarshalString(s string) error {
+	return p.UnmarshalText([]byte(s))
+}
+
 func (p *PeerID) UnmarshalText(bs []byte) error {
 	input := string(bs)
 	if strings.HasPrefix(input, peerIDPrefix) {
 		input = string(bs[len(peerIDPrefix):])
+	}
+
+	if input == "" {
+		return nil
 	}
 
 	peerID, err := peer.Decode(input)
@@ -37,12 +56,17 @@ func (p *PeerID) UnmarshalText(bs []byte) error {
 }
 
 func (p *PeerID) Scan(value interface{}) error {
-	s, is := value.(string)
-	if !is {
+	*p = PeerID("")
+	switch s := value.(type) {
+	case string:
+		if s != "" {
+			return p.UnmarshalText([]byte(s))
+		}
+	case nil:
+	default:
 		return errors.Errorf("PeerID#Scan got %T, expected string", value)
 	}
-	*p = PeerID("")
-	return p.UnmarshalText([]byte(s))
+	return nil
 }
 
 func (p PeerID) Value() (driver.Value, error) {

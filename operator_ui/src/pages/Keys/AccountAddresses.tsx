@@ -16,7 +16,7 @@ import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
 import { TimeAgo } from 'components/TimeAgo'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
-import { Copy } from './Copy'
+import { CopyIconButton } from 'components/Copy/CopyIconButton'
 
 const styles = () =>
   createStyles({
@@ -109,7 +109,7 @@ export const AccountAddresses = withStyles(styles)(
                     <TableCell>
                       <Typography variant="body1">
                         {balance.attributes.address}{' '}
-                        <Copy data={balance.attributes.address} />
+                        <CopyIconButton data={balance.attributes.address} />
                       </Typography>
                     </TableCell>
                     <TableCell>

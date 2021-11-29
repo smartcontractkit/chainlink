@@ -21,14 +21,13 @@ import (
 
 func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	t.Parallel()
-	g := gomega.NewGomegaWithT(t)
+	g := gomega.NewWithT(t)
 
 	cfg := cltest.NewTestGeneralConfig(t)
 	var d time.Duration = 0
 	cfg.Overrides.GlobalEvmHeadTrackerSamplingInterval = &d
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
-	db := pgtest.NewGormDB(t)
-	cfg.SetDB(db)
+	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 
 	sub := new(mocks.Subscription)
@@ -49,7 +48,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hr := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, *ethClient.ChainID())
+	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ChainID())
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg, orm, hr, cltest.NeverSleeper{})
 	require.NoError(t, hr.Start())
 	defer hr.Close()
@@ -61,7 +60,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	assert.Equal(t, (*eth.Head)(nil), latest1)
 
 	headers := <-chchHeaders
-	h := eth.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash()}
+	h := eth.Head{Number: 1, Hash: utils.NewHash(), ParentHash: utils.NewHash(), EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	headers <- &h
 	g.Eventually(func() int32 { return checker1.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
@@ -72,7 +71,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 
 	unsubscribe1()
 
-	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash}
+	headers <- &eth.Head{Number: 2, Hash: utils.NewHash(), ParentHash: h.Hash, EVMChainID: utils.NewBig(&cltest.FixtureChainID)}
 	g.Eventually(func() int32 { return checker2.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
 
 	require.NoError(t, ht.Stop())

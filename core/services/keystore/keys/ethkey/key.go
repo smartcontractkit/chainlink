@@ -1,15 +1,9 @@
 package ethkey
 
 import (
-	"errors"
-	"io/ioutil"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
-	"gorm.io/datatypes"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -17,12 +11,12 @@ import (
 //
 // By default, a key is assumed to represent an ethereum account.
 type Key struct {
-	ID        int32 `gorm:"primary_key"`
+	ID        int32
 	Address   EIP55Address
 	JSON      datatypes.JSON `json:"-"`
 	CreatedAt time.Time      `json:"-"`
 	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-"`
+	DeletedAt *time.Time     `json:"-"`
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions
@@ -41,20 +35,4 @@ func (k Key) Type() string {
 		return "funding"
 	}
 	return "sending"
-}
-
-// NewKeyFromFile creates an instance in memory from a key file on disk.
-func NewKeyFromFile(path string) (Key, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return Key{}, err
-	}
-
-	js := gjson.ParseBytes(dat)
-	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
-	if err != nil {
-		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
-	}
-
-	return Key{Address: address, JSON: datatypes.JSON(dat)}, nil
 }

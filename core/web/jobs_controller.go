@@ -1,12 +1,14 @@
 package web
 
 import (
+	"context"
+	"database/sql"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
-	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
@@ -14,7 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -34,7 +38,7 @@ func (jc *JobsController) Index(c *gin.Context, size, page, offset int) {
 		size = 1000
 	}
 
-	jobs, count, err := jc.App.JobORM().JobsV2(offset, size)
+	jobs, count, err := jc.App.JobORM().FindJobs(offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -56,7 +60,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 	jobSpec := job.Job{}
 	if externalJobID, pErr := uuid.FromString(c.Param("ID")); pErr == nil {
 		// Find a job by external job ID
-		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(c.Request.Context(), externalJobID)
+		jobSpec, err = jc.App.JobORM().FindJobByExternalJobID(externalJobID, pg.WithParentCtx(c.Request.Context()))
 	} else if pErr = jobSpec.SetID(c.Param("ID")); pErr == nil {
 		// Find a job by job ID
 		jobSpec, err = jc.App.JobORM().FindJobTx(jobSpec.ID)
@@ -65,7 +69,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		if errors.Cause(err) == gorm.ErrRecordNotFound {
+		if errors.Cause(err) == sql.ErrNoRows {
 			jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		} else {
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -127,9 +131,11 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jb, err = jc.App.AddJobV2(c.Request.Context(), jb, jb.Name)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -153,7 +159,7 @@ func (jc *JobsController) Delete(c *gin.Context) {
 
 	// Delete the job
 	err = jc.App.DeleteJob(c.Request.Context(), j.ID)
-	if errors.Cause(err) == gorm.ErrRecordNotFound {
+	if errors.Is(err, sql.ErrNoRows) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 
 		return

@@ -4,26 +4,27 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
-
-	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
-
-	"github.com/theodesp/go-heaps/pairing"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/theodesp/go-heaps/pairing"
+
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
+	"github.com/smartcontractkit/sqlx"
 )
 
 type Delegate struct {
-	db   *gorm.DB
+	q    pg.Q
 	pr   pipeline.Runner
 	porm pipeline.ORM
 	ks   keystore.Master
@@ -45,14 +46,15 @@ type Config interface {
 }
 
 func NewDelegate(
-	db *gorm.DB,
+	db *sqlx.DB,
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	chainSet evm.ChainSet,
-	lggr logger.Logger) *Delegate {
+	lggr logger.Logger,
+	cfg pg.LogConfig) *Delegate {
 	return &Delegate{
-		db:   db,
+		q:    pg.NewQ(db, lggr, cfg),
 		ks:   ks,
 		pr:   pr,
 		porm: porm,
@@ -98,7 +100,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
 
-	vorm := keystore.NewVRFORM(d.db)
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			return []job.Service{&listenerV2{
@@ -106,22 +107,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:                  lV2,
 				ethClient:          chain.Client(),
 				logBroadcaster:     chain.LogBroadcaster(),
-				db:                 d.db,
+				q:                  d.q,
 				abi:                abiV2,
 				coordinator:        coordinatorV2,
 				txm:                chain.TxManager(),
 				pipelineRunner:     d.pr,
-				vorm:               vorm,
 				vrfks:              d.ks.VRF(),
 				gethks:             d.ks.Eth(),
 				pipelineORM:        d.porm,
 				job:                jb,
 				reqLogs:            utils.NewHighCapacityMailbox(),
 				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
-				respCount:          GetStartingResponseCountsV2(d.db, lV2),
+				respCount:          GetStartingResponseCountsV2(d.q, lV2, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
+				headBroadcaster:    chain.HeadBroadcaster(),
+				wg:                 &sync.WaitGroup{},
 			}}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
@@ -130,12 +131,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				l:               lV1,
 				headBroadcaster: chain.HeadBroadcaster(),
 				logBroadcaster:  chain.LogBroadcaster(),
-				db:              d.db,
+				q:               d.q,
 				txm:             chain.TxManager(),
 				abi:             abi,
 				coordinator:     coordinator,
 				pipelineRunner:  d.pr,
-				vorm:            vorm,
 				vrfks:           d.ks.VRF(),
 				gethks:          d.ks.Eth(),
 				pipelineORM:     d.porm,
@@ -146,7 +146,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 				chStop:             make(chan struct{}),
 				waitOnStop:         make(chan struct{}),
 				newHead:            make(chan struct{}, 1),
-				respCount:          getStartingResponseCounts(d.db, lV1),
+				respCount:          GetStartingResponseCountsV1(d.q, lV1, chain.Client().ChainID().Uint64(), chain.Config().EvmFinalityDepth()),
 				blockNumberToReqID: pairing.New(),
 				reqAdded:           func() {},
 			}}, nil
@@ -155,23 +155,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.Service, error) {
 	return nil, errors.New("invalid job spec expected a vrf task")
 }
 
-func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64 {
-	respCounts := make(map[[32]byte]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-			FROM eth_txes
-			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+func GetStartingResponseCountsV1(q pg.Q, l logger.Logger, chainID uint64, evmFinalityDepth uint32) map[[32]byte]uint64 {
+	respCounts := map[[32]byte]uint64{}
+
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
 		return respCounts
 	}
+
 	for _, c := range counts {
 		// Remove the quotes from the json
 		req := strings.Replace(c.RequestID, `"`, ``, 2)
@@ -185,26 +179,26 @@ func getStartingResponseCounts(db *gorm.DB, l logger.Logger) map[[32]byte]uint64
 		copy(reqID[:], b)
 		respCounts[reqID] = uint64(c.Count)
 	}
+
 	return respCounts
 }
 
-func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64 {
-	respCounts := make(map[string]uint64)
-	var counts []struct {
-		RequestID string
-		Count     int
-	}
-	// Allow any state, not just confirmed, on purpose.
-	// We assume once a ethtx is queued it will go through.
-	err := db.Raw(`SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') as count
-			FROM eth_txes
-			WHERE meta->'RequestID' IS NOT NULL
-		    GROUP BY meta->'RequestID'`).Scan(&counts).Error
+func GetStartingResponseCountsV2(
+	q pg.Q,
+	l logger.Logger,
+	chainID uint64,
+	evmFinalityDepth uint32,
+) map[string]uint64 {
+	respCounts := map[string]uint64{}
+
+	// Only check as far back as the evm finality depth for completed transactions.
+	counts, err := getRespCounts(q, chainID, evmFinalityDepth)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
-		l.Errorw("Unable to read previous fulfillments", "err", err)
+		l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
 		return respCounts
 	}
+
 	for _, c := range counts {
 		// Remove the quotes from the json
 		req := strings.Replace(c.RequestID, `"`, ``, 2)
@@ -214,10 +208,47 @@ func GetStartingResponseCountsV2(db *gorm.DB, l logger.Logger) map[string]uint64
 			l.Errorw("Unable to read fulfillment", "err", err, "reqID", c.RequestID)
 			continue
 		}
-		var reqID [32]byte
-		copy(reqID[:], b)
 		bi := new(big.Int).SetBytes(b)
 		respCounts[bi.String()] = uint64(c.Count)
 	}
 	return respCounts
+}
+
+func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
+	[]struct {
+		RequestID string
+		Count     int
+	},
+	error,
+) {
+	counts := []struct {
+		RequestID string
+		Count     int
+	}{}
+	// This query should use the idx_eth_txes_state_from_address_evm_chain_id
+	// index, since the quantity of unconfirmed/unstarted/in_progress transactions _should_ be small
+	// relative to the rest of the data.
+	unconfirmedQuery := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et
+WHERE et.meta->'RequestID' IS NOT NULL
+AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
+GROUP BY meta->'RequestID'
+	`
+	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
+	// a table scan of the eth_txes table, which could be large if it is unpruned.
+	confirmedQuery := `
+SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
+FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
+	join eth_receipts er on eta.hash = er.tx_hash
+WHERE et.meta->'RequestID' is not null
+AND er.block_number >= (SELECT number FROM heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+GROUP BY meta->'RequestID'
+	`
+	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery
+	err := q.Select(&counts, query, chainID, evmFinalityDepth)
+	if err != nil {
+		return nil, err
+	}
+	return counts, nil
 }

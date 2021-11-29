@@ -8,15 +8,13 @@ import (
 	bridges "github.com/smartcontractkit/chainlink/core/bridges"
 	bulletprooftxmanager "github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 
-	config "github.com/smartcontractkit/chainlink/core/store/config"
+	config "github.com/smartcontractkit/chainlink/core/config"
 
 	context "context"
 
 	evm "github.com/smartcontractkit/chainlink/core/chains/evm"
 
 	feeds "github.com/smartcontractkit/chainlink/core/services/feeds"
-
-	gorm "gorm.io/gorm"
 
 	health "github.com/smartcontractkit/chainlink/core/services/health"
 
@@ -28,15 +26,15 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	null "gopkg.in/guregu/null.v4"
-
 	packr "github.com/gobuffalo/packr"
+
+	pg "github.com/smartcontractkit/chainlink/core/services/pg"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	postgres "github.com/smartcontractkit/chainlink/core/services/postgres"
-
 	sessions "github.com/smartcontractkit/chainlink/core/sessions"
+
+	sqlx "github.com/smartcontractkit/sqlx"
 
 	types "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
@@ -52,25 +50,18 @@ type Application struct {
 	mock.Mock
 }
 
-// AddJobV2 provides a mock function with given fields: ctx, _a1, name
-func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.String) (job.Job, error) {
-	ret := _m.Called(ctx, _a1, name)
+// AddJobV2 provides a mock function with given fields: ctx, _a1
+func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
+	ret := _m.Called(ctx, _a1)
 
-	var r0 job.Job
-	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) job.Job); ok {
-		r0 = rf(ctx, _a1, name)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, *job.Job) error); ok {
+		r0 = rf(ctx, _a1)
 	} else {
-		r0 = ret.Get(0).(job.Job)
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, job.Job, null.String) error); ok {
-		r1 = rf(ctx, _a1, name)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // BPTXMORM provides a mock function with given fields:
@@ -167,32 +158,16 @@ func (_m *Application) GetConfig() config.GeneralConfig {
 	return r0
 }
 
-// GetDB provides a mock function with given fields:
-func (_m *Application) GetDB() *gorm.DB {
-	ret := _m.Called()
-
-	var r0 *gorm.DB
-	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*gorm.DB)
-		}
-	}
-
-	return r0
-}
-
 // GetEventBroadcaster provides a mock function with given fields:
-func (_m *Application) GetEventBroadcaster() postgres.EventBroadcaster {
+func (_m *Application) GetEventBroadcaster() pg.EventBroadcaster {
 	ret := _m.Called()
 
-	var r0 postgres.EventBroadcaster
-	if rf, ok := ret.Get(0).(func() postgres.EventBroadcaster); ok {
+	var r0 pg.EventBroadcaster
+	if rf, ok := ret.Get(0).(func() pg.EventBroadcaster); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(postgres.EventBroadcaster)
+			r0 = ret.Get(0).(pg.EventBroadcaster)
 		}
 	}
 
@@ -279,6 +254,22 @@ func (_m *Application) GetLogger() logger.Logger {
 	return r0
 }
 
+// GetSqlxDB provides a mock function with given fields:
+func (_m *Application) GetSqlxDB() *sqlx.DB {
+	ret := _m.Called()
+
+	var r0 *sqlx.DB
+	if rf, ok := ret.Get(0).(func() *sqlx.DB); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*sqlx.DB)
+		}
+	}
+
+	return r0
+}
+
 // GetWebAuthnConfiguration provides a mock function with given fields:
 func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
 	ret := _m.Called()
@@ -288,6 +279,22 @@ func (_m *Application) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(sessions.WebAuthnConfiguration)
+	}
+
+	return r0
+}
+
+// ID provides a mock function with given fields:
+func (_m *Application) ID() uuid.UUID {
+	ret := _m.Called()
+
+	var r0 uuid.UUID
+	if rf, ok := ret.Get(0).(func() uuid.UUID); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(uuid.UUID)
+		}
 	}
 
 	return r0
@@ -441,13 +448,13 @@ func (_m *Application) SessionORM() sessions.ORM {
 	return r0
 }
 
-// SetLogLevel provides a mock function with given fields: ctx, lvl
-func (_m *Application) SetLogLevel(ctx context.Context, lvl zapcore.Level) error {
-	ret := _m.Called(ctx, lvl)
+// SetLogLevel provides a mock function with given fields: lvl
+func (_m *Application) SetLogLevel(lvl zapcore.Level) error {
+	ret := _m.Called(lvl)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, zapcore.Level) error); ok {
-		r0 = rf(ctx, lvl)
+	if rf, ok := ret.Get(0).(func(zapcore.Level) error); ok {
+		r0 = rf(lvl)
 	} else {
 		r0 = ret.Error(0)
 	}

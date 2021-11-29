@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -29,26 +28,28 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
 	var (
-		address     = "0x5431F5F973781809D18643b87B44921b11355d81"
-		ethBalance  = assets.NewEth(1)
-		linkBalance = assets.NewLinkFromJuels(2)
-		isFunding   = true
-		createdAt   = time.Now()
-		updatedAt   = time.Now().Add(time.Second)
-		bundleID    = cltest.DefaultOCRKeyBundleID
-		buffer      = bytes.NewBufferString("")
-		r           = cmd.RendererTable{Writer: buffer}
+		address        = "0x5431F5F973781809D18643b87B44921b11355d81"
+		ethBalance     = assets.NewEth(1)
+		linkBalance    = assets.NewLinkFromJuels(2)
+		isFunding      = true
+		createdAt      = time.Now()
+		updatedAt      = time.Now().Add(time.Second)
+		maxGasPriceWei = utils.NewBigI(12345)
+		bundleID       = cltest.DefaultOCRKeyBundleID
+		buffer         = bytes.NewBufferString("")
+		r              = cmd.RendererTable{Writer: buffer}
 	)
 
 	p := cmd.EthKeyPresenter{
 		ETHKeyResource: presenters.ETHKeyResource{
-			JAID:        presenters.NewJAID(bundleID),
-			Address:     address,
-			EthBalance:  ethBalance,
-			LinkBalance: linkBalance,
-			IsFunding:   isFunding,
-			CreatedAt:   createdAt,
-			UpdatedAt:   updatedAt,
+			JAID:           presenters.NewJAID(bundleID),
+			Address:        address,
+			EthBalance:     ethBalance,
+			LinkBalance:    linkBalance,
+			IsFunding:      isFunding,
+			CreatedAt:      createdAt,
+			UpdatedAt:      updatedAt,
+			MaxGasPriceWei: *maxGasPriceWei,
 		},
 	}
 
@@ -62,6 +63,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasPriceWei.String())
 
 	// Render many resources
 	buffer.Reset()
@@ -75,6 +77,7 @@ func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, strconv.FormatBool(isFunding))
 	assert.Contains(t, output, createdAt.String())
 	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, maxGasPriceWei.String())
 }
 
 func TestClient_ListETHKeys(t *testing.T) {
@@ -119,10 +122,10 @@ func TestClient_CreateETHKey(t *testing.T) {
 			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
 		}),
 	)
-	db := app.GetDB()
+	db := app.GetSqlxDB()
 	client, _ := app.NewClientAndRenderer()
 
-	cltest.AssertCount(t, db, ethkey.State{}, 1) // The initial funding key
+	cltest.AssertCount(t, db, "eth_key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
@@ -141,11 +144,13 @@ func TestClient_CreateETHKey(t *testing.T) {
 
 	set = flag.NewFlagSet("test", 0)
 	set.String("evmChainID", "", "")
+	set.Uint64("maxGasPriceGWei", 0, "")
 	c = cli.NewContext(nil, set, nil)
+	set.Set("maxGasPriceGWei", "12345")
 	set.Parse([]string{"-evmChainID", id.String()})
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, ethkey.State{}, 3)
+	cltest.AssertCount(t, db, "eth_key_states", 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(keys))
@@ -154,6 +159,44 @@ func TestClient_CreateETHKey(t *testing.T) {
 	// https://app.shortcut.com/chainlinklabs/story/17044/chainset-should-update-chains-when-nodes-are-changed
 	// states, err := app.KeyStore.Eth().GetStatesForChain(id)
 	// require.Len(t, states, 1)
+}
+
+func TestClient_UpdateETHKey(t *testing.T) {
+	t.Parallel()
+
+	ethClient, assertMocksCalled := newEthMock(t)
+	defer assertMocksCalled()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	app := startNewApplication(t,
+		withKey(),
+		withMocks(ethClient),
+		withConfigSet(func(c *configtest.TestGeneralConfig) {
+			c.Overrides.EVMDisabled = null.BoolFrom(false)
+			c.Overrides.GlobalEvmNonceAutoSync = null.BoolFrom(false)
+			c.Overrides.GlobalBalanceMonitorEnabled = null.BoolFrom(false)
+		}),
+	)
+	ethKeyStore := app.GetKeyStore().Eth()
+	client, _ := app.NewClientAndRenderer()
+
+	// Create the key
+	key, err := ethKeyStore.Create(&cltest.FixtureChainID)
+	require.NoError(t, err)
+
+	// Update the key
+	set := flag.NewFlagSet("test", 0)
+	set.Uint64("maxGasPriceGWei", 0, "")
+	set.Set("maxGasPriceGWei", "12345")
+	set.Parse([]string{key.Address.Hex()})
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.UpdateETHKey(c))
+
+	// Checking updated config
+	chain, err := app.ChainSet.Get(&cltest.FixtureChainID)
+	require.NoError(t, err)
+	price := chain.Config().KeySpecificMaxGasPriceWei(key.Address.Address())
+	require.Equal(t, assets.GWei(12345), price)
 }
 
 func TestClient_DeleteETHKey(t *testing.T) {
@@ -251,6 +294,8 @@ func TestClient_ImportExportETHKey_NoChains(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
+
+	cltest.AssertCount(t, app.GetSqlxDB(), "eth_key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)

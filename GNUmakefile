@@ -31,7 +31,7 @@ operator-ui-autoinstall: | yarndep operator-ui
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
-		go get github.com/smartcontractkit/gencodec; \
+		go install github.com/smartcontractkit/gencodec@latest; \
 	fi || true
 	go mod download
 
@@ -79,6 +79,10 @@ go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and thei
 .PHONY: testdb
 testdb: ## Prepares the test database
 	go run ./core/main.go local db preparetest
+
+.PHONY: testdb
+testdb-user-only: ## Prepares the test database
+	go run ./core/main.go local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
