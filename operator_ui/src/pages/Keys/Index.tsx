@@ -1,7 +1,7 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
 import Content from 'components/Content'
-import { CSAKeys } from './CSAKeys'
+import { CSAKeys } from 'src/screens/KeyManagement/CSAKeys'
 import { OcrKeys } from './OcrKeys'
 import { P2PKeys } from './P2PKeys'
 import { AccountAddresses } from './AccountAddresses'
@@ -20,7 +20,10 @@ export const KeysIndex = () => {
         <OcrKeys />
         <P2PKeys />
         <AccountAddresses />
-        {isCSAKeysFeatureEnabled && <CSAKeys />}
+
+        <Grid item xs={12}>
+          {isCSAKeysFeatureEnabled && <CSAKeys />}
+        </Grid>
       </Grid>
     </Content>
   )

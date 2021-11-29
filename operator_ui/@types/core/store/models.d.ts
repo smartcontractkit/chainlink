@@ -437,10 +437,6 @@ declare module 'core/store/models' {
     sqlEnabled: boolean
   }
 
-  export interface CSAKey {
-    publicKey: string
-  }
-
   /**
    * Request to begin the process of registering a new MFA token
    */
