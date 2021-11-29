@@ -213,19 +213,6 @@ type JSONSerializable struct {
 	Valid bool
 }
 
-// NewJSONSerializable returns an instance of JSONSerializable with the passed parameters.
-func NewJSONSerializable(val interface{}, valid bool) JSONSerializable {
-	return JSONSerializable{
-		Val:   val,
-		Valid: valid,
-	}
-}
-
-// JSONSerializableFrom creates a new JSONSerializable that will always be valid.
-func JSONSerializableFrom(val interface{}) JSONSerializable {
-	return NewJSONSerializable(val, true)
-}
-
 // UnmarshalJSON implements custom unmarshaling logic
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {

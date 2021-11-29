@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -17,19 +16,6 @@ import (
 
 func ParseString(str string) (interface{}, error) {
 	return str, nil
-}
-
-func ParseAddress(str string) (interface{}, error) {
-	if str == "" {
-		return nil, nil
-	} else if common.IsHexAddress(str) {
-		val := common.HexToAddress(str)
-		return &val, nil
-	} else if i, ok := new(big.Int).SetString(str, 10); ok {
-		val := common.BigToAddress(i)
-		return &val, nil
-	}
-	return nil, fmt.Errorf("unable to parse '%s' into EIP55-compliant address", str)
 }
 
 func ParseLink(str string) (interface{}, error) {
