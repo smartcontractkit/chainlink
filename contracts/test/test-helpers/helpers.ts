@@ -266,6 +266,13 @@ export async function impersonateAs(
   return await ethers.getSigner(address)
 }
 
+export async function stopImpersonateAs(address: string): Promise<void> {
+  await hre.network.provider.request({
+    method: 'hardhat_stopImpersonatingAccount',
+    params: [address],
+  })
+}
+
 export async function assertBalance(
   address: string,
   balance: BigNumberish,

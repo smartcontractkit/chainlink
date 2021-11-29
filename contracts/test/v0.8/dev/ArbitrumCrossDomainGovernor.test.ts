@@ -26,24 +26,8 @@ before(async () => {
   const accounts = await ethers.getSigners()
   owner = accounts[0]
   stranger = accounts[1]
-
-  // governor config
   l1OwnerAddress = owner.address
-  crossdomainMessenger = await impersonateAs(
-    toArbitrumL2AliasAddress(l1OwnerAddress),
-  )
-  await owner.sendTransaction({
-    to: crossdomainMessenger.address,
-    value: ethers.utils.parseEther('1.0'),
-  })
   newL1OwnerAddress = stranger.address
-  newOwnerCrossdomainMessenger = await impersonateAs(
-    toArbitrumL2AliasAddress(newL1OwnerAddress),
-  )
-  await owner.sendTransaction({
-    to: newOwnerCrossdomainMessenger.address,
-    value: ethers.utils.parseEther('1.0'),
-  })
 
   // Contract factories
   governorFactory = await ethers.getContractFactory(
@@ -62,6 +46,22 @@ before(async () => {
 
 describe('ArbitrumCrossDomainGovernor', () => {
   beforeEach(async () => {
+    // governor config
+    crossdomainMessenger = await impersonateAs(
+      toArbitrumL2AliasAddress(l1OwnerAddress),
+    )
+    await owner.sendTransaction({
+      to: crossdomainMessenger.address,
+      value: ethers.utils.parseEther('1.0'),
+    })
+    newOwnerCrossdomainMessenger = await impersonateAs(
+      toArbitrumL2AliasAddress(newL1OwnerAddress),
+    )
+    await owner.sendTransaction({
+      to: newOwnerCrossdomainMessenger.address,
+      value: ethers.utils.parseEther('1.0'),
+    })
+
     governor = await governorFactory.deploy(l1OwnerAddress)
     greeter = await greeterFactory.deploy(governor.address)
     multisend = await multisendFactory.deploy()
