@@ -7,16 +7,17 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/core/services/synchronization/telem"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/tevino/abool"
 )
 
 func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
@@ -47,9 +48,9 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	}
 
 	// Assert the telemetry payload is correctly sent to wsrpc
-	called := abool.New()
+	var called atomic.Bool
 	telemClient.On("Telem", mock.Anything, mock.Anything).Return(nil, nil).Run(func(args mock.Arguments) {
-		called.Set()
+		called.Store(true)
 		telemReq := args.Get(1).(*telemPb.TelemRequest)
 		assert.Equal(t, telemPayload.ContractAddress.String(), telemReq.Address)
 		assert.Equal(t, telemPayload.Telemetry, telemReq.Telemetry)
@@ -59,7 +60,5 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 	telemIngressClient.Send(telemPayload)
 
 	// Wait for the telemetry to be handled
-	gomega.NewWithT(t).Eventually(func() bool {
-		return called.IsSet()
-	}).Should(gomega.BeTrue())
+	gomega.NewWithT(t).Eventually(called.Load).Should(gomega.BeTrue())
 }
