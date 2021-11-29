@@ -26,21 +26,6 @@ func FromLogLevel(logLvl LogLevel) string {
 	}
 }
 
-func ToLogLevel(s string) LogLevel {
-	switch s {
-	case "debud":
-		return LogLevelDebug
-	case "info":
-		return LogLevelInfo
-	case "warn":
-		return LogLevelWarn
-	case "error":
-		return LogLevelError
-	default:
-		return ""
-	}
-}
-
 type LogLevelConfig struct {
 	HeadTracker *LogLevel
 	FluxMonitor *LogLevel
