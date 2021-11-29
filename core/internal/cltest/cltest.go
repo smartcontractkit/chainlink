@@ -946,11 +946,12 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 		return false
 	}, timeout, poll).Should(
 		gomega.BeTrue(),
-		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d`,
+		fmt.Sprintf(`expected at least %d runs with status "%s" on node %d for job %d, total runs %d`,
 			expectedPipelineRuns,
 			state,
 			nodeID,
 			jobID,
+			len(pr),
 		),
 	)
 	return pr

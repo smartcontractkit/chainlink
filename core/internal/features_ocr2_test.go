@@ -134,7 +134,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(19999)
+	bootstrapNodePort := uint16(29999)
 	appBootstrap, bootstrapPeerID, _, _, _ := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", b)
 
 	var (
