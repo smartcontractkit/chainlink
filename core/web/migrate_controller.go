@@ -480,6 +480,10 @@ func BuildTaskDAG(js models.JobSpec, tpe job.Type) (string, *pipeline.Pipeline, 
 
 		case adapters.TaskTypeEthUint256, adapters.TaskTypeEthInt256:
 			// Do nothing. This is implicit in FMv2 / DR
+		case adapters.TaskTypeEthBytes32:
+			// Do nothing. This is implicit in v2.
+		case adapters.TaskTypeEthBool:
+			// Do nothing. This is implicit in v2.
 		case adapters.TaskTypeEthTx:
 			if tpe == job.DirectRequest {
 
@@ -600,7 +604,7 @@ func encodeTemplate(bytes []byte) (string, error) {
 	mapp := make(map[string]interface{})
 	err := json.Unmarshal(bytes, &mapp)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "failed to Unmarshal %v", string(bytes))
 	}
 	marshal, err := json.Marshal(&mapp)
 	if err != nil {
