@@ -265,6 +265,17 @@ describe('ArbitrumCrossDomainGovernor', () => {
         .to.emit(governor, 'L1OwnershipTransferRequested')
         .withArgs(currentL1Owner, newL1OwnerAddress)
     })
+
+    it('should be callable by current L1 owner to zero address', async () => {
+      const currentL1Owner = await governor.l1Owner()
+      await expect(
+        governor
+          .connect(crossdomainMessenger)
+          .transferL1Ownership(ethers.constants.AddressZero),
+      )
+        .to.emit(governor, 'L1OwnershipTransferRequested')
+        .withArgs(currentL1Owner, ethers.constants.AddressZero)
+    })
   })
 
   describe('#acceptL1Ownership', () => {

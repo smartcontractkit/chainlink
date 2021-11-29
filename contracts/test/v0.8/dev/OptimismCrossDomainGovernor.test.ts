@@ -278,6 +278,22 @@ describe('OptimismCrossDomainGovernor', () => {
         .to.emit(governor, 'L1OwnershipTransferRequested')
         .withArgs(currentL1Owner, newL1OwnerAddress)
     })
+
+    it('should be callable by current L1 owner to zero address', async () => {
+      const currentL1Owner = await governor.l1Owner()
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'transferL1Ownership',
+        [ethers.constants.AddressZero],
+      )
+
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
+      )
+        .to.emit(governor, 'L1OwnershipTransferRequested')
+        .withArgs(currentL1Owner, ethers.constants.AddressZero)
+    })
   })
 
   describe('#acceptL1Ownership', () => {
