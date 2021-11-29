@@ -117,7 +117,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 
 	lcSpec := ocr2.NewLocalConfigSpec(*spec)
 	lc := ocr2.NewLocalConfig(chain.Config(), lcSpec)
-	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	d.lggr.Infow("OCR2 job using local config",
