@@ -10,7 +10,6 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
-import Typography from '@material-ui/core/Typography'
 
 import BaseLink from 'components/BaseLink'
 import { BridgeRow } from './BridgeRow'
@@ -68,26 +67,10 @@ export const BridgesView: React.FC<Props> = ({
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Name
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      URL
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Default Confirmations
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Minimum Contract Payment
-                    </Typography>
-                  </TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>URL</TableCell>
+                  <TableCell>Default Confirmations</TableCell>
+                  <TableCell>Minimum Contract Payment</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
