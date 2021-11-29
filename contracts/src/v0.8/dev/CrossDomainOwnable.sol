@@ -43,6 +43,7 @@ contract CrossDomainOwnable is CrossDomainOwnableInterface, ConfirmedOwner {
    */
   function _transferL1Ownership(address to) internal {
     require(to != msg.sender, "Cannot transfer to self");
+
     s_l1PendingOwner = to;
 
     emit L1OwnershipTransferRequested(s_l1Owner, to);
