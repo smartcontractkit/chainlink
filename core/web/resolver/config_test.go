@@ -3,7 +3,7 @@ package resolver
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
 func TestResolver_Config(t *testing.T) {
@@ -28,7 +28,9 @@ func TestResolver_Config(t *testing.T) {
 				// Using the default config value for now just to validate that it works
 				// Mocking this would require complying to the whole interface
 				// Which means mocking each method here, which I'm not sure we would like to do
-				f.App.On("GetConfig").Return(cltest.NewTestGeneralConfig(t))
+				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{})
+				cfg.SetRootDir("/tmp/chainlink_test/gql-test")
+				f.App.On("GetConfig").Return(cfg)
 			},
 			query: query,
 			result: `{
@@ -432,7 +434,7 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "/tmp/chainlink_test/1638228169997890000-0"
+			          "value": "/tmp/chainlink_test/gql-test"
 			        },
 			        "key": "ROOT"
 			      },

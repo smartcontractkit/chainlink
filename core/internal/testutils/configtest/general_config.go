@@ -14,6 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm/types"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -22,9 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -208,6 +209,11 @@ func (c *TestGeneralConfig) MigrateDatabase() bool {
 
 func (c *TestGeneralConfig) RootDir() string {
 	return c.rootdir
+}
+
+// SetRootDir Added in order to not get a different dir on certain tests that validate this value
+func (c *TestGeneralConfig) SetRootDir(dir string) {
+	c.rootdir = dir
 }
 
 func (c *TestGeneralConfig) SessionTimeout() models.Duration {
