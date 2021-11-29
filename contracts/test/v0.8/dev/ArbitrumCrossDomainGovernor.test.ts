@@ -210,7 +210,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
       assert.equal(updatedGreeting, 'bar')
     })
 
-    it('should be revert batch when one call fails', async () => {
+    it('should revert batch when one call fails', async () => {
       const calls = [
         {
           to: greeter.address,
@@ -236,6 +236,16 @@ describe('ArbitrumCrossDomainGovernor', () => {
 
       const greeting = await greeter.greeting()
       assert.equal(greeting, '') // Unchanged
+    })
+
+    it('should bubble up revert when contract call reverts', async () => {
+      const triggerRevertData =
+        greeterFactory.interface.encodeFunctionData('triggerRevert')
+      await expect(
+        governor
+          .connect(crossdomainMessenger)
+          .forwardDelegate(greeter.address, triggerRevertData),
+      ).to.be.revertedWith('Greeter: revert triggered')
     })
   })
 
