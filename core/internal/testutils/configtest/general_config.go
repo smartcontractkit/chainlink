@@ -30,7 +30,6 @@ import (
 const (
 	// RootDir the root directory for test
 	RootDir                    = "/tmp/chainlink_test"
-	HeadSamplingIntervalInTest = 0 * time.Millisecond
 	DefaultPeerID              = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
 )
 

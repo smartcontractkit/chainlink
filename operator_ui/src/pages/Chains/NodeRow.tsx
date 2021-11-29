@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { NodeResource } from './NodesIndex'
+import { NodeResource } from './ChainNodes'
 import { tableStyles } from 'components/Table'
 import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'

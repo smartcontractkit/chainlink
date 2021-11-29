@@ -11,24 +11,23 @@ import PrivateRoute from './PrivateRoute'
 
 import DashboardIndex from 'pages/Dashboards/Index'
 import Configuration from 'pages/Configuration/Index'
-import JobsIndex from 'pages/JobsIndex/JobsIndex'
 import JobsShow from 'pages/Jobs/Show'
 import JobsNew from 'pages/Jobs/New'
 import JobRunsIndex from 'pages/JobRuns/Index'
 import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
-import ChainsIndex from 'pages/ChainsIndex/ChainsIndex'
+import { ChainsScreen } from 'screens/Chains/ChainsScreen'
 import ChainsNew from 'pages/Chains/New'
 import ChainShow from 'pages/Chains/Show'
-import { NodeScreen } from 'screens/Node/NodeScreen'
 import KeysIndex from 'pages/Keys/Index'
 import NotFound from 'pages/NotFound'
 import TransactionsIndex from 'pages/Transactions/Index'
 import TransactionsShow from 'pages/Transactions/Show'
-import NodesIndex from './pages/NodesIndex/NodesIndex'
 
 import { BridgesPage } from 'pages/bridges'
+import { JobsPage } from 'pages/JobsIndex'
 import { FeedsManagerPage } from 'pages/feeds_manager'
 import { JobProposalsPage } from 'pages/job_proposals'
+import { NodesPage } from 'pages/nodes'
 
 const styles = (theme: Theme) => {
   return {
@@ -67,9 +66,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 />
               </PrivateRoute>
 
-              <PrivateRoute exact path="/jobs">
-                <JobsIndex />
-              </PrivateRoute>
               <PrivateRoute exact path="/jobs/new">
                 <JobsNew />
               </PrivateRoute>
@@ -99,7 +95,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               />
 
               <PrivateRoute exact path="/chains">
-                <ChainsIndex />
+                <ChainsScreen />
               </PrivateRoute>
               <PrivateRoute exact path="/chains/new">
                 <ChainsNew />
@@ -107,14 +103,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
               <PrivateRoute path="/chains/:chainId">
                 <ChainShow />
-              </PrivateRoute>
-
-              <PrivateRoute exact path="/nodes">
-                <NodesIndex />
-              </PrivateRoute>
-
-              <PrivateRoute path="/nodes/:id">
-                <NodeScreen />
               </PrivateRoute>
 
               <PrivateRoute
@@ -145,6 +133,14 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
               <PrivateRoute path="/job_proposals">
                 <JobProposalsPage />
+              </PrivateRoute>
+
+              <PrivateRoute exact path="/jobs">
+                <JobsPage />
+              </PrivateRoute>
+
+              <PrivateRoute path="/nodes">
+                <NodesPage />
               </PrivateRoute>
 
               <PrivateRoute component={NotFound} />

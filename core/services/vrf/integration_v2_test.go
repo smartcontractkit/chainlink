@@ -279,7 +279,7 @@ func createJobs(t *testing.T, keys []ethkey.KeyV2, app *cltest.TestApplication, 
 	gomega.NewWithT(t).Eventually(func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
 		return len(jbs) == 2
-	}, cltest.DefaultWaitTimeout, 100*time.Millisecond).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 	// Unfortunately the lb needs heads to be able to backfill logs to new subscribers.
 	// To avoid confirming
 	// TODO: it could just backfill immediately upon receiving a new subscriber? (though would
@@ -377,7 +377,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		require.NoError(t, err)
 		t.Log("runs", len(runs))
 		return len(runs) == (2 + len(uni.vrfConsumers) - 1)
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// As we send new blocks, we should observe the fulfillments go through and the balance
 	// reduce.
@@ -411,7 +411,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
 		return len(runs) == (4 + len(uni.vrfConsumers) - 1)
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 	// One more time for the final tx
 	_, err = carolContract.TopUpSubscription(carol, assets.Ether(1))
 	require.NoError(t, err)
@@ -421,7 +421,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
 		return len(runs) == (5 + len(uni.vrfConsumers) - 1)
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Send a huge topup and observe the high max gwei go through.
 	_, err = carolContract.TopUpSubscription(carol, assets.Ether(7))
@@ -432,7 +432,7 @@ func TestIntegrationVRFV2_OffchainSimulation(t *testing.T) {
 		t.Log("runs", len(runs))
 		uni.backend.Commit()
 		return len(runs) == (6 + len(uni.vrfConsumers) - 1)
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 }
 
 func configureSimChain(app *cltest.TestApplication, ks map[string]types.ChainCfg, defaultGasPrice *big.Int) {
@@ -658,7 +658,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 		// keep blocks coming in for the lb to send the backfilled logs.
 		uni.backend.Commit()
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.
 	var rf []*vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
@@ -670,7 +670,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 			rf = append(rf, rfIterator.Event)
 		}
 		return len(rf) == 1
-	}, cltest.DefaultWaitTimeout, 500*time.Millisecond).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 	assert.True(t, rf[0].Success, "expected callback to succeed")
 	fulfillReceipt, err := uni.backend.TransactionReceipt(context.Background(), rf[0].Raw.TxHash)
 	require.NoError(t, err)
@@ -813,7 +813,7 @@ func TestMaliciousConsumer(t *testing.T) {
 		t.Log("attempts", attempts)
 		uni.backend.Commit()
 		return len(attempts) == 1 && attempts[0].EthTx.State == bulletprooftxmanager.EthTxConfirmed
-	}, cltest.DefaultWaitTimeout, 1*time.Second).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
 	ch, err := app.GetChainSet().Default()
@@ -1166,7 +1166,7 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 			rf = append(rf, rfIterator.Event)
 		}
 		return len(rf) >= 1
-	}, cltest.DefaultWaitTimeout, 500*time.Millisecond).Should(gomega.BeTrue())
+	}, cltest.WaitTimeout(t), 500*time.Millisecond).Should(gomega.BeTrue())
 	latest := len(rf) - 1
 	return rf[latest]
 }

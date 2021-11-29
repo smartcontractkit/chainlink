@@ -218,7 +218,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(true))
+		}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(true))
 
 		eventuallyClose := cltest.NewAwaiter()
 		serviceA1.On("Close").Return(nil).Once()
@@ -234,7 +234,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobs := spawner.ActiveJobs()
 			_, exists := jobs[jobSpecIDA]
 			return exists
-		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(false))
+		}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(false))
 
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 	})

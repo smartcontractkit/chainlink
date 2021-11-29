@@ -756,7 +756,7 @@ observationSource = """
 				answer, err := ocrContract.LatestAnswer(nil)
 				require.NoError(t, err)
 				return answer.String()
-			}, cltest.DefaultWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("20"))
+			}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("20"))
 
 			for _, app := range apps {
 				jobs, _, err := app.JobORM().FindJobs(0, 1000)
@@ -887,7 +887,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		gasPrice, _, err := estimator.GetLegacyGas(nil, 500000)
 		require.NoError(t, err)
 		return gasPrice.String()
-	}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
+	}, cltest.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal("45000000000"))
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
