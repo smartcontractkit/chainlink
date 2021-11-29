@@ -53,7 +53,6 @@ require (
 	github.com/smartcontractkit/wsrpc v0.3.5
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
-	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.9.3
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e

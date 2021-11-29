@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"github.com/tevino/abool"
 	"go.uber.org/atomic"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
@@ -71,7 +70,7 @@ type (
 	broadcaster struct {
 		orm        ORM
 		config     Config
-		connected  *abool.AtomicBool
+		connected  atomic.Bool
 		evmChainID big.Int
 
 		// a block number to start backfill from
@@ -141,7 +140,6 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, lggr logger.Lo
 		orm:              orm,
 		config:           config,
 		logger:           lggr,
-		connected:        abool.New(),
 		evmChainID:       *ethClient.ChainID(),
 		ethSubscriber:    newEthSubscriber(ethClient, config, lggr, chStop),
 		registrations:    newRegistrations(lggr, *ethClient.ChainID()),
@@ -230,7 +228,7 @@ func (b *broadcaster) OnNewLongestChain(ctx context.Context, head *eth.Head) {
 }
 
 func (b *broadcaster) IsConnected() bool {
-	return b.connected.IsSet()
+	return b.connected.Load()
 }
 
 // The subscription is closed in two cases:
@@ -307,17 +305,17 @@ func (b *broadcaster) startResubscribeLoop() {
 		subscription.Unsubscribe()
 		subscription = newSubscription
 
-		b.connected.Set()
+		b.connected.Store(true)
 
 		b.trackedAddressesCount.Store(uint32(len(addresses)))
 
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
 			b.logger.Warnw("Error in the event loop - will reconnect", "err", err)
-			b.connected.UnSet()
+			b.connected.Store(false)
 			continue
 		} else if !shouldResubscribe {
-			b.connected.UnSet()
+			b.connected.Store(false)
 			return
 		}
 	}
