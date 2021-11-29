@@ -213,7 +213,7 @@ describe('OptimismCrossDomainGovernor', () => {
       assert.equal(updatedGreeting, 'bar')
     })
 
-    it('should be revert batch when one call fails', async () => {
+    it('should revert batch when one call fails', async () => {
       const calls = [
         {
           to: greeter.address,
@@ -244,6 +244,21 @@ describe('OptimismCrossDomainGovernor', () => {
 
       const greeting = await greeter.greeting()
       assert.equal(greeting, '') // Unchanged
+    })
+
+    it('should bubble up revert when contract call reverts', async () => {
+      const triggerRevertData =
+        greeterFactory.interface.encodeFunctionData('triggerRevert')
+      const forwardData = governorFactory.interface.encodeFunctionData(
+        'forwardDelegate',
+        [greeter.address, triggerRevertData],
+      )
+
+      await expect(
+        crossDomainMessenger // Simulate cross-chain OVM message
+          .connect(stranger)
+          .sendMessage(governor.address, forwardData, 0),
+      ).to.be.revertedWith('Greeter: revert triggered')
     })
   })
 

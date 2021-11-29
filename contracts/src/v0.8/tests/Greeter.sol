@@ -11,4 +11,8 @@ contract Greeter is ConfirmedOwner {
     require(bytes(_greeting).length > 0, "Invalid greeting length");
     greeting = _greeting;
   }
+
+  function triggerRevert() external pure {
+    require(false, "Greeter: revert triggered");
+  }
 }
