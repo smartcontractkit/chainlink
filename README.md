@@ -151,7 +151,6 @@ yarn setup:contracts
 
 ```bash
 go generate ./...
-go run ./packr/main.go ./core/services/eth/
 ```
 
 5. Prepare your development environment:

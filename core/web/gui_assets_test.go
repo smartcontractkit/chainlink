@@ -1,15 +1,25 @@
 package web_test
 
 import (
+	"embed"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+//go:embed fixtures/operator_ui/assets
+var testFs embed.FS
 
 func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
@@ -96,45 +106,50 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, resp.StatusCode)
 }
 
-func TestGuiAssets_AssetsExact(t *testing.T) {
+func TestGuiAssets_AssetsFS(t *testing.T) {
 	t.Parallel()
 
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	efs := web.NewEmbedFileSystem(testFs, "fixtures/operator_ui")
+	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.TestLogger(t))
 
-	client := &http.Client{}
+	t.Run("it get exact assets if Accept-Encoding is not specified", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		var err error
+		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
+		require.NoError(t, err)
+		handler(c)
 
-	resp, err := client.Get(app.Server.URL + "/assets/main.js")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+		require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
 
-	resp, err = client.Get(app.Server.URL + "/assets/mmain.js")
-	require.NoError(t, err)
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
-}
+		recorder = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(recorder)
+		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
+		require.NoError(t, err)
+		handler(c)
 
-func TestGuiAssets_AssetsExactCompressed(t *testing.T) {
-	t.Parallel()
+		require.Equal(t, http.StatusNotFound, recorder.Result().StatusCode)
+	})
 
-	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start())
+	t.Run("it respects Accept-Encoding header", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		var err error
+		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/main.js", nil)
+		require.NoError(t, err)
+		c.Request.Header.Set("Accept-Encoding", "gzip")
+		handler(c)
 
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", app.Server.URL+"/assets/main.js", nil)
-	require.NoError(t, err)
-	req.Header.Set("Accept-Encoding", "gzip")
-	resp, err := client.Do(req)
-	require.NoError(t, err)
+		require.Equal(t, http.StatusOK, recorder.Result().StatusCode)
+		require.Equal(t, "gzip", recorder.Result().Header.Get("Content-Encoding"))
 
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
-	assert.Equal(t, "gzip", resp.Header["Content-Encoding"][0])
-	assert.Equal(t, "Accept-Encoding", resp.Header["Vary"][0])
+		recorder = httptest.NewRecorder()
+		c, _ = gin.CreateTestContext(recorder)
+		c.Request, err = http.NewRequest("GET", "http://localhost:6688/fixtures/operator_ui/assets/kinda_main.js", nil)
+		require.NoError(t, err)
+		c.Request.Header.Set("Accept-Encoding", "gzip")
+		handler(c)
 
-	req, err = http.NewRequest("GET", app.Server.URL+"/assets/doesnotexist.js", nil)
-	require.NoError(t, err)
-	req.Header.Set("Accept-Encoding", "gzip")
-	resp, err = client.Do(req)
-	require.NoError(t, err)
-
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+		require.Equal(t, http.StatusNotFound, recorder.Result().StatusCode)
+	})
 }
