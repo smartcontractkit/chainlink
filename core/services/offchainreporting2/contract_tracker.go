@@ -2,7 +2,6 @@ package offchainreporting2
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"sync"
@@ -51,18 +50,15 @@ type (
 	OCRContractTracker struct {
 		utils.StartStopOnce
 
-		ethClient eth.Client
-		// XXX: Use the libocr provided Filterer and Caller so that the resulting
-		// ConfigSet can be passed to ContractConfigFromConfigSetEvent, the
-		// offchain_aggregator_wrapper for Topics and contract Address
+		ethClient        eth.Client
 		contract         *offchain_aggregator_wrapper.OffchainAggregator
 		contractFilterer *ocr2aggregator.OCR2AggregatorFilterer
 		contractCaller   *ocr2aggregator.OCR2AggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
-		db               OCRContractTrackerDB
-		gdb              *sqlx.DB
+		odb              OCRContractTrackerDB
+		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		chain            ocrcommon.Config
 
@@ -90,7 +86,7 @@ type (
 	}
 
 	OCRContractTrackerDB interface {
-		SaveLatestRoundRequested(tx *sql.Tx, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
+		SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error
 		LoadLatestRoundRequested() (rr ocr2aggregator.OCR2AggregatorRoundRequested, err error)
 	}
 )
@@ -104,8 +100,8 @@ func NewOCRContractTracker(
 	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
-	gdb *sqlx.DB,
-	db OCRContractTrackerDB,
+	db *sqlx.DB,
+	odb OCRContractTrackerDB,
 	chain ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
@@ -119,8 +115,8 @@ func NewOCRContractTracker(
 		logBroadcaster,
 		jobID,
 		logger,
-		db,
-		gdb,
+		odb,
+		pg.NewQ(db, logger, chain),
 		ocrcommon.NewBlockTranslator(chain, ethClient, logger),
 		chain,
 		headBroadcaster,
@@ -142,7 +138,7 @@ func NewOCRContractTracker(
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.odb.LoadLatestRoundRequested()
 		if err != nil {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
@@ -287,11 +283,11 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 			return
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
-			err = pg.SqlxTransactionWithDefaultCtx(t.gdb, t.logger, func(q pg.Queryer) error {
-				if err = t.db.SaveLatestRoundRequested(q.(*sqlx.Tx).Tx, *rr); err != nil {
+			err = t.q.Transaction(func(q pg.Queryer) error {
+				if err = t.odb.SaveLatestRoundRequested(q, *rr); err != nil {
 					return err
 				}
-				return t.logBroadcaster.MarkConsumed(lb)
+				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(q))
 			})
 			if err != nil {
 				logger.Error(err)
@@ -439,10 +435,6 @@ func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback ti
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
 	// Some further improvements could be made:
-	// TODO: Can we increase the backfill depth?
-	// TODO: Can we use the lookback to optimise at all?
-	// TODO: How well can we satisfy the requirements after the latest round of changes to the log broadcaster?
-	// See: https://www.pivotaltracker.com/story/show/177063733
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()
 	return t.latestRoundRequested.ConfigDigest, t.latestRoundRequested.Epoch, t.latestRoundRequested.Round, nil

@@ -100,7 +100,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrdb := NewDB(d.db.DB, spec.ID)
+	ocrdb := NewDB(d.db.DB, spec.ID, d.lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -262,7 +262,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		services = append(services, oracle)
 
 		// RunResultSaver needs to be started first so its available
-		// to read db writes. It is stopped last after the Oracle is shut down
+		// to read odb writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
 		services = append([]job.Service{ocrcommon.NewResultRunSaver(
 			runResults,

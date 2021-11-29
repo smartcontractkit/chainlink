@@ -271,6 +271,9 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// We need p2p networking if either ocr1 or ocr2 is enabled
 	var peerWrapper *ocrcommon.SingletonPeerWrapper
 	if ((cfg.Dev() && cfg.P2PListenPort() > 0) || cfg.FeatureOffchainReporting()) || cfg.FeatureOffchainReporting2() {
+		if err := ocrcommon.ValidatePeerWrapperConfig(cfg); err != nil {
+			return nil, err
+		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg, db, globalLogger)
 		subservices = append(subservices, peerWrapper)
 	}

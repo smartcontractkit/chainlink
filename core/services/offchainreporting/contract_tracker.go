@@ -439,10 +439,6 @@ func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback ti
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
 	// Some further improvements could be made:
-	// TODO: Can we increase the backfill depth?
-	// TODO: Can we use the lookback to optimise at all?
-	// TODO: How well can we satisfy the requirements after the latest round of changes to the log broadcaster?
-	// See: https://www.pivotaltracker.com/story/show/177063733
 	t.lrrMu.RLock()
 	defer t.lrrMu.RUnlock()
 	return t.latestRoundRequested.ConfigDigest, t.latestRoundRequested.Epoch, t.latestRoundRequested.Round, nil

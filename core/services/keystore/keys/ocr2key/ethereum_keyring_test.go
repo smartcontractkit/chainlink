@@ -1,1 +1,0 @@
-package ocr2key_test

@@ -38,9 +38,10 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
+	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -57,7 +58,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -74,7 +75,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -84,8 +85,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
-		// db with different spec
-		db = offchainreporting.NewDB(sqlDB.DB, -1)
+		// odb with different spec
+		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
 
 		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
@@ -94,7 +95,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -128,9 +129,10 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
+	lggr := logger.TestLogger(t)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
@@ -142,7 +144,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest: MakeConfigDigest(t),
@@ -160,12 +162,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
+		db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		db = offchainreporting.NewDB(sqlDB.DB, -1)
+		db = offchainreporting.NewDB(sqlDB.DB, -1, lggr)
 
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
@@ -190,10 +192,11 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	ethKeyStore := cltest.NewKeyStore(t, sqlDB, cfg).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
+	lggr := logger.TestLogger(t)
 	spec := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
 	spec2 := MustInsertOffchainreportingOracleSpec(t, sqlDB, key.Address)
-	db := offchainreporting.NewDB(sqlDB.DB, spec.ID)
-	db2 := offchainreporting.NewDB(sqlDB.DB, spec2.ID)
+	db := offchainreporting.NewDB(sqlDB.DB, spec.ID, lggr)
+	db2 := offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
 	configDigest := MakeConfigDigest(t)
 
 	k := ocrtypes.ReportTimestamp{
@@ -363,7 +366,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = offchainreporting.NewDB(sqlDB.DB, spec2.ID)
+		db = offchainreporting.NewDB(sqlDB.DB, spec2.ID, lggr)
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
@@ -376,8 +379,9 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	_, err := sqlDB.Exec(`SET CONSTRAINTS offchainreporting2_latest_round_oracle_spec_fkey DEFERRED`)
 	require.NoError(t, err)
 
-	db := offchainreporting.NewDB(sqlDB.DB, 1)
-	db2 := offchainreporting.NewDB(sqlDB.DB, 2)
+	lggr := logger.TestLogger(t)
+	db := offchainreporting.NewDB(sqlDB.DB, 1, lggr)
+	db2 := offchainreporting.NewDB(sqlDB.DB, 2, lggr)
 
 	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 
@@ -391,7 +395,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 
 	t.Run("saves latest round requested", func(t *testing.T) {
 		err := pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q.(*sqlx.Tx).Tx, rr)
+			return db.SaveLatestRoundRequested(q, rr)
 		})
 		require.NoError(t, err)
 
@@ -407,7 +411,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 		}
 
 		err = pg.SqlxTransactionWithDefaultCtx(sqlDB, logger.TestLogger(t), func(q pg.Queryer) error {
-			return db.SaveLatestRoundRequested(q.(*sqlx.Tx).Tx, rr)
+			return db.SaveLatestRoundRequested(q, rr)
 		})
 		require.NoError(t, err)
 	})

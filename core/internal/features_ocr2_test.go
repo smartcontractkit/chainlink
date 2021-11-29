@@ -87,6 +87,7 @@ func setupNodeOCR2(t *testing.T, owner *bind.TransactOpts, port uint16, dbName s
 	config.Overrides.FeatureOffchainReporting = null.BoolFrom(false)
 	config.Overrides.FeatureOffchainReporting2 = null.BoolFrom(true)
 	config.Overrides.P2PNetworkingStack = ocrnetworking.NetworkingStackV2
+	config.Overrides.P2PListenPort = null.NewInt(0, true)
 	config.Overrides.SetP2PV2DeltaDial(500 * time.Millisecond)
 	config.Overrides.SetP2PV2DeltaReconcile(5 * time.Second)
 	p2paddresses := []string{

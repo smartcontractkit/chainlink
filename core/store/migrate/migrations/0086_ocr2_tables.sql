@@ -9,7 +9,6 @@ CREATE TABLE offchainreporting2_oracle_specs (
      encrypted_ocr_key_bundle_id bytea,
      monitoring_endpoint text,
      transmitter_address bytea,
---      observation_timeout bigint,
      blockchain_timeout bigint,
      evm_chain_id numeric(78,0) REFERENCES evm_chains (id),
      contract_config_tracker_subscribe_interval bigint,
@@ -55,7 +54,7 @@ CREATE UNIQUE INDEX idx_jobs_unique_offchain2_reporting_oracle_spec_id
         USING btree (offchainreporting2_oracle_spec_id);
 
 CREATE TABLE offchainreporting2_contract_configs (
-     offchainreporting2_oracle_spec_id BIGSERIAL PRIMARY KEY,
+     offchainreporting2_oracle_spec_id INTEGER PRIMARY KEY,
      config_digest bytea NOT NULL,
      config_count bigint NOT NULL,
      signers bytea[],
@@ -76,7 +75,7 @@ ALTER TABLE ONLY offchainreporting2_contract_configs
             ON DELETE CASCADE;
 
 CREATE TABLE offchainreporting2_latest_round_requested (
-   offchainreporting2_oracle_spec_id BIGSERIAL PRIMARY KEY,
+   offchainreporting2_oracle_spec_id INTEGER PRIMARY KEY,
    requester bytea NOT NULL,
    config_digest bytea NOT NULL,
    epoch bigint NOT NULL,
@@ -92,7 +91,7 @@ ALTER TABLE offchainreporting2_latest_round_requested
     ADD CONSTRAINT offchainreporting2_latest_round_oracle_spec_fkey
         FOREIGN KEY (offchainreporting2_oracle_spec_id)
             REFERENCES offchainreporting2_oracle_specs(id)
-            ON DELETE CASCADE DEFERRABLE;
+            ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 
 CREATE TABLE offchainreporting2_persistent_states (
   offchainreporting2_oracle_spec_id integer NOT NULL,
@@ -120,9 +119,9 @@ CREATE TABLE offchainreporting2_pending_transmissions (
       epoch bigint NOT NULL,
       round bigint NOT NULL,
       "time" timestamp with time zone NOT NULL,
-      extra_hash bytea,
-      report bytea,
-      attributed_signatures bytea[],
+      extra_hash bytea NOT NULL,
+      report bytea NOT NULL,
+      attributed_signatures bytea[] NOT NULL,
       created_at timestamp with time zone NOT NULL,
       updated_at timestamp with time zone NOT NULL,
       CONSTRAINT offchainreporting2_pending_transmissions_config_digest_check CHECK ((octet_length(config_digest) = 32))
@@ -136,21 +135,6 @@ ALTER TABLE ONLY offchainreporting2_pending_transmissions
             ON DELETE CASCADE;
 
 CREATE INDEX idx_offchainreporting2_pending_transmissions_time ON offchainreporting2_pending_transmissions USING btree ("time");
-
-CREATE TABLE encrypted_ocr2_key_bundles (
-  id bytea NOT NULL,
-  onchain_public_key bytea NOT NULL,
-  onchain_signing_address bytea NOT NULL,
-  offchain_signing_public_key bytea NOT NULL,
-  offchain_encryption_public_key bytea NOT NULL,
-  encrypted_private_keys jsonb NOT NULL,
-  created_at timestamp with time zone NOT NULL,
-  updated_at timestamp with time zone NOT NULL,
-  deleted_at timestamp with time zone
-);
-
-ALTER TABLE ONLY encrypted_ocr2_key_bundles
-    ADD CONSTRAINT encrypted_ocr2_key_bundles_pkey PRIMARY KEY (id);
 
 -- After moving to the unified keystore the encrypted_p2p_keys table is no longer used
 -- So we have to drop this FK to be able to uses the discoverer (v2) networking stack
@@ -178,5 +162,4 @@ ALTER TABLE jobs DROP CONSTRAINT chk_only_one_spec,
 ALTER TABLE jobs DROP COLUMN offchainreporting2_oracle_spec_id;
 ALTER TABLE offchainreporting_discoverer_announcements ADD CONSTRAINT offchainreporting_discoverer_announcements_local_peer_id_fkey FOREIGN KEY (local_peer_id) REFERENCES encrypted_p2p_keys(peer_id) DEFERRABLE INITIALLY IMMEDIATE;
 DROP TABLE offchainreporting2_oracle_specs;
-DROP TABLE encrypted_ocr2_key_bundles;
 -- +goose StatementEnd

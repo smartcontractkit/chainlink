@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pg"
+
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
@@ -18,6 +21,7 @@ import (
 type db struct {
 	*sql.DB
 	oracleSpecID int32
+	lggr         logger.Logger
 }
 
 var (
@@ -26,8 +30,8 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int32) *db {
-	return &db{sqldb, oracleSpecID}
+func NewDB(sqldb *sql.DB, oracleSpecID int32, lggr logger.Logger) *db {
+	return &db{sqldb, oracleSpecID, lggr}
 }
 
 func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
@@ -260,8 +264,7 @@ WHERE offchainreporting2_oracle_spec_id = $1 AND config_digest = $2
 	if err != nil {
 		return nil, errors.Wrap(err, "PendingTransmissionsWithConfigDigest failed to query rows")
 	}
-	//TODO: defer logger.ErrorIfClosing(rows.Close)
-	defer rows.Close()
+	d.lggr.ErrorIfClosing(rows, "offchainreporting2_pending_transmissions rows")
 
 	m := make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission)
 
@@ -324,7 +327,7 @@ WHERE offchainreporting2_oracle_spec_id = $1 AND time < $2
 	return
 }
 
-func (d *db) SaveLatestRoundRequested(tx *sql.Tx, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {
+func (d *db) SaveLatestRoundRequested(tx pg.Queryer, rr ocr2aggregator.OCR2AggregatorRoundRequested) error {
 	rawLog, err := json.Marshal(rr.Raw)
 	if err != nil {
 		return errors.Wrap(err, "could not marshal log as JSON")
