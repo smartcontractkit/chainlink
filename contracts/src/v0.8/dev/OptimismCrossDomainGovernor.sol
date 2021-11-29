@@ -17,6 +17,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @notice creates a new Optimism xDomain Forwarder contract
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
+   * @dev Empty constructor required due to inheriting from abstract contract CrossDomainForwarder
    */
   constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr)
     OptimismCrossDomainForwarder(crossDomainMessengerAddr, l1OwnerAddr)
