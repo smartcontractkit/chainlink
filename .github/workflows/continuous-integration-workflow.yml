@@ -61,10 +61,6 @@ jobs:
             go-mod-${{ env.CACHE_VERSION }}
       - name: Download Go vendor packages
         run: go mod download
-      - name: Compile all contracts
-        run: ./contracts/scripts/native_solc_compile_all
-      - name: Verify local solc binaries
-        run: ./tools/ci/check_solc_hashes
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
