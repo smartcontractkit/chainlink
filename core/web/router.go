@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"net/http/pprof"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -23,7 +23,6 @@ import (
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	graphql "github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/ulule/limiter"
@@ -81,7 +80,7 @@ func Router(app chainlink.Application, prometheus *ginprom.Prometheus) *gin.Engi
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(app.NewBox(), engine, config, app.GetLogger())
+	guiAssetRoutes(engine, config, app.GetLogger())
 
 	api.POST("/query",
 		auth.AuthenticateGQL(app.SessionORM()),
@@ -360,7 +359,7 @@ var indexRateLimitPeriod = 1 * time.Minute
 
 // guiAssetRoutes serves the operator UI static files and index.html. Rate
 // limiting is disabled when in dev mode.
-func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
+func guiAssetRoutes(engine *gin.Engine, config config.GeneralConfig, lggr logger.Logger) {
 	// Serve static files
 	assetsRouterHandlers := []gin.HandlerFunc{}
 	if !config.Dev() {
@@ -372,7 +371,7 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 
 	assetsRouterHandlers = append(
 		assetsRouterHandlers,
-		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}, lggr),
+		ServeGzippedAssets("/assets", assetFs, lggr),
 	)
 
 	// Get Operator UI Assets
@@ -407,9 +406,9 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config config.GeneralConf
 		}
 
 		// Render the React index page for any other unknown requests
-		file, err := box.Open("index.html")
+		file, err := assetFs.Open("index.html")
 		if err != nil {
-			if err == os.ErrNotExist {
+			if err == fs.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
 			} else {
 				lggr.Errorf("failed to open static file '%s': %+v", path, err)
