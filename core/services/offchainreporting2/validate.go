@@ -104,7 +104,8 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(config ValidationConfig, spec job.OffchainReporting2OracleSpec) error {
-	lc := computeLocalConfig(config, spec)
+	lcSpec := NewLocalConfigSpec(spec)
+	lc := NewLocalConfig(config, lcSpec)
 	return offchainreporting.SanityCheckLocalConfig(lc)
 }
 

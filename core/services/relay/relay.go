@@ -1,23 +1,28 @@
 package relay
 
 import (
+	uuid "github.com/satori/go.uuid"
+	"github.com/smartcontractkit/chainlink/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
+	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/sqlx"
 )
 
-type Type string
+type Network string
 
 var (
-	TypeEthereum = Type("ethereum")
-	TypeSolana   = Type("solana")
+	Ethereum = Network("ethereum")
+	Solana   = Network("solana")
 )
 
-type Relayers map[Type]Relayer
+type Relayers map[Network]Relayer
 
 type Relayer interface {
 	service.Service
-	NewOCR2Provider(config interface{}) (OCR2Provider, error)
+	NewOCR2Provider(externalJobID uuid.UUID, spec interface{}) (OCR2Provider, error)
 }
 
 type OCR2Provider interface {
@@ -29,4 +34,11 @@ type OCR2Provider interface {
 	OffchainConfigDigester() types.OffchainConfigDigester
 	ReportCodec() median.ReportCodec
 	MedianContract() median.MedianContract
+}
+
+type Config struct {
+	Db       *sqlx.DB
+	Keystore keystore.Master
+	ChainSet evm.ChainSet
+	Lggr     logger.Logger
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
@@ -75,12 +76,12 @@ func (Delegate) AfterJobCreated(spec job.Job)  {}
 func (Delegate) BeforeJobDeleted(spec job.Job) {}
 
 func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
-	if jobSpec.Offchainreporting2OracleSpec == nil {
+	spec := jobSpec.Offchainreporting2OracleSpec
+	if spec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.Offchainreporting2OracleSpec to be present, got %v", jobSpec)
 	}
-	spec := jobSpec.Offchainreporting2OracleSpec
 
-	chain, err := d.chainSet.Get(jobSpec.Offchainreporting2OracleSpec.EVMChainID.ToInt())
+	chain, err := d.chainSet.Get(spec.EVMChainID.ToInt())
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrdb := NewDB(d.db.DB, spec.ID, d.lggr)
+	ocrDB := NewDB(d.db.DB, spec.ID, d.lggr)
 
 	tracker := NewOCRContractTracker(
 		contract,
@@ -111,7 +112,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		jobSpec.ID,
 		d.lggr,
 		d.db,
-		ocrdb,
+		ocrDB,
 		chain.Config(),
 		chain.HeadBroadcaster(),
 	)
@@ -147,10 +148,10 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
-	lc := computeLocalConfig(chain.Config(), *spec)
-
-	if cerr := ocr.SanityCheckLocalConfig(lc); cerr != nil {
-		return nil, cerr
+	lcSpec := NewLocalConfigSpec(*spec)
+	lc := NewLocalConfig(chain.Config(), lcSpec)
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return nil, err
 	}
 	d.lggr.Infow("OCR2 job using local config",
 		"BlockchainTimeout", lc.BlockchainTimeout,
@@ -169,7 +170,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		bootstrapNodeArgs := ocr.BootstrapperArgs{
 			BootstrapperFactory:    peerWrapper.Peer2,
 			ContractConfigTracker:  tracker,
-			Database:               ocrdb,
+			Database:               ocrDB,
 			LocalConfig:            lc,
 			Logger:                 ocrLogger,
 			OffchainConfigDigester: offchainConfigDigester,
@@ -223,7 +224,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
 		juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 			ID:           jobSpec.ID,
-			DotDagSource: jobSpec.Offchainreporting2OracleSpec.JuelsPerFeeCoinPipeline,
+			DotDagSource: spec.JuelsPerFeeCoinPipeline,
 			CreatedAt:    time.Now(),
 		}
 		numericalMedianFactory := median.NumericalMedianFactory{
@@ -246,7 +247,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			V2Bootstrappers:              bootstrapPeers,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        tracker,
-			Database:                     ocrdb,
+			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractAddress.Address()),
@@ -274,7 +275,21 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	return services, nil
 }
 
-func computeLocalConfig(config ValidationConfig, spec job.OffchainReporting2OracleSpec) ocrtypes.LocalConfig {
+type LocalConfigSpec struct {
+	BlockchainTimeout                 models.Interval
+	ContractConfigConfirmations       uint16
+	ContractConfigTrackerPollInterval models.Interval
+}
+
+func NewLocalConfigSpec(s job.OffchainReporting2OracleSpec) LocalConfigSpec {
+	return LocalConfigSpec{
+		BlockchainTimeout:                 s.BlockchainTimeout,
+		ContractConfigConfirmations:       s.ContractConfigConfirmations,
+		ContractConfigTrackerPollInterval: s.ContractConfigTrackerPollInterval,
+	}
+}
+
+func NewLocalConfig(config ValidationConfig, spec LocalConfigSpec) ocrtypes.LocalConfig {
 	var blockchainTimeout time.Duration
 	if spec.BlockchainTimeout != 0 {
 		blockchainTimeout = time.Duration(spec.BlockchainTimeout)
@@ -282,24 +297,24 @@ func computeLocalConfig(config ValidationConfig, spec job.OffchainReporting2Orac
 		blockchainTimeout = config.OCR2BlockchainTimeout()
 	}
 
-	var contractConfirmations uint16
+	var ccConfirmations uint16
 	if spec.ContractConfigConfirmations != 0 {
-		contractConfirmations = spec.ContractConfigConfirmations
+		ccConfirmations = spec.ContractConfigConfirmations
 	} else {
-		contractConfirmations = config.OCR2ContractConfirmations()
+		ccConfirmations = config.OCR2ContractConfirmations()
 	}
 
-	var contractConfigTrackerPollInterval time.Duration
+	var ccTrackerPollInterval time.Duration
 	if spec.ContractConfigTrackerPollInterval != 0 {
-		contractConfigTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
+		ccTrackerPollInterval = time.Duration(spec.ContractConfigTrackerPollInterval)
 	} else {
-		contractConfigTrackerPollInterval = config.OCR2ContractPollInterval()
+		ccTrackerPollInterval = config.OCR2ContractPollInterval()
 	}
 
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                  blockchainTimeout,
-		ContractConfigConfirmations:        contractConfirmations,
-		ContractConfigTrackerPollInterval:  contractConfigTrackerPollInterval,
+		ContractConfigConfirmations:        ccConfirmations,
+		ContractConfigTrackerPollInterval:  ccTrackerPollInterval,
 		ContractTransmitterTransmitTimeout: config.OCR2ContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                    config.OCR2DatabaseTimeout(),
 	}

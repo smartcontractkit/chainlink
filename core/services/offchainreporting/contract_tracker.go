@@ -59,7 +59,7 @@ type (
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
-		ocrdb            OCRContractTrackerDB
+		ocrDB            OCRContractTrackerDB
 		q                pg.Q
 		blockTranslator  ocrcommon.BlockTranslator
 		cfg              ocrcommon.Config
@@ -103,7 +103,7 @@ func NewOCRContractTracker(
 	jobID int32,
 	logger logger.Logger,
 	db *sqlx.DB,
-	ocrdb OCRContractTrackerDB,
+	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
 	headBroadcaster httypes.HeadBroadcaster,
 ) (o *OCRContractTracker) {
@@ -118,7 +118,7 @@ func NewOCRContractTracker(
 		logBroadcaster,
 		jobID,
 		logger,
-		ocrdb,
+		ocrDB,
 		pg.NewQ(db, logger, cfg),
 		ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg,
@@ -141,7 +141,7 @@ func NewOCRContractTracker(
 // It ought to be called before starting OCR
 func (t *OCRContractTracker) Start() error {
 	return t.StartOnce("OCRContractTracker", func() (err error) {
-		t.latestRoundRequested, err = t.ocrdb.LoadLatestRoundRequested()
+		t.latestRoundRequested, err = t.ocrDB.LoadLatestRoundRequested()
 		if err != nil {
 			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 		}
@@ -292,7 +292,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		}
 		if IsLaterThan(raw, t.latestRoundRequested.Raw) {
 			err = t.q.Transaction(func(tx pg.Queryer) error {
-				if err = t.ocrdb.SaveLatestRoundRequested(tx, *rr); err != nil {
+				if err = t.ocrDB.SaveLatestRoundRequested(tx, *rr); err != nil {
 					return err
 				}
 				return t.logBroadcaster.MarkConsumed(lb, pg.WithQueryer(tx))

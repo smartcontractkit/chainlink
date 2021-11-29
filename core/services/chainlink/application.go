@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
-	"github.com/smartcontractkit/chainlink/core/services/relay/solana"
+	"github.com/smartcontractkit/chainlink/core/services/relay/delegate"
 
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 
@@ -307,18 +307,18 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			chainSet,
 			globalLogger,
 		)
+
 		// TODO [relay]: add flag for this experimental job type?
 		globalLogger.Debug("Off-chain reporting v2-relay enabled")
+		// master/delegate relay is started once, on app start, as root subservice
 		// TODO [relay]: move relayers creation outside OCR2 context (relayers will be multi-protocol)
-		relayers := relay.Relayers{
-			// TODO [relay]: support Ethereum as a relay
-			// TODO [relay]: solana OCR2 keys ('ocr2key.KeyBundle' is Ethereum specific)
-			relay.TypeSolana: solana.NewRelayer(keyStore.OCR2()),
-		}
-		// all relayers are started once, on app start, as root subservices
-		for _, r := range relayers {
-			subservices = append(subservices, r)
-		}
+		relay := delegate.NewRelayer(relay.Config{
+			Db:       db,
+			Keystore: keyStore,
+			ChainSet: chainSet,
+			Lggr:     globalLogger,
+		})
+		subservices = append(subservices, relay)
 		delegates[job.OffchainReporting2Relay] = offchainreporting2relay.NewDelegate(
 			db,
 			jobORM,
@@ -327,7 +327,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen,
 			chainSet,
 			globalLogger,
-			relayers,
+			relay,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")

@@ -4,11 +4,15 @@ import (
 	"errors"
 
 	"github.com/gagliardetto/solana-go/rpc"
+	uuid "github.com/satori/go.uuid"
+	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/service"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
@@ -17,12 +21,14 @@ var _ service.Service = (*relayer)(nil)
 var _ relay.Relayer = (*relayer)(nil)
 
 type relayer struct {
-	keystoreOCR2 keystore.OCR2
+	keystore keystore.Master
+	lggr     logger.Logger
 }
 
-func NewRelayer(keystoreOCR2 keystore.OCR2) *relayer {
+func NewRelayer(config relay.Config) *relayer {
 	return &relayer{
-		keystoreOCR2: keystoreOCR2,
+		keystore: config.Keystore,
+		lggr:     config.Lggr,
 	}
 }
 
@@ -46,36 +52,40 @@ func (r relayer) Healthy() error {
 	return nil
 }
 
-type OCR2ProviderConfig struct {
-	NodeURL     string
-	Address     string
-	JobID       int32
-	KeyBundleID string
+type OCR2Spec struct {
+	ID                      int32
+	ContractAddress         string
+	EncryptedOCRKeyBundleID null.String
+	TransmitterAddress      string
+	ChainID                 *utils.Big
+	NodeEndpointRPC         string
+	NodeEndpointWS          string
 }
 
-func (r relayer) NewOCR2Provider(c interface{}) (relay.OCR2Provider, error) {
-	// TODO: connect with smartcontractkit/solana-integration impl
-	config, ok := c.(OCR2ProviderConfig)
+// TODO [relay]: import from smartcontractkit/solana-integration impl
+func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
+	spec, ok := s.(OCR2Spec)
 	if !ok {
-		return nil, errors.New("unsuccessful cast to 'solana.OCR2ProviderConfig'")
+		return nil, errors.New("unsuccessful cast to 'solana.OCR2Spec'")
 	}
 
-	kb, err := r.keystoreOCR2.Get(config.KeyBundleID)
+	// TODO [relay]: solana OCR2 keys ('ocr2key.KeyBundle' is Ethereum specific)
+	kb, err := r.keystore.OCR2().Get(spec.EncryptedOCRKeyBundleID.ValueOrZero())
 	if err != nil {
 		return nil, err
 	}
 
 	return &ocr2Provider{
-		client:    rpc.New(config.NodeURL),
+		client:    rpc.New(spec.NodeEndpointRPC),
 		keyBundle: kb,
-		config:    config,
 	}, nil
 }
+
+var _ service.Service = (*ocr2Provider)(nil)
 
 type ocr2Provider struct {
 	client    *rpc.Client
 	keyBundle ocr2key.KeyBundle
-	config    OCR2ProviderConfig
 }
 
 func (p ocr2Provider) Start() error {
