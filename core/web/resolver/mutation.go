@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -86,15 +87,6 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
 }
 
-type createFeedsManagerInput struct {
-	Name                   string
-	URI                    string
-	PublicKey              string
-	JobTypes               []JobType
-	IsBootstrapPeer        bool
-	BootstrapPeerMultiaddr *string
-}
-
 func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -110,6 +102,34 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 	}
 
 	return NewCreateCSAKeyPayload(&key, nil), nil
+}
+
+func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteCSAKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().CSA().Delete(string(args.ID))
+	if err != nil {
+		if errors.As(err, &keystore.KeyNotFoundError{}) {
+			return NewDeleteCSAKeyPayload(csakey.KeyV2{}, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteCSAKeyPayload(key, nil), nil
+}
+
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
