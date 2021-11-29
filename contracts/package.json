@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "setup": "yarn compile",
     "prepublishOnly": "yarn compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "yarn publish --tag beta",
-    "publish-prod": "yarn tag add @chainlink/contracts@0.2.2 latest"
+    "publish-prod": "yarn tag add @chainlink/contracts@0.2.3 latest"
   },
   "files": [
     "src/",
