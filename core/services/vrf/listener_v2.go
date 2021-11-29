@@ -435,12 +435,12 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 			"err", err, "max gas price", maxGasPrice, "reqID", req.req.RequestId)
 		return maxLink, run, payload, gaslimit, errors.New("run errored")
 	}
-	if len(trrs.FinalResult().Values) != 1 {
+	if len(trrs.FinalResult(lsn.l).Values) != 1 {
 		lsn.l.Errorw("Unexpected number of outputs", "err", err)
 		return maxLink, run, payload, gaslimit, errors.New("unexpected number of outputs")
 	}
 	// Run succeeded, we expect a byte array representing the billing amount
-	b, ok := trrs.FinalResult().Values[0].([]uint8)
+	b, ok := trrs.FinalResult(lsn.l).Values[0].([]uint8)
 	if !ok {
 		lsn.l.Errorw("Unexpected type")
 		return maxLink, run, payload, gaslimit, errors.New("expected []uint8 final result")

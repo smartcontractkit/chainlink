@@ -1,5 +1,6 @@
 import React from 'react'
 
+import EditIcon from '@material-ui/icons/Edit'
 import DeleteIcon from '@material-ui/icons/Delete'
 import Grid from '@material-ui/core/Grid'
 import IconButton from '@material-ui/core/IconButton'
@@ -14,14 +15,14 @@ import {
   DetailsCardItemTitle,
   DetailsCardItemValue,
 } from 'src/components/Cards/DetailsCard'
-import { TimeAgo } from 'src/components/TimeAgo'
+import { MenuItemLink } from 'src/components/MenuItemLink'
 
 interface Props {
-  node: NodePayload_Fields
+  bridge: BridgePayload_Fields
   onDelete: () => void
 }
 
-export const NodeCard: React.FC<Props> = ({ node, onDelete }) => {
+export const BridgeCard: React.FC<Props> = ({ bridge, onDelete }) => {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
 
   const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -49,6 +50,12 @@ export const NodeCard: React.FC<Props> = ({ node, onDelete }) => {
             open={Boolean(anchorEl)}
             onClose={handleClose}
           >
+            <MenuItemLink to={`/bridges/${bridge.id}/edit`}>
+              <ListItemIcon>
+                <EditIcon />
+              </ListItemIcon>
+              <ListItemText>Edit</ListItemText>
+            </MenuItemLink>
             <MenuItem onClick={onDeleteClick}>
               <ListItemIcon>
                 <DeleteIcon />
@@ -60,35 +67,29 @@ export const NodeCard: React.FC<Props> = ({ node, onDelete }) => {
       }
     >
       <Grid container>
-        <Grid item xs={12} sm={4} md={3}>
-          <DetailsCardItemTitle title="ID" />
-          <DetailsCardItemValue value={node.id} />
+        <Grid item xs={12} sm={4} md={4}>
+          <DetailsCardItemTitle title="Name" />
+          <DetailsCardItemValue value={bridge.name} />
+        </Grid>
+
+        <Grid item xs={12} sm={4} md={8}>
+          <DetailsCardItemTitle title="URL" />
+          <DetailsCardItemValue value={bridge.url} />
+        </Grid>
+
+        <Grid item xs={12} sm={4} md={4}>
+          <DetailsCardItemTitle title="Outgoing Token" />
+          <DetailsCardItemValue value={bridge.outgoingToken} />
         </Grid>
 
         <Grid item xs={12} sm={4} md={3}>
-          <DetailsCardItemTitle title="EVM Chain ID" />
-          <DetailsCardItemValue value={node.chain.id} />
+          <DetailsCardItemTitle title="Confirmations" />
+          <DetailsCardItemValue value={bridge.confirmations} />
         </Grid>
 
-        <Grid item xs={12} sm={4} md={2}>
-          <DetailsCardItemTitle title="Created" />
-          <DetailsCardItemValue>
-            <TimeAgo tooltip>{node.createdAt}</TimeAgo>
-          </DetailsCardItemValue>
-        </Grid>
-
-        <Grid item xs={false} sm={false} md={4}></Grid>
-
-        <Grid item xs={12} md={6}>
-          <DetailsCardItemTitle title="HTTP URL" />
-          <DetailsCardItemValue
-            value={node.httpURL !== '' ? node.httpURL : '--'}
-          />
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <DetailsCardItemTitle title="WS URL" />
-          <DetailsCardItemValue value={node.wsURL !== '' ? node.wsURL : '--'} />
+        <Grid item xs={12} sm={4} md={3}>
+          <DetailsCardItemTitle title="Min. Contract Payment" />
+          <DetailsCardItemValue value={bridge.minimumContractPayment} />
         </Grid>
       </Grid>
     </DetailsCard>
