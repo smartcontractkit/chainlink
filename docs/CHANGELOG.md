@@ -5,11 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Fixed
-
-- Proper handling for "nonce too low" errors on Avalanche
-
 ## [Unreleased]
+
+### Added
+
+Two new log levels have been added.
+
+- `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
+- `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
 
 ### New optional VRF v2 field: `requestedConfsDelay`
 
@@ -35,6 +38,10 @@ Use of this field requires a database migration.
 ### Changed
 
 - The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
+
+### Fixed
+
+- Proper handling for "nonce too low" errors on Avalanche
 
 ### Added
 

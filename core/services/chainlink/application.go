@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gobuffalo/packr"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
@@ -62,7 +61,6 @@ type Application interface {
 	GetKeyStore() keystore.Master
 	GetEventBroadcaster() pg.EventBroadcaster
 	WakeSessionReaper()
-	NewBox() packr.Box
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
@@ -643,12 +641,6 @@ func (app *ChainlinkApplication) ResumeJobV2(
 
 func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
-}
-
-// NewBox returns the packr.Box instance that holds the static assets to
-// be delivered by the router.
-func (app *ChainlinkApplication) NewBox() packr.Box {
-	return packr.NewBox("../../../operator_ui/dist")
 }
 
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64) error {
