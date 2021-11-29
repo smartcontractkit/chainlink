@@ -103,7 +103,7 @@ func (ds *inMemoryDataSource) currentAnswer() (*big.Int, *big.Int) {
 func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pipeline.FinalResult, error) {
 	md, err := bridges.MarshalBridgeMetaData(ds.currentAnswer())
 	if err != nil {
-		logger.Warnw("unable to attach metadata for run", "err", err)
+		ds.ocrLogger.Warnw("unable to attach metadata for run", "err", err)
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
@@ -121,7 +121,7 @@ func (ds *inMemoryDataSource) executeRun(ctx context.Context) (pipeline.Run, pip
 	if err != nil {
 		return pipeline.Run{}, pipeline.FinalResult{}, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
-	finalResult := trrs.FinalResult()
+	finalResult := trrs.FinalResult(ds.ocrLogger)
 
 	return run, finalResult, err
 }

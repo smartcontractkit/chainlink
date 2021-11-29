@@ -65,10 +65,6 @@ export const BridgeScreen = () => {
     DELETE_BRIDGE_MUTATION,
   )
 
-  React.useEffect(() => {
-    document.title = 'Show Bridge'
-  }, [])
-
   if (loading) {
     return <Loading />
   }

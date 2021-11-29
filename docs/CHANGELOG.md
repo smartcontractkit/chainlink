@@ -5,13 +5,159 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Fixed
-
-- Proper handling for "nonce too low" errors on Avalanche
-
 ## [Unreleased]
 
-### New optional VRF v2 field: `requestedConfsDelay`
+### Added
+
+- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
+- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
+- The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
+- The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
+- CLI command `keys eth list` is updated to display key specific max gas prices.
+- CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
+- CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
+- Add partial support for Moonriver chain
+
+Two new log levels have been added.
+
+- `[crit]`: *Critical* level logs are more severe than `[error]` and require quick action from the node operator.
+- `[debug] [trace]`: *Trace* level logs contain extra `[debug]` information for development, and must be compiled in via `-tags trace`.
+
+#### Multichain support added
+
+Chainlink now supports connecting to multiple different EVM chains simultaneously.
+
+This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only.
+
+Extensive efforts have been made to make migration for existing nops as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
+
+The overall summary of changes is such:
+
+##### Chains/Ethereum Nodes
+
+EVM chains are now represented as a first class object within the chainlink node. You can create/delete/list them using the CLI or API.
+
+Currently only a single primary node is supported, and one is required in order for a chain to connect. You may specify zero or more send-only nodes for a chain. In future, support for multiple primaries will be added.
+
+###### Creation
+
+```bash
+chainlink chains evm create -id 42 # creates an evm chain with chain ID 42 (see: https://chainlist.org/)
+chainlink nodes create -chain-id 42 -name 'my-primary-kovan-full-node' -type primary -ws-url ws://node.example/ws -http-url http://node.example/rpc # http-url is optional but recommended for primaries
+chainlink nodes create -chain-id 42 -name 'my-send-only-backup-kovan-node' -type sendonly -http-url http://some-public-node.example/rpc
+```
+
+###### Listing
+
+```bash
+chainlink chains evm list
+chainlink nodes list
+```
+
+###### Deletion
+
+```bash
+chainlink nodes delete 'my-send-only-backup-kovan-node'
+chainlink chains evm delete 42
+```
+
+###### USE_LEGACY_ETH_ENV_VARS
+
+The old way of specifying chains using environment variables is still supported but discouraged. It works as follows:
+
+If you specify `USE_LEGACY_ETH_ENV_VARS` (default: true) then the values of `ETH_CHAIN_ID`, `ETH_URL`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This environment variable is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to run with `USE_LEGACY_ETH_ENV_VARS=false` and use the API commands exclusively to administer chains and nodes.
+
+##### Jobs/tasks
+
+By default, all jobs/tasks will continue to use the default chain (specified by `ETH_CHAIN_ID`). However, the following jobs now allow an additional `evmChainID` key in their TOML:
+
+- VRF
+- DirectRequest
+- Keeper
+- OCR
+- Fluxmonitor
+
+You can pin individual jobs to a particular chain by specifying the `evmChainID` explicitly. Here is an example job to demonstrate:
+
+```toml
+type            = "keeper"
+evmChainID      = 3
+schemaVersion   = 1
+name            = "example keeper spec"
+contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
+fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
+```
+
+The above keeper job will _always_ run on chain ID 3 (Ropsten) regardless of the `ETH_CHAIN_ID` setting. If no chain matching this ID has been added to the chainlink node, the job cannot be created (you must create the chain first).
+
+In addition, you can also specify `evmChainID` on certain pipeline tasks. This allows for cross-chain requests, for example:
+
+```toml
+type                = "directrequest"
+schemaVersion       = 1
+evmChainID          = 42
+name                = "example cross chain spec"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
+observationSource   = """
+    decode_log   [type=ethabidecodelog ... ]
+    ...
+    submit [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2" evmChainID="3"]
+    decode_log-> ... ->submit;
+"""
+```
+
+In the example above (which excludes irrelevant pipeline steps for brevity) a log can be read from the chain with ID 42 (Kovan) and a transaction emitted on chain with ID 3 (Ropsten).
+
+Tasks that support the `evmChainID` parameter are as follows:
+
+- `ethcall`
+- `estimategaslimit`
+- `ethtx`
+
+###### Defaults
+
+If the job- or task-specific `evmChainID` is _not_ given, the job/task will simply use the default as specified by the `ETH_CHAIN_ID` env variable.
+
+Generally speaking, the default config values for each chain are good enough. But in some cases it is necessary to be able to override the defaults on a per-chain basis.
+
+This used to be done via environment variables e.g. `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS`.
+
+These still work, but if set they will override that value for _all_ chains. This may not always be what you want. Consider a node that runs both Matic and Mainnet. You may want to set a higher value for `MINIMUM_CONTRACT_PAYMENT` on Mainnet, due to the more expensive gas costs. However, setting `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS` using env variables will set that value for _all_ chains including matic.
+
+To help you work around this, Chainlink now supports setting per-chain configuration options.
+
+(the full list of chain-specific configuration options can be found in `core/chains/evm/config.go`)
+
+TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
+
+#### Async support in external adapters
+
+External Adapters making async callbacks can now error job runs. This required a slight change to format, the correct way to callback from an asynchronous EA is using the following JSON:
+
+SUCCESS CASE:
+
+```json
+{
+    "value": < any valid json object >
+}
+```
+
+ERROR CASE:
+
+
+```json
+{
+    "error": "some error string"
+}
+```
+
+This only applies to EAs using the `X-Chainlink-Pending` header to signal that the result will be POSTed back to the Chainlink node sometime 'later'. Regular synchronous calls to EAs work just as they always have done.
+
+(NOTE: Official documentation for EAs needs to be updated)
+
+#### New optional VRF v2 field: `requestedConfsDelay`
 
 Added a new optional field for VRF v2 jobs called `requestedConfsDelay`, which configures a
 number of blocks to wait in addition to the request specified `requestConfirmations` before servicing
@@ -31,15 +177,6 @@ requestedConfsDelay = 10
 ```
 
 Use of this field requires a database migration.
-
-### Changed
-
-- The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
-
-### Added
-
-- Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
-- Added Prometheus counters: `log_warn_count`, `log_error_count`, `log_critical_count`, `log_panic_count` and `log_fatal_count` representing the corresponding number of warning/error/critical/panic/fatal messages in the log.
 
 #### New locking mode: 'lease'
 
@@ -71,19 +208,6 @@ The default is set to `dual` which used both advisory locking AND lease locking,
 #### Duplicate Job Configuration
 
 When duplicating a job, the new job's configuration settings that have not been overridden by the user can still reflect the chainlink node configuration.
-
-#### Log to Disk
-
-This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
-
-### Added
-
-- The new prometheus metric `tx_manager_tx_attempt_count` is a Prometheus Gauge that should represent the total number of Transactions attempts that awaiting confirmation for this node.
-- The new prometheus metric `version` that displays the node software version (tag) as well as the corresponding commit hash.
-- CLI command `keys eth list` is updated to display key specific max gas prices.
-- CLI command `keys eth create` now supports optional `maxGasPriceGWei` parameter.
-- CLI command `keys eth update` is added to update key specific parameters like `maxGasPriceGWei`.
-- Add partial support for Moonriver chain
 
 #### Nurse (automatic pprof profiler)
 
@@ -249,6 +373,10 @@ Avalanche AP4 defaults have been added (you can remove manually set ENV vars con
 
 `USE_LEGACY_ETH_ENV_VARS` - Defaulting to true, this env var when set will autocreate database rows for chain and nodes. It will upsert a new chain using ETH_CHAIN_ID and upsert nodes corresponding to the given ETH_URL/ETH_HTTP_URL/ETH_SECONDARY_URLS. It is recommended, after the initial population, to set this env var to false and thereafter to use the CLI commands or API to manage chains/nodes.
 
+`BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
+
+`ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
+
 NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used to default to 1. These defaults have now been removed. The env vars are not required (and do nothing) if `USE_LEGACY_ETH_ENV_VARS=false`. If `USE_LEGACY_ETH_ENV_VARS=true` (the default) these env vars must be explicitly set. This is most likely safe, since almost all node operators set these values explicitly anyway (and we don't even recommend running an eth node on the same box as the CL node).
 
 ### Removed
@@ -258,6 +386,10 @@ NOTE: `ETH_URL` used to default to "ws://localhost:8546" and `ETH_CHAIN_ID` used
 #### Deprecated env vars
 
 `LAYER_2_TYPE` - Use `CHAIN_TYPE` instead.
+
+#### Removed env vars
+
+`FEATURE_CRON_V2`, `FEATURE_FLUX_MONITOR_V2`, `FEATURE_WEBHOOK_V2` - all V2 job types are now enabled by default.
 
 ### Fixed
 
@@ -269,6 +401,7 @@ Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator 
 
 ### Changed
 
+- The default `GAS_ESTIMATOR_MODE` for Optimism chains has been changed to `Optimism2`.
 - Default minimum payment on mainnet has been reduced from 1 LINK to 0.1 LINK.
 - Logging timestamp output has been changed from unix to ISO8601 to aid in readability. To keep the old unix format, you may set `LOG_UNIX_TS=true`
 - Added WebAuthn support for the Operator UI and corresponding support in the Go backend
@@ -277,149 +410,17 @@ Fixed `LOG_LEVEL` behavior in respect to the corresponding UI setting: Operator 
 
 This feature has been disabled by default, turn on with LOG_TO_DISK. For most production uses this is not desirable.
 
-#### Async support in external adapters
+## [1.0.1] - 2021-11-23
 
-External Adapters making async callbacks can now error job runs. This required a slight change to format, the correct way to callback from an asynchronous EA is using the following JSON:
+### Added
 
-SUCCESS CASE:
+- Improved error reporting
+- Panic and recovery improvements
 
-```json
-{
-    "value": < any valid json object >
-}
-```
+### Fixed
 
-ERROR CASE:
-
-
-```json
-{
-    "error": "some error string"
-}
-```
-
-This only applies to EAs using the `X-Chainlink-Pending` header to signal that the result will be POSTed back to the Chainlink node sometime 'later'. Regular synchronous calls to EAs work just as they always have done.
-
-(NOTE: Official documentation for EAs needs to be updated)
-
-#### New env vars
-
-`BLOCK_EMISSION_IDLE_WARNING_THRESHOLD` - Controls global override for the time after which node will start logging warnings if no heads are received.
-
-`ETH_DEFAULT_BATCH_SIZE` - Controls the default number of items per batch when making batched RPC calls. It is unlikely that you will need to change this from the default value.
-
-#### Removed env vars
-
-`FEATURE_CRON_V2`, `FEATURE_FLUX_MONITOR_V2`, `FEATURE_WEBHOOK_V2` - all V2 job types are now enabled by default.
-
-#### Multichain support added
-
-Chainlink now supports connecting to multiple different EVM chains simultaneously.
-
-This means that one node can run jobs on Goerli, Kovan, BSC and Mainnet (for example). Note that you can still have as many eth keys as you like, but each eth key is pegged to one chain only.
-
-Extensive efforts have been made to make migration for existing nops as seamless as possible. Generally speaking, you should not have to make any changes when upgrading your existing node to this version. All your jobs will continue to run as before.
-
-The overall summary of changes is such:
-
-##### Chains/Ethereum Nodes
-
-EVM chains are now represented as a first class object within the chainlink node. You can create/delete/list them using the CLI or API.
-
-Currently only a single primary node is supported, and one is required in order for a chain to connect. You may specify zero or more send-only nodes for a chain. In future, support for multiple primaries will be added.
-
-###### Creation
-
-```bash
-chainlink chains evm create -id 42 # creates an evm chain with chain ID 42 (see: https://chainlist.org/)
-chainlink nodes create -chain-id 42 -name 'my-primary-kovan-full-node' -type primary -ws-url ws://node.example/ws -http-url http://node.example/rpc # http-url is optional but recommended for primaries
-chainlink nodes create -chain-id 42 -name 'my-send-only-backup-kovan-node' -type sendonly -http-url http://some-public-node.example/rpc
-```
-
-###### Listing
-
-```bash
-chainlink chains evm list
-chainlink nodes list
-```
-
-###### Deletion
-
-```bash
-chainlink nodes delete 'my-send-only-backup-kovan-node'
-chainlink chains evm delete 42
-```
-
-###### USE_LEGACY_ETH_ENV_VARS
-
-The old way of specifying chains using environment variables is still supported but discouraged. It works as follows:
-
-If you specify `USE_LEGACY_ETH_ENV_VARS` (default: true) then the values of `ETH_CHAIN_ID`, `ETH_URL`, `ETH_HTTP_URL` and `ETH_SECONDARY_URLS` will be used to create/update chains and nodes representing these values in the database. If an existing chain/node is found it will be overwritten. This environment variable is used mainly to ease the process of upgrading, and on subsequent runs (once your old settings have been written to the database) it is recommended to run with `USE_LEGACY_ETH_ENV_VARS=false` and use the API commands exclusively to administer chains and nodes.
-
-##### Jobs/tasks
-
-By default, all jobs/tasks will continue to use the default chain (specified by `ETH_CHAIN_ID`). However, the following jobs now allow an additional `evmChainID` key in their TOML:
-
-- VRF
-- DirectRequest
-- Keeper
-- OCR
-- Fluxmonitor
-
-You can pin individual jobs to a particular chain by specifying the `evmChainID` explicitly. Here is an example job to demonstrate:
-
-```toml
-type            = "keeper"
-evmChainID      = 3
-schemaVersion   = 1
-name            = "example keeper spec"
-contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
-externalJobID   = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F49"
-fromAddress     = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-```
-
-The above keeper job will _always_ run on chain ID 3 (Ropsten) regardless of the `ETH_CHAIN_ID` setting. If no chain matching this ID has been added to the chainlink node, the job cannot be created (you must create the chain first).
-
-In addition, you can also specify `evmChainID` on certain pipeline tasks. This allows for cross-chain requests, for example:
-
-```toml
-type                = "directrequest"
-schemaVersion       = 1
-evmChainID          = 42
-name                = "example cross chain spec"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
-observationSource   = """
-    decode_log   [type=ethabidecodelog ... ]
-    ...
-    submit [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2" evmChainID="3"]
-    decode_log-> ... ->submit;
-"""
-```
-
-In the example above (which excludes irrelevant pipeline steps for brevity) a log can be read from the chain with ID 42 (Kovan) and a transaction emitted on chain with ID 3 (Ropsten).
-
-Tasks that support the `evmChainID` parameter are as follows:
-
-- `ethcall`
-- `estimategaslimit`
-- `ethtx`
-
-###### Defaults
-
-If the job- or task-specific `evmChainID` is _not_ given, the job/task will simply use the default as specified by the `ETH_CHAIN_ID` env variable.
-
-Generally speaking, the default config values for each chain are good enough. But in some cases it is necessary to be able to override the defaults on a per-chain basis.
-
-This used to be done via environment variables e.g. `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS`.
-
-These still work, but if set they will override that value for _all_ chains. This may not always be what you want. Consider a node that runs both Matic and Mainnet. You may want to set a higher value for `MINIMUM_CONTRACT_PAYMENT` on Mainnet, due to the more expensive gas costs. However, setting `MINIMUM_CONTRACT_PAYMENT_LINK_JUELS` using env variables will set that value for _all_ chains including matic.
-
-To help you work around this, Chainlink now supports setting per-chain configuration options.
-
-(the full list of chain-specific configuration options can be found in `core/chains/evm/config.go`)
-
-TODO: https://app.clubhouse.io/chainlinklabs/story/15455/add-cli-api-for-setting-chain-specific-config
+- Resolved config conversion errors for ETH_FINALITY_DEPTH, ETH_HEAD_TRACKER_HISTORY, and ETH_GAS_LIMIT_MULTIPLIER
+- Proper handling for "nonce too low" errors on Avalanche
 
 ## [1.0.0] - 2021-10-19
 
