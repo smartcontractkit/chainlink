@@ -23,9 +23,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr)
-    CrossDomainForwarder(l1OwnerAddr)
-  {
+  constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {
     require(address(crossDomainMessengerAddr) != address(0), "Invalid xDomain Messenger address");
     OVM_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
   }

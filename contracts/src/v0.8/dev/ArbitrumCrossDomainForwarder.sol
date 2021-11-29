@@ -17,7 +17,7 @@ contract ArbitrumCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {}
+  constructor(address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {}
 
   /**
    * @notice versions:

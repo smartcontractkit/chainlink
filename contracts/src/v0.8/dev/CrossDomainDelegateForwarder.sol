@@ -12,9 +12,5 @@ import "./interfaces/DelegateForwarderInterface.sol";
  *   can consider that position to be held by the `l1Owner`
  */
 abstract contract CrossDomainDelegateForwarder is DelegateForwarderInterface, CrossDomainOwnable {
-  /**
-   * @notice creates a new xDomain DelegateForwarder contract
-   * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
-   */
-  constructor(address l1OwnerAddr) CrossDomainOwnable(l1OwnerAddr) {}
+
 }
