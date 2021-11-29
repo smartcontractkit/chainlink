@@ -48,37 +48,44 @@ func InitLogger(newLogger Logger) {
 }
 
 // Warnw logs a debug message and any additional given information.
+// Deprecated
 func Warnw(msg string, keysAndValues ...interface{}) {
 	helper.Warnw(msg, keysAndValues...)
 }
 
 // Errorw logs an error message, any additional given information, and includes
 // stack trace.
+// Deprecated
 func Errorw(msg string, keysAndValues ...interface{}) {
 	helper.Errorw(msg, keysAndValues...)
 }
 
 // Warnf formats and then logs the message as Warn.
+// Deprecated
 func Warnf(format string, values ...interface{}) {
 	helper.Warnf(format, values...)
 }
 
 // Warn logs a message at the warn level.
+// Deprecated
 func Warn(args ...interface{}) {
 	helper.Warn(args...)
 }
 
 // Error logs an error message.
+// Deprecated
 func Error(args ...interface{}) {
 	helper.Error(args...)
 }
 
 // Errorf logs a message at the error level using Sprintf.
+// Deprecated
 func Errorf(format string, values ...interface{}) {
 	helper.Error(fmt.Sprintf(format, values...))
 }
 
 // Fatalf logs a message at the fatal level using Sprintf.
+// Deprecated
 func Fatalf(format string, values ...interface{}) {
 	helper.Fatal(fmt.Sprintf(format, values...))
 }
