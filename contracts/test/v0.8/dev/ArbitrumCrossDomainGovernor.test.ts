@@ -147,7 +147,7 @@ describe('ArbitrumCrossDomainGovernor', () => {
         governor
           .connect(crossdomainMessenger)
           .forward(greeter.address, setGreetingData),
-      ).to.be.revertedWith('Governor call reverted')
+      ).to.be.revertedWith('Invalid greeting length')
     })
   })
 
