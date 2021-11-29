@@ -9,8 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var ErrMissingJobID = errors.New("missing job ID")
-
 type TOMLWebhookSpecExternalInitiator struct {
 	Name string      `toml:"name"`
 	Spec models.JSON `toml:"spec"`
