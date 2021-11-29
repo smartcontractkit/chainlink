@@ -31,14 +31,18 @@ export const NodeView = ({ node, onDelete }: Props) => {
   const [confirmDelete, setConfirmDelete] = React.useState(false)
 
   return (
-    <Content>
-      <Grid container spacing={16}>
-        <Grid item xs={6}>
-          <Heading1>{node.name}</Heading1>
-        </Grid>
-      </Grid>
+    <>
+      <Content>
+        <Grid container spacing={16}>
+          <Grid item xs={12}>
+            <Heading1>{node.name}</Heading1>
+          </Grid>
 
-      <NodeCard node={node} onDelete={() => setConfirmDelete(true)} />
+          <Grid item xs={12}>
+            <NodeCard node={node} onDelete={() => setConfirmDelete(true)} />
+          </Grid>
+        </Grid>
+      </Content>
 
       <ConfirmationDialog
         open={confirmDelete}
@@ -52,6 +56,6 @@ export const NodeView = ({ node, onDelete }: Props) => {
         cancelButtonText="Cancel"
         onCancel={() => setConfirmDelete(false)}
       />
-    </Content>
+    </>
   )
 }
