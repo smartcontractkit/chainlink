@@ -552,14 +552,15 @@ func TestIntegration_OCR(t *testing.T) {
 	}
 	const bootstrapNodePort = 19999
 	tests := []struct {
+		id      int
 		name    string
 		eip1559 bool
 		ns      ocrnetworking.NetworkingStack
 	}{
-		{"legacy mode", false, ocrnetworking.NetworkingStackV1},
-		{"eip1559 mode", true, ocrnetworking.NetworkingStackV1},
-		{"legacy mode V1V2", false, ocrnetworking.NetworkingStackV1V2},
-		{"legacy mode V2", false, ocrnetworking.NetworkingStackV2},
+		{1, "legacy mode", false, ocrnetworking.NetworkingStackV1},
+		{2, "eip1559 mode", true, ocrnetworking.NetworkingStackV1},
+		{3, "legacy mode V1V2", false, ocrnetworking.NetworkingStackV1V2},
+		{4, "legacy mode V2", false, ocrnetworking.NetworkingStackV2},
 	}
 
 	for _, tt := range tests {
@@ -570,8 +571,7 @@ func TestIntegration_OCR(t *testing.T) {
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v_%v", test.eip1559, test.ns), b, test.ns)
-
+			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("b_%d", test.id), b, test.ns)
 			var (
 				oracles      []confighelper.OracleIdentityExtra
 				transmitters []common.Address
@@ -580,7 +580,7 @@ func TestIntegration_OCR(t *testing.T) {
 			)
 			for i := 0; i < 4; i++ {
 				port := bootstrapNodePort + 1 + i
-				app, peerID, transmitter, key, cfg := setupNode(t, owner, port, fmt.Sprintf("oracle%d_%v", i, test.eip1559), b, test.ns)
+				app, peerID, transmitter, key, cfg := setupNode(t, owner, port, fmt.Sprintf("o%d_%d", i, test.id), b, test.ns)
 				cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(flagsContractAddress.String())
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 				if test.ns != ocrnetworking.NetworkingStackV1 {
