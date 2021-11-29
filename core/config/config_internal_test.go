@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,39 +48,6 @@ func TestConfig_readFromFile(t *testing.T) {
 	assert.Equal(t, config.RootDir(), "../../tools/clroot/")
 	assert.Equal(t, config.Dev(), true)
 	assert.Equal(t, config.TLSPort(), uint16(0))
-}
-
-func TestStore_addressParser(t *testing.T) {
-	zero := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
-	fifteen := &common.Address{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15}
-
-	val, err := ParseAddress("")
-	assert.NoError(t, err)
-	assert.Equal(t, nil, val)
-
-	val, err = ParseAddress("0x000000000000000000000000000000000000000F")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = ParseAddress("0X000000000000000000000000000000000000000F")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = ParseAddress("0")
-	assert.NoError(t, err)
-	assert.Equal(t, zero, val)
-
-	val, err = ParseAddress("15")
-	assert.NoError(t, err)
-	assert.Equal(t, fifteen, val)
-
-	val, err = ParseAddress("0x0")
-	assert.Error(t, err)
-	assert.Nil(t, val)
-
-	val, err = ParseAddress("x")
-	assert.Error(t, err)
-	assert.Nil(t, val)
 }
 
 func TestStore_bigIntParser(t *testing.T) {

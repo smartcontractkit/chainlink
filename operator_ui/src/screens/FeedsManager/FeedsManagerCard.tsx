@@ -17,7 +17,11 @@ import green from '@material-ui/core/colors/green'
 import red from '@material-ui/core/colors/red'
 
 import { CopyIconButton } from 'src/components/Copy/CopyIconButton'
-import { DetailsCard } from 'src/components/Cards/DetailsCard'
+import {
+  DetailsCard,
+  DetailsCardItemTitle,
+  DetailsCardItemValue,
+} from 'src/components/Cards/DetailsCard'
 import { shortenHex } from 'src/utils/shortenHex'
 import { MenuItemLink } from 'src/components/MenuItemLink'
 
@@ -126,57 +130,37 @@ export const FeedsManagerCard = ({ manager }: Props) => {
     >
       <Grid container>
         <Grid item xs={12} sm={6} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            Status
-          </Typography>
+          <DetailsCardItemTitle title="Status" />
           <ConnectionStatus isConnected={manager.isConnectionActive} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            Name
-          </Typography>
-          <Typography variant="body1" noWrap>
-            {manager.name}
-          </Typography>
+          <DetailsCardItemTitle title="Name" />
+          <DetailsCardItemValue value={manager.name} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            Job Types
-          </Typography>
-          <Typography variant="body1" noWrap>
-            {jobTypes}
-          </Typography>
+          <DetailsCardItemTitle title="Job Types" />
+          <DetailsCardItemValue value={jobTypes} />
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
           {manager.isBootstrapPeer && (
             <>
-              <Typography variant="subtitle2" gutterBottom>
-                Bootstrap Multiaddress
-              </Typography>
-              <Typography variant="body1" noWrap>
-                {manager.bootstrapPeerMultiaddr}
-              </Typography>
+              <DetailsCardItemTitle title="Bootstrap Multiaddress" />
+              <DetailsCardItemValue value={manager.bootstrapPeerMultiaddr} />
             </>
           )}
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Typography variant="subtitle2" gutterBottom noWrap>
-            CSA Public Key
-          </Typography>
-          <Typography variant="body1" gutterBottom noWrap>
+          <DetailsCardItemTitle title="CSA Public Key" />
+          <DetailsCardItemValue>
             {shortenHex(manager.publicKey, { start: 6, end: 6 })}
             <CopyIconButton data={manager.publicKey} />
-          </Typography>
+          </DetailsCardItemValue>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Typography variant="subtitle2" gutterBottom>
-            RPC URL
-          </Typography>
-          <Typography variant="body1" noWrap>
-            {manager.uri}
-          </Typography>
+          <DetailsCardItemTitle title="RPC URL" />
+          <DetailsCardItemValue value={manager.uri} />
         </Grid>
       </Grid>
     </DetailsCard>

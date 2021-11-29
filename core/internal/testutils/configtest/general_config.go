@@ -24,11 +24,8 @@ import (
 	null "gopkg.in/guregu/null.v4"
 )
 
-const (
-	// RootDir the root directory for test
-	RootDir                    = "/tmp/chainlink_test"
-	HeadSamplingIntervalInTest = 0 * time.Millisecond
-)
+// RootDir the root directory for test
+const RootDir = "/tmp/chainlink_test"
 
 var _ config.GeneralConfig = &TestGeneralConfig{}
 

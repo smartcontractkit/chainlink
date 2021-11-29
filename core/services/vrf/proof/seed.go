@@ -4,10 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -27,16 +25,6 @@ func BigToSeed(x *big.Int) (Seed, error) {
 // Big returns the uint256 seed represented by s
 func (s *Seed) Big() *big.Int {
 	return common.Hash(*s).Big()
-}
-
-// BytesToSeed returns the Seed corresponding to b, or an error if b is too long
-func BytesToSeed(b []byte) (*Seed, error) {
-	if len(b) > 32 {
-		return nil, errors.Errorf("Seed representation can be at most 32 bytes, "+
-			"got %d", len(b))
-	}
-	seed := Seed(common.BytesToHash(b))
-	return &seed, nil
 }
 
 // PreSeedData contains the data the VRF provider needs to compute the final VRF

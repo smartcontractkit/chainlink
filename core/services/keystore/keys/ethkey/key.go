@@ -1,15 +1,9 @@
 package ethkey
 
 import (
-	"errors"
-	"io/ioutil"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/pg/datatypes"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -41,20 +35,4 @@ func (k Key) Type() string {
 		return "funding"
 	}
 	return "sending"
-}
-
-// NewKeyFromFile creates an instance in memory from a key file on disk.
-func NewKeyFromFile(path string) (Key, error) {
-	dat, err := ioutil.ReadFile(path)
-	if err != nil {
-		return Key{}, err
-	}
-
-	js := gjson.ParseBytes(dat)
-	address, err := NewEIP55Address(common.HexToAddress(js.Get("address").String()).Hex())
-	if err != nil {
-		return Key{}, multierr.Append(errors.New("unable to create Key model"), err)
-	}
-
-	return Key{Address: address, JSON: datatypes.JSON(dat)}, nil
 }
