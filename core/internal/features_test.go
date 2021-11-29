@@ -570,7 +570,7 @@ func TestIntegration_OCR(t *testing.T) {
 
 			// Note it's plausible these ports could be occupied on a CI machine.
 			// May need a port randomize + retry approach if we observe collisions.
-			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v", test.eip1559), b, test.ns)
+			appBootstrap, bootstrapPeerID, _, _, _ := setupNode(t, owner, bootstrapNodePort, fmt.Sprintf("bootstrap_%v_%v", test.eip1559, test.ns), b, test.ns)
 
 			var (
 				oracles      []confighelper.OracleIdentityExtra

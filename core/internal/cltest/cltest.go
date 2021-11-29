@@ -100,9 +100,9 @@ const (
 )
 
 var (
-	DefaultP2PPeerID     p2pkey.PeerID
-	FixtureChainID = *big.NewInt(0)
-	source         rand.Source
+	DefaultP2PPeerID p2pkey.PeerID
+	FixtureChainID   = *big.NewInt(0)
+	source           rand.Source
 
 	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
