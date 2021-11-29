@@ -75,8 +75,12 @@ type ChainConfig implements GeneralChainConfig {
     keySpecificConfigs: [KeySpecificChainConfig]!
 }
 
-type KeySpecificChainConfig implements GeneralChainConfig {
+type KeySpecificChainConfig {
     address: String!
+    config: ChainConfig!
+}
+
+input ChainConfigInput {
     blockHistoryEstimatorBlockDelay: Int
     blockHistoryEstimatorBlockHistorySize: Int
     ethTxReaperThreshold: String
@@ -105,4 +109,9 @@ type KeySpecificChainConfig implements GeneralChainConfig {
     minRequiredOutgoingConfirmations: Int
     minimumContractPayment: String
     ocrObservationTimeout: String
+}
+
+input KeySpecificChainConfigInput {
+    address: String!
+    config: ChainConfigInput!
 }
