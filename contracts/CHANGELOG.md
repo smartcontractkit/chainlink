@@ -6,6 +6,7 @@
 
 - Prettier Solidity formatting applied to v0.7 and above.
 - ERC677ReceiverInterface added in v0.8.
+- `KeeperBase.sol` and `KeeperCompatible.sol` in Solidity v0.6 and v0.8
 
 ### Changed:
 
