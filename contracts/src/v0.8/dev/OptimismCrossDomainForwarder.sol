@@ -16,15 +16,17 @@ import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
  */
 contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainForwarder {
   // OVM_L2CrossDomainMessenger is a precompile usually deployed to 0x4200000000000000000000000000000000000007
-  address private immutable OVM_CROSS_DOMAIN_MESSENGER;
+  iOVM_CrossDomainMessenger private immutable OVM_CROSS_DOMAIN_MESSENGER;
 
   /**
    * @notice creates a new Optimism xDomain Forwarder contract
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address crossDomainMessengerAddr, address l1OwnerAddr) CrossDomainForwarder(l1OwnerAddr) {
-    require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
+  constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr)
+    CrossDomainForwarder(l1OwnerAddr)
+  {
+    require(address(crossDomainMessengerAddr) != address(0), "Invalid xDomain Messenger address");
     OVM_CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
   }
 
@@ -52,7 +54,7 @@ contract OptimismCrossDomainForwarder is TypeAndVersionInterface, CrossDomainFor
    * @notice This is always the address of the OVM_L2CrossDomainMessenger contract
    */
   function crossDomainMessenger() public view returns (address) {
-    return OVM_CROSS_DOMAIN_MESSENGER;
+    return address(OVM_CROSS_DOMAIN_MESSENGER);
   }
 
   /**

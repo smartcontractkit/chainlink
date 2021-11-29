@@ -18,7 +18,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    */
-  constructor(address crossDomainMessengerAddr, address l1OwnerAddr)
+  constructor(iOVM_CrossDomainMessenger crossDomainMessengerAddr, address l1OwnerAddr)
     OptimismCrossDomainForwarder(crossDomainMessengerAddr, l1OwnerAddr)
   {}
 
