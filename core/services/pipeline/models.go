@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -143,13 +143,17 @@ func (re RunErrors) HasError() bool {
 // ToError coalesces all non-nil errors into a single error object.
 // This is useful for logging.
 func (re RunErrors) ToError() error {
-	msgBuilder := strings.Builder{}
-	for i, e := range re {
-		if !e.IsZero() {
-			msgBuilder.WriteString(fmt.Sprintf("error %d (%s), ", i+1, e.String))
+	toErr := func(ns null.String) error {
+		if !ns.IsZero() {
+			return errors.New(ns.String)
 		}
+		return nil
 	}
-	return errors.New(msgBuilder.String())
+	errs := []error{}
+	for _, e := range re {
+		errs = append(errs, toErr(e))
+	}
+	return multierr.Combine(errs...)
 }
 
 type ResumeRequest struct {
