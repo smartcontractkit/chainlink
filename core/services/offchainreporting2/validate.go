@@ -3,6 +3,8 @@ package offchainreporting2
 import (
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -41,6 +43,10 @@ func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job,
 		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 	jb.Offchainreporting2OracleSpec = &spec
+	if jb.Offchainreporting2OracleSpec.P2PBootstrapPeers == nil {
+		// Empty but non-null, field is non-nullable.
+		jb.Offchainreporting2OracleSpec.P2PBootstrapPeers = pq.StringArray{}
+	}
 
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	if jb.Type != job.OffchainReporting2 {

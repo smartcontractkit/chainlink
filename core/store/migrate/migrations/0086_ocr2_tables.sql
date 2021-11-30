@@ -4,7 +4,7 @@ CREATE TABLE offchainreporting2_oracle_specs (
      id SERIAL PRIMARY KEY,
      contract_address bytea NOT NULL,
      p2p_peer_id text,
-     p2p_bootstrap_peers text[],
+     p2p_bootstrap_peers text[] NOT NULL DEFAULT '{}',
      is_bootstrap_peer boolean NOT NULL,
      encrypted_ocr_key_bundle_id bytea,
      monitoring_endpoint text,
