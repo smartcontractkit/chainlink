@@ -207,3 +207,36 @@ func NewCreateJobSuccess(app chainlink.Application, job *job.Job) *CreateJobSucc
 func (r *CreateJobSuccessResolver) Job() *JobResolver {
 	return NewJob(r.app, *r.j)
 }
+
+// -- DeleteJob Mutation --
+
+type DeleteJobPayloadResolver struct {
+	j *job.Job
+	NotFoundErrorUnionType
+}
+
+func NewDeleteJobPayload(j *job.Job, err error) *DeleteJobPayloadResolver {
+	e := NotFoundErrorUnionType{err: err, message: "job not found"}
+
+	return &DeleteJobPayloadResolver{j: j, NotFoundErrorUnionType: e}
+}
+
+func (r *DeleteJobPayloadResolver) ToDeleteJobSuccess() (*DeleteJobSuccessResolver, bool) {
+	if r.j == nil {
+		return nil, false
+	}
+
+	return NewDeleteJobSuccess(r.j), true
+}
+
+type DeleteJobSuccessResolver struct {
+	j *job.Job
+}
+
+func NewDeleteJobSuccess(job *job.Job) *DeleteJobSuccessResolver {
+	return &DeleteJobSuccessResolver{j: job}
+}
+
+func (r *DeleteJobSuccessResolver) Job() *JobResolver {
+	return NewJob(*r.j)
+}

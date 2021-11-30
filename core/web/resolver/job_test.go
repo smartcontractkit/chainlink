@@ -352,3 +352,107 @@ func TestResolver_CreateJob(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_DeleteJob(t *testing.T) {
+	t.Parallel()
+
+	id := int32(123)
+	extJID := uuid.NewV4()
+	mutation := `
+		mutation DeleteJob($id: ID!) {
+			deleteJob(id: $id) {
+				... on DeleteJobSuccess {
+					job {
+						id
+						createdAt
+						externalJobID
+						maxTaskDuration
+						name
+						schemaVersion
+					}
+				}
+				... on NotFoundError {
+						code
+						message
+					}
+				}
+		}`
+	variables := map[string]interface{}{
+		"id": "123",
+	}
+	d, err := json.Marshal(map[string]interface{}{
+		"deleteJob": map[string]interface{}{
+			"job": map[string]interface{}{
+				"id":              "123",
+				"maxTaskDuration": "2s",
+				"name":            "test-job",
+				"schemaVersion":   0,
+				"createdAt":       "2021-01-01T00:00:00Z",
+				"externalJobID":   extJID.String(),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteJob"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{
+					ID:              id,
+					Name:            null.StringFrom("test-job"),
+					ExternalJobID:   extJID,
+					MaxTaskDuration: models.Interval(2 * time.Second),
+					CreatedAt:       f.Timestamp(),
+				}, nil)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.App.On("DeleteJob", mock.Anything, id).Return(nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "not found on FindJob()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{}, sql.ErrNoRows)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteJob": {
+						"code": "NOT_FOUND",
+						"message": "job not found"
+					}
+				}
+			`,
+		},
+		{
+			name:          "not found on DeleteJob()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{}, nil)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.App.On("DeleteJob", mock.Anything, id).Return(sql.ErrNoRows)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"deleteJob": {
+						"code": "NOT_FOUND",
+						"message": "job not found"
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

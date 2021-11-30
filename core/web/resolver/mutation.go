@@ -978,3 +978,36 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 
 	return NewCreateJobPayload(r.App, &jb, nil), nil
 }
+
+func (r *Resolver) DeleteJob(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteJobPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	id, err := stringutils.ToInt32(string(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	j, err := r.App.JobORM().FindJobTx(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.DeleteJob(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteJobPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteJobPayload(&j, nil), nil
+}
