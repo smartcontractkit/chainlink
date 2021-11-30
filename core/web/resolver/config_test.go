@@ -5,7 +5,7 @@ import (
 
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
 func TestResolver_Config(t *testing.T) {
@@ -30,7 +30,7 @@ func TestResolver_Config(t *testing.T) {
 				// Using the default config value for now just to validate that it works
 				// Mocking this would require complying to the whole interface
 				// Which means mocking each method here, which I'm not sure we would like to do
-				cfg := cltest.NewTestGeneralConfig(t)
+				cfg := configtest.NewTestGeneralConfig(t)
 				cfg.Overrides.EVMDisabled = null.BoolFrom(true)
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")
 
