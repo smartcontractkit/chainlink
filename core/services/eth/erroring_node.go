@@ -106,3 +106,7 @@ func (e *erroringNode) EthSubscribe(ctx context.Context, channel interface{}, ar
 func (e *erroringNode) String() string {
 	return "<erroring node>"
 }
+
+func (e *erroringNode) State() NodeState {
+	return NodeStateDead
+}

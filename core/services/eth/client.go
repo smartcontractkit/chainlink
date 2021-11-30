@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-//go:generate mockery --name Client --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name Client --output mocks/ --case=underscore
 //go:generate mockery --name Subscription --output ../../internal/mocks/ --case=underscore
 
