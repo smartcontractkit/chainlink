@@ -63,6 +63,7 @@ func NewEmbedFileSystem(efs embed.FS, pathPrefix string) ServeFileSystem {
 func (e *EmbedFileSystem) Exists(prefix string, filepath string) bool {
 	found := false
 	if p := path.Base(strings.TrimPrefix(filepath, prefix)); len(p) < len(filepath) {
+		//nolint:errcheck
 		fs.WalkDir(e.FS, ".", func(fpath string, d fs.DirEntry, err error) error {
 			fileName := path.Base(fpath)
 			if fileName == p {
