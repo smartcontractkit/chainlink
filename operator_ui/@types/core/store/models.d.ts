@@ -165,18 +165,6 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
-  //#region ocrkey/key_bundle.go
-
-  /**
-   * OcrKey represents the bundle of keys needed for OCR
-   */
-
-  export interface OcrKey {
-    configPublicKey: string
-    offChainPublicKey: string
-    onChainSigningAddress: common.Address
-  }
-  //#endregion ocrkey/key_bundle.go
   //#region p2pKey/p2p_key.go
 
   /**

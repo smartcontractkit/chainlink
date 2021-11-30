@@ -4,7 +4,6 @@ import { Chains } from './chains'
 import { Config } from './config'
 import { Features } from './features'
 import { Jobs } from './jobs'
-import { OcrKeys } from './ocrKeys'
 import { P2PKeys } from './p2pKeys'
 import { Runs } from './runs'
 import { Transactions } from './transactions'
@@ -23,7 +22,6 @@ export class V2 {
   public logConfig = new LogConfig(this.api)
   public nodes = new Nodes(this.api)
   public jobs = new Jobs(this.api)
-  public ocrKeys = new OcrKeys(this.api)
   public p2pKeys = new P2PKeys(this.api)
   public runs = new Runs(this.api)
   public transactions = new Transactions(this.api)

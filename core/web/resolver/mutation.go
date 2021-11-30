@@ -320,7 +320,7 @@ func (r *Resolver) CreateOCRKeyBundle(ctx context.Context) (*CreateOCRKeyBundleP
 		return nil, err
 	}
 
-	return NewCreateOCRKeyBundlePayloadResolver(key), nil
+	return NewCreateOCRKeyBundlePayload(&key), nil
 }
 
 func (r *Resolver) DeleteOCRKeyBundle(ctx context.Context, args struct {
