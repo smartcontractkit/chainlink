@@ -238,6 +238,9 @@ type GlobalConfig interface {
 	GlobalMinRequiredOutgoingConfirmations() (uint64, bool)
 	GlobalMinimumContractPayment() (*assets.Link, bool)
 	GlobalOCRContractConfirmations() (uint16, bool)
+	GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool)
+	GlobalOCRDatabaseTimeout() (time.Duration, bool)
+	GlobalOCRObservationGracePeriod() (time.Duration, bool)
 }
 
 type GeneralConfig interface {
@@ -813,7 +816,7 @@ func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
 }
 
 func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", ParseDuration).(time.Duration)
+	return c.getDuration("OCRContractTransmitterTransmitTimeout")
 }
 
 func (c *generalConfig) getDuration(field string) time.Duration {
@@ -841,7 +844,7 @@ func (c *generalConfig) OCRContractPollInterval() time.Duration {
 }
 
 func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
-	return c.getWithFallback("OCRDatabaseTimeout", ParseDuration).(time.Duration)
+	return c.getDuration("OCRDatabaseTimeout")
 }
 
 func (c *generalConfig) OCRDHTLookupInterval() int {
@@ -1584,6 +1587,27 @@ func (*generalConfig) GlobalMinimumContractPayment() (*assets.Link, bool) {
 		return nil, false
 	}
 	return val.(*assets.Link), ok
+}
+func (*generalConfig) GlobalOCRContractTransmitterTransmitTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRContractTransmitterTransmitTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRDatabaseTimeout() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRDatabaseTimeout"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
+}
+func (*generalConfig) GlobalOCRObservationGracePeriod() (time.Duration, bool) {
+	val, ok := lookupEnv(EnvVarName("OCRObservationGracePeriod"), ParseDuration)
+	if val == nil {
+		return 0, false
+	}
+	return val.(time.Duration), ok
 }
 func (*generalConfig) GlobalOCRContractConfirmations() (uint16, bool) {
 	val, ok := lookupEnv(EnvVarName("OCRContractConfirmations"), ParseUint16)

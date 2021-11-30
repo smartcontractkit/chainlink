@@ -66,6 +66,8 @@ type ChainScopedOnlyConfig interface {
 	MinRequiredOutgoingConfirmations() uint64
 	MinimumContractPayment() *assets.Link
 	OCRContractConfirmations() uint16
+	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRDatabaseTimeout() time.Duration
 	SetEvmGasPriceDefault(value *big.Int) error
 }
 
@@ -707,6 +709,33 @@ func (c *chainScopedConfig) OCRContractConfirmations() uint16 {
 		return val
 	}
 	return c.defaultSet.ocrContractConfirmations
+}
+
+func (c *chainScopedConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
+	val, ok := c.GeneralConfig.GlobalOCRContractTransmitterTransmitTimeout()
+	if ok {
+		c.logEnvOverrideOnce("OCRContractTransmitterTransmitTimeout", val)
+		return val
+	}
+	return c.defaultSet.ocrContractTransmitterTransmitTimeout
+}
+
+func (c *chainScopedConfig) OCRDatabaseTimeout() time.Duration {
+	val, ok := c.GeneralConfig.GlobalOCRDatabaseTimeout()
+	if ok {
+		c.logEnvOverrideOnce("OCRDatabaseTimeout", val)
+		return val
+	}
+	return c.defaultSet.ocrDatabaseTimeout
+}
+
+func (c *chainScopedConfig) OCRObservationGracePeriod() time.Duration {
+	val, ok := c.GeneralConfig.GlobalOCRObservationGracePeriod()
+	if ok {
+		c.logEnvOverrideOnce("OCRObservationGracePeriod", val)
+		return val
+	}
+	return c.defaultSet.ocrObservationGracePeriod
 }
 
 // MinIncomingConfirmations represents the minimum number of block
