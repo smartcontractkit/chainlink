@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/chains"
@@ -59,7 +60,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	var batchSize uint32 = 0
 	var blockDelay uint16 = 0
 	var historySize uint16 = 2
-	var ethFinalityDepth uint32 = 42
 	var percentile uint16 = 35
 	minGasPrice := big.NewInt(1)
 
@@ -67,7 +67,6 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
 	config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
 	config.On("BlockHistoryEstimatorTransactionPercentile").Maybe().Return(percentile)
-	config.On("EvmFinalityDepth").Return(ethFinalityDepth)
 	config.On("EvmGasLimitMultiplier").Maybe().Return(float32(1))
 	config.On("EvmMinGasPriceWei").Maybe().Return(minGasPrice)
 	config.On("EvmEIP1559DynamicFees").Maybe().Return(true)
@@ -230,7 +229,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		config := newConfigWithEIP1559DynamicFeesEnabled(t)
 		bhe := newBlockHistoryEstimator(t, ethClient, config)
 
-		var blockDelay uint16 = 1
+		var blockDelay uint16 = 0
 		var historySize uint16 = 3
 		var batchSize uint32 = 2
 		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
@@ -256,17 +255,17 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x28" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
-		})).Return(nil).Run(func(args mock.Arguments) {
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
+		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b41 // This errored block will be ignored
 			elems[1].Error = errors.New("something went wrong")
 		})
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{})
-		})).Return(nil).Run(func(args mock.Arguments) {
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{})
+		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
 		})
@@ -276,6 +275,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		assert.Len(t, bhe.RollingBlockHistory(), 2)
 		assert.Equal(t, 41, int(bhe.RollingBlockHistory()[0].Number))
+		// 42 is missing because the fetch errored
 		assert.Equal(t, 43, int(bhe.RollingBlockHistory()[1].Number))
 		assert.Len(t, bhe.RollingBlockHistory()[0].Transactions, 2)
 		assert.Len(t, bhe.RollingBlockHistory()[1].Transactions, 0)
@@ -290,27 +290,25 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 			Transactions: cltest.LegacyTransactionsFromGasPrices(4),
 		}
 
+		// We are gonna refetch blocks 42 and 44
+		// 43 is skipped because it was already in the history
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
-		})).Return(nil).Run(func(args mock.Arguments) {
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(44) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
+		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b42
-			elems[1].Result = &b43
-		})
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2b" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{})
-		})).Return(nil).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			elems[0].Result = &b44
+			elems[1].Result = &b44
 		})
 
-		err = bhe.FetchBlocks(context.Background(), cltest.Head(44))
+		head := eth.NewHead(big.NewInt(44), b44.Hash, b43.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		err = bhe.FetchBlocks(context.Background(), &head)
 		require.NoError(t, err)
 
-		assert.Len(t, bhe.RollingBlockHistory(), 3)
+		ethClient.AssertExpectations(t)
+
+		require.Len(t, bhe.RollingBlockHistory(), 3)
 		assert.Equal(t, 42, int(bhe.RollingBlockHistory()[0].Number))
 		assert.Equal(t, 43, int(bhe.RollingBlockHistory()[1].Number))
 		assert.Equal(t, 44, int(bhe.RollingBlockHistory()[2].Number))
@@ -318,7 +316,139 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		assert.Len(t, bhe.RollingBlockHistory()[1].Transactions, 0)
 		assert.Len(t, bhe.RollingBlockHistory()[2].Transactions, 1)
 
+		config.AssertExpectations(t)
+	})
+
+	t.Run("does not refetch blocks below EVM_FINALITY_DEPTH", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		var blockDelay uint16 = 0
+		var historySize uint16 = 3
+		var batchSize uint32 = 2
+		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
+		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
+		config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
+
+		b0 := gas.Block{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9001),
+		}
+		b1 := gas.Block{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9002),
+		}
+		blocks := []gas.Block{b0, b1}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		b2 := gas.Block{
+			Number:       2,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+		b3 := gas.Block{
+			Number:       3,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(2) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(3) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
+		})).Once().Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b2
+			elems[1].Result = &b3
+		})
+
+		head2 := eth.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := eth.NewHead(big.NewInt(3), b3.Hash, b2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3.Parent = &head2
+		err := bhe.FetchBlocks(context.Background(), &head3)
+		require.NoError(t, err)
+
+		require.Len(t, bhe.RollingBlockHistory(), 3)
+		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
+		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
+		assert.Equal(t, 3, int(bhe.RollingBlockHistory()[2].Number))
+
 		ethClient.AssertExpectations(t)
+		config.AssertExpectations(t)
+	})
+
+	t.Run("replaces blocks on re-org within EVM_FINALITY_DEPTH", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		var blockDelay uint16 = 0
+		var historySize uint16 = 3
+		var batchSize uint32 = 2
+		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
+		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
+		config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
+
+		b0 := gas.Block{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9001),
+		}
+		b1 := gas.Block{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9002),
+		}
+		b2 := gas.Block{
+			Number:       2,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+		b3 := gas.Block{
+			Number:       3,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+		blocks := []gas.Block{b0, b1, b2, b3}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		// RE-ORG, head2 and head3 have different hash than saved b2 and b3
+		head2 := eth.NewHead(big.NewInt(2), utils.NewHash(), b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := eth.NewHead(big.NewInt(3), utils.NewHash(), head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3.Parent = &head2
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(2) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&gas.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(3) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&gas.Block{})
+		})).Once().Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			b2New := b2
+			b2New.Hash = head2.Hash
+			elems[0].Result = &b2New
+			b3New := b3
+			b3New.Hash = head3.Hash
+			elems[1].Result = &b3New
+		})
+
+		err := bhe.FetchBlocks(context.Background(), &head3)
+		require.NoError(t, err)
+
+		ethClient.AssertExpectations(t)
+
+		require.Len(t, bhe.RollingBlockHistory(), 3)
+		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
+		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
+		assert.Equal(t, 3, int(bhe.RollingBlockHistory()[2].Number))
+		assert.Equal(t, b1.Hash.Hex(), bhe.RollingBlockHistory()[0].Hash.Hex())
+		assert.Equal(t, head2.Hash.Hex(), bhe.RollingBlockHistory()[1].Hash.Hex())
+		assert.Equal(t, head3.Hash.Hex(), bhe.RollingBlockHistory()[2].Hash.Hex())
+
 		config.AssertExpectations(t)
 	})
 }
