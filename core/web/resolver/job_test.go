@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 // This tests the main fields on the job results. Embedded spec testing is done
@@ -380,6 +381,9 @@ func TestResolver_DeleteJob(t *testing.T) {
 	variables := map[string]interface{}{
 		"id": "123",
 	}
+	invalidVariables := map[string]interface{}{
+		"id": "asdadada",
+	}
 	d, err := json.Marshal(map[string]interface{}{
 		"deleteJob": map[string]interface{}{
 			"job": map[string]interface{}{
@@ -394,6 +398,9 @@ func TestResolver_DeleteJob(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	expected := string(d)
+
+	gError := errors.New("error")
+	_, idError := stringutils.ToInt64("asdadada")
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "deleteJob"),
@@ -451,6 +458,60 @@ func TestResolver_DeleteJob(t *testing.T) {
 					}
 				}
 			`,
+		},
+		{
+			name:          "generic error on FindJob()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{}, gError)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"deleteJob"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+		{
+			name:          "generic error on DeleteJob()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindJobTx", id).Return(job.Job{}, nil)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.App.On("DeleteJob", mock.Anything, id).Return(gError)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"deleteJob"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+		{
+			name:          "error on ID parsing",
+			authenticated: true,
+			query:         mutation,
+			variables:     invalidVariables,
+			result:        `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: idError,
+					Path:          []interface{}{"deleteJob"},
+					Message:       idError.Error(),
+				},
+			},
 		},
 	}
 
