@@ -114,6 +114,11 @@ telemetry-protobuf: $(telemetry-protobuf)
 	--go-wsrpc_opt=paths=source_relative \
 	./core/services/synchronization/telem/*.proto
 
+.PHONY: test_smoke
+test_smoke: # Run integration smoke tests
+	ginkgo -v -r --junit-report=tests-smoke-report.xml --keep-going --trace --randomize-all --randomize-suites --progress $(args) ./integration-tests/smoke 
+
+
 help:
 	@echo ""
 	@echo "         .__           .__       .__  .__        __"
