@@ -231,13 +231,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
-var emptyHash = common.Hash{}
-
-// Unconfirmed returns true if the transaction is not confirmed.
-func ReceiptIsUnconfirmed(txr *types.Receipt) bool {
-	return txr == nil || txr.TxHash == emptyHash || txr.BlockNumber == nil
-}
-
 // ChainlinkFulfilledTopic is the signature for the event emitted after calling
 // ChainlinkClient.validateChainlinkCallback(requestId). See
 // ../../contracts/src/v0.6/ChainlinkClient.sol

@@ -6,6 +6,7 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
+import Typography from '@material-ui/core/Typography'
 
 import Paper from '@material-ui/core/Paper'
 
@@ -50,4 +51,22 @@ export const DetailsCard = withStyles(styles)(
       </Paper>
     )
   },
+)
+
+// DetailsCardItemTitle provides default styles for an item title in the details
+// card
+export const DetailsCardItemTitle = ({ title }: { title: string }) => (
+  <Typography variant="subtitle2" gutterBottom>
+    {title}
+  </Typography>
+)
+
+// DetailsCardItemValue provides default styles for an item value in the details
+// card.
+export const DetailsCardItemValue: React.FC<{
+  value?: string | number | null
+}> = ({ children, value }) => (
+  <Typography variant="body1" noWrap>
+    {children ? children : value}
+  </Typography>
 )

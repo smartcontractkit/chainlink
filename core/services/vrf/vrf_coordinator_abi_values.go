@@ -12,22 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 )
 
-// VRFCoordinatorABI returns the ABI for the VRFCoordinator contract
-func VRFCoordinatorABI() abi.ABI {
-	return coordinatorABIValues().coordinatorABI
-}
-
-// VRFFulfillMethod returns the golang abstraction of the fulfillRandomnessRequest method
-func VRFFulfillMethod() abi.Method {
-	return coordinatorABIValues().fulfillMethod
-}
-
-// VRFFulfillSelector returns the signature of the fulfillRandomnessRequest method
-// on the VRFCoordinator contract
-func VRFFulfillSelector() string {
-	return coordinatorABIValues().fulfillSelector
-}
-
 // VRFRandomnessRequestLogTopic returns the signature of the RandomnessRequest log
 // emitted by the VRFCoordinator contract
 func VRFRandomnessRequestLogTopic() common.Hash {

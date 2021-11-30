@@ -17,15 +17,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
-	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
@@ -34,6 +30,14 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	uuid "github.com/satori/go.uuid"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+	null "gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/bridges"
@@ -42,12 +46,14 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/config"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/gas"
 	httypes "github.com/smartcontractkit/chainlink/core/services/headtracker/types"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -69,16 +75,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	webauth "github.com/smartcontractkit/chainlink/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
-	null "gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
@@ -92,28 +88,18 @@ const (
 	// APIEmail is the email of the fixture API user
 	APIEmail = "apiuser@chainlink.test"
 	// Password just a password we use everywhere for testing
-	Password    = "p4SsW0rD1!@#_"
-	VRFPassword = "testingpassword"
+	Password = "p4SsW0rD1!@#_"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKeyFixtureFileName is the filename of the fixture key
-	DefaultKeyFixtureFileName = "testkey-0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4.json"
-	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
-	DefaultKeyJSON = `{"address":"F67D0290337bca0847005C7ffD1BC75BA9AAE6e4","crypto":{"cipher":"aes-128-ctr","ciphertext":"9c3565050ba4e10ea388bcd17d77c141441ce1be5db339f0201b9ed733d780c6","cipherparams":{"iv":"f968fc947495646ee8b5dbaadb242ec0"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"33ad88742a983dfeb8adcc9a39fdde4cb47f7e23ea2ef80b35723d940959e3fd"},"mac":"b3747959cbbb9b26f861ab82d69154b4ec8108bbac017c1341f6fd3295beceaf"},"id":"8c79a654-96b1-45d9-8978-3efa07578011","version":3}`
 	// DefaultPeerID is the peer ID of the default p2p key
 	DefaultPeerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
-	// A peer ID without an associated p2p key.
-	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the default ocr key bundle
 	DefaultOCRKeyBundleID = "f5bf259689b26f1374efb3c9a9868796953a0f814bb2d39b968d0e61b58620a5"
 )
 
 var (
-	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
-	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
-	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	FixtureChainID              = *big.NewInt(0)
-	source                      rand.Source
+	FixtureChainID = *big.NewInt(0)
+	source         rand.Source
 
 	DefaultCSAKey = csakey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	DefaultOCRKey = ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
@@ -461,13 +447,13 @@ func NewApplicationWithConfig(t testing.TB, cfg *configtest.TestGeneralConfig, f
 	return ta
 }
 
-func NewEthMocksWithDefaultChain(t testing.TB) (c *mocks.Client, s *mocks.Subscription, f func()) {
+func NewEthMocksWithDefaultChain(t testing.TB) (c *ethmocks.Client, s *mocks.Subscription, f func()) {
 	c, s, f = NewEthMocks(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return
 }
 
-func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
 	c, s := NewEthClientAndSubMock(t)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
@@ -482,33 +468,33 @@ func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
 	return c, s, assertMocksCalled
 }
 
-func NewEthClientAndSubMock(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+func NewEthClientAndSubMock(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
 	mockSub := new(mocks.Subscription)
 	mockSub.Test(t)
-	mockEth := new(mocks.Client)
+	mockEth := new(ethmocks.Client)
 	mockEth.Test(t)
 	return mockEth, mockSub
 }
 
-func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*mocks.Client, *mocks.Subscription) {
+func NewEthClientAndSubMockWithDefaultChain(t mock.TestingT) (*ethmocks.Client, *mocks.Subscription) {
 	mockEth, mockSub := NewEthClientAndSubMock(t)
 	mockEth.On("ChainID").Return(&FixtureChainID).Maybe()
 	return mockEth, mockSub
 }
 
-func NewEthClientMock(t mock.TestingT) *mocks.Client {
-	mockEth := new(mocks.Client)
+func NewEthClientMock(t mock.TestingT) *ethmocks.Client {
+	mockEth := new(ethmocks.Client)
 	mockEth.Test(t)
 	return mockEth
 }
 
-func NewEthClientMockWithDefaultChain(t testing.TB) *mocks.Client {
+func NewEthClientMockWithDefaultChain(t testing.TB) *ethmocks.Client {
 	c := NewEthClientMock(t)
 	c.On("ChainID").Return(&FixtureChainID).Maybe()
 	return c
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+func NewEthMocksWithStartupAssertions(t testing.TB) (*ethmocks.Client, *mocks.Subscription, func()) {
 	c, s, assertMocksCalled := NewEthMocks(t)
 	c.On("Dial", mock.Anything).Maybe().Return(nil)
 	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(t), nil)
@@ -530,12 +516,6 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subsc
 func newServer(app chainlink.Application) *httptest.Server {
 	engine := web.Router(app, nil)
 	return httptest.NewServer(engine)
-}
-
-func (ta *TestApplication) NewBox() packr.Box {
-	ta.t.Helper()
-
-	return packr.NewBox("../fixtures/operator_ui/dist")
 }
 
 // Start starts the chainlink app and registers Stop to clean up at end of test.
@@ -859,28 +839,6 @@ func CreateJobRunViaExternalInitiatorV2(
 	return pr
 }
 
-// CreateBridgeTypeViaWeb creates a bridgetype via web using /v2/bridge_types
-func CreateBridgeTypeViaWeb(
-	t testing.TB,
-	app *TestApplication,
-	payload string,
-) *webpresenters.BridgeResource {
-	t.Helper()
-
-	client := app.NewHTTPClient()
-	resp, cleanup := client.Post(
-		"/v2/bridge_types",
-		bytes.NewBufferString(payload),
-	)
-	defer cleanup()
-	AssertServerResponse(t, resp, http.StatusOK)
-	bt := &webpresenters.BridgeResource{}
-	err := ParseJSONAPIResponse(t, resp, bt)
-	require.NoError(t, err)
-
-	return bt
-}
-
 // CreateExternalInitiatorViaWeb creates a bridgetype via web using /v2/bridge_types
 func CreateExternalInitiatorViaWeb(
 	t testing.TB,
@@ -1014,27 +972,6 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []bulletp
 	return txas
 }
 
-// ParseISO8601 given the time string it Must parse the time and return it
-func ParseISO8601(t testing.TB, s string) time.Time {
-	t.Helper()
-
-	tm, err := time.Parse(time.RFC3339Nano, s)
-	require.NoError(t, err)
-	return tm
-}
-
-// NullableTime will return a valid nullable time given time.Time
-func NullableTime(t time.Time) null.Time {
-	return null.TimeFrom(t)
-}
-
-// ParseNullableTime given a time string parse it into a null.Time
-func ParseNullableTime(t testing.TB, s string) null.Time {
-	t.Helper()
-
-	return NullableTime(ParseISO8601(t, s))
-}
-
 // Head given the value convert it into an Head
 func Head(val interface{}) *eth.Head {
 	var h eth.Head
@@ -1073,16 +1010,6 @@ func DynamicFeeTransactionsFromTipCaps(tipCaps ...int64) []gas.Transaction {
 	return txs
 }
 
-// BlockWithTransactions returns a new ethereum block with transactions
-// matching the given gas prices
-func BlockWithTransactions(gasPrices ...int64) *types.Block {
-	txs := make([]*types.Transaction, len(gasPrices))
-	for i, gasPrice := range gasPrices {
-		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
-	}
-	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
-}
-
 type TransactionReceipter interface {
 	TransactionReceipt(context.Context, common.Hash) (*types.Receipt, error)
 }
@@ -1094,10 +1021,6 @@ func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash commo
 	require.NotNil(t, r)
 	require.Equal(t, uint64(1), r.Status)
 	return r
-}
-
-func StringToHash(s string) common.Hash {
-	return common.BytesToHash([]byte(s))
 }
 
 // AssertServerResponse is used to match against a client response, will print
@@ -1151,14 +1074,6 @@ func MustGenerateSessionCookie(t testing.TB, value string) *http.Cookie {
 		logger.TestLogger(t).Panic(err)
 	}
 	return sessions.NewCookie(webauth.SessionName, encoded, &sessions.Options{})
-}
-
-func NormalizedJSON(t testing.TB, input []byte) string {
-	t.Helper()
-
-	normalized, err := utils.NormalizedJSON(input)
-	require.NoError(t, err)
-	return normalized
 }
 
 func AssertError(t testing.TB, want bool, err error) {
@@ -1290,44 +1205,6 @@ func MustParseURL(t *testing.T, input string) *url.URL {
 	return u
 }
 
-func MakeRoundStateReturnData(
-	roundID uint64,
-	eligible bool,
-	answer, startAt, timeout, availableFunds, paymentAmount, oracleCount uint64,
-) []byte {
-	var data []byte
-	if eligible {
-		data = append(data, utils.EVMWordUint64(1)...)
-	} else {
-		data = append(data, utils.EVMWordUint64(0)...)
-	}
-	data = append(data, utils.EVMWordUint64(roundID)...)
-	data = append(data, utils.EVMWordUint64(answer)...)
-	data = append(data, utils.EVMWordUint64(startAt)...)
-	data = append(data, utils.EVMWordUint64(timeout)...)
-	data = append(data, utils.EVMWordUint64(availableFunds)...)
-	data = append(data, utils.EVMWordUint64(oracleCount)...)
-	data = append(data, utils.EVMWordUint64(paymentAmount)...)
-	return data
-}
-
-var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
-
-func MockFluxAggCall(client *mocks.Client, address common.Address, funcName string) *mock.Call {
-	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
-	if len(funcSig) != 10 {
-		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
-	}
-	return client.On(
-		"CallContract",
-		mock.Anything,
-		mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
-			return *callArgs.To == address &&
-				hexutil.Encode(callArgs.Data)[0:10] == funcSig
-		}),
-		mock.Anything)
-}
-
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
 // logs.
 type EthereumLogIterator interface{ Next() bool }
@@ -1379,7 +1256,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *ethmocks.Client) (verify func()) {
 	t.Helper()
 
 	// Start
@@ -1398,25 +1275,6 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	return func() {
 		ethClient.AssertExpectations(t)
 	}
-}
-
-func MockSubscribeToLogsCh(ethClient *mocks.Client, sub *mocks.Subscription) chan chan<- types.Log {
-	logsCh := make(chan chan<- types.Log, 1)
-	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Return(sub, nil).
-		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
-			logsCh <- args.Get(2).(chan<- types.Log)
-		})
-	return logsCh
-}
-
-func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
-	t.Helper()
-
-	js := new(pipeline.JSONSerializable)
-	err := js.UnmarshalJSON([]byte(s))
-	require.NoError(t, err)
-	return *js
 }
 
 func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {

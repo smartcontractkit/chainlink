@@ -330,17 +330,6 @@ func NewJobResource(j job.Job) *JobResource {
 	return resource
 }
 
-// NewJobResources initializes a slice of JSONAPI job resources
-func NewJobResources(js []job.Job) []JobResource {
-	rs := []JobResource{}
-
-	for _, j := range js {
-		rs = append(rs, *NewJobResource(j))
-	}
-
-	return rs
-}
-
 // GetName implements the api2go EntityNamer interface
 func (r JobResource) GetName() string {
 	return "jobs"

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/vrfkey"
@@ -86,15 +87,6 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	return NewCreateBridgePayload(*bt, bta.IncomingToken), nil
 }
 
-type createFeedsManagerInput struct {
-	Name                   string
-	URI                    string
-	PublicKey              string
-	JobTypes               []JobType
-	IsBootstrapPeer        bool
-	BootstrapPeerMultiaddr *string
-}
-
 func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
@@ -110,6 +102,34 @@ func (r *Resolver) CreateCSAKey(ctx context.Context) (*CreateCSAKeyPayloadResolv
 	}
 
 	return NewCreateCSAKeyPayload(&key, nil), nil
+}
+
+func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteCSAKeyPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	key, err := r.App.GetKeyStore().CSA().Delete(string(args.ID))
+	if err != nil {
+		if errors.As(err, &keystore.KeyNotFoundError{}) {
+			return NewDeleteCSAKeyPayload(csakey.KeyV2{}, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewDeleteCSAKeyPayload(key, nil), nil
+}
+
+type createFeedsManagerInput struct {
+	Name                   string
+	URI                    string
+	PublicKey              string
+	JobTypes               []JobType
+	IsBootstrapPeer        bool
+	BootstrapPeerMultiaddr *string
 }
 
 func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
@@ -763,4 +783,133 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	return NewDeleteAPITokenPayload(&auth.Token{
 		AccessKey: dbUser.TokenKey.String,
 	}, nil), nil
+}
+
+func (r *Resolver) CreateChain(ctx context.Context, args struct {
+	Input struct {
+		ID                 graphql.ID
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
+	}
+}) (*CreateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.Input.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewCreateChainPayload(nil, inputErrs), nil
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		sCfgs := make(map[string]types.ChainCfg)
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewCreateChainPayload(nil, inputErrs), nil
+				}
+
+				sCfgs[cfg.Address] = *sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChainSet().Add(id.ToInt(), *chainCfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCreateChainPayload(&chain, nil), nil
+}
+
+func (r *Resolver) UpdateChain(ctx context.Context, args struct {
+	ID    graphql.ID
+	Input struct {
+		Enabled            bool
+		Config             ChainConfigInput
+		KeySpecificConfigs []*KeySpecificChainConfigInput
+	}
+}) (*UpdateChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chainCfg, inputErrs := ToChainConfig(args.Input.Config)
+	if len(inputErrs) > 0 {
+		return NewUpdateChainPayload(nil, inputErrs, nil), nil
+	}
+
+	if args.Input.KeySpecificConfigs != nil {
+		sCfgs := make(map[string]types.ChainCfg)
+
+		for _, cfg := range args.Input.KeySpecificConfigs {
+			if cfg != nil {
+				sCfg, inputErrs := ToChainConfig(cfg.Config)
+				if len(inputErrs) > 0 {
+					return NewUpdateChainPayload(nil, inputErrs, nil), nil
+				}
+
+				sCfgs[cfg.Address] = *sCfg
+			}
+		}
+
+		chainCfg.KeySpecific = sCfgs
+	}
+
+	chain, err := r.App.GetChainSet().Configure(id.ToInt(), args.Input.Enabled, *chainCfg)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewUpdateChainPayload(nil, nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	return NewUpdateChainPayload(&chain, nil, nil), nil
+}
+
+func (r *Resolver) DeleteChain(ctx context.Context, args struct {
+	ID graphql.ID
+}) (*DeleteChainPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	var id utils.Big
+	err := id.UnmarshalText([]byte(args.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	chain, err := r.App.EVMORM().Chain(id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NewDeleteChainPayload(nil, err), nil
+		}
+
+		return nil, err
+	}
+
+	err = r.App.GetChainSet().Remove(id.ToInt())
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDeleteChainPayload(&chain, nil), nil
 }

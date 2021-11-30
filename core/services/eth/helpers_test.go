@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+func init() {
+	dialRetryInterval = 100 * time.Millisecond
+}
 
 func NewClient(lggr logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, chainID *big.Int) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -32,4 +37,8 @@ func NewClient(lggr logger.Logger, rpcUrl string, rpcHTTPURL *url.URL, sendonlyR
 
 	pool := NewPool(lggr, primaries, sendonlys, chainID)
 	return &client{logger: lggr, pool: pool}, nil
+}
+
+func Wrap(err error, s string) error {
+	return wrap(err, s)
 }

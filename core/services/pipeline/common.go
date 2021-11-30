@@ -186,7 +186,7 @@ type TaskRunResults []TaskRunResult
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult() FinalResult {
+func (trrs TaskRunResults) FinalResult(l logger.Logger) FinalResult {
 	var found bool
 	var fr FinalResult
 	sort.Slice(trrs, func(i, j int) bool {
@@ -202,8 +202,7 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 	}
 
 	if !found {
-		logger.Errorw("expected at least one task to be final", "tasks", trrs)
-		panic("expected at least one task to be final")
+		l.Panicw("Expected at least one task to be final", "tasks", trrs)
 	}
 	return fr
 }
@@ -211,19 +210,6 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 type JSONSerializable struct {
 	Val   interface{}
 	Valid bool
-}
-
-// NewJSONSerializable returns an instance of JSONSerializable with the passed parameters.
-func NewJSONSerializable(val interface{}, valid bool) JSONSerializable {
-	return JSONSerializable{
-		Val:   val,
-		Valid: valid,
-	}
-}
-
-// JSONSerializableFrom creates a new JSONSerializable that will always be valid.
-func JSONSerializableFrom(val interface{}) JSONSerializable {
-	return NewJSONSerializable(val, true)
 }
 
 // UnmarshalJSON implements custom unmarshaling logic
