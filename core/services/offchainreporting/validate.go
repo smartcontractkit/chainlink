@@ -1,24 +1,22 @@
 package offchainreporting
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/chains"
-	"github.com/smartcontractkit/libocr/offchainreporting"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/core/chains"
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/libocr/offchainreporting"
 )
 
 type ValidationConfig interface {
-	ChainID() *big.Int
 	ChainType() chains.ChainType
 	Dev() bool
 	OCRBlockchainTimeout() time.Duration
