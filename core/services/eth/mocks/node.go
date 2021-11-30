@@ -8,6 +8,8 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
+	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+
 	ethereum "github.com/ethereum/go-ethereum"
 
 	mock "github.com/stretchr/testify/mock"
@@ -354,6 +356,20 @@ func (_m *Node) SendTransaction(ctx context.Context, tx *types.Transaction) erro
 		r0 = rf(ctx, tx)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// State provides a mock function with given fields:
+func (_m *Node) State() eth.NodeState {
+	ret := _m.Called()
+
+	var r0 eth.NodeState
+	if rf, ok := ret.Get(0).(func() eth.NodeState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(eth.NodeState)
 	}
 
 	return r0

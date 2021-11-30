@@ -2,15 +2,22 @@ package resolver
 
 import (
 	"database/sql"
+	"encoding/json"
 	"testing"
 	"time"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/testdata/testspecs"
 )
 
 // This tests the main fields on the job results. Embedded spec testing is done
@@ -203,6 +210,114 @@ func TestResolver_Job(t *testing.T) {
 					}
 				}
 			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_CreateJob(t *testing.T) {
+	t.Parallel()
+
+	mutation := `
+		mutation CreateJob($input: CreateJobInput!) {
+			createJob(input: $input) {
+				... on CreateJobSuccess {
+					job {
+						id
+						createdAt
+						externalJobID
+						maxTaskDuration
+						name
+						schemaVersion
+					}
+				}
+				... on InputErrors {
+					errors {
+						path
+						message
+						code
+					}
+				}
+			}
+		}`
+	variables := map[string]interface{}{
+		"input": map[string]interface{}{
+			"TOML": testspecs.DirectRequestSpec,
+		},
+	}
+	invalid := map[string]interface{}{
+		"input": map[string]interface{}{
+			"TOML": "some wrong value",
+		},
+	}
+	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	assert.NoError(t, err)
+
+	d, err := json.Marshal(map[string]interface{}{
+		"createJob": map[string]interface{}{
+			"job": map[string]interface{}{
+				"id":              "0",
+				"maxTaskDuration": "0s",
+				"name":            jb.Name,
+				"schemaVersion":   1,
+				"createdAt":       "0001-01-01T00:00:00Z",
+				"externalJobID":   jb.ExternalJobID.String(),
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	gError := errors.New("error")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "createJob"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.App.On("AddJobV2", mock.Anything, &jb).Return(nil)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "invalid TOML error",
+			authenticated: true,
+			query:         mutation,
+			variables:     invalid,
+			result: `
+				{
+					"createJob": {
+						"errors": [{
+							"code": "INVALID_INPUT",
+							"message": "failed to parse TOML: (1, 6): was expecting token =, but got \"wrong\" instead",
+							"path": "TOML spec"
+						}]
+					}
+				}`,
+		},
+		{
+			name:          "generic error when adding the job",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("GetConfig").Return(f.Mocks.cfg)
+				f.App.On("AddJobV2", mock.Anything, &jb).Return(gError)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"createJob"},
+					Message:       gError.Error(),
+				},
+			},
 		},
 	}
 
