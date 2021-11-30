@@ -873,13 +873,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	// BlockHistoryEstimator new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-		return len(b) == 2 &&
-			b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" &&
-			b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2b"
+		return len(b) == 1 && b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2b"
 	})).Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
 		elems[0].Result = &b43
-		elems[1].Result = &b42
 	})
 
 	// HeadTracker backfill

@@ -172,7 +172,7 @@ type ConfigSchema struct {
 
 	// OCR V1
 	OCRObservationGracePeriod time.Duration `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
-	OCRObservationTimeout     time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"12s"`
+	OCRObservationTimeout     time.Duration `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
 	OCRTransmitterAddress     string        `env:"OCR_TRANSMITTER_ADDRESS"`
 
 	// V1 and V2 p2p networking
