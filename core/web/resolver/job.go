@@ -133,3 +133,48 @@ func (r *JobPayloadResolver) ToJob() (*JobResolver, bool) {
 
 	return nil, false
 }
+
+// -- CreateJob Mutation --
+
+type CreateJobPayloadResolver struct {
+	j         *job.Job
+	inputErrs map[string]string
+}
+
+func NewCreateJobPayload(job *job.Job, inputErrs map[string]string) *CreateJobPayloadResolver {
+	return &CreateJobPayloadResolver{j: job, inputErrs: inputErrs}
+}
+
+func (r *CreateJobPayloadResolver) ToCreateJobSuccess() (*CreateJobSuccessResolver, bool) {
+	if r.inputErrs != nil {
+		return nil, false
+	}
+
+	return NewCreateJobSuccess(r.j), true
+}
+
+func (r *CreateJobPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
+	if r.inputErrs == nil {
+		return nil, false
+	}
+
+	var errs []*InputErrorResolver
+
+	for path, message := range r.inputErrs {
+		errs = append(errs, NewInputError(path, message))
+	}
+
+	return NewInputErrors(errs), true
+}
+
+type CreateJobSuccessResolver struct {
+	j *job.Job
+}
+
+func NewCreateJobSuccess(job *job.Job) *CreateJobSuccessResolver {
+	return &CreateJobSuccessResolver{j: job}
+}
+
+func (r *CreateJobSuccessResolver) Job() *JobResolver {
+	return NewJob(*r.j)
+}
