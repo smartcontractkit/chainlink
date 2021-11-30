@@ -472,6 +472,7 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	random := newIdentity(t)
 	genesisData := core.GenesisAlloc{
 		owner.From: {Balance: assets.Ether(10)},
+		random.From: {Balance: assets.Ether(10)},
 	}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	linkAddress, _, linkContract, err := link_token_interface.DeployLinkToken(
@@ -508,6 +509,14 @@ func TestExternalOwnerConsumerExample(t *testing.T) {
 	_, err = consumer.RequestRandomWords(random,1, 1, 1, 1, [32]byte{})
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(owner,1, 1, 1, 1, [32]byte{})
+	require.NoError(t, err)
+
+	// Reassign ownership, check that only new owner can request
+	_, err = consumer.TransferOwnership(owner, random.From)
+	require.NoError(t, err)
+	_, err = consumer.RequestRandomWords(owner,1, 1, 1, 1, [32]byte{})
+	require.Error(t, err)
+	_, err = consumer.RequestRandomWords(random,1, 1, 1, 1, [32]byte{})
 	require.NoError(t, err)
 }
 
