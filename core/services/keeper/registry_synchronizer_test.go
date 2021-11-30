@@ -15,11 +15,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -51,7 +51,7 @@ var upkeepConfig = keeper_registry_wrapper.GetUpkeep{
 func setupRegistrySync(t *testing.T) (
 	*sqlx.DB,
 	*keeper.RegistrySynchronizer,
-	*mocks.Client,
+	*ethmocks.Client,
 	*logmocks.Broadcaster,
 	job.Job,
 ) {
