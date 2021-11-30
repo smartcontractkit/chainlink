@@ -305,12 +305,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
-	// Keep track of the number of times we process each request - this could be > 1
-	// especially if we run into re-orgs. This is exclusively for logging purposes.
-	uniqueRequests := map[string]int{}
 	for _, req := range reqs {
-		uniqueRequests[req.req.RequestId.String()]++
-
 		// This check to see if the log was consumed needs to be in the same
 		// goroutine as the mark consumed to avoid processing duplicates.
 		if !lsn.shouldProcessLog(req.lb) {
@@ -406,7 +401,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 		"total reqs", len(reqs),
 		"total processed", len(processed),
 		"total remaining", len(toKeep),
-		"total unique", len(uniqueRequests),
+		"total unique", len(toRequestSet(reqs)),
 	)
 }
 
@@ -614,4 +609,12 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // Job complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+func toRequestSet(reqs []pendingRequest) map[string]struct{} {
+	s := map[string]struct{}{}
+	for _, r := range reqs {
+		s[r.req.RequestId.String()] = struct{}{}
+	}
+	return s
 }
