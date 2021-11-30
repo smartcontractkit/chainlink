@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - .........
+
 ### Added
 
 - Added support for Sentry error reporting. Set `SENTRY_DSN` at compile- or run-time to enable reporting.
