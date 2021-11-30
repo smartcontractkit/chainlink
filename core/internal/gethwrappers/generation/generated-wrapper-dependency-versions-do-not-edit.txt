@@ -18,4 +18,5 @@ vrf_consumer_v2: ../../../contracts/solc/v0.8/VRFConsumerV2.abi ../../../contrac
 vrf_coordinator_v2: ../../../contracts/solc/v0.8/VRFCoordinatorV2.abi ../../../contracts/solc/v0.8/VRFCoordinatorV2.bin 65ca8bc514db2e6df67f48e3be2ba737ac038ce7ce603585439fdb0b2e740307
 vrf_external_sub_owner_example: ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.abi ../../../contracts/solc/v0.8/VRFExternalSubOwnerExample.bin 86d771754e035eb8d56bd16f80edc2ace5236090f03ca9d984960d244b6e1614
 vrf_malicious_consumer_v2: ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.abi ../../../contracts/solc/v0.8/VRFMaliciousConsumerV2.bin b9fde692c1ebd6d029a21d79da528aa39f92f67ad51aa5c18f4c0605469f287b
+vrf_ownerless_consumer_example: ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.abi ../../../contracts/solc/v0.8/VRFOwnerlessConsumerExample.bin 67280e40f629e86703c1f2510932e49f349cc864dd4f83bb2ddea1c5a7f5d263
 vrf_single_consumer_example: ../../../contracts/solc/v0.8/VRFSingleConsumerExample.abi ../../../contracts/solc/v0.8/VRFSingleConsumerExample.bin 5b003657e3a45f1a29ec3f67121d9857c6524e726e9dcc2b42f564006b458d6b
