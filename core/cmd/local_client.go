@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/url"
 	"os"
@@ -139,7 +140,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
 	}
-	defer func() { lggr.ErrorIf(app.Stop(), "Error stopping app") }()
+	defer func() {
+		lggr.ErrorIf(app.Stop(), "Error stopping app")
+		if err = lggr.Sync(); err != nil {
+			log.Println(err)
+		}
+	}()
 	err = logConfigVariables(lggr, cli.Config)
 	if err != nil {
 		return cli.errorOut(err)
