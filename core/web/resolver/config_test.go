@@ -30,8 +30,71 @@ func TestResolver_Config(t *testing.T) {
 				// Using the default config value for now just to validate that it works
 				// Mocking this would require complying to the whole interface
 				// Which means mocking each method here, which I'm not sure we would like to do
-				cfg := configtest.NewTestGeneralConfig(t)
-				cfg.Overrides.EVMDisabled = null.BoolFrom(true)
+				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
+					AdminCredentialsFile: null.StringFrom("test"),
+					AdvisoryLockID:       null.IntFrom(1),
+					AllowOrigins:         null.StringFrom("test"),
+					BlockBackfillDepth:   null.IntFrom(1),
+					BlockBackfillSkip:    null.BoolFrom(false),
+					ClientNodeURL:        null.StringFrom("test"),
+					DatabaseTimeout:      nil,
+					DatabaseURL:          null.StringFrom("test"),
+					DefaultChainID:       nil,
+					DefaultHTTPAllowUnrestrictedNetworkAccess: null.BoolFrom(true),
+					DefaultHTTPTimeout:                        nil,
+					DefaultMaxHTTPAttempts:                    null.IntFrom(1),
+					Dev:                                       null.BoolFrom(true),
+					Dialect:                                   "",
+					EVMDisabled:                               null.BoolFrom(true),
+					EthereumDisabled:                          null.BoolFrom(true),
+					EthereumURL:                               null.StringFrom(""),
+					FeatureExternalInitiators:                 null.BoolFrom(true),
+					GlobalBalanceMonitorEnabled:               null.BoolFrom(true),
+					GlobalChainType:                           null.StringFrom(""),
+					GlobalEthTxReaperThreshold:                nil,
+					GlobalEthTxResendAfterThreshold:           nil,
+					GlobalEvmEIP1559DynamicFees:               null.BoolFrom(true),
+					GlobalEvmFinalityDepth:                    null.IntFrom(1),
+					GlobalEvmGasBumpPercent:                   null.IntFrom(1),
+					GlobalEvmGasBumpTxDepth:                   null.IntFrom(1),
+					GlobalEvmGasBumpWei:                       nil,
+					GlobalEvmGasLimitDefault:                  null.IntFrom(1),
+					GlobalEvmGasLimitMultiplier:               null.FloatFrom(1),
+					GlobalEvmGasPriceDefault:                  nil,
+					GlobalEvmGasTipCapDefault:                 nil,
+					GlobalEvmGasTipCapMinimum:                 nil,
+					GlobalEvmHeadTrackerHistoryDepth:          null.IntFrom(1),
+					GlobalEvmHeadTrackerMaxBufferSize:         null.IntFrom(1),
+					GlobalEvmHeadTrackerSamplingInterval:      nil,
+					GlobalEvmLogBackfillBatchSize:             null.IntFrom(1),
+					GlobalEvmMaxGasPriceWei:                   nil,
+					GlobalEvmMinGasPriceWei:                   nil,
+					GlobalEvmNonceAutoSync:                    null.BoolFrom(false),
+					GlobalEvmRPCDefaultBatchSize:              null.IntFrom(1),
+					GlobalFlagsContractAddress:                null.StringFrom("test"),
+					GlobalGasEstimatorMode:                    null.StringFrom("test"),
+					GlobalMinIncomingConfirmations:            null.IntFrom(1),
+					GlobalMinRequiredOutgoingConfirmations:    null.IntFrom(1),
+					GlobalMinimumContractPayment:              nil,
+					KeeperMaximumGracePeriod:                  null.IntFrom(1),
+					KeeperRegistrySyncInterval:                nil,
+					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
+					LogLevel:                                  nil,
+					DefaultLogLevel:                           nil,
+					LogSQL:                                    null.BoolFrom(true),
+					LogToDisk:                                 null.BoolFrom(true),
+					OCRBootstrapCheckInterval:                 nil,
+					OCRKeyBundleID:                            null.StringFrom("test"),
+					OCRObservationGracePeriod:                 nil,
+					OCRObservationTimeout:                     nil,
+					OCRTransmitterAddress:                     nil,
+					P2PBootstrapPeers:                         nil,
+					P2PListenPort:                             null.IntFrom(1),
+					P2PPeerID:                                 "",
+					P2PPeerIDError:                            nil,
+					SecretGenerator:                           nil,
+					TriggerFallbackDBPollInterval:             nil,
+				})
 				cfg.SetRootDir("/tmp/chainlink_test/gql-test")
 
 				f.App.On("GetConfig").Return(cfg)
@@ -42,13 +105,13 @@ func TestResolver_Config(t *testing.T) {
 			    "items": [
 			      {
 			        "config": {
-			          "value": "http://localhost:3000"
+			          "value": "test"
 			        },
 			        "key": "ALLOW_ORIGINS"
 			      },
 			      {
 			        "config": {
-			          "value": "10"
+			          "value": "1"
 			        },
 			        "key": "BLOCK_BACKFILL_DEPTH"
 			      },
@@ -84,7 +147,7 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "http://localhost:6688"
+			          "value": "test"
 			        },
 			        "key": "CLIENT_NODE_URL"
 			      },
@@ -144,7 +207,7 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "false"
+			          "value": "true"
 			        },
 			        "key": "ETH_DISABLED"
 			      },
@@ -162,7 +225,7 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "wss://eth-kovan.alchemyapi.io/v2/adYZKnCrpRXwMuHOPZi5iOsYoFEEblLG"
+			          "value": ""
 			        },
 			        "key": "ETH_URL"
 			      },
@@ -180,7 +243,7 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "false"
+			          "value": "true"
 			        },
 			        "key": "FEATURE_EXTERNAL_INITIATORS"
 			      },
@@ -288,13 +351,13 @@ func TestResolver_Config(t *testing.T) {
 			      },
 			      {
 			        "config": {
-			          "value": "false"
+			          "value": "true"
 			        },
 			        "key": "LOG_SQL"
 			      },
 			      {
 			        "config": {
-			          "value": "false"
+			          "value": "true"
 			        },
 			        "key": "LOG_TO_DISK"
 			      },

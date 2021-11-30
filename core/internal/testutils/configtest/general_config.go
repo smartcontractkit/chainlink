@@ -52,6 +52,7 @@ type GeneralConfigOverrides struct {
 	Dialect                                   dialects.DialectName
 	EVMDisabled                               null.Bool
 	EthereumDisabled                          null.Bool
+	EthereumURL                               null.String
 	FeatureExternalInitiators                 null.Bool
 	GlobalBalanceMonitorEnabled               null.Bool
 	GlobalChainType                           null.String
@@ -248,6 +249,13 @@ func (c *TestGeneralConfig) EthereumDisabled() bool {
 		return c.Overrides.EthereumDisabled.Bool
 	}
 	return c.GeneralConfig.EthereumDisabled()
+}
+
+func (c *TestGeneralConfig) EthereumURL() string {
+	if c.Overrides.EthereumURL.Valid {
+		return c.Overrides.EthereumURL.String
+	}
+	return c.GeneralConfig.EthereumURL()
 }
 
 func (c *TestGeneralConfig) SessionSecret() ([]byte, error) {
