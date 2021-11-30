@@ -4,7 +4,7 @@ set +e
 
 echo "Failed tests and panics: ---------------------"
 echo ""
-go test -v -p 3 -parallel 4 ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
+go test -v -p 3 -parallel 4 -coverprofile=coverage.txt -covermode=atomic ./... | tee ./output.txt | grep --line-buffered --line-number -e "\-\-\- FAIL" -e "FAIL\s"
 EXITCODE=${PIPESTATUS[0]}
 echo ""
 echo "----------------------------------------------"
@@ -24,5 +24,7 @@ if [[ $EXITCODE != 0 ]]; then
   echo "Encountered test failures."
 else
   echo "All tests passed!"
+  # uploading coverage.txt to CodeCov
+  $(dirname "$0")/codecov -f coverage.txt
 fi
 exit $EXITCODE
