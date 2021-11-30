@@ -15,9 +15,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	ethmocks "github.com/smartcontractkit/chainlink/core/services/eth/mocks"
 	htmocks "github.com/smartcontractkit/chainlink/core/services/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	offchainreporting "github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
@@ -45,7 +45,7 @@ type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *htmocks.HeadBroadcaster
-	ec      *mocks.Client
+	ec      *ethmocks.Client
 	tracker *offchainreporting.OCRContractTracker
 }
 
@@ -77,7 +77,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	uni.db = new(ocrmocks.OCRContractTrackerDB)
 	uni.lb = new(logmocks.Broadcaster)
 	uni.hb = new(htmocks.HeadBroadcaster)
-	uni.ec = new(mocks.Client)
+	uni.ec = new(ethmocks.Client)
 
 	db := pgtest.NewSqlxDB(t)
 	uni.tracker = offchainreporting.NewOCRContractTracker(

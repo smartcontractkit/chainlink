@@ -356,7 +356,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.NoError(t, err)
 
 		p2 := ocrtypes.PendingTransmission{
-			Time: time.Unix(1000, 0),
+			Time:      time.Unix(1000, 0),
 			ExtraHash: cltest.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
@@ -367,7 +367,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.NoError(t, err)
 
 		p2 = ocrtypes.PendingTransmission{
-			Time: time.Now(),
+			Time:      time.Now(),
 			ExtraHash: cltest.Random32Byte(),
 			Report:    []byte{2, 2, 3},
 			AttributedSignatures: []ocrtypes.AttributedOnchainSignature{
