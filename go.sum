@@ -2029,6 +2029,8 @@ github.com/smartcontractkit/helmenv v1.0.16 h1:fXUdTwgeyIsEhFz3L82UShXKmgGh6yZGq
 github.com/smartcontractkit/helmenv v1.0.16/go.mod h1:iVGF9XLyRF5Ai52JM44m6hRWHIBfDPhspW1WXOwlsmM=
 github.com/smartcontractkit/integrations-framework v0.0.28 h1:cglwyx+xQrw4lyBep1jYFrNkJK+V7yLr1lOwIUq8GOw=
 github.com/smartcontractkit/integrations-framework v0.0.28/go.mod h1:chUSy2SrKy+HIYOAuhjJ8Zp/aTOBY7xdLBmuJH9d9QI=
+github.com/smartcontractkit/integrations-framework v0.0.29 h1:kUr8mxqS6PYn2cLBOenQjtoHfCPqzmyluCpHUs9kbUA=
+github.com/smartcontractkit/integrations-framework v0.0.29/go.mod h1:M+3iTEW4YxrbIjEIGiljX/iujlP8hcm5u44vcA4AiBI=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
 github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12 h1:3yXjCJgj91ZRRqq4cV++y2EkKefEJpiWxhvnI14rclw=
 github.com/smartcontractkit/libocr v0.0.0-20210826183649-d12971936c12/go.mod h1:AQktwBooI+Y/8NWdvIzU+EgGoLzpe3mo+o+jluMonTw=
