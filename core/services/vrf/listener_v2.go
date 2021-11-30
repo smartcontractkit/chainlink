@@ -307,13 +307,14 @@ func (lsn *listenerV2) processRequestsPerSub(
 		return
 	}
 	lggr := lsn.l.With(
-		"sub", reqs[0].req.SubId,
+		"subID", reqs[0].req.SubId,
 		"maxGasPrice", maxGasPrice.String(),
 		"reqs", len(reqs),
 		"startBalance", startBalance.String(),
 		"startBalanceNoReservedLink", startBalanceNoReserveLink.String(),
 	)
 	lggr.Infow("Processing requests for subscription")
+
 	// Attempt to process every request, break if we run out of balance
 	var processed = make(map[string]struct{})
 	for _, req := range reqs {
@@ -324,10 +325,14 @@ func (lsn *listenerV2) processRequestsPerSub(
 		}
 
 		vrfRequest := req.req
+		rlog := lggr.With(
+			"reqID", vrfRequest.RequestId.String(),
+			"txHash", vrfRequest.Raw.TxHash,
+		)
 
 		// Check if we can ignore the request due to it's age.
 		if time.Now().UTC().Sub(req.utcTimestamp) >= maxRequestAge {
-			lggr.Infow("Request too old, dropping it", "reqID", vrfRequest.RequestId.String())
+			rlog.Infow("Request too old, dropping it")
 			lsn.markLogAsConsumed(req.lb)
 			processed[vrfRequest.RequestId.String()] = struct{}{}
 			continue
@@ -337,11 +342,11 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// If so we just mark it completed
 		callback, err := lsn.coordinator.GetCommitment(nil, vrfRequest.RequestId)
 		if err != nil {
-			lggr.Errorw("Unable to check if already fulfilled, processing anyways", "err", err, "txHash", vrfRequest.Raw.TxHash)
+			rlog.Errorw("Unable to check if already fulfilled, processing anyways", "err", err)
 		} else if utils.IsEmpty(callback[:]) {
 			// If seedAndBlockNumber is zero then the response has been fulfilled
 			// and we should skip it
-			lggr.Infow("Request already fulfilled", "txHash", vrfRequest.Raw.TxHash, "subID", vrfRequest.SubId, "callback", callback)
+			rlog.Infow("Request already fulfilled", "callback", callback)
 			lsn.markLogAsConsumed(req.lb)
 			processed[vrfRequest.RequestId.String()] = struct{}{}
 			continue
@@ -350,15 +355,16 @@ func (lsn *listenerV2) processRequestsPerSub(
 		// The ethcall will error if there is currently insufficient balance onchain.
 		maxLink, run, payload, gaslimit, err := lsn.getMaxLinkForFulfillment(maxGasPrice, req)
 		if err != nil {
+			rlog.Warnw("Unable to get max link for fulfillment, skipping request", "err", err)
 			continue
 		}
 		if startBalance.Cmp(maxLink) < 0 {
 			// Insufficient funds, have to wait for a user top up
 			// leave it unprocessed for now
-			lggr.Infow("Insufficient link balance to fulfill a request, breaking", "balance", startBalance, "maxLink", maxLink)
+			rlog.Infow("Insufficient link balance to fulfill a request, breaking", "maxLink", maxLink)
 			break
 		}
-		lggr.Infow("Enqueuing fulfillment", "balance", startBalance, "reqID", vrfRequest.RequestId)
+		rlog.Infow("Enqueuing fulfillment")
 		// We have enough balance to service it, lets enqueue for bptxm
 		err = postgres.NewGormTransactionManager(lsn.db).Transact(func(ctx context.Context) error {
 			tx := postgres.TxFromContext(ctx, lsn.db)
@@ -384,10 +390,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			return err
 		})
 		if err != nil {
-			lggr.Errorw("Error enqueuing fulfillment, requeuing request",
-				"err", err,
-				"reqID", vrfRequest.RequestId,
-				"txHash", vrfRequest.Raw.TxHash)
+			rlog.Errorw("Error enqueuing fulfillment, requeuing request", "err", err)
 			continue
 		}
 		// If we successfully enqueued for the bptxm, subtract that balance
@@ -410,7 +413,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 	lggr.Infow("Finished processing for sub",
 		"total reqs", len(reqs),
 		"total processed", len(processed),
-		"total remaining", len(toKeep))
+		"total remaining", len(toKeep),
+		"total unique", len(toRequestSet(reqs)),
+	)
 }
 
 // Here we use the pipeline to parse the log, generate a vrf response
@@ -445,17 +450,17 @@ func (lsn *listenerV2) getMaxLinkForFulfillment(maxGasPrice *big.Int, req pendin
 	// The call task will fail if there are insufficient funds
 	if run.AllErrors.HasError() {
 		lsn.l.Warnw("Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available",
-			"err", err, "max gas price", maxGasPrice, "reqID", req.req.RequestId)
-		return maxLink, run, payload, gaslimit, errors.New("run errored")
+			"err", run.AllErrors.ToError(), "max gas price", maxGasPrice, "reqID", req.req.RequestId)
+		return maxLink, run, payload, gaslimit, errors.Wrap(run.AllErrors.ToError(), "simulation errored")
 	}
 	if len(trrs.FinalResult().Values) != 1 {
-		lsn.l.Errorw("Unexpected number of outputs", "err", err)
+		lsn.l.Errorw("Unexpected number of outputs", "expectedNumOutputs", 1, "actualNumOutputs", len(trrs.FinalResult().Values))
 		return maxLink, run, payload, gaslimit, errors.New("unexpected number of outputs")
 	}
 	// Run succeeded, we expect a byte array representing the billing amount
 	b, ok := trrs.FinalResult().Values[0].([]uint8)
 	if !ok {
-		lsn.l.Errorw("Unexpected type")
+		lsn.l.Errorw("Unexpected type, expected []uint8 final result")
 		return maxLink, run, payload, gaslimit, errors.New("expected []uint8 final result")
 	}
 	maxLink = utils.HexToBig(hexutil.Encode(b)[2:])
@@ -619,4 +624,12 @@ func (lsn *listenerV2) HandleLog(lb log.Broadcast) {
 // Job complies with log.Listener
 func (lsn *listenerV2) JobID() int32 {
 	return lsn.job.ID
+}
+
+func toRequestSet(reqs []pendingRequest) map[string]struct{} {
+	s := map[string]struct{}{}
+	for _, r := range reqs {
+		s[r.req.RequestId.String()] = struct{}{}
+	}
+	return s
 }
