@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/pg"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
