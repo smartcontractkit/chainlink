@@ -164,7 +164,7 @@ func (hl *HeadListener) subscribe() bool {
 			return false
 		}
 
-		hl.log.Debugf("Subscribing to new heads on chain %s (in %s)", hl.chainID.String(), hl.sleeper.Duration())
+		hl.log.Debugf("Subscribing to new heads on chain %s (retry interval %s)", hl.chainID.String(), hl.sleeper.Duration())
 		select {
 		case <-hl.chStop:
 			return false
