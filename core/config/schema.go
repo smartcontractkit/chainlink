@@ -145,7 +145,7 @@ type ConfigSchema struct {
 	OCRMonitoringEndpoint                      string                        `env:"OCR_MONITORING_ENDPOINT"`
 	OCRNewStreamTimeout                        time.Duration                 `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 	OCRObservationGracePeriod                  time.Duration                 `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"1s"`
-	OCRObservationTimeout                      time.Duration                 `env:"OCR_OBSERVATION_TIMEOUT" default:"12s"`
+	OCRObservationTimeout                      time.Duration                 `env:"OCR_OBSERVATION_TIMEOUT" default:"5s"`
 	OCROutgoingMessageBufferSize               int                           `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRSimulateTransactions                    bool                          `env:"OCR_SIMULATE_TRANSACTIONS" default:"false"`
 	OCRTraceLogging                            bool                          `env:"OCR_TRACE_LOGGING" default:"false"`
