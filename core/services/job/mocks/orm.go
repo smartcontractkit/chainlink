@@ -280,6 +280,34 @@ func (_m *ORM) FindPipelineRunsByIDs(ids []int64) ([]pipeline.Run, error) {
 	return r0, r1
 }
 
+// FindSpecError provides a mock function with given fields: id, qopts
+func (_m *ORM) FindSpecError(id int64, qopts ...pg.QOpt) (job.SpecError, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, id)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 job.SpecError
+	if rf, ok := ret.Get(0).(func(int64, ...pg.QOpt) job.SpecError); ok {
+		r0 = rf(id, qopts...)
+	} else {
+		r0 = ret.Get(0).(job.SpecError)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(int64, ...pg.QOpt) error); ok {
+		r1 = rf(id, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // InsertJob provides a mock function with given fields: _a0, qopts
 func (_m *ORM) InsertJob(_a0 *job.Job, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))

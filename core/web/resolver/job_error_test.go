@@ -1,9 +1,17 @@
 package resolver
 
 import (
+	"database/sql"
+	"encoding/json"
 	"testing"
 
+	gqlerrors "github.com/graph-gophers/graphql-go/errors"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/utils/stringutils"
 )
 
 // JobErrors are only embedded on the job and are not fetchable by it's own id,
@@ -58,6 +66,165 @@ func TestResolver_JobErrors(t *testing.T) {
 					}
 				}
 			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}
+
+func TestResolver_DismissJobError(t *testing.T) {
+	t.Parallel()
+
+	id := int64(1)
+	mutation := `
+		mutation DismissJobError($id: ID!) {
+			dismissJobError(id: $id) {
+				... on DismissJobErrorSuccess {
+					jobError {
+						id
+						description
+						occurrences
+						createdAt
+					}
+				}
+				... on NotFoundError {
+						code
+						message
+					}
+				}
+		}`
+	variables := map[string]interface{}{
+		"id": "1",
+	}
+	invalidVariables := map[string]interface{}{
+		"id": "asdadada",
+	}
+	d, err := json.Marshal(map[string]interface{}{
+		"dismissJobError": map[string]interface{}{
+			"jobError": map[string]interface{}{
+				"id":          "1",
+				"occurrences": 5,
+				"description": "test-description",
+				"createdAt":   "2021-01-01T00:00:00Z",
+			},
+		},
+	})
+	assert.NoError(t, err)
+	expected := string(d)
+
+	gError := errors.New("error")
+
+	_, idError := stringutils.ToInt64("asdadada")
+
+	testCases := []GQLTestCase{
+		unauthorizedTestCase(GQLTestCase{query: mutation, variables: variables}, "dismissJobError"),
+		{
+			name:          "success",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{
+					ID:          id,
+					Occurrences: 5,
+					Description: "test-description",
+					CreatedAt:   f.Timestamp(),
+				}, nil)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(nil)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    expected,
+		},
+		{
+			name:          "not found on FindSpecError()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, sql.ErrNoRows)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"dismissJobError": {
+						"code": "NOT_FOUND",
+						"message": "PipelineJobSpecError not found"
+					}
+				}
+			`,
+		},
+		{
+			name:          "not found on DismissError()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(sql.ErrNoRows)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result: `
+				{
+					"dismissJobError": {
+						"code": "NOT_FOUND",
+						"message": "PipelineJobSpecError not found"
+					}
+				}
+			`,
+		},
+		{
+			name:          "generic error on FindSpecError()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, gError)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"dismissJobError"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+		{
+			name:          "generic error on DismissError()",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(gError)
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+			},
+			query:     mutation,
+			variables: variables,
+			result:    `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: gError,
+					Path:          []interface{}{"dismissJobError"},
+					Message:       gError.Error(),
+				},
+			},
+		},
+		{
+			name:          "error on ID parsing",
+			authenticated: true,
+			query:         mutation,
+			variables:     invalidVariables,
+			result:        `null`,
+			errors: []*gqlerrors.QueryError{
+				{
+					Extensions:    nil,
+					ResolverError: idError,
+					Path:          []interface{}{"dismissJobError"},
+					Message:       idError.Error(),
+				},
+			},
 		},
 	}
 

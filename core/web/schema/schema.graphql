@@ -47,6 +47,7 @@ type Mutation {
     deleteP2PKey(id: ID!): DeleteP2PKeyPayload!
     createVRFKey: CreateVRFKeyPayload!
     deleteVRFKey(id: ID!): DeleteVRFKeyPayload!
+    dismissJobError(id: ID!): DismissJobErrorPayload!
     rejectJobProposal(id: ID!): RejectJobProposalPayload!
     setServicesLogLevels(input: SetServicesLogLevelsInput!): SetServicesLogLevelsPayload!
     setSQLLogging(input: SetSQLLoggingInput!): SetSQLLoggingPayload!

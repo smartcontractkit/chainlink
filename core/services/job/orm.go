@@ -48,6 +48,7 @@ type ORM interface {
 	// TryRecordError is a helper which calls RecordError and logs the returned error if present.
 	TryRecordError(jobID int32, description string, qopts ...pg.QOpt)
 	DismissError(ctx context.Context, errorID int32) error
+	FindSpecError(id int64, qopts ...pg.QOpt) (SpecError, error)
 	Close() error
 	PipelineRuns(jobID *int32, offset, size int) ([]pipeline.Run, int, error)
 
@@ -348,6 +349,15 @@ func (o *orm) DismissError(ctx context.Context, ID int32) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (o *orm) FindSpecError(id int64, qopts ...pg.QOpt) (SpecError, error) {
+	stmt := `SELECT * FROM job_spec_errors WHERE id = $1;`
+
+	specErr := new(SpecError)
+	err := o.q.WithOpts(qopts...).Get(specErr, stmt, id)
+
+	return *specErr, errors.Wrap(err, "FindSpecError failed")
 }
 
 func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
