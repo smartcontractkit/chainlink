@@ -1,31 +1,21 @@
 package offchainreporting2
 
 import (
-	"strings"
 	"time"
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
-	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting2"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
@@ -33,12 +23,12 @@ import (
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
-	keyStore              keystore.OCR2
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	chainSet              evm.ChainSet
 	lggr                  logger.Logger
+	relayer               relay.Relayer
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -46,22 +36,22 @@ var _ job.Delegate = (*Delegate)(nil)
 func NewDelegate(
 	db *sqlx.DB,
 	jobORM job.ORM,
-	keyStore keystore.OCR2,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	chainSet evm.ChainSet,
 	lggr logger.Logger,
+	relayer relay.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db,
 		jobORM,
-		keyStore,
 		pipelineRunner,
 		peerWrapper,
 		monitoringEndpointGen,
 		chainSet,
 		lggr,
+		relayer,
 	}
 }
 
@@ -86,37 +76,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		return nil, err
 	}
 
-	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(spec.ContractAddress.Address(), chain.Client())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
-	}
-
-	contractFilterer, err := ocr2aggregator.NewOCR2AggregatorFilterer(spec.ContractAddress.Address(), chain.Client())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
-	}
-
-	contractCaller, err := ocr2aggregator.NewOCR2AggregatorCaller(spec.ContractAddress.Address(), chain.Client())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
-	}
-
 	ocrDB := NewDB(d.db.DB, spec.ID, d.lggr)
 
-	tracker := NewOCRContractTracker(
-		contract,
-		contractFilterer,
-		contractCaller,
-		chain.Client(),
-		chain.LogBroadcaster(),
-		jobSpec.ID,
-		d.lggr,
-		d.db,
-		ocrDB,
-		chain.Config(),
-		chain.HeadBroadcaster(),
-	)
-	services = append(services, tracker)
+	ocr2Provider, err := d.relayer.NewOCR2Provider(jobSpec.ExternalJobID, spec)
+	if err != nil {
+		return nil, errors.Wrap(err, "error calling 'relayer.NewOCR2Provider'")
+	}
+	services = append(services, ocr2Provider)
 
 	var peerID p2pkey.PeerID
 	if spec.P2PPeerID != nil {
@@ -148,9 +114,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.lggr.ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
 	})
 
-	lcSpec := NewLocalConfigSpec(*spec)
-	lc := NewLocalConfig(chain.Config(), lcSpec)
-	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
+	lc := toLocalConfig(chain.Config(), *spec)
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	d.lggr.Infow("OCR2 job using local config",
@@ -161,13 +126,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		"DatabaseTimeout", lc.DatabaseTimeout,
 	)
 
-	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
-		ContractAddress: spec.ContractAddress.Address(),
-	}
+	tracker := ocr2Provider.ContractConfigTracker()
+	offchainConfigDigester := ocr2Provider.OffchainConfigDigester()
 
 	if spec.IsBootstrapPeer {
-		bootstrapNodeArgs := ocr.BootstrapperArgs{
+		bootstrapNodeArgs := libocr2.BootstrapperArgs{
 			BootstrapperFactory:    peerWrapper.Peer2,
 			ContractConfigTracker:  tracker,
 			Database:               ocrDB,
@@ -175,9 +138,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			Logger:                 ocrLogger,
 			OffchainConfigDigester: offchainConfigDigester,
 		}
-		var bootstrapper *ocr.Bootstrapper
+		var bootstrapper *libocr2.Bootstrapper
 		d.lggr.Debugw("Launching new bootstrap node", "args", bootstrapNodeArgs)
-		bootstrapper, err = ocr.NewBootstrapper(bootstrapNodeArgs)
+		bootstrapper, err = libocr2.NewBootstrapper(bootstrapNodeArgs)
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
@@ -187,40 +150,6 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			return nil, errors.New("need at least one bootstrap peer")
 		}
 
-		var kb string
-		if spec.EncryptedOCRKeyBundleID.Valid {
-			kb = spec.EncryptedOCRKeyBundleID.String
-		} else if kb, err = chain.Config().OCR2KeyBundleID(); err != nil {
-			return nil, err
-		}
-
-		ocrkey, err := d.keyStore.Get(kb)
-		if err != nil {
-			return nil, err
-		}
-		contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-		if err != nil {
-			return nil, errors.Wrap(err, "could not get contract ABI JSON")
-		}
-
-		var ta ethkey.EIP55Address
-		if spec.TransmitterAddress == nil {
-			return nil, errors.New("transmitter address is required")
-		}
-		ta = *spec.TransmitterAddress
-
-		strategy := bulletprooftxmanager.NewQueueingTxStrategy(jobSpec.ExternalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
-
-		contractTransmitter := NewOCRContractTransmitter(
-			contract.Address(),
-			contractCaller,
-			contractABI,
-			ocrcommon.NewTransmitter(chain.TxManager(), ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
-			chain.LogBroadcaster(),
-			tracker,
-			d.lggr,
-		)
-
 		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
 		juelsPerFeeCoinPipelineSpec := pipeline.Spec{
 			ID:           jobSpec.ID,
@@ -228,7 +157,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 			CreatedAt:    time.Now(),
 		}
 		numericalMedianFactory := median.NumericalMedianFactory{
-			ContractTransmitter: contractTransmitter,
+			ContractTransmitter: ocr2Provider.MedianContract(),
 			DataSource: ocrcommon.NewDataSourceV2(d.pipelineRunner,
 				jobSpec,
 				*jobSpec.PipelineSpec,
@@ -236,24 +165,24 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 				runResults,
 			),
 			JuelsPerFeeCoinDataSource: ocrcommon.NewInMemoryDataSource(d.pipelineRunner, jobSpec, juelsPerFeeCoinPipelineSpec, loggerWith),
-			ReportCodec:               evmreportcodec.ReportCodec{},
+			ReportCodec:               ocr2Provider.ReportCodec(),
 			Logger:                    ocrLogger,
 		}
 
 		jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
-		oracle, err := ocr.NewOracle(ocr.OracleArgs{
+		oracle, err := libocr2.NewOracle(libocr2.OracleArgs{
 			BinaryNetworkEndpointFactory: peerWrapper.Peer2,
 			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          contractTransmitter,
+			ContractTransmitter:          ocr2Provider.ContractTransmitter(),
 			ContractConfigTracker:        tracker,
 			Database:                     ocrDB,
 			LocalConfig:                  lc,
 			Logger:                       ocrLogger,
 			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractAddress.Address()),
 			OffchainConfigDigester:       offchainConfigDigester,
-			OffchainKeyring:              &ocrkey.OffchainKeyring,
-			OnchainKeyring:               &ocrkey.OnchainKeyring,
+			OffchainKeyring:              ocr2Provider.OffchainKeyring(),
+			OnchainKeyring:               ocr2Provider.OnchainKeyring(),
 			ReportingPluginFactory:       numericalMedianFactory,
 		})
 		if err != nil {
@@ -275,21 +204,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 	return services, nil
 }
 
-type LocalConfigSpec struct {
-	BlockchainTimeout                 models.Interval
-	ContractConfigConfirmations       uint16
-	ContractConfigTrackerPollInterval models.Interval
-}
-
-func NewLocalConfigSpec(s job.OffchainReporting2OracleSpec) LocalConfigSpec {
-	return LocalConfigSpec{
-		BlockchainTimeout:                 s.BlockchainTimeout,
-		ContractConfigConfirmations:       s.ContractConfigConfirmations,
-		ContractConfigTrackerPollInterval: s.ContractConfigTrackerPollInterval,
-	}
-}
-
-func NewLocalConfig(config ValidationConfig, spec LocalConfigSpec) ocrtypes.LocalConfig {
+func toLocalConfig(config ValidationConfig, spec job.OffchainReporting2OracleSpec) ocrtypes.LocalConfig {
 	var blockchainTimeout time.Duration
 	if spec.BlockchainTimeout != 0 {
 		blockchainTimeout = time.Duration(spec.BlockchainTimeout)

@@ -87,12 +87,10 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return nil, err
 	}
 
-	ocrDB := ocr2.NewDB(r.db.DB, spec.ID)
-
 	var kbID string
 	if spec.EncryptedOCRKeyBundleID.Valid {
 		kbID = spec.EncryptedOCRKeyBundleID.String
-	} else if kbID, err = chain.Config().OCRKeyBundleID(); err != nil {
+	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
 		return nil, err
 	}
 
@@ -115,6 +113,8 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
+
+	ocrDB := ocr2.NewDB(r.db.DB, spec.ID, r.lggr)
 
 	tracker := ocr2.NewOCRContractTracker(
 		contract,
@@ -142,11 +142,8 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	var ta ethkey.EIP55Address
-	if spec.TransmitterAddress != nil {
-		ta = *spec.TransmitterAddress
-	} else if ta, err = chain.Config().OCRTransmitterAddress(); err != nil {
-		return nil, err
+	if spec.TransmitterAddress == nil {
+		return nil, errors.New("transmitter address is required")
 	}
 
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
@@ -155,7 +152,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		contract.Address(),
 		contractCaller,
 		contractABI,
-		ocrcommon.NewTransmitter(chain.TxManager(), ta.Address(), chain.Config().EvmGasLimitDefault(), strategy),
+		ocrcommon.NewTransmitter(chain.TxManager(), spec.TransmitterAddress.Address(), chain.Config().EvmGasLimitDefault(), strategy),
 		chain.LogBroadcaster(),
 		tracker,
 		r.lggr,

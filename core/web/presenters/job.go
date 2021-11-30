@@ -354,9 +354,6 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.OffchainReporting2:
 		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.Offchainreporting2OracleSpec)
-	case job.OffchainReporting2Relay:
-		// TODO [relay]: continue implementing "offchainreporting2-relay" job support
-		resource.OffChainReporting2Spec = NewOffChainReporting2Spec(j.Offchainreporting2OracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	case job.VRF:

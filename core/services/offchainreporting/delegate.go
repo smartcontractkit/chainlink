@@ -144,7 +144,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		d.jobORM.TryRecordError(jobSpec.ID, msg)
 	})
 
-	lc := NewLocalConfig(chain.Config(), *concreteSpec)
+	lc := toLocalConfig(chain.Config(), *concreteSpec)
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

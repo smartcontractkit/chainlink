@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting2relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay"
 	"github.com/smartcontractkit/chainlink/core/services/relay/delegate"
 
@@ -297,19 +296,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.FeatureOffchainReporting2() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
-			db,
-			jobORM,
-			keyStore.OCR2(),
-			pipelineRunner,
-			peerWrapper,
-			monitoringEndpointGen,
-			chainSet,
-			globalLogger,
-		)
-
-		// TODO [relay]: add flag for this experimental job type?
-		globalLogger.Debug("Off-chain reporting v2-relay enabled")
 		// master/delegate relay is started once, on app start, as root subservice
 		// TODO [relay]: move relayers creation outside OCR2 context (relayers will be multi-protocol)
 		relay := delegate.NewRelayer(relay.Config{
@@ -319,7 +305,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			Lggr:     globalLogger,
 		})
 		subservices = append(subservices, relay)
-		delegates[job.OffchainReporting2Relay] = offchainreporting2relay.NewDelegate(
+		delegates[job.OffchainReporting2] = offchainreporting2.NewDelegate(
 			db,
 			jobORM,
 			pipelineRunner,

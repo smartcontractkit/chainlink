@@ -62,14 +62,13 @@ func (d delegate) Healthy() error {
 }
 
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
-	// TODO [relay]: make a new specific OffchainReporting2RelayOracleSpec
 	spec, ok := s.(job.OffchainReporting2OracleSpec)
 	if !ok {
 		return nil, errors.New("unsuccessful cast to 'job.OffchainReporting2OracleSpec'")
 	}
 
 	// TODO [relay]: make a relay network choice depending on job spec
-	network := "solana"
+	network := "ethereum"
 	choice := relay.Network(network)
 
 	switch choice {

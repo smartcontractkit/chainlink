@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	offchainreporting "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
 	"go.uber.org/multierr"
 )
 
@@ -104,9 +104,8 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(config ValidationConfig, spec job.OffchainReporting2OracleSpec) error {
-	lcSpec := NewLocalConfigSpec(spec)
-	lc := NewLocalConfig(config, lcSpec)
-	return offchainreporting.SanityCheckLocalConfig(lc)
+	lc := toLocalConfig(config, spec)
+	return libocr2.SanityCheckLocalConfig(lc)
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
