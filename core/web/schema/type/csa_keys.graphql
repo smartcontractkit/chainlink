@@ -1,6 +1,7 @@
 type CSAKey {
+    id: ID!
+    publicKey: String!
     version: Int!
-    pubKey: String!
 }
 
 type CSAKeysPayload {
@@ -17,3 +18,9 @@ type CSAKeyExistsError implements Error {
 }
 
 union CreateCSAKeyPayload = CreateCSAKeySuccess | CSAKeyExistsError
+
+type DeleteCSAKeySuccess {
+    csaKey: CSAKey!
+}
+
+union DeleteCSAKeyPayload = DeleteCSAKeySuccess | NotFoundError

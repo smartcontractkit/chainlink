@@ -96,11 +96,12 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{DotDagSource: s}
 	vars := pipeline.NewVarsFrom(nil)
 
-	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(d.Tasks))
 
-	finalResults := trrs.FinalResult()
+	finalResults := trrs.FinalResult(lggr)
 	require.Len(t, finalResults.Values, 3)
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
@@ -319,11 +320,12 @@ decode_log -> decode_cbor;
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.TestLogger(t))
+		lggr := logger.TestLogger(t)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
-		finalResults := trrs.FinalResult()
+		finalResults := trrs.FinalResult(lggr)
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
@@ -357,11 +359,12 @@ decode_log -> decode_cbor;
 		}
 		vars := pipeline.NewVarsFrom(global)
 
-		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, logger.TestLogger(t))
+		lggr := logger.TestLogger(t)
+		_, trrs, err := r.ExecuteRun(context.Background(), spec, vars, lggr)
 		require.NoError(t, err)
 		require.Len(t, trrs, len(d.Tasks))
 
-		finalResults := trrs.FinalResult()
+		finalResults := trrs.FinalResult(lggr)
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, "foo", finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
@@ -462,6 +465,7 @@ func Test_PipelineRunner_MultipleOutputs(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, db, cfg)
 	input := map[string]interface{}{"val": 2}
+	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -470,16 +474,16 @@ b2 [type=multiply input="$(a)" times=3]
 c [type=median values=<[ $(b1), $(b2) ]> index=0]
 a->b1->c;
 a->b2->c;`,
-	}, pipeline.NewVarsFrom(input), logger.TestLogger(t))
+	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	assert.Equal(t, false, trrs.FinalResult(lggr).HasFatalErrors())
 
 	// a = 4
 	// (b1 = 8) + (b2 = 12)
 	// c = 20 / 2
 
-	result, err := trrs.FinalResult().SingularResult()
+	result, err := trrs.FinalResult(lggr).SingularResult()
 	require.NoError(t, err)
 	assert.Equal(t, mustDecimal(t, "10").String(), result.Value.(decimal.Decimal).String())
 }
@@ -488,6 +492,7 @@ func Test_PipelineRunner_MultipleTerminatingOutputs(t *testing.T) {
 	cfg := cltest.NewTestGeneralConfig(t)
 	r, _ := newRunner(t, pgtest.NewSqlxDB(t), cfg)
 	input := map[string]interface{}{"val": 2}
+	lggr := logger.TestLogger(t)
 	_, trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
 		DotDagSource: `
 a [type=multiply input="$(val)" times=2]
@@ -495,10 +500,10 @@ b1 [type=multiply input="$(a)" times=2 index=0]
 b2 [type=multiply input="$(a)" times=3 index=1]
 a->b1;
 a->b2;`,
-	}, pipeline.NewVarsFrom(input), logger.TestLogger(t))
+	}, pipeline.NewVarsFrom(input), lggr)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(trrs))
-	result := trrs.FinalResult()
+	result := trrs.FinalResult(lggr)
 	assert.Equal(t, false, result.HasFatalErrors())
 
 	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())

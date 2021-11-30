@@ -172,10 +172,6 @@ func (s *SendError) IsFeeTooHigh() bool {
 	return s.is(FeeTooHigh)
 }
 
-func NewFatalSendErrorS(s string) *SendError {
-	return &SendError{err: errors.New(s), fatal: true}
-}
-
 func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil

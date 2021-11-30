@@ -445,7 +445,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
-	finalResult = trrs.FinalResult()
+	finalResult = trrs.FinalResult(l)
 
 	// don't insert if we exited early
 	if run.FailEarly {
