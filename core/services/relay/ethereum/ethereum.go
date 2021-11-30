@@ -74,6 +74,7 @@ type OCR2Spec struct {
 	EncryptedOCRKeyBundleID null.String
 	TransmitterAddress      *ethkey.EIP55Address
 	ChainID                 *utils.Big
+	IsBootstrap             bool
 }
 
 func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
@@ -83,18 +84,6 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 	}
 
 	chain, err := r.chainSet.Get(spec.ChainID.ToInt())
-	if err != nil {
-		return nil, err
-	}
-
-	var kbID string
-	if spec.EncryptedOCRKeyBundleID.Valid {
-		kbID = spec.EncryptedOCRKeyBundleID.String
-	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
-		return nil, err
-	}
-
-	kb, err := r.keystore.OCR2().Get(kbID)
 	if err != nil {
 		return nil, err
 	}
@@ -134,6 +123,12 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		ChainID:         chain.Config().ChainID().Uint64(),
 		ContractAddress: spec.ContractAddress.Address(),
 	}
+	if spec.IsBootstrap {
+		return &ocr2Provider{
+			tracker:                tracker,
+			offchainConfigDigester: offchainConfigDigester,
+		}, nil
+	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
@@ -144,6 +139,18 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 
 	if spec.TransmitterAddress == nil {
 		return nil, errors.New("transmitter address is required")
+	}
+
+	var kbID string
+	if spec.EncryptedOCRKeyBundleID.Valid {
+		kbID = spec.EncryptedOCRKeyBundleID.String
+	} else if kbID, err = chain.Config().OCR2KeyBundleID(); err != nil {
+		return nil, err
+	}
+
+	kb, err := r.keystore.OCR2().Get(kbID)
+	if err != nil {
+		return nil, err
 	}
 
 	strategy := txm.NewQueueingTxStrategy(externalJobID, chain.Config().OCRDefaultTransactionQueueDepth(), false)
@@ -165,6 +172,7 @@ func (r relayer) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.
 		contractTransmitter:    contractTransmitter,
 		keyBundle:              kb,
 	}, nil
+
 }
 
 var _ service.Service = (*ocr2Provider)(nil)

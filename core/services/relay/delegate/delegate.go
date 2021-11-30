@@ -79,6 +79,7 @@ func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay
 			ContractAddress:         spec.ContractAddress,
 			EncryptedOCRKeyBundleID: spec.EncryptedOCRKeyBundleID,
 			TransmitterAddress:      spec.TransmitterAddress,
+			IsBootstrap:             spec.IsBootstrapPeer,
 		})
 	case relay.Solana:
 		return d.relayers[choice].NewOCR2Provider(externalJobID, solana.OCR2Spec{
