@@ -62,7 +62,7 @@ func (d delegate) Healthy() error {
 }
 
 func (d delegate) NewOCR2Provider(externalJobID uuid.UUID, s interface{}) (relay.OCR2Provider, error) {
-	spec, ok := s.(job.OffchainReporting2OracleSpec)
+	spec, ok := s.(*job.OffchainReporting2OracleSpec)
 	if !ok {
 		return nil, errors.New("unsuccessful cast to 'job.OffchainReporting2OracleSpec'")
 	}
