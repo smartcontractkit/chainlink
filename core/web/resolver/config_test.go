@@ -7,8 +7,6 @@ import (
 )
 
 func TestResolver_Config(t *testing.T) {
-	t.Parallel()
-
 	query := `
 		query GetConfiguration {
 			config {
