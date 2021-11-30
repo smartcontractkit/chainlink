@@ -451,6 +451,63 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		config.AssertExpectations(t)
 	})
+
+	t.Run("uses locally cached blocks if they are in the chain", func(t *testing.T) {
+		ethClient := cltest.NewEthClientMockWithDefaultChain(t)
+		config := newConfigWithEIP1559DynamicFeesEnabled(t)
+		bhe := newBlockHistoryEstimator(t, ethClient, config)
+
+		var blockDelay uint16 = 0
+		var historySize uint16 = 3
+		var batchSize uint32 = 2
+		config.On("BlockHistoryEstimatorBlockDelay").Return(blockDelay)
+		config.On("BlockHistoryEstimatorBlockHistorySize").Return(historySize)
+		config.On("BlockHistoryEstimatorBatchSize").Return(batchSize)
+
+		b0 := gas.Block{
+			Number:       0,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9001),
+		}
+		b1 := gas.Block{
+			Number:       1,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(9002),
+		}
+		b2 := gas.Block{
+			Number:       2,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+		b3 := gas.Block{
+			Number:       3,
+			Hash:         utils.NewHash(),
+			Transactions: cltest.LegacyTransactionsFromGasPrices(1, 2),
+		}
+		blocks := []gas.Block{b0, b1, b2, b3}
+
+		gas.SetRollingBlockHistory(bhe, blocks)
+
+		// head2 and head3 have identical hash to saved blocks
+		head2 := eth.NewHead(big.NewInt(2), b2.Hash, b1.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3 := eth.NewHead(big.NewInt(3), b3.Hash, head2.Hash, uint64(time.Now().Unix()), utils.NewBig(&cltest.FixtureChainID))
+		head3.Parent = &head2
+
+		err := bhe.FetchBlocks(context.Background(), &head3)
+		require.NoError(t, err)
+
+		ethClient.AssertExpectations(t)
+
+		require.Len(t, bhe.RollingBlockHistory(), 3)
+		assert.Equal(t, 1, int(bhe.RollingBlockHistory()[0].Number))
+		assert.Equal(t, 2, int(bhe.RollingBlockHistory()[1].Number))
+		assert.Equal(t, 3, int(bhe.RollingBlockHistory()[2].Number))
+		assert.Equal(t, b1.Hash.Hex(), bhe.RollingBlockHistory()[0].Hash.Hex())
+		assert.Equal(t, head2.Hash.Hex(), bhe.RollingBlockHistory()[1].Hash.Hex())
+		assert.Equal(t, head3.Hash.Hex(), bhe.RollingBlockHistory()[2].Hash.Hex())
+
+		config.AssertExpectations(t)
+	})
 }
 
 func TestBlockHistoryEstimator_FetchBlocksAndRecalculate_NoEIP1559(t *testing.T) {
