@@ -1,0 +1,156 @@
+# Using the External Subscription Owner Example
+
+The [external subscription owner example contract](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol)
+allows its owner to request random words from VRF V2 if it is added as a
+consumer for a funded VRF subscription.
+
+This guide covers:
+ 1. Deploying the contract
+ 2. Creating, funding, checking balance, and adding a consumer to a VRF V2 
+    subscription
+ 3. Requesting randomness from the contract
+
+## Setup
+
+Before starting, you will need:
+1. An EVM chain endpoint URL
+2. The chain ID corresponding to your chain
+3. The private key of an account funded with LINK, and the chain's native token
+   (to pay transaction fees)
+4. [The LINK address, VRF coordinator address, and key hash](https://deploy-preview-249--dreamy-villani-0e9e5c.netlify.app/docs/vrf-deployments/)
+   for your chain (TODO: Replace with docs.chain.link link once the V2
+   documentation is deployed).
+5. [Go](https://go.dev/doc/install)
+
+The endpoint URL can be a locally running node, or an externally hosted one like
+[alchemy](https://www.alchemy.com/). Your chain ID will be a number
+corresponding to the chain you pick. For example the Rinkeby testnet has chain
+ID 4. Your private key can be exported from [MetaMask](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-Export-an-Account-Private-Key).
+
+Note: Be careful with your key. When using testnets, it's best to use a separate
+account that does not hold real funds.
+
+Run the following command to set up your environment:
+
+```shell
+export ETH_URL=<YOUR ETH URL>
+export ETH_CHAIN_ID=<YOUR CHAIN ID>
+export ACCOUNT_KEY=<YOUR PRIVATE KEY>
+export LINK=<LINK ADDRESS>
+export COORDINATOR=<COORDINATOR ADDRESS>
+export KEY_HASH=<KEY HASH>
+```
+
+Now "cd" into the VRF V2 testnet scripts directory:
+
+```shell
+cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
+```
+
+## Deploying the Consumer Contract
+
+To deploy the VRFExternalSubOwnerExample contract, run:
+
+```shell
+go run main.go eoa-consumer-deploy --coordinator-address=$COORDINATOR --link-address=$LINK
+```
+
+You should get the output:
+```
+Consumer address <YOUR CONSUMER ADDRESS> hash <YOUR TX HASH>
+```
+
+Run the command:
+```shell
+export CONSUMER=<YOUR CONSUMER ADDRESS>
+```
+
+## Setting up a VRF V2 Subscription
+
+In order for your newly deployed consumer to make VRF requests, it needs to be
+authorized for a funded subscription.
+
+### Creating a Subscription
+
+```shell
+go run main.go eoa-create-sub --coordinator-address=$COORDINATOR
+```
+
+You should get the output:
+```
+Create sub TX hash <YOUR TX HASH>
+```
+
+In order to get the subscription ID created by your transaction, you should use
+an online block explorer and input your transaction hash. Once the transaction
+is confirmed you should see a log (on Etherscan, this is in the "Logs" tab of
+the transaction details screen) with the created subscription details including
+the decimal representation of your subscription ID.
+
+Once you have found the ID, run:
+```shell
+export SUB_ID=<YOUR SUBSCRIPTION ID>
+```
+
+### Funding a Subscription
+
+In order to fund your subscription with 10 LINK, run:
+```shell
+go run main.go eoa-fund-sub --coordinator-address $COORDINATOR --link-address=$LINK  --sub-id=$SUB_ID --amount=10000000000000000000 # 10e18 or 10 LINK
+```
+
+You should get the output:
+```
+Initial account balance: <YOUR LINK BEFORE FUNDING> <YOUR ADDRESS> Funding amount: 10000000000000000000
+Funding sub 61 hash <YOUR FUNDING TX HASH>
+```
+
+### (Optional) Checking Subscription Balance
+
+To check the LINK balance of your subscription, run:
+```shell
+go run main.go sub-balance --coordinator-address $COORDINATOR --sub-id=$SUB_ID
+```
+
+You should get the output:
+```
+sub id <YOUR SUB ID> balance: <YOUR SUB BALANCE>
+```
+
+### Adding a Consumer to Your Subscription
+
+In order to authorize the consumer contract to use the new subscription, run the
+command:
+```shell
+go run main.go add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_ID --consumer-address=$CONSUMER
+```
+
+### Requesting Randomness
+
+At this point, the consumer is authorized as a consumer of a funded 
+subscription, and is ready to request random words.
+
+To make a request, run:
+```shell
+go run main.go eoa-request --consumer-address=$CONSUMER --sub-id=$SUB_ID --key-hash=$KEY_HASH --num-words 1 
+```
+
+You should get the output:
+```
+TX hash: 0x599022228ffca10b0192e0b13bea64ff74f6dab2f0a3002b0825cbe22bd98249
+```
+
+You can put this transaction hash into a block explorer to check its progress.
+Shortly after it's confirmed, usually only a few minutes, you should see a
+second incoming transaction to your consumer containing the randomness
+result.
+
+## Debugging Reverted Transactions
+
+A reverted transaction could have number of root causes, for example
+insufficient funds / LINK, or incorrect contract addresses.
+
+[Tenderly](https://dashboard.tenderly.co/explorer) can be useful for debugging
+why a transaction failed. For example [this Rinkeby transaction](https://dashboard.tenderly.co/tx/rinkeby/0x71a7279033b47472ca453f7a19ccb685d0f32cdb4854a45052f1aaccd80436e9)
+failed because a non-owner tried to request random words from 
+[VRFExternalSubOwnerExample](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol).
