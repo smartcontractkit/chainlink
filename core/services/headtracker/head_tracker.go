@@ -114,7 +114,7 @@ func (ht *HeadTracker) Start() error {
 		// ignored as a duplicate.
 		initialHead, err := ht.getInitialHead()
 		if err != nil {
-			return err
+			ht.log.Errorw("Error getting initial head", "err", err)
 		} else if initialHead != nil {
 			if err := ht.handleNewHead(ctx, initialHead); err != nil {
 				return errors.Wrap(err, "error handling initial head")
