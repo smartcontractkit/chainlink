@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/config"
 	"github.com/smartcontractkit/chainlink/core/internal/testutils/configtest"
 )
 
@@ -32,6 +31,7 @@ func TestResolver_Config(t *testing.T) {
 				// Using the default config value for now just to validate that it works
 				// Mocking this would require complying to the whole interface
 				// Which means mocking each method here, which I'm not sure we would like to do
+				logLevel := zapcore.ErrorLevel
 				cfg := configtest.NewTestGeneralConfigWithOverrides(t, configtest.GeneralConfigOverrides{
 					AdminCredentialsFile: null.StringFrom("test"),
 					AdvisoryLockID:       null.IntFrom(1),
@@ -80,7 +80,7 @@ func TestResolver_Config(t *testing.T) {
 					KeeperMaximumGracePeriod:                  null.IntFrom(1),
 					KeeperRegistrySyncInterval:                nil,
 					KeeperRegistrySyncUpkeepQueueSize:         null.IntFrom(1),
-					LogLevel:                                  &config.LogLevel{Level: zapcore.ErrorLevel},
+					LogLevel:                                  &logLevel,
 					DefaultLogLevel:                           nil,
 					LogFileDir:                                null.StringFrom("foo"),
 					LogSQL:                                    null.BoolFrom(true),
