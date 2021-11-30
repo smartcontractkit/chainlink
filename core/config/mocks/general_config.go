@@ -2118,20 +2118,6 @@ func (_m *GeneralConfig) OCRContractSubscribeInterval() time.Duration {
 	return r0
 }
 
-// OCRContractTransmitterTransmitTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // OCRDHTLookupInterval provides a mock function with given fields:
 func (_m *GeneralConfig) OCRDHTLookupInterval() int {
 	ret := _m.Called()
@@ -2141,20 +2127,6 @@ func (_m *GeneralConfig) OCRDHTLookupInterval() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-// OCRDatabaseTimeout provides a mock function with given fields:
-func (_m *GeneralConfig) OCRDatabaseTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -2225,20 +2197,6 @@ func (_m *GeneralConfig) OCRMonitoringEndpoint() string {
 
 // OCRNewStreamTimeout provides a mock function with given fields:
 func (_m *GeneralConfig) OCRNewStreamTimeout() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
-// OCRObservationGracePeriod provides a mock function with given fields:
-func (_m *GeneralConfig) OCRObservationGracePeriod() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration

@@ -129,15 +129,12 @@ type GeneralOnlyConfig interface {
 	OCRBootstrapCheckInterval() time.Duration
 	OCRContractPollInterval() time.Duration
 	OCRContractSubscribeInterval() time.Duration
-	OCRContractTransmitterTransmitTimeout() time.Duration
 	OCRDHTLookupInterval() int
-	OCRDatabaseTimeout() time.Duration
 	OCRDefaultTransactionQueueDepth() uint32
 	OCRIncomingMessageBufferSize() int
 	OCRKeyBundleID() (string, error)
 	OCRMonitoringEndpoint() string
 	OCRNewStreamTimeout() time.Duration
-	OCRObservationGracePeriod() time.Duration
 	OCRObservationTimeout() time.Duration
 	OCROutgoingMessageBufferSize() int
 	OCRSimulateTransactions() bool
@@ -815,20 +812,12 @@ func (c *generalConfig) OCRBootstrapCheckInterval() time.Duration {
 	return c.getWithFallback("OCRBootstrapCheckInterval", ParseDuration).(time.Duration)
 }
 
-func (c *generalConfig) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.getDuration("OCRContractTransmitterTransmitTimeout")
-}
-
 func (c *generalConfig) getDuration(field string) time.Duration {
 	return c.getWithFallback(field, ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRObservationTimeout() time.Duration {
 	return c.getDuration("OCRObservationTimeout")
-}
-
-func (c *generalConfig) OCRObservationGracePeriod() time.Duration {
-	return c.getWithFallback("OCRObservationGracePeriod", ParseDuration).(time.Duration)
 }
 
 func (c *generalConfig) OCRBlockchainTimeout() time.Duration {
@@ -841,10 +830,6 @@ func (c *generalConfig) OCRContractSubscribeInterval() time.Duration {
 
 func (c *generalConfig) OCRContractPollInterval() time.Duration {
 	return c.getDuration("OCRContractPollInterval")
-}
-
-func (c *generalConfig) OCRDatabaseTimeout() time.Duration {
-	return c.getDuration("OCRDatabaseTimeout")
 }
 
 func (c *generalConfig) OCRDHTLookupInterval() int {

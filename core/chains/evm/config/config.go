@@ -67,6 +67,7 @@ type ChainScopedOnlyConfig interface {
 	MinimumContractPayment() *assets.Link
 	OCRContractConfirmations() uint16
 	OCRContractTransmitterTransmitTimeout() time.Duration
+	OCRObservationGracePeriod() time.Duration
 	OCRDatabaseTimeout() time.Duration
 	SetEvmGasPriceDefault(value *big.Int) error
 }

@@ -562,7 +562,7 @@ func TestIntegration_OCR(t *testing.T) {
 				// bootstrap node to come up.
 				cfg.Overrides.SetOCRBootstrapCheckInterval(5 * time.Second)
 				// GracePeriod < ObservationTimeout
-				cfg.Overrides.SetOCRObservationGracePeriod(100 * time.Millisecond)
+				cfg.Overrides.GlobalOCRObservationGracePeriod = 100 * time.Millisecond
 				cfg.Overrides.GlobalFlagsContractAddress = null.StringFrom(flagsContractAddress.String())
 				cfg.Overrides.GlobalEvmEIP1559DynamicFees = null.BoolFrom(test.eip1559)
 
