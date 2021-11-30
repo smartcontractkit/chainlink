@@ -128,7 +128,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 					Description: "test-description",
 					CreatedAt:   f.Timestamp(),
 				}, nil)
-				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(nil)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, id).Return(nil)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -158,7 +158,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
-				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(sql.ErrNoRows)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, id).Return(sql.ErrNoRows)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,
@@ -196,7 +196,7 @@ func TestResolver_DismissJobError(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.Mocks.jobORM.On("FindSpecError", id).Return(job.SpecError{}, nil)
-				f.Mocks.jobORM.On("DismissError", mock.Anything, int32(id)).Return(gError)
+				f.Mocks.jobORM.On("DismissError", mock.Anything, id).Return(gError)
 				f.App.On("JobORM").Return(f.Mocks.jobORM)
 			},
 			query:     mutation,

@@ -1033,7 +1033,7 @@ func (r *Resolver) DismissJobError(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	err = r.App.JobORM().DismissError(ctx, int32(id))
+	err = r.App.JobORM().DismissError(ctx, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewDismissJobErrorPayload(nil, err), nil

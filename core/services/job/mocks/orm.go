@@ -98,11 +98,11 @@ func (_m *ORM) DeleteJob(id int32, qopts ...pg.QOpt) error {
 }
 
 // DismissError provides a mock function with given fields: ctx, errorID
-func (_m *ORM) DismissError(ctx context.Context, errorID int32) error {
+func (_m *ORM) DismissError(ctx context.Context, errorID int64) error {
 	ret := _m.Called(ctx, errorID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
 		r0 = rf(ctx, errorID)
 	} else {
 		r0 = ret.Error(0)
