@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -137,6 +138,18 @@ func (re RunErrors) HasError() bool {
 		}
 	}
 	return false
+}
+
+// ToError coalesces all non-nil errors into a single error object.
+// This is useful for logging.
+func (re RunErrors) ToError() error {
+	msgBuilder := strings.Builder{}
+	for i, e := range re {
+		if !e.IsZero() {
+			msgBuilder.WriteString(fmt.Sprintf("error %d (%s), ", i+1, e.String))
+		}
+	}
+	return errors.New(msgBuilder.String())
 }
 
 type ResumeRequest struct {
