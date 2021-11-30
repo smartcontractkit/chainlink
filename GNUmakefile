@@ -116,7 +116,7 @@ telemetry-protobuf: $(telemetry-protobuf)
 
 .PHONY: test_smoke
 test_smoke: # Run integration smoke tests
-	ginkgo -v -r --junit-report=tests-smoke-report.xml --keep-going --trace --randomize-all --randomize-suites --progress $(args) ./integration-tests/smoke 
+	ginkgo -v -r --junit-report=tests-smoke-report.xml --keep-going --trace --randomize-all --randomize-suites -tags smoke --progress $(args) ./integration-tests/smoke 
 
 
 help:
