@@ -25,6 +25,6 @@ if [[ $EXITCODE != 0 ]]; then
 else
   echo "All tests passed!"
   # uploading coverage.txt to CodeCov
-  bash <(curl -s https://codecov.io/bash)
+  $(dirname "$0")/codecov -f coverage.txt
 fi
 exit $EXITCODE
